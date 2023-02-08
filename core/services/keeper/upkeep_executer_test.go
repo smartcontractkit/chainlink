@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -125,7 +125,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
 
-		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
@@ -168,7 +168,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
 			})
 
-			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+			gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
@@ -272,7 +272,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
@@ -307,7 +307,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t), nil)
 
-	wasCalled := atomic.NewBool(false)
+	var wasCalled atomic.Bool
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)

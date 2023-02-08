@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -298,7 +298,7 @@ type MockHeadTrackable struct {
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
 func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *evmtypes.Head) {
-	m.onNewHeadCount.Inc()
+	m.onNewHeadCount.Add(1)
 }
 
 // OnNewLongestChainCount returns the count of new heads, safely.

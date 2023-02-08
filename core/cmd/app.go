@@ -236,8 +236,8 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:     "newrole",
-									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
-									Required: false,
+									Usage:    "new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
+									Required: true,
 								},
 							},
 						},

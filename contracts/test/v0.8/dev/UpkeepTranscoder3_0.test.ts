@@ -371,51 +371,21 @@ describe('UpkeepTranscoder3_0', () => {
   describe('#transcodeUpkeeps', () => {
     const encodedData = '0xabcd'
 
-    it('reverts if the from type is not an enum value', async () => {
+    it('reverts if the from type is not V1 or V2', async () => {
+      await evmRevert(
+        transcoder.transcodeUpkeeps(
+          UpkeepFormat.V3,
+          UpkeepFormat.V1,
+          encodedData,
+        ),
+      )
       await evmRevert(
         transcoder.transcodeUpkeeps(
           UpkeepFormat.V4,
-          UpkeepFormat.V3,
-          encodedData,
-        ),
-        'function was called with incorrect parameters',
-      )
-    })
-
-    it('reverts if the to version is not 2', async () => {
-      await evmRevert(
-        transcoder.transcodeUpkeeps(
-          UpkeepFormat.V2,
-          UpkeepFormat.V4,
-          encodedData,
-        ),
-        'function was called with incorrect parameters',
-      )
-    })
-
-    context('when from and to versions equal', () => {
-      it('returns the data that was passed in', async () => {
-        let response = await transcoder.transcodeUpkeeps(
-          UpkeepFormat.V1,
           UpkeepFormat.V1,
           encodedData,
-        )
-        assert.equal(encodedData, response)
-
-        response = await transcoder.transcodeUpkeeps(
-          UpkeepFormat.V2,
-          UpkeepFormat.V2,
-          encodedData,
-        )
-        assert.equal(encodedData, response)
-
-        response = await transcoder.transcodeUpkeeps(
-          UpkeepFormat.V3,
-          UpkeepFormat.V3,
-          encodedData,
-        )
-        assert.equal(encodedData, response)
-      })
+        ),
+      )
     })
 
     context('when from and to versions are correct', () => {
@@ -424,7 +394,7 @@ describe('UpkeepTranscoder3_0', () => {
         [executeGas, 2 ** 32 - 1, false, target1, amountSpent, balance, 0],
       ]
 
-      it('transcodes V1 upkeeps to V3 properly', async () => {
+      it('transcodes V1 upkeeps to V3 properly, regardless of toVersion value', async () => {
         upkeepsV1 = [
           [
             balance,
@@ -448,7 +418,7 @@ describe('UpkeepTranscoder3_0', () => {
 
         const data = await transcoder.transcodeUpkeeps(
           UpkeepFormat.V1,
-          UpkeepFormat.V3,
+          UpkeepFormat.V1,
           encodeUpkeepV1(idx, upkeepsV1, ['0xabcd', '0xffff']),
         )
         assert.equal(
@@ -457,7 +427,7 @@ describe('UpkeepTranscoder3_0', () => {
         )
       })
 
-      it('transcodes V2 upkeeps to V3 properly', async () => {
+      it('transcodes V2 upkeeps to V3 properly, regardless of toVersion value', async () => {
         upkeepsV2 = [
           [
             balance,
@@ -483,7 +453,7 @@ describe('UpkeepTranscoder3_0', () => {
 
         const data = await transcoder.transcodeUpkeeps(
           UpkeepFormat.V2,
-          UpkeepFormat.V3,
+          UpkeepFormat.V2,
           encodeUpkeepV2(idx, upkeepsV2, ['0xabcd', '0xffff']),
         )
         assert.equal(
