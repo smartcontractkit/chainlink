@@ -326,7 +326,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	startTime := time.Now()
 	defer func() {
-		duration := time.Now().Sub(startTime)
+		duration := time.Since(startTime)
 		promComputationDuration.WithLabelValues(l.oracleHexAddr).Add(float64(duration.Milliseconds()))
 	}()
 
