@@ -24,7 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   environment variable.
 - Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 - Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
-- Improved `ocr2automation` plugin to batch `checkUpkeeps` and `performUpkeeps`.
 
 ### Updated
 
