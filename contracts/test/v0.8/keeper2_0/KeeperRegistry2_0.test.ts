@@ -13,6 +13,7 @@ import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../typ
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { KeeperRegistry20 as KeeperRegistry } from '../../../typechain/KeeperRegistry20'
 import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic20'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
@@ -56,7 +57,7 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(65000)
+const registryGasOverhead = BigNumber.from(70_000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
 const registryPerPerformByteGasOverhead = BigNumber.from(20)
 const cancellationDelay = 50
@@ -558,6 +559,15 @@ describe('KeeperRegistry2_0', () => {
     await ethers.provider.send('hardhat_setCode', [
       '0x420000000000000000000000000000000000000F',
       optOracleCode,
+    ])
+
+    const mockArbSys = await new MockArbSysFactory(owner).deploy()
+    const arbSysCode = await ethers.provider.send('eth_getCode', [
+      mockArbSys.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x0000000000000000000000000000000000000064',
+      arbSysCode,
     ])
 
     registryLogic = await keeperRegistryLogicFactory

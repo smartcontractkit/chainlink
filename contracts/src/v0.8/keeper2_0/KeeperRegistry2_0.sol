@@ -154,7 +154,7 @@ contract KeeperRegistry2_0 is
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         // Check if this upkeep was already performed in this report
-        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(block.number)) {
+        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(_blockNum())) {
           revert InvalidReport();
         }
 
@@ -168,7 +168,7 @@ contract KeeperRegistry2_0 is
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
         // Store last perform block number for upkeep
-        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(_blockNum());
       }
     }
 
@@ -361,7 +361,7 @@ contract KeeperRegistry2_0 is
     s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(block.number);
+    s_storage.latestConfigBlockNumber = uint32(_blockNum());
     s_storage.configCount += 1;
 
     s_latestConfigDigest = _configDigestFromConfigData(
@@ -658,7 +658,7 @@ contract KeeperRegistry2_0 is
       return false;
     }
 
-    if (blockhash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
+    if (_blockHash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
       // Can happen when the block on which report was generated got reorged
       // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber
@@ -666,7 +666,7 @@ contract KeeperRegistry2_0 is
       return false;
     }
 
-    if (upkeep.maxValidBlocknumber <= block.number) {
+    if (upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId);

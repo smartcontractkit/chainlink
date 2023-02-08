@@ -4,7 +4,7 @@ pragma solidity 0.8.6;
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../ExecutionPrevention.sol";
 import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../ConfirmedOwner.sol";
@@ -63,7 +63,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 65_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 70_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, not in actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
@@ -78,7 +78,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
-  Mode internal immutable s_mode;
+  Mode internal immutable i_mode;
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
@@ -272,7 +272,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
-    s_mode = mode;
+    i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
@@ -283,7 +283,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   ////////
 
   function getMode() external view returns (Mode) {
-    return s_mode;
+    return i_mode;
   }
 
   function getLinkAddress() external view returns (address) {
@@ -357,7 +357,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     }
 
     uint256 l1CostWei = 0;
-    if (s_mode == Mode.OPTIMISM) {
+    if (i_mode == Mode.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
@@ -368,7 +368,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
-    } else if (s_mode == Mode.ARBITRUM) {
+    } else if (i_mode == Mode.ARBITRUM) {
       l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
@@ -444,6 +444,22 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     s_transmitters[transmitterAddress] = transmitter;
 
     return transmitter.balance;
+  }
+
+  function _blockNum() internal view returns (uint256) {
+    if (i_mode == Mode.ARBITRUM) {
+      return ARB_SYS.arbBlockNumber();
+    } else {
+      return block.number;
+    }
+  }
+
+  function _blockHash(uint256 blockNum) internal view returns (bytes32) {
+    if (i_mode == Mode.ARBITRUM) {
+      return ARB_SYS.arbBlockHash(blockNum);
+    } else {
+      return blockhash(blockNum);
+    }
   }
 
   /**
