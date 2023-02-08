@@ -115,8 +115,8 @@ test_chaos_network: install_gotestfmt ## Run all smoke tests
 	go test -timeout 2h -count=1 -json $(args) -run Test/network-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_chaos_verbose
-test_chaos_verbose: install_gotestfmt ## Run all smoke tests with verbose logging
-	go test -timeout 24h -count=1 -v -json $(args) ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+test_chaos_verbose: ## Run all smoke tests with verbose logging
+	go test -timeout 24h -count=1 -v $(args) ./chaos
 
 # Performance
 .PHONY: test_perf
