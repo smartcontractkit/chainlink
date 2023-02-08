@@ -946,6 +946,9 @@ func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qop
 			o.lggr.Errorf("found multiple task runs with id: %v, taskName: %v. Using the first one.", runID, taskName)
 		}
 		taskRun := taskRuns[0]
+		if !taskRun.Error.IsZero() {
+			return errors.New(taskRun.Error.ValueOrZero())
+		}
 		resBytes, errB := taskRun.Output.MarshalJSON()
 		if errB != nil {
 			return errB
