@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -307,7 +307,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t), nil)
 
-	wasCalled := atomic.NewBool(false)
+	var wasCalled atomic.Bool
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)

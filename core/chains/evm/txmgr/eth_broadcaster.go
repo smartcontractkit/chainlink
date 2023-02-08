@@ -328,6 +328,7 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 					}
 					continue
 				}
+				return
 			}
 		}
 	}

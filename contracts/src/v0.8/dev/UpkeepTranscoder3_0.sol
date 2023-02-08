@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import "./../interfaces/UpkeepTranscoderInterface.sol";
 import "./../interfaces/TypeAndVersionInterface.sol";
@@ -18,7 +18,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
 
   /**
    * @notice versions:
-   * - UpkeepTranscoder 3.0.0: version 3.0.0 works with registry 2.0
+   * - UpkeepTranscoder 3.0.0: version 3.0.0 works with registry 2.0; adds temporary workaround for UpkeepFormat enum bug
    */
   string public constant override typeAndVersion = "UpkeepTranscoder 3.0.0";
   uint32 internal constant UINT32_MAX = type(uint32).max;
@@ -29,20 +29,19 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
    * by allowing keepers team to customize migration paths and set sensible defaults
    * when new fields are added
    * @param fromVersion struct version the upkeep is migrating from
-   * @param toVersion struct version the upkeep is migrating to
    * @param encodedUpkeeps encoded upkeep data
+   * @dev this transcoder should ONLY be use for V1/V2 --> V3 migrations
+   * @dev this transcoder **ignores** the toVersion param, as it assumes all migrations are
+   * for the V3 version. Therefore, it is the responsibility of the deployer of this contract
+   * to ensure it is not used in any other migration paths.
    */
   function transcodeUpkeeps(
     UpkeepFormat fromVersion,
-    UpkeepFormat toVersion,
+    UpkeepFormat,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
-    if (fromVersion == toVersion) {
-      return encodedUpkeeps;
-    }
-
     // this transcoder only handles upkeep V1/V2 to V3, all other formats are invalid.
-    if (fromVersion == UpkeepFormat.V1 && toVersion == UpkeepFormat.V3) {
+    if (fromVersion == UpkeepFormat.V1) {
       (uint256[] memory ids, UpkeepV1[] memory upkeepsV1, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV1[], bytes[])
@@ -71,7 +70,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
 
-    if (fromVersion == UpkeepFormat.V2 && toVersion == UpkeepFormat.V3) {
+    if (fromVersion == UpkeepFormat.V2) {
       (uint256[] memory ids, UpkeepV2[] memory upkeepsV2, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV2[], bytes[])

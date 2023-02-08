@@ -43,6 +43,10 @@ on:
         description: Private funding key (Skip for Simulated)
         required: false
         type: string
+
+env:
+  REF_NAME: ${{ github.head_ref || github.ref_name }}
+
 jobs:
   automation_benchmark:
     environment: integration
@@ -60,6 +64,7 @@ jobs:
       TEST_INPUTS: ${{ inputs.TestInputs }}
       TEST_TRIGGERED_BY: automation-benchmark
       CHAINLINK_ENV_USER: ${{ github.actor }}
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.head_ref || github.ref_name }}
     steps:
       - name: Add mask
         run: |
@@ -78,11 +83,27 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.REF_NAME }}
+      - name: build test runner
+        if: ${{ env.REF_NAME != 'develop' }}
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          tags: ${{ env.ENV_JOB_IMAGE }}
+          file: ./integration-tests/test.Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
+            IMAGE_VERSION=v0.3.8
+            SUITES="benchmark"
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: benchmark
+          TEST_ARGS: -test.timeout 720h
         with:
-          test_command_to_run: cd integration-tests && go test -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
+          test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
