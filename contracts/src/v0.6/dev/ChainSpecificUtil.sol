@@ -13,8 +13,8 @@ library ChainSpecificUtil {
     uint256 private constant ARB_MAINNET_CHAIN_ID = 42161;
     uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 421613;
 
-    function getBlockhash(uint64 blockNumber) internal view returns (bytes32) {
-        uint256 chainid = block.chainid;
+    function getBlockhash(uint256 blockNumber) internal view returns (bytes32) {
+        uint256 chainid = getChainID();
         if (
             chainid == ARB_MAINNET_CHAIN_ID ||
             chainid == ARB_GOERLI_TESTNET_CHAIN_ID
@@ -25,7 +25,7 @@ library ChainSpecificUtil {
     }
 
     function getBlockNumber() internal view returns (uint256) {
-        uint256 chainid = block.chainid;
+        uint256 chainid = getChainID();
         if (
             chainid == ARB_MAINNET_CHAIN_ID ||
             chainid == ARB_GOERLI_TESTNET_CHAIN_ID
@@ -33,5 +33,13 @@ library ChainSpecificUtil {
             return ARBSYS.arbBlockNumber();
         }
         return block.number;
+    }
+
+    function getChainID() internal pure returns (uint256) {
+        uint256 id;
+        assembly {
+            id := chainid()
+        }
+        return id;
     }
 }
