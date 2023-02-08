@@ -29,7 +29,7 @@ import (
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.ServiceCtx
-	Replay(ctx context.Context, fromBlock int64) error
+	Replay(ctx context.Context, fromBlock int64, async bool) error
 	RegisterFilter(filter Filter) (int, error)
 	UnregisterFilter(filterID int) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
@@ -223,7 +223,7 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
-func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
+func (lp *logPoller) Replay(ctx context.Context, fromBlock int64, async bool) error {
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
@@ -239,15 +239,34 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	case <-ctx.Done():
 		return ErrReplayAbortedByClient
 	}
-	// Block until replay complete or cancelled.
-	select {
-	case err := <-lp.replayComplete:
-		return err
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
-	case <-ctx.Done():
-		return ErrReplayAbortedByClient
+
+	// Replay has been initiated with no errors
+
+	waitForReplayComplete := func() error {
+		// Block until replay complete or cancelled.
+		select {
+		case err := <-lp.replayComplete:
+			lp.lggr.Debugf("Replay completed successfully")
+			return err
+		case <-lp.ctx.Done():
+			return ErrReplayAbortedOnShutdown
+		case <-ctx.Done():
+			return ErrReplayAbortedByClient
+		}
 	}
+
+	if async {
+		// We can return now, but something must receive the replayComplete event,
+		//  otherwise the logpoller will hang on sending it.
+		go func() {
+			err := waitForReplayComplete()
+			if err != nil {
+				lp.lggr.Errorf("logpoller Replay aborted: %w", err)
+			}
+		}
+		return nil
+	}
+	return waitForReplayComplete()
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {

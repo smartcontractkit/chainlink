@@ -284,7 +284,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "replay",
-					Usage:  "Replays block data from the given number",
+					Usage:  "Initiates a (background) replay of block data from the given number.",
 					Action: client.ReplayFromBlock,
 					Flags: []cli.Flag{
 						cli.IntFlag{

@@ -24,7 +24,7 @@ func (disabled) Ready() error { return ErrDisabled }
 
 func (disabled) Healthy() error { return ErrDisabled }
 
-func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrDisabled }
+func (disabled) Replay(ctx context.Context, fromBlock int64, async bool) error { return ErrDisabled }
 
 func (disabled) RegisterFilter(filter Filter) (int, error) { return -1, ErrDisabled }
 
