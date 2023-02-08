@@ -207,7 +207,7 @@ func setChainSpecificConfigDefaultSets() {
 	rinkeby.eip1559DynamicFees = false
 	rinkeby.operatorFactoryAddress = ""
 	sepolia := mainnet
-	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
+	sepolia.linkContractAddress = "0x779877A7B0D9E8603169DdbD7836e478b4624789"
 	sepolia.operatorFactoryAddress = "" // doesn't exist yet
 	sepolia.eip1559DynamicFees = true
 
