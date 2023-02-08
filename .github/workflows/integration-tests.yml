@@ -118,7 +118,6 @@ jobs:
       contents: read
     name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes, build-test-image]
-    if: false ## TODO: Remove after debug
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -259,7 +258,6 @@ jobs:
     name: Solana Build Artifacts
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, get_projectserum_version]
-    if: false ## TODO: Remove after debug
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:
@@ -356,7 +354,7 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix:
-    # if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags
+    if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags
     environment: integration
     permissions:
       checks: write
