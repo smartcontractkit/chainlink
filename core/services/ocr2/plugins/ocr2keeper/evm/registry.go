@@ -37,7 +37,7 @@ var (
 	ActiveUpkeepIDBatchSize    int64 = 1000
 	FetchUpkeepConfigBatchSize int   = 10
 	separator                        = "|"
-	reInitializationDelay            = 5 * time.Minute
+	reInitializationDelay            = 15 * time.Minute
 	logEventLookback           int64 = 250
 )
 
@@ -279,7 +279,7 @@ func (r *EvmRegistry) Healthy() error {
 }
 
 func (r *EvmRegistry) initialize() error {
-	startupCtx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
+	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
 
 	idMap := make(map[string]activeUpkeep)
