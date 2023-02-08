@@ -149,4 +149,12 @@ func (i OcrSoakInputs) setForRemoteRunner() {
 	os.Setenv("TEST_OCR_TEST_DURATION", i.TestDuration.String())
 	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", strconv.FormatFloat(i.ChainlinkNodeFunding, 'f', -1, 64))
 	os.Setenv("TEST_OCR_TIME_BETWEEN_ROUNDS", i.TimeBetweenRounds.String())
+
+	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
+	for _, networkPrefix := range selectedNetworks {
+		urlEnv := fmt.Sprintf("%s_URLS", networkPrefix)
+		httpEnv := fmt.Sprintf("%s_HTTP_URLS", networkPrefix)
+		os.Setenv(fmt.Sprintf("TEST_%s", urlEnv), os.Getenv(urlEnv))
+		os.Setenv(fmt.Sprintf("TEST_%s", httpEnv), os.Getenv(httpEnv))
+	}
 }
