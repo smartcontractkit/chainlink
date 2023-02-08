@@ -26,6 +26,7 @@ var (
 )
 
 const (
+	CBORParseTaskName   string = "decode_cbor"
 	ParseResultTaskName string = "parse_result"
 	ParseErrorTaskName  string = "parse_error"
 )
@@ -277,6 +278,13 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		return
 	}
 	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
+
+	_, cborParseErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, CBORParseTaskName, pg.WithParentCtx(ctx))
+	if cborParseErr != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, []byte("CBOR parsing error"))
+		return
+	}
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
