@@ -421,6 +421,8 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 		if isBlockEligible(l.NextBeaconOutputHeight, l.ConfDelay, currentHeight) {
 			rawBlocksRequested[l.NextBeaconOutputHeight] = struct{}{}
 
+			// XXX: What's going on here? Why do we want t.recentBlockHeight?
+			//
 			// Also get the blockhash for the most recent cached report on this block,
 			// if one exists.
 			cacheKey := getBlockCacheKey(l.NextBeaconOutputHeight, l.ConfDelay.Uint64())
