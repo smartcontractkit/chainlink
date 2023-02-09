@@ -135,15 +135,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	))
 
 	if spec.Relay == relay.EVM {
-		chainIDInterface, ok := spec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, err2
 		}
-		chainID, ok := chainIDInterface.(float64)
-		if !ok {
-			return nil, errors.Errorf("invalid chain type got %T want float64", chainIDInterface)
-		}
-		chain, err2 := d.chainSet.Get(big.NewInt(int64(chainID)))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
@@ -240,11 +236,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg)
 	case job.DKG:
-		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, err2
 		}
-		chainID := int64(chainIDInterface.(float64))
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
@@ -292,11 +287,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			spec.Relay,
 		)
 	case job.OCR2VRF:
-		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, err2
 		}
-		chainID := int64(chainIDInterface.(float64))
 
 		// Automatically provide the node's local sending keys to the job spec for OCR2VRF.
 		var sendingKeys []string
@@ -378,10 +372,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Config().EvmEIP1559DynamicFees(),
 		)
 
-		// No need to error check here, we check these keys exist when validating
-		// the configuration.
-		encryptionSecretKey, _ := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)
-		signingSecretKey, _ := d.dkgSignKs.Get(cfg.DKGSigningPublicKey)
+		encryptionSecretKey, err2 := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get DKG encryption key")
+		}
+		signingSecretKey, err2 := d.dkgSignKs.Get(cfg.DKGSigningPublicKey)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get DKG signing key")
+		}
 		keyID, err2 := dkg.DecodeKeyID(cfg.DKGKeyID)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "decode DKG key ID")
@@ -439,7 +437,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			DKGMonitoringEndpoint:              d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
 			Blockhashes:                        blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), lggr, 256),
 			Serializer:                         reportserializer.NewReportSerializer(&altbn_128.G1{}),
-			JulesPerFeeCoin:                    juelsPerFeeCoin,
+			JuelsPerFeeCoin:                    juelsPerFeeCoin,
 			ReasonableGasPrice:                 reasonableGasPrice,
 			Coordinator:                        coordinator,
 			Esk:                                encryptionSecretKey.KyberScalar(),
@@ -564,7 +562,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		pluginORM := drocr_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
-		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
+		pluginOracle, err2 = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
+		if err2 != nil {
+			return nil, err2
+		}
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
