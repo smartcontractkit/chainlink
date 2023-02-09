@@ -1,7 +1,9 @@
 package pg
 
 import (
+	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -40,4 +42,69 @@ func publishStats(stats sql.DBStats) {
 
 	promDBWaitCount.Set(float64(stats.WaitCount))
 	promDBWaitDuration.Set(stats.WaitDuration.Seconds())
+}
+
+type StatsReporterOpt func(*StatsReporter)
+
+func StatsInterval(d time.Duration) StatsReporterOpt {
+	return func(r *StatsReporter) {
+		r.interval = d
+	}
+}
+
+type DBStater interface {
+	Stats() sql.DBStats
+}
+
+type StatsReporter struct {
+	db       DBStater
+	interval time.Duration
+	cancel   context.CancelFunc
+	once     sync.Once
+}
+
+func NewStatsReporter(db DBStater, opts ...StatsReporterOpt) *StatsReporter {
+	r := &StatsReporter{
+		db:       db,
+		interval: dbStatsInternal,
+		once:     sync.Once{},
+	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	return r
+}
+
+func (r *StatsReporter) Start(ctx context.Context) {
+	run := func() {
+		rctx, cancelFunc := context.WithCancel(ctx)
+		r.cancel = cancelFunc
+		go r.loop(rctx)
+	}
+
+	r.once.Do(run)
+}
+
+func (r *StatsReporter) Stop() {
+	if r.cancel != nil {
+		r.cancel()
+		r.cancel = nil
+	}
+}
+
+func (r *StatsReporter) loop(ctx context.Context) {
+
+	ticker := time.NewTicker(r.interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			publishStats(r.db.Stats())
+		case <-ctx.Done():
+			return
+		}
+	}
 }

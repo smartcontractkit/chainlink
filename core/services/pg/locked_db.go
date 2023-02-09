@@ -42,6 +42,7 @@ type lockedDb struct {
 	db           *sqlx.DB
 	leaseLock    LeaseLock
 	advisoryLock AdvisoryLock
+	statReporter *StatsReporter
 }
 
 // NewLockedDB creates a new instance of LockedDB.
@@ -82,7 +83,11 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 		}
 	}
 
-	// Step 2: acquire DB locks
+	// Step 2: start the stat reporter
+	l.statReporter = NewStatsReporter(l.db)
+	l.statReporter.Start(ctx)
+
+	// Step 3: acquire DB locks
 	lockingMode := l.cfg.DatabaseLockingMode()
 	l.lggr.Debugf("Using database locking mode: %s", lockingMode)
 
@@ -117,7 +122,11 @@ func (l *lockedDb) Close() error {
 		l.db = nil
 		l.advisoryLock = nil
 		l.leaseLock = nil
+		l.statReporter = nil
 	}()
+
+	// Step 0: stop the stat reporter
+	l.statReporter.Stop()
 
 	// Step 1: release DB locks
 	if l.advisoryLock != nil {
