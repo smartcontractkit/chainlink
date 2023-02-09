@@ -54,7 +54,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 	require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-	_, _, vrfBeaconContract, consumerContract := ocr2vrf_actions.SetupOCR2VRFUniverse(
+	_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
 		t,
 		linkToken,
 		mockETHLinkFeed,
@@ -72,7 +72,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 		chainClient,
 		vrfBeaconContract,
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
-		ocr2vrf_constants.SubscriptionID,
+		subID,
 		ocr2vrf_constants.ConfirmationDelay,
 	)
 
@@ -82,24 +82,6 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 	}
-
-	requestID = ocr2vrf_actions.RequestRandomnessFulfillment(
-		t,
-		consumerContract,
-		chainClient,
-		vrfBeaconContract,
-		ocr2vrf_constants.NumberOfRandomWordsToRequest,
-		ocr2vrf_constants.SubscriptionID,
-		ocr2vrf_constants.ConfirmationDelay,
-	)
-
-	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
-		require.NoError(t, err)
-		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
-		require.NotEqual(t, 0, randomness.Uint64(), "Randomness Fulfillment retrieved from Consumer contract give an answer other than 0")
-	}
-
 }
 
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
@@ -131,7 +113,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 	require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-	_, _, vrfBeaconContract, consumerContract := ocr2vrf_actions.SetupOCR2VRFUniverse(
+	_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
 		t,
 		linkToken,
 		mockETHLinkFeed,
@@ -148,7 +130,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		chainClient,
 		vrfBeaconContract,
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
-		ocr2vrf_constants.SubscriptionID,
+		subID,
 		ocr2vrf_constants.ConfirmationDelay,
 	)
 

@@ -78,6 +78,7 @@ var (
 )
 
 const (
+	CBORParseTaskName   string = "decode_cbor"
 	ParseResultTaskName string = "parse_result"
 	ParseErrorTaskName  string = "parse_error"
 )
@@ -257,11 +258,15 @@ func ExtractRawBytes(input []byte) ([]byte, error) {
 		return nil, fmt.Errorf("null value")
 	}
 	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
-		return nil, fmt.Errorf("unable to decode input: %v", input)
+		return nil, fmt.Errorf("unable to decode input (expected quotes): %v", input)
 	}
 	input = input[1 : len(input)-1]
 	if len(input) == 0 {
 		return []byte{}, nil
+	}
+	if bytes.Equal(input, []byte("0x0")) {
+		// special case with odd number of digits
+		return []byte{0}, nil
 	}
 	if len(input) < 4 || len(input)%2 != 0 {
 		return nil, fmt.Errorf("input is not a valid, non-empty hex string of even length: %v", input)
@@ -345,6 +350,13 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		return
 	}
 	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
+
+	_, cborParseErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, CBORParseTaskName, pg.WithParentCtx(ctx))
+	if cborParseErr != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, []byte("CBOR parsing error"))
+		return
+	}
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {

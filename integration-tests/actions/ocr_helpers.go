@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	uuid "github.com/satori/go.uuid"
@@ -95,7 +94,7 @@ func DeployOCRContracts(
 			transmitterAddresses,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error setting OCR config for contract '%d': %w", ocrInstance.Address(), err)
+			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			err = client.WaitForEvents()
@@ -381,17 +380,16 @@ func SetAllAdapterResponsesToDifferentValues(
 
 // StartNewRound requests a new round from the ocr contracts and waits for confirmation
 func StartNewRound(
-	roundNr int64,
+	roundNumber int64,
 	ocrInstances []contracts.OffchainAggregator,
 	client blockchain.EVMClient,
 ) error {
-	roundTimeout := time.Minute * 2
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
 		}
-		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNr), roundTimeout, nil)
+		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration, nil)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
 		err = client.WaitForEvents()
 		if err != nil {
@@ -407,7 +405,7 @@ func BuildNodeContractPairID(node *client.Chainlink, ocrInstance contracts.Offch
 		return "", fmt.Errorf("chainlink node is nil")
 	}
 	if ocrInstance == nil {
-		return "", fmt.Errorf("OCR Instance is nil")
+		return "", fmt.Errorf("OCR instance is nil")
 	}
 	nodeAddress, err := node.PrimaryEthAddress()
 	if err != nil {
