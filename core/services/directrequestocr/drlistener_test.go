@@ -241,6 +241,14 @@ func TestDRListener_ExtractRawBytes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{0xab, 0xcd}, res)
 
+	res, err = drocr_service.ExtractRawBytes([]byte("\"0x0\""))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x0}, res)
+
+	res, err = drocr_service.ExtractRawBytes([]byte("\"0x00\""))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x0}, res)
+
 	_, err = drocr_service.ExtractRawBytes([]byte(""))
 	require.Error(t, err)
 
