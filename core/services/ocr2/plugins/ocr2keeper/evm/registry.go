@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	chaintypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
@@ -72,11 +74,14 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		packer:   &evmRegistryPackerV2_0{abi: abi},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
+		chHead:   make(chan types.BlockKey, 1000),
 	}
 
 	if err := r.registerEvents(addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
+
+	r.subscribe(context.Background())
 
 	return r, nil
 }
@@ -123,8 +128,35 @@ type EvmRegistry struct {
 	cancel        context.CancelFunc
 	active        map[string]activeUpkeep
 	headFunc      func(types.BlockKey)
+	chHead        chan types.BlockKey
 	runState      int
 	runError      error
+}
+
+func (r *EvmRegistry) subscribe(ctx context.Context) {
+	ch := make(chan *chaintypes.Head, 1)
+	sub, err := r.client.SubscribeNewHead(ctx, ch)
+	if err != nil {
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-sub.Err():
+			if sub, err = r.client.SubscribeNewHead(ctx, ch); err != nil {
+				return
+			}
+		case head := <-ch:
+			s := strconv.FormatInt(head.Number, 10)
+			r.chHead <- types.BlockKey(s)
+		}
+	}
+}
+
+func (r *EvmRegistry) HeadTicker() chan types.BlockKey {
+	return r.chHead
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
