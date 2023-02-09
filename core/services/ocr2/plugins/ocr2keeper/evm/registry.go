@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -138,7 +140,7 @@ func (r *EvmRegistry) GetActiveUpkeepKeys(context.Context, types.BlockKey) ([]ty
 	keys := make([]types.UpkeepKey, len(r.active))
 	var i int
 	for _, value := range r.active {
-		keys[i] = blockAndIdToKey(big.NewInt(r.LatestBlock()), value.ID)
+		keys[i] = chain.NewUpkeepKey(big.NewInt(r.LatestBlock()), value.ID)
 		i++
 	}
 	r.mu.RUnlock()
@@ -164,12 +166,12 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) 
 }
 
 func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdentifier, error) {
-	_, id, err := blockAndIdFromKey(key)
+	_, id, err := key.BlockKeyAndUpkeepID()
 	if err != nil {
 		return nil, err
 	}
 
-	return id.Bytes(), nil
+	return id, nil
 }
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
@@ -502,13 +504,13 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 
 	for i, res := range upkeepResults {
-		_, id, err := blockAndIdFromKey(res.Key)
+		_, id, err := res.Key.BlockKeyAndUpkeepID()
 		if err != nil {
 			continue
 		}
 
 		r.mu.RLock()
-		up, ok := r.active[id.String()]
+		up, ok := r.active[string(id)]
 		r.mu.RUnlock()
 
 		if ok {
@@ -728,25 +730,19 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	return results, err
 }
 
-func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
-	return types.UpkeepKey(fmt.Sprintf("%s%s%s", block, separator, id))
-}
-
 func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
-	parts := strings.Split(string(key), separator)
-	if len(parts) != 2 {
-		return nil, nil, fmt.Errorf("%w: missing data in upkeep key", ErrUpkeepKeyNotParsable)
+	blockRaw, idRaw, err := key.BlockKeyAndUpkeepID()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	block := new(big.Int)
-	_, ok := block.SetString(parts[0], 10)
-	if !ok {
+	if _, ok := block.SetString(string(blockRaw), 10); !ok {
 		return nil, nil, fmt.Errorf("%w: must be big int", ErrUpkeepKeyNotParsable)
 	}
 
 	id := new(big.Int)
-	_, ok = id.SetString(parts[1], 10)
-	if !ok {
+	if _, ok := id.SetString(string(idRaw), 10); !ok {
 		return nil, nil, fmt.Errorf("%w: must be big int", ErrUpkeepKeyNotParsable)
 	}
 
