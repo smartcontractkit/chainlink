@@ -41,9 +41,12 @@ func TestStatReporter(t *testing.T) {
 		testCollectAndStop,
 		testMultiStart,
 		testMultiStop} {
+
+		d := new(testDbStater)
+		resetProm(t)
 		scenario(
 			t,
-			NewStatsReporter(new(testDbStater), StatsInterval(interval)),
+			NewStatsReporter(d.Stats, StatsInterval(interval)),
 			interval,
 			expectedIntervals,
 		)
@@ -111,4 +114,21 @@ func assertStats(t *testing.T, expected int) {
 	assert.InDelta(t, expected, testutil.ToFloat64(promDBConnsOpen), 1)
 	assert.InDelta(t, expected, testutil.ToFloat64(promDBWaitCount), 1)
 	assert.InDelta(t, expected, testutil.ToFloat64(promDBWaitDuration), 1)
+}
+
+func resetProm(t *testing.T) {
+	promDBConnsInUse.Set(0)
+	assert.Equal(t, int(testutil.ToFloat64(promDBConnsInUse)), 0)
+
+	promDBConnsMax.Set(0)
+	assert.Equal(t, int(testutil.ToFloat64(promDBConnsMax)), 0)
+
+	promDBConnsOpen.Set(0)
+	assert.Equal(t, int(testutil.ToFloat64(promDBConnsOpen)), 0)
+
+	promDBWaitCount.Set(0)
+	assert.Equal(t, int(testutil.ToFloat64(promDBWaitCount)), 0)
+
+	promDBWaitDuration.Set(0)
+	assert.Equal(t, int(testutil.ToFloat64(promDBWaitDuration)), 0)
 }

@@ -52,22 +52,19 @@ func StatsInterval(d time.Duration) StatsReporterOpt {
 	}
 }
 
-type DBStater interface {
-	Stats() sql.DBStats
-}
+type StatFn func() sql.DBStats
 
 type StatsReporter struct {
-	db       DBStater
+	statFn   StatFn
 	interval time.Duration
 	cancel   context.CancelFunc
 	once     sync.Once
 }
 
-func NewStatsReporter(db DBStater, opts ...StatsReporterOpt) *StatsReporter {
+func NewStatsReporter(fn StatFn, opts ...StatsReporterOpt) *StatsReporter {
 	r := &StatsReporter{
-		db:       db,
+		statFn:   fn,
 		interval: dbStatsInternal,
-		once:     sync.Once{},
 	}
 
 	for _, opt := range opts {
@@ -102,7 +99,7 @@ func (r *StatsReporter) loop(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			publishStats(r.db.Stats())
+			publishStats(r.statFn())
 		case <-ctx.Done():
 			return
 		}
