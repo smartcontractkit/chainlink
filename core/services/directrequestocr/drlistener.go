@@ -26,18 +26,27 @@ var (
 	_ log.Listener   = &DRListener{}
 	_ job.ServiceCtx = &DRListener{}
 
-	promOracleEvents = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_oracle_events",
-		Help: "Metric to track oracle events",
+	sizeBuckets = []float64{
+		1024,
+		1024 * 4,
+		1024 * 8,
+		1024 * 16,
+		1024 * 64,
+		1024 * 256,
+	}
+
+	promOracleEvent = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_oracle_event",
+		Help: "Metric to track received oracle events",
 	}, []string{"oracle", "event"})
 
-	promRequestInternalErrors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_request_internal_errors",
+	promRequestInternalError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_internal_error",
 		Help: "Metric to track internal errors",
 	}, []string{"oracle"})
 
-	promRequestComputationErrors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_request_computation_errors",
+	promRequestComputationError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_computation_error",
 		Help: "Metric to track computation errors",
 	}, []string{"oracle"})
 
@@ -56,24 +65,36 @@ var (
 		Help: "Metric to track number of confirmed requests",
 	}, []string{"oracle", "responseType"})
 
-	promRequestDataSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "functions_request_data_size",
-		Help: "Metric to track request data size",
+	promRequestDataSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_request_data_size",
+		Help:    "Metric to track request data size",
+		Buckets: sizeBuckets,
 	}, []string{"oracle"})
 
-	promComputationResultSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "functions_request_computation_result_size",
-		Help: "Metric to track computation result size in bytes",
+	promComputationResultSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_request_computation_result_size",
+		Help:    "Metric to track computation result size in bytes",
+		Buckets: sizeBuckets,
 	}, []string{"oracle"})
 
-	promComputationErrorSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "functions_request_computation_error_size",
-		Help: "Metric to track computation error size in bytes",
+	promComputationErrorSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_request_computation_error_size",
+		Help:    "Metric to track computation error size in bytes",
+		Buckets: sizeBuckets,
 	}, []string{"oracle"})
 
-	promComputationDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	promComputationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "functions_request_computation_duration",
 		Help: "Metric to track computation duration in ms",
+		Buckets: []float64{
+			float64(10 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(time.Second),
+			float64(10 * time.Second),
+			float64(30 * time.Second),
+			float64(60 * time.Second),
+		},
 	}, []string{"oracle"})
 )
 
@@ -224,19 +245,19 @@ func (l *DRListener) processOracleEvents() {
 
 				switch log := log.(type) {
 				case *ocr2dr_oracle.OCR2DROracleOracleRequest:
-					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleRequest(log, lb)
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
-					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
-					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
-					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
 				default:
@@ -284,9 +305,9 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 
 func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
-		promRequestInternalErrors.WithLabelValues(l.oracleHexAddr).Inc()
+		promRequestInternalError.WithLabelValues(l.oracleHexAddr).Inc()
 	} else {
-		promRequestComputationErrors.WithLabelValues(l.oracleHexAddr).Inc()
+		promRequestComputationError.WithLabelValues(l.oracleHexAddr).Inc()
 	}
 	readyForProcessing := errType != INTERNAL_ERROR
 	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
@@ -301,7 +322,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
 
-	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Add(float64(len(request.Data)))
+	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
 	requestData := make(map[string]interface{})
 	requestData["requestId"] = formatRequestId(request.RequestId)
@@ -332,7 +353,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
-		promComputationDuration.WithLabelValues(l.oracleHexAddr).Add(float64(duration.Milliseconds()))
+		promComputationDuration.WithLabelValues(l.oracleHexAddr).Observe(float64(duration.Milliseconds()))
 	}()
 
 	ctx, cancel := l.getNewHandlerContext()
@@ -387,10 +408,10 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
 		}
 		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
-		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Add(float64(len(computationError)))
+		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(computationError)))
 	} else {
 		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
-		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Add(float64(len(computationResult)))
+		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(computationResult)))
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}

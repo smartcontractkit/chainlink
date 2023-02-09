@@ -38,8 +38,8 @@ var _ types.ReportingPlugin = &functionsReporting{}
 
 var (
 	promReportingPlugins = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_reporting_plugin_instances",
-		Help: "Metric to track number of reporting plugin instances",
+		Name: "functions_reporting_plugin_restarts",
+		Help: "Metric to track number of reporting plugin restarts",
 	}, []string{"jobID"})
 
 	promReportingPluginsQuery = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -67,9 +67,10 @@ var (
 		Help: "Metric to track number of transmiting reports",
 	}, []string{"jobID"})
 
-	promReportingTransmitBatchSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "functions_reporting_plugin_transmit_batch_size",
-		Help: "Metric to track batch size of transmitting reports",
+	promReportingTransmitBatchSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_reporting_plugin_transmit_batch_size",
+		Help:    "Metric to track batch size of transmitting reports",
+		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000},
 	}, []string{"jobID"})
 )
 
@@ -410,7 +411,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 	shouldTransmit := len(needTransmissionIds) > 0
 	if shouldTransmit {
 		promReportingTransmitReports.WithLabelValues(r.jobID.String()).Inc()
-		promReportingTransmitBatchSize.WithLabelValues(r.jobID.String()).Add(float64(len(needTransmissionIds)))
+		promReportingTransmitBatchSize.WithLabelValues(r.jobID.String()).Observe(float64(len(allIds)))
 	}
 	return shouldTransmit, nil
 }
