@@ -58,8 +58,9 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
-			ht: client.HeadTracker(),
-			hb: client.HeadBroadcaster(),
+			ht:     client.HeadTracker(),
+			hb:     client.HeadBroadcaster(),
+			chHead: make(chan types.BlockKey, 1),
 		},
 		lggr:     lggr,
 		poller:   client.LogPoller(),
