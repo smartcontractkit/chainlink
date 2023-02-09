@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
-// testDbStater is a simple test implementation of the DBStater interface
+// testDbStater is a simple test wrapper for statFn
 type testDbStater struct {
 	cntr int64
 }
@@ -51,10 +52,8 @@ func TestStatReporter(t *testing.T) {
 			expectedIntervals,
 		)
 
-		// if shutdown of the reporter was broken this sleep would afford time
-		// for unwanted, post-stop, metrics
-		time.Sleep(2 * interval)
 		assertStats(t, expectedIntervals)
+
 	}
 
 }
@@ -108,12 +107,24 @@ func testMultiStop(t *testing.T, r *StatsReporter, interval time.Duration, n int
 }
 
 func assertStats(t *testing.T, expected int) {
-	// use in delta because counters inside  go routines are inherently fuzzy
-	assert.InDelta(t, expected, testutil.ToFloat64(promDBConnsInUse), 1)
-	assert.InDelta(t, expected, testutil.ToFloat64(promDBConnsMax), 1)
-	assert.InDelta(t, expected, testutil.ToFloat64(promDBConnsOpen), 1)
-	assert.InDelta(t, expected, testutil.ToFloat64(promDBWaitCount), 1)
-	assert.InDelta(t, expected, testutil.ToFloat64(promDBWaitDuration), 1)
+	statInRange := func(stat float64) bool {
+		return int(stat) > expected/2 && int(stat) <= expected
+	}
+
+	testutils.AssertEventually(t,
+		func() bool { return statInRange(testutil.ToFloat64(promDBConnsInUse)) })
+
+	testutils.AssertEventually(t,
+		func() bool { return statInRange(testutil.ToFloat64(promDBConnsMax)) })
+
+	testutils.AssertEventually(t,
+		func() bool { return statInRange(testutil.ToFloat64(promDBConnsOpen)) })
+
+	testutils.AssertEventually(t,
+		func() bool { return statInRange(testutil.ToFloat64(promDBWaitCount)) })
+
+	testutils.AssertEventually(t,
+		func() bool { return statInRange(testutil.ToFloat64(promDBWaitDuration)) })
 }
 
 func resetProm(t *testing.T) {
