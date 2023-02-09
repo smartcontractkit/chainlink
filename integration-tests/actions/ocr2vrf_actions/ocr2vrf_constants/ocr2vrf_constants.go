@@ -13,7 +13,6 @@ var (
 	EthFundingAmount             = big.NewFloat(1)
 	NumberOfRandomWordsToRequest = uint16(2)
 	ConfirmationDelay            = big.NewInt(1)
-	SubscriptionID               = uint64(1)
 	//keyId can be any random value
 	KeyID = "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc"
 
