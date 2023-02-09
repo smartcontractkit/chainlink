@@ -22,6 +22,17 @@ import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 
+// copied from AutomationRegistryInterface2_0.sol
+enum UpkeepFailureReason {
+  NONE,
+  UPKEEP_CANCELLED,
+  UPKEEP_PAUSED,
+  TARGET_CHECK_REVERTED,
+  UPKEEP_NOT_NEEDED,
+  PERFORM_DATA_EXCEEDS_LIMIT,
+  INSUFFICIENT_BALANCE,
+}
+
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
   return receipt.events[0].args.id
@@ -1990,7 +2001,10 @@ describe('KeeperRegistry2_0', () => {
         .callStatic.checkUpkeep(upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.INSUFFICIENT_BALANCE,
+      )
 
       await registry.connect(admin).addFunds(upkeepId, oneWei)
       checkUpkeepResult = await registry
@@ -2036,7 +2050,10 @@ describe('KeeperRegistry2_0', () => {
         .connect(zeroAddress)
         .callStatic.checkUpkeep(upkeepID1)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.INSUFFICIENT_BALANCE,
+      )
 
       checkUpkeepResult = await registry
         .connect(zeroAddress)
@@ -2262,7 +2279,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_CANCELLED,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2275,7 +2295,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_CANCELLED,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2288,7 +2311,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 2)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_PAUSED,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2299,7 +2325,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.INSUFFICIENT_BALANCE,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2309,15 +2338,22 @@ describe('KeeperRegistry2_0', () => {
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       })
 
-      it('returns false and error code if the target check reverts', async () => {
+      it('returns false, error code, and revert data if the target check reverts', async () => {
         await mock.setShouldRevertCheck(true)
         let checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(upkeepId)
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
-        assert.equal(checkUpkeepResult.performData, '0x')
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 3)
+        const revertReasonBytes = `0x${checkUpkeepResult.performData.slice(10)}` // remove sighash
+        assert.equal(
+          ethers.utils.defaultAbiCoder.decode(['string'], revertReasonBytes)[0],
+          'shouldRevertCheck should be false',
+        )
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
@@ -2329,7 +2365,10 @@ describe('KeeperRegistry2_0', () => {
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
         assert.equal(checkUpkeepResult.performData, '0x')
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 4)
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
@@ -2347,7 +2386,10 @@ describe('KeeperRegistry2_0', () => {
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
         assert.equal(checkUpkeepResult.performData, '0x')
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 5)
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
@@ -2380,7 +2422,10 @@ describe('KeeperRegistry2_0', () => {
           latestBlock.parentHash,
         )
         assert.equal(wrappedPerfromData[0].performData, randomBytes)
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 0)
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.NONE,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
         assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
         assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
@@ -2647,7 +2692,7 @@ describe('KeeperRegistry2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.1')
+      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.2')
     })
   })
 

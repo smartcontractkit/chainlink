@@ -62,7 +62,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
-    if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
+    if (!success) return (false, result, UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
 
     bytes memory userPerformData;
     (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
