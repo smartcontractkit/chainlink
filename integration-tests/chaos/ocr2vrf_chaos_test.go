@@ -157,7 +157,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 			require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-			_, _, vrfBeaconContract, consumerContract := ocr2vrf_actions.SetupOCR2VRFUniverse(
+			_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
 				t,
 				linkToken,
 				mockETHLinkFeed,
@@ -167,6 +167,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				chainlinkNodes,
 				testNetwork,
 			)
+
 			//Request and Redeem Randomness to verify that process works fine
 			requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
@@ -174,7 +175,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				chainClient,
 				vrfBeaconContract,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
-				ocr2vrf_constants.SubscriptionID,
+				subID,
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
@@ -200,7 +201,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				chainClient,
 				vrfBeaconContract,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
-				ocr2vrf_constants.SubscriptionID,
+				subID,
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
