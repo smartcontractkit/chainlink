@@ -31,13 +31,13 @@ func (s *testDbStater) Stats() sql.DBStats {
 
 }
 
-type statScneario func(*testing.T, *StatsReporter, time.Duration, int)
+type statScenario func(*testing.T, *StatsReporter, time.Duration, int)
 
 func TestStatReporter(t *testing.T) {
-	interval := 100 * time.Microsecond
-	expectedIntervals := 7
+	interval := 2 * time.Millisecond
+	expectedIntervals := 4
 
-	for _, scenario := range []statScneario{
+	for _, scenario := range []statScenario{
 		testParentContextCanceled,
 		testCollectAndStop,
 		testMultiStart,
@@ -88,10 +88,12 @@ func testMultiStart(t *testing.T, r *StatsReporter, interval time.Duration, n in
 
 	ctx := context.Background()
 
+	ticker := time.NewTicker(time.Duration(n) * interval)
+	defer ticker.Stop()
+
 	r.Start(ctx)
-	time.Sleep(interval)
 	r.Start(ctx)
-	time.Sleep(time.Duration(n-1) * interval)
+	<-ticker.C
 	r.Stop()
 }
 
@@ -100,8 +102,11 @@ func testMultiStop(t *testing.T, r *StatsReporter, interval time.Duration, n int
 
 	ctx := context.Background()
 
+	ticker := time.NewTicker(time.Duration(n) * interval)
+	defer ticker.Stop()
+
 	r.Start(ctx)
-	time.Sleep(time.Duration(n) * interval)
+	<-ticker.C
 	r.Stop()
 	r.Stop()
 }
