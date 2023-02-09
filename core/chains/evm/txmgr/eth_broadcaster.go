@@ -557,6 +557,16 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		return errors.Wrap(sendError, "this error type only handled for L2s"), false
 	}
 
+	if sendError.IsNonceTooHighError() {
+		// Nethermind specific error. Nethermind throws a NonceGap error when the tx nonce is
+		// greater than current_nonce + tx_count_in_mempool, instead of keeping the tx in mempool.
+		// This can happen if previous transactions haven't reached the client yet.
+		// The correct thing to do is assume success for now and let the eth_confirmer retry until
+		// the nonce gap gets filled by the previous transactions.
+		lgr.Warnw("Transaction has a nonce gap.", "err", sendError.Error())
+		return sendError, true
+	}
+
 	if sendError.IsTemporarilyUnderpriced() {
 		// If we can't even get the transaction into the mempool at all, assume
 		// success (even though the transaction will never confirm) and hand

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1593,6 +1594,44 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	})
 
 	pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+
+	t.Run("eth tx is left in progress if nonce is too high", func(t *testing.T) {
+		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
+		nonceGapError := "NonceGap, Future nonce. Expected nonce: " + strconv.FormatUint(localNextNonce, 10)
+		etx := txmgr.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          txmgr.EthTxUnstarted,
+		}
+		require.NoError(t, borm.InsertEthTx(&etx))
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(nonceGapError)).Once()
+
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), nonceGapError)
+		assert.True(t, retryable)
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
+		require.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
+
+		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+	})
 
 	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode", func(t *testing.T) {
 		// This happens if a transaction's gas price is below the minimum
