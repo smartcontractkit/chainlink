@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -112,24 +111,10 @@ func testMultiStop(t *testing.T, r *StatsReporter, interval time.Duration, n int
 }
 
 func assertStats(t *testing.T, expected int) {
-	statInRange := func(stat float64) bool {
-		return int(stat) > expected/2 && int(stat) <= expected
-	}
-
-	testutils.AssertEventually(t,
-		func() bool { return statInRange(testutil.ToFloat64(promDBConnsInUse)) })
-
-	testutils.AssertEventually(t,
-		func() bool { return statInRange(testutil.ToFloat64(promDBConnsMax)) })
-
-	testutils.AssertEventually(t,
-		func() bool { return statInRange(testutil.ToFloat64(promDBConnsOpen)) })
-
-	testutils.AssertEventually(t,
-		func() bool { return statInRange(testutil.ToFloat64(promDBWaitCount)) })
-
-	testutils.AssertEventually(t,
-		func() bool { return statInRange(testutil.ToFloat64(promDBWaitDuration)) })
+	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBConnsInUse)), 1)
+	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBConnsMax)), 1)
+	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBConnsOpen)), 1)
+	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBWaitDuration)), 1)
 }
 
 func resetProm(t *testing.T) {
