@@ -71,16 +71,14 @@ var (
 		Buckets: sizeBuckets,
 	}, []string{"oracle"})
 
-	promComputationResultSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "functions_request_computation_result_size",
-		Help:    "Metric to track computation result size in bytes",
-		Buckets: sizeBuckets,
+	promComputationResultSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_result_size",
+		Help: "Metric to track computation result size in bytes",
 	}, []string{"oracle"})
 
-	promComputationErrorSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "functions_request_computation_error_size",
-		Help:    "Metric to track computation error size in bytes",
-		Buckets: sizeBuckets,
+	promComputationErrorSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_error_size",
+		Help: "Metric to track computation error size in bytes",
 	}, []string{"oracle"})
 
 	promComputationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -408,10 +406,10 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
 		}
 		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
-		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(computationError)))
+		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
 	} else {
 		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
-		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(computationResult)))
+		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}

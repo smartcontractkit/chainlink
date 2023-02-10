@@ -70,7 +70,7 @@ var (
 	promReportingTransmitBatchSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "functions_reporting_plugin_transmit_batch_size",
 		Help:    "Metric to track batch size of transmitting reports",
-		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000},
+		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 100, 1000},
 	}, []string{"jobID"})
 )
 
