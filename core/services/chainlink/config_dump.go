@@ -496,7 +496,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint32("EvmMaxQueuedTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].Transactions.MaxInFlight = e
+			c.EVM[i].Transactions.MaxQueued = e
 		}
 	}
 	if e := envvar.NewBool("EvmNonceAutoSync").ParsePtr(); e != nil {
