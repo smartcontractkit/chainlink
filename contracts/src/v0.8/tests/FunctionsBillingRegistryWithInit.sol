@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../dev/functions/FunctionsBillingRegistry.sol";
+import {FunctionsBillingRegistry} from "../dev/functions/FunctionsBillingRegistry.sol";
 
 contract FunctionsBillingRegistryWithInit is FunctionsBillingRegistry {
   constructor(

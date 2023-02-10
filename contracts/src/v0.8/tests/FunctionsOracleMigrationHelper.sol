@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./FunctionsOracleMigration.sol";
+import {FunctionsOracleMigration} from "./FunctionsOracleMigration.sol";
 
 contract FunctionsOracleMigrationHelper is FunctionsOracleMigration {
   function callValidateReport(bytes calldata report) external pure returns (bool isValid) {
