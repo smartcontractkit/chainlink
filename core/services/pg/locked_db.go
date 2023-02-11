@@ -84,8 +84,8 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	}
 
 	// Step 2: start the stat reporter
-	l.statReporter = NewStatsReporter(l.db.Stats, l.lggr)
-	l.statReporter.Start(ctx)
+	//l.statReporter = NewStatsReporter(l.db.Stats, l.lggr)
+	//l.statReporter.Start(ctx)
 
 	// Step 3: acquire DB locks
 	lockingMode := l.cfg.DatabaseLockingMode()
@@ -126,8 +126,11 @@ func (l *lockedDb) Close() error {
 	}()
 
 	// Step 0: stop the stat reporter
-	l.statReporter.Stop()
-
+	/*
+		if l.statReporter != nil {
+			l.statReporter.Stop()
+		}
+	*/
 	// Step 1: release DB locks
 	if l.advisoryLock != nil {
 		l.advisoryLock.Release()
