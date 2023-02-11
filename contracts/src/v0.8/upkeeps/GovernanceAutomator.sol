@@ -74,7 +74,7 @@ contract GovernanceAutomator is KeeperCompatibleInterface {
       }
     }
 
-    return (false, "");
+    revert("no action needed");
   }
 
   ///@notice Chainlink Keepers will execute when checkUpkeep returns 'true'. Decodes the 'performData' passed in from checkUpkeep and performs an action as needed.

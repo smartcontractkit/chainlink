@@ -46,8 +46,8 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
     assertEq(startingIndex, 1);
 
     // Assert that an upkeep is not needed.
-    (bool upkeepNeeded, ) = s_governanceAutomator.checkUpkeep("");
-    assertEq(upkeepNeeded, false);
+    vm.expectRevert("no action needed");
+    s_governanceAutomator.checkUpkeep("");
 
     // Set the block number to one.
     vm.roll(1);
@@ -91,8 +91,8 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
     assertEq(startingIndex, 1);
 
     // Assert that an upkeep is not needed.
-    (upkeepNeeded, ) = s_governanceAutomator.checkUpkeep("");
-    assertEq(upkeepNeeded, false);
+    vm.expectRevert("no action needed");
+    s_governanceAutomator.checkUpkeep("");
 
     // Enter the voting window for the proposals.
     vm.roll(3);
@@ -112,8 +112,7 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
 
     // Proposal 1 has been defeated. Proposal 2 has passed. Assert that the index now needs
     // to be updated, such that proposal 1 is not revisited.
-    bytes memory data;
-    (upkeepNeeded, data) = s_governanceAutomator.checkUpkeep("");
+    (bool upkeepNeeded, bytes memory data) = s_governanceAutomator.checkUpkeep("");
     assertEq(upkeepNeeded, true);
     assertEq(data, abi.encode(GovernanceAutomator.Action.UPDATE_INDEX, uint256(2)));
 
