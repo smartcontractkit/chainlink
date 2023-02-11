@@ -3,35 +3,35 @@ pragma solidity ^0.8.10;
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../vendor/GovernorAlpha.sol";
 
-/// @notice Possible actions that can be taken in the performUpkeep function.
-/// QUEUE => calls 'queue(id)' on the governance contract
-/// EXECUTE => calls 'execute(id)' on the governance contract
-/// CANCEL => calls 'cancel(id)' on the governance contract
-/// UPDATE_INDEX => updates the starting proposal index within the
-///                 upkeep contract to reduce the amount of proposals
-///                 the need to be checked
-enum Action {
-  QUEUE,
-  EXECUTE,
-  CANCEL,
-  UPDATE_INDEX
-}
-
 /// @title Chainlink Keepers Compatible GovernorAlpha Automator
 contract GovernanceAutomator is KeeperCompatibleInterface {
+  /// @notice Possible actions that can be taken in the performUpkeep function.
+  /// QUEUE => calls 'queue(id)' on the governance contract
+  /// EXECUTE => calls 'execute(id)' on the governance contract
+  /// CANCEL => calls 'cancel(id)' on the governance contract
+  /// UPDATE_INDEX => updates the starting proposal index within the
+  ///                 upkeep contract to reduce the amount of proposals
+  ///                 the need to be checked
+  enum Action {
+    QUEUE,
+    EXECUTE,
+    CANCEL,
+    UPDATE_INDEX
+  }
+
   GovernorAlpha public immutable s_governanceContract;
-  GovernorAlphaToken public immutable s_governanceTokenContract;
+  IGovernorAlphaToken public immutable s_governanceTokenContract;
   uint256 public s_proposalStartingIndex;
   Action public action;
 
   constructor(
     GovernorAlpha _governanceContract,
     uint256 _proposalStartingIndex,
-    address _tokenContract
+    IGovernorAlphaToken _tokenContract
   ) {
     s_governanceContract = _governanceContract;
-    s_proposalStartingIndex = _proposalStartingIndex;
-    s_governanceTokenContract = GovernorAlphaToken(_tokenContract);
+    s_proposalStartingIndex = (_proposalStartingIndex > 0) ? _proposalStartingIndex : 1; // proposals start at 1.
+    s_governanceTokenContract = _tokenContract;
   }
 
   ///@notice Simulated at each block by the Chainlink Keepers network. Checks if there are any actions (queue() or execute()) required on a governance contract. Also tracks a 'starting index'.
@@ -132,6 +132,6 @@ contract GovernanceAutomator is KeeperCompatibleInterface {
   }
 }
 
-interface GovernorAlphaToken {
+interface IGovernorAlphaToken {
   function getPriorVotes(address account, uint256 blockNumber) external view returns (uint96);
 }
