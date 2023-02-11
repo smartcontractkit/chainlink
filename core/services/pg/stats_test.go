@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 // testDbStater is a simple test wrapper for statFn
@@ -28,7 +29,6 @@ func (s *testDbStater) Stats() sql.DBStats {
 		MaxIdleClosed:      s.cntr,
 		MaxLifetimeClosed:  s.cntr,
 	}
-
 }
 
 type statScenario func(*testing.T, *StatsReporter, time.Duration, int)
@@ -43,7 +43,8 @@ func TestStatReporter(t *testing.T) {
 		testParentContextCanceled,
 		testCollectAndStop,
 		testMultiStart,
-		testMultiStop} {
+		testMultiStop,
+	} {
 
 		d := new(testDbStater)
 		resetProm(t)
@@ -57,12 +58,10 @@ func TestStatReporter(t *testing.T) {
 		assertStats(t, expectedIntervals)
 
 	}
-
 }
 
 // test appropriate handling of context cancellation
 func testParentContextCanceled(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-
 	ctx := context.Background()
 	tctx, cancel := context.WithTimeout(ctx, time.Duration(n)*interval)
 
@@ -71,23 +70,19 @@ func testParentContextCanceled(t *testing.T, r *StatsReporter, interval time.Dur
 	<-tctx.Done()
 	// call cancel to statisy linter
 	cancel()
-
 }
 
 // test normal stop
 func testCollectAndStop(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-
 	ctx := context.Background()
 
 	r.Start(ctx)
 	time.Sleep(time.Duration(n) * interval)
 	r.Stop()
-
 }
 
 // test multiple start calls are idempotent
 func testMultiStart(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-
 	ctx := context.Background()
 
 	ticker := time.NewTicker(time.Duration(n) * interval)
@@ -101,7 +96,6 @@ func testMultiStart(t *testing.T, r *StatsReporter, interval time.Duration, n in
 
 // test multiple stop calls are idempotent
 func testMultiStop(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-
 	ctx := context.Background()
 
 	ticker := time.NewTicker(time.Duration(n) * interval)
