@@ -8,6 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -53,10 +54,20 @@ func StatsInterval(d time.Duration) StatsReporterOpt {
 	}
 }
 
-type StatFn func() sql.DBStats
+func StatsCustomReporterFn(fn ReportFn) StatsReporterOpt {
+	return func(r *StatsReporter) {
+		r.reportFn = fn
+	}
+}
+
+type (
+	StatFn   func() sql.DBStats
+	ReportFn func(sql.DBStats)
+)
 
 type StatsReporter struct {
 	statFn   StatFn
+	reportFn ReportFn
 	interval time.Duration
 	cancel   context.CancelFunc
 	lggr     logger.Logger
@@ -66,6 +77,7 @@ type StatsReporter struct {
 func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *StatsReporter {
 	r := &StatsReporter{
 		statFn:   fn,
+		reportFn: publishStats,
 		interval: dbStatsInternal,
 		lggr:     lggr.Named("stat-reporter"),
 	}
@@ -89,17 +101,14 @@ func (r *StatsReporter) Start(ctx context.Context) {
 }
 
 func (r *StatsReporter) Stop() {
-
 	if r.cancel != nil {
 		r.lggr.Debugf("Stopping DB stat reporter")
 		r.cancel()
 		r.cancel = nil
 	}
-
 }
 
 func (r *StatsReporter) loop(ctx context.Context) {
-
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 
@@ -107,7 +116,7 @@ func (r *StatsReporter) loop(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			r.lggr.Debugf("publishing stats")
-			publishStats(r.statFn())
+			r.reportFn(r.statFn())
 		case <-ctx.Done():
 			r.lggr.Debugf("stat reporter loop received done. stopping...")
 			return

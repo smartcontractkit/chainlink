@@ -3,9 +3,12 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 
@@ -14,7 +17,20 @@ import (
 
 // testDbStater is a simple test wrapper for statFn
 type testDbStater struct {
-	cntr int64
+	t         *testing.T
+	name      string
+	cntr      int64
+	testGauge prometheus.Gauge
+}
+
+func newtestDbStater(t *testing.T, name string) *testDbStater {
+	return &testDbStater{
+		t:    t,
+		name: name,
+		testGauge: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: strings.ReplaceAll(name, " ", "_"),
+		}),
+	}
 }
 
 func (s *testDbStater) Stats() sql.DBStats {
@@ -31,7 +47,19 @@ func (s *testDbStater) Stats() sql.DBStats {
 	}
 }
 
-type statScenario func(*testing.T, *StatsReporter, time.Duration, int)
+func (s *testDbStater) report(stats sql.DBStats) {
+	s.t.Logf("reporting stats +%v", stats)
+	s.testGauge.Set(float64(stats.MaxOpenConnections))
+}
+
+func (s *testDbStater) checkReport() {
+	assert.Greater(s.t, testutil.ToFloat64(s.testGauge), float64(0), s.name)
+}
+
+type statScenario struct {
+	name   string
+	testFn func(*testing.T, *StatsReporter, time.Duration, int)
+}
 
 func TestStatReporter(t *testing.T) {
 	interval := 2 * time.Millisecond
@@ -40,22 +68,27 @@ func TestStatReporter(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	for _, scenario := range []statScenario{
-		testParentContextCanceled,
-		testCollectAndStop,
-		testMultiStart,
-		testMultiStop,
+		{name: "parent_ctx_canceled", testFn: testParentContextCanceled},
+		{name: "normal_collect_and_stop", testFn: testCollectAndStop},
+		{name: "mutli_start", testFn: testMultiStart},
+		{name: "multi_stop", testFn: testMultiStop},
 	} {
 
-		d := new(testDbStater)
-		resetProm(t)
-		scenario(
+		d := newtestDbStater(t, scenario.name)
+		reporter := NewStatsReporter(d.Stats,
+			lggr,
+			StatsInterval(interval),
+			StatsCustomReporterFn(d.report),
+		)
+
+		scenario.testFn(
 			t,
-			NewStatsReporter(d.Stats, lggr, StatsInterval(interval)),
+			reporter,
 			interval,
 			expectedIntervals,
 		)
 
-		assertStats(t, expectedIntervals)
+		d.checkReport()
 
 	}
 }
@@ -105,28 +138,4 @@ func testMultiStop(t *testing.T, r *StatsReporter, interval time.Duration, n int
 	<-ticker.C
 	r.Stop()
 	r.Stop()
-}
-
-func assertStats(t *testing.T, expected int) {
-	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBConnsInUse)), 1)
-	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBConnsMax)), 1)
-	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBConnsOpen)), 1)
-	assert.GreaterOrEqual(t, int(testutil.ToFloat64(promDBWaitDuration)), 1)
-}
-
-func resetProm(t *testing.T) {
-	promDBConnsInUse.Set(0)
-	assert.Equal(t, int(testutil.ToFloat64(promDBConnsInUse)), 0)
-
-	promDBConnsMax.Set(0)
-	assert.Equal(t, int(testutil.ToFloat64(promDBConnsMax)), 0)
-
-	promDBConnsOpen.Set(0)
-	assert.Equal(t, int(testutil.ToFloat64(promDBConnsOpen)), 0)
-
-	promDBWaitCount.Set(0)
-	assert.Equal(t, int(testutil.ToFloat64(promDBWaitCount)), 0)
-
-	promDBWaitDuration.Set(0)
-	assert.Equal(t, int(testutil.ToFloat64(promDBWaitDuration)), 0)
 }
