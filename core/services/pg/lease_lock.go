@@ -197,8 +197,12 @@ func (l *leaseLock) loop(ctx context.Context) {
 	refresh := time.NewTicker(l.cfg.LeaseLockRefreshInterval())
 	defer refresh.Stop()
 
+	smokeTestHack := time.NewTicker(dbStatsInternal)
+	defer smokeTestHack.Stop()
+
 	for {
 		select {
+		case <-smokeTestHack.C:
 		case <-ctx.Done():
 			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DatabaseDefaultQueryTimeout())
 			err := multierr.Combine(

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,6 +37,8 @@ func TestStatReporter(t *testing.T) {
 	interval := 2 * time.Millisecond
 	expectedIntervals := 4
 
+	lggr := logger.TestLogger(t)
+
 	for _, scenario := range []statScenario{
 		testParentContextCanceled,
 		testCollectAndStop,
@@ -46,7 +49,7 @@ func TestStatReporter(t *testing.T) {
 		resetProm(t)
 		scenario(
 			t,
-			NewStatsReporter(d.Stats, StatsInterval(interval)),
+			NewStatsReporter(d.Stats, lggr, StatsInterval(interval)),
 			interval,
 			expectedIntervals,
 		)
