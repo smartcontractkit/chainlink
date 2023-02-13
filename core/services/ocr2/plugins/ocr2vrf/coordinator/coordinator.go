@@ -316,7 +316,8 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Tracew("logsWithSigs", "logs", logs)
+	c.lggr.Tracew("logsWithSigs", "logs",
+		logs)
 
 	randomnessRequestedLogs, randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs, outputsServedLogs, err :=
@@ -488,6 +489,9 @@ func (c *coordinator) getBlockhashesMapping(
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
 
+	// XXX: This is OK, because in getBlockhashesMappingFromRequests there's a
+	// check that each block is eligible... Except for the t.recentBlockHeight
+	// blocks? Could a re-org cause this to fail?
 	if len(heads) != len(blockNumbers) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
 		return
@@ -571,14 +575,16 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					BeaconHeight:      r.NextBeaconOutputHeight,
 					ConfirmationDelay: uint32(r.ConfDelay.Uint64()),
 					SubscriptionID:    r.SubID,
-					Price:             big.NewInt(0), // TODO: no price tracking
-					RequestID:         requestID.Uint64(),
-					NumWords:          r.NumWords,
-					Requester:         r.Requester,
-					Arguments:         r.Arguments,
-					GasAllowance:      big.NewInt(int64(r.GasAllowance)),
-					GasPrice:          r.GasPrice,
-					WeiPerUnitLink:    r.WeiPerUnitLink,
+					// XXX: Would be good to get some kind of price policy in place for
+					// the audit?
+					Price:          big.NewInt(0), // TODO: no price tracking
+					RequestID:      requestID.Uint64(),
+					NumWords:       r.NumWords,
+					Requester:      r.Requester,
+					Arguments:      r.Arguments,
+					GasAllowance:   big.NewInt(int64(r.GasAllowance)),
+					GasPrice:       r.GasPrice,
+					WeiPerUnitLink: r.WeiPerUnitLink,
 				})
 				currentBatchGasLimit += int64(r.GasAllowance)
 				c.lggr.Debugw("Request is unfulfilled", "requestID", requestID)
