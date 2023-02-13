@@ -40,9 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
-var (
-	nilContext = cli.NewContext(nil, nil, nil)
-)
+var nilContext = cli.NewContext(nil, nil, nil)
 
 type startOptions struct {
 	// Set the config options
@@ -66,6 +64,8 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 
 	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+		c.Database.DefaultLockTimeout = models.MustNewDuration(0)
+
 		f := false
 		c.EVM[0].Enabled = &f
 		c.P2P.V1.Enabled = &f
@@ -289,7 +289,6 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 }
 
 func TestClient_RemoteLogin(t *testing.T) {
-
 	app := startNewApplicationV2(t, nil)
 
 	tests := []struct {
