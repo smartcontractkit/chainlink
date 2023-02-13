@@ -10,10 +10,10 @@ CREATE TABLE log_poller_filters(
     UNIQUE (filter_name, evm_chain_id, address, event)
 );
 
-CREATE INDEX idx_log_poller_filters_address_event ON log_poller_filters(filter_name);
+CREATE INDEX idx_log_poller_filters_filter_name ON log_poller_filters(filter_name);
 
 -- +goose Down
 
-DROP INDEX IF EXISTS idx_log_poller_filters_address_event;
+DROP INDEX IF EXISTS idx_log_poller_filters_filter_name;
 DROP TABLE log_poller_filters;
 

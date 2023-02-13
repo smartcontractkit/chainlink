@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -54,7 +55,8 @@ func NewOCRContractTransmitter(
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	err := lp.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	filterName := fmt.Sprintf("OCR ContractTransmitter - %s", address.String())
+	err := lp.RegisterFilter(logpoller.Filter{FilterName: filterName, EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
 	}
