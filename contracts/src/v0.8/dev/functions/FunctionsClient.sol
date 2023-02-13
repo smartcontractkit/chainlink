@@ -10,8 +10,8 @@ import "../interfaces/FunctionsOracleInterface.sol";
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is FunctionsClientInterface {
-  FunctionsOracleInterface private s_oracle;
-  mapping(bytes32 => address) private s_pendingRequests;
+  FunctionsOracleInterface internal s_oracle;
+  mapping(bytes32 => address) internal s_pendingRequests;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
