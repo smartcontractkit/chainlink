@@ -126,7 +126,9 @@ func (l *lockedDb) Close() error {
 	}()
 
 	// Step 0: stop the stat reporter
-	l.statsReporter.Stop()
+	if l.statsReporter != nil {
+		l.statsReporter.Stop()
+	}
 
 	// Step 1: release DB locks
 	if l.advisoryLock != nil {
