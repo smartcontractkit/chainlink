@@ -268,6 +268,30 @@ func (f *EthereumAtlasFunctions) UserCallbackError(requestId [32]byte, reason st
 	return f.client.ProcessTransaction(tx)
 }
 
+func (f *EthereumAtlasFunctions) BillingStart(requestId [32]byte, subscriptionId uint64) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.BillingStart(opts, requestId, subscriptionId)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.BillingEnd(opts, requestId, subscriptionId, totalCost, success)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
 func (f *EthereumAtlasFunctions) UserCallbackRawError(requestId [32]byte, lowLevelData []byte) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
