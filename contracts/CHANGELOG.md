@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-...
+### Changed
+- Change Functions Client variables to internal for use when integrating Automation
 
 ## 0.6.1 - 2023-02-06
 
