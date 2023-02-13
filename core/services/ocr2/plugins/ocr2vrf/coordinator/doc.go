@@ -101,5 +101,5 @@
 //  2. Are sorted according to increasing height at which they'll be eligible,
 //     and, at a given eligibility height, their gas allowances.
 //  3. Are successively taken from that sorted list as long as the estimated
-//     total gas usage is
+//     total gas usage is foo
 package coordinator
