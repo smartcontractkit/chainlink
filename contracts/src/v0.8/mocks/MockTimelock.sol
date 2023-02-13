@@ -13,6 +13,8 @@ contract MockTimelock {
   Transaction s_cancelledTransaction;
   Transaction s_executedTransaction;
 
+  function acceptAdmin() external {}
+
   function getQueuedTransaction() external view returns (Transaction memory) {
     return s_queuedTransaction;
   }

@@ -4,7 +4,7 @@ import "../interfaces/KeeperCompatibleInterface.sol";
 import "../vendor/GovernorAlpha.sol";
 
 /// @title Chainlink Keepers Compatible GovernorAlpha Automator
-contract GovernanceAutomator is KeeperCompatibleInterface {
+contract GovernorAlphaAutomator is KeeperCompatibleInterface {
   /// @notice Possible actions that can be taken in the performUpkeep function.
   /// QUEUE => calls 'queue(id)' on the governance contract
   /// EXECUTE => calls 'execute(id)' on the governance contract
