@@ -21,7 +21,6 @@ import (
 type OCRSoakTestReporter struct {
 	ContractReports       map[string]*OCRSoakTestReport // contractAddress: Answers
 	ExpectedRoundDuration time.Duration
-	UnexpectedShutdown    bool
 	AnomaliesDetected     bool
 
 	namespace   string
@@ -61,8 +60,6 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 	headerText := ":white_check_mark: OCR Soak Test PASSED :white_check_mark:"
 	if testFailed {
 		headerText = ":x: OCR Soak Test FAILED :x:"
-	} else if o.UnexpectedShutdown {
-		headerText = ":warning: OCR Soak Test was Unexpectedly Shut Down :warning:"
 	} else if o.AnomaliesDetected {
 		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
