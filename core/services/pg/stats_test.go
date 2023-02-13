@@ -9,7 +9,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -53,7 +52,7 @@ func (s *testDbStater) report(stats sql.DBStats) {
 }
 
 func (s *testDbStater) checkReport() {
-	assert.Greater(s.t, testutil.ToFloat64(s.testGauge), float64(0), s.name)
+	assert.Greater(s.t, int(s.cntr), 0, s.name)
 }
 
 type statScenario struct {
