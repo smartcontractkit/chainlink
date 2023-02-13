@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import {BaseTest} from "../BaseTest.t.sol";
 import {FunctionsOracle, FunctionsOracleWithInit} from "../../../../src/v0.8/tests/FunctionsOracleWithInit.sol";
 import {FunctionsBillingRegistryWithInit} from "../../../../src/v0.8/tests/FunctionsBillingRegistryWithInit.sol";
+import {ConfirmedOwnerUpgradeable} from "../../../../src/v0.8/dev/ConfirmedOwnerUpgradeable.sol";
 
 // import {LinkToken} from "../../../../src/v0.4/LinkToken.sol";
 // import {MockV3Aggregator} from "../../../../src/v0.7/tests/MockV3Aggregator.sol";
@@ -57,7 +58,7 @@ contract FunctionsOracle_setDONPublicKey is FunctionsOracleSetup {
 
   function testOnlyOwnerReverts() public {
     vm.stopPrank();
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(ConfirmedOwnerUpgradeable.OnlyCallableByOwner.selector);
 
     bytes memory donPublicKey;
     s_oracle.setDONPublicKey(donPublicKey);
@@ -93,7 +94,7 @@ contract FunctionsOracle_setRegistry is FunctionsOracleSetup {
 
   function testOnlyOwnerReverts() public {
     vm.stopPrank();
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(ConfirmedOwnerUpgradeable.OnlyCallableByOwner.selector);
 
     address registryAddress;
     s_oracle.setRegistry(registryAddress);

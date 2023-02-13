@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Functions Oracle and Registry use a transparent proxy pattern to enable upgrades.
+
 ### Changed
 - Change Functions Client variables to internal for use when integrating Automation
 
