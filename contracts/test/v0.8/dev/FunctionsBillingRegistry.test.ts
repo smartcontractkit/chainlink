@@ -64,7 +64,7 @@ before(async () => {
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
+    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.consumer,
   )
 
@@ -143,7 +143,7 @@ describe('FunctionsRegistry', () => {
             config.gasOverhead,
             config.requestTimeoutSeconds,
           ),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith('OnlyCallableByOwner()')
     })
 
     it('owner can set config', async () => {
@@ -195,7 +195,7 @@ describe('FunctionsRegistry', () => {
     it('non-owner is unable to register a DON', async () => {
       await expect(
         registry.connect(roles.stranger).setAuthorizedSenders([oracle.address]),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith('OnlyCallableByOwner()')
     })
 
     it('owner can register a DON', async () => {
@@ -578,7 +578,7 @@ describe('FunctionsRegistry', () => {
       it('only owner can recover', async function () {
         await expect(
           registry.connect(subOwner).recoverFunds(strangerAddress),
-        ).to.be.revertedWith(`Only callable by owner`)
+        ).to.be.revertedWith('OnlyCallableByOwner()')
       })
 
       it('owner can recover link transferred', async function () {

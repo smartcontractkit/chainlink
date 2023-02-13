@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./Functions.sol";
-import "../interfaces/FunctionsClientInterface.sol";
-import "../interfaces/FunctionsOracleInterface.sol";
+import {Functions} from "./Functions.sol";
+import {FunctionsClientInterface} from "../interfaces/FunctionsClientInterface.sol";
+import {FunctionsOracleInterface} from "../interfaces/FunctionsOracleInterface.sol";
 
 /**
  * @title The Chainlink Functions client contract
