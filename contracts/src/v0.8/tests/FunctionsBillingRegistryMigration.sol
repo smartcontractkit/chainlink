@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {LinkTokenInterface} from "../../interfaces/LinkTokenInterface.sol";
-import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
-import {FunctionsBillingRegistryInterface} from "../interfaces/FunctionsBillingRegistryInterface.sol";
-import {FunctionsOracleInterface} from "../interfaces/FunctionsOracleInterface.sol";
-import {FunctionsClientInterface} from "../interfaces/FunctionsClientInterface.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
-import {ERC677ReceiverInterface} from "../../interfaces/ERC677ReceiverInterface.sol";
-import {AuthorizedOriginReceiverInterface} from "../interfaces/AuthorizedOriginReceiverInterface.sol";
-import {ConfirmedOwnerUpgradeable} from "../ConfirmedOwnerUpgradeable.sol";
-import {AuthorizedReceiver} from "../AuthorizedReceiver.sol";
-import {SafeCast} from "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
+import {LinkTokenInterface} from "../interfaces/LinkTokenInterface.sol";
+import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
+import {FunctionsBillingRegistryInterface} from "../dev/interfaces/FunctionsBillingRegistryInterface.sol";
+import {FunctionsOracleInterface} from "../dev/interfaces/FunctionsOracleInterface.sol";
+import {FunctionsClientInterface} from "../dev/interfaces/FunctionsClientInterface.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {ERC677ReceiverInterface} from "../interfaces/ERC677ReceiverInterface.sol";
+import {AuthorizedOriginReceiverInterface} from "../dev/interfaces/AuthorizedOriginReceiverInterface.sol";
+import {ConfirmedOwnerUpgradeable} from "../dev/ConfirmedOwnerUpgradeable.sol";
+import {AuthorizedReceiver} from "../dev/AuthorizedReceiver.sol";
+import {SafeCast} from "../dev/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
@@ -20,7 +20,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsBillingRegistry is
+contract FunctionsBillingRegistryMigration is
   Initializable,
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
@@ -28,8 +28,8 @@ contract FunctionsBillingRegistry is
   ERC677ReceiverInterface,
   AuthorizedReceiver
 {
-  LinkTokenInterface private LINK;
-  AggregatorV3Interface private LINK_ETH_FEED;
+  LinkTokenInterface public LINK;
+  AggregatorV3Interface public LINK_ETH_FEED;
   AuthorizedOriginReceiverInterface private ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
@@ -206,8 +206,6 @@ contract FunctionsBillingRegistry is
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @return gasOverhead average gas execution cost used in estimating total cost
-   * @return linkAddress address of contract for the LINK token
-   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    */
   function getConfig()
     external
@@ -217,9 +215,7 @@ contract FunctionsBillingRegistry is
       uint32 stalenessSeconds,
       uint256 gasAfterPaymentCalculation,
       int256 fallbackWeiPerUnitLink,
-      uint32 gasOverhead,
-      address linkAddress,
-      address linkPriceFeed
+      uint32 gasOverhead
     )
   {
     return (
@@ -227,9 +223,7 @@ contract FunctionsBillingRegistry is
       s_config.stalenessSeconds,
       s_config.gasAfterPaymentCalculation,
       s_fallbackWeiPerUnitLink,
-      s_config.gasOverhead,
-      address(LINK),
-      address(LINK_ETH_FEED)
+      s_config.gasOverhead
     );
   }
 
@@ -290,8 +284,7 @@ contract FunctionsBillingRegistry is
     bytes calldata, /* data */
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
-    // NOTE: Optionally, compute additional fee here
-    return 0;
+    return 1;
   }
 
   /**

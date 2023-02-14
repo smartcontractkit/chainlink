@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsOracleWithInit} from "./FunctionsOracleWithInit.sol";
+import {FunctionsOracle} from "../dev/functions/FunctionsOracle.sol";
 
-contract FunctionsOracleHelper is FunctionsOracleWithInit {
+contract FunctionsOracleUpgradeableHelper is FunctionsOracle {
   function callValidateReport(bytes calldata report) external pure returns (bool isValid) {
     bytes32 configDigest;
     uint40 epochAndRound;

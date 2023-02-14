@@ -26,8 +26,8 @@ nocancel_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV
 ocr2dr: ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Functions.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
 ocr2dr_client: ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin bee85cefe5304bee7c11beccf34edb78f2ce7d8fefe228bf1e108f6057ad4bd4
 ocr2dr_client_example: ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin 5e9063106cec602520ac811f7517c55c7ee74aa2ccb512097d4ff2ffcf287512
-ocr2dr_oracle: ../../contracts/solc/v0.8.6/FunctionsOracle.abi ../../contracts/solc/v0.8.6/FunctionsOracle.bin 2bae7e87ad44945a74a3d3b05adfe42b2a166a012bd0336f879040d4e238028c
-ocr2dr_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistry.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistry.bin 18879c54a8144f42a6fd1d957741c3e7c8250ec41fcacd8f25575bf8f445884f
+ocr2dr_oracle: ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.abi ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.bin 255fef7bde389ff59e2f4257f87bf8551b1145d03609f274834004eb03521554
+ocr2dr_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin 12e13aeb407e6f770dbc7fb2f99054b6280d03f1705452828ca87d1a073a11c2
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 4803feddb5dadea2f228978d81fd30ad1bea3f88d973a8539a91445b0cea60e2
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb
