@@ -124,6 +124,9 @@ type Logger interface {
 	// This allows wrappers and helpers to point higher up the stack (like testing.T.Helper()).
 	Helper(skip int) Logger
 
+	// Name returns the fully qualified name of the logger.
+	Name() string
+
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
 	Recover(panicErr interface{})
@@ -218,7 +221,7 @@ func NewLogger() (Logger, func() error) {
 	for _, msg := range warnings {
 		l.Warn(msg)
 	}
-	return l.Named(verShaNameStatic()), closeLogger
+	return l.With("version", verShaNameStatic()), closeLogger
 }
 
 type Config struct {
