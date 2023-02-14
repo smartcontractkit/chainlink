@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -62,6 +63,9 @@ func TestLogger_Passthrough(t *testing.T) {
 			l.Panicw("msg")
 			l.Fatalw("msg")
 
+			nm := l.Name()
+			require.Equal(t, "mockLogger", nm)
+
 			err := l.Sync()
 			assert.ErrorIs(t, err, errTest)
 
@@ -106,6 +110,7 @@ func setupMockLogger(t *testing.T) *MockLogger {
 	ml.On("Fatalw", "msg", mock.Anything, mock.Anything).Once()
 
 	ml.On("Sync").Return(errTest).Once()
+	ml.On("Name").Return("mockLogger").Once()
 	ml.On("Recover", errTest).Once()
 
 	return ml

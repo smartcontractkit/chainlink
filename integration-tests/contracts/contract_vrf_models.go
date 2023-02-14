@@ -2,12 +2,14 @@ package contracts
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"math/big"
 )
 
 type VRF interface {
@@ -78,11 +80,17 @@ type DKG interface {
 	WaitForTransmittedEvent() (*dkg.DKGTransmitted, error)
 }
 
+type VRFRouter interface {
+	Address() string
+	RegisterCoordinator(coordinatorAddress string) error
+}
+
 type VRFCoordinatorV3 interface {
 	Address() string
 	SetProducer(producerAddress string) error
 	CreateSubscription() error
-	AddConsumer(subId uint64, consumerAddress string) error
+	FindSubscriptionID() (*big.Int, error)
+	AddConsumer(subId *big.Int, consumerAddress string) error
 }
 
 type VRFBeacon interface {
@@ -98,24 +106,23 @@ type VRFBeacon interface {
 	) error
 	WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error)
 	WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error)
+	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
+		error)
 }
 
 type VRFBeaconConsumer interface {
 	Address() string
 	RequestRandomness(
 		numWords uint16,
-		subID uint64,
-		confirmationDelayArg *big.Int,
+		subID, confirmationDelayArg *big.Int,
 	) (*types.Receipt, error)
-	RedeemRandomness(requestID *big.Int) error
+	RedeemRandomness(subID, requestID *big.Int) error
 	RequestRandomnessFulfillment(
 		numWords uint16,
-		subID uint64,
-		confirmationDelayArg *big.Int,
+		subID, confirmationDelayArg *big.Int,
 		callbackGasLimit uint32,
 		arguments []byte,
-	) error
-
+	) (*types.Receipt, error)
 	IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error)
 	GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error)
 	GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error)

@@ -23,7 +23,7 @@ on:
         required: false
         type: string
       slackMemberID:
-        description: Notifies test results (Not your @)
+        description: Slack Member ID (Not your @)
         required: true
         default: U01A2B2C3D4
         type: string
@@ -47,6 +47,9 @@ on:
         description: How long to wait before starting a new round
         required: false
         default: 1m
+
+env:
+  REF_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
   ocr_soak_test:
@@ -73,6 +76,7 @@ jobs:
       OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
       OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
       TEST_LOG_LEVEL: debug
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.head_ref || github.ref_name }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -85,11 +89,27 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.REF_NAME }}
+      - name: build test runner
+        if: ${{ env.REF_NAME != 'develop' }}
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          tags: ${{ env.ENV_JOB_IMAGE }}
+          file: ./integration-tests/test.Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
+            IMAGE_VERSION=v0.3.8
+            SUITES="soak"
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: soak
+          TEST_ARGS: -test.timeout 900h
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run TestOCRSoak ./soak
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}

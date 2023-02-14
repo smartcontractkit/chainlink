@@ -208,7 +208,8 @@ RPCBlockQueryDelay = 6
 
 [EVM.Transactions]
 ForwardersEnabled = true
-MaxInFlight = 1500
+MaxInFlight = 1000
+MaxQueued = 1500
 ReaperInterval = '10h0m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '5m0s'

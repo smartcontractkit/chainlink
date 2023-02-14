@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -31,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -48,13 +50,20 @@ func deployDKG(e helpers.Environment) common.Address {
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress string, linkEthFeed string) common.Address {
+func deployVRFRouter(e helpers.Environment) common.Address {
+	_, tx, _, err := vrf_router.DeployVRFRouter(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress, linkEthFeed, router string) common.Address {
 	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(
 		e.Owner,
 		e.Ec,
 		beaconPeriodBlocks,
 		common.HexToAddress(linkAddress),
 		common.HexToAddress(linkEthFeed),
+		common.HexToAddress(router),
 	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
@@ -87,8 +96,8 @@ func deployVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddres
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployLoadTestVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
-	_, tx, _, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+func deployLoadTestVRFBeaconCoordinatorConsumer(e helpers.Environment, routerAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
+	_, tx, _, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(routerAddress), shouldFail, beaconPeriodBlocks)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -242,7 +251,7 @@ func createSubscription(e helpers.Environment, vrfCoordinatorAddr string) {
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func getSubscription(e helpers.Environment, vrfCoordinatorAddr string, subId uint64) vrf_coordinator.GetSubscription {
+func getSubscription(e helpers.Environment, vrfCoordinatorAddr string, subId *big.Int) vrf_coordinator.GetSubscription {
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 
 	sub, err := coordinator.GetSubscription(nil, subId)
@@ -250,10 +259,32 @@ func getSubscription(e helpers.Environment, vrfCoordinatorAddr string, subId uin
 	return sub
 }
 
+// returns subscription ID that belongs to the given owner. Returns result found first
+func findSubscriptionID(e helpers.Environment, vrfCoordinatorAddr string) *big.Int {
+	fopts := &bind.FilterOpts{}
+
+	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
+	subscriptionIterator, err := coordinator.FilterSubscriptionCreated(fopts, nil, []common.Address{e.Owner.From})
+	helpers.PanicErr(err)
+
+	if !subscriptionIterator.Next() {
+		helpers.PanicErr(fmt.Errorf("expected at leats 1 subID for the given owner %s", e.Owner.From.Hex()))
+	}
+	return subscriptionIterator.Event.SubId
+}
+
+func registerCoordinator(e helpers.Environment, routerAddress, coordinatorAddress string) {
+	router := newVRFRouter(common.HexToAddress(routerAddress), e.Ec)
+
+	tx, err := router.RegisterCoordinator(e.Owner, common.HexToAddress(coordinatorAddress))
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
 func addConsumer(e helpers.Environment, vrfCoordinatorAddr, consumerAddr string, subId *big.Int) {
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 
-	tx, err := coordinator.AddConsumer(e.Owner, subId.Uint64(), common.HexToAddress(consumerAddr))
+	tx, err := coordinator.AddConsumer(e.Owner, subId, common.HexToAddress(consumerAddr))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -266,13 +297,41 @@ func setPayees(e helpers.Environment, vrfBeaconAddr string, transmitters, payees
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func eoaFundSubscription(e helpers.Environment, coordinatorAddress, linkAddress string, amount *big.Int, subID uint64) {
+func setBeaconBilling(e helpers.Environment, vrfBeaconAddr string, maximumGasPrice, reasonableGasPrice, observationPayment,
+	transmissionPayment, accountingGas uint64) {
+	beacon := newVRFBeacon(common.HexToAddress(vrfBeaconAddr), e.Ec)
+
+	tx, err := beacon.SetBilling(e.Owner, maximumGasPrice, reasonableGasPrice, observationPayment, transmissionPayment, big.NewInt(0).SetUint64(accountingGas))
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func setCoordinatorBilling(e helpers.Environment, vrfCoordinatorAddr string, useReasonableGasPrice bool, unusedGasPenaltyPercent uint8,
+	stalenessSeconds, redeemableRequestGasOverhead, callbackRequestGasOverhead, premiumPercentage, reasonableGasPriceStalenessBlocks uint32,
+	fallbackWeiPerUnitLink *big.Int) {
+	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
+
+	tx, err := coordinator.SetBillingConfig(e.Owner, vrf_coordinator.VRFBeaconTypesBillingConfig{
+		UseReasonableGasPrice:             useReasonableGasPrice,
+		UnusedGasPenaltyPercent:           unusedGasPenaltyPercent,
+		StalenessSeconds:                  stalenessSeconds,
+		RedeemableRequestGasOverhead:      redeemableRequestGasOverhead,
+		CallbackRequestGasOverhead:        callbackRequestGasOverhead,
+		PremiumPercentage:                 premiumPercentage,
+		ReasonableGasPriceStalenessBlocks: reasonableGasPriceStalenessBlocks,
+		FallbackWeiPerUnitLink:            fallbackWeiPerUnitLink,
+	})
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func eoaFundSubscription(e helpers.Environment, coordinatorAddress, linkAddress string, amount, subID *big.Int) {
 	linkToken, err := link_token_interface.NewLinkToken(common.HexToAddress(linkAddress), e.Ec)
 	helpers.PanicErr(err)
 	bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 	helpers.PanicErr(err)
 	fmt.Println("Initial account balance:", bal, e.Owner.From.String(), "Funding amount:", amount.String())
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
+	b, err := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
 	helpers.PanicErr(err)
 	tx, err := linkToken.TransferAndCall(e.Owner, common.HexToAddress(coordinatorAddress), amount, b)
 	helpers.PanicErr(err)
@@ -322,23 +381,23 @@ func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, con
 	return o
 }
 
-func requestRandomness(e helpers.Environment, coordinatorAddress string, numWords uint16, subID uint64, confDelay *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+func requestRandomness(e helpers.Environment, routerAddress string, numWords uint16, subID, confDelay *big.Int) {
+	router := newVRFRouter(common.HexToAddress(routerAddress), e.Ec)
 
-	tx, err := coordinator.RequestRandomness(e.Owner, numWords, subID, confDelay)
+	tx, err := router.RequestRandomness(e.Owner, confDelay, numWords, confDelay, nil)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+func redeemRandomness(e helpers.Environment, routerAddress string, requestID, subID *big.Int) {
+	router := newVRFRouter(common.HexToAddress(routerAddress), e.Ec)
 
-	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
+	tx, err := router.RedeemRandomness(e.Owner, subID, requestID, nil)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string, numWords uint16, subID uint64, confDelay *big.Int) *big.Int {
+func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string, numWords uint16, subID, confDelay *big.Int) *big.Int {
 	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
 
 	tx, err := consumer.TestRequestRandomness(e.Owner, numWords, subID, confDelay)
@@ -378,8 +437,7 @@ func requestRandomnessCallback(
 	e helpers.Environment,
 	consumerAddress string,
 	numWords uint16,
-	subID uint64,
-	confDelay *big.Int,
+	subID, confDelay *big.Int,
 	callbackGasLimit uint32,
 	args []byte,
 ) (requestID *big.Int) {
@@ -405,10 +463,10 @@ func requestRandomnessCallback(
 	return requestID
 }
 
-func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int, numWords int64) {
+func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, subID, requestID *big.Int, numWords int64) {
 	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
 
-	tx, err := consumer.TestRedeemRandomness(e.Owner, requestID)
+	tx, err := consumer.TestRedeemRandomness(e.Owner, subID, requestID)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 
@@ -427,6 +485,12 @@ func newVRFCoordinator(addr common.Address, client *ethclient.Client) *vrf_coord
 	coordinator, err := vrf_coordinator.NewVRFCoordinator(addr, client)
 	helpers.PanicErr(err)
 	return coordinator
+}
+
+func newVRFRouter(addr common.Address, client *ethclient.Client) *vrf_router.VRFRouter {
+	router, err := vrf_router.NewVRFRouter(addr, client)
+	helpers.PanicErr(err)
+	return router
 }
 
 func newDKG(addr common.Address, client *ethclient.Client) *dkgContract.DKG {
@@ -504,8 +568,7 @@ func requestRandomnessCallbackBatch(
 	e helpers.Environment,
 	consumerAddress string,
 	numWords uint16,
-	subID uint64,
-	confDelay *big.Int,
+	subID, confDelay *big.Int,
 	callbackGasLimit uint32,
 	args []byte,
 	batchSize *big.Int,

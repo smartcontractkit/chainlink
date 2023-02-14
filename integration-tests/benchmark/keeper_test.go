@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -12,16 +13,74 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	eth_contracts "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	performanceChainlinkResources = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "4Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "4Gi",
+			},
+		},
+	}
+	performanceDbResources = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+		},
+		"stateful": true,
+		"capacity": "20Gi",
+	}
+
+	soakChainlinkResources = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "350m",
+				"memory": "1Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "350m",
+				"memory": "1Gi",
+			},
+		},
+	}
+	soakDbResources = map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "250m",
+				"memory": "256Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "250m",
+				"memory": "256Mi",
+			},
+		},
+		"stateful": true,
+		"capacity": "20Gi",
+	}
 )
 
 var (
@@ -31,11 +90,11 @@ var (
 	upkeepResetterContractEmpty  = ""
 	upkeepResetterContractGoerli = "0xaeA9bD8f60C9EB1771900B9338dE8Ab52584E80e"
 	upkeepResetterContractMumbai = "0x4Ef8599a41fd7b6788527E4a243d0Cf61b84f300"
-	simulatedBLockTime           = time.Second
-	goerliTag                    = strings.ReplaceAll(strings.ToLower(networks.GoerliTestnet.Name), " ", "-")
-	arbitrumTag                  = strings.ReplaceAll(strings.ToLower(networks.ArbitrumGoerli.Name), " ", "-")
-	optimismTag                  = strings.ReplaceAll(strings.ToLower(networks.OptimismGoerli.Name), " ", "-")
-	mumbaiTag                    = strings.ReplaceAll(strings.ToLower(networks.PolygonMumbai.Name), " ", "-")
+	// simulatedBLockTime           = time.Second
+	// goerliTag                    = strings.ReplaceAll(strings.ToLower(networks.GoerliTestnet.Name), " ", "-")
+	// arbitrumTag                  = strings.ReplaceAll(strings.ToLower(networks.ArbitrumGoerli.Name), " ", "-")
+	// optimismTag                  = strings.ReplaceAll(strings.ToLower(networks.OptimismGoerli.Name), " ", "-")
+	// mumbaiTag                    = strings.ReplaceAll(strings.ToLower(networks.PolygonMumbai.Name), " ", "-")
 
 	NumberOfContracts, _    = strconv.Atoi(getEnv("NUMBEROFCONTRACTS", "500"))
 	CheckGasToBurn, _       = strconv.ParseInt(getEnv("CHECKGASTOBURN", "100000"), 0, 64)
@@ -55,25 +114,16 @@ type BenchmarkTestEntry struct {
 	blockTime             time.Duration
 }
 
-func keeperBenchmark(t *testing.T, benchmarkTestEntry *BenchmarkTestEntry) {
-	benchmarkNetwork := blockchain.LoadNetworkFromEnvironment()
-	testEnvironment := environment.New(&environment.Config{InsideK8s: true})
-	testEnvironment.
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: benchmarkNetwork.Name,
-			Simulated:   benchmarkNetwork.Simulated,
-			WsURLs:      benchmarkNetwork.URLs,
-		}))
-	for _, version := range benchmarkTestEntry.registryVersions {
-		if version == eth_contracts.RegistryVersion_2_0 {
-			NumberOfNodes++
-		}
+func TestAutomationBenchmark(t *testing.T) {
+	testEnvironment, benchmarkNetwork, registryToTest := SetupAutomationBenchmarkEnv(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
 	}
-	for i := 0; i < NumberOfNodes; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, nil))
-	}
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error deploying test environment")
+	networkTestName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
+	testName := fmt.Sprintf("%s%s", networkTestName, registryToTest)
+	log.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
+	benchmarkTestEntry := tests[testName]
+
 	log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
 	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
@@ -118,147 +168,111 @@ func keeperBenchmark(t *testing.T, benchmarkTestEntry *BenchmarkTestEntry) {
 	keeperBenchmarkTest.Run(t)
 }
 
-func TestKeeperBenchmarkSimulatedGethRegistry_1_3(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+var tests = map[string]*BenchmarkTestEntry{
+	"SimulatedGethRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(100_000),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkGoerliTestnetRegistry_1_3(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"GoerliTestnetRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(4),
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		12 * time.Second,
-	})
-}
-
-func TestKeeperBenchmarkArbitrumGoerliRegistry_1_3(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"ArbitrumGoerliRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(0.5),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkOptimismGoerliRegistry_1_3(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"OptimismGoerliRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkSimulatedGethMulti_Registry(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"SimulatedGethMulti_Registry": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(100000),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkGoerliTestnetMulti_Registry(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"GoerliTestnetMulti_Registry": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(4),
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkSimulatedGethRegistry_1_2(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"SimulatedGethRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 		big.NewFloat(100000),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkGoerliTestnetRegistry_1_2(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"GoerliTestnetRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(4),
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		12 * time.Second,
-	})
-}
-
-func TestKeeperBenchmarkSimulatedGethRegistry_2_0(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"SimulatedGethRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(100000),
 		int64(4),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		12 * time.Second,
-	})
-}
-
-func TestKeeperBenchmarkGoerliTestnetRegistry_2_0(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"GoerliTestnetRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(4),
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		12 * time.Second,
-	})
-}
-
-func TestKeeperBenchmarkOptimismGoerliRegistry_2_0(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"OptimismGoerliRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkArbitrumGoerliRegistry_2_0(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"ArbitrumGoerliRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(0.5),
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
-	})
-}
-
-func TestKeeperBenchmarkPolygonMumbaiRegistry_2_0(t *testing.T) {
-	keeperBenchmark(t, &BenchmarkTestEntry{
+	},
+	"PolygonMumbaiRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(10),
 		predeployedConsumersMumbai,
 		upkeepResetterContractMumbai,
 		5 * time.Second,
-	})
+	},
 }
 
 func getEnv(key, fallback string) string {
@@ -271,4 +285,100 @@ func getEnv(key, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, string) {
+	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
+	var numberOfNodes, _ = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
+	blockTime := "1"
+
+	baseTOML := `[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
+
+	networkDetailTOML := `MinIncomingConfirmations = 1`
+
+	if registryToTest == "Registry_2_0" {
+		numberOfNodes += 1
+		blockTime = "12"
+	}
+
+	testType := strings.ToLower(getEnv("TEST_TYPE", "benchmark"))
+	testEnvironment := environment.New(&environment.Config{
+		TTL: time.Hour * 720, // 30 days,
+		NamespacePrefix: fmt.Sprintf(
+			"automation-%s-%s-%s",
+			testType,
+			strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+			strings.ReplaceAll(strings.ToLower(registryToTest), "_", "-"),
+		),
+		Test: t,
+	})
+	// propagate TEST_INPUTS to remote runner
+	if testEnvironment.WillUseRemoteRunner() {
+		key := "TEST_INPUTS"
+		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
+		key = "GRAFANA_DASHBOARD_URL"
+		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
+		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
+	}
+
+	dbResources := performanceDbResources
+	chainlinkResources := performanceChainlinkResources
+	if testType == "soak" {
+		chainlinkResources = soakChainlinkResources
+		dbResources = soakDbResources
+	}
+
+	for i := 0; i < numberOfNodes; i++ {
+		testEnvironment.
+			AddHelm(chainlink.New(i, map[string]interface{}{
+				"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
+				"chainlink": chainlinkResources,
+				"db":        dbResources,
+			}))
+	}
+
+	if activeEVMNetwork.Simulated {
+		testEnvironment.
+			AddChart(blockscout.New(&blockscout.Props{
+				Name:    "geth-blockscout",
+				WsURL:   activeEVMNetwork.URL,
+				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+	}
+
+	err := testEnvironment.
+		AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: activeEVMNetwork.Name,
+			Simulated:   activeEVMNetwork.Simulated,
+			WsURLs:      activeEVMNetwork.URLs,
+			Values: map[string]interface{}{
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "4000m",
+						"memory": "4Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "4000m",
+						"memory": "4Gi",
+					},
+				},
+				"geth": map[string]interface{}{
+					"blocktime": blockTime,
+				},
+			},
+		})).
+		Run()
+	require.NoError(t, err, "Error launching test environment")
+	return testEnvironment, activeEVMNetwork, registryToTest
 }

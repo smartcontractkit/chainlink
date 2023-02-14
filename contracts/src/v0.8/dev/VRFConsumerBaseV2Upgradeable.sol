@@ -96,14 +96,14 @@ pragma solidity ^0.8.4;
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
 
 /**
  * @dev The VRFConsumerBaseV2Upgradable is an upgradable variant of VRFConsumerBaseV2
  * @dev (see https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable).
  * @dev It's semantics are identical to VRFConsumerBaseV2 and can be inherited from
  * @dev to create an upgradeable VRF consumer contract.
-*/
+ */
 abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
   error OnlyCoordinatorCanFulfill(address have, address want);
   address private vrfCoordinator;

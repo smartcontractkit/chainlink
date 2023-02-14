@@ -37,7 +37,7 @@ var (
 	ActiveUpkeepIDBatchSize    int64 = 1000
 	FetchUpkeepConfigBatchSize int   = 10
 	separator                        = "|"
-	reInitializationDelay            = 5 * time.Minute
+	reInitializationDelay            = 15 * time.Minute
 	logEventLookback           int64 = 250
 )
 
@@ -58,8 +58,9 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
-			ht: client.HeadTracker(),
-			hb: client.HeadBroadcaster(),
+			ht:     client.HeadTracker(),
+			hb:     client.HeadBroadcaster(),
+			chHead: make(chan types.BlockKey, 1),
 		},
 		lggr:     lggr,
 		poller:   client.LogPoller(),
@@ -279,7 +280,7 @@ func (r *EvmRegistry) Healthy() error {
 }
 
 func (r *EvmRegistry) initialize() error {
-	startupCtx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
+	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
 
 	idMap := make(map[string]activeUpkeep)

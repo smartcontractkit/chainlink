@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./FunctionsClient.sol";
-import "./Functions.sol";
-import "../../ConfirmedOwner.sol";
+import {FunctionsClient} from "./FunctionsClient.sol";
+import {Functions} from "./Functions.sol";
+import {ConfirmedOwner} from "../../ConfirmedOwner.sol";
 
 /**
  * @title Chainlink Functions example client contract implementation

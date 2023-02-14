@@ -3,13 +3,13 @@ package client
 import (
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -96,7 +96,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				resp.Result = "true"
 				return
 			case "web3_clientVersion":
-				defer calls.Inc()
+				defer calls.Add(1)
 				// It starts working right before it hits threshold
 				if int(calls.Load())+1 >= threshold {
 					resp.Result = `"test client version"`
@@ -152,7 +152,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				resp.Result = "true"
 				return
 			case "web3_clientVersion":
-				defer calls.Inc()
+				defer calls.Add(1)
 				resp.Error.Message = "this will error"
 				return
 			default:
@@ -340,7 +340,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				case "web3_clientVersion":
 					resp.Result = `"test client version 2"`
 					// always tick each poll, but only signal back up to stall
-					if n := highestHead.Inc(); n <= stall {
+					if n := highestHead.Add(1); n <= stall {
 						resp.Notify = makeHeadResult(int(n))
 					}
 					return
@@ -402,7 +402,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				case "web3_clientVersion":
 					resp.Result = `"test client version 2"`
 					// always tick each poll, but only signal back up to stall
-					if n := highestHead.Inc(); n <= stall {
+					if n := highestHead.Add(1); n <= stall {
 						resp.Notify = makeHeadResult(int(n))
 					}
 					return
@@ -461,7 +461,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				case "web3_clientVersion":
 					resp.Result = `"test client version 2"`
 					// always tick each poll, but only signal back up to stall
-					if n := highestHead.Inc(); n <= stall {
+					if n := highestHead.Add(1); n <= stall {
 						resp.Notify = makeHeadResult(int(n))
 					}
 					return

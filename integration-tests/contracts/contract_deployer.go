@@ -64,9 +64,10 @@ type ContractDeployer interface {
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployDKG() (DKG, error)
-	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string, linkEthFeedAddr string) (VRFCoordinatorV3, error)
+	DeployVRFRouter() (VRFRouter, error)
+	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string, linkEthFeedAddr string, routerAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
-	DeployVRFBeaconConsumer(vrfCoordinatorV3Address string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
+	DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployUpkeepResetter() (UpkeepResetter, error)
@@ -526,7 +527,17 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
-	paymentModel := uint8(0)
+	var paymentModel uint8
+	switch e.client.GetChainID() {
+	//Arbitrum payment model
+	case big.NewInt(421613):
+		paymentModel = uint8(1)
+	//Optimism payment model
+	case big.NewInt(420):
+		paymentModel = uint8(2)
+	default:
+		paymentModel = uint8(0)
+	}
 	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
