@@ -117,10 +117,6 @@ type BenchmarkTestEntry struct {
 func TestAutomationBenchmark(t *testing.T) {
 	testEnvironment, benchmarkNetwork, registryToTest := SetupAutomationBenchmarkEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
-		// propagate TEST_INPUTS to remote runner
-		key := "TEST_INPUTS"
-		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		require.NoError(t, err, "failed to set the environment variable for remote runner")
 		return
 	}
 	networkTestName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
@@ -327,6 +323,16 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		),
 		Test: t,
 	})
+	// propagate TEST_INPUTS to remote runner
+	if testEnvironment.WillUseRemoteRunner() {
+		key := "TEST_INPUTS"
+		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
+		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
+		key = "GRAFANA_DASHBOARD_URL"
+		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
+		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
+	}
+
 	dbResources := performanceDbResources
 	chainlinkResources := performanceChainlinkResources
 	if testType == "soak" {

@@ -38,7 +38,7 @@ before(async () => {
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
+    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 
@@ -65,6 +65,7 @@ describe('FunctionsOracle', () => {
   let transmitters: string[]
 
   beforeEach(async () => {
+    // Deploy contracts
     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     mockLinkEth = await mockAggregatorV3Factory.deploy(
       0,
@@ -74,6 +75,8 @@ describe('FunctionsOracle', () => {
     registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
+
+    // Setup contracts
     await oracle.setRegistry(registry.address)
     await oracle.deactivateAuthorizedReceiver()
     client = await clientTestHelperFactory
@@ -95,6 +98,7 @@ describe('FunctionsOracle', () => {
       300, // requestTimeoutSeconds
     )
 
+    // Setup accounts
     const createSubTx = await registry
       .connect(roles.defaultAccount)
       .createSubscription()

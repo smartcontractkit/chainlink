@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-...
+### Changed
+- Change Functions Client variables to internal for use when integrating Automation (#8429)
+- Make Functions Billing Registry and Functions Oracle upgradable using the transparent proxy pattern (#8371)
+
 
 ## 0.6.1 - 2023-02-06
 
@@ -17,7 +20,6 @@
 - Make Functions billing registry's timeoutRequest pausable (#8299)
 - Remove user specified gas price from Functions Oracle sendRequest
   (#8320)
-
 ## 0.6.0 - 2023-01-11
 
 ### Added
