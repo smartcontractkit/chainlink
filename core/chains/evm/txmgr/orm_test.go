@@ -311,3 +311,52 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
 	})
 }
+
+func TestORM_UpdateBroadcastAts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	orm := cltest.NewTxmORM(t, db, cfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+
+	t.Run("does not update when broadcast_at is NULL", func(t *testing.T) {
+		t.Parallel()
+
+		etx := cltest.NewEthTx(t, fromAddress)
+		err := orm.InsertEthTx(&etx)
+		require.NoError(t, err)
+
+		var nullTime *time.Time
+		assert.Equal(t, nullTime, etx.BroadcastAt)
+
+		currTime := time.Now()
+		err = orm.UpdateBroadcastAts(currTime, []int64{etx.ID})
+		require.NoError(t, err)
+		etx, err = orm.FindEthTxWithAttempts(etx.ID)
+
+		require.NoError(t, err)
+		assert.Equal(t, nullTime, etx.BroadcastAt)
+	})
+
+	t.Run("updates when broadcast_at is non-NULL", func(t *testing.T) {
+		t.Parallel()
+
+		time1 := time.Now()
+		etx := cltest.NewEthTx(t, fromAddress)
+		etx.Nonce = new(int64)
+		etx.State = txmgr.EthTxUnconfirmed
+		etx.BroadcastAt = &time1
+		etx.InitialBroadcastAt = &time1
+		err := orm.InsertEthTx(&etx)
+		require.NoError(t, err)
+
+		time2 := time.Now()
+		err = orm.UpdateBroadcastAts(time2, []int64{etx.ID})
+		require.NoError(t, err)
+		etx, err = orm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.WithinDuration(t, time2, *etx.BroadcastAt, 0)
+	})
+}

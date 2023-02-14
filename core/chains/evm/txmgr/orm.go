@@ -29,6 +29,7 @@ type ORM interface {
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 }
 
 type orm struct {
@@ -318,4 +319,16 @@ LIMIT $4
 `, olderThan, chainID.String(), address, limit)
 
 	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
+}
+
+func (o *orm) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
+	// Deliberately do nothing on NULL broadcast_at because that indicates the
+	// tx has been moved into a state where broadcast_at is not relevant, e.g.
+	// fatally errored.
+	//
+	// Since EthConfirmer/EthResender can race (totally OK since highest
+	// priced transaction always wins) we only want to update broadcast_at if
+	// our version is later.
+	_, err := o.q.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
+	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
 }

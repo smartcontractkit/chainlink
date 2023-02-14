@@ -59,7 +59,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEthResender(lggr, db, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+	er := txmgr.NewEthResender(lggr, &borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 	t.Run("sends up to EvmMaxInFlightTransactions per key", func(t *testing.T) {
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -112,7 +112,7 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEthResender(lggr, db, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+		er := txmgr.NewEthResender(lggr, &borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, originalBroadcastAt)

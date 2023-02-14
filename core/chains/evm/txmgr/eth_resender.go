@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
@@ -29,8 +28,7 @@ const defaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender struct {
-	db        *sqlx.DB
-	o         ORM
+	orm       *ORM
 	ethClient evmclient.Client
 	ks        KeyStore
 	chainID   big.Int
@@ -44,14 +42,13 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, orm *ORM, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EthResender{
-		db,
-		NewORM(db, lggr, config),
+		orm,
 		ethClient,
 		ks,
 		*ethClient.ChainID(),
@@ -108,7 +105,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	var allAttempts []EthTxAttempt
 	for _, k := range keys {
 		var attempts []EthTxAttempt
-		attempts, err = er.o.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
+		attempts, err = (*er.orm).FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
@@ -124,7 +121,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
-	reqs, err := batchSendTransactions(ctx, er.db, allAttempts, batchSize, er.logger, er.ethClient)
+	reqs, err := batchSendTransactions(ctx, er.orm, allAttempts, batchSize, er.logger, er.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}
