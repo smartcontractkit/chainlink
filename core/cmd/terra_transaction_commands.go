@@ -14,6 +14,30 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initTerraTxSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "terra",
+		Usage: "Commands for handling Terra transactions",
+		Subcommands: []cli.Command{
+			{
+				Name:   "create",
+				Usage:  "Send <amount> Luna from node Terra account <fromAddress> to destination <toAddress>.",
+				Action: client.TerraSendLuna,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "force",
+						Usage: "allows to send a higher amount than the account's balance",
+					},
+					cli.StringFlag{
+						Name:  "id",
+						Usage: "chain ID",
+					},
+				},
+			},
+		},
+	}
+}
+
 type TerraMsgPresenter struct {
 	JAID
 	presenters.TerraMsgResource
