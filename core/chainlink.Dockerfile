@@ -18,6 +18,9 @@ COPY operator_ui operator_ui
 
 # Build the golang binary
 RUN make chainlink-build
+#TODO remove
+RUN make chainlink-solana-install
+RUN make chainlink-median-install
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
@@ -33,6 +36,11 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get clean all
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
+#TODO remove
+COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
+ENV CL_SOLANA chainlink-solana
+COPY --from=buildgo /go/bin/chainlink-median /usr/local/bin/
+ENV CL_MEDIAN chainlink-median
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/

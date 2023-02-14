@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"go.uber.org/multierr"
@@ -63,7 +64,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
 	}
 }
 
-func (cs StarknetConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error) {
+func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -80,11 +81,11 @@ func (cs StarknetConfigs) Chains(ids ...string) (r []chains.ChainConfig, err err
 				continue
 			}
 		}
-		ch2 := chains.ChainConfig{
+		ch2 := types.ChainStatus{
 			ID:      *ch.ChainID,
 			Enabled: ch.IsEnabled(),
 		}
-		ch2.Cfg, err = ch.TOMLString()
+		ch2.Config, err = ch.TOMLString()
 		if err != nil {
 			return
 		}
@@ -129,7 +130,7 @@ func (cs StarknetConfigs) Nodes(chainID string) (ns []db.Node, err error) {
 	return
 }
 
-func (cs StarknetConfigs) NodeStatus(name string) (n chains.NodeStatus, err error) {
+func (cs StarknetConfigs) NodeStatus(name string) (n types.NodeStatus, err error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
@@ -141,7 +142,7 @@ func (cs StarknetConfigs) NodeStatus(name string) (n chains.NodeStatus, err erro
 	return
 }
 
-func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
@@ -172,13 +173,13 @@ func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStat
 	return
 }
 
-func nodeStatus(n *stkcfg.Node, chainID string) (chains.NodeStatus, error) {
-	var s chains.NodeStatus
+func nodeStatus(n *stkcfg.Node, chainID string) (types.NodeStatus, error) {
+	var s types.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
-		return chains.NodeStatus{}, err
+		return types.NodeStatus{}, err
 	}
 	s.Config = string(b)
 	return s, nil

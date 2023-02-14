@@ -10,13 +10,14 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -69,19 +70,13 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 		return nil, err
 	}
 
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	cs, _, err := r.App.EVMORM().Chains(0, -1, id)
+	cs, _, err := r.App.EVMORM().Chains(0, -1, string(args.ID))
 	if err != nil {
 		return nil, err
 	}
 	l := len(cs)
 	if l == 0 {
-		return NewChainPayload(chains.ChainConfig{}, chains.ErrNotFound), nil
+		return NewChainPayload(types.ChainStatus{}, chains.ErrNotFound), nil
 	}
 	if l > 1 {
 		return nil, fmt.Errorf("multiple chains found: %d", len(cs))

@@ -252,6 +252,20 @@ func (_m *Chain) Ready() error {
 	return r0
 }
 
+// SendTx provides a mock function with given fields: ctx, from, to, amount, balanceCheck
+func (_m *Chain) SendTx(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
+	ret := _m.Called(ctx, from, to, amount, balanceCheck)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *big.Int, bool) error); ok {
+		r0 = rf(ctx, from, to, amount, balanceCheck)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *Chain) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)

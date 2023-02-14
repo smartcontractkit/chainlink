@@ -30,11 +30,11 @@ services:
 
   node-2:
     container_name: chainlink-node-2
-    image: smartcontract/chainlink
+    image: smartcontract/chainlink-plugin
     build:
       context: ../../
-      dockerfile: core/chainlink.Dockerfile
-    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+      dockerfile: core/plugin.Dockerfile
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -c /run/secrets/plugin -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
       - CL_DEV
@@ -48,6 +48,7 @@ services:
       - apicredentials
       - keystore
       - config
+      - plugin
       - secrets
 
   explorer-db:
@@ -74,6 +75,8 @@ secrets:
     file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
   config:
     file: config.toml
+  plugin:
+    file: plugin.toml
   secrets:
     file: dev-secrets.toml
 

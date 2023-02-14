@@ -8,10 +8,10 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/shopspring/decimal"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -31,16 +31,16 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 		name           string
 		inputId        string
 		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig
+		want           func(t *testing.T, app *cltest.TestApplication) *types.ChainStatus
 	}{
 		{
 			inputId: validId,
 			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig {
-				return &chains.ChainConfig{
+			want: func(t *testing.T, app *cltest.TestApplication) *types.ChainStatus {
+				return &types.ChainStatus{
 					ID:      validId,
 					Enabled: true,
-					Cfg: `ChainID = 'Chainlink-12'
+					Config: `ChainID = 'Chainlink-12'
 Enabled = true
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
@@ -61,7 +61,7 @@ Nodes = []
 		{
 			inputId: "234",
 			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig {
+			want: func(t *testing.T, app *cltest.TestApplication) *types.ChainStatus {
 				return nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -95,7 +95,7 @@ Nodes = []
 				require.NoError(t, err)
 
 				assert.Equal(t, wantedResult.ID, resource1.ID)
-				assert.Equal(t, wantedResult.Cfg, resource1.Config)
+				assert.Equal(t, wantedResult.Config, resource1.Config)
 			}
 		})
 	}

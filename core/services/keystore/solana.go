@@ -23,6 +23,29 @@ type Solana interface {
 	Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error)
 }
 
+type SolanaSigner struct {
+	Solana
+}
+
+func (s *SolanaSigner) Keys(ctx context.Context) (accounts []string, err error) {
+	ks, err := s.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range ks {
+		accounts = append(accounts, k.PublicKeyStr())
+	}
+	return
+}
+
+func (s *SolanaSigner) Sign(_ context.Context, id string, msg []byte) ([]byte, error) {
+	k, err := s.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	return k.Sign(msg)
+}
+
 type solana struct {
 	*keyManager
 }
@@ -151,10 +174,6 @@ func (ks *solana) Sign(_ context.Context, id string, msg []byte) (signature []by
 	}
 	return k.Sign(msg)
 }
-
-var (
-	ErrNoSolanaKey = errors.New("no solana keys exist")
-)
 
 func (ks *solana) getByID(id string) (solkey.Key, error) {
 	key, found := ks.keyRing.Solana[id]

@@ -19,18 +19,15 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -100,6 +97,8 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
+	// Blockchain Plugins POC - TBD - GetChainPluginManagerService
+
 	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
 	// set to true, consumers will reprocess data even if it has already been processed.
 	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
@@ -140,6 +139,7 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
+	// Blockchain Plugins POC - TBD - ChainPluginManagerService chainPluginManager.Service
 
 	started     bool
 	startStopMu sync.Mutex
@@ -164,10 +164,11 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet   // nil if disabled
-	Solana   solana.ChainSet   // nil if disabled
-	StarkNet starknet.ChainSet // nil if disabled
+	EVM           evm.ChainSet
+	Cosmos        cosmos.ChainSet              // nil if disabled
+	SolanaService services.ServiceCtx          // nil if disabled
+	SolanaRelayer func() (loop.Relayer, error) // nil if disabled
+	StarkNet      starkchain.ChainSet          // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -177,8 +178,8 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
-	if c.Solana != nil {
-		s = append(s, c.Solana)
+	if c.SolanaService != nil {
+		s = append(s, c.SolanaService)
 	}
 	if c.StarkNet != nil {
 		s = append(s, c.StarkNet)
@@ -385,25 +386,29 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]relaytypes.Relayer)
+		relayers := make(map[relay.Network]func() (loop.Relayer, error))
 		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
-			relayers[relay.EVM] = evmRelayer
+			lggr := globalLogger.Named("EVM")
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
+			relayer := relay.NewLOOPRelayer(evmRelayer, chains.EVM, lggr)
+			relayers[relay.EVM] = func() (loop.Relayer, error) { return relayer, nil }
 			srvcs = append(srvcs, evmRelayer)
 		}
 		if cfg.CosmosEnabled() {
-			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
-			relayers[relay.Cosmos] = cosmosRelayer
+			lggr := globalLogger.Named("Cosmos.Relayer")
+			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
+			relayer := relay.NewLOOPRelayer(cosmosRelayer, chains.Cosmos, lggr)
+			relayers[relay.Cosmos] = func() (loop.Relayer, error) { return relayer, nil }
 			srvcs = append(srvcs, cosmosRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
-			relayers[relay.Solana] = solanaRelayer
-			srvcs = append(srvcs, solanaRelayer)
+			relayers[relay.Solana] = chains.SolanaRelayer
 		}
 		if cfg.StarkNetEnabled() {
-			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
-			relayers[relay.StarkNet] = starknetRelayer
+			lggr := globalLogger.Named("StarkNet.Relayer")
+			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
+			relayer := relay.NewLOOPRelayer(starknetRelayer, chains.StarkNet, lggr)
+			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return relayer, nil }
 			srvcs = append(srvcs, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
@@ -536,6 +541,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		panic("application is already started")
 	}
 
+	// Blockchain Plugins POC - TBD - if we have a plugin manager service, start it first
+
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
 			app.logger.Errorf("[Feeds Service] Failed to start %v", err)
@@ -615,6 +622,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 			app.logger.Debug("Closing Feeds Service...")
 			err = multierr.Append(err, app.FeedsService.Close())
 		}
+
+		// Blockchain Plugins POC - TBD - if we have a plugin manager service, stop it now
 
 		if app.Nurse != nil {
 			err = multierr.Append(err, app.Nurse.Close())
@@ -789,6 +798,13 @@ func (app *ChainlinkApplication) ResumeJobV2(
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
+
+// Blockchain Plugins POC - TBD
+/*
+func (app *ChainlinkApplication) GetChainPluginManagerService() pluginManager.Service {
+	return app.PluginManagerService
+}
+*/
 
 // ReplayFromBlock implements the Application interface.
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
