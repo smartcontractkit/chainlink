@@ -155,6 +155,20 @@ func (_m *MockLogger) Infow(msg string, keysAndValues ...interface{}) {
 	_m.Called(_ca...)
 }
 
+// Name provides a mock function with given fields:
+func (_m *MockLogger) Name() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // Named provides a mock function with given fields: name
 func (_m *MockLogger) Named(name string) Logger {
 	ret := _m.Called(name)

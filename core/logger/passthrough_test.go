@@ -106,6 +106,7 @@ func setupMockLogger(t *testing.T) *MockLogger {
 	ml.On("Fatalw", "msg", mock.Anything, mock.Anything).Once()
 
 	ml.On("Sync").Return(errTest).Once()
+	ml.On("Name").Return("mockLogger").Once()
 	ml.On("Recover", errTest).Once()
 
 	return ml
