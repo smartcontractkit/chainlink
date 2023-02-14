@@ -192,18 +192,6 @@ func (h *HashArray) Scan(src interface{}) error {
 	return err
 }
 
-func (a *AddressArray) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	baArray := pgtype.ByteaArray{}
-	err := baArray.DecodeBinary(ci, src)
-
-	if err != nil {
-		return errors.New("Expected BYTEA[] column for AddressArray")
-	}
-	a = &AddressArray{}
-	err = baArray.AssignTo(a)
-	return err
-}
-
 // CompareTo returns true if this filter contains any events or addresses not already
 // included in existing filter.
 func (filter *Filter) CompareTo(existing *Filter) bool {
@@ -217,12 +205,12 @@ func (filter *Filter) CompareTo(existing *Filter) bool {
 	}
 
 	for _, addr := range filter.Addresses {
-		if _, ok := addresses[addr]; ok {
+		if _, ok := addresses[addr]; !ok {
 			return false
 		}
 	}
 	for _, ev := range filter.EventSigs {
-		if _, ok := events[ev]; ok {
+		if _, ok := events[ev]; !ok {
 			return false
 		}
 	}
@@ -333,6 +321,7 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
 		// then as jobs are added dynamically start using their filters.
 		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
+		eventSigs = []common.Hash{}
 	}
 	lp.cachedAddresses = addresses
 	lp.cachedEventSigs = eventSigs
@@ -381,12 +370,14 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		lp.ctx = ctx
 		lp.cancel = cancel
 		filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
+		lp.filterDirty = true
 		if err != nil {
 			// Most likely, we will get them anyway once RegisterFilter() is called, but
 			//  this could result in some missed logs in some circumstances.  Log an
 			//  error and hope it gets noticed, but keep going.
 			lp.lggr.Errorf("Failed to load filters while initializing logpoller")
 		}
+
 		lp.filters = filters
 		go lp.run()
 		return nil

@@ -3,6 +3,7 @@ package logpoller
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -418,6 +419,21 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 }
 
+// Validate that filters stored in log_filters_table match the filters stored in memory
+func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
+	filters, err := orm.LoadFilters()
+	require.NoError(t, err)
+	require.Equal(t, len(filters), len(lp.filters))
+	for name, dbFilter := range filters {
+		memFilter, ok := lp.filters[name]
+		require.True(t, ok)
+		assert.True(t, dbFilter.CompareTo(&memFilter),
+			fmt.Sprintf("in-memory filter %s is missing some addresses or events from db filter table", name))
+		assert.True(t, memFilter.CompareTo(&dbFilter),
+			fmt.Sprintf("db filter table %s is missing some addresses or events from in-memory filter", name))
+	}
+}
+
 func TestLogPoller_RegisterFilter(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
@@ -434,22 +450,25 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.Equal(t, 1, len(f.Addresses))
 	assert.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), f.Addresses[0])
 
-	err := lp.RegisterFilter(Filter{"Emitter Log1", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}})
+	err := lp.RegisterFilter(Filter{"Emitter Log 1", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter().Topics)
+	validateFiltersTable(t, lp, orm)
 
 	// Should de-dupe EventSigs
-	err = lp.RegisterFilter(Filter{"Emitter Log1 + 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	err = lp.RegisterFilter(Filter{"Emitter Log 1 + 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
+	validateFiltersTable(t, lp, orm)
 
 	// Should de-dupe Addresses
 	err = lp.RegisterFilter(Filter{"Emitter Log 1 + 2 dupe", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
+	validateFiltersTable(t, lp, orm)
 
 	// Address required.
 	err = lp.RegisterFilter(Filter{"no address", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{}})
@@ -457,10 +476,80 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	// Event required
 	err = lp.RegisterFilter(Filter{"No event", []common.Hash{}, []common.Address{a1}})
 	require.Error(t, err)
+	validateFiltersTable(t, lp, orm)
 
 	// Removing non-existence filter should error.
 	err = lp.UnregisterFilter("filter doesn't exist")
 	require.Error(t, err)
+
+	// Check that all filters are still there
+	_, ok := lp.filters["Emitter Log 1"]
+	require.True(t, ok, "'Emitter Log 1 filter' missing")
+	_, ok = lp.filters["Emitter Log 1 + 2"]
+	require.True(t, ok, "'Emitter Log 1 + 2' filter missing")
+	_, ok = lp.filters["Emitter Log 1 + 2 dupe"]
+	require.True(t, ok, "'Emitter Log 1 + 2 dupe' filter missing")
+
+	// Removing an existing filter should remove it from both memory and db
+	err = lp.UnregisterFilter("Emitter Log 1 + 2")
+	require.NoError(t, err)
+	_, ok = lp.filters["Emitter Log 1 + 2"]
+	require.False(t, ok, "'Emitter Log 1 filter' should have been removed by UnregisterFilter()")
+	require.Len(t, lp.filters, 2)
+	validateFiltersTable(t, lp, orm)
+
+	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe")
+	require.NoError(t, err)
+	err = lp.UnregisterFilter("Emitter Log 1")
+	require.NoError(t, err)
+	assert.Len(t, lp.filters, 0)
+	filters, err := lp.orm.LoadFilters()
+	require.NoError(t, err)
+	assert.Len(t, filters, 0)
+
+	// Make sure cache was invalidated
+	assert.Len(t, lp.Filter().Addresses, 1)
+	assert.Equal(t, lp.Filter().Addresses[0], common.HexToAddress("0x0000000000000000000000000000000000000000"))
+	assert.Len(t, lp.Filter().Topics, 1)
+	assert.Len(t, lp.Filter().Topics[0], 0)
+}
+
+func TestLogPoller_LoadFilters(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+
+	filter1 := Filter{"first filter", []common.Hash{
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
+	filter2 := Filter{"second filter", []common.Hash{
+		EmitterABI.Events["Log2"].ID, EmitterABI.Events["Log3"].ID}, []common.Address{th.EmitterAddress2}}
+	filter3 := Filter{"third filter", []common.Hash{
+		EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
+
+	err := th.LogPoller.RegisterFilter(filter1)
+	require.NoError(t, err)
+	err = th.LogPoller.RegisterFilter(filter2)
+	require.NoError(t, err)
+	err = th.LogPoller.RegisterFilter(filter3)
+	require.NoError(t, err)
+
+	filters, err := th.ORM.LoadFilters()
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+	require.Len(t, filters, 3)
+
+	filter, ok := filters["first filter"]
+	require.True(t, ok)
+	assert.True(t, filter.CompareTo(&filter1))
+	assert.True(t, filter1.CompareTo(&filter))
+
+	filter, ok = filters["second filter"]
+	require.True(t, ok)
+	assert.True(t, filter.CompareTo(&filter2))
+	assert.True(t, filter2.CompareTo(&filter))
+
+	filter, ok = filters["third filter"]
+	require.True(t, ok)
+	assert.True(t, filter.CompareTo(&filter3))
+	assert.True(t, filter3.CompareTo(&filter))
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {

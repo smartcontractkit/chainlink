@@ -66,7 +66,7 @@ func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 // DeleteFilter removes all events,address pairs associated with the filter
 func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`DELETE FROM log_poller_filters WHERE name = $1`, name)
+	err := q.ExecQ(`DELETE FROM log_poller_filters WHERE filter_name = $1`, name)
 	return err
 }
 
@@ -74,7 +74,7 @@ func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 func (o *ORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 	q := o.q.WithOpts(qopts...)
 	rows := make([]Filter, 0)
-	err := q.Select(&rows, `SELECT * FROM (SELECT filter_name, ARRAY_AGG(address)::BYTEA[] AS addresses, ARRAY_AGG(event)::BYTEA[] AS event_sigs
+	err := q.Select(&rows, `SELECT * FROM (SELECT filter_name, ARRAY_AGG(address ORDER BY id)::BYTEA[] AS addresses, ARRAY_AGG(event ORDER BY id)::BYTEA[] AS event_sigs
 									FROM log_poller_filters WHERE evm_chain_id = $1
 									GROUP BY filter_name) x`, utils.NewBig(o.chainID))
 	filters := make(map[string]Filter)

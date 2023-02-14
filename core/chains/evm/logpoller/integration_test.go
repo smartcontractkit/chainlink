@@ -113,7 +113,13 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}})
 	require.NoError(t, err)
+	require.Len(t, th.LogPoller.Filter().Addresses, 1)
+	require.Len(t, th.LogPoller.Filter().Topics, 1)
+
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload filter from db.
 	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
+	require.Len(t, th.LogPoller.Filter().Addresses, 1)
+	require.Len(t, th.LogPoller.Filter().Topics, 1)
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
