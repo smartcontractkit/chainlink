@@ -58,6 +58,9 @@ func Test_Eth_Errors(t *testing.T) {
 		tests := []errorCase{
 			{"call failed: NonceGap", true, "Nethermind"},
 			{"call failed: NonceGap, Future nonce. Expected nonce: 10", true, "Nethermind"},
+			{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
+			{"nonce too high", true, "Geth"},
+			{"nonce too high", true, "Erigon"},
 		}
 
 		for _, test := range tests {
@@ -289,7 +292,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"oversized data", true, "Geth"},
 		{"gas uint64 overflow", true, "Geth"},
 		{"intrinsic gas too low", true, "Geth"},
-		{"nonce too high", true, "Geth"},
 
 		{"Intrinsic gas exceeds gas limit", true, "Besu"},
 		{"Transaction gas limit exceeds block gas limit", true, "Besu"},
@@ -302,7 +304,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"oversized data", true, "Erigon"},
 		{"gas uint64 overflow", true, "Erigon"},
 		{"intrinsic gas too low", true, "Erigon"},
-		{"nonce too high", true, "Erigon"},
 
 		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false, "Parity"},
 		{"Supplied gas is beyond limit.", true, "Parity"},
@@ -322,7 +323,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"execution reverted: error code", true, "Arbitrum"},
 		{"execution reverted: stale report", true, "Arbitrum"},
 		{"execution reverted", true, "Arbitrum"},
-		{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 
 		{"call failed: SenderIsContract", true, "Nethermind"},
 		{"call failed: Invalid", true, "Nethermind"},
