@@ -309,7 +309,6 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		oracles,
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on goerli)
-			UniqueReports:        false,          // set quorum requirements
 			MinConfirmations:     1,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // Max duration query
@@ -564,7 +563,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		oracles,
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
-			UniqueReports:        false,           // set quorum requirements
 		}.Encode(), // reportingPluginConfig []byte,
 		50*time.Millisecond, // Max duration query
 		1*time.Second,       // Max duration observation
