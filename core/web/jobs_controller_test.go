@@ -36,15 +36,13 @@ import (
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
-	var (
-		contractAddress = cltest.NewEIP55Address()
-	)
+	contractAddress := cltest.NewEIP55Address()
 
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 	randomBytes := testutils.Random32Byte()
 
-	var tt = []struct {
+	tt := []struct {
 		name        string
 		pid         p2pkey.PeerID
 		kb          string
@@ -139,7 +137,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	require.Len(t, k, 1)
 
 	jorm := app.JobORM()
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, r *http.Response)
@@ -292,7 +290,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "fluxmonitor",
 			toml: testspecs.FluxMonitorSpec,
 			assertion: func(t *testing.T, r *http.Response) {
-
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
 				errs := cltest.ParseJSONAPIErrors(t, r.Body)
@@ -494,6 +491,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 		DS2BridgeName: bridge2.Name.String(),
 		Name:          "old OCR job",
 	})
+
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
@@ -501,8 +499,14 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
 	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
+	app.Logger.Debugf("Adding test job %+v", jb)
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		app.Logger.Debugf("hack sleeping... %d/10", i)
+
+		time.Sleep(1 * time.Second)
+	}
 	dbJb, err := app.JobORM().FindJob(testutils.Context(t), jb.ID)
 	require.NoError(t, err)
 	require.Equal(t, dbJb.Name.String, ocrspec.Name)
