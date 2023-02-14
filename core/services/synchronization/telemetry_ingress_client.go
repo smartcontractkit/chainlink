@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
