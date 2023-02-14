@@ -1611,8 +1611,8 @@ github.com/smartcontractkit/chainlink-testing-framework v1.9.8 h1:IDTfN952GLaphN
 github.com/smartcontractkit/chainlink-testing-framework v1.9.8/go.mod h1:muGEV6z/yCVKWYZGQuS7IOKL4JB07xCAeeUrqq6gaP4=
 github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407 h1:P3dhh6UkjA6Fxj39y4vQflv7GoDCa+QC/Du7CCDxjfQ=
 github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
-github.com/smartcontractkit/ocr2keepers v0.6.8 h1:v0qSL6nIJz3S1wczxizdi1UCOKk8nePUvzn5KOKAu8s=
-github.com/smartcontractkit/ocr2keepers v0.6.8/go.mod h1:dQgR8O8hs5UsUGWqwtErK15F7Jk7W0jZ3Ypnvo7x/NM=
+github.com/smartcontractkit/ocr2keepers v0.6.9-0.20230210091038-84780e49ebbd h1:SYv6nQ+U9+86DcubARxYqMFiMCMVooBDArKadNIsKVo=
+github.com/smartcontractkit/ocr2keepers v0.6.9-0.20230210091038-84780e49ebbd/go.mod h1:dQgR8O8hs5UsUGWqwtErK15F7Jk7W0jZ3Ypnvo7x/NM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0 h1:sS4LPAMCyagfkljCklYQ0edXhPhAjGTUw5uPHuDmv7Y=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
