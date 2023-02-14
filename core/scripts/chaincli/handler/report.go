@@ -353,8 +353,7 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 	keys := []string{}
 	chkBlocks := []string{}
 	for _, u := range upkeeps {
-		parts := strings.Split(string(u.Key), "|")
-
+		parts := strings.Split(u.Key.String(), "|")
 		keys = append(keys, parts[1])
 		chkBlocks = append(chkBlocks, fmt.Sprintf("%d", u.CheckBlockNumber))
 	}
