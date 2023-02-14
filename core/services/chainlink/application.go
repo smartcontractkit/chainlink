@@ -18,11 +18,10 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
-
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -162,10 +161,12 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet     // nil if disabled
-	Solana   solana.ChainSet     // nil if disabled
-	StarkNet starkchain.ChainSet // nil if disabled
+	EVM           evm.ChainSet
+	Cosmos        cosmos.ChainSet              // nil if disabled
+	Solana        solana.ChainSet              // Deprecated
+	SolanaService services.ServiceCtx          // nil if disabled
+	SolanaRelayer func() (loop.Relayer, error) // nil if disabled
+	StarkNet      starkchain.ChainSet          // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -177,6 +178,9 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	}
 	if c.Solana != nil {
 		s = append(s, c.Solana)
+	}
+	if c.SolanaService != nil {
+		s = append(s, c.SolanaService)
 	}
 	if c.StarkNet != nil {
 		s = append(s, c.StarkNet)
@@ -383,25 +387,29 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]relaytypes.Relayer)
+		relayers := make(map[relay.Network]func() (loop.Relayer, error))
 		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
-			relayers[relay.EVM] = evmRelayer
+			lggr := globalLogger.Named("EVM")
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
+			relayer := relay.NewLOOPRelayer(evmRelayer, chains.EVM, lggr)
+			relayers[relay.EVM] = func() (loop.Relayer, error) { return relayer, nil }
 			srvcs = append(srvcs, evmRelayer)
 		}
 		if cfg.CosmosEnabled() {
-			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
-			relayers[relay.Cosmos] = cosmosRelayer
+			lggr := globalLogger.Named("Cosmos.Relayer")
+			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
+			relayer := relay.NewLOOPRelayer(cosmosRelayer, chains.Cosmos, lggr)
+			relayers[relay.Cosmos] = func() (loop.Relayer, error) { return relayer, nil }
 			srvcs = append(srvcs, cosmosRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
-			relayers[relay.Solana] = solanaRelayer
-			srvcs = append(srvcs, solanaRelayer)
+			relayers[relay.Solana] = chains.SolanaRelayer
 		}
 		if cfg.StarkNetEnabled() {
-			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
-			relayers[relay.StarkNet] = starknetRelayer
+			lggr := globalLogger.Named("StarkNet.Relayer")
+			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
+			relayer := relay.NewLOOPRelayer(starknetRelayer, chains.StarkNet, lggr)
+			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return relayer, nil }
 			srvcs = append(srvcs, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 
 ### Added
+- Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
+  configured via the env vars `CL_SOLANA` and `CL_MEDIAN`.
 
 ### Changed
 - Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors

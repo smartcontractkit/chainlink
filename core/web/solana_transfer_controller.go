@@ -22,8 +22,8 @@ type SolanaTransfersController struct {
 
 // Create sends SOL and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
-	chainSet := tc.App.GetChains().Solana
-	if chainSet == nil {
+	relayerFn := tc.App.GetChains().SolanaRelayer
+	if relayerFn == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
 		return
 	}
@@ -46,8 +46,13 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
+	relayer, err := relayerFn()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("chain unreachable: %v", err))
+		return
+	}
 	amount := new(big.Int).SetUint64(tr.Amount)
-	err := chainSet.SendTx(c, tr.SolanaChainID, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
+	err = relayer.SendTx(c, tr.SolanaChainID, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
 	if err != nil {
 		switch err {
 		case chains.ErrNotFound, chains.ErrChainIDEmpty:
