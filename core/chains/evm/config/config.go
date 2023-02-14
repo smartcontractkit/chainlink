@@ -229,7 +229,10 @@ func (c *chainScopedConfig) validate() (err error) {
 	if !chainType.IsValid() {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q unrecognised", chainType))
 	} else if c.knownID && c.defaultSet.chainType != chainType {
-		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
+		// Exclude Optimism Bedrock for now, until the upgrade is over.
+		if chainType != config.ChainOptimismBedrock {
+			err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
+		}
 	} else {
 		switch chainType {
 		case config.ChainOptimism, config.ChainMetis:
@@ -1291,6 +1294,15 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 		return val
 	}
 	return c.defaultSet.nodeSelectionMode
+}
+
+func (c *chainScopedConfig) NodeSyncThreshold() uint32 {
+	val, ok := c.GeneralConfig.GlobalNodeSyncThreshold()
+	if ok {
+		c.logEnvOverrideOnce("NodeSyncThreshold", val)
+		return val
+	}
+	return c.defaultSet.nodeSyncThreshold
 }
 
 // OCR2AutomationGasLimit is the gas limit for automation OCR2 plugin

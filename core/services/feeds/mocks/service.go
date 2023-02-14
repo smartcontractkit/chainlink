@@ -56,6 +56,29 @@ func (_m *Service) Close() error {
 	return r0
 }
 
+// CountJobProposalsByStatus provides a mock function with given fields:
+func (_m *Service) CountJobProposalsByStatus() (*feeds.JobProposalCounts, error) {
+	ret := _m.Called()
+
+	var r0 *feeds.JobProposalCounts
+	if rf, ok := ret.Get(0).(func() *feeds.JobProposalCounts); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposalCounts)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CountManagers provides a mock function with given fields:
 func (_m *Service) CountManagers() (int64, error) {
 	ret := _m.Called()

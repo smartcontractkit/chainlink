@@ -3,6 +3,7 @@ package log_test
 import (
 	"context"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -165,7 +166,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := backfillCount.Inc() - 1
+		times := backfillCount.Add(1) - 1
 		if times == 0 {
 			require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
 		} else if times == 1 {
@@ -531,7 +532,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
 	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := backfillCount.Inc() - 1
+		times := backfillCount.Add(1) - 1
 		lggr.Infof("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
 		if times <= 7 {
@@ -600,7 +601,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := backfillCount.Inc() - 1
+		times := backfillCount.Add(1) - 1
 		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 	}
 
@@ -1474,7 +1475,8 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch3 := make(chan types.Log)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil)
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil, mailMon)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 

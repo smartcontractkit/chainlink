@@ -247,8 +247,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				if config.ChainType(*c.ChainType) != config.ChainOptimismBedrock {
+					err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+						Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				}
 			}
 		}
 	}
@@ -708,6 +710,7 @@ type NodePool struct {
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
 	SelectionMode        *string
+	SyncThreshold        *uint32
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -719,6 +722,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.SelectionMode; v != nil {
 		p.SelectionMode = v
+	}
+	if v := f.SyncThreshold; v != nil {
+		p.SyncThreshold = v
 	}
 }
 
@@ -936,11 +942,11 @@ func (n *Node) ValidateConfig() (err error) {
 		sendOnly = *n.SendOnly
 	}
 	if n.WSURL == nil {
-		if sendOnly {
+		if !sendOnly {
 			err = multierr.Append(err, v2.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else if n.WSURL.IsZero() {
-		if sendOnly {
+		if !sendOnly {
 			err = multierr.Append(err, v2.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else {

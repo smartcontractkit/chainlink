@@ -19,6 +19,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -252,6 +253,7 @@ func TestConfig_Marshal(t *testing.T) {
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
 		Lock: config.DatabaseLock{
+			Enabled:              ptr(false),
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
@@ -314,6 +316,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.JobPipeline = config.JobPipeline{
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
+		MaxSuccessfulRuns:         ptr[uint64](123456),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
@@ -384,8 +387,6 @@ func TestConfig_Marshal(t *testing.T) {
 		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
-		TurnFlagEnabled:              ptr(true),
-		UpkeepCheckGasPriceEnabled:   ptr(true),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
@@ -508,6 +509,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
+					SyncThreshold:        ptr[uint32](13),
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -651,6 +653,7 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
+Enabled = false
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
@@ -710,6 +713,7 @@ SimulateTransactions = true
 		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
+MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
@@ -773,8 +777,6 @@ GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
-TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
 CheckGasOverhead = 90
@@ -886,6 +888,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1033,8 +1036,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
-		- 0: 4 errors:
-			- Nodes: missing: must have at least one primary node with WSURL
+		- 0: 3 errors:
 			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
 			- GasEstimator: 6 errors:
 				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
@@ -1047,9 +1049,7 @@ func TestConfig_Validate(t *testing.T) {
 				- 0: 2 errors:
 					- WSURL: missing: required for primary nodes
 					- HTTPURL: missing: required for all nodes
-				- 1: 2 errors:
-					- WSURL: missing: required for primary nodes
-					- HTTPURL: missing: required for all nodes
+				- 1.HTTPURL: missing: required for all nodes
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
@@ -1066,15 +1066,17 @@ func TestConfig_Validate(t *testing.T) {
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
-				- 0: 2 errors:
+				- 0: 3 errors:
 					- Name: missing: required for all nodes
+					- WSURL: missing: required for primary nodes
 					- HTTPURL: empty: required for all nodes
 				- 1: 3 errors:
 					- Name: missing: required for all nodes
 					- WSURL: invalid value (http): must be ws or wss
 					- HTTPURL: missing: required for all nodes
-				- 2: 2 errors:
+				- 2: 3 errors:
 					- Name: empty: required for all nodes
+					- WSURL: missing: required for primary nodes
 					- HTTPURL: invalid value (ws): must be http or https
 				- 3.HTTPURL: missing: required for all nodes
 				- 4.HTTPURL: missing: required for all nodes

@@ -31,7 +31,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 200000, 1);
   }
 
-  function testCreateSubscriptionAndFund(uint96 amount) external {
+  function createSubscriptionAndFund(uint96 amount) external {
     if (s_subId == 0) {
       s_subId = COORDINATOR.createSubscription();
       COORDINATOR.addConsumer(s_subId, address(this));
@@ -47,7 +47,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     }
   }
 
-  function testRequestRandomness() external returns (uint256) {
+  function requestRandomness() external returns (uint256) {
     return COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 500000, 1);
   }
 }

@@ -501,6 +501,36 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			}
 
 			b[i].Error = err
+		case "eth_call":
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(elem.Args))
+			}
+
+			_, ok := elem.Result.(*string)
+			if !ok {
+				return errors.Errorf("SimulatedBackendClient expected result to be *string for eth_call, got: %T", elem.Result)
+			}
+
+			params, ok := elem.Args[0].(map[string]interface{})
+			if !ok {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", elem.Args[0])
+			}
+
+			blockNum, ok := elem.Args[1].(string)
+			if !ok {
+				return errors.Errorf("SimulatedBackendClient expected second arg to be a string for eth_call, got: %T", elem.Args[1])
+			}
+
+			if blockNum != "" {
+				if _, ok = new(big.Int).SetString(blockNum, 0); !ok {
+					return errors.Errorf("error while converting block number string: %s to big.Int ", blockNum)
+				}
+			}
+
+			callMsg := toCallMsg(params)
+			resp, err := c.b.CallContract(ctx, callMsg, nil)
+			*(b[i].Result.(*string)) = hexutil.Encode(resp)
+			b[i].Error = err
 		default:
 			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
@@ -515,8 +545,72 @@ func (c *SimulatedBackendClient) BatchCallContextAll(ctx context.Context, b []rp
 
 // SuggestGasTipCap suggests a gas tip cap.
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	return nil, nil
+	return c.b.SuggestGasTipCap(ctx)
+}
+
+func (c *SimulatedBackendClient) Backend() *backends.SimulatedBackend {
+	return c.b
 }
 
 // NodeStates implements evmclient.Client
 func (c *SimulatedBackendClient) NodeStates() map[string]string { return nil }
+
+// Commit imports all the pending transactions as a single block and starts a
+// fresh new state.
+func (c *SimulatedBackendClient) Commit() common.Hash {
+	return c.b.Commit()
+}
+
+func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
+	var callMsg ethereum.CallMsg
+
+	switch to := params["to"].(type) {
+	case string:
+		toAddr := common.HexToAddress(to)
+		callMsg.To = &toAddr
+	case common.Address:
+		callMsg.To = &to
+	case *common.Address:
+		callMsg.To = to
+	default:
+		panic("unexpected type of 'to' parameter")
+	}
+
+	switch from := params["from"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case string:
+		callMsg.From = common.HexToAddress(from)
+	case common.Address:
+		callMsg.From = from
+	case *common.Address:
+		callMsg.From = *from
+	default:
+		panic("unexpected type of 'from' parameter")
+	}
+
+	switch data := params["data"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case hexutil.Bytes:
+		callMsg.Data = data
+	case []byte:
+		callMsg.Data = data
+	default:
+		panic("unexpected type of 'data' parameter")
+	}
+
+	if value, ok := params["value"].(*big.Int); ok {
+		callMsg.Value = value
+	}
+
+	if gas, ok := params["gas"].(uint64); ok {
+		callMsg.Gas = gas
+	}
+
+	if gasPrice, ok := params["gasPrice"].(*big.Int); ok {
+		callMsg.GasPrice = gasPrice
+	}
+
+	return callMsg
+}

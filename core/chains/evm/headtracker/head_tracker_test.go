@@ -964,11 +964,13 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config)
+	mailMon := utils.NewMailboxMonitor(t.Name())
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
-		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs),
+		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs, mailMon),
 		headBroadcaster: hb,
 		headSaver:       hs,
+		mailMon:         mailMon,
 	}
 }
 
@@ -977,7 +979,8 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, evmcfg)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, hb, hs)
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, hb, hs, mailMon)
 	_, err := hs.LoadFromDB(testutils.Context(t))
 	require.NoError(t, err)
 	return &headTrackerUniverse{
@@ -985,6 +988,7 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 		headTracker:     ht,
 		headBroadcaster: hb,
 		headSaver:       hs,
+		mailMon:         mailMon,
 	}
 }
 
@@ -993,12 +997,14 @@ func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, conf
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config)
 	hb.Subscribe(checker)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs)
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	ht := headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs, mailMon)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
 		headTracker:     ht,
 		headBroadcaster: hb,
 		headSaver:       hs,
+		mailMon:         mailMon,
 	}
 }
 
@@ -1008,6 +1014,7 @@ type headTrackerUniverse struct {
 	headTracker     httypes.HeadTracker
 	headBroadcaster httypes.HeadBroadcaster
 	headSaver       httypes.HeadSaver
+	mailMon         *utils.MailboxMonitor
 }
 
 func (u *headTrackerUniverse) Backfill(ctx context.Context, head *evmtypes.Head, depth uint) error {
@@ -1020,6 +1027,7 @@ func (u *headTrackerUniverse) Start(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, u.headBroadcaster.Start(ctx))
 	require.NoError(t, u.headTracker.Start(ctx))
+	require.NoError(t, u.mailMon.Start(ctx))
 
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
@@ -1040,6 +1048,7 @@ func (u *headTrackerUniverse) Stop(t *testing.T) {
 	u.stopped = true
 	require.NoError(t, u.headBroadcaster.Close())
 	require.NoError(t, u.headTracker.Close())
+	require.NoError(t, u.mailMon.Close())
 }
 
 func ptr[T any](t T) *T { return &t }

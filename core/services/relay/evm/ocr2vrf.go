@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
 	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 )
@@ -45,16 +46,18 @@ var (
 
 // Relayer with added DKG and OCR2VRF provider functions.
 type ocr2vrfRelayer struct {
-	db    *sqlx.DB
-	chain evm.Chain
-	lggr  logger.Logger
+	db          *sqlx.DB
+	chain       evm.Chain
+	lggr        logger.Logger
+	ethKeystore keystore.Eth
 }
 
-func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger) OCR2VRFRelayer {
+func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
 	return &ocr2vrfRelayer{
-		db:    db,
-		chain: chain,
-		lggr:  lggr,
+		db:          db,
+		chain:       chain,
+		lggr:        lggr,
+		ethKeystore: ethKeystore,
 	}
 }
 
@@ -63,7 +66,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +89,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +101,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 
 type dkgProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 	pluginConfig        config.PluginConfig
 }
 
@@ -108,7 +111,7 @@ func (c *dkgProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 
 type ocr2vrfProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 }
 
 func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

@@ -76,6 +76,7 @@ type (
 		nodePollFailureThreshold                      uint32
 		nodePollInterval                              time.Duration
 		nodeSelectionMode                             string
+		nodeSyncThreshold                             uint32
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -162,6 +163,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
 		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
+		nodeSyncThreshold:                     5,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
@@ -269,6 +271,7 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
 	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
 	bscMainnet.logPollInterval = 3 * time.Second
+	bscMainnet.nodeSyncThreshold = 10
 
 	hecoMainnet := bscMainnet
 
@@ -292,6 +295,7 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.minIncomingConfirmations = 5
 	polygonMainnet.logPollInterval = 1 * time.Second
+	polygonMainnet.nodeSyncThreshold = 10
 	polygonMumbai := polygonMainnet
 	polygonMumbai.gasPriceDefault = *assets.GWei(1)
 	polygonMumbai.minGasPriceWei = *assets.GWei(1)
@@ -310,11 +314,13 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.gasFeeCapDefault = *assets.GWei(1000)
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
+	arbitrumMainnet.logPollInterval = 1 * time.Second
+	arbitrumMainnet.nodeSyncThreshold = 10
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
 	arbitrumGoerli := arbitrumRinkeby
-	arbitrumGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
+	arbitrumGoerli.linkContractAddress = "0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28"
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -331,13 +337,12 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minGasPriceWei = *assets.NewWeiI(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
+	optimismMainnet.nodeSyncThreshold = 10
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismMainnet.ocr2AutomationGasLimit = 6_500_000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
-	optimismGoerli := optimismKovan
-	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Optimism's Bedrock upgrade uses EIP-1559.
 	optimismBedrock := fallbackDefaultSet
@@ -348,14 +353,17 @@ func setChainSpecificConfigDefaultSets() {
 	optimismBedrock.chainType = config.ChainOptimismBedrock
 	optimismBedrock.ethTxResendAfterThreshold = 30 * time.Second
 	optimismBedrock.logPollInterval = 2 * time.Second
+	optimismBedrock.ocr2AutomationGasLimit = 6_500_000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	// Bedrock supports a 10 block reorg resistance in L1. However, it considers a block final when it is included in a final block in L1.
 	// L1 finality with PoS: Every 32 slots(epoch) each validator on the network has the opportunity to vote in favor of the epoch.
 	// It takes two justified epochs for those epochs, and all the blocks inside of them, to be considered finalized.
 	// (The proper way to consider finalization would be to mark an L2 block final when it gets included in a final L1 block, which requires special handling (new txm))
 	optimismBedrock.finalityDepth = 200
 	optimismBedrock.headTrackerHistoryDepth = 300
-	// TODO: remove this testnet when all Optimism networks have migrated: https://app.shortcut.com/chainlinklabs/story/55389/remove-optimism-pre-bedrock-error-messages
-	optimismAlpha := optimismBedrock
+	optimismBedrock.nodeSyncThreshold = 10
+	optimismGoerli := optimismBedrock
+	optimismGoerli.minGasPriceWei = *assets.NewWeiI(1) // Gas prices were significantly reduced after the upgrade.
+	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -366,6 +374,7 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	fantomMainnet.ocr2AutomationGasLimit = 3_800_000 // 3.5M (upkeep limit) + 300K. Fantom has a lower max gas limit than other chains
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 	fantomTestnet.blockEmissionIdleWarningThreshold = 0
@@ -430,6 +439,7 @@ func setChainSpecificConfigDefaultSets() {
 	metisMainnet.minIncomingConfirmations = 1
 	metisMainnet.minGasPriceWei = *assets.NewWeiI(0) // Metis uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	metisMainnet.ocrContractConfirmations = 1
+	metisMainnet.nodeSyncThreshold = 10
 	metisRinkeby := metisMainnet
 	metisRinkeby.linkContractAddress = ""
 
@@ -478,7 +488,6 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
-	chainSpecificConfigDefaultSets[28528] = optimismAlpha
 	chainSpecificConfigDefaultSets[8217] = klaytnMainnet
 	chainSpecificConfigDefaultSets[1001] = klaytnTestnet
 

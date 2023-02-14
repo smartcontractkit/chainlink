@@ -1,6 +1,7 @@
 # Chains
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
-/core/chains/evm/txmgr @samsondav @prashantkumar1982
+/core/chains/evm @samsondav @prashantkumar1982
+/core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
 /core/chains/evm @samsondav @prashantkumar1982
 /core/chains/terra @connorwstein @jmank88
@@ -36,7 +37,7 @@
 /core/web @jkongie
 
 # CLI
-/core/cmd @jkongie
+/core/cmd @jkongie @jmank88 @samsondav
 
 # UI
 /operator-ui/ @DeividasK @jkongie
@@ -47,8 +48,9 @@
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
-/integration-tests/ @kalverra @tateexon @skudasov @anieeg
+/integration-tests/ @smartcontractkit/set-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
+/integration-tests/**/*automation* @smartcontractkit/keepers
 
 # Misc
 /core/store @samsondav @jmank88
@@ -57,10 +59,12 @@
 /core/internal @samsondav @jmank88
 
 # CI/CD
-/.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
-/.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
-/.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
-/.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
+/.github/workflows/integration-tests.yml @smartcontractkit/set-team
+/.github/workflows/integration-chaos-tests.yml @smartcontractkit/set-team
+/.github/workflows/integration-tests-publish.yml @smartcontractkit/set-team
+/.github/workflows/performance-tests.yml @smartcontractkit/set-team
+
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
 # Dependencies

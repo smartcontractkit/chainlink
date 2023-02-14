@@ -71,7 +71,7 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringSliceFlag{
 			Name:   "config, c",
-			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
+			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{
@@ -83,22 +83,9 @@ func NewApp(client *Client) *cli.App {
 		if c.IsSet("config") {
 			// TOML
 			var opts chainlink.GeneralConfigOpts
-			if configTOML := v2.EnvConfig.Get(); configTOML != "" {
-				if err := opts.ParseConfig(configTOML); err != nil {
-					return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
-				}
-			} else {
-				fileNames := c.StringSlice("config")
-				for _, fileName := range fileNames {
-					b, err := os.ReadFile(fileName)
-					if err != nil {
-						return errors.Wrapf(err, "failed to read config file: %s", fileName)
-					}
-					if err := opts.ParseConfig(string(b)); err != nil {
-						return errors.Wrapf(err, "failed to parse file: %s", fileName)
-					}
-				}
-			}
+
+			fileNames := c.StringSlice("config")
+			loadOpts(&opts, fileNames...)
 
 			secretsTOML := ""
 			if c.IsSet("secrets") {
@@ -236,8 +223,8 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:     "newrole",
-									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
-									Required: false,
+									Usage:    "new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
+									Required: true,
 								},
 							},
 						},
@@ -340,17 +327,17 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "dump",
-					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
+					Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
 					Action: client.ConfigDump,
 				},
 				{
 					Name:   "list",
-					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
+					Usage:  "Show the node's environment variables [Not supported with TOML]",
 					Action: client.GetConfiguration,
 				},
 				{
 					Name:   "show",
-					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Usage:  "Show the application configuration [Only supported with TOML]",
 					Action: client.ConfigV2,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -361,7 +348,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "setgasprice",
-					Usage:  "Set the default gas price to use for outgoing transactions",
+					Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
 					Action: client.SetEvmGasPriceDefault,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -402,7 +389,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "validate",
-					Usage:  "Validate provided TOML config file",
+					Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
 					Action: client.ConfigFileValidate,
 				},
 			},
@@ -486,15 +473,11 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Delete the ETH key by address`),
+							Usage: format(`Delete the ETH key by address (irreversible!)`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
 									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
 								},
 							},
 							Action: client.DeleteETHKey,
@@ -1234,4 +1217,23 @@ func logDeprecatedClientEnvWarnings(lggr logger.Logger) {
 	if s := os.Getenv("ADMIN_CREDENTIALS_FILE"); s != "" {
 		lggr.Errorf("ADMIN_CREDENTIALS_FILE env var has been deprecated and will be removed in a future release. Use flag instead: --admin-credentials-file=%s", s)
 	}
+}
+
+// loadOpts applies file configs and then overlays env config
+func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
+	for _, fileName := range fileNames {
+		b, err := os.ReadFile(fileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+		}
+		if err := opts.ParseConfig(string(b)); err != nil {
+			return errors.Wrapf(err, "failed to parse file: %s", fileName)
+		}
+	}
+	if configTOML := v2.EnvConfig.Get(); configTOML != "" {
+		if err := opts.ParseConfig(configTOML); err != nil {
+			return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
+		}
+	}
+	return nil
 }

@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"net"
 	"os"
@@ -112,7 +111,9 @@ func configDump(data dbData) (string, error) {
 
 	c.loadLegacyEVMEnv()
 
-	c.loadLegacyCoreEnv()
+	if err := c.loadLegacyCoreEnv(); err != nil {
+		return "", err
+	}
 
 	return c.TOMLString()
 }
@@ -307,6 +308,11 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].NodePool.SelectionMode = e
 		}
 	}
+	if e := envvar.NewUint32("NodeSyncThreshold").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].NodePool.SyncThreshold = e
+		}
+	}
 	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].GasEstimator.EIP1559DynamicFees = e
@@ -490,7 +496,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint32("EvmMaxQueuedTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].Transactions.MaxInFlight = e
+			c.EVM[i].Transactions.MaxQueued = e
 		}
 	}
 	if e := envvar.NewBool("EvmNonceAutoSync").ParsePtr(); e != nil {
@@ -506,7 +512,7 @@ func (c *Config) loadLegacyEVMEnv() {
 }
 
 // loadLegacyCoreEnv loads Core values from legacy environment variables.
-func (c *Config) loadLegacyCoreEnv() {
+func (c *Config) loadLegacyCoreEnv() error {
 	c.ExplorerURL = envURL("ExplorerURL")
 	c.InsecureFastScrypt = envvar.NewBool("InsecureFastScrypt").ParsePtr()
 	c.RootDir = envvar.RootDir.ParsePtr()
@@ -522,6 +528,21 @@ func (c *Config) loadLegacyCoreEnv() {
 		Headers:        (*[]audit.ServiceHeader)(audit.AuditLoggerHeaders.ParsePtr()),
 	}
 
+	var lockEnabled *bool
+	if mode := envvar.NewString("DatabaseLockingMode").ParsePtr(); mode == nil { // dual default
+		lockEnabled = nil // lease default
+	} else {
+		switch *mode {
+		case "advisorylock":
+			return fmt.Errorf("%w: '%s' mode: must use 'lease' or 'none'", config.ErrUnsupported, *mode)
+		case "none":
+			lockEnabled = ptr(false)
+		case "lease", "dual":
+			lockEnabled = nil // lease default
+		default:
+			return fmt.Errorf("%w: unrecognized mode '%s': must use one of 'lease', 'dual', or 'none'", config.ErrUnsupported, *mode)
+		}
+	}
 	c.Database = config.Database{
 		DefaultIdleInTxSessionTimeout: mustParseDuration(os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")),
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
@@ -536,6 +557,7 @@ func (c *Config) loadLegacyCoreEnv() {
 			FallbackPollInterval: envDuration("TriggerFallbackDBPollInterval"),
 		},
 		Lock: config.DatabaseLock{
+			Enabled:              lockEnabled,
 			LeaseDuration:        envDuration("LeaseLockDuration"),
 			LeaseRefreshInterval: envDuration("LeaseLockRefreshInterval"),
 		},
@@ -602,6 +624,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.JobPipeline = config.JobPipeline{
 		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
+		MaxSuccessfulRuns:         envvar.NewUint64("JobPipelineMaxSuccessfulRuns").ParsePtr(),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
@@ -669,14 +692,13 @@ func (c *Config) loadLegacyCoreEnv() {
 		NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
 		PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 	}
-	if (ns == v1 || ns == v1v2) && c.P2P.V1 != (config.P2PV1{}) {
-		c.P2P.V1.Enabled = ptr(true)
+	if ns == v2 {
+		c.P2P.V1.Enabled = ptr(false)
 	}
 
 	c.P2P.V2 = config.P2PV2{
 		AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
 		DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
-			fmt.Println("TEST", string(b))
 			return v.UnmarshalText(b)
 		}),
 		DeltaDial:       envDuration("P2PV2DeltaDial"),
@@ -694,8 +716,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		BaseFeeBufferPercent:         envvar.NewUint16("KeeperBaseFeeBufferPercent").ParsePtr(),
 		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
-		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
-		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
 			PerformGasOverhead:  envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
@@ -737,6 +757,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	if rel := os.Getenv("SENTRY_RELEASE"); rel != "" {
 		c.Sentry.Release = &rel
 	}
+	return nil
 }
 
 func first[T any](es ...*envvar.EnvVar[T]) *T {
@@ -784,20 +805,15 @@ func envIP(s string) *net.IP {
 
 func envStringSlice(s string) *[]string {
 	return envvar.New(s, func(s string) ([]string, error) {
-		// matching viper stringSlice logic
-		t := strings.TrimSuffix(strings.TrimPrefix(s, "["), "]")
-		return csv.NewReader(strings.NewReader(t)).Read()
+		// matching viper cast.ToStringSliceE logic
+		return strings.Fields(s), nil
 	}).ParsePtr()
 }
 
 func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
 	return envvar.New(s, func(v string) ([]T, error) {
-		// matching viper stringSlice logic
-		v = strings.TrimSuffix(strings.TrimPrefix(v, "["), "]")
-		ss, err := csv.NewReader(strings.NewReader(v)).Read()
-		if err != nil {
-			return nil, err
-		}
+		// matching viper cast.ToStringSliceE logic
+		ss := strings.Fields(v)
 		var ts []T
 		for _, s := range ss {
 			var t T

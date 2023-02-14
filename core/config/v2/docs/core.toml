@@ -27,11 +27,11 @@ DefaultQueryTimeout = '10s' # Default
 LogQueries = false # Default
 # MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 #
-# Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+# Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 MaxIdleConns = 10 # Default
 # MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 #
-# Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+# Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 MaxOpenConns = 20 # Default
 # MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
 MigrateOnStartup = true # Default
@@ -78,13 +78,11 @@ FallbackPollInterval = '30s' # Default
 # - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 # - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 [Database.Lock]
+# Enabled enables the database lock.
+Enabled = true # Default
 # LeaseDuration is how long the lease lock will last before expiring.
-#
-# This setting applies only if `Mode` is set to enable lease locking.
 LeaseDuration = '10s' # Default
 # LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
-#
-# This setting applies only if Mode is set to enable lease locking.
 LeaseRefreshInterval = '1s' # Default
 
 [TelemetryIngress]
@@ -214,6 +212,13 @@ ForceRedirect = false # Default
 ExternalInitiatorsEnabled = false # Default
 # MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
 MaxRunDuration = '10m' # Default
+# MaxSuccessfulRuns caps the number of completed successful runs per pipeline
+# spec in the database. You can set it to zero as a performance optimisation;
+# this will avoid saving any successful run.
+#
+# Note this is not a hard cap, it can drift slightly larger than this but not
+# by more than 5% or so.
+MaxSuccessfulRuns = 10000 # Default
 # ReaperInterval controls how often the job pipeline reaper will run to delete completed jobs older than ReaperThreshold, in order to keep database size manageable.
 #
 # Set to `0` to disable the periodic reaper.
@@ -350,9 +355,9 @@ AnnounceIP = '1.2.3.4' # Example
 # AnnouncePort should be set as the externally reachable port of the Chainlink node.
 AnnouncePort = 1337 # Example
 # BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
-# Setting this to a small value would allow newly joined bootstrap nodes to get more connectivityBootstrapCheckInterval = '20s' # Default
-# more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively# DefaultBootstrapPeers is the default set of bootstrap peers.
-# cheap. We set this to 1 minute during our test.DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
+# Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
+# more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
+# cheap. We set this to 1 minute during our test.
 BootstrapCheckInterval = '20s' # Default
 # DefaultBootstrapPeers is the default set of bootstrap peers.
 DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
@@ -387,6 +392,7 @@ PeerstoreWriteInterval = '5m' # Default
 
 [P2P.V2]
 # Enabled enables P2P V2.
+# Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
 Enabled = false # Default
 # AnnounceAddresses is the addresses the peer will advertise on the network in host:port form as accepted by net.Dial. The addresses should be reachable by peers of interest.
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
@@ -414,11 +420,6 @@ BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 # TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
 TurnLookBack = 1_000 # Default
-# TurnFlagEnabled enables a new algorithm for how keepers take turns.
-TurnFlagEnabled = false # Default
-# **ADVANCED**
-# UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
-UpkeepCheckGasPriceEnabled = false # Default
 
 [Keeper.Registry]
 # **ADVANCED**

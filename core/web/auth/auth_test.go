@@ -210,7 +210,7 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/transfers/solana", false, false, false},
 	{"GET", "/v2/config", true, true, true},
 	{"PATCH", "/v2/config", false, false, false},
-	{"GET", "/v2/config/v2", false, false, false},
+	{"GET", "/v2/config/v2", true, true, true},
 	{"GET", "/v2/tx_attempts", true, true, true},
 	{"GET", "/v2/tx_attempts/evm", true, true, true},
 	{"GET", "/v2/transactions/evm", true, true, true},
@@ -310,7 +310,7 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/jobs/MOCK/runs", false, true, true},
 }
 
-// The following test implementations work by asserting only that "Unauthorized" errors are not returned (success case),
+// The following test implementations work by asserting only that "Unauthorized/Forbidden" errors are not returned (success case),
 // because hitting the handler are not mocked and will crash as expected
 // Iterate over the above routesRolesMap and assert each path is wrapped and
 // the user role is enforced with the correct middleware
@@ -347,6 +347,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 			defer cleanup()
 
 			assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
+			assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
 		}()
 	}
 }
@@ -386,11 +387,13 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 			}
 			defer cleanup()
 
-			// If this route allows up to a edit role, don't expect an unauthorized response
+			// If this route allows up to an edit role, don't expect an unauthorized response
 			if route.EditAllowed || route.editMinimalAllowed || route.viewOnlyAllowed {
 				assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
+				assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
+			} else if !route.EditAllowed {
+				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 			} else {
-				// Otherwise, admin onlny route. Assert unauthorized
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
 		}()
@@ -435,8 +438,10 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 			// If this route allows up to an edit minimal role, don't expect an unauthorized response
 			if route.editMinimalAllowed || route.viewOnlyAllowed {
 				assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
+				assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
+			} else if !route.EditAllowed {
+				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 			} else {
-				// Otherwise, admin onlny route. Assert unauthorized
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
 		}()
@@ -481,8 +486,10 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			// If this route only allows view only, don't expect an unauthorized response
 			if route.viewOnlyAllowed {
 				assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
+				assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
+			} else if !route.EditAllowed {
+				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 			} else {
-				// Otherwise, admin onlny route. Assert unauthorized
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
 		}()

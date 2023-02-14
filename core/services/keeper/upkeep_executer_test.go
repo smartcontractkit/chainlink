@@ -2,18 +2,17 @@ package keeper_test
 
 import (
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -67,7 +66,6 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Keeper.TurnLookBack = ptr[int64](0)
-		c.Keeper.TurnFlagEnabled = ptr(true)
 		if fn := overrideFn; fn != nil {
 			fn(c, s)
 		}
@@ -75,8 +73,7 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	block := &types.Header{Number: big.NewInt(1)}
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewTxManager(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
@@ -128,7 +125,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
 
-		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
@@ -171,7 +168,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
 			})
 
-			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+			gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
@@ -275,7 +272,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
@@ -310,7 +307,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t), nil)
 
-	wasCalled := atomic.NewBool(false)
+	var wasCalled atomic.Bool
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)

@@ -170,7 +170,7 @@ MaxIdleConns = 10 # Default
 ```
 MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ### MaxOpenConns<a id='Database-MaxOpenConns'></a>
 ```toml
@@ -178,7 +178,7 @@ MaxOpenConns = 20 # Default
 ```
 MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ### MigrateOnStartup<a id='Database-MigrateOnStartup'></a>
 ```toml
@@ -262,6 +262,7 @@ FallbackPollInterval controls how often clients should manually poll as a fallba
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
 ```toml
 [Database.Lock]
+Enabled = true # Default
 LeaseDuration = '10s' # Default
 LeaseRefreshInterval = '1s' # Default
 ```
@@ -275,21 +276,23 @@ Because of the complications with advisory locks, Chainlink nodes with v2.0 and 
 - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 
+### Enabled<a id='Database-Lock-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables the database lock.
+
 ### LeaseDuration<a id='Database-Lock-LeaseDuration'></a>
 ```toml
 LeaseDuration = '10s' # Default
 ```
 LeaseDuration is how long the lease lock will last before expiring.
 
-This setting applies only if `Mode` is set to enable lease locking.
-
 ### LeaseRefreshInterval<a id='Database-Lock-LeaseRefreshInterval'></a>
 ```toml
 LeaseRefreshInterval = '1s' # Default
 ```
 LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
-
-This setting applies only if Mode is set to enable lease locking.
 
 ## TelemetryIngress<a id='TelemetryIngress'></a>
 ```toml
@@ -643,6 +646,7 @@ ForceRedirect forces TLS redirect for unencrypted connections.
 [JobPipeline]
 ExternalInitiatorsEnabled = false # Default
 MaxRunDuration = '10m' # Default
+MaxSuccessfulRuns = 10000 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '24h' # Default
 ResultWriteQueueDepth = 100 # Default
@@ -660,6 +664,17 @@ ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `
 MaxRunDuration = '10m' # Default
 ```
 MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
+
+### MaxSuccessfulRuns<a id='JobPipeline-MaxSuccessfulRuns'></a>
+```toml
+MaxSuccessfulRuns = 10000 # Default
+```
+MaxSuccessfulRuns caps the number of completed successful runs per pipeline
+spec in the database. You can set it to zero as a performance optimisation;
+this will avoid saving any successful run.
+
+Note this is not a hard cap, it can drift slightly larger than this but not
+by more than 5% or so.
 
 ### ReaperInterval<a id='JobPipeline-ReaperInterval'></a>
 ```toml
@@ -983,9 +998,9 @@ AnnouncePort should be set as the externally reachable port of the Chainlink nod
 BootstrapCheckInterval = '20s' # Default
 ```
 BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
-Setting this to a small value would allow newly joined bootstrap nodes to get more connectivityBootstrapCheckInterval = '20s' # Default
-more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively# DefaultBootstrapPeers is the default set of bootstrap peers.
-cheap. We set this to 1 minute during our test.DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
+Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
+more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
+cheap. We set this to 1 minute during our test.
 
 ### DefaultBootstrapPeers<a id='P2P-V1-DefaultBootstrapPeers'></a>
 ```toml
@@ -1062,6 +1077,7 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 Enabled = false # Default
 ```
 Enabled enables P2P V2.
+Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
 
 ### AnnounceAddresses<a id='P2P-V2-AnnounceAddresses'></a>
 ```toml
@@ -1102,8 +1118,6 @@ GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
-TurnFlagEnabled = false # Default
-UpkeepCheckGasPriceEnabled = false # Default
 ```
 
 
@@ -1144,19 +1158,6 @@ MaxGracePeriod is the maximum number of blocks that a keeper will wait after per
 TurnLookBack = 1_000 # Default
 ```
 TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
-
-### TurnFlagEnabled<a id='Keeper-TurnFlagEnabled'></a>
-```toml
-TurnFlagEnabled = false # Default
-```
-TurnFlagEnabled enables a new algorithm for how keepers take turns.
-
-### UpkeepCheckGasPriceEnabled<a id='Keeper-UpkeepCheckGasPriceEnabled'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-UpkeepCheckGasPriceEnabled = false # Default
-```
-UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
 
 ## Keeper.Registry<a id='Keeper-Registry'></a>
 ```toml
@@ -1417,6 +1418,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1493,6 +1495,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1569,6 +1572,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1645,6 +1649,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1722,6 +1727,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -1798,6 +1804,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1874,6 +1881,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1951,6 +1959,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2027,6 +2036,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -2102,6 +2112,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2177,6 +2188,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2254,6 +2266,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -2331,6 +2344,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2407,6 +2421,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -2483,6 +2498,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -2559,6 +2575,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2568,7 +2585,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -2578,16 +2595,16 @@ GasLimit = 5300000
 ```toml
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 
@@ -2597,38 +2614,38 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
+ResendAfterThreshold = '30s'
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2636,9 +2653,10 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
-ContractConfirmations = 1
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -2712,6 +2730,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -2787,6 +2806,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -2863,6 +2883,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -2938,6 +2959,7 @@ SamplingInterval = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -3014,6 +3036,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -3023,7 +3046,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -3089,85 +3112,10 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5300000
-```
-
-</p></details>
-
-<details><summary>Optimism Alpha (28528)<a id='EVM-28528'></a></summary><p>
-
-```toml
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 200
-LogBackfillBatchSize = 100
-LogPollInterval = '2s'
-LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '1m0s'
-RPCDefaultBatchSize = 100
-RPCBlockQueryDelay = 1
-
-[Transactions]
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '30s'
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-BumpTxDepth = 10
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 4
-BlockHistorySize = 24
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[HeadTracker]
-HistoryDepth = 300
-MaxBufferSize = 3
-SamplingInterval = '1s'
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-
-[OCR]
-ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -3188,7 +3136,7 @@ ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
@@ -3242,6 +3190,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -3318,6 +3267,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -3394,6 +3344,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -3470,6 +3421,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -3493,7 +3445,7 @@ ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
@@ -3547,6 +3499,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -3568,9 +3521,9 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
-LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
+LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
@@ -3624,6 +3577,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -3700,6 +3654,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -3776,6 +3731,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -3852,6 +3808,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -4234,7 +4191,7 @@ If you are using FixedPriceEstimator:
 
 If you are using BlockHistoryEstimator (default for most chains):
 - With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap = ( current block base fee * (1.125 ^ N) + tipcap )` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
 
@@ -4450,6 +4407,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 PollFailureThreshold = 5 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
+SyncThreshold = 5 # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -4479,6 +4437,15 @@ SelectionMode controls node selection strategy:
 - HighestHead: use the node with the highest head number
 - RoundRobin: rotate through nodes, per-request
 - TotalDifficulty: use the node with the greatest total difficulty
+
+### SyncThreshold<a id='EVM-NodePool-SyncThreshold'></a>
+```toml
+SyncThreshold = 5 # Default
+```
+SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+
+Set to 0 to disable this check.
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml
@@ -4540,7 +4507,7 @@ WSURL is the WS(S) endpoint for this node. Required for primary nodes.
 ```toml
 HTTPURL = 'https://foo.web' # Example
 ```
-HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Required for `SendOnly`.
+HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 
 ### SendOnly<a id='EVM-Nodes-SendOnly'></a>
 ```toml

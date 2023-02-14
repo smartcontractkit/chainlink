@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,7 +19,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -294,9 +295,10 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
-	queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
 	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-1*time.Minute))
+	require.NoError(t, err)
 
 	result2, _ := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
@@ -314,9 +316,10 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.Nil(t, result2.Value)
 
 	// Insert entry 10s in the past, under 30 seconds and should be used in case of failure.
-	queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 		DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-10*time.Second))
+	require.NoError(t, err)
 
 	result2, _ = task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
@@ -353,6 +356,58 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	require.Error(t, result2.Error)
 	require.Nil(t, result2.Value)
+
+	task2 := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge2", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+		CacheTTL:    "35m", // more than the stalenessCap 30m
+	}
+	task2.HelperSetDependencies(cfg2, orm, specID, uuid.UUID{}, c)
+
+	// Insert entry 32m in the past, under cacheTTL of 35m but more than stalenessCap of 30m.
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+		DO UPDATE SET value = $3, finished_at = $4;`, task2.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-32*time.Minute))
+	require.NoError(t, err)
+
+	// Run fails even though cacheTTL > lastvalue.finished_at because cacheTTL exceeds stalenessCap.
+	result2, _ = task2.Run(testutils.Context(t), logger.TestLogger(t),
+		pipeline.NewVarsFrom(
+			map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": map[string]interface{}{
+						"shouldFail": true,
+					},
+				},
+			},
+		),
+		nil)
+
+	require.Error(t, result2.Error)
+	require.Nil(t, result2.Value)
+
+	// Insert entry 25m in the past, under stalenessCap
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+		DO UPDATE SET value = $3, finished_at = $4;`, task2.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-25*time.Minute))
+	require.NoError(t, err)
+
+	// Run succeeds using the cached value that's under stalenessCap.
+	result2, _ = task2.Run(testutils.Context(t), logger.TestLogger(t),
+		pipeline.NewVarsFrom(
+			map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": map[string]interface{}{
+						"shouldFail": true,
+					},
+				},
+			},
+		),
+		nil)
+
+	require.NoError(t, result2.Error)
+	require.Equal(t, string(big.NewInt(9700).Bytes()), result2.Value)
 }
 
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
@@ -851,4 +906,113 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 			require.Equal(t, test.expect.String(), result.String())
 		})
 	}
+}
+
+func TestBridgeTask_Headers(t *testing.T) {
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	var headers http.Header
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers = r.Header
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte(`{"fooresponse": 1}`))
+		require.NoError(t, err)
+	})
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	bridgeURL, err := url.ParseRequestURI(server.URL)
+	require.NoError(t, err)
+
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeURL.String()}, cfg)
+
+	allHeaders := func(headers http.Header) (s []string) {
+		var keys []string
+		for k := range headers {
+			keys = append(keys, k)
+		}
+		// get it in a consistent order
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := headers.Get(k)
+			s = append(s, k, v)
+			fmt.Println(k, v)
+		}
+
+		return s
+	}
+
+	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
+
+	t.Run("sends headers", func(t *testing.T) {
+
+		task := pipeline.BridgeTask{
+			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+			Name:        bridge.Name.String(),
+			RequestData: btcUSDPairing,
+			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar"]`,
+		}
+
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
+		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+		require.NoError(t, err)
+		task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
+
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
+	})
+
+	t.Run("errors with odd number of headers", func(t *testing.T) {
+		task := pipeline.BridgeTask{
+			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+			Name:        bridge.Name.String(),
+			RequestData: btcUSDPairing,
+			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
+		}
+
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
+		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+		require.NoError(t, err)
+		task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
+
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.NotNil(t, result.Error)
+		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
+		assert.Nil(t, result.Value)
+	})
+
+	t.Run("allows to override content-type", func(t *testing.T) {
+
+		task := pipeline.BridgeTask{
+			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+			Name:        bridge.Name.String(),
+			RequestData: btcUSDPairing,
+			Headers:     `["X-Header-1", "foo", "Content-Type", "footype", "X-Header-2", "bar"]`,
+		}
+
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
+		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+		require.NoError(t, err)
+		task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
+
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
+	})
 }

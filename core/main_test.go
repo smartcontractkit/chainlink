@@ -76,7 +76,7 @@ func ExampleRun() {
 	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to <RootDir>/apicredentials
 	//    --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
 	//    --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
-	//    --config value, -c value       TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. [$CL_CONFIG]
+	//    --config value, -c value       TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
 	//    --secrets value, -s value      TOML configuration file for secrets. Must be set if and only if config is set.
 	//    --help, -h                     show help
 	//    --version, -v                  print the version
@@ -163,13 +163,13 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration
-	//    list         LEGACY CONFIG (ENV) ONLY - Show the node's environment variables
-	//    show         V2 CONFIG (TOML) ONLY - Show the application configuration
-	//    setgasprice  Set the default gas price to use for outgoing transactions
+	//    dump         Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]
+	//    list         Show the node's environment variables [Not supported with TOML]
+	//    show         Show the application configuration [Only supported with TOML]
+	//    setgasprice  Set the default gas price to use for outgoing transactions [Not supported with TOML]
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging
-	//    validate     Validate provided TOML config file
+	//    validate     Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -234,7 +234,7 @@ func ExampleRun_keys_eth() {
 	//    create  Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
 	//    update  Update the existing key's parameters
 	//    list    List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata
-	//    delete  Delete the ETH key by address
+	//    delete  Delete the ETH key by address (irreversible!)
 	//    import  Import an ETH key from a JSON file
 	//    export  Exports an ETH key to a JSON file
 	//    chain   Update an EVM key for the given chain

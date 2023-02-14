@@ -30,6 +30,10 @@ var (
 		Name: "evm_pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateInvalidChainID),
 	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_num_transitions_to_unusable",
+		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateUnusable),
+	}, []string{"evmChainID", "nodeName"})
 )
 
 // NodeState represents the current state of the node
@@ -48,6 +52,8 @@ func (n NodeState) String() string {
 		return "Alive"
 	case NodeStateUnreachable:
 		return "Unreachable"
+	case NodeStateUnusable:
+		return "Unusable"
 	case NodeStateOutOfSync:
 		return "OutOfSync"
 	case NodeStateClosed:
@@ -78,6 +84,8 @@ const (
 	// disconnected, then put into a revive loop and re-awakened after redial
 	// if a new head arrives
 	NodeStateOutOfSync
+	// NodeStateUnusable is a sendonly node that has an invalid URL that can never be reached
+	NodeStateUnusable
 	// NodeStateClosed is after the connection has been closed and the node is at the end of its lifecycle
 	NodeStateClosed
 	// nodeStateLen tracks the number of states
@@ -91,7 +99,6 @@ func init() {
 	for s := NodeState(0); s < nodeStateLen; s++ {
 		allNodeStates = append(allNodeStates, s)
 	}
-
 }
 
 // FSM methods
@@ -174,12 +181,12 @@ func (n *node) transitionToInSync(fn func()) {
 }
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
-// clients and making it unavailable for use
-func (n *node) declareOutOfSync(latestReceivedBlockNumber int64) {
+// clients and making it unavailable for use until back in-sync.
+func (n *node) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
 	n.transitionToOutOfSync(func() {
 		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
-		go n.outOfSyncLoop(latestReceivedBlockNumber)
+		go n.outOfSyncLoop(isOutOfSync)
 	})
 }
 

@@ -33,6 +33,10 @@ func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
 		return &MetisContractLoader{NewEthereumContractLoader(clientImpl)}, nil
 	case *blockchain.ArbitrumClient:
 		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+	case *blockchain.PolygonClient:
+		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+	case *blockchain.OptimismClient:
+		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -54,6 +58,16 @@ type MetisContractLoader struct {
 
 // ArbitrumContractLoader wraps for Arbitrum
 type ArbitrumContractLoader struct {
+	*EthereumContractLoader
+}
+
+// PolygonContractLoader wraps for Polygon
+type PolygonContractLoader struct {
+	*EthereumContractLoader
+}
+
+// OptimismContractLoader wraps for Optimism
+type OptimismContractLoader struct {
 	*EthereumContractLoader
 }
 

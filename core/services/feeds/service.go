@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	ocr2 "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -34,6 +35,7 @@ import (
 //go:generate mockery --quiet --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
+	ErrOCR2Disabled         = errors.New("ocr2 is disabled")
 	ErrOCRDisabled          = errors.New("ocr is disabled")
 	ErrSingleFeedsManager   = errors.New("only a single feeds manager is supported")
 	ErrJobAlreadyExists     = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
@@ -42,6 +44,14 @@ var (
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
 		Help: "Metric to track job proposal requests",
+	})
+
+	promJobProposalCounts = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "feeds_job_proposal_count",
+		Help: "Number of job proposals for the node partitioned by status.",
+	}, []string{
+		// Job Proposal status
+		"status",
 	})
 )
 
@@ -70,6 +80,7 @@ type Service interface {
 	GetJobProposal(id int64) (*JobProposal, error)
 	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ListJobProposals() ([]JobProposal, error)
+	CountJobProposalsByStatus() (*JobProposalCounts, error)
 
 	ApproveSpec(ctx context.Context, id int64, force bool) error
 	CancelSpec(ctx context.Context, id int64) error
@@ -477,12 +488,21 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	// Track the given job proposal request
 	promJobProposalRequest.Inc()
 
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
+	}
+
 	return id, nil
 }
 
 // GetJobProposal gets a job proposal by id.
 func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
 	return s.orm.GetJobProposal(id)
+}
+
+// CountJobProposalsByStatus returns the count of job proposals with a given status.
+func (s *service) CountJobProposalsByStatus() (*JobProposalCounts, error) {
+	return s.orm.CountJobProposalsByStatus()
 }
 
 // RejectSpec rejects a spec.
@@ -528,7 +548,9 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not reject job proposal")
 	}
 
-	return nil
+	err = s.observeJobProposalCounts()
+
+	return err
 }
 
 // IsJobManaged determines is a job is managed by the Feeds Manager.
@@ -582,19 +604,42 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
+	// Check that the bridges exist
+	if err = s.jobORM.AssertBridgesExist(j.Pipeline); err != nil {
+		s.lggr.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
+
+		return errors.Wrap(err, "failed to approve job spec due to bridge check")
+	}
+
 	var address ethkey.EIP55Address
+	var evmChainID *utils.Big
 	switch j.Type {
 	case job.OffchainReporting:
 		address = j.OCROracleSpec.ContractAddress
+		evmChainID = j.OCROracleSpec.EVMChainID
+	case job.OffchainReporting2:
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
+		if err != nil {
+			return errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
+		}
+
+		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
+		if chainErr != nil {
+			return errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
+		}
+
+		evmChainID = utils.NewBig(evmChain.ID())
+		address = eipAddress
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
+		evmChainID = j.FluxMonitorSpec.EVMChainID
 	default:
 		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 	}
 
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
+		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, evmChainID, pg.WithQueryer(tx))
 		if txerr == nil {
 			if force {
 				if txerr = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); txerr != nil {
@@ -631,7 +676,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "could not approve job proposal")
 	}
 
-	return nil
+	err = s.observeJobProposalCounts()
+
+	return err
 }
 
 // CancelSpec cancels a spec for a job proposal.
@@ -687,6 +734,8 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+
+	err = s.observeJobProposalCounts()
 
 	return err
 }
@@ -746,7 +795,9 @@ func (s *service) Start(ctx context.Context) error {
 		mgr := mgrs[0]
 		s.connectFeedManager(ctx, mgr, privkey)
 
-		return nil
+		err = s.observeJobProposalCounts()
+
+		return err
 	})
 }
 
@@ -794,6 +845,29 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	return keys[0].Raw(), nil
 }
 
+// observeJobProposalCounts is a helper method that queries the repository for the count of
+// job proposals by status and then updates prometheus gauges.
+func (s *service) observeJobProposalCounts() error {
+	counts, err := s.CountJobProposalsByStatus()
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch counts of job proposals")
+	}
+
+	// Transform counts into prometheus metrics.
+	metrics := counts.toMetrics()
+
+	// Set the prometheus gauge metrics.
+	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
+		JobProposalStatusCancelled, JobProposalStatusRejected} {
+
+		status := status
+
+		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
+	}
+
+	return nil
+}
+
 // Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
 //
 // We need to be able to inject a mock for the client to facilitate integration
@@ -804,6 +878,7 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
+// generateJob validates and generates a job from a spec.
 func (s *service) generateJob(spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
@@ -817,6 +892,11 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 			return nil, ErrOCRDisabled
 		}
 		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
+	case job.OffchainReporting2:
+		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting2() {
+			return nil, ErrOCR2Disabled
+		}
+		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
@@ -970,7 +1050,7 @@ func (s *service) validateProposeJobArgs(args ProposeJobArgs) error {
 	}
 
 	// Validate bootstrap multiaddrs which are only allowed for OCR jobs
-	if len(args.Multiaddrs) > 0 && j.Type != job.OffchainReporting {
+	if len(args.Multiaddrs) > 0 && j.Type != job.OffchainReporting && j.Type != job.OffchainReporting2 {
 		return errors.New("only OCR job type supports multiaddr")
 	}
 
@@ -1011,6 +1091,9 @@ func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) CountManagers() (int64, error) { return 0, nil }
+func (ns NullService) CountJobProposalsByStatus() (*JobProposalCounts, error) {
+	return nil, ErrFeedsManagerDisabled
+}
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }

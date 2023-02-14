@@ -7,16 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 <!-- unreleased -->
-## [Unreleased]
+## [dev]
+
+...
+
+## 1.12.0 - UNRELEASED
+
+### Added
+
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+- New config variable, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+  saved completed runs per job. This is done in response to the `pipeline_runs`
+  table potentially becoming large, which can cause performance degradation.
+  The default is set to 10,000. You can set it to 0 to disable run saving
+  entirely.
+- Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
+- Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
+- Support for sending OCR2 job specs to the feeds manager
+
+### Updated
+
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+- Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
+### Fixed
+
+- Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
+- The `config dump` subcommand was fixed to dump the correct config data. The P2P.V1.Enabled config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The V1.Enabled default value is actually true already, and is now updated to only set explicit false values.
+
+<!-- unreleasedstop -->
+
+## 1.11.0 - 2022-12-12
 
 ### Added
 
 - New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
+    - `bridge_latency_seconds`
+    - `bridge_errors_total`
+    - `bridge_cache_hits_total`
+    - `bridge_cache_errors_total`
+- `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
 
-#### TOML Configuration (optional)
+> ```toml
+> SyncThreshold = 5 # Default
+> ```
+> 
+> SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+>
+> Set to 0 to disable this check.
+
+#### TOML Configuration (experimental)
 
 Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
-This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+This is currently _experimental_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method. Avoid using TOML for configuration unless running on a test network for this release.
 
 ##### How to use
 
@@ -26,25 +74,26 @@ Multiple files can be used (`-c configA.toml -c configB.toml`), and will be appl
 Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
 Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
 
+Format details: [CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
 **Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
 
-##### Detailed Docs
+##### Examples
 
-[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+Dump your current configuration as TOML.
+```bash
+chainlink config dump > config.toml
+```
 
-### Fixed
+Inspect your full effective configuration, and ensure it is valid. This includes defaults.
+```bash
+chainlink --config config.toml --secrets secrets.toml config validate
+```
 
-- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
-
-### Updated
-
-- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
-
-<!-- unreleasedstop -->
-
-## 1.10.0 - 2022-11-15
-
-### Added
+Run the node.
+```bash
+chainlink -c config.toml -s secrets.toml node start
+```
 
 #### Bridge caching
 ##### BridgeCacheTTL
@@ -54,6 +103,18 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
 
 Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
+
+### Fixed
+
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
+### Updated
+
+- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
+
+## 1.10.0 - 2022-11-15
+
+### Added
 
 #### New optional external logger added
 ##### AUDIT_LOGGER_FORWARD_TO_URL
@@ -485,7 +546,7 @@ If you are using FixedPriceEstimator:
 
 If you are using BlockHistoryEstimator (default for most chains):
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap = ( current block base fee * (1.125 ^ N) + tipcap )` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
 

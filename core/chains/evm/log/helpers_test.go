@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -39,6 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type broadcasterHelper struct {
@@ -104,15 +106,17 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.TestLogger(t)
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
-	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead)
+	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  globalConfig,
 		DB:             c.db,
 		LogBroadcaster: &log.NullBroadcaster{},
+		MailMon:        mailMon,
 	})
 	kst := cltest.NewKeyStore(t, c.db, globalConfig)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst, nil, nil)

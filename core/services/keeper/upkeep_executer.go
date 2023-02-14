@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	executionQueueSize = 10
+	executionQueueSize  = 10
+	maxUpkeepPerformGas = 5_000_000 // Max perform gas for upkeep is 5M on all chains for v1.x
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -80,7 +81,7 @@ func NewUpkeepExecuter(
 		headBroadcaster:        headBroadcaster,
 		gasEstimator:           gasEstimator,
 		job:                    job,
-		mailbox:                utils.NewMailbox[*evmtypes.Head](1),
+		mailbox:                utils.NewSingleMailbox[*evmtypes.Head](),
 		config:                 config,
 		orm:                    orm,
 		pr:                     pr,
@@ -151,31 +152,19 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	var activeUpkeeps []UpkeepRegistration
-	if ex.config.KeeperTurnFlagEnabled() {
-		turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
-		if err2 != nil {
-			ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
-			return
-		}
-		activeUpkeeps, err2 = ex.orm.NewEligibleUpkeepsForRegistry(
-			ex.job.KeeperSpec.ContractAddress,
-			head.Number,
-			ex.config.KeeperMaximumGracePeriod(),
-			turnBinary)
-		if err2 != nil {
-			ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
-			return
-		}
-	} else {
-		activeUpkeeps, err = ex.orm.EligibleUpkeepsForRegistry(
-			ex.job.KeeperSpec.ContractAddress,
-			head.Number,
-			ex.config.KeeperMaximumGracePeriod(),
-		)
-		if err != nil {
-			ex.logger.Error(errors.Wrap(err, "unable to load active registrations"))
-			return
-		}
+	turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
+	if err2 != nil {
+		ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
+		return
+	}
+	activeUpkeeps, err2 = ex.orm.EligibleUpkeepsForRegistry(
+		ex.job.KeeperSpec.ContractAddress,
+		head.Number,
+		ex.config.KeeperMaximumGracePeriod(),
+		turnBinary)
+	if err2 != nil {
+		ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
+		return
 	}
 
 	if head.Number%10 == 0 {
@@ -249,11 +238,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
-	block, err := ex.ethClient.HeaderByNumber(context.Background(), big.NewInt(turnBlock))
+	block, err := ex.ethClient.HeadByNumber(context.Background(), big.NewInt(turnBlock))
 	if err != nil {
 		return "", err
 	}
-	hashAtHeight := block.Hash()
+	hashAtHeight := block.Hash
 	binaryString := fmt.Sprintf("%b", hashAtHeight.Big())
 	return binaryString, nil
 }
@@ -279,7 +268,7 @@ func buildJobSpec(
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: jb.ForwardingAllowed,
 			},
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
+			"performUpkeepGasLimit": maxUpkeepPerformGas + ormConfig.KeeperRegistryPerformGasOverhead(),
 			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
 			"gasPrice":              gasPrice.ToInt(),
 			"gasTipCap":             gasTipCap.ToInt(),

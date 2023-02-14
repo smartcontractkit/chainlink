@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"go.uber.org/multierr"
 )
 
@@ -384,24 +384,23 @@ func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
 	ready := make(chan bool)
 
 	go func() {
-		once.StartOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StartOnce("slow service", func() (err error) {
 			ch <- 1
 			ready <- true
 			<-time.After(time.Millisecond * 500) // wait for StopOnce to happen
 			ch <- 2
 
 			return nil
-		})
-
+		}))
 	}()
 
 	go func() {
 		<-ready // try stopping halfway through startup
-		once.StopOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StopOnce("slow service", func() (err error) {
 			ch <- 3
 
 			return nil
-		})
+		}))
 	}()
 
 	require.Equal(t, 1, <-ch)
@@ -546,7 +545,7 @@ func TestRetryWithBackoff(t *testing.T) {
 	})
 
 	retry := func() bool {
-		return counter.Inc() < 3
+		return counter.Add(1) < 3
 	}
 
 	go utils.RetryWithBackoff(ctx, retry)
@@ -741,7 +740,7 @@ func TestStartStopOnce(t *testing.T) {
 
 	var callsCount atomic.Int32
 	incCount := func() {
-		callsCount.Inc()
+		callsCount.Add(1)
 	}
 
 	var s utils.StartStopOnce
@@ -772,7 +771,7 @@ func TestStartStopOnce_StartErrors(t *testing.T) {
 
 	var callsCount atomic.Int32
 	incCount := func() {
-		callsCount.Inc()
+		callsCount.Add(1)
 	}
 
 	assert.False(t, s.IfStarted(incCount))
@@ -796,7 +795,7 @@ func TestStartStopOnce_StopErrors(t *testing.T) {
 
 	var callsCount atomic.Int32
 	incCount := func() {
-		callsCount.Inc()
+		callsCount.Add(1)
 	}
 
 	err = s.StopOnce("foo", func() error { return errors.New("explodey mcsplode") })
@@ -895,7 +894,7 @@ func TestPausableTicker(t *testing.T) {
 
 	followNTicks := func(n int32, awaiter cltest.Awaiter) {
 		for range pt.Ticks() {
-			if counter.Inc() == n {
+			if counter.Add(1) == n {
 				awaiter.ItHappened()
 			}
 		}
@@ -931,7 +930,7 @@ func TestCronTicker(t *testing.T) {
 
 	go func() {
 		for range ct.Ticks() {
-			if counter.Inc() == 2 {
+			if counter.Add(1) == 2 {
 				awaiter.ItHappened()
 			}
 		}

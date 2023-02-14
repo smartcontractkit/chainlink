@@ -1,27 +1,23 @@
 package testsetups
 
-//revive:disable:dot-imports
 import (
 	"context"
 	"fmt"
 	"math/big"
+	"testing"
 	"time"
-
-	"github.com/slack-go/slack"
 
 	goeath "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-
-	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
-
+	"github.com/slack-go/slack"
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -35,6 +31,7 @@ type KeeperBenchmarkTest struct {
 	TestReporter testreporters.KeeperBenchmarkTestReporter
 
 	keeperRegistries        []contracts.KeeperRegistry
+	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts [][]contracts.KeeperConsumerBenchmark
 	upkeepIDs               [][]*big.Int
 
@@ -61,6 +58,7 @@ type KeeperBenchmarkTestInputs struct {
 	PreDeployedConsumers   []string                          // PreDeployed consumer contracts to re-use in test
 	UpkeepResetterAddress  string
 	InitialBatchReset      bool
+	BlockTime              time.Duration
 }
 
 // NewKeeperBenchmarkTest prepares a new keeper benchmark test to be run
@@ -71,23 +69,24 @@ func NewKeeperBenchmarkTest(inputs KeeperBenchmarkTestInputs) *KeeperBenchmarkTe
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
+func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
-	k.ensureInputValues()
+	k.ensureInputValues(t)
 	k.env = env
 	inputs := k.Inputs
 
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
+	k.keeperRegistrars = make([]contracts.KeeperRegistrar, len(inputs.RegistryVersions))
 	k.keeperConsumerContracts = make([][]contracts.KeeperConsumerBenchmark, len(inputs.RegistryVersions))
 	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 
 	var err error
 	// Connect to networks and prepare for contract deployment
 	contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
-	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
+	require.NoError(t, err, "Building a new contract deployer shouldn't fail")
 	k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
-	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 	k.chainClient.ParallelTransactions(true)
 
 	if len(inputs.RegistryVersions) > 1 {
@@ -95,7 +94,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			for registryIndex := 1; registryIndex < len(inputs.RegistryVersions); registryIndex++ {
 				log.Debug().Str("URL", node.URL()).Int("NodeIndex", nodeIndex).Int("RegistryIndex", registryIndex).Msg("Create Tx key")
 				_, _, err := node.CreateTxKey("evm", k.Inputs.BlockchainClient.GetChainID().String())
-				Expect(err).ShouldNot(HaveOccurred(), "Creating transaction key shouldn't fail")
+				require.NoError(t, err, "Creating transaction key shouldn't fail")
 			}
 		}
 	}
@@ -104,18 +103,19 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 		log.Info().Int("Index", index).Msg("Starting Test Setup")
 
 		linkToken, err := contractDeployer.DeployLinkTokenContract()
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
+		require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 		err = k.chainClient.WaitForEvents()
-		Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
+		require.NoError(t, err, "Failed waiting for LINK Contract deployment")
 
-		k.keeperRegistries[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
+		k.keeperRegistries[index], k.keeperRegistrars[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
+			t,
 			inputs.RegistryVersions[index],
 			inputs.NumberOfContracts,
 			uint32(inputs.UpkeepGasLimit), //upkeepGasLimit
 			linkToken,
 			contractDeployer,
 			k.chainClient,
-			k.Inputs.KeeperRegistrySettings,
+			inputs.KeeperRegistrySettings,
 			inputs.BlockRange,
 			inputs.BlockInterval,
 			inputs.CheckGasToBurn,
@@ -123,13 +123,19 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.FirstEligibleBuffer,
 			inputs.PreDeployedConsumers,
 			inputs.UpkeepResetterAddress,
+			k.chainlinkNodes,
+			inputs.BlockTime,
 		)
 	}
 
 	for index := range inputs.RegistryVersions {
 		// Fund chainlink nodes
-		err = actions.FundChainlinkNodesAddress(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
-		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
+		nodesToFund := k.chainlinkNodes
+		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 {
+			nodesToFund = k.chainlinkNodes[1:]
+		}
+		err = actions.FundChainlinkNodesAddress(nodesToFund, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
+		require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
 	}
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
@@ -140,7 +146,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 }
 
 // Run runs the keeper benchmark test
-func (k *KeeperBenchmarkTest) Run() {
+func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 	k.TestReporter.Summary.Load.TotalCheckGasPerBlock = int64(k.Inputs.NumberOfContracts) * k.Inputs.CheckGasToBurn
 	k.TestReporter.Summary.Load.TotalPerformGasPerBlock = int64((float64(k.Inputs.NumberOfContracts) / float64(k.Inputs.BlockInterval)) * float64(k.Inputs.PerformGasToBurn))
 	k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock = float64(k.Inputs.NumberOfContracts) / float64(k.Inputs.BlockInterval)
@@ -158,18 +164,32 @@ func (k *KeeperBenchmarkTest) Run() {
 		"NumberOfRegistries":  len(k.keeperRegistries),
 	}
 	contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
-	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
+	require.NoError(t, err, "Building a new contract deployer shouldn't fail")
 	inputs := k.Inputs
 	startTime := time.Now()
 
-	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
+	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
-		// Reset upkeeps so that they become eligible gradually after the test starts
-		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
-			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(
+			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.BlockTime*5,
+		)
+
 		// Send keeper jobs to registry and chainlink nodes
-		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex)
+		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 {
+			actions.CreateOCRKeeperJobs(t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), rIndex)
+			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+			require.NoError(t, err, "Registry config should be be set successfully")
+			// Give time for OCR nodes to bootstrap
+			time.Sleep(2 * time.Minute)
+		} else {
+			actions.CreateKeeperJobsWithKeyIndex(t, k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, ocrConfig)
+		}
+		err = k.chainClient.WaitForEvents()
+		require.NoError(t, err, "Error waiting for registry setConfig")
+		// Reset upkeeps so that they become eligible gradually after the test starts
+		actions.ResetUpkeeps(t, contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
+			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
@@ -177,7 +197,6 @@ func (k *KeeperBenchmarkTest) Run() {
 					k.keeperRegistries[rIndex],
 					k.upkeepIDs[rIndex][index],
 					inputs.BlockRange+inputs.UpkeepSLA,
-					rampUpBlocks,
 					inputs.UpkeepSLA,
 					&k.TestReporter,
 					int64(index),
@@ -195,10 +214,10 @@ func (k *KeeperBenchmarkTest) Run() {
 	}()
 	logSubscriptionStop := make(chan bool)
 	for rIndex := range k.keeperRegistries {
-		k.subscribeToUpkeepPerformedEvent(logSubscriptionStop, &k.TestReporter, rIndex)
+		k.subscribeToUpkeepPerformedEvent(t, logSubscriptionStop, &k.TestReporter, rIndex)
 	}
 	err = k.chainClient.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for keeper subscriptions")
+	require.NoError(t, err, "Error waiting for keeper subscriptions")
 	close(logSubscriptionStop)
 
 	for _, chainlinkNode := range k.chainlinkNodes {
@@ -224,7 +243,7 @@ func (k *KeeperBenchmarkTest) Run() {
 
 	for rIndex := range k.keeperRegistries {
 		// Delete keeper jobs on chainlink nodes
-		actions.DeleteKeeperJobsWithId(k.chainlinkNodes, rIndex+1)
+		actions.DeleteKeeperJobsWithId(t, k.chainlinkNodes, rIndex+1)
 	}
 
 	log.Info().Str("Run Time", endTime.Sub(startTime).String()).Msg("Finished Keeper Benchmark Test")
@@ -232,9 +251,14 @@ func (k *KeeperBenchmarkTest) Run() {
 
 // subscribeToUpkeepPerformedEvent subscribes to the event log for UpkeepPerformed event and
 // counts the number of times it was unsuccessful
-func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool, metricsReporter *testreporters.KeeperBenchmarkTestReporter, rIndex int) {
+func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
+	t *testing.T,
+	doneChan chan bool,
+	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
+	rIndex int,
+) {
 	contractABI, err := ethereum.KeeperRegistry11MetaData.GetAbi()
-	Expect(err).ShouldNot(HaveOccurred(), "Error getting ABI")
+	require.NoError(t, err, "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		contractABI, err = ethereum.KeeperRegistry11MetaData.GetAbi()
@@ -242,19 +266,20 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 		contractABI, err = ethereum.KeeperRegistry12MetaData.GetAbi()
 	case ethereum.RegistryVersion_1_3:
 		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
+	case ethereum.RegistryVersion_2_0:
+		contractABI, err = ethereum.KeeperRegistry20MetaData.GetAbi()
 	default:
 		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
 	}
 
-	Expect(err).ShouldNot(HaveOccurred(), "Getting contract abi for registry shouldn't fail")
+	require.NoError(t, err, "Getting contract abi for registry shouldn't fail")
 	query := goeath.FilterQuery{
 		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())},
 	}
 	eventLogs := make(chan types.Log)
 	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-	Expect(err).ShouldNot(HaveOccurred(), "Subscribing to upkeep performed events log shouldn't fail")
+	require.NoError(t, err, "Subscribing to upkeep performed events log shouldn't fail")
 	go func() {
-		defer ginkgo.GinkgoRecover()
 		var numRevertedUpkeeps int64
 		for {
 			select {
@@ -263,16 +288,16 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 				sub.Unsubscribe()
 
 				sub, err = k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				Expect(err).ShouldNot(HaveOccurred(), "Error re-subscribing to event logs")
+				require.NoError(t, err, "Error re-subscribing to event logs")
 			case vLog := <-eventLogs:
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
-				Expect(err).ShouldNot(HaveOccurred(), "Getting event details for subscribed log shouldn't fail")
+				require.NoError(t, err, "Getting event details for subscribed log shouldn't fail")
 				if eventDetails.Name != "UpkeepPerformed" {
 					// Skip non upkeepPerformed Logs
 					continue
 				}
 				parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
-				Expect(err).ShouldNot(HaveOccurred(), "Parsing upkeep performed log shouldn't fail")
+				require.NoError(t, err, "Parsing upkeep performed log shouldn't fail")
 
 				if parsedLog.Success {
 					log.Info().
@@ -300,32 +325,40 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 }
 
 // TearDownVals returns the networks that the test is running on
-func (k *KeeperBenchmarkTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
-	return k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
+func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
+	*testing.T,
+	*environment.Environment,
+	[]*client.Chainlink,
+	reportModel.TestReporter,
+	blockchain.EVMClient,
+) {
+	return t, k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present
-func (k *KeeperBenchmarkTest) ensureInputValues() {
+func (k *KeeperBenchmarkTest) ensureInputValues(t *testing.T) {
 	inputs := k.Inputs
-	Expect(inputs.BlockchainClient).ShouldNot(BeNil(), "Need a valid blockchain client to use for the test")
+	require.NotNil(t, inputs.BlockchainClient, "Need a valid blockchain client to use for the test")
 	k.chainClient = inputs.BlockchainClient
-	Expect(inputs.NumberOfContracts).Should(BeNumerically(">=", 1), "Expecting at least 1 keeper contracts")
+	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 keeper contracts")
 	if inputs.Timeout == 0 {
-		Expect(inputs.BlockRange).Should(BeNumerically(">", 0), "If no `timeout` is provided, a `testBlockRange` is required")
+		require.Greater(t, inputs.BlockRange, int64(0), "If no `timeout` is provided, a `testBlockRange` is required")
 	} else if inputs.BlockRange <= 0 {
-		Expect(inputs.Timeout).Should(BeNumerically(">=", 1), "If no `testBlockRange` is provided a `timeout` is required")
+		require.GreaterOrEqual(t, inputs.Timeout, time.Second, "If no `testBlockRange` is provided a `timeout` is required")
 	}
-	Expect(inputs.KeeperRegistrySettings).ShouldNot(BeNil(), "You need to set KeeperRegistrySettings")
-	Expect(k.Inputs.ChainlinkNodeFunding).ShouldNot(BeNil(), "You need to set a funding amount for chainlink nodes")
+	require.NotNil(t, inputs.KeeperRegistrySettings, "You need to set KeeperRegistrySettings")
+	require.NotNil(t, k.Inputs.ChainlinkNodeFunding, "You need to set a funding amount for chainlink nodes")
 	clFunds, _ := k.Inputs.ChainlinkNodeFunding.Float64()
-	Expect(clFunds).Should(BeNumerically(">=", 0), "Expecting Chainlink node funding to be more than 0 ETH")
-	Expect(inputs.CheckGasToBurn).Should(BeNumerically(">", 0), "You need to set an expected amount of gas to burn on checkUpkeep()")
-	Expect(inputs.KeeperRegistrySettings.CheckGasLimit).Should(BeNumerically(">=", inputs.CheckGasToBurn),
-		"CheckGasLimit should be >= CheckGasToBurn")
-	Expect(inputs.PerformGasToBurn).Should(BeNumerically(">", 0), "You need to set an expected amount of gas to burn on performUpkeep()")
-	Expect(inputs.UpkeepSLA).ShouldNot(BeNil(), "You need to set UpkeepSLA")
-	Expect(inputs.FirstEligibleBuffer).ShouldNot(BeNil(), "You need to set FirstEligibleBuffer")
-	Expect(inputs.RegistryVersions[0]).ShouldNot(BeNil(), "You need to set RegistryVersion")
+	require.GreaterOrEqual(t, clFunds, 0.0, "Expecting Chainlink node funding to be more than 0 ETH")
+	require.Greater(t, inputs.CheckGasToBurn, int64(0), "You need to set an expected amount of gas to burn on checkUpkeep()")
+	require.GreaterOrEqual(
+		t, int64(inputs.KeeperRegistrySettings.CheckGasLimit), inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
+	)
+	require.Greater(t, inputs.PerformGasToBurn, int64(0), "You need to set an expected amount of gas to burn on performUpkeep()")
+	require.NotNil(t, inputs.UpkeepSLA, "Expected UpkeepSLA to be set")
+	require.NotNil(t, inputs.FirstEligibleBuffer, "You need to set FirstEligibleBuffer")
+	require.NotNil(t, inputs.RegistryVersions[0], "You need to set RegistryVersion")
+	require.NotNil(t, inputs.BlockTime, "You need to set BlockTime")
 }
 
 func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) error {
@@ -333,7 +366,7 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) e
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
-	headerText := ":white_check_mark: Keeper Benchmark Test Started :white_check_mark:"
+	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
 	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", testreporters.DashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 

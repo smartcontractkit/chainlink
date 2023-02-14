@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -436,7 +436,7 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	chSub, unsubscribe := ks.SubscribeToKeyChanges()
 	defer unsubscribe()
 
-	count := atomic.NewInt32(0)
+	var count atomic.Int32
 
 	assertCountAtLeast := func(expected int32) {
 		require.Eventually(
@@ -772,7 +772,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	require.NoError(t, ks.Disable(k2.Address, testutils.SimulatedChainID))
 
 	k3, addr3 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
-	ks.Enable(k3.Address, testutils.SimulatedChainID)
+	require.NoError(t, ks.Enable(k3.Address, testutils.SimulatedChainID))
 
 	t.Run("enabling the same key multiple times does not create duplicate states", func(t *testing.T) {
 		require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))

@@ -9,10 +9,44 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
+)
+
+// NOTE: These metrics generate a new label per bridge, this should be safe
+// since the number of bridges is almost always relatively small (<< 1000)
+//
+// We already have promHTTPFetchTime but the bridge-specific gauges allow for
+// more granular metrics
+var (
+	promBridgeLatency = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "bridge_latency_seconds",
+		Help: "Bridge latency in seconds scoped by name",
+	},
+		[]string{"name"},
+	)
+	promBridgeErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bridge_errors_total",
+		Help: "Bridge error count scoped by name",
+	},
+		[]string{"name"},
+	)
+	promBridgeCacheHits = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bridge_cache_hits_total",
+		Help: "Bridge cache hits count scoped by name",
+	},
+		[]string{"name"},
+	)
+	promBridgeCacheErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bridge_cache_errors_total",
+		Help: "Bridge cache errors count scoped by name",
+	},
+		[]string{"name"},
+	)
 )
 
 // Return types:
@@ -26,6 +60,7 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 	CacheTTL          string `json:"cacheTTL"`
+	Headers           string `json:"headers"`
 
 	specId     int32
 	orm        bridges.ORM
@@ -36,6 +71,8 @@ type BridgeTask struct {
 var _ Task = (*BridgeTask)(nil)
 
 var zeroURL = new(url.URL)
+
+const stalenessCap = time.Duration(30 * time.Minute)
 
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
@@ -52,15 +89,21 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		requestData       MapParam
 		includeInputAtKey StringParam
 		cacheTTL          Uint64Param
+		reqHeaders        StringSliceParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
+		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
+	}
+
+	if len(reqHeaders)%2 != 0 {
+		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
 	}
 
 	url, err := t.getBridgeURLFromName(name)
@@ -113,27 +156,39 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
+	// cacheTTL should not exceed stalenessCap.
+	cacheDuration := time.Duration(cacheTTL) * time.Second
+	if cacheDuration > stalenessCap {
+		lggr.Warnf("bridge task cacheTTL exceeds stalenessCap %s, overriding value to stalenessCap", stalenessCap)
+		cacheDuration = stalenessCap
+	}
+
 	var cachedResponse bool
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
+		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
+			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 			lggr.Errorw("Bridge task: cache fallback failed",
 				"err", cacheErr.Error(),
 				"url", url.String(),
 			)
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
+		promBridgeCacheHits.WithLabelValues(t.Name).Inc()
 		lggr.Debugw("Bridge task: request failed, falling back to cache",
 			"response", string(responseBytes),
 			"url", url.String(),
 		)
 		cachedResponse = true
+	} else {
+		promBridgeLatency.WithLabelValues(t.Name).Set(elapsed.Seconds())
 	}
 
 	if t.Async == "true" {

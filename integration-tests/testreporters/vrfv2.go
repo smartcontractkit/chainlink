@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
@@ -69,17 +69,19 @@ func (o *VRFV2SoakTestReporter) WriteReport(folderLocation string) error {
 }
 
 // SendNotification sends a slack message to a slack webhook and uploads test artifacts
-func (o *VRFV2SoakTestReporter) SendSlackNotification(slackClient *slack.Client) error {
+func (o *VRFV2SoakTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
 	if slackClient == nil {
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
 
-	testFailed := ginkgo.CurrentSpecReport().Failed()
+	testFailed := t.Failed()
 	headerText := ":white_check_mark: VRFV2 Soak Test PASSED :white_check_mark:"
 	if testFailed {
 		headerText = ":x: VRFV2 Soak Test FAILED :x:"
 	}
-	messageBlocks := testreporters.CommonSlackNotificationBlocks(slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed)
+	messageBlocks := testreporters.CommonSlackNotificationBlocks(
+		t, slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed,
+	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
 		return err

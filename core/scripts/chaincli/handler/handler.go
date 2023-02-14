@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -34,6 +35,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const (
@@ -112,6 +114,8 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	if err != nil {
 		log.Fatal("SuggestGasPrice failed: ", err)
 	}
+
+	gasPrice = bigmath.Add(gasPrice, bigmath.Div(gasPrice, 5)) // add 20%
 
 	auth, err := bind.NewKeyedTransactorWithChainID(h.privateKey, big.NewInt(h.cfg.ChainID))
 	if err != nil {
@@ -315,7 +319,10 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	addr := fmt.Sprintf("http://localhost:%s", portStr)
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
-	time.Sleep(time.Second * 40)
+	if err = waitForNodeReady(addr); err != nil {
+		log.Fatal(err, nodeContainerResp.ID)
+	}
+	log.Println("Node ready: ", nodeContainerResp.ID)
 
 	return addr, func(writeLogs bool) {
 		fileCleanup()
@@ -362,6 +369,31 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			log.Fatal("Failed to remove DB container: ", err)
 		}
 	}, nil
+}
+
+func waitForNodeReady(addr string) error {
+	client := &http.Client{}
+	defer client.CloseIdleConnections()
+	const timeout = 120
+	startTime := time.Now().Unix()
+	for {
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", addr), nil)
+		if err != nil {
+			return err
+		}
+		req.Close = true
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+		if time.Now().Unix()-startTime > int64(timeout*time.Second) {
+			return fmt.Errorf("timed out waiting for node to start, waited %d seconds", timeout)
+		}
+		time.Sleep(time.Second * 5)
+	}
 }
 
 // authenticate creates a http client with URL, email and password
@@ -454,7 +486,7 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 func getP2PKeyID(client cmd.HTTPClient) (string, error) {
 	resp, err := nodeRequest(client, "/v2/keys/p2p")
 	if err != nil {
-		return "", fmt.Errorf("failed to get OCR2 keys: %s", err)
+		return "", fmt.Errorf("failed to get P2P keys: %s", err)
 	}
 
 	var keys cmd.P2PKeyPresenters

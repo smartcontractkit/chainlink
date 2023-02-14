@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	ocr2validate "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -549,7 +550,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb4.OCROracleSpec.ContractAddress, jb4.OCROracleSpec.EVMChainID.ToInt()), err.Error())
 	})
 
-	jobORM.DeleteJob(jb.ID)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
 
 	t.Run("with a set chain id", func(t *testing.T) {
 		err = jobORM.CreateJob(&jb4) // Add job with custom chain id
@@ -579,6 +580,62 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChainID), err.Error())
 	})
+}
+
+func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
+	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: customChainID,
+			Chain:   evmcfg.Defaults(customChainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
+
+	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	jb.Name = null.StringFrom("Job 1")
+	jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+
+	jb2, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	jb2.Name = null.StringFrom("Job with same chain id & contract address")
+	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+
+	err = jobORM.CreateJob(&jb2)
+	require.Error(t, err)
+
+	jb3, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
+	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+
+	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.Int64()
+
+	err = jobORM.CreateJob(&jb3)
+	require.Error(t, err)
 }
 
 func Test_FindJobs(t *testing.T) {
@@ -650,7 +707,20 @@ func Test_FindJobs(t *testing.T) {
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 
-	config := configtest.NewTestGeneralConfig(t)
+	// Create a config with multiple EVM chains.  The test fixtures already load a 1337 and the
+	// default EVM chain ID.  Additional chains will need additional fixture statements to add
+	// a chain to evm_chains.
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		chainID := utils.NewBigI(1337)
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: chainID,
+			Chain:   evmcfg.Defaults(chainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -664,11 +734,14 @@ func Test_FindJob(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
+	// Create two jobs.  Each job has the same Transmitter Address but on a different chain.
+	// Must uniquely name the OCR Specs to properly insert a new job in the job table.
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	job, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
+			Name:               "orig ocr spec",
 			TransmitterAddress: address.Hex(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -676,7 +749,22 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	jobSameAddress, err := ocr.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              uuid.NewV4().String(),
+			TransmitterAddress: address.Hex(),
+			Name:               "ocr spec dup addr",
+			EVMChainID:         "1337",
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
 	err = orm.CreateJob(&job)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jobSameAddress)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -708,14 +796,30 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by address", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress)
+		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress, job.OCROracleSpec.EVMChainID)
 		require.NoError(t, err)
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err = orm.FindJobIDByAddress("not-existing")
+		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
+	})
+
+	t.Run("by address yet chain scoped", func(t *testing.T) {
+		commonAddr := jobSameAddress.OCROracleSpec.ContractAddress
+
+		// Find job ID for job on chain 1337 with common address.
+		jbID, err := orm.FindJobIDByAddress(commonAddr, jobSameAddress.OCROracleSpec.EVMChainID)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobSameAddress.ID, jbID)
+
+		// Find job ID for job on default evm chain with common address.
+		jbID, err = orm.FindJobIDByAddress(commonAddr, job.OCROracleSpec.EVMChainID)
+		require.NoError(t, err)
+
+		assert.Equal(t, job.ID, jbID)
 	})
 }
 
@@ -927,9 +1031,6 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		}
 	}
 
-	// Creation of job runs above cannot run in parallel, otherwise run ids are unpredictable
-	t.Parallel()
-
 	t.Run("with no pipeline runs", func(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(jb.ID, 0, 10)
 		require.NoError(t, err)
@@ -962,6 +1063,28 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, runIDs, 100)
 		assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
+	})
+
+	for i := 0; i < 2100; i++ {
+		mustInsertPipelineRun(t, pipelineORM, jb)
+	}
+
+	// There is a COUNT query which doesn't run unless the query for the most recent 1000 rows
+	//  returns empty.  This can happen if the job id being requested hasn't run in a while,
+	//  but many other jobs have run since.
+	t.Run("with first batch empty, over limit", func(t *testing.T) {
+		runIDs, err := orm.FindPipelineRunIDsByJobID(jobs[3].ID, 0, 25)
+		require.NoError(t, err)
+		require.Len(t, runIDs, 25)
+		assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
+	})
+
+	// Same as previous, but where there are fewer matching jobs than the limit
+	t.Run("with first batch empty, under limit", func(t *testing.T) {
+		runIDs, err := orm.FindPipelineRunIDsByJobID(jobs[3].ID, 143, 190)
+		require.NoError(t, err)
+		require.Len(t, runIDs, 107)
+		assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
 	})
 }
 

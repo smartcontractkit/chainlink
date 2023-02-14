@@ -1,18 +1,18 @@
 package migration_test
 
 import (
+	"os"
 	"strings"
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
 type Data struct {
@@ -23,8 +23,34 @@ type Data struct {
 	Enabled   bool      `db:"enabled"`
 }
 
-func getDB(e *environment.Environment) *ctfClient.PostgresConnector {
-	spl := strings.Split(e.URLs["chainlink_db"][1], ":")
+func TestMain(m *testing.M) {
+	logging.Init()
+	os.Exit(m.Run())
+}
+
+func TestMigrationDatabase(t *testing.T) {
+	testEnvironment, err := testsetups.DBMigration(&testsetups.DBMigrationSpec{
+		FromSpec: testsetups.FromVersionSpec{
+			Image: "public.ecr.aws/chainlink/chainlink",
+			Tag:   "1.6.0-nonroot",
+		},
+		ToSpec: testsetups.ToVersionSpec{
+			Image: "public.ecr.aws/chainlink/chainlink",
+			Tag:   "1.7.1-nonroot",
+		},
+	})
+	require.NoError(t, err, "Error setting up DBMigration test")
+	// if test haven't failed after that assertion we know that migration is complete
+	// check other stuff via queries if needed
+	db := getDB(t, testEnvironment)
+	var d []Data
+	err = db.Select(&d, "select * from evm_chains;")
+	require.NoError(t, err, "Error running SELECT")
+	log.Info().Interface("Rows", d).Send()
+}
+
+func getDB(t *testing.T, testEnvironment *environment.Environment) *ctfClient.PostgresConnector {
+	spl := strings.Split(testEnvironment.URLs["chainlink_db"][1], ":")
 	port := spl[len(spl)-1]
 	db, err := ctfClient.NewPostgresConnector(&ctfClient.PostgresConfig{
 		Host:     "localhost",
@@ -33,44 +59,6 @@ func getDB(e *environment.Environment) *ctfClient.PostgresConnector {
 		Password: "postgres",
 		DBName:   "chainlink",
 	})
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error connecting to postgres")
 	return db
 }
-
-// Migration template boiler, for now it's semi-automatic, integrating into CI to make it fully automatic
-var _ = Describe("Migration up test suite @db-migration", func() {
-	var (
-		err error
-		e   *environment.Environment
-	)
-
-	AfterEach(func() {
-		By("Tearing down the environment")
-		err = actions.TeardownSuite(e, utils.ProjectRoot, nil, nil, nil)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-	})
-
-	Describe("Migration up succeeds @db-migration-up", func() {
-		It("Migrated successfully", func() {
-			e, err = testsetups.DBMigration(&testsetups.DBMigrationSpec{
-				FromSpec: testsetups.FromVersionSpec{
-					Image: "public.ecr.aws/chainlink/chainlink",
-					Tag:   "1.6.0-nonroot",
-				},
-				ToSpec: testsetups.ToVersionSpec{
-					Image: "public.ecr.aws/chainlink/chainlink",
-					Tag:   "1.7.1-nonroot",
-				},
-			})
-			Expect(err).ShouldNot(HaveOccurred())
-			// if test haven't failed after that assertion we know that migration is complete
-			// check other stuff via queries if needed
-			db := getDB(e)
-			var d []Data
-			err = db.Select(&d, "select * from evm_chains;")
-			Expect(err).ShouldNot(HaveOccurred())
-			log.Info().Interface("Rows", d).Send()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-	})
-})

@@ -34,10 +34,9 @@ import (
 )
 
 var (
-	ErrNoSuchKeyBundle       = errors.New("no such key bundle exists")
-	ErrNoSuchTransmitterKey  = errors.New("no such transmitter key exists")
-	ErrSendingKeyIsForwarder = errors.New("forwarding is enabled, but the transmitter is set to a local sending key")
-	ErrNoSuchPublicKey       = errors.New("no such public key exists")
+	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -50,7 +49,7 @@ type ORM interface {
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
-	FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error)
+	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -71,7 +70,8 @@ type ORM interface {
 	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 
-	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
+	FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) ([]byte, error)
+	AssertBridgesExist(p pipeline.Pipeline) error
 }
 
 type ORMConfig interface {
@@ -83,7 +83,7 @@ type orm struct {
 	chainSet    evm.ChainSet
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
-	lggr        logger.Logger
+	lggr        logger.SugaredLogger
 	cfg         pg.QConfig
 	bridgeORM   bridges.ORM
 }
@@ -99,7 +99,7 @@ func NewORM(
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) *orm {
-	namedLogger := lggr.Named("JobORM")
+	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
 		q:           pg.NewQ(db, namedLogger, cfg),
 		chainSet:    chainSet,
@@ -114,7 +114,7 @@ func (o *orm) Close() error {
 	return nil
 }
 
-func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
+func (o *orm) AssertBridgesExist(p pipeline.Pipeline) error {
 	var bridgeNames = make(map[bridges.BridgeName]struct{})
 	var uniqueBridges []bridges.BridgeName
 	for _, task := range p.Tasks {
@@ -147,7 +147,7 @@ func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	if err := o.assertBridgesExist(p); err != nil {
+	if err := o.AssertBridgesExist(p); err != nil {
 		return err
 	}
 
@@ -231,25 +231,19 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
+
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
-					chain, err := EVMChainForJob(jb, o.chainSet)
+					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrap(err, "error getting EVMChain for job")
-					}
-
-					useForwarders := chain.Config().EvmUseForwarders()
-					_, err = o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
-
-					// If not using forwarders, the transmitter should be a local sending key.
-					if !useForwarders && err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				case relay.Solana:
@@ -262,8 +256,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
 				}
 			}
+
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
@@ -274,7 +274,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err != nil {
 					return err
 				}
-				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
+				if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
 					return err2
 				}
 			}
@@ -312,14 +312,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case VRF:
 			var specID int32
 			sql := `INSERT INTO vrf_specs (
-				coordinator_address, public_key, min_incoming_confirmations, 
-				evm_chain_id, from_addresses, poll_period, requested_confs_delay, 
-				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled, 
+				coordinator_address, public_key, min_incoming_confirmations,
+				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
+				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
 				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
 				created_at, updated_at)
 			VALUES (
-				:coordinator_address, :public_key, :min_incoming_confirmations, 
-				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, 
+				:coordinator_address, :public_key, :min_incoming_confirmations,
+				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
 				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
 				NOW(), NOW())
@@ -370,10 +370,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case Bootstrap:
 			var specID int32
 			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
-					blockchain_timeout, contract_config_tracker_poll_interval, 
+					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint, 
-					:blockchain_timeout, :contract_config_tracker_poll_interval, 
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
+					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BootstrapSpec); err != nil {
@@ -760,17 +760,17 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (jobID int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.ocr_oracle_spec_id
-LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.id = jobs.flux_monitor_spec_id
+LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.evm_chain_id = $2 AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.evm_chain_id = $2 AND fmspec.id = jobs.flux_monitor_spec_id
 WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
-		err = tx.Get(&jobID, stmt, address)
+		err = tx.Get(&jobID, stmt, address, evmChainID)
 
 		if !errors.Is(err, sql.ErrNoRows) {
 			if err != nil {
@@ -906,10 +906,10 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 				var skipped int
 				// If no rows were returned, we need to know whether there were any ids skipped
 				//  in this batch due to the offset, and reduce it for the next batch
-				err = tx.Select(&skipped,
+				err = tx.Get(&skipped,
 					fmt.Sprintf(
-						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $2 AND p.id <= $3`, filter,
-					),
+						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $1 AND p.id <= $2`, filter,
+					), minID, maxID,
 				)
 				if err != nil {
 					err = errors.Wrap(err, "error loading from pipeline_runs")
@@ -930,8 +930,9 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	return
 }
 
-func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (result []byte, err error) {
-	err = o.q.Transaction(func(tx pg.Queryer) error {
+func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) (result []byte, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := fmt.Sprintf("SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1 AND dot_id = '%s';", taskName)
 
 		var taskRuns []pipeline.TaskRun
@@ -945,6 +946,9 @@ func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (re
 			o.lggr.Errorf("found multiple task runs with id: %v, taskName: %v. Using the first one.", runID, taskName)
 		}
 		taskRun := taskRuns[0]
+		if !taskRun.Error.IsZero() {
+			return errors.New(taskRun.Error.ValueOrZero())
+		}
 		resBytes, errB := taskRun.Output.MarshalJSON()
 		if errB != nil {
 			return errB
@@ -961,7 +965,7 @@ func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []i
 		ids, err = o.loadPipelineRunIDs(&jobID, offset, limit, tx)
 		return err
 	})
-	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
+	return ids, errors.Wrap(err, "FindPipelineRunIDsByJobID failed")
 }
 
 func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.Run, err error) {
@@ -969,6 +973,7 @@ func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.
 		SELECT pipeline_runs.*
 		FROM pipeline_runs
 		WHERE id = ANY($1)
+		ORDER BY created_at DESC, id DESC
 	`
 	if err = tx.Select(&runs, stmt, ids); err != nil {
 		err = errors.Wrap(err, "error loading runs")
@@ -1024,7 +1029,7 @@ func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 		return err
 	})
 
-	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return count, errors.Wrap(err, "CountPipelineRunsByJobID failed")
 }
 
 func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {

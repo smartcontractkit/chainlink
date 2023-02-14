@@ -44,7 +44,7 @@ func NewKeeper(cfg *config.Config) *Keeper {
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
 	lggr, closeLggr := logger.NewLogger()
-	defer closeLggr()
+	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	keepers, owners := k.keepers()
 	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
@@ -160,6 +160,9 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 }
 
 func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) {
+	if k.approveAmount.Cmp(big.NewInt(0)) == 0 {
+		return
+	}
 	// Approve keeper registry
 	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
 	if err != nil {
@@ -183,6 +186,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
+	log.Println("KeeperRegistry2.0 Logic deployed:", registryLogicAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryLogicTx.Hash()))
 
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry20.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),
@@ -434,7 +438,7 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 // createKeeperJobOnExistingNode connect to existing node to create keeper job
 func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registryAddr, nodeAddr string) error {
 	lggr, closeLggr := logger.NewLogger()
-	defer closeLggr()
+	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	cl, err := authenticate(urlStr, email, password, lggr)
 	if err != nil {

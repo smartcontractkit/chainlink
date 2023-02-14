@@ -20,3 +20,6 @@ Enabled = true
 [GasEstimator.BlockHistory]
 # Force an error if someone enables the estimator by accident; we never want to run the block history estimator on metisaa
 BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10

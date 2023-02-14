@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperRegistryInterface2_0.sol";
+import "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -49,7 +49,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     AutoApproveType autoApproveConfigType;
     uint32 autoApproveMaxAllowed;
     uint32 approvedCount;
-    KeeperRegistryBaseInterface keeperRegistry;
+    AutomationRegistryBaseInterface keeperRegistry;
     uint96 minLINKJuels;
   }
 
@@ -258,7 +258,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       autoApproveMaxAllowed: autoApproveMaxAllowed,
       approvedCount: approvedCount,
       minLINKJuels: minLINKJuels,
-      keeperRegistry: KeeperRegistryBaseInterface(keeperRegistry)
+      keeperRegistry: AutomationRegistryBaseInterface(keeperRegistry)
     });
 
     emit ConfigChanged(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
@@ -386,7 +386,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
-    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
+    AutomationRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
     uint256 upkeepId = keeperRegistry.registerUpkeep(

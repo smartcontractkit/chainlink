@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -35,6 +36,7 @@ import (
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
@@ -61,6 +63,7 @@ type Delegate struct {
 	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
+	mailMon               *utils.MailboxMonitor
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -79,6 +82,7 @@ func NewDelegate(
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
 	relayers map[relay.Network]types.Relayer,
+	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -95,6 +99,7 @@ func NewDelegate(
 		ethKs,
 		relayers,
 		false,
+		mailMon,
 	}
 }
 
@@ -123,37 +128,23 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
 
-	lggr := d.lggr.Named("OCR").With(
+	lggr := logger.Sugared(d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
 		"jobName", jb.Name.ValueOrZero(),
 		"jobID", jb.ID,
-	)
+	))
 
 	if spec.Relay == relay.EVM {
-		chainIDInterface, ok := spec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, err2
 		}
-		chainID, ok := chainIDInterface.(float64)
-		if !ok {
-			return nil, errors.Errorf("invalid chain type got %T want float64", chainIDInterface)
-		}
-		chain, err2 := d.chainSet.Get(big.NewInt(int64(chainID)))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
 
-		var sendingKeys []string
-		ethSendingKeys, err2 := d.ethKs.GetAll()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "get eth sending keys")
-		}
-
-		// Automatically provide the node's local sending keys to the job spec.
-		for _, s := range ethSendingKeys {
-			sendingKeys = append(sendingKeys, s.Address.String())
-		}
-		spec.RelayConfig["sendingKeys"] = sendingKeys
+		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
@@ -169,7 +160,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		spec.RelayConfig["effectiveTransmitterAddress"] = effectiveTransmitterAddress
 	}
 
-	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
+	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg)
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -178,14 +169,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {
-		d.lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
+		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
 
 	lc := validate.ToLocalConfig(d.cfg, *spec)
 	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
-	d.lggr.Infow("OCR2 job using local config",
+	lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
 		"ContractConfigConfirmations", lc.ContractConfigConfirmations,
 		"ContractConfigTrackerPollInterval", lc.ContractConfigTrackerPollInterval,
@@ -197,7 +188,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.lggr.Debugw("Using bootstrap peers", "peers", bootstrapPeers)
+	lggr.Debugw("Using bootstrap peers", "peers", bootstrapPeers)
 	// Fetch the specified OCR2 key bundle
 	var kbID string
 	if spec.OCRKeyBundleID.Valid {
@@ -243,18 +234,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin)
+		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg)
 	case job.DKG:
-		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, err2
 		}
-		chainID := int64(chainIDInterface.(float64))
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
+		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"), d.ethKs)
 		dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
@@ -285,7 +275,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return dkg.NewDKGServices(
 			jb,
 			dkgProvider,
-			d.lggr,
+			lggr,
 			ocrLogger,
 			d.dkgSignKs,
 			d.dkgEncryptKs,
@@ -297,14 +287,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			spec.Relay,
 		)
 	case job.OCR2VRF:
-		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, err2
 		}
-		chainID := int64(chainIDInterface.(float64))
+
+		// Automatically provide the node's local sending keys to the job spec for OCR2VRF.
+		var sendingKeys []string
+		ethSendingKeys, err2 := d.ethKs.EnabledKeysForChain(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get eth sending keys")
+		}
+		for _, s := range ethSendingKeys {
+			sendingKeys = append(sendingKeys, s.Address.String())
+		}
+		spec.RelayConfig["sendingKeys"] = sendingKeys
+
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
+		}
+		if jb.ForwardingAllowed != chain.Config().EvmUseForwarders() {
+			return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
 		}
 
 		var cfg ocr2vrfconfig.PluginConfig
@@ -318,7 +322,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "validate ocr2vrf plugin config")
 		}
 
-		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
+		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"), d.ethKs)
 
 		vrfProvider, err2 := ocr2vrfRelayer.NewOCR2VRFProvider(
 			types.RelayArgs{
@@ -354,16 +358,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "new onchain dkg client")
 		}
 
+		timeout := 1 * time.Second
 		juelsPerFeeCoin, err2 := juelsfeecoin.NewLinkEthPriceProvider(
-			common.HexToAddress(cfg.LinkEthFeedAddress), chain.Client(), 1*time.Second)
+			common.HexToAddress(cfg.LinkEthFeedAddress), chain.Client(), timeout)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new link eth price provider")
 		}
 
-		// No need to error check here, we check these keys exist when validating
-		// the configuration.
-		encryptionSecretKey, _ := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)
-		signingSecretKey, _ := d.dkgSignKs.Get(cfg.DKGSigningPublicKey)
+		reasonableGasPrice := reasonablegasprice.NewReasonableGasPriceProvider(
+			chain.TxManager().GetGasEstimator(),
+			timeout,
+			chain.Config().EvmMaxGasPriceWei(),
+			chain.Config().EvmEIP1559DynamicFees(),
+		)
+
+		encryptionSecretKey, err2 := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get DKG encryption key")
+		}
+		signingSecretKey, err2 := d.dkgSignKs.Get(cfg.DKGSigningPublicKey)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get DKG signing key")
+		}
 		keyID, err2 := dkg.DecodeKeyID(cfg.DKGKeyID)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "decode DKG key ID")
@@ -381,17 +397,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
 		}
-		l := d.lggr.Named("OCR2VRF").With(
+		l := lggr.Named("OCR2VRF").With(
 			"jobName", jb.Name.ValueOrZero(),
 			"jobID", jb.ID,
 		)
 		vrfLogger := logger.NewOCRWrapper(l.With(
 			"vrfContractID", spec.ContractID), true, func(msg string) {
-			d.lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
+			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		})
 		dkgLogger := logger.NewOCRWrapper(l.With(
 			"dkgContractID", cfg.DKGContractAddress), true, func(msg string) {
-			d.lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
+			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		})
 		dkgReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
 			return promwrapper.NewPromFactory(wrapped, "DKG", string(relay.EVM), chain.ID())
@@ -419,16 +435,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			DKGDatabase:                        ocrDB,
 			DKGLocalConfig:                     lc,
 			DKGMonitoringEndpoint:              d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
-			Blockhashes:                        blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), d.lggr, 256),
+			Blockhashes:                        blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), lggr, 256),
 			Serializer:                         reportserializer.NewReportSerializer(&altbn_128.G1{}),
-			JulesPerFeeCoin:                    juelsPerFeeCoin,
+			JuelsPerFeeCoin:                    juelsPerFeeCoin,
+			ReasonableGasPrice:                 reasonableGasPrice,
 			Coordinator:                        coordinator,
 			Esk:                                encryptionSecretKey.KyberScalar(),
 			Ssk:                                signingSecretKey.KyberScalar(),
 			KeyID:                              keyID,
 			DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
-			DKGSharePersistence:                persistence.NewShareDB(d.db, d.lggr.Named("DKGShareDB"), d.cfg, big.NewInt(chainID), spec.Relay),
+			DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg, big.NewInt(chainID), spec.Relay),
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -442,6 +459,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
+			d.cfg.JobPipelineMaxSuccessfulRuns(),
 		)
 
 		// NOTE: we return from here with the services because the OCR2VRF oracles are defined
@@ -478,6 +496,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
+			HeadSubscriber:               rgstry,
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
 			PerformLogProvider:           logProvider,
@@ -499,14 +518,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
+			d.cfg.JobPipelineMaxSuccessfulRuns(),
 		)
 
 		return []job.ServiceCtx{
 			runResultSaver,
 			keeperProvider,
+			rgstry,
 			pluginService,
 		}, nil
-	case job.OCR2DirectRequest:
+	case job.OCR2Functions:
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
@@ -524,6 +545,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
 			lggr.Named("OCR2DRRelayer"),
+			d.ethKs,
 		)
 		if err2 != nil {
 			return nil, err2
@@ -539,9 +561,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		// TODO replace with a DB: https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
-		pluginORM := drocr_service.NewInMemoryORM()
-		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger)
+		pluginORM := drocr_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
+		pluginOracle, err2 = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
+		if err2 != nil {
+			return nil, err2
+		}
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -584,7 +608,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		runResults,
 		d.pipelineRunner,
 		make(chan struct{}),
-		lggr)
+		lggr,
+		d.cfg.JobPipelineMaxSuccessfulRuns(),
+	)
 
 	oracleCtx := job.NewServiceAdapter(oracle)
 	return append([]job.ServiceCtx{runResultSaver, ocr2Provider, oracleCtx}, pluginServices...), nil

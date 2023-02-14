@@ -46,6 +46,7 @@ func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 	session := &Session{Email: c.Email, Password: c.Password}
 	resp, err := rc.R().SetBody(session).Post("/sessions")
 	if err != nil {
+		log.Info().Interface("session", session).Msg("session used")
 		return nil, err
 	}
 	rc.SetCookies(resp.Cookies())
@@ -578,6 +579,34 @@ func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 	return exportedKeys, nil
 }
 
+// ExportEVMKeysForChain exports Chainlink private EVM keys for a particular chain
+func (c *Chainlink) ExportEVMKeysForChain(chainid string) ([]*ExportedEVMKey, error) {
+	exportedKeys := make([]*ExportedEVMKey, 0)
+	keys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys.Data {
+		if key.Attributes.ETHBalance != "0" && key.Attributes.ChainID == chainid {
+			exportedKey := &ExportedEVMKey{}
+			_, err := c.APIClient.R().
+				SetResult(exportedKey).
+				SetPathParam("keyAddress", key.Attributes.Address).
+				SetQueryParam("newpassword", ChainlinkKeyPassword).
+				Post("/v2/keys/eth/export/{keyAddress}")
+			if err != nil {
+				return nil, err
+			}
+			exportedKeys = append(exportedKeys, exportedKey)
+		}
+	}
+	log.Info().
+		Str("Node URL", c.Config.URL).
+		Str("Password", ChainlinkKeyPassword).
+		Msg("Exported EVM Keys")
+	return exportedKeys, nil
+}
+
 // CreateTxKey creates a tx key on the Chainlink node
 func (c *Chainlink) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
@@ -741,6 +770,56 @@ func (c *Chainlink) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *http.Res
 		return nil, nil, err
 	}
 	return vrfKey, resp.RawResponse, err
+}
+
+// MustCreateDkgSignKey creates a DKG Sign key on the Chainlink node
+// and returns error if the request is unsuccessful
+func (c *Chainlink) MustCreateDkgSignKey() (*DKGSignKey, error) {
+	dkgSignKey := &DKGSignKey{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Creating DKG Sign Key")
+	resp, err := c.APIClient.R().
+		SetResult(dkgSignKey).
+		Post("/v2/keys/dkgsign")
+	if err == nil {
+		err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	}
+	return dkgSignKey, err
+}
+
+// MustCreateDkgEncryptKey creates a DKG Encrypt key on the Chainlink node
+// and returns error if the request is unsuccessful
+func (c *Chainlink) MustCreateDkgEncryptKey() (*DKGEncryptKey, error) {
+	dkgEncryptKey := &DKGEncryptKey{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Creating DKG Encrypt Key")
+	resp, err := c.APIClient.R().
+		SetResult(dkgEncryptKey).
+		Post("/v2/keys/dkgencrypt")
+	if err == nil {
+		err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	}
+	return dkgEncryptKey, err
+}
+
+// MustReadDKGSignKeys reads all DKG Sign Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadDKGSignKeys() (*DKGSignKeys, error) {
+	dkgSignKeys := &DKGSignKeys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading DKG Sign Keys")
+	resp, err := c.APIClient.R().
+		SetResult(dkgSignKeys).
+		Get("/v2/keys/dkgsign")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return dkgSignKeys, err
+}
+
+// MustReadDKGEncryptKeys reads all DKG Encrypt Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
+	dkgEncryptKeys := &DKGEncryptKeys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading DKG Encrypt Keys")
+	resp, err := c.APIClient.R().
+		SetResult(dkgEncryptKeys).
+		Get("/v2/keys/dkgencrypt")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return dkgEncryptKeys, err
 }
 
 // CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per noe

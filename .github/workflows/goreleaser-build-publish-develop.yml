@@ -1,0 +1,41 @@
+name: "Build publish Chainlink develop on private ECR"
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  push-chainlink-develop-goreleaser:
+    runs-on:
+      labels: ubuntu20.04-16cores-64GB
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838 # v1.7.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Build, sign, and publish image
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: "true"
+          docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
+          enable-goreleaser-snapshot: "true"
+          goreleaser-exec: ./tools/bin/goreleaser_wrapper
+          goreleaser-config: .goreleaser.develop.yaml
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: push-chainlink-develop-goreleaser
+        continue-on-error: true

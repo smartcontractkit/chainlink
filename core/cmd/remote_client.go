@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,6 +36,7 @@ import (
 )
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
+var errForbidden = errors.New(http.StatusText(http.StatusForbidden))
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -296,7 +298,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	}
 	wgPprof.Wait()
 	if len(errs) > 0 {
-		return cli.errorOut(errors.New("One or more profile collections failed %s"))
+		return cli.errorOut(fmt.Errorf("%d profile collections failed", len(errs)))
 	}
 	return nil
 }
@@ -329,10 +331,12 @@ func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	if errors.Is(err, errUnauthorized) {
 		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
+
+	if errors.Is(err, errForbidden) {
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
+	}
 	if err != nil {
-		jae := models.JSONAPIErrors{}
-		unmarshalErr := json.Unmarshal(b, &jae)
-		return nil, cli.errorOut(multierr.Combine(err, unmarshalErr, &jae))
+		return nil, cli.errorOut(err)
 	}
 	return b, err
 }
@@ -444,7 +448,9 @@ func (cli *Client) configDumpStr() (string, error) {
 	if err != nil {
 		return "", cli.errorOut(err)
 	}
-
+	if resp.StatusCode != 200 {
+		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
+	}
 	var configV2Resource web.ConfigV2Resource
 	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
 	if err != nil {
@@ -498,12 +504,17 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 }
 
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	if _, ok := cli.Config.(chainlink.ConfigV2); !ok {
+		return errors.New("unsupported with legacy ENV config")
+	}
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
 	err := cli.Config.Validate()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
 	}
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	fmt.Println("Valid configuration.")
 	return nil
 }
 
@@ -607,6 +618,26 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 	return nil
 }
 
+// parseErrorResponseBody parses response body from web API and returns a single string containing all errors
+func parseErrorResponseBody(responseBody []byte) (string, error) {
+	if responseBody == nil {
+		return "Empty error message", nil
+	}
+
+	var errors models.JSONAPIErrors
+	err := json.Unmarshal(responseBody, &errors)
+	if err != nil || len(errors.Errors) == 0 {
+		return "", err
+	}
+
+	var errorDetails strings.Builder
+	errorDetails.WriteString(errors.Errors[0].Detail)
+	for _, errorDetail := range errors.Errors[1:] {
+		fmt.Fprintf(&errorDetails, "\n%s", errorDetail.Detail)
+	}
+	return errorDetails.String(), nil
+}
+
 func parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -614,8 +645,15 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
+	} else if resp.StatusCode == http.StatusForbidden {
+		return b, errForbidden
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		return b, errors.New("Error")
+		errorMessage, err := parseErrorResponseBody(b)
+
+		if err != nil {
+			return b, err
+		}
+		return b, errors.New(errorMessage)
 	}
 	return b, err
 }

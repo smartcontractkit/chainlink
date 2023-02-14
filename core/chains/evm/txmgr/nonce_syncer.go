@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -85,28 +83,12 @@ func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ethClient e
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) SyncAll(ctx context.Context, keyStates []ethkey.State) (merr error) {
-	var wg sync.WaitGroup
-	var errMu sync.Mutex
-
-	for _, keyState := range keyStates {
-		if keyState.Disabled {
-			continue
-		}
-		wg.Add(1)
-		go func(k ethkey.State) {
-			defer wg.Done()
-			if err := s.fastForwardNonceIfNecessary(ctx, k.Address.Address()); err != nil {
-				errMu.Lock()
-				defer errMu.Unlock()
-				merr = multierr.Combine(merr, err)
-			}
-		}(keyState)
+func (s NonceSyncer) Sync(ctx context.Context, keyState ethkey.State) (err error) {
+	if keyState.Disabled {
+		return errors.Errorf("cannot sync disabled key state: %s", keyState.Address)
 	}
-
-	wg.Wait()
-
-	return errors.Wrap(merr, "NonceSyncer#fastForwardNoncesIfNecessary failed")
+	err = s.fastForwardNonceIfNecessary(ctx, keyState.Address.Address())
+	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
 func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
@@ -153,7 +135,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	}
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-	return q.Transaction(func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
@@ -167,6 +149,10 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		}
 		return nil
 	})
+	if err == nil {
+		s.logger.Infow("Fast-forwarded nonce", "address", address, "newNextNonce", newNextNonce, "oldNextNonce", keyNextNonce)
+	}
+	return err
 }
 
 func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {

@@ -18,4 +18,6 @@ func init() {
 	RootCmd.AddCommand(launchAndTestCmd)
 	RootCmd.AddCommand(upkeepEventsCmd)
 	RootCmd.AddCommand(upkeepHistoryCmd)
+	RootCmd.AddCommand(ocr2UpkeepReportHistoryCmd)
+	RootCmd.AddCommand(ocr2UpdateConfigCmd)
 }

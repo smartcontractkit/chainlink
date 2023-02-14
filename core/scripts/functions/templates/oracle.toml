@@ -1,0 +1,32 @@
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Functions {{timestamp}}"
+forwardingAllowed = false
+maxTaskDuration = "30s"
+contractID = "{{oracle_contract_address}}"
+ocrKeyBundleID = "{{ocr2_key_bundle_id}}"
+p2pv2Bootstrappers = [
+  "{{p2p_bootstrapper}}"
+]
+relay = "evm"
+pluginType = "functions"
+transmitterID = "{{node_eth_address}}"
+observationSource = """
+    decode_log   [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
+    decode_cbor  [type="cborparse" data="$(decode_log.data)"]
+    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"requestId\\": $(jobRun.meta.oracleRequest.requestId), \\"jobName\\": $(jobSpec.name), \\"subscriptionOwner\\": $(decode_log.subscriptionOwner), \\"subscriptionId\\": $(decode_log.subscriptionId), \\"data\\": $(decode_cbor)}" timeout="20s"]
+    parse_result [type=jsonparse data="$(run_computation)" path="data,result"]
+    parse_error  [type=jsonparse data="$(run_computation)" path="data,error"]
+
+decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error
+"""
+
+[relayConfig]
+chainID = {{chain_id}}
+
+[pluginConfig]
+minIncomingConfirmations = 3
+requestTimeoutSec = 300
+requestTimeoutCheckFrequencySec = 10
+requestTimeoutBatchLookupSize = 20
+listenerEventHandlerTimeoutSec = 120

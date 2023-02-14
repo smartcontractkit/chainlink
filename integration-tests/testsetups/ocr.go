@@ -1,27 +1,25 @@
 // Package testsetups compresses common test setups and more complicated setups like performance and chaos tests.
 package testsetups
 
-//revive:disable:dot-imports
 import (
 	"context"
 	"math/big"
 	"math/rand"
+	"testing"
 	"time"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -72,117 +70,115 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 }
 
 // Setup sets up the test environment, deploying contracts and funding chainlink nodes
-func (t *OCRSoakTest) Setup(env *environment.Environment) {
-	t.ensureInputValues()
-	t.testEnvironment = env
+func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
+	o.ensureInputValues(t)
+	o.testEnvironment = env
 	var err error
 
 	// Make connections to soak test resources
-	contractDeployer, err := contracts.NewContractDeployer(t.chainClient)
-	Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-	t.chainlinkNodes, err = client.ConnectChainlinkNodes(env)
-	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-	t.mockServer, err = ctfClient.ConnectMockServer(env)
-	Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
-	t.chainClient.ParallelTransactions(true)
+	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
+	require.NoError(t, err, "Deploying contracts shouldn't fail")
+	o.chainlinkNodes, err = client.ConnectChainlinkNodes(env)
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	o.mockServer, err = ctfClient.ConnectMockServer(env)
+	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
+	o.chainClient.ParallelTransactions(true)
 	// Deploy LINK
 	linkTokenContract, err := contractDeployer.DeployLinkTokenContract()
-	Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
-	err = actions.FundChainlinkNodes(t.chainlinkNodes[1:], t.chainClient, t.Inputs.ChainlinkNodeFunding)
-	Expect(err).ShouldNot(HaveOccurred(), "Error funding Chainlink nodes")
+	err = actions.FundChainlinkNodes(o.chainlinkNodes[1:], o.chainClient, o.Inputs.ChainlinkNodeFunding)
+	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	if t.OperatorForwarderFlow {
-		contractLoader, err := contracts.NewContractLoader(t.chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Loading contracts shouldn't fail")
+	if o.OperatorForwarderFlow {
+		contractLoader, err := contracts.NewContractLoader(o.chainClient)
+		require.NoError(t, err, "Loading contracts shouldn't fail")
 
-		By("Prepare forwarder contracts onchain")
-		operators, authorizedForwarders, _ := actions.DeployForwarderContracts(contractDeployer, linkTokenContract, t.chainClient, len(t.chainlinkNodes[1:]))
-		forwarderNodes := t.chainlinkNodes[1:]
-		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(t.chainlinkNodes[1:])
-		Expect(err).ShouldNot(HaveOccurred(), "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+		operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
+			t, contractDeployer, linkTokenContract, o.chainClient, len(o.chainlinkNodes[1:]),
+		)
+		forwarderNodes := o.chainlinkNodes[1:]
+		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.chainlinkNodes[1:])
+		require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 		for i := range forwarderNodes {
-			actions.AcceptAuthorizedReceiversOperator(operators[i], authorizedForwarders[i], []common.Address{forwarderNodesAddresses[i]}, t.chainClient, contractLoader)
-			Expect(err).ShouldNot(HaveOccurred(), "Accepting Authorize Receivers on Operator shouldn't fail")
-			By("Add forwarder track into DB")
-			actions.TrackForwarder(t.chainClient, authorizedForwarders[i], forwarderNodes[i])
-			err = t.chainClient.WaitForEvents()
+			actions.AcceptAuthorizedReceiversOperator(
+				t, operators[i], authorizedForwarders[i], []common.Address{forwarderNodesAddresses[i]}, o.chainClient, contractLoader,
+			)
+			require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
+			actions.TrackForwarder(t, o.chainClient, authorizedForwarders[i], forwarderNodes[i])
+			err = o.chainClient.WaitForEvents()
 		}
 
-		t.ocrInstances = actions.DeployOCRContractsForwarderFlow(
-			t.Inputs.NumberOfContracts,
+		o.ocrInstances = actions.DeployOCRContractsForwarderFlow(
+			t,
+			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
-			t.chainlinkNodes,
+			o.chainlinkNodes,
 			authorizedForwarders,
-			t.chainClient,
+			o.chainClient,
 		)
 	} else {
-		t.ocrInstances = actions.DeployOCRContracts(
-			t.Inputs.NumberOfContracts,
+		o.ocrInstances, err = actions.DeployOCRContracts(
+			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
-			t.chainlinkNodes,
-			t.chainClient,
+			o.chainlinkNodes,
+			o.chainClient,
 		)
+		require.NoError(t, err)
 	}
 
-	err = t.chainClient.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for OCR contracts to be deployed")
-	for _, ocrInstance := range t.ocrInstances {
-		t.ocrInstanceMap[ocrInstance.Address()] = ocrInstance
-		t.TestReporter.ContractReports[ocrInstance.Address()] = testreporters.NewOCRSoakTestReport(
+	err = o.chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for OCR contracts to be deployed")
+	for _, ocrInstance := range o.ocrInstances {
+		o.ocrInstanceMap[ocrInstance.Address()] = ocrInstance
+		o.TestReporter.ContractReports[ocrInstance.Address()] = testreporters.NewOCRSoakTestReport(
 			ocrInstance.Address(),
-			t.Inputs.StartingAdapterValue,
-			t.Inputs.ExpectedRoundTime,
+			o.Inputs.StartingAdapterValue,
+			o.Inputs.ExpectedRoundTime,
 		)
 	}
 	log.Info().Msg("OCR Soak Test Setup Complete")
 }
 
 // Run starts the OCR soak test
-func (t *OCRSoakTest) Run() {
+func (o *OCRSoakTest) Run(t *testing.T) {
 	// Set initial value and create jobs
-	By("Setting adapter responses",
-		actions.SetAllAdapterResponsesToTheSameValue(t.Inputs.StartingAdapterValue, t.ocrInstances, t.chainlinkNodes, t.mockServer))
-	if t.OperatorForwarderFlow {
-		By("Creating OCR jobs operator forwarder flow", actions.CreateOCRJobsWithForwarder(t.ocrInstances, t.chainlinkNodes, t.mockServer))
+	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	require.NoError(t, err, "Error setting adapter responses")
+	if o.OperatorForwarderFlow {
+		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
 	} else {
-		By("Creating OCR jobs", actions.CreateOCRJobs(t.ocrInstances, t.chainlinkNodes, t.mockServer))
+		err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		require.NoError(t, err, "Error creating OCR jobs")
 	}
 
 	log.Info().
-		Str("Test Duration", t.Inputs.TestDuration.Truncate(time.Second).String()).
-		Str("Round Timeout", t.Inputs.RoundTimeout.String()).
-		Int("Number of OCR Contracts", len(t.ocrInstances)).
+		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
+		Str("Round Timeout", o.Inputs.RoundTimeout.String()).
+		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
 
-	testDuration := time.NewTimer(t.Inputs.TestDuration)
-
-	stopTestChannel := make(chan struct{}, 1)
-	testsetups.StartRemoteControlServer("OCR Soak Test", stopTestChannel)
+	testDuration := time.NewTimer(o.Inputs.TestDuration)
 
 	// *********************
 	// ***** Test Loop *****
 	// *********************
-	lastAdapterValue, currentAdapterValue := t.Inputs.StartingAdapterValue, t.Inputs.StartingAdapterValue*25
-	newRoundTrigger, expiredRoundTrigger := time.NewTimer(0), time.NewTimer(t.Inputs.RoundTimeout)
+	lastAdapterValue, currentAdapterValue := o.Inputs.StartingAdapterValue, o.Inputs.StartingAdapterValue*25
+	newRoundTrigger, expiredRoundTrigger := time.NewTimer(0), time.NewTimer(o.Inputs.RoundTimeout)
 	answerUpdated := make(chan *ethereum.OffchainAggregatorAnswerUpdated)
-	t.subscribeOCREvents(answerUpdated)
-	remainingExpectedAnswers := len(t.ocrInstances)
+	o.subscribeOCREvents(t, answerUpdated)
+	remainingExpectedAnswers := len(o.ocrInstances)
 	testOver := false
 	for {
 		select {
-		case <-stopTestChannel:
-			t.TestReporter.UnexpectedShutdown = true
-			log.Warn().Msg("Received shut down signal. Soak test stopping early")
-			return
 		case <-testDuration.C:
 			testOver = true
 			log.Warn().Msg("Soak Test Duration Reached. Completing Final Round")
 		case answer := <-answerUpdated:
-			if t.processNewAnswer(answer) {
+			if o.processNewAnswer(t, answer) {
 				remainingExpectedAnswers--
 			}
 			if remainingExpectedAnswers <= 0 {
@@ -191,33 +187,40 @@ func (t *OCRSoakTest) Run() {
 					return
 				}
 				log.Info().
-					Str("Wait time", t.Inputs.TimeBetweenRounds.String()).
+					Str("Wait time", o.Inputs.TimeBetweenRounds.String()).
 					Msg("All Expected Answers Reported. Waiting to Start a New Round")
-				remainingExpectedAnswers = len(t.ocrInstances)
-				newRoundTrigger, expiredRoundTrigger = time.NewTimer(t.Inputs.TimeBetweenRounds), time.NewTimer(t.Inputs.RoundTimeout)
+				remainingExpectedAnswers = len(o.ocrInstances)
+				newRoundTrigger, expiredRoundTrigger = time.NewTimer(o.Inputs.TimeBetweenRounds), time.NewTimer(o.Inputs.RoundTimeout)
 			}
 		case <-newRoundTrigger.C:
 			lastAdapterValue, currentAdapterValue = currentAdapterValue, lastAdapterValue
-			t.triggerNewRound(currentAdapterValue)
+			o.triggerNewRound(t, currentAdapterValue)
 		case <-expiredRoundTrigger.C:
 			log.Warn().Msg("OCR round timed out")
-			expiredRoundTrigger = time.NewTimer(t.Inputs.RoundTimeout)
-			remainingExpectedAnswers = len(t.ocrInstances)
-			t.triggerNewRound(rand.Intn(t.Inputs.StartingAdapterValue*25-1-t.Inputs.StartingAdapterValue) + t.Inputs.StartingAdapterValue) // #nosec G404 | Just triggering a random number
+			expiredRoundTrigger = time.NewTimer(o.Inputs.RoundTimeout)
+			remainingExpectedAnswers = len(o.ocrInstances)
+			o.triggerNewRound(t, rand.Intn(o.Inputs.StartingAdapterValue*25-1-o.Inputs.StartingAdapterValue)+o.Inputs.StartingAdapterValue) // #nosec G404 | Just triggering a random number
 		}
 	}
 }
 
 // Networks returns the networks that the test is running on
-func (t *OCRSoakTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
-	return t.testEnvironment, t.chainlinkNodes, &t.TestReporter, t.chainClient
+func (o *OCRSoakTest) TearDownVals(t *testing.T) (
+	*testing.T,
+	*environment.Environment,
+	[]*client.Chainlink,
+	reportModel.TestReporter,
+	blockchain.EVMClient,
+) {
+	return t, o.testEnvironment, o.chainlinkNodes, &o.TestReporter, o.chainClient
 }
 
 // *********************
 // ****** Helpers ******
 // *********************
 
-func (t *OCRSoakTest) processNewEvent(
+func (o *OCRSoakTest) processNewEvent(
+	t *testing.T,
 	eventSub geth.Subscription,
 	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
 	event *types.Log,
@@ -225,11 +228,9 @@ func (t *OCRSoakTest) processNewEvent(
 	ocrInstance contracts.OffchainAggregator,
 	contractABI *abi.ABI,
 ) {
-	defer GinkgoRecover()
-
 	errorChan := make(chan error)
 	eventConfirmed := make(chan bool)
-	err := t.chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
+	err := o.chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
 	if err != nil {
 		log.Error().Err(err).Str("Hash", event.TxHash.Hex()).Str("Event", eventDetails.Name).Msg("Error trying to process event")
 		return
@@ -248,7 +249,7 @@ func (t *OCRSoakTest) processNewEvent(
 			if confirmed {
 				if eventDetails.Name == "AnswerUpdated" { // Send AnswerUpdated events to answerUpdated channel to handle in main loop
 					answer, err := ocrInstance.ParseEventAnswerUpdated(*event)
-					Expect(err).ShouldNot(HaveOccurred(), "Parsing AnswerUpdated event log in OCR instance shouldn't fail")
+					require.NoError(t, err, "Parsing AnswerUpdated event log in OCR instance shouldn't fail")
 					answerUpdated <- answer
 				}
 				log.Info().
@@ -263,10 +264,10 @@ func (t *OCRSoakTest) processNewEvent(
 }
 
 // marshalls new answer events into manageable Go struct for further processing and reporting
-func (t *OCRSoakTest) processNewAnswer(newAnswer *ethereum.OffchainAggregatorAnswerUpdated) bool {
+func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *ethereum.OffchainAggregatorAnswerUpdated) bool {
 	// Updated Info
 	answerAddress := newAnswer.Raw.Address.Hex()
-	_, tracked := t.TestReporter.ContractReports[answerAddress]
+	_, tracked := o.TestReporter.ContractReports[answerAddress]
 	if !tracked {
 		log.Error().Str("Untracked Address", answerAddress).Msg("Received AnswerUpdated event on an untracked OCR instance")
 		return false
@@ -281,65 +282,67 @@ func (t *OCRSoakTest) processNewAnswer(newAnswer *ethereum.OffchainAggregatorAns
 	processedAnswer.RoundTxHash = newAnswer.Raw.TxHash.Hex()
 
 	// On-Chain Info
-	updatedOCRInstance := t.ocrInstanceMap[answerAddress]
+	updatedOCRInstance := o.ocrInstanceMap[answerAddress]
 	onChainData, err := updatedOCRInstance.GetRound(context.Background(), newAnswer.RoundId)
-	Expect(err).ShouldNot(HaveOccurred(), "Error retrieving on-chain data for '%s' at round '%d'", answerAddress, processedAnswer.UpdatedRoundId)
+	require.NoError(t, err, "Error retrieving on-chain data for '%s' at round '%d'", answerAddress, processedAnswer.UpdatedRoundId)
 	processedAnswer.OnChainAnswer = int(onChainData.Answer.Int64())
 	processedAnswer.OnChainRoundId = onChainData.RoundId.Uint64()
 
-	return t.TestReporter.ContractReports[answerAddress].NewAnswerUpdated(processedAnswer)
+	return o.TestReporter.ContractReports[answerAddress].NewAnswerUpdated(processedAnswer)
 }
 
 // triggers a new OCR round by setting a new mock adapter value
-func (t *OCRSoakTest) triggerNewRound(currentAdapterValue int) {
-	startingBlockNum, err := t.chainClient.LatestBlockNumber(context.Background())
-	Expect(err).ShouldNot(HaveOccurred(), "Error retrieving latest block number")
+func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
+	startingBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Error retrieving latest block number")
 
-	for _, report := range t.TestReporter.ContractReports {
+	for _, report := range o.TestReporter.ContractReports {
 		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
 	}
-	actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, t.ocrInstances, t.chainlinkNodes, t.mockServer)()
+	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	require.NoError(t, err, "Error setting adapter responses")
 	log.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
 }
 
 // ensureValues ensures that all values needed to run the test are present
-func (t *OCRSoakTest) ensureInputValues() {
-	inputs := t.Inputs
-	Expect(inputs.BlockchainClient).ShouldNot(BeNil(), "Need a valid blockchain client to use for the test")
-	t.chainClient = inputs.BlockchainClient
-	Expect(inputs.NumberOfContracts).Should(BeNumerically(">=", 1), "Expecting at least 1 OCR contract")
-	Expect(inputs.ChainlinkNodeFunding.Float64()).Should(BeNumerically(">", 0), "Expecting non-zero chainlink node funding amount")
-	Expect(inputs.TestDuration).Should(BeNumerically(">=", time.Minute*1), "Expected test duration to be more than a minute")
-	Expect(inputs.ExpectedRoundTime).Should(BeNumerically(">=", time.Second*1), "Expected ExpectedRoundTime to be greater than 1 second")
-	Expect(inputs.RoundTimeout).Should(BeNumerically(">=", inputs.ExpectedRoundTime), "Expected RoundTimeout to be greater than ExpectedRoundTime")
-	Expect(inputs.TimeBetweenRounds).ShouldNot(BeNil(), "You forgot to set TimeBetweenRounds")
-	Expect(inputs.TimeBetweenRounds).Should(BeNumerically("<", time.Hour), "TimeBetweenRounds must be less than 1 hour")
+func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
+	inputs := o.Inputs
+	require.NotNil(t, inputs.BlockchainClient, "Need a valid blockchain client to use for the test")
+	o.chainClient = inputs.BlockchainClient
+	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 OCR contract")
+	fund, _ := inputs.ChainlinkNodeFunding.Float64()
+	require.Greater(t, fund, 0.0, "Expecting non-zero chainlink node funding amount")
+	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute*1, "Expected test duration to be more than a minute")
+	require.GreaterOrEqual(t, inputs.ExpectedRoundTime, time.Second, "Expected ExpectedRoundTime to be greater than 1 second")
+	require.GreaterOrEqual(t, inputs.RoundTimeout, inputs.ExpectedRoundTime, "Expected RoundTimeout to be greater than ExpectedRoundTime")
+	require.NotNil(t, inputs.TimeBetweenRounds, "Expected TimeBetweenRounds to be set")
+	require.Less(t, inputs.TimeBetweenRounds, time.Hour, "TimeBetweenRounds must be less than 1 hour")
 }
 
 // subscribeToAnswerUpdatedEvent subscribes to the event log for AnswerUpdated event and
 // verifies if the answer is matching with the expected value
-func (t *OCRSoakTest) subscribeOCREvents(
+func (o *OCRSoakTest) subscribeOCREvents(
+	t *testing.T,
 	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
 ) {
 	contractABI, err := ethereum.OffchainAggregatorMetaData.GetAbi()
-	Expect(err).ShouldNot(HaveOccurred(), "Getting contract abi for OCR shouldn't fail")
-	latestBlockNum, err := t.chainClient.LatestBlockNumber(context.Background())
-	Expect(err).ShouldNot(HaveOccurred(), "Subscribing to contract event log for OCR instance shouldn't fail")
+	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
+	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
 	query := geth.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
 		Addresses: []common.Address{},
 	}
-	for i := 0; i < len(t.ocrInstances); i++ {
-		query.Addresses = append(query.Addresses, common.HexToAddress(t.ocrInstances[i].Address()))
+	for i := 0; i < len(o.ocrInstances); i++ {
+		query.Addresses = append(query.Addresses, common.HexToAddress(o.ocrInstances[i].Address()))
 	}
 	eventLogs := make(chan types.Log)
-	sub, err := t.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-	Expect(err).ShouldNot(HaveOccurred(), "Subscribing to contract event log for OCR instance shouldn't fail")
+	sub, err := o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
 
 	go func() {
-		defer GinkgoRecover()
 		defer sub.Unsubscribe()
 
 		for {
@@ -348,13 +351,13 @@ func (t *OCRSoakTest) subscribeOCREvents(
 				log.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
 				sub.Unsubscribe()
 
-				sub, err = t.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				Expect(err).ShouldNot(HaveOccurred(), "Subscribing to contract event log for OCR instance shouldn't fail")
+				sub, err = o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+				require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
 			case vLog := <-eventLogs:
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
-				Expect(err).ShouldNot(HaveOccurred(), "Getting event details for OCR instances shouldn't fail")
+				require.NoError(t, err, "Getting event details for OCR instances shouldn't fail")
 
-				go t.processNewEvent(sub, answerUpdated, &vLog, eventDetails, t.ocrInstances[0], contractABI)
+				go o.processNewEvent(t, sub, answerUpdated, &vLog, eventDetails, o.ocrInstances[0], contractABI)
 			}
 		}
 	}()
