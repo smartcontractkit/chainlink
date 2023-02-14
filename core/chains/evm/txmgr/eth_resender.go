@@ -28,7 +28,7 @@ const defaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender struct {
-	orm       *ORM
+	orm       ORM
 	ethClient evmclient.Client
 	ks        KeyStore
 	chainID   big.Int
@@ -42,7 +42,7 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm *ORM, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
@@ -105,7 +105,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	var allAttempts []EthTxAttempt
 	for _, k := range keys {
 		var attempts []EthTxAttempt
-		attempts, err = (*er.orm).FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
+		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}

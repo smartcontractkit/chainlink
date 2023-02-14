@@ -156,7 +156,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		orm := NewORM(db, lggr, cfg)
-		b.ethResender = NewEthResender(lggr, &orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}

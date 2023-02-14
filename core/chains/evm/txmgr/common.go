@@ -22,7 +22,7 @@ const batchSendTransactionTimeout = 30 * time.Second
 // elements in that batch.
 func batchSendTransactions(
 	ctx context.Context,
-	orm *ORM,
+	orm ORM,
 	attempts []EthTxAttempt,
 	batchSize int,
 	logger logger.Logger,
@@ -63,7 +63,7 @@ func batchSendTransactions(
 			return reqs, errors.Wrap(err, "failed to batch send transactions")
 		}
 
-		if err := (*orm).UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
+		if err := orm.UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
 			return reqs, errors.Wrap(err, "failed to update last succeeded on attempts")
 		}
 	}
