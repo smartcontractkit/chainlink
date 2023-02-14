@@ -32,6 +32,8 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	solana2 "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -65,6 +67,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -79,6 +82,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -405,14 +409,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
-		}
 		cfgs := cfg.SolanaConfigs()
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
@@ -422,9 +419,20 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 				t.Fatal(err)
 			}
 		}
+		//TODO check plugin cfg, error if enabled?
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
+			ORM:      solana.NewORMImmut(cfgs),
+		}
+		chainSet, err := solana.NewChainSetImmut(opts, cfgs)
 		if err != nil {
 			lggr.Fatal(err)
 		}
+
+		r := &chainRelayerService{ServiceCtx: chainSet, relayer: relay.NewChainRelayer(solana2.NewRelayer(solLggr, chainSet), solLggr)}
+		chains.SolanaService = r
+		chains.SolanaRelayer = r.NewChainRelayer
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
@@ -1651,3 +1659,14 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 func getFuncName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
+
+type chainRelayerService struct {
+	services.ServiceCtx
+	relayer loop.ChainRelayer
+}
+
+func (c *chainRelayerService) Close() error {
+	return errors.Join(c.relayer.Close(), c.ServiceCtx.Close())
+}
+
+func (c *chainRelayerService) NewChainRelayer() (loop.ChainRelayer, error) { return c.relayer, nil }

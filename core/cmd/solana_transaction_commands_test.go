@@ -2,27 +2,7 @@
 
 package cmd_test
 
-import (
-	"flag"
-	"strconv"
-	"testing"
-	"time"
-
-	solanago "github.com/gagliardetto/solana-go"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-)
-
+/* TODO plugin support? https://smartcontract-it.atlassian.net/browse/BCF-2111
 func TestClient_SolanaSendSol(t *testing.T) {
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
@@ -41,7 +21,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	require.NoError(t, err)
 	solanaClient.FundTestAccounts(t, []solanago.PublicKey{from.PublicKey()}, url)
 
-	chain, err := app.GetChains().Solana.Chain(testutils.Context(t), chainID)
+	chain, err := app.GetChains().SolanaRelayer.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	reader, err := chain.Reader()
@@ -128,3 +108,4 @@ func TestClient_SolanaSendSol(t *testing.T) {
 		})
 	}
 }
+*/

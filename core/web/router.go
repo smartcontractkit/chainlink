@@ -257,8 +257,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ets := EVMTransfersController{app}
 		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
 		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
-		sts := SolanaTransfersController{app}
-		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
+		//sts := SolanaTransfersController{app}
+		//TODO support dynamic toml authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
@@ -373,7 +373,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			cc   ChainsController
 		}{
 			{"evm", NewEVMChainsController(app)},
-			{"solana", NewSolanaChainsController(app)},
+			//TODO support dynamic toml {"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
@@ -386,7 +386,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			nc   NodesController
 		}{
 			{"evm", NewEVMNodesController(app)},
-			{"solana", NewSolanaNodesController(app)},
+			//TODO support dynamic toml {"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
 		} {
 			if chain.path == "evm" {

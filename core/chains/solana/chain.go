@@ -11,19 +11,19 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -173,7 +173,7 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg config.Config, ks loop.Keystore, orm ORM, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
@@ -186,7 +186,8 @@ func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr lo
 		return ch.getClient()
 	}
 	ch.txm = soltxm.NewTxm(ch.id, tc, cfg, ks, lggr)
-	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
+	//TODO re-enable balance monitor https://smartcontract-it.atlassian.net/browse/BCF-2109
+	// ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
 
@@ -294,7 +295,8 @@ func (c *chain) Start(ctx context.Context) error {
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
 		var ms services.MultiStart
-		return ms.Start(ctx, c.txm, c.balanceMonitor)
+		return ms.Start(ctx, c.txm)
+		//TODO restore return ms.Start(ctx, c.txm, c.balanceMonitor) https://smartcontract-it.atlassian.net/browse/BCF-2109
 	})
 }
 
@@ -303,8 +305,8 @@ func (c *chain) Close() error {
 		c.lggr.Debug("Stopping")
 		c.lggr.Debug("Stopping txm")
 		c.lggr.Debug("Stopping balance monitor")
-		return multierr.Combine(c.txm.Close(),
-			c.balanceMonitor.Close())
+		return multierr.Combine(c.txm.Close())
+		//TODO restore c.balanceMonitor.Close()) https://smartcontract-it.atlassian.net/browse/BCF-2109
 	})
 }
 

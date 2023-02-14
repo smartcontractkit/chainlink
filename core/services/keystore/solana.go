@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -19,6 +20,18 @@ type Solana interface {
 	Import(keyJSON []byte, password string) (solkey.Key, error)
 	Export(id string, password string) ([]byte, error)
 	EnsureKey() error
+}
+
+type SolanaSigner struct {
+	Solana
+}
+
+func (s *SolanaSigner) Sign(_ context.Context, id string, msg []byte) ([]byte, error) {
+	if k, err := s.Get(id); err != nil {
+		return nil, err
+	} else {
+		return k.Sign(msg)
+	}
 }
 
 type solana struct {

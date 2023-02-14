@@ -17,6 +17,7 @@ COPY operator_ui operator_ui
 
 # Build the golang binary
 RUN make chainlink-build
+RUN make chainlink-solana-build
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
@@ -32,6 +33,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get clean all
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \

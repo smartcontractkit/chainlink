@@ -13,6 +13,7 @@ import (
 	solanaGo "github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	solanamodels "github.com/smartcontractkit/chainlink/core/store/models/solana"
@@ -26,7 +27,8 @@ type SolanaTransfersController struct {
 
 // Create sends Luna and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
-	solanaChains := tc.App.GetChains().Solana
+	//TODO plugin support? solanaChains := tc.App.GetChains().Solana
+	var solanaChains solana.ChainSet
 	if solanaChains == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
 		return

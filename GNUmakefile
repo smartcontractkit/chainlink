@@ -50,11 +50,27 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
+.PHONY: docker-plugin ## Build the chainlink-plugin docker image
+docker-plugin:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-t smartcontract/chainlink:plugin-base \
+	-f core/chainlink.Dockerfile .
+	docker buildx build \
+	-t smartcontract/chainlink-plugin \
+	-f core/plugin.Dockerfile .
+
 .PHONY: chainlink-build
 chainlink-build: operator-ui ## Build & install the chainlink binary.
 	go build $(GOFLAGS) -o chainlink ./core/
 	rm -f $(GOBIN)/chainlink
 	cp chainlink $(GOBIN)/chainlink
+
+.PHONY: chainlink-solana-build
+chainlink-solana-build: ## Build & install the chainlink-solana binary.
+	go build $(GOFLAGS) -o chainlink-solana ./core/services/relay/cmd/chainlink-solana
+	rm -f $(GOBIN)/chainlink-solana
+	cp chainlink-solana $(GOBIN)/chainlink-solana
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend

@@ -12,6 +12,7 @@ var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", envVar: "SOLANA_ENABL
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {
 	parse := func(s string) (string, error) { return s, nil }
+	_ = app.GetChains().SolanaRelayer //TODO support dynamic toml https://smartcontract-it.atlassian.net/browse/BCF-2114
 	return newNodesController[string, db.Node, presenters.SolanaNodeResource](
-		app.GetChains().Solana, ErrSolanaNotEnabled, parse, presenters.NewSolanaNodeResource, app.GetAuditLogger())
+		nil, ErrSolanaNotEnabled, parse, presenters.NewSolanaNodeResource, app.GetAuditLogger())
 }

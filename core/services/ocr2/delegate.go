@@ -1,6 +1,7 @@
 package ocr2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -62,7 +65,7 @@ type Delegate struct {
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
-	relayers              map[relay.Network]types.Relayer
+	relayers              map[relay.Network]func() (loop.ChainRelayer, error)
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
 }
@@ -82,7 +85,7 @@ func NewDelegate(
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
-	relayers map[relay.Network]types.Relayer,
+	relayers map[relay.Network]func() (loop.ChainRelayer, error),
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
@@ -124,11 +127,18 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if !spec.TransmitterID.Valid {
 		return nil, errors.Errorf("expected a transmitterID to be specified")
 	}
-	relayer, exists := d.relayers[spec.Relay]
+	//TODO choosing a relayer based on chain ID requires chain family type info...
+	relayerFn, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
+	relayer, err := relayerFn()
+	if err != nil {
+		//TODO retry somehow? https://smartcontract-it.atlassian.net/browse/BCF-2112
+		return nil, fmt.Errorf("failed to get relayer: %w", err)
+	}
 
+	//TODO pass to plugins as ctx key/vals
 	lggr := logger.Sugared(d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
 		"jobName", jb.Name.ValueOrZero(),
@@ -208,34 +218,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	var ocr2Provider types.Plugin
 	switch spec.PluginType {
 	case job.Median:
-		medianProvider, err2 := relayer.NewMedianProvider(
-			types.RelayArgs{
-				ExternalJobID: jb.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				New:           d.isNewlyCreatedJob,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-			}, types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
-				PluginConfig:  spec.PluginConfig.Bytes(),
-			})
-		if err2 != nil {
-			return nil, err2
-		}
 		oracleArgsNoPlugin := libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          medianProvider.ContractTransmitter(),
-			ContractConfigTracker:        medianProvider.ContractConfigTracker(),
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Median),
-			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg)
+		return median.NewMedianServices(context.TODO(), jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg)
 	case job.DKG:
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {

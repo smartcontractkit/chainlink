@@ -6,6 +6,7 @@ tmp/
 tools/bin/abigen
 
 /chainlink
+/chainlink-solana
 core/chainlink
 
 # SQLite

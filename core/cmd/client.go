@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -20,7 +21,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -174,11 +177,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
-		}
 		cfgs := cfg.SolanaConfigs()
 		var ids []string
 		for _, c := range cfgs {
@@ -190,11 +188,36 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
 		}
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+
+		//TODO only if configured https://smartcontract-it.atlassian.net/browse/BCF-2029
+		tomls, err := toml.Marshal(struct {
+			Solana solana.SolanaConfigs
+		}{Solana: cfgs})
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Solana chainset")
+			return nil, errors.Wrap(err, "failed to marshal Solana configs")
 		}
+		chainPluginService := loop.NewChainPluginService(solLggr, func() *exec.Cmd {
+			//TODO from config or env? https://smartcontract-it.atlassian.net/browse/BCF-2110
+			const name = "chainlink-solana"
+			cmd := exec.Command(name)
+
+			forward := func(name string) {
+				if v, ok := os.LookupEnv(name); ok {
+					cmd.Env = append(cmd.Env, name+"="+v)
+				}
+			}
+			forward("CL_DEV")
+			forward("CL_LOG_SQL_MIGRATIONS")
+			forward("CL_LOG_COLOR")
+			cmd.Env = append(cmd.Env,
+				"CL_LOG_LEVEL="+cfg.LogLevel().String(),
+				"CL_JSON_CONSOLE="+strconv.FormatBool(cfg.JSONConsole()),
+				"CL_UNIX_TS="+strconv.FormatBool(cfg.LogUnixTimestamps()),
+			)
+			return cmd
+		}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
+		chains.SolanaService = chainPluginService
+		chains.SolanaRelayer = chainPluginService.ChainRelayer
 	}
 
 	if cfg.StarkNetEnabled() {

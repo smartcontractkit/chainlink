@@ -109,7 +109,7 @@ func TestTxm(t *testing.T) {
 
 	txm := NewTxm(id, func() (client.ReaderWriter, error) {
 		return mc, nil
-	}, cfg, mkey, lggr)
+	}, cfg, &keystore.SolanaSigner{mkey}, lggr)
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// tracking prom metrics
@@ -600,7 +600,7 @@ func TestTxm_Enqueue(t *testing.T) {
 
 	txm := NewTxm("enqueue_test", func() (client.ReaderWriter, error) {
 		return mc, nil
-	}, cfg, mkey, lggr)
+	}, cfg, &keystore.SolanaSigner{mkey}, lggr)
 
 	txs := []struct {
 		name string
