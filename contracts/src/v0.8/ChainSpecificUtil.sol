@@ -19,13 +19,10 @@ library ChainSpecificUtil {
             chainid == ARB_MAINNET_CHAIN_ID ||
             chainid == ARB_GOERLI_TESTNET_CHAIN_ID
         ) {
-            // the sys call reverts if (current block - requested block) > 256
-            // to be consistent with other chains, return empty bytes instead of reverting
-            try ARBSYS.arbBlockHash(blockNumber) returns (bytes32 bh) {
-                return bh;
-            } catch {
+            if ((getBlockNumber() - blockNumber) > 256) {
                 return "";
             }
+            return ARBSYS.arbBlockHash(blockNumber);
         }
         return blockhash(blockNumber);
     }
