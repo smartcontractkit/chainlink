@@ -16,6 +16,67 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initVRFKeysSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "vrf",
+		Usage: "Remote commands for administering the node's vrf keys",
+		Subcommands: cli.Commands{
+			{
+				Name:   "create",
+				Usage:  "Create a VRF key",
+				Action: client.CreateVRFKey,
+			},
+			{
+				Name:  "import",
+				Usage: "Import VRF key from keyfile",
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "oldpassword, p",
+						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+					},
+				},
+				Action: client.ImportVRFKey,
+			},
+			{
+				Name:  "export",
+				Usage: "Export VRF key to keyfile",
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "newpassword, p",
+						Usage: "`FILE` containing the password to encrypt the key (required)",
+					},
+					cli.StringFlag{
+						Name:  "output, o",
+						Usage: "`FILE` where the JSON file will be saved (required)",
+					},
+				},
+				Action: client.ExportVRFKey,
+			},
+			{
+				Name: "delete",
+				Usage: "Archive or delete VRF key from memory and the database, if present. " +
+					"Note that jobs referencing the removed key will also be removed.",
+				Flags: []cli.Flag{
+					cli.StringFlag{Name: "publicKey, pk"},
+					cli.BoolFlag{
+						Name:  "yes, y",
+						Usage: "skip the confirmation prompt",
+					},
+					cli.BoolFlag{
+						Name:  "hard",
+						Usage: "hard-delete the key instead of archiving (irreversible!)",
+					},
+				},
+				Action: client.DeleteVRFKey,
+			},
+			{
+				Name: "list", Usage: "List the VRF keys",
+				Action: client.ListVRFKeys,
+			},
+		},
+	}
+}
+
 type VRFKeyPresenter struct {
 	JAID // Include this to overwrite the presenter JAID so it can correctly render the ID in JSON
 	presenters.VRFKeyResource
@@ -157,7 +218,7 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
-	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}

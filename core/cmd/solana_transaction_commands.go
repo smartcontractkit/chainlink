@@ -15,6 +15,30 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initSolanaTxSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "solana",
+		Usage: "Commands for handling Solana transactions",
+		Subcommands: []cli.Command{
+			{
+				Name:   "create",
+				Usage:  "Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.",
+				Action: client.SolanaSendSol,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "force",
+						Usage: "allows to send a higher amount than the account's balance",
+					},
+					cli.StringFlag{
+						Name:  "id",
+						Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+					},
+				},
+			},
+		},
+	}
+}
+
 type SolanaMsgPresenter struct {
 	JAID
 	presenters.SolanaMsgResource
