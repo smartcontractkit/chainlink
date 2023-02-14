@@ -20,8 +20,8 @@ interface IOffchainAggregator {
  *         is gated by permissions and this requester address needs to be whitelisted.
  */
 contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
-  event HeartbeatPermitted(address indexed permittedCaller, address indexed newProxy, address indexed oldProxy);
-  event HeartbeatRemoved(address indexed permittedCaller, address indexed removedProxy);
+  event HeartbeatPermitted(address indexed permittedCaller, address newProxy, address oldProxy);
+  event HeartbeatRemoved(address indexed permittedCaller, address removedProxy);
 
   error HeartbeatNotPermitted();
 
