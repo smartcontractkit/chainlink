@@ -425,6 +425,7 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 	require.NoError(t, err)
 	require.Equal(t, len(filters), len(lp.filters))
 	for name, dbFilter := range filters {
+		dbFilter := dbFilter
 		memFilter, ok := lp.filters[name]
 		require.True(t, ok)
 		assert.True(t, dbFilter.CompareTo(&memFilter),
