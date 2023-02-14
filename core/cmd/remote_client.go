@@ -20,6 +20,7 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -35,8 +36,82 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
-var errForbidden = errors.New(http.StatusText(http.StatusForbidden))
+func initRemoteConfigSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "dump",
+			Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
+			Action: client.ConfigDump,
+		},
+		{
+			Name:   "list",
+			Usage:  "Show the node's environment variables [Not supported with TOML]",
+			Action: client.GetConfiguration,
+		},
+		{
+			Name:   "show",
+			Usage:  "Show the application configuration [Only supported with TOML]",
+			Action: client.ConfigV2,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "user-only",
+					Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+				},
+			},
+		},
+		{
+			Name:   "setgasprice",
+			Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
+			Action: client.SetEvmGasPriceDefault,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "gwei",
+					Usage: "Specify amount in gwei",
+				},
+				cli.StringFlag{
+					Name:  "evmChainID",
+					Usage: "(optional) specify the chain ID for which to make the update",
+				},
+			},
+		},
+		{
+			Name:   "loglevel",
+			Usage:  "Set log level",
+			Action: client.SetLogLevel,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "level",
+					Usage: "set log level for node (debug||info||warn||error)",
+				},
+			},
+		},
+		{
+			Name:   "logsql",
+			Usage:  "Enable/disable sql statement logging",
+			Action: client.SetLogSQL,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "enable",
+					Usage: "enable sql logging",
+				},
+				cli.BoolFlag{
+					Name:  "disable",
+					Usage: "disable sql logging",
+				},
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
+			Action: client.ConfigFileValidate,
+		},
+	}
+}
+
+var (
+	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
+	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
+)
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -126,44 +201,6 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 	return err
 }
 
-// ReplayFromBlock replays chain data from the given block number until the most recent
-func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
-	blockNumber := c.Int64("block-number")
-	if blockNumber <= 0 {
-		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
-	}
-
-	forceBroadcast := c.Bool("force")
-
-	buf := bytes.NewBufferString("{}")
-	resp, err := cli.HTTP.Post(
-		fmt.Sprintf(
-			"/v2/replay_from_block/%v?force=%s",
-			blockNumber,
-			strconv.FormatBool(forceBroadcast),
-		), buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		bytes, err2 := cli.parseResponse(resp)
-		if err2 != nil {
-			return errors.Wrap(err2, "parseResponse error")
-		}
-		return cli.errorOut(errors.New(string(bytes)))
-	}
-
-	err = cli.printResponseBody(resp)
-	return err
-}
-
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	lggr := cli.Logger.Named("RemoteLogin")
@@ -246,7 +283,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
-	err := os.Mkdir(genDir, 0755)
+	err := os.Mkdir(genDir, 0o755)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -549,7 +586,6 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 
 // SetLogSQL enables or disables the log sql statements
 func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
-
 	// Enforces selection of --enable or --disable
 	if !c.Bool("enable") && !c.Bool("disable") {
 		return cli.errorOut(errors.New("Must set logSql --enabled || --disable"))
@@ -649,7 +685,6 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errForbidden
 	} else if resp.StatusCode >= http.StatusBadRequest {
 		errorMessage, err := parseErrorResponseBody(b)
-
 		if err != nil {
 			return b, err
 		}

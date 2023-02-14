@@ -17,6 +17,54 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initEVMTxSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "evm",
+		Usage: "Commands for handling EVM transactions",
+		Subcommands: []cli.Command{
+			{
+				Name:   "create",
+				Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
+				Action: client.SendEther,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "force",
+						Usage: "allows to send a higher amount than the account's balance",
+					},
+					cli.BoolFlag{
+						Name:  "eth",
+						Usage: "allows to send ETH amounts (Default behavior)",
+					},
+					cli.BoolFlag{
+						Name:  "wei",
+						Usage: "allows to send WEI amounts",
+					},
+					cli.Int64Flag{
+						Name:  "id",
+						Usage: "chain ID",
+					},
+				},
+			},
+			{
+				Name:   "list",
+				Usage:  "List the Ethereum Transactions in descending order",
+				Action: client.IndexTransactions,
+				Flags: []cli.Flag{
+					cli.IntFlag{
+						Name:  "page",
+						Usage: "page of results to display",
+					},
+				},
+			},
+			{
+				Name:   "show",
+				Usage:  "get information on a specific Ethereum Transaction",
+				Action: client.ShowTransaction,
+			},
+		},
+	}
+}
+
 type EthTxPresenter struct {
 	JAID
 	presenters.EthTxResource
@@ -80,12 +128,6 @@ func (cli *Client) ShowTransaction(c *cli.Context) (err error) {
 
 	err = cli.renderAPIResponse(resp, &EthTxPresenter{})
 	return err
-}
-
-// IndexTxAttempts returns the list of transactions in descending order,
-// taking an optional page parameter
-func (cli *Client) IndexTxAttempts(c *cli.Context) error {
-	return cli.getPage("/v2/tx_attempts/evm", c.Int("page"), &EthTxPresenters{})
 }
 
 // SendEther transfers ETH from the node's account to a specified address.
