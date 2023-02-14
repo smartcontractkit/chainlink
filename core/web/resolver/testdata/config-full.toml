@@ -7,6 +7,7 @@ ShutdownGracePeriod = '10s'
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
+BlockchainPlugins = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -308,6 +309,8 @@ TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
 SkipPreflight = true
+Plugin = false
+PluginPath = ''
 Commitment = 'banana'
 MaxRetries = 7
 FeeEstimatorMode = 'fixed'

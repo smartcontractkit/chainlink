@@ -252,6 +252,10 @@ func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
+func (g *generalConfig) FeatureBlockchainPlugins() bool {
+	return *g.c.Feature.BlockchainPlugins
+}
+
 func (g *generalConfig) FeatureOffchainReporting() bool {
 	return *g.c.OCR.Enabled
 }
@@ -354,6 +358,32 @@ func (g *generalConfig) SolanaEnabled() bool {
 		}
 	}
 	return false
+}
+
+// Currently plugins are only supported on Solana configs
+func (g *generalConfig) ChainPluginsSpecified() (bool, error) {
+	// Are any of our Solana configs wanting to use the experimental Solana plugin?
+	for _, c := range g.c.Solana {
+		if c.Plugin != nil && *c.Plugin == true {
+			// DEV NOTE: We are only indicating if a config has requested to use a plugin
+			return true, nil
+		}
+	}
+
+	// Any other configs requesting plugin support should be an error
+	for _, c := range g.c.EVM {
+		if c.Plugin != nil && *c.Plugin == true {
+			return false, errors.New("experimental plugin support for EVM chains is not currently available")
+		}
+	}
+
+	for _, c := range g.c.Starknet {
+		if c.Plugin != nil && *c.Plugin == true {
+			return false, errors.New("experimental plugin support for Starknet chains is not currently available")
+		}
+	}
+
+	return false, nil
 }
 
 func (g *generalConfig) StarkNetEnabled() bool {

@@ -15,6 +15,8 @@ FeedsManager = false # Default
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.
 UICSAKeys = false # Default
+# BlockchainPlugins enables the experimental blockchain plugins subsystem
+BlockchainPlugins = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.

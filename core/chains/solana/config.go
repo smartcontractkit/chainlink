@@ -164,8 +164,10 @@ func legacySolNode(n *solcfg.Node, chainID string) soldb.Node {
 }
 
 type SolanaConfig struct {
-	ChainID *string
-	Enabled *bool
+	ChainID    *string
+	Enabled    *bool
+	Plugin     *bool
+	PluginPath *string
 	solcfg.Chain
 	Nodes SolanaNodes
 }
@@ -180,6 +182,12 @@ func (c *SolanaConfig) SetFrom(f *SolanaConfig) {
 	}
 	if f.Enabled != nil {
 		c.Enabled = f.Enabled
+	}
+	if f.Plugin != nil {
+		c.Plugin = f.Plugin
+	}
+	if f.PluginPath != nil {
+		c.PluginPath = f.PluginPath
 	}
 	setFromChain(&c.Chain, &f.Chain)
 	c.Nodes.SetFrom(&f.Nodes)

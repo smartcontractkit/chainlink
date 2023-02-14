@@ -58,6 +58,7 @@ ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exce
 FeedsManager = false # Default
 LogPoller = false # Default
 UICSAKeys = false # Default
+BlockchainPlugins = false # Default
 ```
 
 
@@ -4485,6 +4486,8 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 [[Solana]]
 ChainID = 'mainnet' # Example
 Enabled = false # Default
+Plugin = false # Default
+PluginPath = '' # Default
 BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
 OCR2CachePollPeriod = '1s' # Default

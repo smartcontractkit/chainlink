@@ -189,9 +189,10 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 }
 
 type Feature struct {
-	FeedsManager *bool
-	LogPoller    *bool
-	UICSAKeys    *bool
+	FeedsManager      *bool
+	LogPoller         *bool
+	UICSAKeys         *bool
+	BlockchainPlugins *bool
 }
 
 func (f *Feature) setFrom(f2 *Feature) {
@@ -203,6 +204,9 @@ func (f *Feature) setFrom(f2 *Feature) {
 	}
 	if v := f2.UICSAKeys; v != nil {
 		f.UICSAKeys = v
+	}
+	if v := f2.BlockchainPlugins; v != nil {
+		f.BlockchainPlugins = v
 	}
 }
 

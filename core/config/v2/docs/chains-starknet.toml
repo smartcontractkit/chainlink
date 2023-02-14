@@ -3,6 +3,10 @@
 ChainID = 'foobar' # Example
 # Enabled enables this chain.
 Enabled = true # Default
+# Plugin enables the experimental Starknet plugin - Not currently supported
+Plugin = false # Default
+# PluginPath overrides the default expected location of the experimental Starknet plugin - Not currently supported
+PluginPath = ''
 # OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
 OCR2CachePollPeriod = '5s' # Default
 # OCR2CacheTTL is the stale OCR2 cache deadline.

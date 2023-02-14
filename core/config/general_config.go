@@ -32,6 +32,7 @@ type FeatureFlags interface {
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
 	FeatureLogPoller() bool
+	FeatureBlockchainPlugins() bool
 
 	AutoPprofEnabled() bool
 	EVMEnabled() bool
@@ -39,6 +40,7 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
+	ChainPluginsSpecified() (bool, error)
 }
 
 type LogFn func(...any)

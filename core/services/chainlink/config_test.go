@@ -215,9 +215,10 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full.Feature = config.Feature{
-		FeedsManager: ptr(true),
-		LogPoller:    ptr(true),
-		UICSAKeys:    ptr(true),
+		FeedsManager:      ptr(true),
+		LogPoller:         ptr(true),
+		UICSAKeys:         ptr(true),
+		BlockchainPlugins: ptr(false),
 	}
 	full.Database = config.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
@@ -523,8 +524,10 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Solana = []*solana.SolanaConfig{
 		{
-			ChainID: ptr("mainnet"),
-			Enabled: ptr(false),
+			ChainID:    ptr("mainnet"),
+			Enabled:    ptr(false),
+			Plugin:     ptr(false),
+			PluginPath: ptr(""),
 			Chain: solcfg.Chain{
 				BalancePollPeriod:       relayutils.MustNewDuration(time.Minute),
 				ConfirmPollPeriod:       relayutils.MustNewDuration(time.Second),
@@ -588,6 +591,7 @@ Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and 
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
+BlockchainPlugins = false
 `},
 		{"Database", Config{Core: config.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -875,6 +879,8 @@ SendOnly = true
 		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
 ChainID = 'mainnet'
 Enabled = false
+Plugin = false
+PluginPath = ''
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'

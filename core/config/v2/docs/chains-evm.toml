@@ -6,6 +6,10 @@
 ChainID = '1' # Example
 # Enabled enables this chain.
 Enabled = true # Default
+# Plugin enables the experimental EVM plugin - Not currently supported
+Plugin = false # Default
+# PluginPath overrides the default expected location of the experimental EVM plugin - Not currently supported
+PluginPath = ''
 # **ADVANCED**
 # BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
 BlockBackfillDepth = 10 # Default

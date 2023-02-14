@@ -97,6 +97,8 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
+	// Blockchain Plugins POC - TBD - GetChainPluginManagerService
+
 	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
 	// set to true, consumers will reprocess data even if it has already been processed.
 	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
@@ -137,6 +139,7 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
+	// Blockchain Plugins POC - TBD - ChainPluginManagerService chainPluginManager.Service
 
 	started     bool
 	startStopMu sync.Mutex
@@ -451,6 +454,31 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		feedsService = &feeds.NullService{}
 	}
 
+	/*
+		Blockchain Plugins POC - TBD - If enabled, create a new plugin manager service,
+		store it in the application object
+
+		1. Is the feature flag on?
+		2. Are there any plugins specified in any of the chain configs?
+	*/
+	if cfg.FeatureBlockchainPlugins() {
+		globalLogger.Info("Experimental chain plugin feature flag set")
+		// Create plugin manager service
+		usingPlugins, err := cfg.ChainPluginsSpecified()
+		if err != nil {
+			// Plugin spec was misused
+			return nil, err
+		}
+		if usingPlugins {
+			// Create pluginmanager service
+			globalLogger.Info("One or more chain specs specified to use a plugin")
+		} else {
+			globalLogger.Info("No chain specs found that specify using a plugin")
+		}
+	} else {
+		// Create nil service
+	}
+
 	app := &ChainlinkApplication{
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
@@ -508,6 +536,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	if app.started {
 		panic("application is already started")
 	}
+
+	// Blockchain Plugins POC - TBD - if we have a plugin manager service, start it first
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
@@ -587,6 +617,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 			app.logger.Debug("Closing Feeds Service...")
 			err = multierr.Append(err, app.FeedsService.Close())
 		}
+
+		// Blockchain Plugins POC - TBD - if we have a plugin manager service, stop it now
 
 		if app.Nurse != nil {
 			err = multierr.Append(err, app.Nurse.Close())
@@ -761,6 +793,13 @@ func (app *ChainlinkApplication) ResumeJobV2(
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
+
+// Blockchain Plugins POC - TBD
+/*
+func (app *ChainlinkApplication) GetChainPluginManagerService() pluginManager.Service {
+	return app.PluginManagerService
+}
+*/
 
 // ReplayFromBlock implements the Application interface.
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {

@@ -34,6 +34,10 @@ ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 # FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 FeeBumpPeriod = '3s' # Default
+# Plugin enables the experimental Solana plugin
+Plugin = false # Default
+# PluginPath overrides the default expected location of the experimental Solana plugin
+PluginPath = ''
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.

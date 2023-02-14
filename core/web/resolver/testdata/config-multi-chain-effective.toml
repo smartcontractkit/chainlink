@@ -7,6 +7,7 @@ ShutdownGracePeriod = '5s'
 FeedsManager = false
 LogPoller = false
 UICSAKeys = false
+BlockchainPlugins = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'

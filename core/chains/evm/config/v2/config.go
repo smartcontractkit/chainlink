@@ -192,8 +192,10 @@ func (ns *EVMNodes) SetFrom(fs *EVMNodes) {
 }
 
 type EVMConfig struct {
-	ChainID *utils.Big
-	Enabled *bool
+	ChainID    *utils.Big
+	Enabled    *bool
+	Plugin     *bool
+	PluginPath *string
 	Chain
 	Nodes EVMNodes
 }
@@ -208,6 +210,12 @@ func (c *EVMConfig) SetFrom(f *EVMConfig) {
 	}
 	if f.Enabled != nil {
 		c.Enabled = f.Enabled
+	}
+	if f.Plugin != nil {
+		c.Plugin = f.Plugin
+	}
+	if f.PluginPath != nil {
+		c.PluginPath = f.PluginPath
 	}
 	c.Chain.SetFrom(&f.Chain)
 	c.Nodes.SetFrom(&f.Nodes)
@@ -270,6 +278,11 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			err = multierr.Append(err, v2.ErrMissing{Name: "Nodes",
 				Msg: "must have at least one primary node with WSURL"})
 		}
+	}
+
+	// Plugins not yet supported for EVM
+	if c.Plugin != nil && *c.Plugin == true {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "Plugin", Msg: "EVM chain plugins are not currently supported"})
 	}
 
 	err = multierr.Append(err, c.Chain.ValidateConfig())
