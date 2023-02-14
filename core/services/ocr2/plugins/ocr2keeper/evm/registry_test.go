@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -30,10 +31,10 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 		{Name: "LatestHeadNotAvailable", ActiveIDs: []string{"8"}, ExpectedErr: ErrHeadNotAvailable, ExpectedKeys: nil},
 		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []types.UpkeepKey{}},
 		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []types.UpkeepKey{
-			types.UpkeepKey("1|8"),
-			types.UpkeepKey("1|9"),
-			types.UpkeepKey("1|3"),
-			types.UpkeepKey("1|1"),
+			chain.UpkeepKey("1|8"),
+			chain.UpkeepKey("1|9"),
+			chain.UpkeepKey("1|3"),
+			chain.UpkeepKey("1|1"),
 		}},
 	}
 
