@@ -20,8 +20,8 @@ interface IOffchainAggregator {
  *         is gated by permissions and this requester address needs to be whitelisted.
  */
 contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
-  event HeartbeatPermitted(address indexed permittedCaller, address indexed proxy);
-  event HeartbeatRemoved(address indexed permittedCaller);
+  event HeartbeatPermitted(address indexed permittedCaller, address newProxy, address oldProxy);
+  event HeartbeatRemoved(address indexed permittedCaller, address removedProxy);
 
   error HeartbeatNotPermitted();
 
@@ -42,8 +42,9 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
    * @param proxy the proxy corresponding to this caller
    */
   function permitHeartbeat(address permittedCaller, IAggregatorProxy proxy) external onlyOwner {
+    address oldProxy = address(s_heartbeatList[permittedCaller]);
     s_heartbeatList[permittedCaller] = proxy;
-    emit HeartbeatPermitted(permittedCaller, address(proxy));
+    emit HeartbeatPermitted(permittedCaller, address(proxy), oldProxy);
   }
 
   /**
@@ -51,8 +52,9 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
    * @param permittedCaller the permitted caller
    */
   function removeHeartbeat(address permittedCaller) external onlyOwner {
+    address removedProxy = address(s_heartbeatList[permittedCaller]);
     delete s_heartbeatList[permittedCaller];
-    emit HeartbeatRemoved(permittedCaller);
+    emit HeartbeatRemoved(permittedCaller, removedProxy);
   }
 
   /**
