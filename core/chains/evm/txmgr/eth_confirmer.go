@@ -122,7 +122,7 @@ var (
 type EthConfirmer struct {
 	utils.StartStopOnce
 
-	o ORM
+	orm ORM
 
 	lggr      logger.Logger
 	db        *sqlx.DB
@@ -328,7 +328,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ctx, ec.o, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.orm, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
