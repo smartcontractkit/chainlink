@@ -16,6 +16,7 @@ type Service interface {
 	Close() error
 	Ready() error
 	Healthy() error
+	HealthReport() map[string]error
 }
 
 // PluginArgs are the args required to create any OCR2 plugin components.
