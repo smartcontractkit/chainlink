@@ -386,6 +386,8 @@ replace (
 	// Make sure we're working with the latest chainlink libs
 	github.com/smartcontractkit/chainlink => ../
 
+	github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.3.12-0.20230215055725-e3e6eb65308e
+
 	// moved but still using old module name
 	github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
 )
