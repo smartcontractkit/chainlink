@@ -374,7 +374,7 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
-	chainID := ethClient.ChainID().String()
+	chainID := *ethClient.ChainID()
 
 	headNum := int64(9000)
 	var err error
@@ -429,4 +429,47 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
+}
+
+func TestORM_FindEtxAttemptsConfirmedMissingReceipt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+
+	attempts, err := borm.FindEtxAttemptsConfirmedMissingReceipt(*ethClient.ChainID())
+
+	require.NoError(t, err)
+
+	assert.Len(t, attempts, 1)
+	assert.Len(t, etx0.EthTxAttempts, 1)
+	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+}
+
+func TestORM_UpdateEthTxsUnconfirmed(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+	assert.Equal(t, etx0.State, txmgr.EthTxConfirmedMissingReceipt)
+	require.NoError(t, borm.UpdateEthTxsUnconfirmed([]int64{etx0.ID}))
+
+	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	assert.Equal(t, etx0.State, txmgr.EthTxUnconfirmed)
 }

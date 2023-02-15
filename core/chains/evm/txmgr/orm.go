@@ -22,6 +22,7 @@ type ORM interface {
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
 	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
@@ -29,8 +30,9 @@ type ORM interface {
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
-	SetBroadcastBeforeBlockNum(blockNum int64, chainID string) error
+	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
+	UpdateEthTxsUnconfirmed(ids []int64) error
 }
 
 type orm struct {
@@ -337,14 +339,37 @@ func (o *orm) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 // SetBroadcastBeforeBlockNum updates already broadcast attempts with the
 // current block number. This is safe no matter how old the head is because if
 // the attempt is already broadcast it _must_ have been before this head.
-func (o *orm) SetBroadcastBeforeBlockNum(blockNum int64, chainID string) error {
+func (o *orm) SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error {
 	_, err := o.q.Exec(
 		`UPDATE eth_tx_attempts
 SET broadcast_before_block_num = $1 
 FROM eth_txes
 WHERE eth_tx_attempts.broadcast_before_block_num IS NULL AND eth_tx_attempts.state = 'broadcast'
 AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
-		blockNum, chainID,
+		blockNum, chainID.String(),
 	)
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
+}
+
+func (o *orm) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error) {
+	err = o.q.Select(&attempts,
+		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
+		FROM eth_tx_attempts
+		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
+		WHERE evm_chain_id = $1
+		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
+		chainID.String())
+	if err != nil {
+		err = errors.Wrap(err, "FindEtxAttemptsConfirmedMissingReceipt failed to query")
+	}
+	return
+}
+
+func (o *orm) UpdateEthTxsUnconfirmed(ids []int64) error {
+	_, err := o.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ids))
+
+	if err != nil {
+		return errors.Wrap(err, "UpdateEthTxsUnconfirmed failed to execute")
+	}
+	return nil
 }

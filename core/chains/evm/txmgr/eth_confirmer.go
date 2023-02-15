@@ -237,7 +237,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 
 	ec.lggr.Debugw("processHead start", "headNum", head.Number, "id", "eth_confirmer")
 
-	if err := ec.o.SetBroadcastBeforeBlockNum(head.Number, ec.chainID.String()); err != nil {
+	if err := ec.o.SetBroadcastBeforeBlockNum(head.Number, ec.chainID); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
@@ -313,16 +313,9 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 //
 // This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
 func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
-	var attempts []EthTxAttempt
-	err = ec.q.Select(&attempts,
-		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
-		FROM eth_tx_attempts
-		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
-		WHERE evm_chain_id = $1
-		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
-		ec.chainID.String())
+	attempts, err := ec.o.FindEtxAttemptsConfirmedMissingReceipt(ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed to query")
+		return err
 	}
 	if len(attempts) == 0 {
 		return nil
@@ -344,10 +337,10 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 
 		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
 	}
-	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
+	err = ec.o.UpdateEthTxsUnconfirmed(ethTxIDsToUnconfirm)
 
 	if err != nil {
-		return errors.Wrap(err, "CheckConfirmedMissingReceipt: marking as unconfirmed failed")
+		return err
 	}
 	return
 }
