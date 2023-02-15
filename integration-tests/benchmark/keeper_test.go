@@ -117,6 +117,9 @@ type BenchmarkTestEntry struct {
 
 func TestAutomationBenchmark(t *testing.T) {
 	testEnvironment, benchmarkNetwork, registryToTest := SetupAutomationBenchmarkEnv(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 	networkTestName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkTestName, registryToTest)
 	log.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
@@ -350,7 +353,6 @@ LimitDefault = 5_000_000`
 		key = "GRAFANA_DASHBOARD_URL"
 		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
 		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
-		return testEnvironment, activeEVMNetwork, registryToTest
 	}
 
 	dbResources := performanceDbResources
@@ -379,6 +381,10 @@ LimitDefault = 5_000_000`
 		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")
+
+	if testEnvironment.WillUseRemoteRunner() {
+		return testEnvironment, activeEVMNetwork, registryToTest
+	}
 
 	txNodeInternalWsURLs := make([]string, 0)
 	txNodeInternalHttpURLs := make([]string, 0)
