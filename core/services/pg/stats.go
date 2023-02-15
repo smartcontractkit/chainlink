@@ -117,7 +117,7 @@ func (r *StatsReporter) loop(ctx context.Context) {
 		case <-ticker.C:
 			r.reportFn(r.statFn())
 		case <-ctx.Done():
-			r.lggr.Debugf("stat reporter loop received done. stopping...")
+			r.lggr.Debug("stat reporter loop received done. stopping...")
 			return
 		}
 	}
