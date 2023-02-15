@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../dev/functions/FunctionsClient.sol";
+import {FunctionsClient, Functions} from "../dev/functions/FunctionsClient.sol";
 
 contract FunctionsClientTestHelper is FunctionsClient {
   using Functions for Functions.Request;

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsOracleInterface, FunctionsBillingRegistryInterface} from "../interfaces/FunctionsOracleInterface.sol";
-import {OCR2BaseUpgradeable} from "../ocr2/OCR2BaseUpgradeable.sol";
-import {AuthorizedOriginReceiverUpgradeable} from "./AuthorizedOriginReceiverUpgradeable.sol";
+import {FunctionsOracleInterface, FunctionsBillingRegistryInterface} from "../dev/interfaces/FunctionsOracleInterface.sol";
+import {OCR2BaseUpgradeable} from "../dev/ocr2/OCR2BaseUpgradeable.sol";
+import {AuthorizedOriginReceiverUpgradeable} from "../dev/functions/AuthorizedOriginReceiverUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
@@ -11,7 +11,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsOracle is
+contract FunctionsOracleMigration is
   Initializable,
   FunctionsOracleInterface,
   OCR2BaseUpgradeable,
@@ -53,7 +53,7 @@ contract FunctionsOracle is
    * @return Type and version string
    */
   function typeAndVersion() external pure override returns (string memory) {
-    return "FunctionsOracle 0.0.0";
+    return "FunctionsOracle ?.?.?";
   }
 
   /**
@@ -146,7 +146,7 @@ contract FunctionsOracle is
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between nodes of the DON here
     // e.g. 0.1 LINK * s_transmitters.length
-    return 0;
+    return 1;
   }
 
   /**
