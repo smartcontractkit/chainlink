@@ -3,12 +3,10 @@ package txmgr
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -457,7 +455,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 		if err != nil {
 			return errors.Wrap(err, "batchFetchReceipts failed")
 		}
-		if err := ec.saveFetchedReceipts(receipts); err != nil {
+		if err := ec.orm.SaveFetchedReceipts(receipts, ec.chainID); err != nil {
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
@@ -609,85 +607,6 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	}
 
 	return
-}
-
-func (ec *EthConfirmer) saveFetchedReceipts(receipts []evmtypes.Receipt) (err error) {
-	if len(receipts) == 0 {
-		return nil
-	}
-	// Notes on this query:
-	//
-	// # Receipts insert
-	// Conflict on (tx_hash, block_hash) shouldn't be possible because there
-	// should only ever be one receipt for an eth_tx.
-	//
-	// ASIDE: This is because we mark confirmed atomically with receipt insert
-	// in this query, and delete receipts upon marking unconfirmed - see
-	// markForRebroadcast.
-	//
-	// If a receipt with the same (tx_hash, block_hash) exists then the
-	// transaction is marked confirmed which means we _should_ never get here.
-	// However, even so, it still shouldn't be an error to upsert a receipt we
-	// already have.
-	//
-	// # EthTxAttempts update
-	// It should always be safe to mark the attempt as broadcast here because
-	// if it were not successfully broadcast how could it possibly have a
-	// receipt?
-	//
-	// This state is reachable for example if the eth node errors so the
-	// attempt was left in_progress but the transaction was actually accepted
-	// and mined.
-	//
-	// # EthTxes update
-	// Should be self-explanatory. If we got a receipt, the eth_tx is confirmed.
-	//
-	var valueStrs []string
-	var valueArgs []interface{}
-	for _, r := range receipts {
-		var receiptJSON []byte
-		receiptJSON, err = json.Marshal(r)
-		if err != nil {
-			return errors.Wrap(err, "saveFetchedReceipts failed to marshal JSON")
-		}
-		valueStrs = append(valueStrs, "(?,?,?,?,?,NOW())")
-		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
-	}
-	valueArgs = append(valueArgs, ec.chainID.String())
-
-	/* #nosec G201 */
-	sql := `
-	WITH inserted_receipts AS (
-		INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at)
-		VALUES %s
-		ON CONFLICT (tx_hash, block_hash) DO UPDATE SET
-			block_number = EXCLUDED.block_number,
-			transaction_index = EXCLUDED.transaction_index,
-			receipt = EXCLUDED.receipt
-		RETURNING eth_receipts.tx_hash, eth_receipts.block_number
-	),
-	updated_eth_tx_attempts AS (
-		UPDATE eth_tx_attempts
-		SET
-			state = 'broadcast',
-			broadcast_before_block_num = COALESCE(eth_tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
-		FROM inserted_receipts
-		WHERE inserted_receipts.tx_hash = eth_tx_attempts.hash
-		RETURNING eth_tx_attempts.eth_tx_id
-	)
-	UPDATE eth_txes
-	SET state = 'confirmed'
-	FROM updated_eth_tx_attempts
-	WHERE updated_eth_tx_attempts.eth_tx_id = eth_txes.id
-	AND evm_chain_id = ?
-	`
-
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
-
-	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
-
-	err = ec.q.ExecQ(stmt, valueArgs...)
-	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
 
 // markAllConfirmedMissingReceipt

@@ -1,11 +1,13 @@
 package txmgr_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -493,4 +495,38 @@ func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	assert.Len(t, attempts, 1)
 	assert.Len(t, etx0.EthTxAttempts, 1)
 	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+}
+
+func TestORM_SaveFetchedReceipts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+	require.Len(t, etx0.EthTxAttempts, 1)
+
+	// create receipt associated with transaction
+	txmReceipt := evmtypes.Receipt{
+		TxHash:           etx0.EthTxAttempts[0].Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(42),
+		TransactionIndex: uint(1),
+	}
+
+	err := borm.SaveFetchedReceipts([]evmtypes.Receipt{txmReceipt}, *ethClient.ChainID())
+
+	require.NoError(t, err)
+	etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	require.Len(t, etx0.EthTxAttempts, 1)
+	require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
+	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash)
+	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }

@@ -1,7 +1,10 @@
 package txmgr
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -31,6 +35,7 @@ type ORM interface {
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
@@ -390,4 +395,83 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return
+}
+
+func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error) {
+	if len(receipts) == 0 {
+		return nil
+	}
+	// Notes on this query:
+	//
+	// # Receipts insert
+	// Conflict on (tx_hash, block_hash) shouldn't be possible because there
+	// should only ever be one receipt for an eth_tx.
+	//
+	// ASIDE: This is because we mark confirmed atomically with receipt insert
+	// in this query, and delete receipts upon marking unconfirmed - see
+	// markForRebroadcast.
+	//
+	// If a receipt with the same (tx_hash, block_hash) exists then the
+	// transaction is marked confirmed which means we _should_ never get here.
+	// However, even so, it still shouldn't be an error to upsert a receipt we
+	// already have.
+	//
+	// # EthTxAttempts update
+	// It should always be safe to mark the attempt as broadcast here because
+	// if it were not successfully broadcast how could it possibly have a
+	// receipt?
+	//
+	// This state is reachable for example if the eth node errors so the
+	// attempt was left in_progress but the transaction was actually accepted
+	// and mined.
+	//
+	// # EthTxes update
+	// Should be self-explanatory. If we got a receipt, the eth_tx is confirmed.
+	//
+	var valueStrs []string
+	var valueArgs []interface{}
+	for _, r := range receipts {
+		var receiptJSON []byte
+		receiptJSON, err = json.Marshal(r)
+		if err != nil {
+			return errors.Wrap(err, "saveFetchedReceipts failed to marshal JSON")
+		}
+		valueStrs = append(valueStrs, "(?,?,?,?,?,NOW())")
+		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
+	}
+	valueArgs = append(valueArgs, chainID.String())
+
+	/* #nosec G201 */
+	sql := `
+	WITH inserted_receipts AS (
+		INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at)
+		VALUES %s
+		ON CONFLICT (tx_hash, block_hash) DO UPDATE SET
+			block_number = EXCLUDED.block_number,
+			transaction_index = EXCLUDED.transaction_index,
+			receipt = EXCLUDED.receipt
+		RETURNING eth_receipts.tx_hash, eth_receipts.block_number
+	),
+	updated_eth_tx_attempts AS (
+		UPDATE eth_tx_attempts
+		SET
+			state = 'broadcast',
+			broadcast_before_block_num = COALESCE(eth_tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
+		FROM inserted_receipts
+		WHERE inserted_receipts.tx_hash = eth_tx_attempts.hash
+		RETURNING eth_tx_attempts.eth_tx_id
+	)
+	UPDATE eth_txes
+	SET state = 'confirmed'
+	FROM updated_eth_tx_attempts
+	WHERE updated_eth_tx_attempts.eth_tx_id = eth_txes.id
+	AND evm_chain_id = ?
+	`
+
+	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
+
+	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
+
+	err = o.q.ExecQ(stmt, valueArgs...)
+	return errors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
 }
