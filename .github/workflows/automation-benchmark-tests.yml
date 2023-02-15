@@ -23,6 +23,7 @@ on:
           - ARBITRUM_GOERLI
           - OPTIMISM_GOERLI
           - MUMBAI
+          - SEPOLIA
       TestInputs:
         description: TestInputs
         required: false

@@ -92,11 +92,8 @@ var (
 	upkeepResetterContractEmpty  = ""
 	upkeepResetterContractGoerli = "0xaeA9bD8f60C9EB1771900B9338dE8Ab52584E80e"
 	upkeepResetterContractMumbai = "0x4Ef8599a41fd7b6788527E4a243d0Cf61b84f300"
-	// simulatedBLockTime           = time.Second
-	// goerliTag                    = strings.ReplaceAll(strings.ToLower(networks.GoerliTestnet.Name), " ", "-")
-	// arbitrumTag                  = strings.ReplaceAll(strings.ToLower(networks.ArbitrumGoerli.Name), " ", "-")
-	// optimismTag                  = strings.ReplaceAll(strings.ToLower(networks.OptimismGoerli.Name), " ", "-")
-	// mumbaiTag                    = strings.ReplaceAll(strings.ToLower(networks.PolygonMumbai.Name), " ", "-")
+	upkeepResetterContractSep    = "0x938F6bd9387f88459017aDE870dCE3eb57B72708"
+	predeployedConsumersSep      = []string{""}
 
 	NumberOfContracts, _    = strconv.Atoi(getEnv("NUMBEROFCONTRACTS", "500"))
 	CheckGasToBurn, _       = strconv.ParseInt(getEnv("CHECKGASTOBURN", "100000"), 0, 64)
@@ -259,6 +256,14 @@ var tests = map[string]*BenchmarkTestEntry{
 		upkeepResetterContractGoerli,
 		12 * time.Second,
 	},
+	"SepoliaTestnetRegistry_2_0": {
+		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+		big.NewFloat(ChainlinkNodeFunding),
+		int64(4),
+		predeployedConsumersSep,
+		upkeepResetterContractSep,
+		12 * time.Second,
+	},
 	"OptimismGoerliRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -299,7 +304,6 @@ func getEnv(key, fallback string) string {
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, string) {
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
-	var numberOfNodes, _ = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"
 
