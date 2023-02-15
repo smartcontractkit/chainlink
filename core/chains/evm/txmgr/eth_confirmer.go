@@ -237,7 +237,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 
 	ec.lggr.Debugw("processHead start", "headNum", head.Number, "id", "eth_confirmer")
 
-	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
+	if err := ec.o.SetBroadcastBeforeBlockNum(head.Number, ec.chainID.String()); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
@@ -722,7 +722,8 @@ func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
 FROM (
-	SELECT from_address, MAX(nonce) as max_nonce from eth_txes
+	SELECT from_address, MAX(nonce) as max_nonce 
+	FROM eth_txes
 	WHERE state = 'confirmed' AND evm_chain_id = $1
 	GROUP BY from_address
 ) AS max_table

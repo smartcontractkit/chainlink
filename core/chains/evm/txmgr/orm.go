@@ -29,6 +29,7 @@ type ORM interface {
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	SetBroadcastBeforeBlockNum(blockNum int64, chainID string) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 }
 
@@ -331,4 +332,19 @@ func (o *orm) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 	// our version is later.
 	_, err := o.q.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
 	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
+}
+
+// SetBroadcastBeforeBlockNum updates already broadcast attempts with the
+// current block number. This is safe no matter how old the head is because if
+// the attempt is already broadcast it _must_ have been before this head.
+func (o *orm) SetBroadcastBeforeBlockNum(blockNum int64, chainID string) error {
+	_, err := o.q.Exec(
+		`UPDATE eth_tx_attempts
+SET broadcast_before_block_num = $1 
+FROM eth_txes
+WHERE eth_tx_attempts.broadcast_before_block_num IS NULL AND eth_tx_attempts.state = 'broadcast'
+AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
+		blockNum, chainID,
+	)
+	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
