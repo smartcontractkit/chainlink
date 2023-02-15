@@ -2,6 +2,8 @@ package benchmark
 
 import (
 	"fmt"
+	env_client "github.com/smartcontractkit/chainlink-env/client"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"math/big"
 	"os"
 	"strconv"
@@ -12,9 +14,7 @@ import (
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/stretchr/testify/require"
 
-	env_client "github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 
@@ -394,6 +394,14 @@ LimitDefault = 5_000_000`
 		txNodeInternalHttpURLs = append(txNodeInternalHttpURLs, txNodeInternalHttp)
 	}
 
+	if activeEVMNetwork.Simulated {
+		testEnvironment.
+			AddChart(blockscout.New(&blockscout.Props{
+				Name:    "geth-blockscout",
+				WsURL:   activeEVMNetwork.URL,
+				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+	}
+
 	for i := 0; i < numberOfNodes; i++ {
 		activeEVMNetwork.HTTPURLs = []string{txNodeInternalHttpURLs[i]}
 		activeEVMNetwork.URLs = []string{txNodeInternalWsURLs[i]}
@@ -406,16 +414,6 @@ LimitDefault = 5_000_000`
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
-
-	if activeEVMNetwork.Simulated {
-		err = testEnvironment.
-			AddChart(blockscout.New(&blockscout.Props{
-				Name:    "geth-blockscout",
-				WsURL:   activeEVMNetwork.URL,
-				HttpURL: activeEVMNetwork.HTTPURLs[0]})).
-			Run()
-		require.NoError(t, err, "Error launching test environment")
-	}
 
 	return testEnvironment, activeEVMNetwork, registryToTest
 }
