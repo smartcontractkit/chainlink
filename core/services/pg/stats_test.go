@@ -9,16 +9,17 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// testDbStater is a simple test wrapper for statFn
+// testDbStater implements mocks for the function signatures
+// needed by the stat reporte wrapper for statFn
 type testDbStater struct {
+	mock.Mock
 	t         *testing.T
 	name      string
-	cntr      int64
 	testGauge prometheus.Gauge
 }
 
@@ -33,26 +34,13 @@ func newtestDbStater(t *testing.T, name string) *testDbStater {
 }
 
 func (s *testDbStater) Stats() sql.DBStats {
-	s.cntr++
-	return sql.DBStats{
-		MaxOpenConnections: int(s.cntr),
-		OpenConnections:    int(s.cntr),
-		InUse:              int(s.cntr),
-		Idle:               int(s.cntr),
-		WaitCount:          s.cntr,
-		WaitDuration:       time.Duration(s.cntr * int64(time.Second)),
-		MaxIdleClosed:      s.cntr,
-		MaxLifetimeClosed:  s.cntr,
-	}
+	s.Called()
+	return sql.DBStats{}
 }
 
-func (s *testDbStater) report(stats sql.DBStats) {
-	s.t.Logf("reporting stats +%v", stats)
+func (s *testDbStater) Report(stats sql.DBStats) {
+	s.Called()
 	s.testGauge.Set(float64(stats.MaxOpenConnections))
-}
-
-func (s *testDbStater) checkReport() {
-	assert.Greater(s.t, int(s.cntr), 0, s.name)
 }
 
 type statScenario struct {
@@ -74,10 +62,12 @@ func TestStatReporter(t *testing.T) {
 	} {
 
 		d := newtestDbStater(t, scenario.name)
+		d.Mock.On("Stats").Return(sql.DBStats{})
+		d.Mock.On("Report").Return()
 		reporter := NewStatsReporter(d.Stats,
 			lggr,
 			StatsInterval(interval),
-			StatsCustomReporterFn(d.report),
+			StatsCustomReporterFn(d.Report),
 		)
 
 		scenario.testFn(
@@ -87,8 +77,9 @@ func TestStatReporter(t *testing.T) {
 			expectedIntervals,
 		)
 
-		d.checkReport()
-
+		// d.checkReport()
+		d.AssertCalled(t, "Stats")
+		d.AssertCalled(t, "Report")
 	}
 }
 

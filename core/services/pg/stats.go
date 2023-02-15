@@ -79,7 +79,7 @@ func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *
 		statFn:   fn,
 		reportFn: publishStats,
 		interval: dbStatsInternal,
-		lggr:     lggr.Named("stat-reporter"),
+		lggr:     lggr.Named("StatsReporter"),
 	}
 
 	for _, opt := range opts {
@@ -115,7 +115,6 @@ func (r *StatsReporter) loop(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			r.lggr.Debugf("publishing db stats")
 			r.reportFn(r.statFn())
 		case <-ctx.Done():
 			r.lggr.Debugf("stat reporter loop received done. stopping...")
