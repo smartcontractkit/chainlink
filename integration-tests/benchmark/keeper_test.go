@@ -384,16 +384,14 @@ LimitDefault = 5_000_000`
 
 	txNodeInternalWsURLs := make([]string, 0)
 	txNodeInternalHttpURLs := make([]string, 0)
-	if !testEnvironment.WillUseRemoteRunner() {
-		for i := 0; i < numberOfNodes; i++ {
-			podName := fmt.Sprintf("%s-ethereum-geth:%d", activeEVMNetwork.Name, i)
-			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
-			require.NoError(t, err, "Error finding WS ports")
-			txNodeInternalWsURLs = append(txNodeInternalWsURLs, txNodeInternalWs)
-			txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(env_client.RemoteConnection, env_client.HTTP)
-			require.NoError(t, err, "Error finding HTTP ports")
-			txNodeInternalHttpURLs = append(txNodeInternalHttpURLs, txNodeInternalHttp)
-		}
+	for i := 0; i < numberOfNodes; i++ {
+		podName := fmt.Sprintf("%s-ethereum-geth:%d", activeEVMNetwork.Name, i)
+		txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
+		require.NoError(t, err, "Error finding WS ports")
+		txNodeInternalWsURLs = append(txNodeInternalWsURLs, txNodeInternalWs)
+		txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(env_client.RemoteConnection, env_client.HTTP)
+		require.NoError(t, err, "Error finding HTTP ports")
+		txNodeInternalHttpURLs = append(txNodeInternalHttpURLs, txNodeInternalHttp)
 	}
 
 	if activeEVMNetwork.Simulated {
