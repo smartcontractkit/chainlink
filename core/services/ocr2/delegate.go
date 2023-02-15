@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -229,7 +230,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Median),
 			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
@@ -259,6 +260,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
+		noopMonitoringEndpoint := telemetry.NoopAgent{}
 		oracleArgsNoPlugin := libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -267,10 +269,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			OffchainConfigDigester:       dkgProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
+			// Telemetry ingress for DKG is currently not supported so a noop monitoring endpoint is being used
+			MonitoringEndpoint:     &noopMonitoringEndpoint,
+			OffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
+			OffchainKeyring:        kb,
+			OnchainKeyring:         kb,
 		}
 		return dkg.NewDKGServices(
 			jb,
@@ -415,26 +418,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		vrfReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
 			return promwrapper.NewPromFactory(wrapped, "OCR2VRF", string(relay.EVM), chain.ID())
 		}
+		noopMonitoringEndpoint := telemetry.NoopAgent{}
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
-			VRFLogger:                          vrfLogger,
-			DKGLogger:                          dkgLogger,
-			BinaryNetworkEndpointFactory:       peerWrapper.Peer2,
-			V2Bootstrappers:                    bootstrapPeers,
-			OffchainKeyring:                    kb,
-			OnchainKeyring:                     kb,
-			VRFOffchainConfigDigester:          vrfProvider.OffchainConfigDigester(),
-			VRFContractConfigTracker:           vrfProvider.ContractConfigTracker(),
-			VRFContractTransmitter:             vrfProvider.ContractTransmitter(),
-			VRFDatabase:                        ocrDB,
-			VRFLocalConfig:                     lc,
-			VRFMonitoringEndpoint:              d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			DKGContractConfigTracker:           dkgProvider.ContractConfigTracker(),
-			DKGOffchainConfigDigester:          dkgProvider.OffchainConfigDigester(),
-			DKGContract:                        dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
-			DKGContractTransmitter:             dkgProvider.ContractTransmitter(),
-			DKGDatabase:                        ocrDB,
-			DKGLocalConfig:                     lc,
-			DKGMonitoringEndpoint:              d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
+			VRFLogger:                    vrfLogger,
+			DKGLogger:                    dkgLogger,
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			VRFOffchainConfigDigester:    vrfProvider.OffchainConfigDigester(),
+			VRFContractConfigTracker:     vrfProvider.ContractConfigTracker(),
+			VRFContractTransmitter:       vrfProvider.ContractTransmitter(),
+			VRFDatabase:                  ocrDB,
+			VRFLocalConfig:               lc,
+			VRFMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2VRF),
+			DKGContractConfigTracker:     dkgProvider.ContractConfigTracker(),
+			DKGOffchainConfigDigester:    dkgProvider.OffchainConfigDigester(),
+			DKGContract:                  dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
+			DKGContractTransmitter:       dkgProvider.ContractTransmitter(),
+			DKGDatabase:                  ocrDB,
+			DKGLocalConfig:               lc,
+			// Telemetry ingress for DKG is currently not supported so a noop monitoring endpoint is being used
+			DKGMonitoringEndpoint:              &noopMonitoringEndpoint,
 			Blockhashes:                        blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), lggr, 256),
 			Serializer:                         reportserializer.NewReportSerializer(&altbn_128.G1{}),
 			JuelsPerFeeCoin:                    juelsPerFeeCoin,
@@ -492,7 +497,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			KeepersDatabase:              ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
@@ -591,7 +596,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
 		OffchainConfigDigester:       ocr2Provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
