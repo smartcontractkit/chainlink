@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -312,8 +313,9 @@ Enabled = true
 [P2P.V2]
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]
-[[EVM]]
+ListenAddresses = ["0.0.0.0:6690"]`
+
+	simulatedEVMNonDevTOML := `[[EVM]]
 ChainID = 1337
 MinContractPayment = '0'
 Enabled = true
@@ -330,8 +332,8 @@ LimitDefault = 5_000_000`
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
 	if registryToTest == "Registry_2_0" {
-		numberOfNodes += 1
-		//blockTime = "12"
+		NumberOfNodes += 1
+		blockTime = "12"
 	}
 
 	testType := strings.ToLower(getEnv("TEST_TYPE", "benchmark"))
@@ -362,53 +364,90 @@ LimitDefault = 5_000_000`
 		dbResources = soakDbResources
 	}
 
-	err := testEnvironment.
-		AddHelm(reorg.New(&reorg.Props{
-			NetworkName: activeEVMNetwork.Name,
-			Values: map[string]interface{}{
-				"geth": map[string]interface{}{
-					"tx": map[string]interface{}{
-						"replicas": numberOfNodes,
-					},
-					"miner": map[string]interface{}{
-						"replicas": 2,
-					},
-					"genesis": map[string]interface{}{
-						"period": blockTime,
+	// Test can run on simulated, simulated-non-dev, testnets
+	if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
+		baseTOML = baseTOML + simulatedEVMNonDevTOML
+		testEnvironment.
+			AddHelm(reorg.New(&reorg.Props{
+				NetworkName: activeEVMNetwork.Name,
+				Values: map[string]interface{}{
+					"geth": map[string]interface{}{
+						"tx": map[string]interface{}{
+							"replicas": NumberOfNodes,
+						},
+						"miner": map[string]interface{}{
+							"replicas": 2,
+						},
 					},
 				},
-			},
-		})).
-		Run()
-	require.NoError(t, err, "Error launching test environment")
-
-	if testEnvironment.WillUseRemoteRunner() {
-		return testEnvironment, activeEVMNetwork, registryToTest
+			}))
+	} else {
+		testEnvironment.
+			AddHelm(ethereum.New(&ethereum.Props{
+				NetworkName: activeEVMNetwork.Name,
+				Simulated:   activeEVMNetwork.Simulated,
+				WsURLs:      activeEVMNetwork.URLs,
+				Values: map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "4000m",
+							"memory": "4Gi",
+						},
+						"limits": map[string]interface{}{
+							"cpu":    "4000m",
+							"memory": "4Gi",
+						},
+					},
+					"geth": map[string]interface{}{
+						"blocktime": blockTime,
+					},
+				},
+			}))
 	}
 
-	txNodeInternalWsURLs := make([]string, 0)
-	txNodeInternalHttpURLs := make([]string, 0)
-	for i := 0; i < numberOfNodes; i++ {
-		podName := fmt.Sprintf("%s-ethereum-geth:%d", activeEVMNetwork.Name, i)
-		txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
-		require.NoError(t, err, "Error finding WS ports")
-		txNodeInternalWsURLs = append(txNodeInternalWsURLs, txNodeInternalWs)
-		txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(env_client.RemoteConnection, env_client.HTTP)
-		require.NoError(t, err, "Error finding HTTP ports")
-		txNodeInternalHttpURLs = append(txNodeInternalHttpURLs, txNodeInternalHttp)
-	}
-
+	// deploy blockscout if running on simulated
 	if activeEVMNetwork.Simulated {
 		testEnvironment.
 			AddChart(blockscout.New(&blockscout.Props{
 				Name:    "geth-blockscout",
 				WsURL:   activeEVMNetwork.URL,
 				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+		err := testEnvironment.Run()
+		require.NoError(t, err, "Error launching test environment")
 	}
 
-	for i := 0; i < numberOfNodes; i++ {
-		activeEVMNetwork.HTTPURLs = []string{txNodeInternalHttpURLs[i]}
-		activeEVMNetwork.URLs = []string{txNodeInternalWsURLs[i]}
+	if testEnvironment.WillUseRemoteRunner() {
+		return testEnvironment, activeEVMNetwork, registryToTest
+	}
+
+	// separate RPC urls per CL node
+	internalWsURLs := make([]string, 0)
+	internalHttpURLs := make([]string, 0)
+	for i := 0; i < NumberOfNodes; i++ {
+		// for simulated-nod-dev each CL node gets its own RPC node
+		if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
+			podName := fmt.Sprintf("%s-ethereum-geth:%d", activeEVMNetwork.Name, i)
+			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
+			require.NoError(t, err, "Error finding WS ports")
+			internalWsURLs = append(internalWsURLs, txNodeInternalWs)
+			txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(env_client.RemoteConnection, env_client.HTTP)
+			require.NoError(t, err, "Error finding HTTP ports")
+			internalHttpURLs = append(internalHttpURLs, txNodeInternalHttp)
+			// for testnets with more than 1 RPC nodes
+		} else if len(activeEVMNetwork.URLs) > 1 {
+			internalWsURLs = append(internalWsURLs, activeEVMNetwork.URLs[i%len(activeEVMNetwork.URLs)])
+			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[i%len(activeEVMNetwork.URLs)])
+			// for simulated and testnets with 1 RPC node
+		} else {
+			internalWsURLs = append(internalWsURLs, activeEVMNetwork.URLs[0])
+			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[0])
+		}
+	}
+	log.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
+
+	for i := 0; i < NumberOfNodes; i++ {
+		activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
+		activeEVMNetwork.URLs = []string{internalWsURLs[i]}
 		testEnvironment.
 			AddHelm(chainlink.New(i, map[string]interface{}{
 				"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
@@ -416,7 +455,7 @@ LimitDefault = 5_000_000`
 				"db":        dbResources,
 			}))
 	}
-	err = testEnvironment.Run()
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 
 	return testEnvironment, activeEVMNetwork, registryToTest
