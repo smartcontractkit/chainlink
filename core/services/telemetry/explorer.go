@@ -3,8 +3,9 @@ package telemetry
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 )
 
 var _ MonitoringEndpointGenerator = &ExplorerAgent{}
@@ -25,6 +26,6 @@ func (t *ExplorerAgent) SendLog(log []byte) {
 }
 
 // GenMonitoringEndpoint creates a monitoring endpoint for telemetry
-func (t *ExplorerAgent) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
+func (t *ExplorerAgent) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
 	return t
 }
