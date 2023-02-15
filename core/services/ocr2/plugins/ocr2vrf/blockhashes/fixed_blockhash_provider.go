@@ -2,6 +2,7 @@ package blockhashes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ocr2vrf/types"
@@ -68,4 +69,41 @@ func (b *fixedBlockhashProvider) CurrentHeight(ctx context.Context) (uint64, err
 		return 0, err
 	}
 	return uint64(head), nil
+}
+
+func (b *fixedBlockhashProvider) ValidBlockHashes(
+	ctx context.Context,
+	hashes map[uint64]common.Hash,
+) error {
+	var heights []uint64
+	for height := range hashes {
+		heights = append(heights, height)
+	}
+	heads, err := b.lp.GetBlocksRange(ctx, heights)
+	if err != nil {
+		return fmt.Errorf(
+			"could not retrieve block hashes to check consistent view of blockchain:"+
+				" %s",
+			err.Error(),
+		)
+	}
+	for _, head := range heads {
+		if head.BlockHash != hashes[uint64(head.BlockNumber)] {
+			return fmt.Errorf(
+				"inconsistent view of blockchain: height %d has blockhash %s, but "+
+					"checked value is %s",
+				head.BlockNumber,
+				head.BlockHash,
+				hashes[uint64(head.BlockNumber)],
+			)
+		}
+		delete(hashes, uint64(head.BlockNumber))
+	}
+	if len(hashes) > 0 {
+		return fmt.Errorf(
+			"some hashes were not checked against the blockchain: %v",
+			hashes,
+		)
+	}
+	return nil
 }
