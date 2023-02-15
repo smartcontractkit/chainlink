@@ -23,6 +23,7 @@ import (
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -62,6 +63,15 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	testInputs.setForRemoteRunner()
 
 	network := networks.SelectedNetwork // Environment currently being used to soak test on
+	var ocrEnvVars = map[string]any{
+		"P2P_LISTEN_IP":   "0.0.0.0",
+		"P2P_LISTEN_PORT": "6690",
+	}
+	// For if we end up using env vars
+	ocrEnvVars["ETH_URL"] = network.URLs[0]
+	ocrEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
+	ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
+
 	baseEnvironmentConfig := &environment.Config{
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
@@ -72,14 +82,6 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	}
 
 	replicas := 6
-	baseTOML := `[OCR]
-Enabled = true
-
-[P2P]
-[P2P.V1]
-Enabled = true
-ListenIP = '0.0.0.0'
-ListenPort = 6690`
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -89,9 +91,16 @@ ListenPort = 6690`
 			WsURLs:      network.URLs,
 		}))
 	for i := 0; i < replicas; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
-			"toml": client.AddNetworksConfig(baseTOML, network),
-		}))
+		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+		if useEnvVars == "true" {
+			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
+				"env": ocrEnvVars,
+			}))
+		} else {
+			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
+			}))
+		}
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

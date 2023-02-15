@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -37,11 +38,17 @@ const (
 
 var (
 	keeperBaseTOML = `[Keeper]
-TurnLookBack = 0
+	TurnLookBack = 0
+	
+	[Keeper.Registry]
+	SyncInterval = '5s'
+	PerformGasOverhead = 150_000`
 
-[Keeper.Registry]
-SyncInterval = '5s'
-PerformGasOverhead = 150_000`
+	keeperEnvVars = map[string]any{
+		"KEEPER_TURN_LOOK_BACK":                "0",
+		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",
+		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
+	}
 
 	keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
@@ -96,7 +103,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "basic-smoke")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "basic-smoke")
 			if onlyStartRunner {
 				return
 			}
@@ -173,7 +180,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "bcpt")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "bcpt")
 			if onlyStartRunner {
 				return
 			}
@@ -276,7 +283,7 @@ func TestKeeperSimulation(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "simulation")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "simulation")
 			if onlyStartRunner {
 				return
 			}
@@ -350,7 +357,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "gas-limit")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "gas-limit")
 			if onlyStartRunner {
 				return
 			}
@@ -464,7 +471,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "register-upkeep")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "register-upkeep")
 			if onlyStartRunner {
 				return
 			}
@@ -552,7 +559,7 @@ func TestKeeperAddFunds(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "add-funds")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "add-funds")
 			if onlyStartRunner {
 				return
 			}
@@ -617,7 +624,7 @@ func TestKeeperRemove(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "remove")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "remove")
 			if onlyStartRunner {
 				return
 			}
@@ -695,7 +702,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "pause-registry")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-registry")
 			if onlyStartRunner {
 				return
 			}
@@ -756,7 +763,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 
 func TestKeeperMigrateRegistry(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "migrate-registry")
+	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "migrate-registry")
 	if onlyStartRunner {
 		return
 	}
@@ -847,7 +854,7 @@ func TestKeeperNodeDown(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "node-down")
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "node-down")
 			if onlyStartRunner {
 				return
 			}
@@ -943,7 +950,7 @@ func TestKeeperNodeDown(t *testing.T) {
 
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "pause-upkeep")
+	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
 	if onlyStartRunner {
 		return
 	}
@@ -1032,7 +1039,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupEnvVarKeeperTest(t, "pause-upkeep")
+	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
 	if onlyStartRunner {
 		return
 	}
@@ -1110,7 +1117,25 @@ func setupKeeperTest(
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		})
+		// For if we end up using env vars
+		keeperEnvVars["ETH_URL"] = network.URLs[0]
+		keeperEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
+		keeperEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
+
+	chainlinkChart := chainlink.New(0, map[string]interface{}{
+		"replicas": "5",
+		"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
+	})
+
+	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+	if useEnvVars == "true" {
+		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
+			"replicas": "5",
+			"env":      keeperEnvVars,
+		})
+	}
+
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	testEnvironment := environment.New(
 		&environment.Config{
@@ -1120,85 +1145,7 @@ func setupKeeperTest(
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error deploying test environment")
-	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
-	if !onlyStartRunner {
-		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
-		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-		contractDeployer, err = contracts.NewContractDeployer(chainClient)
-		require.NoError(t, err, "Deploying contracts shouldn't fail")
-		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-		require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-		chainClient.ParallelTransactions(true)
-
-		// Register cleanup for any test
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
-		require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
-
-		linkToken, err = contractDeployer.DeployLinkTokenContract()
-		require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-
-		err = chainClient.WaitForEvents()
-		require.NoError(t, err, "Error waiting for events")
-	}
-
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner
-}
-
-// TurnLookBack = 0
-
-// [Keeper.Registry]
-// SyncInterval = '5s'
-// PerformGasOverhead = 150_000
-func setupEnvVarKeeperTest(t *testing.T, testName string) (
-	chainClient blockchain.EVMClient,
-	chainlinkNodes []*client.Chainlink,
-	contractDeployer contracts.ContractDeployer,
-	linkToken contracts.LinkToken,
-	onlyStartRunner bool,
-) {
-	network := networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !network.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-	}
-	envVars := map[string]any{
-		"KEEPER_TURN_LOOK_BACK":                "0",
-		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",
-		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
-	}
-	if !network.Simulated {
-		envVars["ETH_URL"] = network.URLs[0]
-		envVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-		envVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
-	}
-	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	testEnvironment := environment.New(
-		&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-keeper-%s-%s", testName, networkName),
-			Test:            t,
-		}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.NewVersioned(0, "0.0.11", map[string]interface{}{
-			"replicas": "5",
-			"env":      envVars,
-		}))
+		AddHelm(chainlinkChart)
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
