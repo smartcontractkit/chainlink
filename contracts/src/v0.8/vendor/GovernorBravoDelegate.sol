@@ -48,7 +48,9 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV2, GovernorBravoE
       */
     function initialize(address timelock_, address comp_, uint votingPeriod_, uint votingDelay_, uint proposalThreshold_) virtual public {
         require(address(timelock) == address(0), "GovernorBravo::initialize: can only initialize once");
-        // require(msg.sender == admin, "GovernorBravo::initialize: admin only"); -- FOR TESTING PURPOSES
+        // CLL CHANGES START
+        // require(msg.sender == admin, "GovernorBravo::initialize: admin only"); -- COMMENTED OUT FOR TESTING PURPOSES
+        // CLL CHANGES END
         require(timelock_ != address(0), "GovernorBravo::initialize: invalid timelock address");
         require(comp_ != address(0), "GovernorBravo::initialize: invalid comp address");
         require(votingPeriod_ >= MIN_VOTING_PERIOD && votingPeriod_ <= MAX_VOTING_PERIOD, "GovernorBravo::initialize: invalid voting period");
@@ -73,7 +75,9 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV2, GovernorBravoE
       */
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
         // Reject proposals before initiating as Governor
-        // require(initialProposalId != 0, "GovernorBravo::propose: Governor Bravo not active"); -- FOR TESTING PURPOSES
+        // CLL CHANGES START
+        // require(initialProposalId != 0, "GovernorBravo::propose: Governor Bravo not active"); -- COMMENTED OUT FOR TESTING PURPOSES
+        // CLL CHANGES END
         // Allow addresses above proposal threshold and whitelisted addresses to propose
         require(comp.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold || isWhitelisted(msg.sender), "GovernorBravo::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorBravo::propose: proposal function information arity mismatch");
