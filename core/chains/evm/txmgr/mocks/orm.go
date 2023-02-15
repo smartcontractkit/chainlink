@@ -244,6 +244,29 @@ func (_m *ORM) FindEthTxWithAttempts(etxID int64) (txmgr.EthTx, error) {
 	return r0, r1
 }
 
+// FindEtxAttemptsConfirmedMissingReceipt provides a mock function with given fields: chainID
+func (_m *ORM) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) ([]txmgr.EthTxAttempt, error) {
+	ret := _m.Called(chainID)
+
+	var r0 []txmgr.EthTxAttempt
+	if rf, ok := ret.Get(0).(func(big.Int) []txmgr.EthTxAttempt); ok {
+		r0 = rf(chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgr.EthTxAttempt)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(big.Int) error); ok {
+		r1 = rf(chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertEthReceipt provides a mock function with given fields: receipt
 func (_m *ORM) InsertEthReceipt(receipt *txmgr.EthReceipt) error {
 	ret := _m.Called(receipt)
@@ -286,6 +309,20 @@ func (_m *ORM) InsertEthTxAttempt(attempt *txmgr.EthTxAttempt) error {
 	return r0
 }
 
+// SetBroadcastBeforeBlockNum provides a mock function with given fields: blockNum, chainID
+func (_m *ORM) SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error {
+	ret := _m.Called(blockNum, chainID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64, big.Int) error); ok {
+		r0 = rf(blockNum, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpdateBroadcastAts provides a mock function with given fields: now, etxIDs
 func (_m *ORM) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 	ret := _m.Called(now, etxIDs)
@@ -293,6 +330,20 @@ func (_m *ORM) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(time.Time, []int64) error); ok {
 		r0 = rf(now, etxIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateEthTxsUnconfirmed provides a mock function with given fields: ids
+func (_m *ORM) UpdateEthTxsUnconfirmed(ids []int64) error {
+	ret := _m.Called(ids)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]int64) error); ok {
+		r0 = rf(ids)
 	} else {
 		r0 = ret.Error(0)
 	}
