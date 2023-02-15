@@ -67,7 +67,7 @@ require (
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
-	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
+	github.com/smartcontractkit/wsrpc v0.6.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.1

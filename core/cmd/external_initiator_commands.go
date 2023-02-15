@@ -1,9 +1,31 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
+
+func initInitiatorsSubCmds(client *Client, devMode bool) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "create",
+			Usage:  "Create an authentication key for a user of External Initiators",
+			Action: client.CreateExternalInitiator,
+		},
+		{
+			Name:   "destroy",
+			Usage:  "Remove an external initiator by name",
+			Action: client.DeleteExternalInitiator,
+		},
+		{
+			Name:   "list",
+			Usage:  "List all external initiators",
+			Action: client.IndexExternalInitiators,
+		},
+	}
+}
 
 type ExternalInitiatorPresenter struct {
 	JAID
