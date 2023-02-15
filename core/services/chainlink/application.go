@@ -260,7 +260,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		} else {
 			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize())
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
