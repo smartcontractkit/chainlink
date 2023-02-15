@@ -24,6 +24,7 @@ type ORM interface {
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
 	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error)
 	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
@@ -372,4 +373,21 @@ func (o *orm) UpdateEthTxsUnconfirmed(ids []int64) error {
 		return errors.Wrap(err, "UpdateEthTxsUnconfirmed failed to execute")
 	}
 	return nil
+}
+
+func (o *orm) FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&attempts, `
+SELECT eth_tx_attempts.* FROM eth_tx_attempts
+JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND eth_txes.evm_chain_id = $1
+WHERE eth_tx_attempts.state != 'insufficient_eth'
+ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
+`, chainID.String())
+		if err != nil {
+			return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
+		}
+		err = loadEthTxes(tx, attempts)
+		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
+	}, pg.OptReadOnlyTx())
+	return
 }

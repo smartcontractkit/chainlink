@@ -473,3 +473,24 @@ func TestORM_UpdateEthTxsUnconfirmed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, etx0.State, txmgr.EthTxUnconfirmed)
 }
+
+func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+
+	attempts, err := borm.FindEthTxAttemptsRequiringReceiptFetch(*ethClient.ChainID())
+	require.NoError(t, err)
+	assert.Len(t, attempts, 1)
+	assert.Len(t, etx0.EthTxAttempts, 1)
+	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+}
