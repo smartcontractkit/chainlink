@@ -15,6 +15,66 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initP2PKeysSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "p2p",
+		Usage: "Remote commands for administering the node's p2p keys",
+		Subcommands: cli.Commands{
+			{
+				Name:   "create",
+				Usage:  format(`Create a p2p key, encrypted with password from the password file, and store it in the database.`),
+				Action: client.CreateP2PKey,
+			},
+			{
+				Name:  "delete",
+				Usage: format(`Delete the encrypted P2P key by id`),
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "yes, y",
+						Usage: "skip the confirmation prompt",
+					},
+					cli.BoolFlag{
+						Name:  "hard",
+						Usage: "hard-delete the key instead of archiving (irreversible!)",
+					},
+				},
+				Action: client.DeleteP2PKey,
+			},
+			{
+				Name:   "list",
+				Usage:  format(`List available P2P keys`),
+				Action: client.ListP2PKeys,
+			},
+			{
+				Name:  "import",
+				Usage: format(`Imports a P2P key from a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "oldpassword, p",
+						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+					},
+				},
+				Action: client.ImportP2PKey,
+			},
+			{
+				Name:  "export",
+				Usage: format(`Exports a P2P key to a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "newpassword, p",
+						Usage: "`FILE` containing the password to encrypt the key (required)",
+					},
+					cli.StringFlag{
+						Name:  "output, o",
+						Usage: "`FILE` where the JSON file will be saved (required)",
+					},
+				},
+				Action: client.ExportP2PKey,
+			},
+		},
+	}
+}
+
 type P2PKeyPresenter struct {
 	JAID
 	presenters.P2PKeyResource
@@ -201,7 +261,7 @@ func (cli *Client) ExportP2PKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
-	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
