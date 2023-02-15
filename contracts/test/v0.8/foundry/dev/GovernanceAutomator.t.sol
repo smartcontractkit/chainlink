@@ -40,7 +40,7 @@ contract GovernanceAutomatorBaseTest is BaseTest {
   function setUp() public virtual override {
     BaseTest.setUp();
 
-    uint256 mainnetFork = vm.createFork("ETH_ARCHIVE_NODE_URL");
+    uint256 mainnetFork = vm.createFork("ETH_ARCHIVE_URL");
     vm.selectFork(mainnetFork);
     vm.rollFork(forkTime);
 
@@ -255,7 +255,6 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
     signatures[0] = "test_sig_3";
     calldatas[0] = "";
     s_governorBravo.propose(targets, values, signatures, calldatas, "test proposal 3");
-    
     // Assert that the proposals are pending.
     require(s_governorBravo.state(1) == GovernorBravoDelegateStorageV1.ProposalState.Pending, "incorrect state");
     require(s_governorBravo.state(2) == GovernorBravoDelegateStorageV1.ProposalState.Pending, "incorrect state");
@@ -284,7 +283,6 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
 
     // End the voting window.
     vm.roll(s_governorBravo.votingPeriod() + 3);
-  
     // Proposal 1 has been defeated. Proposal 2 has passed. Assert that the index now needs
     // to be updated, such that proposal 1 is not revisited.
     (bool upkeepNeeded, bytes memory data) = s_governanceBravoAutomator.checkUpkeep("");
@@ -374,7 +372,7 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
     s_governanceAlphaAutomatorFork.checkUpkeep("");
   }
 
-  function testUniswapForkUniswap() public {
+  function testUniswapFork() public {
     s_governanceBravoAutomatorFork = new GovernorBravoAutomator(
       GovernorBravoDelegate(UNISWAP),
       25,
@@ -393,6 +391,31 @@ contract GovernanceAutomatorTest is GovernanceAutomatorBaseTest {
     s_governanceBravoAutomatorFork.performUpkeep(data);
     startingIndex = s_governanceBravoAutomatorFork.findStartingIndex();
     assertEq(startingIndex, 32);
+
+    // Assert that an upkeep is not needed.
+    vm.expectRevert("no action needed");
+    s_governanceBravoAutomatorFork.checkUpkeep("");
+  }
+
+  function testAmpleforthFork() public {
+    s_governanceBravoAutomatorFork = new GovernorBravoAutomator(
+      GovernorBravoDelegate(0x8a994C6F55Be1fD2B4d0dc3B8f8F7D4E3a2dA8F1),
+      10,
+      IGovernorBravoToken(0x77FbA179C79De5B7653F68b5039Af940AdA60ce0)
+    );
+    // Assert that the starting index is 13.
+    uint256 startingIndex = s_governanceBravoAutomatorFork.findStartingIndex();
+    assertEq(startingIndex, 13);
+
+    // Need to update starting index.
+    (bool upkeepNeeded, bytes memory data) = s_governanceBravoAutomatorFork.checkUpkeep("");
+    assertEq(upkeepNeeded, true);
+    assertEq(data, abi.encode(GovernorBravoAutomator.Action.UPDATE_INDEX, uint256(13)));
+
+    // Update the index via performUpkeep. Assert that the starting index is now 61.
+    s_governanceBravoAutomatorFork.performUpkeep(data);
+    startingIndex = s_governanceBravoAutomatorFork.findStartingIndex();
+    assertEq(startingIndex, 13);
 
     // Assert that an upkeep is not needed.
     vm.expectRevert("no action needed");

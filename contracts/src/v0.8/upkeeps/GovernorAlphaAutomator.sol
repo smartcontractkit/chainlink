@@ -3,7 +3,7 @@ pragma solidity ^0.8.10;
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../vendor/GovernorAlpha.sol";
 
-/// @title Chainlink Keepers Compatible GovernorAlpha Automator
+/// @title Chainlink Automation Compatible GovernorAlpha Automator
 contract GovernorAlphaAutomator is KeeperCompatibleInterface {
   /// @notice Possible actions that can be taken in the performUpkeep function.
   /// QUEUE => calls 'queue(id)' on the governance contract
@@ -34,7 +34,7 @@ contract GovernorAlphaAutomator is KeeperCompatibleInterface {
     s_governanceTokenContract = _tokenContract;
   }
 
-  ///@notice Simulated at each block by the Chainlink Keepers network. Checks if there are any actions (queue() or execute()) required on a governance contract. Also tracks a 'starting index'.
+  ///@notice Simulated at each block by the Chainlink Automation network. Checks if there are any actions (queue() or execute()) required on a governance contract. Also tracks a 'starting index'.
   ///@return upkeepNeeded return true if performUpkeep should be called
   ///@return performData bytes encoded: (governance action required, index of proposal)
   function checkUpkeep(
@@ -66,8 +66,9 @@ contract GovernorAlphaAutomator is KeeperCompatibleInterface {
         performData = abi.encode(Action.EXECUTE, i);
         return (true, performData);
       } else if (
-        s_governanceTokenContract.getPriorVotes(proposer, sub256(block.number, 1)) <
-        s_governanceContract.proposalThreshold()
+        state != GovernorAlpha.ProposalState.Executed &&
+        (s_governanceTokenContract.getPriorVotes(proposer, sub256(block.number, 1)) <
+          s_governanceContract.proposalThreshold())
       ) {
         performData = abi.encode(Action.CANCEL, i);
         return (true, performData);
@@ -77,7 +78,7 @@ contract GovernorAlphaAutomator is KeeperCompatibleInterface {
     revert("no action needed");
   }
 
-  ///@notice Chainlink Keepers will execute when checkUpkeep returns 'true'. Decodes the 'performData' passed in from checkUpkeep and performs an action as needed.
+  ///@notice Chainlink Automation will execute when checkUpkeep returns 'true'. Decodes the 'performData' passed in from checkUpkeep and performs an action as needed.
   ///@param performData bytes encoded: (governance action required, index of proposal)
   ///@dev The governance contract has action validation built-in
   function performUpkeep(bytes calldata performData) external override {
