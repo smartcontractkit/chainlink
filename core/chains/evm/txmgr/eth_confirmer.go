@@ -479,7 +479,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 	// Metadata is required to determine whether a tx is forwarded or not.
 	if ec.config.EvmUseForwarders() {
-		err = loadEthTxes(ec.q, attempts)
+		err = ec.orm.PreloadEthTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")
 		}
@@ -752,11 +752,11 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
 func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
-	attempts, err := getInProgressEthTxAttempts(ctx, ec.q, ec.lggr, address, ec.chainID)
+	attempts, err := ec.orm.GetInProgressEthTxAttempts(ctx, address, ec.chainID)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
+		return errors.Wrap(err, "GetInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
 		err := ec.handleInProgressAttempt(ctx, a.EthTx.GetLogger(ec.lggr), a.EthTx, a, blockHeight)
@@ -765,47 +765,6 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 		} else if err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
-	}
-	return nil
-}
-
-func getInProgressEthTxAttempts(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
-	qq := q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&attempts, `
-SELECT eth_tx_attempts.* FROM eth_tx_attempts
-INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
-`, address, chainID.String())
-		if err != nil {
-			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
-		}
-		err = loadEthTxes(q, attempts)
-		return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_txes")
-	}, pg.OptReadOnlyTx())
-	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
-}
-
-func loadEthTxes(q pg.Queryer, attempts []EthTxAttempt) error {
-	ethTxM := make(map[int64]EthTx)
-	for _, attempt := range attempts {
-		ethTxM[attempt.EthTxID] = EthTx{}
-	}
-	ethTxIDs := make([]int64, len(ethTxM))
-	var i int
-	for id := range ethTxM {
-		ethTxIDs[i] = id
-		i++
-	}
-	ethTxs := make([]EthTx, len(ethTxIDs))
-	if err := q.Select(&ethTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
-		return errors.Wrap(err, "loadEthTxes failed")
-	}
-	for _, etx := range ethTxs {
-		ethTxM[etx.ID] = etx
-	}
-	for i, attempt := range attempts {
-		attempts[i].EthTx = ethTxM[attempt.EthTxID]
 	}
 	return nil
 }

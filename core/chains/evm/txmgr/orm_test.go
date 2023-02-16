@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -559,5 +560,51 @@ func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
 	etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
 	assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx0.State)
+}
 
+func TestORM_PreloadEthTxes(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	// insert etx with attempt
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(7), fromAddress)
+
+	// create unloaded attempt
+	unloadedAttempt := txmgr.EthTxAttempt{EthTxID: etx.ID}
+
+	// uninitialized EthTx
+	assert.Equal(t, int64(0), unloadedAttempt.EthTx.ID)
+
+	attempts := []txmgr.EthTxAttempt{unloadedAttempt}
+
+	err := borm.PreloadEthTxes(attempts)
+	require.NoError(t, err)
+
+	assert.Equal(t, etx.ID, attempts[0].EthTx.ID)
+}
+
+func TestORM_GetInProgressEthTxAttempts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	// insert etx with attempt
+	etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, borm, int64(7), fromAddress, txmgr.EthTxAttemptInProgress)
+
+	// fetch attempt
+	attempts, err := borm.GetInProgressEthTxAttempts(context.Background(), fromAddress, *ethClient.ChainID())
+	require.NoError(t, err)
+
+	assert.Len(t, attempts, 1)
+	assert.Equal(t, etx.EthTxAttempts[0].ID, attempts[0].ID)
 }
