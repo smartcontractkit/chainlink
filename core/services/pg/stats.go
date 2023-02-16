@@ -91,7 +91,7 @@ func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *
 
 func (r *StatsReporter) Start(ctx context.Context) {
 	run := func() {
-		r.lggr.Debugf("Starting DB stat reporter")
+		r.lggr.Debug("Starting DB stat reporter")
 		rctx, cancelFunc := context.WithCancel(ctx)
 		r.cancel = cancelFunc
 		go r.loop(rctx)
@@ -102,7 +102,7 @@ func (r *StatsReporter) Start(ctx context.Context) {
 
 func (r *StatsReporter) Stop() {
 	if r.cancel != nil {
-		r.lggr.Debugf("Stopping DB stat reporter")
+		r.lggr.Debug("Stopping DB stat reporter")
 		r.cancel()
 		r.cancel = nil
 	}
@@ -112,6 +112,7 @@ func (r *StatsReporter) loop(ctx context.Context) {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 
+	r.reportFn(r.statFn())
 	for {
 		select {
 		case <-ticker.C:
