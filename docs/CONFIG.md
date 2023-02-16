@@ -4543,6 +4543,11 @@ TxConfirmTimeout = '30s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
+FeeEstimatorMode = 'fixed' # Default
+ComputeUnitPriceMax = 1000 # Default
+ComputeUnitPriceMin = 0 # Default
+ComputeUnitPriceDefault = 0 # Default
+FeeBumpPeriod = '3s' # Default
 ```
 
 
@@ -4618,6 +4623,36 @@ MaxRetries = 0 # Default
 ```
 MaxRetries is the maximum number of times the RPC node will automatically rebroadcast a tx.
 The default is 0 for custom txm rebroadcasting method, set to -1 to use the RPC node's default retry strategy.
+
+### FeeEstimatorMode<a id='Solana-FeeEstimatorMode'></a>
+```toml
+FeeEstimatorMode = 'fixed' # Default
+```
+FeeEstimatorMode is the method used to determine the base fee
+
+### ComputeUnitPriceMax<a id='Solana-ComputeUnitPriceMax'></a>
+```toml
+ComputeUnitPriceMax = 1000 # Default
+```
+ComputeUnitPriceMax is the maximum price per compute unit that a transaction can be bumped to
+
+### ComputeUnitPriceMin<a id='Solana-ComputeUnitPriceMin'></a>
+```toml
+ComputeUnitPriceMin = 0 # Default
+```
+ComputeUnitPriceMin is the minimum price per compute unit that transaction can have
+
+### ComputeUnitPriceDefault<a id='Solana-ComputeUnitPriceDefault'></a>
+```toml
+ComputeUnitPriceDefault = 0 # Default
+```
+ComputeUnitPriceDefault is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+
+### FeeBumpPeriod<a id='Solana-FeeBumpPeriod'></a>
+```toml
+FeeBumpPeriod = '3s' # Default
+```
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 
 ## Solana.Nodes<a id='Solana-Nodes'></a>
 ```toml
