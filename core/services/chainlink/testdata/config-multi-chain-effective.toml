@@ -441,6 +441,11 @@ TxConfirmTimeout = '30s'
 SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 12
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
+FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -458,6 +463,11 @@ TxConfirmTimeout = '30s'
 SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 0
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
+FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
 Name = 'primary'
