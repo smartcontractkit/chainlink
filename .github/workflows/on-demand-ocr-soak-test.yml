@@ -61,7 +61,6 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_TRIGGERED_BY: ocr-on-demand
       SELECTED_NETWORKS: ${{ inputs.network }}
       EVM_KEYS: ${{ inputs.fundingPrivateKey }}
       EVM_URLS: ${{ inputs.wsURL }}
@@ -92,12 +91,17 @@ jobs:
         id: push
         shell: bash
         run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "`${{ inputs.chainlinkVersion }}`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           if [ "${{ env.REF_NAME }}" != "develop" ]; then
             # use sha if not on develop
             echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:soak.${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "`soak.${{ github.sha }}`" >>$GITHUB_STEP_SUMMARY
           else
             # default to develop
             echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:develop" >>$GITHUB_OUTPUT
+            echo "`develop`" >>$GITHUB_STEP_SUMMARY
           fi
       - name: build test runner
         if: ${{ env.REF_NAME != 'develop' }}
@@ -123,7 +127,6 @@ jobs:
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
-          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           token: ${{ secrets.GITHUB_TOKEN }}
           should_cleanup: false
           go_mod_path: ./integration-tests/go.mod

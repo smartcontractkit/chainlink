@@ -59,7 +59,6 @@ jobs:
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: C03KJ5S7KEK
       TEST_INPUTS: ${{ inputs.TestInputs }}
-      TEST_TRIGGERED_BY: automation-benchmark
       CHAINLINK_ENV_USER: ${{ github.actor }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
@@ -68,12 +67,17 @@ jobs:
         id: push
         shell: bash
         run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "`${{ inputs.chainlinkVersion }}`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           if [ "${{ env.REF_NAME }}" != "develop" ]; then
             # use sha if not on develop
             echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:benchmark.${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "`benchmark.${{ github.sha }}`" >>$GITHUB_STEP_SUMMARY
           else
             # default to develop
             echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:develop" >>$GITHUB_OUTPUT
+            echo "`develop`" >>$GITHUB_STEP_SUMMARY
           fi
       - name: Add mask
         run: |
@@ -117,7 +121,6 @@ jobs:
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
-          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           token: ${{ secrets.GITHUB_TOKEN }}
           should_cleanup: false
           go_mod_path: ./integration-tests/go.mod
