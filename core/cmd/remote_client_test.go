@@ -56,16 +56,15 @@ type startOptions struct {
 
 // many parallel test call start a test application. this leads to lock contention when creating a test session
 // increase the lock deadline based on the test timeout
-
 func overrideDatabseLockTimeout(t *testing.T, initial time.Duration) time.Duration {
-	// inititials with a guess based on CI failure for the case where there is no explicit time timeout
+	// inititialize with a guess based on CI failure for the case where there is no explicit time timeout
 	lockDuration := 4 * initial
 
 	deadline, ok := t.Deadline()
 	if ok {
-
 		lockDuration = time.Duration(0.5 * deadline.Sub(time.Now()).Seconds())
 	}
+
 	return lockDuration
 }
 
