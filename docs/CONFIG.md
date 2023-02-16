@@ -4544,9 +4544,9 @@ SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
 FeeEstimatorMode = 'fixed' # Default
-MaxComputeUnitPrice = 1000 # Default
-MinComputeUnitPrice = 0 # Default
-DefaultComputeUnitPrice = 0 # Default
+ComputeUnitPriceMax = 1000 # Default
+ComputeUnitPriceMin = 0 # Default
+ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
 ```
 
@@ -4630,23 +4630,23 @@ FeeEstimatorMode = 'fixed' # Default
 ```
 FeeEstimatorMode is the method used to determine the base fee
 
-### MaxComputeUnitPrice<a id='Solana-MaxComputeUnitPrice'></a>
+### ComputeUnitPriceMax<a id='Solana-ComputeUnitPriceMax'></a>
 ```toml
-MaxComputeUnitPrice = 1000 # Default
+ComputeUnitPriceMax = 1000 # Default
 ```
-MaxComputeUnitPrice is the maximum price per compute unit that a transaction can be bumped to
+ComputeUnitPriceMax is the maximum price per compute unit that a transaction can be bumped to
 
-### MinComputeUnitPrice<a id='Solana-MinComputeUnitPrice'></a>
+### ComputeUnitPriceMin<a id='Solana-ComputeUnitPriceMin'></a>
 ```toml
-MinComputeUnitPrice = 0 # Default
+ComputeUnitPriceMin = 0 # Default
 ```
-MinComputeUnitPrice is the minimum price per compute unit that transaction can have
+ComputeUnitPriceMin is the minimum price per compute unit that transaction can have
 
-### DefaultComputeUnitPrice<a id='Solana-DefaultComputeUnitPrice'></a>
+### ComputeUnitPriceDefault<a id='Solana-ComputeUnitPriceDefault'></a>
 ```toml
-DefaultComputeUnitPrice = 0 # Default
+ComputeUnitPriceDefault = 0 # Default
 ```
-DefaultComputeUnitPrice is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+ComputeUnitPriceDefault is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
 
 ### FeeBumpPeriod<a id='Solana-FeeBumpPeriod'></a>
 ```toml

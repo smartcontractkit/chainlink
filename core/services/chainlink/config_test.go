@@ -557,9 +557,9 @@ func TestConfig_Marshal(t *testing.T) {
 				Commitment:              ptr("banana"),
 				MaxRetries:              ptr[int64](7),
 				FeeEstimatorMode:        ptr("fixed"),
-				MaxComputeUnitPrice:     ptr[uint64](1000),
-				MinComputeUnitPrice:     ptr[uint64](10),
-				DefaultComputeUnitPrice: ptr[uint64](100),
+				ComputeUnitPriceMax:     ptr[uint64](1000),
+				ComputeUnitPriceMin:     ptr[uint64](10),
+				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           relayutils.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
@@ -929,9 +929,9 @@ SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
 FeeEstimatorMode = 'fixed'
-MaxComputeUnitPrice = 1000
-MinComputeUnitPrice = 10
-DefaultComputeUnitPrice = 100
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 10
+ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 
 [[Solana.Nodes]]

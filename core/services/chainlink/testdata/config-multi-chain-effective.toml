@@ -442,9 +442,9 @@ SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 12
 FeeEstimatorMode = 'fixed'
-MaxComputeUnitPrice = 1000
-MinComputeUnitPrice = 0
-DefaultComputeUnitPrice = 0
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
@@ -464,9 +464,9 @@ SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 0
 FeeEstimatorMode = 'fixed'
-MaxComputeUnitPrice = 1000
-MinComputeUnitPrice = 0
-DefaultComputeUnitPrice = 0
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]

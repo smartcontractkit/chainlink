@@ -311,9 +311,9 @@ SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
 FeeEstimatorMode = 'fixed'
-MaxComputeUnitPrice = 1000
-MinComputeUnitPrice = 10
-DefaultComputeUnitPrice = 100
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 10
+ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 
 [[Solana.Nodes]]

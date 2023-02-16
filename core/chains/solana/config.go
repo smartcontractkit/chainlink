@@ -264,9 +264,9 @@ func (c *SolanaConfig) AsV1() DBChain {
 			Commitment:              null.StringFromPtr(c.Chain.Commitment),
 			MaxRetries:              null.IntFromPtr(c.Chain.MaxRetries),
 			FeeEstimatorMode:        null.StringFromPtr(c.Chain.FeeEstimatorMode),
-			MaxComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MaxComputeUnitPrice)),
-			MinComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MinComputeUnitPrice)),
-			DefaultComputeUnitPrice: null.IntFrom(int64(*c.Chain.DefaultComputeUnitPrice)),
+			ComputeUnitPriceMax:     null.IntFrom(int64(*c.Chain.ComputeUnitPriceMax)),
+			ComputeUnitPriceMin:     null.IntFrom(int64(*c.Chain.ComputeUnitPriceMin)),
+			ComputeUnitPriceDefault: null.IntFrom(int64(*c.Chain.ComputeUnitPriceDefault)),
 			FeeBumpPeriod:           c.Chain.FeeBumpPeriod,
 		},
 	}
@@ -322,16 +322,16 @@ func (c *SolanaConfig) FeeEstimatorMode() string {
 	return *c.Chain.FeeEstimatorMode
 }
 
-func (c *SolanaConfig) MaxComputeUnitPrice() uint64 {
-	return *c.Chain.MaxComputeUnitPrice
+func (c *SolanaConfig) ComputeUnitPriceMax() uint64 {
+	return *c.Chain.ComputeUnitPriceMax
 }
 
-func (c *SolanaConfig) MinComputeUnitPrice() uint64 {
-	return *c.Chain.MinComputeUnitPrice
+func (c *SolanaConfig) ComputeUnitPriceMin() uint64 {
+	return *c.Chain.ComputeUnitPriceMin
 }
 
-func (c *SolanaConfig) DefaultComputeUnitPrice() uint64 {
-	return *c.Chain.DefaultComputeUnitPrice
+func (c *SolanaConfig) ComputeUnitPriceDefault() uint64 {
+	return *c.Chain.ComputeUnitPriceDefault
 }
 
 func (c *SolanaConfig) FeeBumpPeriod() time.Duration {

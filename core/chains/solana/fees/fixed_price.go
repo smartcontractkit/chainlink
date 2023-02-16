@@ -14,8 +14,10 @@ type fixedPriceEstimator struct {
 }
 
 func NewFixedPriceEstimator(cfg config.Config) (Estimator, error) {
-	if cfg.DefaultComputeUnitPrice() < cfg.MinComputeUnitPrice() || cfg.DefaultComputeUnitPrice() > cfg.MaxComputeUnitPrice() {
-		return nil, fmt.Errorf("default price (%d) is not within the min (%d) and max (%d) price bounds", cfg.DefaultComputeUnitPrice(), cfg.MinComputeUnitPrice(), cfg.MaxComputeUnitPrice())
+	defaultPrice, min, max := cfg.ComputeUnitPriceDefault(), cfg.ComputeUnitPriceMin(), cfg.ComputeUnitPriceMax()
+
+	if defaultPrice < min || defaultPrice > max {
+		return nil, fmt.Errorf("default price (%d) is not within the min (%d) and max (%d) price bounds", defaultPrice, min, max)
 	}
 
 	return &fixedPriceEstimator{
@@ -32,5 +34,5 @@ func (est *fixedPriceEstimator) Close() error {
 }
 
 func (est *fixedPriceEstimator) BaseComputeUnitPrice() uint64 {
-	return est.cfg.DefaultComputeUnitPrice()
+	return est.cfg.ComputeUnitPriceDefault()
 }

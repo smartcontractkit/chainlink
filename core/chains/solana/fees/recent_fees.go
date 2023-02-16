@@ -71,13 +71,13 @@ func (est *recentFeeEstimator) BaseComputeUnitPrice() uint64 {
 	est.lock.RLock()
 	defer est.lock.RUnlock()
 
-	if est.price >= est.cfg.MinComputeUnitPrice() && est.price <= est.cfg.MaxComputeUnitPrice() {
+	if est.price >= est.cfg.ComputeUnitPriceMin() && est.price <= est.cfg.ComputeUnitPriceMax() {
 		return est.price
 	}
 
-	if est.price < est.cfg.MinComputeUnitPrice() {
-		return est.cfg.MinComputeUnitPrice()
+	if est.price < est.cfg.ComputeUnitPriceMin() {
+		return est.cfg.ComputeUnitPriceMin()
 	}
 
-	return est.cfg.MaxComputeUnitPrice()
+	return est.cfg.ComputeUnitPriceMax()
 }

@@ -156,8 +156,8 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx solanaGo.Transacti
 	getFee := func(count uint) fees.ComputeUnitPrice {
 		fee := fees.CalculateFee(
 			txm.fee.BaseComputeUnitPrice(),
-			txm.cfg.MaxComputeUnitPrice(),
-			txm.cfg.MinComputeUnitPrice(),
+			txm.cfg.ComputeUnitPriceMax(),
+			txm.cfg.ComputeUnitPriceMin(),
 			count,
 		)
 		return fees.ComputeUnitPrice(fee)
