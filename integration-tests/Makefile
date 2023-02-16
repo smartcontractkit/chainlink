@@ -86,7 +86,7 @@ test_smoke_simulated: install_gotestfmt ## Run all smoke tests on simulated bloc
 test_smoke_verbose: ## Run all smoke tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) ./smoke
 
-.PHONY: test_smoke_verbose
+.PHONY: test_smoke_simulated_verbose
 test_smoke_simulated_verbose: ## Run all smoke tests with verbose logging
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 24h -count=1 -v $(args) ./smoke
