@@ -1,13 +1,10 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 )
-
-var ErrBlockKeyNotParsable = fmt.Errorf("block identifier not parsable")
 
 type BlockKey string
 
