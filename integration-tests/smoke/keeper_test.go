@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,11 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -36,11 +38,17 @@ const (
 
 var (
 	keeperBaseTOML = `[Keeper]
-TurnLookBack = 0
+	TurnLookBack = 0
+	
+	[Keeper.Registry]
+	SyncInterval = '5s'
+	PerformGasOverhead = 150_000`
 
-[Keeper.Registry]
-SyncInterval = '5s'
-PerformGasOverhead = 150_000`
+	keeperEnvVars = map[string]any{
+		"KEEPER_TURN_LOOK_BACK":                "0",
+		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",
+		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
+	}
 
 	keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
@@ -1109,7 +1117,25 @@ func setupKeeperTest(
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		})
+		// For if we end up using env vars
+		keeperEnvVars["ETH_URL"] = network.URLs[0]
+		keeperEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
+		keeperEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
+
+	chainlinkChart := chainlink.New(0, map[string]interface{}{
+		"replicas": "5",
+		"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
+	})
+
+	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+	if useEnvVars == "true" {
+		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
+			"replicas": "5",
+			"env":      keeperEnvVars,
+		})
+	}
+
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	testEnvironment := environment.New(
 		&environment.Config{
@@ -1119,10 +1145,7 @@ func setupKeeperTest(
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
-		}))
+		AddHelm(chainlinkChart)
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
