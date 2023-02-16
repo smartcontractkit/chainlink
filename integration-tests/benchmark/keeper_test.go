@@ -415,7 +415,7 @@ LimitDefault = 5_000_000`
 		testEnvironment.
 			AddChart(blockscout.New(&blockscout.Props{
 				Name:    "geth-blockscout",
-				WsURL:   activeEVMNetwork.URL,
+				WsURL:   activeEVMNetwork.URLs[0],
 				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
 		err := testEnvironment.Run()
 		require.NoError(t, err, "Error launching test environment")
