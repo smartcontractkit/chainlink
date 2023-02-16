@@ -44,6 +44,8 @@ const (
 	ExplorerBinaryMessage = websocket.BinaryMessage
 )
 
+//go:generate mockery --quiet --name ExplorerClient --output ./mocks --case=underscore
+
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
