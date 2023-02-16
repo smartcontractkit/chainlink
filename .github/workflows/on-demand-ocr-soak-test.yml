@@ -92,7 +92,7 @@ jobs:
           ref: ${{ env.REF_NAME }}
       - name: build test runner
         if: ${{ env.REF_NAME != 'develop' }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
         with:
           tags: ${{ env.ENV_JOB_IMAGE }}
           file: ./integration-tests/test.Dockerfile
@@ -103,7 +103,7 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
