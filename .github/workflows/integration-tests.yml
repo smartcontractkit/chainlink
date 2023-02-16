@@ -41,12 +41,6 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
-      - name: Testing
-        run: |
-          echo "`single back tick`" >>$GITHUB_STEP_SUMMARY
-          echo "``double back tick``" >>$GITHUB_STEP_SUMMARY
-          echo "```triple back tick```" >>$GITHUB_STEP_SUMMARY
-          echo "\`escape back tick\`" >>$GITHUB_STEP_SUMMARY
     outputs:
       src: ${{ steps.changes.outputs.src }}
 
@@ -75,7 +69,7 @@ jobs:
       - name: Print Chainlink Image Built
         run: |
           echo "### chainlink image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "latest.${{ github.sha }}" >>$GITHUB_STEP_SUMMARY
+          echo "\`latest.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -121,7 +115,7 @@ jobs:
       - name: Print Image Built
         run: |
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "ci.${{ github.sha }}" >>$GITHUB_STEP_SUMMARY
+          echo "\`ci.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
 
   eth-smoke-tests-matrix:
     environment: integration
@@ -331,6 +325,10 @@ jobs:
             SUITES="smoke"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Print Solana Tests Image
+        run: |
+          echo "### chainlink-solana-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.SOLANA_REF }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
