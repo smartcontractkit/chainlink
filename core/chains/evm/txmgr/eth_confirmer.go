@@ -592,6 +592,54 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
+// markAllConfirmedMissingReceipt
+// It is possible that we can fail to get a receipt for all eth_tx_attempts
+// even though a transaction with this nonce has long since been confirmed (we
+// know this because transactions with higher nonces HAVE returned a receipt).
+//
+// This can probably only happen if an external wallet used the account (or
+// conceivably because of some bug in the remote eth node that prevents it
+// from returning a receipt for a valid transaction).
+//
+// In this case we mark these transactions as 'confirmed_missing_receipt' to
+// prevent gas bumping.
+//
+// NOTE: We continue to attempt to resend eth_txes in this state on
+// every head to guard against the extremely rare scenario of nonce gap due to
+// reorg that excludes the transaction (from another wallet) that had this
+// nonce (until finality depth is reached, after which we make the explicit
+// decision to give up). This is done in the EthResender.
+//
+// We will continue to try to fetch a receipt for these attempts until all
+// attempts are below the finality depth from current head.
+func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
+	res, err := ec.q.Exec(`
+UPDATE eth_txes
+SET state = 'confirmed_missing_receipt'
+FROM (
+	SELECT from_address, MAX(nonce) as max_nonce 
+	FROM eth_txes
+	WHERE state = 'confirmed' AND evm_chain_id = $1
+	GROUP BY from_address
+) AS max_table
+WHERE state = 'unconfirmed'
+	AND evm_chain_id = $1
+	AND nonce < max_table.max_nonce
+	AND eth_txes.from_address = max_table.from_address
+	`, ec.chainID.String())
+	if err != nil {
+		return errors.Wrap(err, "markAllConfirmedMissingReceipt failed")
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "markAllConfirmedMissingReceipt RowsAffected failed")
+	}
+	if rowsAffected > 0 {
+		ec.lggr.Infow(fmt.Sprintf("%d transactions missing receipt", rowsAffected), "n", rowsAffected)
+	}
+	return
+}
+
 // markOldTxesMissingReceiptAsErrored
 //
 // Once eth_tx has all of its attempts broadcast before some cutoff threshold
