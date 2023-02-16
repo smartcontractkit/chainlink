@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
@@ -124,76 +123,15 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 	return lp
 }
 
-type AddressArray []common.Address
-type HashArray []common.Hash
-
 type Filter struct {
 	FilterName string
-	EventSigs  HashArray
-	Addresses  AddressArray
+	EventSigs  evmtypes.HashArray
+	Addresses  evmtypes.AddressArray
 }
 
-func (a *AddressArray) Scan(src interface{}) error {
-	baArray := pgtype.ByteaArray{}
-	err := baArray.Scan(src)
-	if err != nil {
-		return errors.New("Expected BYTEA[] column for AddressArray")
-	}
-	if baArray.Status != pgtype.Present || len(baArray.Dimensions) != 1 {
-		return errors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
-	}
-	addresses := []common.Address(*a)
-	lastAddress := common.Address{}
-	for i, ba := range baArray.Elements {
-		addr := common.Address{}
-		if ba.Status != pgtype.Present {
-			return errors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
-		}
-		err = addr.Scan(ba.Bytes)
-		if err != nil {
-			return err
-		}
-		if addr != lastAddress { // dedup addresses
-			addresses = append(addresses, addr)
-			lastAddress = addr
-		}
-	}
-	*a = addresses
-	return nil
-}
-
-func (h *HashArray) Scan(src interface{}) error {
-	baArray := pgtype.ByteaArray{}
-	err := baArray.Scan(src)
-	if err != nil {
-		return errors.New("Expected BYTEA[] column for HashArray")
-	}
-	if baArray.Status != pgtype.Present || len(baArray.Dimensions) != 1 {
-		return errors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
-	}
-
-	hashes := []common.Hash(*h)
-	lastHash := common.Hash{}
-	for i, ba := range baArray.Elements {
-		hash := common.Hash{}
-		if ba.Status != pgtype.Present {
-			return errors.Errorf("Expected all addresses in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
-		}
-		err = hash.Scan(ba.Bytes)
-		if err != nil {
-			return err
-		}
-		if hash != lastHash { // dedup hashs
-			hashes = append(hashes, hash)
-			lastHash = hash
-		}
-	}
-	*h = hashes
-	return err
-}
-
-// CompareTo returns true if this filter contains any events or addresses not already
-// included in existing filter.
+// CompareTo returns true if this filter is already contained within existing filter
+//
+// Returns false if it includes any new addresses or events.
 func (filter *Filter) CompareTo(existing *Filter) bool {
 	addresses := make(map[common.Address]interface{})
 	for _, addr := range existing.Addresses {
@@ -253,7 +191,10 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 
 	if existingFilter, ok := lp.filters[filter.FilterName]; ok {
 		if filter.CompareTo(&existingFilter) {
-			lp.lggr.Errorw("Updating existing filter %s with more events or addresses", "FilterName", filter.FilterName)
+			// Nothing new in this filter
+			return nil
+		} else {
+			lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "FilterName", filter.FilterName)
 		}
 	} else {
 		lp.lggr.Debugf("Creating new filter %s", filter.FilterName)

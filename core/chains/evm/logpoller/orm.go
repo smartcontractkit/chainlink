@@ -74,9 +74,8 @@ func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 func (o *ORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 	q := o.q.WithOpts(qopts...)
 	rows := make([]Filter, 0)
-	err := q.Select(&rows, `SELECT * FROM (SELECT filter_name, ARRAY_AGG(address ORDER BY id)::BYTEA[] AS addresses, ARRAY_AGG(event ORDER BY id)::BYTEA[] AS event_sigs
-									FROM log_poller_filters WHERE evm_chain_id = $1
-									GROUP BY filter_name) x`, utils.NewBig(o.chainID))
+	err := q.Select(&rows, `SELECT filter_name, ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs
+									FROM log_poller_filters WHERE evm_chain_id = $1 GROUP BY filter_name`, utils.NewBig(o.chainID))
 	filters := make(map[string]Filter)
 	for _, filter := range rows {
 		filters[filter.FilterName] = filter
