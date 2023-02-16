@@ -347,7 +347,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.orm.FindEthTxAttemptsRequiringReceiptFetch(ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
+		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed")
 	}
 	if len(attempts) == 0 {
 		return nil
@@ -466,23 +466,6 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
 
 	return nil
-}
-
-func (ec *EthConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []EthTxAttempt, err error) {
-	err = ec.q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&attempts, `
-SELECT eth_tx_attempts.* FROM eth_tx_attempts
-JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND eth_txes.evm_chain_id = $1
-WHERE eth_tx_attempts.state != 'insufficient_eth'
-ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
-`, ec.chainID.String())
-		if err != nil {
-			return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
-		}
-		err = loadEthTxes(tx, attempts)
-		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
-	}, pg.OptReadOnlyTx())
-	return
 }
 
 func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
