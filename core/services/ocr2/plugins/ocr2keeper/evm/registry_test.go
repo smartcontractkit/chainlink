@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,15 +25,14 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 		LatestHead   int64
 		ActiveIDs    []string
 		ExpectedErr  error
-		ExpectedKeys []types.UpkeepKey
+		ExpectedKeys []types.UpkeepIdentifier
 	}{
-		{Name: "LatestHeadNotAvailable", ActiveIDs: []string{"8"}, ExpectedErr: ErrHeadNotAvailable, ExpectedKeys: nil},
-		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []types.UpkeepKey{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []types.UpkeepKey{
-			chain.UpkeepKey("1|8"),
-			chain.UpkeepKey("1|9"),
-			chain.UpkeepKey("1|3"),
-			chain.UpkeepKey("1|1"),
+		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []types.UpkeepIdentifier{}},
+		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []types.UpkeepIdentifier{
+			types.UpkeepIdentifier("8"),
+			types.UpkeepIdentifier("9"),
+			types.UpkeepIdentifier("3"),
+			types.UpkeepIdentifier("1"),
 		}},
 	}
 
@@ -60,7 +58,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				Number: test.LatestHead,
 			})
 
-			keys, err := rg.GetActiveUpkeepKeys(context.Background(), types.BlockKey("0"))
+			keys, err := rg.GetActiveUpkeepIDs(context.Background())
 
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
