@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for sending OCR2 job specs to the feeds manager
 
+...
+
+## 1.12.0 - UNRELEASED
+
 ### Updated
 
 - TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
@@ -20,7 +24,7 @@ of any values provided via configuration files.
 
 ...
 
-## 1.12.0 - UNRELEASED
+## 1.12.0 - 2023-02-15
 
 ### Added
 
