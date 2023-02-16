@@ -68,16 +68,16 @@ jobs:
         shell: bash
         run: |
           echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "`${{ inputs.chainlinkVersion }}`" >>$GITHUB_STEP_SUMMARY
+          echo "tag: `${{ inputs.chainlinkVersion }}`" >>$GITHUB_STEP_SUMMARY
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           if [ "${{ env.REF_NAME }}" != "develop" ]; then
             # use sha if not on develop
             echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:benchmark.${{ github.sha }}" >>$GITHUB_OUTPUT
-            echo "`benchmark.${{ github.sha }}`" >>$GITHUB_STEP_SUMMARY
+            echo "tag: `benchmark.${{ github.sha }}`" >>$GITHUB_STEP_SUMMARY
           else
             # default to develop
             echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:develop" >>$GITHUB_OUTPUT
-            echo "`develop`" >>$GITHUB_STEP_SUMMARY
+            echo "tag: `develop`" >>$GITHUB_STEP_SUMMARY
           fi
       - name: Add mask
         run: |

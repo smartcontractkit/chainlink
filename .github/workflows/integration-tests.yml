@@ -68,8 +68,8 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Print Chainlink Image Built
         run: |
-          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "`latest.${{ github.sha }}`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "tag: `latest.${{ github.sha }}`" >>$GITHUB_STEP_SUMMARY
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
