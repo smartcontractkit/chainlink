@@ -21,6 +21,8 @@ import (
 
 //go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
+//go:generate mockery --quiet --name TelemetryIngressBatchClient --output ./mocks --case=underscore
+
 // TelemetryIngressBatchClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressBatchClient interface {
@@ -205,6 +207,7 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 			tc.chDone,
 			make(chan TelemPayload, tc.telemBufferSize),
 			payload.ContractID,
+			payload.TelemType,
 			tc.globalLogger,
 			tc.logging,
 		)
