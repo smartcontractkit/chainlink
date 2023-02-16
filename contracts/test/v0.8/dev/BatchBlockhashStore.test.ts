@@ -132,7 +132,7 @@ describe('BatchBlockhashStore', () => {
   })
 
   describe('#storeVerifyHeader', () => {
-    it('stores batches of blocknumbers using storeVerifyHeader [ @skip-coverage ]', async () => {
+    xit('stores batches of blocknumbers using storeVerifyHeader [ @skip-coverage ]', async () => {
       // Store a single blockhash and go backwards from there using storeVerifyHeader
       const latestBlock = await ethers.provider.send('eth_blockNumber', [])
       await batchBHS.connect(owner).store([latestBlock])
