@@ -248,8 +248,6 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	case <-ctx.Done():
 		return ErrReplayAbortedByClient
 	}
-	// Should never reach here.
-	return nil
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {

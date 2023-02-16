@@ -221,6 +221,101 @@ func (f *EthereumStaking) SetMerkleRoot(newMerkleRoot [32]byte) error {
 	return f.client.ProcessTransaction(tx)
 }
 
+// EthereumAtlasFunctions
+type EthereumAtlasFunctions struct {
+	client         blockchain.EVMClient
+	atlasFunctions *ethereum2.AtlasFunctions
+	address        *common.Address
+}
+
+func (f *EthereumAtlasFunctions) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumAtlasFunctions) OracleRequest(requestId [32]byte, subscriptionId uint64, data []byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireOracleRequest(opts, requestId, subscriptionId, data)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) OracleResponse(requestId [32]byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireOracleResponse(opts, requestId)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) UserCallbackError(requestId [32]byte, reason string) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireUserCallbackError(opts, requestId, reason)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) BillingStart(requestId [32]byte, subscriptionId uint64) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.BillingStart(opts, requestId, subscriptionId)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.BillingEnd(opts, requestId, subscriptionId, totalCost, success)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) UserCallbackRawError(requestId [32]byte, lowLevelData []byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireUserCallbackRawError(opts, requestId, lowLevelData)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireSubscriptionFunded(opts, subscriptionId, oldBalance, newBalance)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient

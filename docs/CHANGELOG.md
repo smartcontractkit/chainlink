@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for sending OCR2 job specs to the feeds manager
+
+...
+
+## 1.12.1 - UNRELEASED
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
+...
+
+## 1.12.0 - 2023-02-15
+
+### Added
+
 - Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
 - New config variable, `JobPipeline.MaxSuccessfulRuns` caps the total number of
   saved completed runs per job. This is done in response to the `pipeline_runs`
@@ -28,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
+- The `config dump` subcommand was fixed to dump the correct config data. The P2P.V1.Enabled config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The V1.Enabled default value is actually true already, and is now updated to only set explicit false values.
+
 <!-- unreleasedstop -->
 
 ## 1.11.0 - 2022-12-12

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -20,6 +20,8 @@ import (
 )
 
 //go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
+
+//go:generate mockery --quiet --name TelemetryIngressBatchClient --output ./mocks --case=underscore
 
 // TelemetryIngressBatchClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
@@ -52,7 +54,7 @@ type telemetryIngressBatchClient struct {
 	ks              keystore.CSA
 	serverPubKeyHex string
 
-	connected   *atomic.Bool
+	connected   atomic.Bool
 	telemClient telemPb.TelemClient
 	close       func() error
 
@@ -89,7 +91,6 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 		logging:           logging,
 		lggr:              lggr.Named("TelemetryIngressBatchClient"),
 		chDone:            make(chan struct{}),
-		connected:         atomic.NewBool(false),
 		workers:           make(map[string]*telemetryIngressBatchWorker),
 		useUniConn:        useUniconn,
 	}
@@ -206,6 +207,7 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 			tc.chDone,
 			make(chan TelemPayload, tc.telemBufferSize),
 			payload.ContractID,
+			payload.TelemType,
 			tc.globalLogger,
 			tc.logging,
 		)

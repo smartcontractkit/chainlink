@@ -22,20 +22,6 @@ var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
 )
 
-func EVMChainForSpec(spec job.Job, set evm.ChainSet) (evm.Chain, error) {
-	chainIDInterface, ok := spec.OCR2OracleSpec.RelayConfig["chainID"]
-	if !ok {
-		return nil, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
-	}
-	chainID := int64(chainIDInterface.(float64))
-	chain, err := set.Get(big.NewInt(chainID))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err)
-	}
-
-	return chain, nil
-}
-
 func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
 	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, pr, spec, lggr.Named("OCR2KeeperRelayer"))
@@ -69,8 +55,13 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	oSpec := spec.OCR2OracleSpec
 
 	// get the chain from the config
-	if chain, err = EVMChainForSpec(spec, set); err != nil {
-		return nil, nil, nil, nil, err
+	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
+	if err2 != nil {
+		return nil, nil, nil, nil, err2
+	}
+	chain, err2 = set.Get(big.NewInt(chainID))
+	if err2 != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
 	}
 
 	// the provider will be returned as a dependency
@@ -87,7 +78,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
-	var lookbackBlocks int64 = 100
+	var lookbackBlocks int64 = 250
 	logProvider, err := NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
 	return keeperProvider, registry, encoder, logProvider, err

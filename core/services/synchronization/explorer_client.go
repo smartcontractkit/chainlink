@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gorilla/websocket"
-	"go.uber.org/atomic"
 )
 
 var (
@@ -43,6 +43,8 @@ const (
 	ExplorerTextMessage   = websocket.TextMessage
 	ExplorerBinaryMessage = websocket.BinaryMessage
 )
+
+//go:generate mockery --quiet --name ExplorerClient --output ./mocks --case=underscore
 
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
@@ -181,7 +183,7 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 // 300
 // etc...
 func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
-	count := ec.dropMessageCount.Inc()
+	count := ec.dropMessageCount.Add(1)
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		ec.lggr.Warnw("explorer client buffer full, dropping message", "data", data, "droppedCount", count)
 	}
@@ -345,14 +347,12 @@ func (ec *explorerClient) connect(ctx context.Context) error {
 
 var expectedCloseMessages = []int{websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure}
 
-const CloseTimeout = 100 * time.Millisecond
-
 // readPump listens on the websocket connection for control messages and
 // response messages (text)
 //
 // For more details on how disconnection messages are handled, see:
-//  * https://stackoverflow.com/a/48181794/639773
-//  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
+//   - https://stackoverflow.com/a/48181794/639773
+//   - https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
 func (ec *explorerClient) readPump() {
 	defer ec.wg.Done()
 	ec.conn.SetReadLimit(maxMessageSize)

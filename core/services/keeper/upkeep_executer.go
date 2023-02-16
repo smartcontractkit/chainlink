@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	executionQueueSize = 10
+	executionQueueSize  = 10
+	maxUpkeepPerformGas = 5_000_000 // Max perform gas for upkeep is 5M on all chains for v1.x
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -267,7 +268,7 @@ func buildJobSpec(
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: jb.ForwardingAllowed,
 			},
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
+			"performUpkeepGasLimit": maxUpkeepPerformGas + ormConfig.KeeperRegistryPerformGasOverhead(),
 			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
 			"gasPrice":              gasPrice.ToInt(),
 			"gasTipCap":             gasTipCap.ToInt(),

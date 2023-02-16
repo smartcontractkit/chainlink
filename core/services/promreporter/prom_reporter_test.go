@@ -2,6 +2,7 @@ package promreporter_test
 
 import (
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -40,7 +40,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 
@@ -71,7 +71,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
@@ -109,7 +109,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 		require.NoError(t, reporter.Start(testutils.Context(t)))

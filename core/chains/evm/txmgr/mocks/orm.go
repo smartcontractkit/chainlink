@@ -3,8 +3,12 @@
 package mocks
 
 import (
+	big "math/big"
+
 	common "github.com/ethereum/go-ethereum/common"
 	mock "github.com/stretchr/testify/mock"
+
+	time "time"
 
 	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 )
@@ -173,6 +177,29 @@ func (_m *ORM) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]txmgr.EthTxAttempt, e
 	return r0, r1
 }
 
+// FindEthTxAttemptsRequiringResend provides a mock function with given fields: olderThan, maxInFlightTransactions, chainID, address
+func (_m *ORM) FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) ([]txmgr.EthTxAttempt, error) {
+	ret := _m.Called(olderThan, maxInFlightTransactions, chainID, address)
+
+	var r0 []txmgr.EthTxAttempt
+	if rf, ok := ret.Get(0).(func(time.Time, uint32, big.Int, common.Address) []txmgr.EthTxAttempt); ok {
+		r0 = rf(olderThan, maxInFlightTransactions, chainID, address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgr.EthTxAttempt)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(time.Time, uint32, big.Int, common.Address) error); ok {
+		r1 = rf(olderThan, maxInFlightTransactions, chainID, address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEthTxByHash provides a mock function with given fields: hash
 func (_m *ORM) FindEthTxByHash(hash common.Hash) (*txmgr.EthTx, error) {
 	ret := _m.Called(hash)
@@ -252,6 +279,20 @@ func (_m *ORM) InsertEthTxAttempt(attempt *txmgr.EthTxAttempt) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*txmgr.EthTxAttempt) error); ok {
 		r0 = rf(attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateBroadcastAts provides a mock function with given fields: now, etxIDs
+func (_m *ORM) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
+	ret := _m.Called(now, etxIDs)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(time.Time, []int64) error); ok {
+		r0 = rf(now, etxIDs)
 	} else {
 		r0 = ret.Error(0)
 	}

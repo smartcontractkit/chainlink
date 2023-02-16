@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @notice Modified AuthorizedReciever abstract for use on the FunctionsOracle contract to limit usage
@@ -20,7 +20,7 @@ abstract contract AuthorizedOriginReceiver {
   error NotAllowedToSetSenders();
   error AlreadySet();
 
-  bool private _active;
+  bool private s_active;
   EnumerableSet.AddressSet private s_authorizedSenders;
   address[] private s_authorizedSendersList;
 
@@ -28,14 +28,14 @@ abstract contract AuthorizedOriginReceiver {
    * @dev Initializes the contract in active state.
    */
   constructor() {
-    _active = true;
+    s_active = true;
   }
 
   /**
    * @dev Returns true if the contract is paused, and false otherwise.
    */
   function authorizedReceiverActive() public view virtual returns (bool) {
-    return _active;
+    return s_active;
   }
 
   /**
@@ -49,7 +49,7 @@ abstract contract AuthorizedOriginReceiver {
     if (authorizedReceiverActive()) {
       revert AlreadySet();
     }
-    _active = true;
+    s_active = true;
     emit AuthorizedSendersActive(msg.sender);
   }
 
@@ -64,7 +64,7 @@ abstract contract AuthorizedOriginReceiver {
     if (!authorizedReceiverActive()) {
       revert AlreadySet();
     }
-    _active = false;
+    s_active = false;
     emit AuthorizedSendersDeactive(msg.sender);
   }
 
@@ -101,8 +101,9 @@ abstract contract AuthorizedOriginReceiver {
           if (s_authorizedSendersList[j] == senders[i]) {
             address last = s_authorizedSendersList[s_authorizedSendersList.length - 1];
             // Copy last element and overwrite senders[i] to be deleted with it
-            s_authorizedSendersList[i] = last;
+            s_authorizedSendersList[j] = last;
             s_authorizedSendersList.pop();
+            break;
           }
         }
       }

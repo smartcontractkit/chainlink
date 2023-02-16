@@ -100,4 +100,6 @@ $SCRIPTPATH/native_solc8_6_compile dev/functions/Functions.sol
 $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsClient.sol
 $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsClientExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsOracle.sol
+$SCRIPTPATH/native_solc8_6_compile tests/FunctionsOracleWithInit.sol
 $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsBillingRegistry.sol
+$SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol

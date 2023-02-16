@@ -170,7 +170,7 @@ MaxIdleConns = 10 # Default
 ```
 MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ### MaxOpenConns<a id='Database-MaxOpenConns'></a>
 ```toml
@@ -178,7 +178,7 @@ MaxOpenConns = 20 # Default
 ```
 MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ### MigrateOnStartup<a id='Database-MigrateOnStartup'></a>
 ```toml
@@ -2585,7 +2585,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -2595,16 +2595,16 @@ GasLimit = 5300000
 ```toml
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 
@@ -2614,38 +2614,38 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
+ResendAfterThreshold = '30s'
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2656,7 +2656,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 
 [OCR]
-ContractConfirmations = 1
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -3046,7 +3046,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -3127,83 +3127,6 @@ GasLimit = 5300000
 
 </p></details>
 
-<details><summary>Optimism Alpha (28528)<a id='EVM-28528'></a></summary><p>
-
-```toml
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 200
-LogBackfillBatchSize = 100
-LogPollInterval = '2s'
-LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '1m0s'
-RPCDefaultBatchSize = 100
-RPCBlockQueryDelay = 1
-
-[Transactions]
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '30s'
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-BumpTxDepth = 10
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 4
-BlockHistorySize = 24
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[HeadTracker]
-HistoryDepth = 300
-MaxBufferSize = 3
-SamplingInterval = '1s'
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5300000
-```
-
-</p></details>
-
 <details><summary>Arbitrum Mainnet (42161)<a id='EVM-42161'></a></summary><p>
 
 ```toml
@@ -3213,7 +3136,7 @@ ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
@@ -3522,7 +3445,7 @@ ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
@@ -3600,7 +3523,7 @@ ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
@@ -4620,6 +4543,11 @@ TxConfirmTimeout = '30s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
+FeeEstimatorMode = 'fixed' # Default
+ComputeUnitPriceMax = 1000 # Default
+ComputeUnitPriceMin = 0 # Default
+ComputeUnitPriceDefault = 0 # Default
+FeeBumpPeriod = '3s' # Default
 ```
 
 
@@ -4695,6 +4623,36 @@ MaxRetries = 0 # Default
 ```
 MaxRetries is the maximum number of times the RPC node will automatically rebroadcast a tx.
 The default is 0 for custom txm rebroadcasting method, set to -1 to use the RPC node's default retry strategy.
+
+### FeeEstimatorMode<a id='Solana-FeeEstimatorMode'></a>
+```toml
+FeeEstimatorMode = 'fixed' # Default
+```
+FeeEstimatorMode is the method used to determine the base fee
+
+### ComputeUnitPriceMax<a id='Solana-ComputeUnitPriceMax'></a>
+```toml
+ComputeUnitPriceMax = 1000 # Default
+```
+ComputeUnitPriceMax is the maximum price per compute unit that a transaction can be bumped to
+
+### ComputeUnitPriceMin<a id='Solana-ComputeUnitPriceMin'></a>
+```toml
+ComputeUnitPriceMin = 0 # Default
+```
+ComputeUnitPriceMin is the minimum price per compute unit that transaction can have
+
+### ComputeUnitPriceDefault<a id='Solana-ComputeUnitPriceDefault'></a>
+```toml
+ComputeUnitPriceDefault = 0 # Default
+```
+ComputeUnitPriceDefault is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+
+### FeeBumpPeriod<a id='Solana-FeeBumpPeriod'></a>
+```toml
+FeeBumpPeriod = '3s' # Default
+```
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 
 ## Solana.Nodes<a id='Solana-Nodes'></a>
 ```toml

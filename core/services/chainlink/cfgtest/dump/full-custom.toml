@@ -208,7 +208,8 @@ RPCBlockQueryDelay = 6
 
 [EVM.Transactions]
 ForwardersEnabled = true
-MaxInFlight = 1500
+MaxInFlight = 1000
+MaxQueued = 1500
 ReaperInterval = '10h0m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '5m0s'
@@ -291,6 +292,11 @@ TxConfirmTimeout = '1h0m0s'
 SkipPreflight = true
 Commitment = 'foobar'
 MaxRetries = 7
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
+FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
 Name = 'mainnet'

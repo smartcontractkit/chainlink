@@ -136,6 +136,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
+	orm := NewORM(db, lggr, cfg)
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -155,7 +156,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, db, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}

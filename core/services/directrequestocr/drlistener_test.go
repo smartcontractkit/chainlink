@@ -1,6 +1,8 @@
 package directrequestocr_test
 
 import (
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -68,6 +70,7 @@ func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
 				"requestTimeoutSec":               timeoutSec,
 				"requestTimeoutCheckFrequencySec": 1,
 				"requestTimeoutBatchLookupSize":   1,
+				"listenerEventHandlerTimeoutSec":  1,
 			},
 		},
 	}
@@ -89,7 +92,7 @@ func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
 	}
 }
 
-func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
+func PrepareAndStartDRListener(t *testing.T, expectPipelineRun bool) (*DRListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
 	uni := NewDRListenerUniverse(t, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
@@ -112,15 +115,17 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
 	log.On("String").Return("")
-	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
+	if !expectPipelineRun {
+		return uni, log, nil
+	}
+
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	runBeganAwaiter := cltest.NewAwaiter()
 	uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
 		Return(false, nil).
 		Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(pg.Queryer) error)
-			require.NoError(t, fn(nil))
 		}).Once()
 
 	return uni, log, runBeganAwaiter
@@ -129,23 +134,22 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 var RequestID drocr_service.RequestID = newRequestID()
 
 const (
-	ParseResultTaskName string = "parse_result"
-	ParseErrorTaskName  string = "parse_error"
-	CorrectResultData   string = "\"0x1234\""
-	CorrectErrorData    string = "\"0x424144\""
-	EmptyData           string = "\"\""
+	CorrectResultData string = "\"0x1234\""
+	CorrectErrorData  string = "\"0x424144\""
+	EmptyData         string = "\"\""
 )
 
-func TestDRListener_HandleOracleRequestLogSuccess(t *testing.T) {
+func TestDRListener_HandleOracleRequestSuccess(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
+	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(CorrectResultData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(EmptyData), nil)
-	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -153,16 +157,33 @@ func TestDRListener_HandleOracleRequestLogSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestDRListener_HandleOracleRequestLogError(t *testing.T) {
+func TestDRListener_HandleOracleRequestComputationError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
+	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(EmptyData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(CorrectErrorData), nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, []byte("BAD"), mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, drocr_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	uni.service.HandleLog(log)
+
+	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	uni.service.Close()
+}
+
+func TestDRListener_HandleOracleRequestCBORParsingError(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.CBORParseTaskName, mock.Anything).Return(nil, errors.New("bad cbor"))
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, drocr_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -178,7 +199,7 @@ func TestDRListener_RequestTimeout(t *testing.T) {
 	done := make(chan bool)
 	uni := NewDRListenerUniverse(t, 1)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
-	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1)).Return([]drocr_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]drocr_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
 		done <- true
 	})
 
@@ -186,6 +207,26 @@ func TestDRListener_RequestTimeout(t *testing.T) {
 	require.NoError(t, err)
 	<-done
 
+	uni.service.Close()
+}
+
+func TestDRListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	var ormCallExited sync.WaitGroup
+	ormCallExited.Add(1)
+	uni, log, _ := PrepareAndStartDRListener(t, false)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		var queryerWrapper pg.Q
+		args.Get(3).(pg.QOpt)(&queryerWrapper)
+		<-queryerWrapper.ParentCtx.Done()
+		ormCallExited.Done()
+	}).Return(errors.New("timeout!"))
+
+	uni.service.HandleLog(log)
+
+	ormCallExited.Wait() // should not freeze
 	uni.service.Close()
 }
 
@@ -199,6 +240,14 @@ func TestDRListener_ExtractRawBytes(t *testing.T) {
 	res, err = drocr_service.ExtractRawBytes([]byte("\"0xabcd\""))
 	require.NoError(t, err)
 	require.Equal(t, []byte{0xab, 0xcd}, res)
+
+	res, err = drocr_service.ExtractRawBytes([]byte("\"0x0\""))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x0}, res)
+
+	res, err = drocr_service.ExtractRawBytes([]byte("\"0x00\""))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x0}, res)
 
 	_, err = drocr_service.ExtractRawBytes([]byte(""))
 	require.Error(t, err)
@@ -214,4 +263,7 @@ func TestDRListener_ExtractRawBytes(t *testing.T) {
 
 	_, err = drocr_service.ExtractRawBytes([]byte("\"0xqwer\""))
 	require.Error(t, err)
+
+	_, err = drocr_service.ExtractRawBytes([]byte("null"))
+	require.ErrorContains(t, err, "null value")
 }

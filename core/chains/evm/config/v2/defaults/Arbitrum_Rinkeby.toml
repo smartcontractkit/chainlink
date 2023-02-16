@@ -1,6 +1,7 @@
 ChainID = '421611'
 ChainType = 'arbitrum'
 LinkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+LogPollInterval = '1s'
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 

@@ -1282,7 +1282,7 @@ func newRandomnessRequestedLog(
 		ConfDelay:              big.NewInt(confDelay),
 		NextBeaconOutputHeight: nextBeaconOutputHeight,
 		NumWords:               1,
-		SubID:                  1,
+		SubID:                  big.NewInt(1),
 		Raw: types.Log{
 			BlockNumber: requestBlock,
 		},
@@ -1365,7 +1365,7 @@ func newRandomnessFulfillmentRequestedLog(
 		GasAllowance:           gasAllowance,
 		GasPrice:               big.NewInt(0),
 		WeiPerUnitLink:         big.NewInt(0),
-		SubID:                  1,
+		SubID:                  big.NewInt(1),
 		Requester:              common.HexToAddress("0x1234567890"),
 		Raw: types.Log{
 			BlockNumber: requestBlock,

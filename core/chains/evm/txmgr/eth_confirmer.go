@@ -122,6 +122,8 @@ var (
 type EthConfirmer struct {
 	utils.StartStopOnce
 
+	orm ORM
+
 	lggr      logger.Logger
 	db        *sqlx.DB
 	q         pg.Q
@@ -150,6 +152,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 
 	return &EthConfirmer{
 		utils.StartStopOnce{},
+		NewORM(db, lggr, config),
 		lggr,
 		db,
 		q,
@@ -312,7 +315,7 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
 	var attempts []EthTxAttempt
 	err = ec.q.Select(&attempts,
-		`SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
+		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
 		FROM eth_tx_attempts
 		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
 		WHERE evm_chain_id = $1
@@ -325,7 +328,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.orm, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}

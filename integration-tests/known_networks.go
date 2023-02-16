@@ -41,7 +41,7 @@ var (
 		URLs:                      []string{"ws://source-chain-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://source-chain-ethereum-geth:8544"},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   2 * time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
@@ -58,7 +58,7 @@ var (
 		URLs:                      []string{"ws://dest-chain-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://dest-chain-ethereum-geth:8544"},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   2 * time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
@@ -70,7 +70,7 @@ var (
 		ChainID:                   11155111,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -82,7 +82,7 @@ var (
 		ChainID:                   5,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute * 5,
+		Timeout:                   blockchain.JSONStrDuration{5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -94,7 +94,7 @@ var (
 		ChainID:                   1001,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
@@ -106,7 +106,7 @@ var (
 		ChainID:                   588,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -118,7 +118,7 @@ var (
 		ChainID:                   421613,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
@@ -130,8 +130,8 @@ var (
 		ChainID:                   420,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
-		MinimumConfirmations:      0,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
 
@@ -142,7 +142,7 @@ var (
 		ChainID:                   31,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -154,7 +154,18 @@ var (
 		ChainID:                   80001,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
+	Avalanche = blockchain.EVMNetwork{
+		Name:                      "Avalanche Fuji",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   43113,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -172,6 +183,7 @@ var (
 		"OPTIMISM_GOERLI": OptimismGoerli,
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
+		"AVALANCHE_FUJI":  Avalanche,
 	}
 )
 

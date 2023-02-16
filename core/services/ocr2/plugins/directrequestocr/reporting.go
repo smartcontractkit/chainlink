@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/protobuf/proto"
 
@@ -12,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type DirectRequestReportingPluginFactory struct {
@@ -32,6 +35,44 @@ type functionsReporting struct {
 }
 
 var _ types.ReportingPlugin = &functionsReporting{}
+
+var (
+	promReportingPlugins = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_restarts",
+		Help: "Metric to track number of reporting plugin restarts",
+	}, []string{"jobID"})
+
+	promReportingPluginsQuery = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_query",
+		Help: "Metric to track number of reporting plugin Query calls",
+	}, []string{"jobID"})
+
+	promReportingPluginsObservation = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_observation",
+		Help: "Metric to track number of reporting plugin Observation calls",
+	}, []string{"jobID"})
+
+	promReportingPluginsReport = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_report",
+		Help: "Metric to track number of reporting plugin Report calls",
+	}, []string{"jobID"})
+
+	promReportingAcceptReports = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_accept",
+		Help: "Metric to track number of accepting reports",
+	}, []string{"jobID"})
+
+	promReportingTransmitReports = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_transmit",
+		Help: "Metric to track number of transmiting reports",
+	}, []string{"jobID"})
+
+	promReportingTransmitBatchSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_reporting_plugin_transmit_batch_size",
+		Help:    "Metric to track batch size of transmitting reports",
+		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 100, 1000},
+	}, []string{"jobID"})
+)
 
 func formatRequestId(requestId []byte) string {
 	return fmt.Sprintf("0x%x", requestId)
@@ -68,6 +109,7 @@ func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.R
 		genericConfig:  &rpConfig,
 		specificConfig: pluginConfig,
 	}
+	promReportingPlugins.WithLabelValues(f.JobID.String()).Inc()
 	return &plugin, info, nil
 }
 
@@ -79,7 +121,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"oracleID": r.genericConfig.OracleID,
 	})
 	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
-	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize)
+	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +140,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"queryLen":   len(queryProto.RequestIDs),
 		"requestIDs": idStrs,
 	})
+	promReportingPluginsQuery.WithLabelValues(r.jobID.String()).Inc()
 	return proto.Marshal(&queryProto)
 }
 
@@ -127,7 +170,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 			continue
 		}
 		processedIds[id] = true
-		localResult, err2 := r.pluginORM.FindById(id)
+		localResult, err2 := r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
 		if err2 != nil {
 			r.logger.Debug("FunctionsReporting Observation can't find request from query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
@@ -154,6 +197,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		"requestIDs":     idStrs,
 	})
 
+	promReportingPluginsObservation.WithLabelValues(r.jobID.String()).Inc()
 	return proto.Marshal(&observationProto)
 }
 
@@ -241,6 +285,12 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			})
 			continue
 		}
+		r.logger.Debug("FunctionsReporting Report: aggregated successfully", commontypes.LogFields{
+			"epoch":         ts.Epoch,
+			"round":         ts.Round,
+			"requestID":     reqId,
+			"nObservations": len(observations),
+		})
 		allAggregated = append(allAggregated, aggregated)
 		allIdStrs = append(allIdStrs, reqId)
 	}
@@ -260,6 +310,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	if err != nil {
 		return false, nil, err
 	}
+	promReportingPluginsReport.WithLabelValues(r.jobID.String()).Inc()
 	return true, reportBytes, nil
 }
 
@@ -284,15 +335,16 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
+		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID), pg.WithParentCtx(ctx))
 		if err != nil {
+			// TODO: Differentiate between ID not found and other ORM errors (https://smartcontract-it.atlassian.net/browse/DRO-215)
 			r.logger.Warn("FunctionsReporting ShouldAcceptFinalizedReport: request doesn't exist locally! Accepting anyway.", commontypes.LogFields{"requestID": reqIdStr})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		err = r.pluginORM.SetFinalized(sliceToByte32(item.RequestID), item.Result, item.Error) // validates state transition
+		err = r.pluginORM.SetFinalized(sliceToByte32(item.RequestID), item.Result, item.Error, pg.WithParentCtx(ctx)) // validates state transition
 		if err != nil {
-			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
 		}
 		needTransmissionIds = append(needTransmissionIds, reqIdStr)
@@ -305,7 +357,11 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 		"needTransmissionIds": needTransmissionIds,
 		"accepting":           len(needTransmissionIds) > 0,
 	})
-	return len(needTransmissionIds) > 0, nil
+	shouldAccept := len(needTransmissionIds) > 0
+	if shouldAccept {
+		promReportingAcceptReports.WithLabelValues(r.jobID.String()).Inc()
+	}
+	return shouldAccept, nil
 }
 
 // ShouldTransmitAcceptedReport() complies with ReportingPlugin
@@ -327,9 +383,9 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		request, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
+		request, err := r.pluginORM.FindById(sliceToByte32(item.RequestID), pg.WithParentCtx(ctx))
 		if err != nil {
-			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
@@ -358,7 +414,12 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 		"needTransmissionIds": needTransmissionIds,
 		"transmitting":        len(needTransmissionIds) > 0,
 	})
-	return len(needTransmissionIds) > 0, nil
+	shouldTransmit := len(needTransmissionIds) > 0
+	if shouldTransmit {
+		promReportingTransmitReports.WithLabelValues(r.jobID.String()).Inc()
+		promReportingTransmitBatchSize.WithLabelValues(r.jobID.String()).Observe(float64(len(allIds)))
+	}
+	return shouldTransmit, nil
 }
 
 // Close() complies with ReportingPlugin
