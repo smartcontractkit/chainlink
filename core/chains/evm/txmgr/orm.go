@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +10,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
@@ -19,13 +21,15 @@ type ORM interface {
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
-	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
-	FindEthTxByHash(hash common.Hash) (*EthTx, error)
-	InsertEthTxAttempt(attempt *EthTxAttempt) error
-	InsertEthTx(etx *EthTx) error
-	InsertEthReceipt(receipt *EthReceipt) error
-	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
+	FindEthTxByHash(hash common.Hash) (*EthTx, error)
+	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
+	InsertEthReceipt(receipt *EthReceipt) error
+	InsertEthTx(etx *EthTx) error
+	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 }
 
 type orm struct {
@@ -294,4 +298,37 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
 	}
 	return nil
+}
+
+// FindEthTxAttemptsRequiringResend returns the highest priced attempt for each
+// eth_tx that was last sent before or at the given time (up to limit)
+func (o *orm) FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error) {
+	var limit null.Uint32
+	if maxInFlightTransactions > 0 {
+		limit = null.Uint32From(maxInFlightTransactions)
+	}
+	// this select distinct works because of unique index on eth_txes
+	// (evm_chain_id, from_address, nonce)
+	err = o.q.Select(&attempts, `
+SELECT DISTINCT ON (nonce) eth_tx_attempts.*
+FROM eth_tx_attempts
+JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
+WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
+ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
+LIMIT $4
+`, olderThan, chainID.String(), address, limit)
+
+	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
+}
+
+func (o *orm) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
+	// Deliberately do nothing on NULL broadcast_at because that indicates the
+	// tx has been moved into a state where broadcast_at is not relevant, e.g.
+	// fatally errored.
+	//
+	// Since EthConfirmer/EthResender can race (totally OK since highest
+	// priced transaction always wins) we only want to update broadcast_at if
+	// our version is later.
+	_, err := o.q.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
+	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
 }
