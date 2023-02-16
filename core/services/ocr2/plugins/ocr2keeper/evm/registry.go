@@ -355,7 +355,7 @@ func (r *EvmRegistry) pollLogs() error {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterName := fmt.Sprintf("EvmRegistry - Upkeep events for %s", addr)
+	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 	err := r.poller.RegisterFilter(logpoller.Filter{
 		FilterName: filterName,
 		EventSigs:  append(upkeepStateEvents, upkeepActiveEvents...),

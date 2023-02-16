@@ -2,7 +2,6 @@ package forwarders
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -105,7 +104,7 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 }
 
 func (f *FwdMgr) filterName(addr common.Address) string {
-	return fmt.Sprintf("Forwarder - AuthorizedSendersChanged logs for %s", addr)
+	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
 func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Address, err error) {

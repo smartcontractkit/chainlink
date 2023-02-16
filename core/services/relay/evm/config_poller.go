@@ -2,7 +2,6 @@ package evm
 
 import (
 	"database/sql"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -144,7 +143,7 @@ type ConfigPoller struct {
 }
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
-	configFilterName := fmt.Sprintf("OCR2ConfigPoller - %s", addr)
+	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
 	err := destChainPoller.RegisterFilter(logpoller.Filter{FilterName: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err

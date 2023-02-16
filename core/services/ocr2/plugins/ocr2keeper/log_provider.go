@@ -35,7 +35,7 @@ func NewLogProvider(
 	lookbackBlocks int64,
 ) (*LogProvider, error) {
 	var err error
-	filterName := fmt.Sprintf("OCR2KeeperRegistry - %s", registryAddress)
+	filterName := logpoller.FilterName("OCR2KeeperRegistry", registryAddress)
 
 	contract, err := registry.NewKeeperRegistry(common.HexToAddress("0x"), client)
 	if err != nil {

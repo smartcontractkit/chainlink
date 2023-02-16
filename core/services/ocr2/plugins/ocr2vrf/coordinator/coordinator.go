@@ -168,7 +168,7 @@ func New(
 	}
 
 	t := newTopics()
-	filterName := fmt.Sprintf("VRF Coordinator - %s:%s:%s", beaconAddress, coordinatorAddress, dkgAddress)
+	filterName := logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.

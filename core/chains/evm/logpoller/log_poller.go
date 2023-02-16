@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -124,9 +126,22 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 }
 
 type Filter struct {
-	FilterName string
+	FilterName string // see FilterName(id, args) below
 	EventSigs  evmtypes.HashArray
 	Addresses  evmtypes.AddressArray
+}
+
+// FilterName is a suggested convenience function for clients to construct unique filter names
+// to populate FilterName field of struct Filter
+func FilterName(id string, args ...any) string {
+	s := &strings.Builder{}
+	s.WriteString(id)
+	s.WriteString(" - ")
+	fmt.Fprintf(s, "%s", args[0])
+	for _, a := range args[1:] {
+		fmt.Fprintf(s, ":%s", a)
+	}
+	return s.String()
 }
 
 // CompareTo returns true if this filter is already contained within existing filter
@@ -193,9 +208,8 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 		if filter.CompareTo(&existingFilter) {
 			// Nothing new in this filter
 			return nil
-		} else {
-			lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "FilterName", filter.FilterName)
 		}
+		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "FilterName", filter.FilterName)
 	} else {
 		lp.lggr.Debugf("Creating new filter %s", filter.FilterName)
 	}
