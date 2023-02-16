@@ -6,7 +6,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/plugins/mercury"
 )
 
 type Service interface {
@@ -36,20 +38,21 @@ type Relayer interface {
 	Service
 	NewConfigProvider(rargs RelayArgs) (ConfigProvider, error)
 	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
+	NewMercuryProvider(rargs RelayArgs, pargs PluginArgs) (MercuryProvider, error)
 }
 
 // The bootstrap jobs only watch config.
 type ConfigProvider interface {
 	Service
-	OffchainConfigDigester() types.OffchainConfigDigester
-	ContractConfigTracker() types.ContractConfigTracker
+	OffchainConfigDigester() ocrtypes.OffchainConfigDigester
+	ContractConfigTracker() ocrtypes.ContractConfigTracker
 }
 
 // Plugin provides common components for any OCR2 plugin.
 // It watches config and is able to transmit.
 type Plugin interface {
 	ConfigProvider
-	ContractTransmitter() types.ContractTransmitter
+	ContractTransmitter() ocrtypes.ContractTransmitter
 }
 
 // MedianProvider provides all components needed for a median OCR2 plugin.
@@ -58,4 +61,13 @@ type MedianProvider interface {
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
 	OnchainConfigCodec() median.OnchainConfigCodec
+}
+
+// MercuryProvider provides components needed for a mercury OCR2 plugin.
+// Mercury requires config tracking but does not transmit on-chain.
+type MercuryProvider interface {
+	ConfigProvider
+	ReportCodec() mercury.ReportCodec
+	OnchainConfigCodec() mercury.OnchainConfigCodec
+	ContractTransmitter() mercury.Transmitter
 }
