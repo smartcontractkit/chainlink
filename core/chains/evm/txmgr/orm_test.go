@@ -530,3 +530,34 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash)
 	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }
+
+func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+	// create transaction 0 (nonce 0) that is unconfirmed (block 7)
+	etx0_blocknum := int64(7)
+	etx0 := cltest.MustInsertUnconfirmedEthTx(t, borm, 0, fromAddress)
+	etx0_attempt := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(1))
+	etx0_attempt.BroadcastBeforeBlockNum = &etx0_blocknum
+	require.NoError(t, borm.InsertEthTxAttempt(&etx0_attempt))
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx0.State)
+
+	// create transaction 1 (nonce 1) that is confirmed (block 77)
+	etx1 := cltest.MustInsertConfirmedEthTxBySaveFetchedReceipts(t, borm, fromAddress, int64(1), int64(77), *ethClient.ChainID())
+	assert.Equal(t, etx1.State, txmgr.EthTxConfirmed)
+
+	// mark transaction 0 confirmed_missing_receipt
+	err := borm.MarkAllConfirmedMissingReceipt(*ethClient.ChainID())
+	require.NoError(t, err)
+	etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx0.State)
+
+}

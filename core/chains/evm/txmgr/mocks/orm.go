@@ -334,6 +334,20 @@ func (_m *ORM) InsertEthTxAttempt(attempt *txmgr.EthTxAttempt) error {
 	return r0
 }
 
+// MarkAllConfirmedMissingReceipt provides a mock function with given fields: chainID
+func (_m *ORM) MarkAllConfirmedMissingReceipt(chainID big.Int) error {
+	ret := _m.Called(chainID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(big.Int) error); ok {
+		r0 = rf(chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveFetchedReceipts provides a mock function with given fields: receipts, chainID
 func (_m *ORM) SaveFetchedReceipts(receipts []types.Receipt, chainID big.Int) error {
 	ret := _m.Called(receipts, chainID)
