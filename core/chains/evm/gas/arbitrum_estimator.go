@@ -138,7 +138,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 // the block's base fee. If the base fee increases rapidly there is a chance the suggested gas price will fall under that value, resulting in a fee too low error.
 // We use gasPriceWithBuffer to increase the estimated gas price by some percentage to avoid fee too low errors. Eventually, only the base fee will be paid, regardless of the price.
 func (a *arbitrumEstimator) gasPriceWithBuffer(gasPrice *assets.Wei, maxGasPriceWei *assets.Wei) *assets.Wei {
-	const gasPriceBufferPercentage = 25
+	const gasPriceBufferPercentage = 50
 
 	gasPrice = gasPrice.AddPercentage(gasPriceBufferPercentage)
 	if gasPrice.Cmp(maxGasPriceWei) > 0 {
