@@ -319,7 +319,8 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
-	simulatedEVMNonDevTOML := `[[EVM]]
+	simulatedEVMNonDevTOML := `
+[[EVM]]
 ChainID = 1337
 MinContractPayment = '0'
 Enabled = true
