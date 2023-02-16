@@ -2,8 +2,6 @@ package benchmark
 
 import (
 	"fmt"
-	env_client "github.com/smartcontractkit/chainlink-env/client"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"math/big"
 	"os"
 	"strconv"
@@ -11,25 +9,71 @@ import (
 	"testing"
 	"time"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
+	env_client "github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	eth_contracts "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-
-	"github.com/rs/zerolog/log"
 )
 
 var (
+	keeperBenchmarkBaseTOML = `[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
+
+	simulatedEVMNonDevTOML = `
+[[EVM]]
+ChainID = 1337
+MinContractPayment = '0'
+Enabled = true
+FinalityDepth = 50
+LogPollInterval = '1s'
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000`
+
+	keeperBenchmarkEnvVars = map[string]any{
+		"FEATURE_LOG_POLLER":                   "true",
+		"FEATURE_OFFCHAIN_REPORTING2":          "true",
+		"FEATURE_OFFCHAIN_REPORTING":           "false",
+		"KEEPER_TURN_LOOK_BACK":                "0",
+		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5m",
+		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
+
+		"P2PV2_ANNOUNCE_ADDRESSES": "0.0.0.0:6690",
+		"P2PV2_LISTEN_ADDRESSES":   "0.0.0.0:6690",
+		"P2P_ANNOUNCE_IP":          "",
+		"P2P_ANNOUNCE_PORT":        "",
+		"P2P_BOOTSTRAP_PEERS":      "",
+		"P2P_LISTEN_IP":            "",
+		"P2P_LISTEN_PORT":          "",
+	}
+
 	performanceChainlinkResources = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
@@ -306,38 +350,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"
-
-	baseTOML := `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
-
-	simulatedEVMNonDevTOML := `
-[[EVM]]
-ChainID = 1337
-MinContractPayment = '0'
-Enabled = true
-FinalityDepth = 50
-LogPollInterval = '1s'
-
-[EVM.HeadTracker]
-HistoryDepth = 100
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
-
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
 	if registryToTest == "Registry_2_0" {
-		NumberOfNodes += 1
+		NumberOfNodes++
 		blockTime = "12"
 	}
 
@@ -371,7 +387,7 @@ LimitDefault = 5_000_000`
 
 	// Test can run on simulated, simulated-non-dev, testnets
 	if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
-		baseTOML = baseTOML + simulatedEVMNonDevTOML
+		keeperBenchmarkBaseTOML = keeperBenchmarkBaseTOML + simulatedEVMNonDevTOML
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: activeEVMNetwork.Name,
@@ -425,6 +441,11 @@ LimitDefault = 5_000_000`
 		return testEnvironment, activeEVMNetwork, registryToTest
 	}
 
+	// For if we end up using env vars
+	keeperBenchmarkEnvVars["ETH_URL"] = activeEVMNetwork.URLs[0]
+	keeperBenchmarkEnvVars["ETH_HTTP_URL"] = activeEVMNetwork.HTTPURLs[0]
+	keeperBenchmarkEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(activeEVMNetwork.ChainID)
+
 	// separate RPC urls per CL node
 	internalWsURLs := make([]string, 0)
 	internalHttpURLs := make([]string, 0)
@@ -451,17 +472,24 @@ LimitDefault = 5_000_000`
 	log.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
 	for i := 0; i < NumberOfNodes; i++ {
-		activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
-		activeEVMNetwork.URLs = []string{internalWsURLs[i]}
-		testEnvironment.
-			AddHelm(chainlink.New(i, map[string]interface{}{
-				"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
+		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+		if useEnvVars == "true" {
+			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
+				"env":       keeperBenchmarkEnvVars,
 				"chainlink": chainlinkResources,
 				"db":        dbResources,
 			}))
+		} else {
+			activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
+			activeEVMNetwork.URLs = []string{internalWsURLs[i]}
+			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+				"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, activeEVMNetwork),
+				"chainlink": chainlinkResources,
+				"db":        dbResources,
+			}))
+		}
 	}
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
-
 	return testEnvironment, activeEVMNetwork, registryToTest
 }
