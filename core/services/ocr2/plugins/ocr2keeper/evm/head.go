@@ -52,5 +52,5 @@ func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head
 		bl = head.Number
 	}
 
-	send(w.c, types.BlockKey(fmt.Sprintf("%d", bl)))
+	send(w.c, BlockKey(fmt.Sprintf("%d", bl)))
 }
