@@ -1,3 +1,9 @@
+# Misc
+/core/store @samsondav @jmank88
+/core/chains @samsondav
+/core/logger @jmank88
+/core/internal @samsondav @jmank88
+
 # Chains
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm @samsondav @prashantkumar1982
@@ -50,12 +56,6 @@
 /integration-tests/ @smartcontractkit/set-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
-
-# Misc
-/core/store @samsondav @jmank88
-/core/chains @samsondav
-/core/logger @jmank88
-/core/internal @samsondav @jmank88
 
 # CI/CD
 /.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
