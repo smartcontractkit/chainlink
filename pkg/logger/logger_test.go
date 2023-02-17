@@ -1,8 +1,10 @@
 package logger
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -31,15 +33,15 @@ func TestWith(t *testing.T) {
 		},
 		{
 			name:   "other",
-			logger: &other{zaptest.NewLogger(t).Sugar()},
+			logger: &other{zaptest.NewLogger(t).Sugar(), ""},
 		},
 		{
 			name:   "different",
-			logger: &different{zaptest.NewLogger(t).Sugar()},
+			logger: &different{zaptest.NewLogger(t).Sugar(), ""},
 		},
 		{
 			name:    "missing",
-			logger:  &mismatch{zaptest.NewLogger(t).Sugar()},
+			logger:  &mismatch{zaptest.NewLogger(t).Sugar(), ""},
 			expSame: true,
 		},
 	} {
@@ -56,25 +58,103 @@ func TestWith(t *testing.T) {
 
 }
 
-type other struct{ *zap.SugaredLogger }
+func TestNamed(t *testing.T) {
+	prod, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		logger       Logger
+		expectedName string
+	}{
+		{
+			expectedName: "test.test1",
+			logger:       Test(t).Named("test").Named("test1"),
+		},
+		{
+			expectedName: "nop.nested",
+			logger:       Nop().Named("nop").Named("nested"),
+		},
+		{
+			expectedName: "prod",
+			logger:       prod.Named("prod"),
+		},
+		{
+			expectedName: "",
+			logger:       &other{zaptest.NewLogger(t).Sugar(), ""},
+		},
+	} {
+		t.Run(fmt.Sprintf("test_logger_name_expect_%s", tt.expectedName), func(t *testing.T) {
+			require.Equal(t, tt.expectedName, tt.logger.Name())
+		})
+	}
+
+}
+
+type other struct {
+	*zap.SugaredLogger
+	name string
+}
 
 func (o *other) With(args ...interface{}) Logger {
-	return &other{o.SugaredLogger.With(args...)}
+	return &other{o.SugaredLogger.With(args...), ""}
 }
 
-type different struct{ *zap.SugaredLogger }
+func (o *other) Name() string {
+	return o.name
+}
+
+func (o *other) Named(name string) Logger {
+	newLogger := *o
+	newLogger.name = joinName(o.name, name)
+	newLogger.SugaredLogger = o.SugaredLogger.Named(name)
+	return &newLogger
+}
+
+type different struct {
+	*zap.SugaredLogger
+	name string
+}
 
 func (d *different) With(args ...interface{}) differentLogger {
-	return &different{d.SugaredLogger.With(args...)}
+	return &different{d.SugaredLogger.With(args...), ""}
 }
 
-type mismatch struct{ *zap.SugaredLogger }
+func (d *different) Name() string {
+	return d.name
+}
+
+func (d *different) Named(name string) Logger {
+	newLogger := *d
+	newLogger.name = joinName(d.name, name)
+	newLogger.SugaredLogger = d.SugaredLogger.Named(name)
+	return &newLogger
+}
+
+type mismatch struct {
+	*zap.SugaredLogger
+	name string
+}
 
 func (m *mismatch) With(args ...interface{}) interface{} {
-	return &mismatch{m.SugaredLogger.With(args...)}
+	return &mismatch{m.SugaredLogger.With(args...), ""}
+}
+
+func (m *mismatch) Name() string {
+	return m.name
+}
+
+func (m *mismatch) Named(name string) Logger {
+	newLogger := *m
+	newLogger.name = joinName(m.name, name)
+	newLogger.SugaredLogger = m.SugaredLogger.Named(name)
+	return &newLogger
 }
 
 type differentLogger interface {
+	Name() string
+	Named(string) Logger
+
 	Debug(args ...interface{})
 	Info(args ...interface{})
 	Warn(args ...interface{})
