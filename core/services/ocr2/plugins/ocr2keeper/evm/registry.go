@@ -503,6 +503,16 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 	r.lggr.Debugf("after checkUpkeeps we have %d upkeepResults", len(upkeepResults))
 
+	kStr = []string{}
+	for _, k := range upkeepResults {
+		if k.Key == nil {
+			kStr = append(kStr, "nil")
+		} else {
+			kStr = append(kStr, k.Key.String())
+		}
+	}
+	r.lggr.Debugf("after checkUpkeeps we have the following keys: %s", strings.Join(kStr, ","))
+
 	r.lggr.Debugf("before simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
