@@ -12,6 +12,7 @@ import (
 )
 
 type Service interface {
+	Name() string
 	Start(context.Context) error
 	Close() error
 	Ready() error
