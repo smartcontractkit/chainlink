@@ -39,6 +39,7 @@ contract KeeperRegistry2_0 is
    * @notice versions:
    * - KeeperRegistry 2.0.2: pass revert bytes as performData when target contract reverts
    *                       : fixes issue with arbitrum block number
+   *                       : does an early return in case of stale report instead of revert
    * - KeeperRegistry 2.0.1: implements workaround for buggy migrate function in 1.X
    * - KeeperRegistry 2.0.0: implement OCR interface
    * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
