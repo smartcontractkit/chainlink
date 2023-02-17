@@ -28,7 +28,7 @@ ALTER TABLE evm_log_poller_blocks RENAME TO log_poller_blocks;
 ALTER TABLE log_poller_blocks RENAME CONSTRAINT evm_log_poller_blocks_evm_chain_id_fkey TO log_poller_blocks_evm_chain_id_fkey;
 
 -- alter logs table, constraints and indices
-ALTER TABLE evm_logsRENAME TO logs;
+ALTER TABLE evm_logs RENAME TO logs;
 
 ALTER INDEX evm_logs_idx RENAME TO logs_idx;
 
