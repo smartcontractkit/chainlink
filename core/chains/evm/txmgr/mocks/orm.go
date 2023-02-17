@@ -3,9 +3,11 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
+
 	mock "github.com/stretchr/testify/mock"
 
 	time "time"
@@ -292,6 +294,29 @@ func (_m *ORM) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) ([]txmgr.
 	return r0, r1
 }
 
+// GetInProgressEthTxAttempts provides a mock function with given fields: ctx, address, chainID
+func (_m *ORM) GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) ([]txmgr.EthTxAttempt, error) {
+	ret := _m.Called(ctx, address, chainID)
+
+	var r0 []txmgr.EthTxAttempt
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, big.Int) []txmgr.EthTxAttempt); ok {
+		r0 = rf(ctx, address, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgr.EthTxAttempt)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, big.Int) error); ok {
+		r1 = rf(ctx, address, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertEthReceipt provides a mock function with given fields: receipt
 func (_m *ORM) InsertEthReceipt(receipt *txmgr.EthReceipt) error {
 	ret := _m.Called(receipt)
@@ -327,6 +352,34 @@ func (_m *ORM) InsertEthTxAttempt(attempt *txmgr.EthTxAttempt) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*txmgr.EthTxAttempt) error); ok {
 		r0 = rf(attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MarkAllConfirmedMissingReceipt provides a mock function with given fields: chainID
+func (_m *ORM) MarkAllConfirmedMissingReceipt(chainID big.Int) error {
+	ret := _m.Called(chainID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(big.Int) error); ok {
+		r0 = rf(chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// PreloadEthTxes provides a mock function with given fields: attempts
+func (_m *ORM) PreloadEthTxes(attempts []txmgr.EthTxAttempt) error {
+	ret := _m.Called(attempts)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]txmgr.EthTxAttempt) error); ok {
+		r0 = rf(attempts)
 	} else {
 		r0 = ret.Error(0)
 	}
