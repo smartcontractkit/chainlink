@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -232,12 +231,13 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	wc := utils.NewDeferableWriterCloser(file)
+	defer wc.Close()
 
-	if _, err = file.Write([]byte(fmt.Sprintf("==== %v\n", now))); err != nil {
+	if _, err = wc.Write([]byte(fmt.Sprintf("==== %v\n", now))); err != nil {
 		return err
 	}
-	if _, err = file.Write([]byte(fmt.Sprintf("reason: %v\n", reason))); err != nil {
+	if _, err = wc.Write([]byte(fmt.Sprintf("reason: %v\n", reason))); err != nil {
 		return err
 	}
 	ks := make([]string, len(meta))
@@ -248,25 +248,28 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	}
 	sort.Strings(ks)
 	for _, k := range ks {
-		if _, err = file.Write([]byte(fmt.Sprintf("- %v: %v\n", k, meta[k]))); err != nil {
+		if _, err = wc.Write([]byte(fmt.Sprintf("- %v: %v\n", k, meta[k]))); err != nil {
 			return err
 		}
 	}
-	_, err = file.Write([]byte("\n"))
-	return err
+	_, err = wc.Write([]byte("\n"))
+	if err != nil {
+		return err
+	}
+	return wc.Close()
 }
 
 func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	file, err := n.openFile(now, "cpu", false)
+	wc, err := n.createFile(now, "cpu", false)
 	if err != nil {
 		n.log.Errorw("could not write cpu profile", "error", err)
 		return
 	}
-	defer file.Close()
+	defer wc.Close()
 
-	err = pprof.StartCPUProfile(file)
+	err = pprof.StartCPUProfile(wc)
 	if err != nil {
 		n.log.Errorw("could not start cpu profile", "error", err)
 		return
@@ -277,19 +280,26 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	case <-n.chStop:
 	case <-time.After(n.cfg.AutoPprofGatherDuration().Duration()):
 	}
+
+	err = wc.Close()
+	if err != nil {
+		n.log.Errorw("could not close cpu profile", "error", err)
+		return
+	}
+
 }
 
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	file, err := n.openFile(now, "trace", true)
+	wc, err := n.createFile(now, "trace", true)
 	if err != nil {
 		n.log.Errorw("could not write trace profile", "error", err)
 		return
 	}
-	defer file.Close()
+	defer wc.Close()
 
-	err = trace.Start(file)
+	err = trace.Start(wc)
 	if err != nil {
 		n.log.Errorw("could not start trace profile", "error", err)
 		return
@@ -299,6 +309,12 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	select {
 	case <-n.chStop:
 	case <-time.After(n.cfg.AutoPprofGatherTraceDuration().Duration()):
+	}
+
+	err = wc.Close()
+	if err != nil {
+		n.log.Errorw("could not close trace profile", "error", err)
+		return
 	}
 }
 
@@ -345,16 +361,21 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 	p1.TimeNanos = ts // set since we don't know what profile.Merge set for TimeNanos.
 	p1.DurationNanos = dur
 
-	file, err := n.openFile(now, typ, false)
+	wc, err := n.createFile(now, typ, false)
 	if err != nil {
 		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "error", err)
 		return
 	}
-	defer file.Close()
+	defer wc.Close()
 
-	err = p1.Write(file)
+	err = p1.Write(wc)
 	if err != nil {
 		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "error", err)
+		return
+	}
+	err = wc.Close()
+	if err != nil {
+		n.log.Errorw(fmt.Sprintf("could not close file for %v profile", typ), "error", err)
 		return
 	}
 }
@@ -373,7 +394,7 @@ func collectProfile(p *pprof.Profile) (*profile.Profile, error) {
 	return p0, nil
 }
 
-func (n *Nurse) openFile(now time.Time, typ string, shouldGzip bool) (io.WriteCloser, error) {
+func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.DeferableWriterCloser, error) {
 	filename := fmt.Sprintf("%v.%v.pprof", now, typ)
 	if shouldGzip {
 		filename += ".gz"
@@ -385,9 +406,11 @@ func (n *Nurse) openFile(now time.Time, typ string, shouldGzip bool) (io.WriteCl
 		return nil, err
 	}
 	if shouldGzip {
-		return gzip.NewWriter(file), nil
+		gw := gzip.NewWriter(file)
+		return utils.NewDeferableWriterCloser(gw), nil
 	}
-	return file, nil
+
+	return utils.NewDeferableWriterCloser(file), nil
 }
 
 func (n *Nurse) totalProfileBytes() (uint64, error) {
