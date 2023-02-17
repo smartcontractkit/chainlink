@@ -1,13 +1,17 @@
 package txmgr_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -360,4 +364,169 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 		// assert year due to time rounding after database save
 		assert.Equal(t, etx.BroadcastAt.Year(), time2.Year())
 	})
+}
+
+func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
+	chainID := *ethClient.ChainID()
+
+	headNum := int64(9000)
+	var err error
+
+	t.Run("saves block num to unconfirmed eth_tx_attempts without one", func(t *testing.T) {
+		// Do the thing
+		require.NoError(t, borm.SetBroadcastBeforeBlockNum(headNum, chainID))
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+
+		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
+	})
+
+	t.Run("does not change eth_tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
+		n := int64(42)
+		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 2)
+		attempt.BroadcastBeforeBlockNum = &n
+		require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+
+		// Do the thing
+		require.NoError(t, borm.SetBroadcastBeforeBlockNum(headNum, chainID))
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 2)
+		attempt = etx.EthTxAttempts[0]
+
+		assert.Equal(t, int64(42), *attempt.BroadcastBeforeBlockNum)
+	})
+
+	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
+		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, cfg.DefaultChainID())
+		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, testutils.SimulatedChainID)
+
+		require.NoError(t, borm.SetBroadcastBeforeBlockNum(headNum, chainID))
+
+		etxThisChain, err = borm.FindEthTxWithAttempts(etxThisChain.ID)
+		require.NoError(t, err)
+		require.Len(t, etxThisChain.EthTxAttempts, 1)
+		attempt := etxThisChain.EthTxAttempts[0]
+
+		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
+
+		etxOtherChain, err = borm.FindEthTxWithAttempts(etxOtherChain.ID)
+		require.NoError(t, err)
+		require.Len(t, etxOtherChain.EthTxAttempts, 1)
+		attempt = etxOtherChain.EthTxAttempts[0]
+
+		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
+	})
+}
+
+func TestORM_FindEtxAttemptsConfirmedMissingReceipt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+
+	attempts, err := borm.FindEtxAttemptsConfirmedMissingReceipt(*ethClient.ChainID())
+
+	require.NoError(t, err)
+
+	assert.Len(t, attempts, 1)
+	assert.Len(t, etx0.EthTxAttempts, 1)
+	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+}
+
+func TestORM_UpdateEthTxsUnconfirmed(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+	assert.Equal(t, etx0.State, txmgr.EthTxConfirmedMissingReceipt)
+	require.NoError(t, borm.UpdateEthTxsUnconfirmed([]int64{etx0.ID}))
+
+	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	assert.Equal(t, etx0.State, txmgr.EthTxUnconfirmed)
+}
+
+func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+
+	attempts, err := borm.FindEthTxAttemptsRequiringReceiptFetch(*ethClient.ChainID())
+	require.NoError(t, err)
+	assert.Len(t, attempts, 1)
+	assert.Len(t, etx0.EthTxAttempts, 1)
+	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+}
+
+func TestORM_SaveFetchedReceipts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
+	require.Len(t, etx0.EthTxAttempts, 1)
+
+	// create receipt associated with transaction
+	txmReceipt := evmtypes.Receipt{
+		TxHash:           etx0.EthTxAttempts[0].Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(42),
+		TransactionIndex: uint(1),
+	}
+
+	err := borm.SaveFetchedReceipts([]evmtypes.Receipt{txmReceipt}, *ethClient.ChainID())
+
+	require.NoError(t, err)
+	etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	require.Len(t, etx0.EthTxAttempts, 1)
+	require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
+	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash)
+	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }
