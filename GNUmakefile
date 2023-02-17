@@ -65,12 +65,12 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers.
+go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
 
 .PHONY: go-solidity-wrappers-ocr2vrf
-go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
+go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
 	# replace the go:generate_disabled directive with the regular go:generate directive
 	sed -i '' 's/go:generate_disabled/go:generate/g' core/gethwrappers/ocr2vrf/go_generate.go

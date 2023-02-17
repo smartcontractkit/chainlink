@@ -133,8 +133,6 @@ type ConfigSchema struct {
 	EVMRPCEnabled   bool   `env:"EVM_RPC_ENABLED" default:"true"`
 	SolanaEnabled   bool   `env:"SOLANA_ENABLED" default:"false"`
 	SolanaNodes     string `env:"SOLANA_NODES"`
-	TerraEnabled    bool   `env:"TERRA_ENABLED" default:"false"`
-	TerraNodes      string `env:"TERRA_NODES"`
 	StarknetEnabled bool   `env:"STARKNET_ENABLED" default:"false"`
 	StarknetNodes   string `env:"STARKNET_NODES"`
 
