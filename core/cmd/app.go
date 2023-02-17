@@ -45,6 +45,22 @@ func isDevMode() bool {
 	return strings.ToLower(clDev) == "true"
 }
 
+func configAndSecretFlags(hidden bool) []cli.Flag {
+	return []cli.Flag{
+		cli.StringSliceFlag{
+			Name:   "config, c",
+			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override.",
+			EnvVar: "CL_CONFIG",
+			Hidden: hidden,
+		},
+		cli.StringFlag{
+			Name:   "secrets, s",
+			Usage:  "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Hidden: hidden,
+		},
+	}
+}
+
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
 	devMode := isDevMode()
@@ -69,16 +85,8 @@ func NewApp(client *Client) *cli.App {
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
-		cli.StringSliceFlag{
-			Name:   "config, c",
-			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override.",
-			EnvVar: "CL_CONFIG",
-		},
-		cli.StringFlag{
-			Name:  "secrets, s",
-			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
-		},
 	}
+	app.Flags = append(app.Flags, configAndSecretFlags(true)...)
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
 			// TOML
@@ -101,7 +109,8 @@ func NewApp(client *Client) *cli.App {
 			if err := opts.ParseSecrets(secretsTOML); err != nil {
 				return err
 			}
-
+			// KRR stumped here. wanted to refactor config and secrets to be under subcommands, but
+			// setting up the logger anywhere but the top level seems dangerous
 			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 				return err
 			} else {
@@ -146,6 +155,9 @@ func NewApp(client *Client) *cli.App {
 			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
 		}
 
+		// KRR had looked at moving these to localized sub commands, but the HTTP is used everywhere
+		// CookieAuth is only used in the remote cmds, and potentially could be mv'd but the
+		// issue then becomes the HTTP and Cookie auth both need a clientOpts
 		client.HTTP = NewAuthenticatedHTTPClient(client.Logger, clientOpts, cookieAuth, sr)
 		client.CookieAuthenticator = cookieAuth
 		client.FileSessionRequestBuilder = sessionRequestBuilder
