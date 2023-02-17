@@ -71,7 +71,7 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringSliceFlag{
 			Name:  "config, c",
-			Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override.  [$CL_CONFIG]",
+			Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the `CL_CONFIG` env var is specified, it is always processed last with the effect of being the final override.  [$CL_CONFIG]",
 			// Note: we cannot use the EnvVar field since it will combine with the flags.
 		},
 		cli.StringFlag{
