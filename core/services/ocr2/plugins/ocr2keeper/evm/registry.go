@@ -163,7 +163,7 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) 
 }
 
 func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdentifier, error) {
-	_, id, err := blockAndIdFromKey(key)
+	_, id, err := blockAndIdFromKey(key, r.lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +506,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 
 	for i, res := range upkeepResults {
 		r.lggr.Debugf("processing upkeep key: %+v", res.Key)
-		_, id, err := blockAndIdFromKey(res.Key)
+		_, id, err := blockAndIdFromKey(res.Key, r.lggr)
 		if err != nil {
 			continue
 		}
@@ -532,7 +532,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 	)
 
 	for i, key := range keys {
-		block, upkeepId, err := blockAndIdFromKey(key)
+		block, upkeepId, err := blockAndIdFromKey(key, r.lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -604,7 +604,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		r.lggr.Debugf("simulatePerformUpkeeps with checkResult: %+v", checkResult)
-		block, upkeepId, err := blockAndIdFromKey(checkResult.Key)
+		block, upkeepId, err := blockAndIdFromKey(checkResult.Key, r.lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -737,10 +737,10 @@ func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
 	return chain.UpkeepKey(fmt.Sprintf("%s%s%s", block, separator, id))
 }
 
-func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
+func blockAndIdFromKey(key types.UpkeepKey, lggr logger.Logger) (*big.Int, *big.Int, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("blockAndIdFromKey recovered from panic:\n", r)
+			lggr.Debugf("blockAndIdFromKey recovered from panic: %+v", r)
 		}
 	}()
 
