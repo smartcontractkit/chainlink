@@ -598,6 +598,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
+		r.lggr.Debugf("simulatePerformUpkeeps with checkResult: %+v", checkResult)
 		block, upkeepId, err := blockAndIdFromKey(checkResult.Key)
 		if err != nil {
 			return nil, err
