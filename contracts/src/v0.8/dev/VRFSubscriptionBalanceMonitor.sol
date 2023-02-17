@@ -3,7 +3,7 @@
 pragma solidity 0.8.6;
 
 import "../ConfirmedOwner.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
