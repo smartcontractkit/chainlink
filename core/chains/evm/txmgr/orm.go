@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -34,7 +33,7 @@ type ORM interface {
 	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
-	GetInProgressEthTxAttempts(ctx context.Context, address gethCommon.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
+	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
 	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
@@ -525,7 +524,7 @@ WHERE state = 'unconfirmed'
 	return
 }
 
-func (o *orm) GetInProgressEthTxAttempts(ctx context.Context, address gethCommon.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
+func (o *orm) GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&attempts, `
