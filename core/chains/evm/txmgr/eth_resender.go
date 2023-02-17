@@ -46,6 +46,7 @@ func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks 
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
+	// todo: add context to orm
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EthResender{
 		orm,
