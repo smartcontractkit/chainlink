@@ -501,6 +501,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 
 	for i, res := range upkeepResults {
+		r.lggr.Debugf("processing upkeep key: %s", res.Key)
 		_, id, err := blockAndIdFromKey(res.Key)
 		if err != nil {
 			continue
