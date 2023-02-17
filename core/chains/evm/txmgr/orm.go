@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -32,9 +33,13 @@ type ORM interface {
 	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
+	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
+	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
+	PreloadEthTxes(attempts []EthTxAttempt) error
 	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
@@ -84,31 +89,26 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	return nil
 }
 
-func (o *orm) preloadTxes(attempts []EthTxAttempt) error {
-	var ids []int64
+func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
+	ethTxM := make(map[int64]EthTx)
 	for _, attempt := range attempts {
-		ids = append(ids, attempt.EthTxID)
+		ethTxM[attempt.EthTxID] = EthTx{}
 	}
-	if len(ids) == 0 {
-		return nil
+	ethTxIDs := make([]int64, len(ethTxM))
+	var i int
+	for id := range ethTxM {
+		ethTxIDs[i] = id
+		i++
 	}
-	var txs []EthTx
-	sql := `SELECT * FROM eth_txes WHERE id IN (?)`
-	query, args, err := sqlx.In(sql, ids)
-	if err != nil {
-		return err
+	ethTxs := make([]EthTx, len(ethTxIDs))
+	if err := o.q.Select(&ethTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
+		return errors.Wrap(err, "loadEthTxes failed")
 	}
-	query = o.q.Rebind(query)
-	if err = o.q.Select(&txs, query, args...); err != nil {
-		return err
+	for _, etx := range ethTxs {
+		ethTxM[etx.ID] = etx
 	}
-	// fill in txs
-	for _, tx := range txs {
-		for i, attempt := range attempts {
-			if tx.ID == attempt.EthTxID {
-				attempts[i].EthTx = tx
-			}
-		}
+	for i, attempt := range attempts {
+		attempts[i].EthTx = ethTxM[attempt.EthTxID]
 	}
 	return nil
 }
@@ -157,7 +157,7 @@ func (o *orm) EthTxAttempts(offset, limit int) (txs []EthTxAttempt, count int, e
 	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
 		return
 	}
-	err = o.preloadTxes(txs)
+	err = o.PreloadEthTxes(txs)
 	return
 }
 
@@ -170,7 +170,7 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 	}
 	// reuse the preload
 	attempts := []EthTxAttempt{ethTxAttempt}
-	err := o.preloadTxes(attempts)
+	err := o.PreloadEthTxes(attempts)
 	return &attempts[0], err
 }
 
@@ -391,7 +391,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
 		}
-		err = loadEthTxes(tx, attempts)
+		err = o.PreloadEthTxes(attempts)
 		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return
@@ -474,4 +474,69 @@ func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) 
 
 	err = o.q.ExecQ(stmt, valueArgs...)
 	return errors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
+}
+
+// MarkAllConfirmedMissingReceipt
+// It is possible that we can fail to get a receipt for all eth_tx_attempts
+// even though a transaction with this nonce has long since been confirmed (we
+// know this because transactions with higher nonces HAVE returned a receipt).
+//
+// This can probably only happen if an external wallet used the account (or
+// conceivably because of some bug in the remote eth node that prevents it
+// from returning a receipt for a valid transaction).
+//
+// In this case we mark these transactions as 'confirmed_missing_receipt' to
+// prevent gas bumping.
+//
+// NOTE: We continue to attempt to resend eth_txes in this state on
+// every head to guard against the extremely rare scenario of nonce gap due to
+// reorg that excludes the transaction (from another wallet) that had this
+// nonce (until finality depth is reached, after which we make the explicit
+// decision to give up). This is done in the EthResender.
+//
+// We will continue to try to fetch a receipt for these attempts until all
+// attempts are below the finality depth from current head.
+func (o *orm) MarkAllConfirmedMissingReceipt(chainID big.Int) (err error) {
+	res, err := o.q.Exec(`
+UPDATE eth_txes
+SET state = 'confirmed_missing_receipt'
+FROM (
+	SELECT from_address, MAX(nonce) as max_nonce 
+	FROM eth_txes
+	WHERE state = 'confirmed' AND evm_chain_id = $1
+	GROUP BY from_address
+) AS max_table
+WHERE state = 'unconfirmed'
+	AND evm_chain_id = $1
+	AND nonce < max_table.max_nonce
+	AND eth_txes.from_address = max_table.from_address
+	`, chainID.String())
+	if err != nil {
+		return errors.Wrap(err, "markAllConfirmedMissingReceipt failed")
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "markAllConfirmedMissingReceipt RowsAffected failed")
+	}
+	if rowsAffected > 0 {
+		o.logger.Infow(fmt.Sprintf("%d transactions missing receipt", rowsAffected), "n", rowsAffected)
+	}
+	return
+}
+
+func (o *orm) GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&attempts, `
+SELECT eth_tx_attempts.* FROM eth_tx_attempts
+INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
+WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
+`, address, chainID.String())
+		if err != nil {
+			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
+		}
+		err = o.PreloadEthTxes(attempts)
+		return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_txes")
+	}, pg.OptReadOnlyTx())
+	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
