@@ -57,7 +57,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -79,7 +78,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -131,7 +129,6 @@ var (
 	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
 	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
-	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
@@ -441,36 +438,6 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	})
 	if err != nil {
 		lggr.Fatal(err)
-	}
-	if cfg.TerraEnabled() {
-		terraLggr := lggr.Named("Terra")
-		opts := terra.ChainSetOpts{
-			Config:           cfg,
-			Logger:           terraLggr,
-			DB:               db,
-			KeyStore:         keyStore.Terra(),
-			EventBroadcaster: eventBroadcaster,
-		}
-		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
-			cfgs := newCfg.TerraConfigs()
-			opts.ORM = terra.NewORMImmut(cfgs)
-			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
-			var ids []string
-			for _, c := range cfgs {
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
-					t.Fatal(err)
-				}
-			}
-		} else {
-			opts.ORM = terra.NewORM(db, terraLggr, cfg)
-			chains.Terra, err = terra.NewChainSet(opts)
-		}
-		if err != nil {
-			lggr.Fatal(err)
-		}
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")
