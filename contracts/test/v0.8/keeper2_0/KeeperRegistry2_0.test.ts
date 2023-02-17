@@ -864,9 +864,7 @@ describe('KeeperRegistry2_0', () => {
           { Id: upkeepId.toString() },
         ])
 
-        await registry.connect(admin).cancelUpkeep(upkeepId)
-
-        for (let i = 0; i < cancellationDelay; i++) {
+        for (let i = 0; i < 256; i++) {
           await ethers.provider.send('evm_mine', [])
         }
 
