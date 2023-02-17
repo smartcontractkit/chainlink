@@ -603,8 +603,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
+			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
 			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert errror encountered for key %s with message '%s' in check", keys[i], req.Error)
+				r.lggr.Debugf("revert error encountered for key %s with message '%s' in check", keys[i], req.Error)
 				continue
 			}
 			// some other error
@@ -676,8 +677,9 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	for i, req := range performReqs {
 		if req.Error != nil {
+			r.lggr.Debugf("error encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
 			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert errror encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
+				r.lggr.Debugf("revert error encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
 				continue
 			}
 			// some other error
@@ -693,6 +695,8 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			}
 		}
 	}
+
+	r.lggr.Debugf("returning from simulatePerformUpkeeps, err is %s but we are returning nil", err)
 
 	return checkResults, nil
 }
