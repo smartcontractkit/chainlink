@@ -502,7 +502,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
-	r.lggr.Debugf("after simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
+	r.lggr.Debugf("afterm simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
 
 	for i, res := range upkeepResults {
 		r.lggr.Debugf("processing upkeep key: %+v", res.Key)
@@ -738,6 +738,12 @@ func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
 }
 
 func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("blockAndIdFromKey recovered from panic:\n", r)
+		}
+	}()
+
 	parts := strings.Split(key.String(), separator)
 	if len(parts) != 2 {
 		return nil, nil, fmt.Errorf("%w: missing data in upkeep key", ErrUpkeepKeyNotParsable)
