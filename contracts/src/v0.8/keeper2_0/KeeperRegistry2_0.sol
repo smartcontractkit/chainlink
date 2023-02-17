@@ -143,7 +143,9 @@ contract KeeperRegistry2_0 is
       }
     }
     // No upkeeps to be performed in this report
-    if (numUpkeepsPassedChecks == 0) revert StaleReport();
+    if (numUpkeepsPassedChecks == 0) {
+      return;
+    }
 
     // Verify signatures
     if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
