@@ -190,7 +190,7 @@ func testSingleConsumerNeedsBHS(
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	_ = createAndStartBHSJob(
-		t, vrfKey.Address.String(), app, uni.bhsContractAddress.String(), "",
+		t, []string{vrfKey.Address.String()}, app, uni.bhsContractAddress.String(), "",
 		coordinatorAddress.String())
 
 	// Make the randomness request. It will not yet succeed since it is underfunded.

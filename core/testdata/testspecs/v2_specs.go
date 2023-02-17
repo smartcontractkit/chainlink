@@ -536,7 +536,7 @@ type BlockhashStoreSpecParams struct {
 	PollPeriod            time.Duration
 	RunTimeout            time.Duration
 	EVMChainID            int64
-	FromAdress            string
+	FromAdresses          []string
 }
 
 // BlockhashStoreSpec defines a blockhash store job spec.
@@ -588,8 +588,8 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		params.RunTimeout = 15 * time.Second
 	}
 
-	if params.FromAdress == "" {
-		params.FromAdress = "0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"
+	if params.FromAdresses == nil {
+		params.FromAdresses = []string{"\"0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B\""}
 	}
 
 	template := `
@@ -604,12 +604,12 @@ blockhashStoreAddress = "%s"
 pollPeriod = "%s"
 runTimeout = "%s"
 evmChainID = "%d"
-fromAddress = "%s"
+fromAddresses = "%s"
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
 		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
-		params.EVMChainID, params.FromAdress)
+		params.EVMChainID, params.FromAdresses)
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
 }
