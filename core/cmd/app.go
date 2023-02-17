@@ -70,9 +70,9 @@ func NewApp(client *Client) *cli.App {
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
 		cli.StringSliceFlag{
-			Name:   "config, c",
-			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override.",
-			EnvVar: "CL_CONFIG",
+			Name:  "config, c",
+			Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the env var is specified, it is always processed last with the effect of being the final override.  [$CL_CONFIG]",
+			// Note: we cannot use the EnvVar field since it will combine with the flags.
 		},
 		cli.StringFlag{
 			Name:  "secrets, s",
@@ -80,7 +80,7 @@ func NewApp(client *Client) *cli.App {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		if c.IsSet("config") {
+		if c.IsSet("config") || v2.EnvConfig != "" {
 			// TOML
 			var opts chainlink.GeneralConfigOpts
 
