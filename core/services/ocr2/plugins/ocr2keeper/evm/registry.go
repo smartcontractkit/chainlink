@@ -416,6 +416,7 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
 		if err != nil {
 			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
+			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
 			return
 		}
 
@@ -486,6 +487,13 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 
 func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chResult chan checkResult) {
 	r.lggr.Debugf("before checkUpkeeps we have %d keys", len(keys))
+
+	var kStr []string
+	for _, k := range keys {
+		kStr = append(kStr, k.String())
+	}
+
+	r.lggr.Debugf("before checkUpkeeps we have the following keys: %s", strings.Join(kStr, ","))
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -504,6 +512,16 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		return
 	}
 	r.lggr.Debugf("after simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
+
+	kStr = []string{}
+	for _, k := range upkeepResults {
+		if k.Key == nil {
+			kStr = append(kStr, "nil")
+		} else {
+			kStr = append(kStr, k.Key.String())
+		}
+	}
+	r.lggr.Debugf("after simulatePerformUpkeeps we have the following keys: %s", strings.Join(kStr, ","))
 
 	for i, res := range upkeepResults {
 		r.lggr.Debugf("processing upkeep key: %+v", res.Key)
