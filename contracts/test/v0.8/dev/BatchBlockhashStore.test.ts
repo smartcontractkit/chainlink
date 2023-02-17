@@ -161,13 +161,13 @@ describe('BatchBlockhashStore', () => {
           block.transactionsRoot,
           block.receiptsRoot,
           block.logsBloom,
-          block.difficulty,
+          block.difficulty == '0x0' ? '0x' : block.difficulty,
           block.number,
           block.gasLimit,
           block.gasUsed == '0x0' ? '0x' : block.gasUsed,
           block.timestamp,
           block.extraData,
-          block.mixHash,
+          block.mixHash, // XXX: should always be 0x0 post-merge, see https://eips.ethereum.org/EIPS/eip-3675#block-structure
           block.nonce,
           block.baseFeePerGas,
         ])
@@ -240,7 +240,7 @@ describe('BatchBlockhashStore', () => {
             block.transactionsRoot,
             block.receiptsRoot,
             block.logsBloom,
-            block.difficulty,
+            block.difficulty == '0x0' ? '0x' : block.difficulty,
             block.number,
             block.gasLimit,
             block.gasUsed == '0x0' ? '0x' : block.gasUsed,
@@ -295,7 +295,7 @@ describe('BatchBlockhashStore', () => {
             block.transactionsRoot,
             block.receiptsRoot,
             block.logsBloom,
-            block.difficulty,
+            block.difficulty == '0x0' ? '0x' : block.difficulty,
             block.number,
             block.gasLimit,
             block.gasUsed, // incorrect: in cases where it's 0x0 it should be 0x instead.
