@@ -12,10 +12,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
+	env_client "github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	eth_contracts "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -38,6 +41,21 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+
+	simulatedEVMNonDevTOML = `
+[[EVM]]
+ChainID = 1337
+MinContractPayment = '0'
+Enabled = true
+FinalityDepth = 50
+LogPollInterval = '1s'
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000`
 
 	keeperBenchmarkEnvVars = map[string]any{
 		"FEATURE_LOG_POLLER":                   "true",
@@ -118,11 +136,8 @@ var (
 	upkeepResetterContractEmpty  = ""
 	upkeepResetterContractGoerli = "0xaeA9bD8f60C9EB1771900B9338dE8Ab52584E80e"
 	upkeepResetterContractMumbai = "0x4Ef8599a41fd7b6788527E4a243d0Cf61b84f300"
-	// simulatedBLockTime           = time.Second
-	// goerliTag                    = strings.ReplaceAll(strings.ToLower(networks.GoerliTestnet.Name), " ", "-")
-	// arbitrumTag                  = strings.ReplaceAll(strings.ToLower(networks.ArbitrumGoerli.Name), " ", "-")
-	// optimismTag                  = strings.ReplaceAll(strings.ToLower(networks.OptimismGoerli.Name), " ", "-")
-	// mumbaiTag                    = strings.ReplaceAll(strings.ToLower(networks.PolygonMumbai.Name), " ", "-")
+	upkeepResetterContractSep    = "0x938F6bd9387f88459017aDE870dCE3eb57B72708"
+	predeployedConsumersSep      = []string{""}
 
 	NumberOfContracts, _    = strconv.Atoi(getEnv("NUMBEROFCONTRACTS", "500"))
 	CheckGasToBurn, _       = strconv.ParseInt(getEnv("CHECKGASTOBURN", "100000"), 0, 64)
@@ -269,12 +284,28 @@ var tests = map[string]*BenchmarkTestEntry{
 		upkeepResetterContractEmpty,
 		12 * time.Second,
 	},
+	"simulatedRegistry_2_0": {
+		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+		big.NewFloat(100000),
+		int64(20),
+		predeployedConsumersEmpty,
+		upkeepResetterContractEmpty,
+		1 * time.Second,
+	},
 	"GoerliTestnetRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(4),
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
+		12 * time.Second,
+	},
+	"SepoliaTestnetRegistry_2_0": {
+		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+		big.NewFloat(ChainlinkNodeFunding),
+		int64(4),
+		predeployedConsumersSep,
+		upkeepResetterContractSep,
 		12 * time.Second,
 	},
 	"OptimismGoerliRegistry_2_0": {
@@ -317,14 +348,12 @@ func getEnv(key, fallback string) string {
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, string) {
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
-	numberOfNodes, _ := strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"
-
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
 	if registryToTest == "Registry_2_0" {
-		numberOfNodes++
+		NumberOfNodes++
 		blockTime = "12"
 	}
 
@@ -356,20 +385,93 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 		dbResources = soakDbResources
 	}
 
+	// Test can run on simulated, simulated-non-dev, testnets
+	if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
+		keeperBenchmarkBaseTOML = keeperBenchmarkBaseTOML + simulatedEVMNonDevTOML
+		testEnvironment.
+			AddHelm(reorg.New(&reorg.Props{
+				NetworkName: activeEVMNetwork.Name,
+				Values: map[string]interface{}{
+					"geth": map[string]interface{}{
+						"tx": map[string]interface{}{
+							"replicas": NumberOfNodes,
+						},
+						"miner": map[string]interface{}{
+							"replicas": 2,
+						},
+					},
+				},
+			}))
+	} else {
+		testEnvironment.
+			AddHelm(ethereum.New(&ethereum.Props{
+				NetworkName: activeEVMNetwork.Name,
+				Simulated:   activeEVMNetwork.Simulated,
+				WsURLs:      activeEVMNetwork.URLs,
+				Values: map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "4000m",
+							"memory": "4Gi",
+						},
+						"limits": map[string]interface{}{
+							"cpu":    "4000m",
+							"memory": "4Gi",
+						},
+					},
+					"geth": map[string]interface{}{
+						"blocktime": blockTime,
+					},
+				},
+			}))
+	}
+
+	// deploy blockscout if running on simulated
 	if activeEVMNetwork.Simulated {
 		testEnvironment.
 			AddChart(blockscout.New(&blockscout.Props{
 				Name:    "geth-blockscout",
-				WsURL:   activeEVMNetwork.URL,
-				HttpURL: activeEVMNetwork.HTTPURLs[0],
-			}))
-		// For if we end up using env vars
-		keeperBenchmarkEnvVars["ETH_URL"] = activeEVMNetwork.URLs[0]
-		keeperBenchmarkEnvVars["ETH_HTTP_URL"] = activeEVMNetwork.HTTPURLs[0]
-		keeperBenchmarkEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(activeEVMNetwork.ChainID)
+				WsURL:   activeEVMNetwork.URLs[0],
+				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+		err := testEnvironment.Run()
+		require.NoError(t, err, "Error launching test environment")
 	}
 
-	for i := 0; i < numberOfNodes; i++ {
+	if testEnvironment.WillUseRemoteRunner() {
+		return testEnvironment, activeEVMNetwork, registryToTest
+	}
+
+	// For if we end up using env vars
+	keeperBenchmarkEnvVars["ETH_URL"] = activeEVMNetwork.URLs[0]
+	keeperBenchmarkEnvVars["ETH_HTTP_URL"] = activeEVMNetwork.HTTPURLs[0]
+	keeperBenchmarkEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(activeEVMNetwork.ChainID)
+
+	// separate RPC urls per CL node
+	internalWsURLs := make([]string, 0)
+	internalHttpURLs := make([]string, 0)
+	for i := 0; i < NumberOfNodes; i++ {
+		// for simulated-nod-dev each CL node gets its own RPC node
+		if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
+			podName := fmt.Sprintf("%s-ethereum-geth:%d", activeEVMNetwork.Name, i)
+			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
+			require.NoError(t, err, "Error finding WS ports")
+			internalWsURLs = append(internalWsURLs, txNodeInternalWs)
+			txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(env_client.RemoteConnection, env_client.HTTP)
+			require.NoError(t, err, "Error finding HTTP ports")
+			internalHttpURLs = append(internalHttpURLs, txNodeInternalHttp)
+			// for testnets with more than 1 RPC nodes
+		} else if len(activeEVMNetwork.URLs) > 1 {
+			internalWsURLs = append(internalWsURLs, activeEVMNetwork.URLs[i%len(activeEVMNetwork.URLs)])
+			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[i%len(activeEVMNetwork.URLs)])
+			// for simulated and testnets with 1 RPC node
+		} else {
+			internalWsURLs = append(internalWsURLs, activeEVMNetwork.URLs[0])
+			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[0])
+		}
+	}
+	log.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
+
+	for i := 0; i < NumberOfNodes; i++ {
 		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
 		if useEnvVars == "true" {
 			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
@@ -378,6 +480,8 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 				"db":        dbResources,
 			}))
 		} else {
+			activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
+			activeEVMNetwork.URLs = []string{internalWsURLs[i]}
 			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 				"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, activeEVMNetwork),
 				"chainlink": chainlinkResources,
@@ -385,29 +489,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			}))
 		}
 	}
-
-	err := testEnvironment.
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: activeEVMNetwork.Name,
-			Simulated:   activeEVMNetwork.Simulated,
-			WsURLs:      activeEVMNetwork.URLs,
-			Values: map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4Gi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4Gi",
-					},
-				},
-				"geth": map[string]interface{}{
-					"blocktime": blockTime,
-				},
-			},
-		})).
-		Run()
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment, activeEVMNetwork, registryToTest
 }
