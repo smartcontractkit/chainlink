@@ -138,7 +138,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   error IncorrectNumberOfSignatures();
   error OnlyActiveSigners();
   error DuplicateSigners();
-  error StaleReport();
   error TooManyOracles();
   error IncorrectNumberOfSigners();
   error IncorrectNumberOfFaultyOracles();

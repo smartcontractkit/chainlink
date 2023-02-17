@@ -163,8 +163,56 @@ const parseUpkeepPerformedLogs = (receipt: any) => {
   return parsedLogs
 }
 
+const parseReorgedUpkeepReportLogs = (receipt: any) => {
+  let logABI = ['  event ReorgedUpkeepReport(uint256 indexed id)']
+  let iface = new ethers.utils.Interface(logABI)
+
+  let parsedLogs = []
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]
+    try {
+      parsedLogs.push(iface.parseLog(log))
+    } catch (e) {
+      // ignore log
+    }
+  }
+  return parsedLogs
+}
+
+const parseStaleUpkeepReportLogs = (receipt: any) => {
+  let logABI = ['  event StaleUpkeepReport(uint256 indexed id)']
+  let iface = new ethers.utils.Interface(logABI)
+
+  let parsedLogs = []
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]
+    try {
+      parsedLogs.push(iface.parseLog(log))
+    } catch (e) {
+      // ignore log
+    }
+  }
+  return parsedLogs
+}
+
 const parseInsufficientFundsUpkeepReportLogs = (receipt: any) => {
   let logABI = ['  event InsufficientFundsUpkeepReport(uint256 indexed id)']
+  let iface = new ethers.utils.Interface(logABI)
+
+  let parsedLogs = []
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]
+    try {
+      parsedLogs.push(iface.parseLog(log))
+    } catch (e) {
+      // ignore log
+    }
+  }
+  return parsedLogs
+}
+
+const parseCancelledUpkeepReportLogs = (receipt: any) => {
+  let logABI = ['  event CancelledUpkeepReport(uint256 indexed id)']
   let iface = new ethers.utils.Interface(logABI)
 
   let parsedLogs = []
@@ -689,7 +737,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(getTransmitTxWithReport(registry, keeper1, report, f + 1))
     })
 
-    it('reverts when no upkeeps are included in report', async () => {
+    it('returns early when no upkeeps are included in report', async () => {
       let upkeepIds: string[]
       let wrappedPerformDatas: string[]
       upkeepIds = []
@@ -699,22 +747,21 @@ describe('KeeperRegistry2_0', () => {
         [0, 0, upkeepIds, wrappedPerformDatas],
       )
 
-      await evmRevert(
-        getTransmitTxWithReport(registry, keeper1, report, f + 1),
-        'StaleReport()',
-      )
+      await getTransmitTxWithReport(registry, keeper1, report, f + 1)
     })
 
-    it('reverts when invalid upkeepIds are included in report', async () => {
-      await evmRevert(
-        getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.add(BigNumber.from('1')).toString()],
-          f + 1,
-        ),
-        'StaleReport()',
+    it('returns early when invalid upkeepIds are included in report', async () => {
+      const tx = await getTransmitTx(
+        registry,
+        keeper1,
+        [upkeepId.add(BigNumber.from('1')).toString()],
+        f + 1,
       )
+
+      const receipt = await tx.wait()
+      let cancelledUpkeepReportLogs = parseCancelledUpkeepReportLogs(receipt)
+      // exactly 1 CancelledUpkeepReport log should be emitted
+      assert.equal(cancelledUpkeepReportLogs.length, 1)
     })
 
     it('reverts when duplicated upkeepIds are included in report', async () => {
@@ -731,11 +778,19 @@ describe('KeeperRegistry2_0', () => {
       )
     })
 
-    it('reverts when upkeep has insufficient funds', async () => {
-      await evmRevert(
-        getTransmitTx(registry, keeper1, [upkeepId.toString()], f + 1),
-        'StaleReport()',
+    it('returns early when upkeep has insufficient funds', async () => {
+      const tx = await getTransmitTx(
+        registry,
+        keeper1,
+        [upkeepId.toString()],
+        f + 1,
       )
+
+      const receipt = await tx.wait()
+      let insufficientFundsUpkeepReportLogs =
+        parseInsufficientFundsUpkeepReportLogs(receipt)
+      // exactly 1 InsufficientFundsUpkeepReportLogs log should be emitted
+      assert.equal(insufficientFundsUpkeepReportLogs.length, 1)
     })
 
     context('When the upkeep is funded', async () => {
@@ -744,7 +799,7 @@ describe('KeeperRegistry2_0', () => {
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       })
 
-      it('reverts when check block number is less than last perform', async () => {
+      it('returns early when check block number is less than last perform', async () => {
         // First perform an upkeep to put last perform block number on upkeep state
 
         const tx = await getTransmitTx(
@@ -765,43 +820,46 @@ describe('KeeperRegistry2_0', () => {
           tx.blockNumber?.toString(),
         )
 
-        // Try to transmit a report which has checkBlockNumber = lastPerformBlockNumber-1, should result in staleReport
-        await evmRevert(
-          getTransmitTx(
-            registry,
-            keeper1,
-            [upkeepId.toString()],
-            f + 1,
-            {},
-            '0x',
-            lastPerformBlock.number - 1,
-            lastPerformBlock.parentHash,
-          ),
-          'StaleReport()',
+        // Try to transmit a report which has checkBlockNumber = lastPerformBlockNumber-1, should result in stale report
+        const transmitTx = await getTransmitTx(
+          registry,
+          keeper1,
+          [upkeepId.toString()],
+          f + 1,
+          {},
+          '0x',
+          lastPerformBlock.number - 1,
+          lastPerformBlock.parentHash,
         )
+
+        const receipt = await transmitTx.wait()
+        let staleUpkeepReportLogs = parseStaleUpkeepReportLogs(receipt)
+        // exactly 1 StaleUpkeepReportLogs log should be emitted
+        assert.equal(staleUpkeepReportLogs.length, 1)
       })
 
-      it('reverts when check block hash does not match', async () => {
+      it('returns early when check block hash does not match', async () => {
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
         let latestBlock = await ethers.provider.getBlock('latest')
         // Try to transmit a report which has incorrect checkBlockHash
-        await evmRevert(
-          getTransmitTx(
-            registry,
-            keeper1,
-            [upkeepId.toString()],
-            f + 1,
-            {},
-            '0x',
-            latestBlock.number - 1,
-            latestBlock.hash,
-          ), // should be latestBlock.parentHash
+        const tx = await getTransmitTx(
+          registry,
+          keeper1,
+          [upkeepId.toString()],
+          f + 1,
+          {},
+          '0x',
+          latestBlock.number - 1,
+          latestBlock.hash,
+        ) // should be latestBlock.parentHash
 
-          'StaleReport()',
-        )
+        const receipt = await tx.wait()
+        let reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
+        // exactly 1 ReorgedUpkeepReportLogs log should be emitted
+        assert.equal(reorgedUpkeepReportLogs.length, 1)
       })
 
-      it('reverts when check block number is older than 256 blocks', async () => {
+      it('returns early when check block number is older than 256 blocks', async () => {
         let latestBlockReport = await encodeLatestBlockReport([
           { Id: upkeepId.toString() },
         ])
@@ -812,21 +870,23 @@ describe('KeeperRegistry2_0', () => {
           await ethers.provider.send('evm_mine', [])
         }
 
-        await evmRevert(
-          registry
-            .connect(keeper1)
-            .transmit(
-              [emptyBytes32, emptyBytes32, emptyBytes32],
-              latestBlockReport,
-              [],
-              [],
-              emptyBytes32,
-            ),
-          'StaleReport()',
-        )
+        const tx = await registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            latestBlockReport,
+            [],
+            [],
+            emptyBytes32,
+          )
+
+        const receipt = await tx.wait()
+        let reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
+        // exactly 1 ReorgedUpkeepReportLogs log should be emitted
+        assert.equal(reorgedUpkeepReportLogs.length, 1)
       })
 
-      it('reverts when upkeep is cancelled and cancellation delay has gone', async () => {
+      it('returns early when upkeep is cancelled and cancellation delay has gone', async () => {
         let latestBlockReport = await encodeLatestBlockReport([
           { Id: upkeepId.toString() },
         ])
@@ -837,11 +897,17 @@ describe('KeeperRegistry2_0', () => {
         }
 
         // Try to transmit a report which is older than 256 blocks so block hash cannot be matched
-        await evmRevert(
-          getTransmitTxWithReport(registry, keeper1, latestBlockReport, f + 1),
-
-          'StaleReport()',
+        const tx = await getTransmitTxWithReport(
+          registry,
+          keeper1,
+          latestBlockReport,
+          f + 1,
         )
+
+        const receipt = await tx.wait()
+        let cancelledUpkeepReportLogs = parseCancelledUpkeepReportLogs(receipt)
+        // exactly 1 CancelledUpkeepReport log should be emitted
+        assert.equal(cancelledUpkeepReportLogs.length, 1)
       })
 
       it('does not revert if the target cannot execute', async () => {
@@ -2085,24 +2151,26 @@ describe('KeeperRegistry2_0', () => {
         .callStatic.checkUpkeep(upkeepID2)
       assert.equal(checkUpkeepResult.upkeepNeeded, true)
 
-      // upkeep 1 perform should revert with max performData size'
+      // upkeep 1 perform should return with insufficient balance using max performData size
       let maxPerformData = '0x'
       for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
         maxPerformData += '11'
       }
 
-      await evmRevert(
-        getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepID1.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul(gasCeilingMultiplier) },
-          maxPerformData,
-        ),
-
-        'StaleReport()',
+      const tx = await getTransmitTx(
+        registry,
+        keeper1,
+        [upkeepID1.toString()],
+        f + 1,
+        { gasPrice: gasWei.mul(gasCeilingMultiplier) },
+        maxPerformData,
       )
+
+      const receipt = await tx.wait()
+      let insufficientFundsUpkeepReportLogs =
+        parseInsufficientFundsUpkeepReportLogs(receipt)
+      // exactly 1 InsufficientFundsUpkeepReportLogs log should be emitted
+      assert.equal(insufficientFundsUpkeepReportLogs.length, 1)
 
       // upkeep 1 perform should succeed with empty performData
       await getTransmitTx(
@@ -4343,10 +4411,16 @@ describe('KeeperRegistry2_0', () => {
       it('immediately prevents upkeep', async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
 
-        await evmRevert(
-          getTransmitTx(registry, keeper1, [upkeepId.toString()], f + 1),
-          'StaleReport()',
+        const tx = await getTransmitTx(
+          registry,
+          keeper1,
+          [upkeepId.toString()],
+          f + 1,
         )
+        const receipt = await tx.wait()
+        let cancelledUpkeepReportLogs = parseCancelledUpkeepReportLogs(receipt)
+        // exactly 1 CancelledUpkeepReport log should be emitted
+        assert.equal(cancelledUpkeepReportLogs.length, 1)
       })
 
       it('does not revert if reverts if called multiple times', async () => {
@@ -4431,10 +4505,17 @@ describe('KeeperRegistry2_0', () => {
           await ethers.provider.send('evm_mine', [])
         }
 
-        await evmRevert(
-          getTransmitTx(registry, keeper1, [upkeepId.toString()], f + 1),
-          'StaleReport()',
+        const tx = await getTransmitTx(
+          registry,
+          keeper1,
+          [upkeepId.toString()],
+          f + 1,
         )
+
+        const receipt = await tx.wait()
+        let cancelledUpkeepReportLogs = parseCancelledUpkeepReportLogs(receipt)
+        // exactly 1 CancelledUpkeepReport log should be emitted
+        assert.equal(cancelledUpkeepReportLogs.length, 1)
       })
 
       describe('when an upkeep has been performed', async () => {
