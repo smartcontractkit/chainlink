@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -502,7 +503,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
-	r.lggr.Debugf("afterm simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
+	r.lggr.Debugf("after simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
 
 	for i, res := range upkeepResults {
 		r.lggr.Debugf("processing upkeep key: %+v", res.Key)
@@ -740,7 +741,7 @@ func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
 func blockAndIdFromKey(key types.UpkeepKey, lggr logger.Logger) (*big.Int, *big.Int, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			lggr.Debugf("blockAndIdFromKey recovered from panic: %+v", r)
+			lggr.Debugf("blockAndIdFromKey recovered from panic: %s", string(debug.Stack()))
 		}
 	}()
 
