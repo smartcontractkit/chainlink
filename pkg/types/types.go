@@ -12,10 +12,12 @@ import (
 )
 
 type Service interface {
+	Name() string
 	Start(context.Context) error
 	Close() error
 	Ready() error
 	Healthy() error
+	HealthReport() map[string]error
 }
 
 // PluginArgs are the args required to create any OCR2 plugin components.
