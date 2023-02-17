@@ -18,10 +18,12 @@ on:
         type: choice
         options:
           - SIMULATED
+          - SIMULATED_NONDEV
           - GOERLI
           - ARBITRUM_GOERLI
           - OPTIMISM_GOERLI
           - MUMBAI
+          - SEPOLIA
       TestInputs:
         description: TestInputs
         required: false

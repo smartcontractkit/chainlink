@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -85,7 +85,7 @@ func mustParseJSONConfigFile(fileName string) (output TopLevelConfigSource) {
 		panic(err)
 	}
 	defer jsonFile.Close()
-	bytes, err := ioutil.ReadAll(jsonFile)
+	bytes, err := io.ReadAll(jsonFile)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func mustParseKeysFile(fileName string) (output []NodeKeys) {
 		panic(err)
 	}
 	defer jsonFile.Close()
-	bytes, err := ioutil.ReadAll(jsonFile)
+	bytes, err := io.ReadAll(jsonFile)
 	if err != nil {
 		panic(err)
 	}

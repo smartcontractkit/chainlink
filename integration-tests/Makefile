@@ -153,5 +153,5 @@ test_soak_automation_simulated:
 	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
-test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests
-	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
+test_benchmark_automation: ## Run the automation benchmark tests
+	go test -timeout 30m -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
