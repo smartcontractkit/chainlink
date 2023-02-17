@@ -132,7 +132,7 @@ describe('BatchBlockhashStore', () => {
   })
 
   describe('#storeVerifyHeader', () => {
-    xit('stores batches of blocknumbers using storeVerifyHeader [ @skip-coverage ]', async () => {
+    it('stores batches of blocknumbers using storeVerifyHeader [ @skip-coverage ]', async () => {
       // Store a single blockhash and go backwards from there using storeVerifyHeader
       const latestBlock = await ethers.provider.send('eth_blockNumber', [])
       await batchBHS.connect(owner).store([latestBlock])
@@ -161,7 +161,7 @@ describe('BatchBlockhashStore', () => {
           block.transactionsRoot,
           block.receiptsRoot,
           block.logsBloom,
-          block.difficulty,
+          block.difficulty == '0x0' ? '0x' : block.difficulty,
           block.number,
           block.gasLimit,
           block.gasUsed == '0x0' ? '0x' : block.gasUsed,
@@ -240,7 +240,7 @@ describe('BatchBlockhashStore', () => {
             block.transactionsRoot,
             block.receiptsRoot,
             block.logsBloom,
-            block.difficulty,
+            block.difficulty == '0x0' ? '0x' : block.difficulty,
             block.number,
             block.gasLimit,
             block.gasUsed == '0x0' ? '0x' : block.gasUsed,
@@ -295,7 +295,7 @@ describe('BatchBlockhashStore', () => {
             block.transactionsRoot,
             block.receiptsRoot,
             block.logsBloom,
-            block.difficulty,
+            block.difficulty == '0x0' ? '0x' : block.difficulty,
             block.number,
             block.gasLimit,
             block.gasUsed, // incorrect: in cases where it's 0x0 it should be 0x instead.
