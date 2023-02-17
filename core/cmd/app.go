@@ -85,7 +85,9 @@ func NewApp(client *Client) *cli.App {
 			var opts chainlink.GeneralConfigOpts
 
 			fileNames := c.StringSlice("config")
-			loadOpts(&opts, fileNames...)
+			if err := loadOpts(&opts, fileNames...); err != nil {
+				return err
+			}
 
 			secretsTOML := ""
 			if c.IsSet("secrets") {
