@@ -1222,6 +1222,11 @@ func Test_SetOffchainConfig(t *testing.T) {
 
 	t.Run("valid binary", func(t *testing.T) {
 		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10), lggr: logger.TestLogger(t)}
+		cacheEvictionWindowSeconds := int64(60)
+		cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
+		c.toBeTransmittedBlocks = NewBlockCache[blockInReport](cacheEvictionWindow)
+		c.toBeTransmittedCallbacks = NewBlockCache[callbackInReport](cacheEvictionWindow)
+
 		newCoordinatorConfig := &ocr2vrftypes.CoordinatorConfig{
 			CacheEvictionWindowSeconds: 30,
 			BatchGasLimit:              1_000_000,
@@ -1231,7 +1236,11 @@ func Test_SetOffchainConfig(t *testing.T) {
 			LookbackBlocks:             1_000,
 		}
 
+		require.Equal(t, cacheEvictionWindow, c.toBeTransmittedBlocks.evictionWindow)
+		require.Equal(t, cacheEvictionWindow, c.toBeTransmittedCallbacks.evictionWindow)
+
 		err := c.SetOffChainConfig(ocr2vrf.OffchainConfig(newCoordinatorConfig))
+		newCacheEvictionWindow := time.Duration(newCoordinatorConfig.CacheEvictionWindowSeconds * int64(time.Second))
 		require.NoError(t, err)
 		require.Equal(t, newCoordinatorConfig.CacheEvictionWindowSeconds, c.coordinatorConfig.CacheEvictionWindowSeconds)
 		require.Equal(t, newCoordinatorConfig.BatchGasLimit, c.coordinatorConfig.BatchGasLimit)
@@ -1239,6 +1248,8 @@ func Test_SetOffchainConfig(t *testing.T) {
 		require.Equal(t, newCoordinatorConfig.CallbackOverhead, c.coordinatorConfig.CallbackOverhead)
 		require.Equal(t, newCoordinatorConfig.BlockGasOverhead, c.coordinatorConfig.BlockGasOverhead)
 		require.Equal(t, newCoordinatorConfig.LookbackBlocks, c.coordinatorConfig.LookbackBlocks)
+		require.Equal(t, newCacheEvictionWindow, c.toBeTransmittedBlocks.evictionWindow)
+		require.Equal(t, newCacheEvictionWindow, c.toBeTransmittedCallbacks.evictionWindow)
 	})
 
 	t.Run("invalid binary", func(t *testing.T) {
