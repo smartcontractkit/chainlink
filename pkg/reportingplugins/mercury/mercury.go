@@ -3,7 +3,7 @@ package mercury
 import (
 	"context"
 	"math/big"
-	sync "sync"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -13,10 +13,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoimpl"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 // Mercury-specific reporting plugin, based off of median:

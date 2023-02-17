@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/plugins/mercury"
+	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 )
 
 type Service interface {
