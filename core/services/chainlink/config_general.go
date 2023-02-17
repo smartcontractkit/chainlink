@@ -27,7 +27,6 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
@@ -197,10 +196,6 @@ func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
 
 func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 	return g.c.Starknet
-}
-
-func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
-	return g.c.Terra
 }
 
 func (g *generalConfig) Validate() error {
@@ -384,15 +379,6 @@ func (g *generalConfig) P2PEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if c.IsEnabled() {
-			return true
-		}
-	}
-	return false
-}
-
-func (g *generalConfig) TerraEnabled() bool {
-	for _, c := range g.c.Terra {
 		if c.IsEnabled() {
 			return true
 		}
