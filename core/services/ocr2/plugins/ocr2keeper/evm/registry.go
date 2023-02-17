@@ -484,6 +484,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 }
 
 func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chResult chan checkResult) {
+	r.lggr.Debugf("before checkUpkeeps we have %d keys", len(keys))
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -491,7 +492,9 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
+	r.lggr.Debugf("after checkUpkeeps we have %d upkeepResults", len(upkeepResults))
 
+	r.lggr.Debugf("before simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -499,6 +502,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
+	r.lggr.Debugf("after simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
 
 	for i, res := range upkeepResults {
 		r.lggr.Debugf("processing upkeep key: %+v", res.Key)
