@@ -352,13 +352,21 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+
 	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
 	if err != nil {
 		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+
+	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
+		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
+		return
+	}
+
+	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
 	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
 		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
