@@ -26,7 +26,7 @@ type block struct {
 func setup(t testing.TB) (*ORM, *ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
 	o1 := NewORM(big.NewInt(137), db, lggr, pgtest.NewQConfig(true))
 	o2 := NewORM(big.NewInt(138), db, lggr, pgtest.NewQConfig(true))
