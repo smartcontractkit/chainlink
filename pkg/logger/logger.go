@@ -13,7 +13,7 @@ import (
 // Logger is a minimal subset of smartcontractkit/chainlink/core/logger.Logger implemented by go.uber.org/zap.SugaredLogger
 type Logger interface {
 	Name() string
-	Named(string) Logger
+	Named(name string) Logger
 
 	Debug(args ...interface{})
 	Info(args ...interface{})
