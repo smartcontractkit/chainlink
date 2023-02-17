@@ -45,6 +45,7 @@ type GeneralConfigOverrides struct {
 	BlockBackfillSkip                               null.Bool
 	DatabaseURL                                     null.String
 	DatabaseLockingMode                             null.String
+	DatabaseDefaultLockTimeout                      *time.Duration
 	DefaultChainID                                  *big.Int
 	BridgeCacheTTL                                  *time.Duration
 	DefaultHTTPTimeout                              *time.Duration
@@ -187,6 +188,11 @@ func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 // SetP2PV2DeltaReconcile sets test override value for P2PV2DeltaReconcile
 func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
 	o.P2PV2DeltaReconcile = &d
+}
+
+// SetDefaultDatabaseLockTimeout sets test override value for DefaultDatabaseLockTimeout
+func (o *GeneralConfigOverrides) SetDefaultDatabaseLockTimeout(d time.Duration) {
+	o.DatabaseDefaultLockTimeout = &d
 }
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
@@ -364,6 +370,15 @@ func (c *TestGeneralConfig) DatabaseLockingMode() string {
 	}
 	// tests do not need DB locks, except for LockedDB tests
 	return "none"
+}
+
+func (c *TestGeneralConfig) DatabaseDefaultLockTimeout() time.Duration {
+
+	if c.Overrides.DatabaseDefaultLockTimeout != nil {
+		return *c.Overrides.DatabaseDefaultLockTimeout
+
+	}
+	return c.GeneralConfig.DatabaseDefaultLockTimeout()
 }
 
 func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
