@@ -12,6 +12,9 @@ import (
 
 // Logger is a minimal subset of smartcontractkit/chainlink/core/logger.Logger implemented by go.uber.org/zap.SugaredLogger
 type Logger interface {
+	Name() string
+	Named(string) Logger
+
 	Debug(args ...interface{})
 	Info(args ...interface{})
 	Warn(args ...interface{})
@@ -53,12 +56,12 @@ func (c *Config) New() (Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &logger{core.Sugar()}, nil
+	return &logger{core.Sugar(), ""}, nil
 }
 
 // Test returns a new test Logger for tb.
 func Test(tb testing.TB) Logger {
-	return &logger{zaptest.NewLogger(tb).Sugar()}
+	return &logger{zaptest.NewLogger(tb).Sugar(), ""}
 }
 
 // TestObserved returns a new test Logger for tb and ObservedLogs at the given Level.
@@ -67,26 +70,45 @@ func TestObserved(tb testing.TB, lvl zapcore.Level) (Logger, *observer.ObservedL
 	observe := zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, oCore)
 	})
-	return &logger{zaptest.NewLogger(tb, zaptest.WrapOptions(observe)).Sugar()}, logs
+	return &logger{zaptest.NewLogger(tb, zaptest.WrapOptions(observe)).Sugar(), ""}, logs
 }
 
 // Nop returns a no-op Logger.
 func Nop() Logger {
-	return &logger{zap.New(zapcore.NewNopCore()).Sugar()}
+	return &logger{zap.New(zapcore.NewNopCore()).Sugar(), ""}
 }
 
 type logger struct {
 	*zap.SugaredLogger
+	name string
 }
 
 func (l *logger) with(args ...interface{}) Logger {
-	return &logger{l.SugaredLogger.With(args...)}
+	return &logger{l.SugaredLogger.With(args...), ""}
 }
 
 var (
 	loggerVar    Logger
 	typeOfLogger = reflect.ValueOf(&loggerVar).Elem().Type()
 )
+
+func joinName(old, new string) string {
+	if old == "" {
+		return new
+	}
+	return old + "." + new
+}
+
+func (l *logger) Named(name string) Logger {
+	newLogger := *l
+	newLogger.name = joinName(l.name, name)
+	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
+	return &newLogger
+}
+
+func (l *logger) Name() string {
+	return l.name
+}
 
 // With returns a Logger with keyvals, if l has a method `With(...interface{}) L`, where L implements Logger, otherwise it returns l.
 func With(l Logger, keyvals ...interface{}) Logger {
