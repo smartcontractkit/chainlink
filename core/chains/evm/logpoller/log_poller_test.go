@@ -439,6 +439,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
+	// disable check that chain id exists in evm_chains table
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_filters_evm_chain_id_fkey DEFERRED`)))
 	// Set up a test chain with a log emitting contract deployed.
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
@@ -706,6 +707,10 @@ func TestGetReplayFromBlock(t *testing.T) {
 	fromBlock, err = th.LogPoller.getReplayFromBlock(testutils.Context(t), requested)
 	require.NoError(t, err)
 	assert.Equal(t, requested, fromBlock)
+}
+
+func TestFilterName(t *testing.T) {
+	assert.Equal(t, FilterName("a", "b", "c", "d"), "a - b:c:d")
 }
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
