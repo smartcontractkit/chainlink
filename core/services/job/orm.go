@@ -251,11 +251,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-				case relay.Terra:
-					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
-					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
-					}
 				case relay.StarkNet:
 					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {

@@ -43,16 +43,25 @@ func TestCache(t *testing.T) {
 		assert.Equal(t, 5, len(c.cache), "cache should contain 5 keys")
 
 		// Evict all items.
-		c.EvictExpiredItems(getSecondsAfterNow(now, 105))
+		evictionTime := getSecondsAfterNow(now, 105)
+		c.EvictExpiredItems(evictionTime)
 		assert.Equal(t, 0, len(c.cache), "cache should contain 0 keys")
 
 		// Cache a new item.
-		c.CacheItem(tests[0].Value, tests[0].Key, getSecondsAfterNow(now, 110))
+		c.CacheItem(tests[0].Value, tests[0].Key, getSecondsAfterNow(now, 10))
 		item := c.GetItem(tests[0].Key)
 		assert.Equal(t, tests[0].Value, *item)
 
-		// Ensure cache has 1 item, with the newest and oldest pointers correct.
+		// Attempting a new eviction should have no effect.
+		c.EvictExpiredItems(evictionTime)
 		assert.Equal(t, 1, len(c.cache), "cache should contain 1 key")
+
+		// Reduce eviction window.
+		c.SetEvictonWindow(time.Second * 50)
+
+		// Attempting a new eviction will remove the added item.
+		c.EvictExpiredItems(evictionTime)
+		assert.Equal(t, 0, len(c.cache), "cache should contain 0 keys")
 	})
 
 	t.Run("Happy path, override middle item.", func(t *testing.T) {

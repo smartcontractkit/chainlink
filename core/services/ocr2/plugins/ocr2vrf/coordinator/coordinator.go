@@ -1022,6 +1022,12 @@ func (c *coordinator) SetOffChainConfig(b []byte) error {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
 	}
 
+	// Update local caches with new eviction window.
+	cacheEvictionWindowSeconds := c.coordinatorConfig.CacheEvictionWindowSeconds
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
+	c.toBeTransmittedBlocks.SetEvictonWindow(cacheEvictionWindow)
+	c.toBeTransmittedCallbacks.SetEvictonWindow(cacheEvictionWindow)
+
 	c.lggr.Infow("set offchain config",
 		offchainConfigFields(c.coordinatorConfig)...,
 	)
