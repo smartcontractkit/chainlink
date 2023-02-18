@@ -31,7 +31,9 @@ import (
 // if err != nil {...}
 // return
 type DeferableWriterCloser struct {
-	mu sync.Mutex
+	mu       sync.Mutex
+	closed   bool
+	closeErr error
 	io.WriteCloser
 }
 
@@ -43,16 +45,18 @@ func NewDeferableWriterCloser(wc io.WriteCloser) *DeferableWriterCloser {
 	}
 }
 
-// Close closes the WriterCloser.
+// Close closes the WriterCloser. The underlying Closer
+// is Closed exactly once and resulting error is cached.
 // Should be called explicitly AND defered
 // Thread safe
 func (wc *DeferableWriterCloser) Close() error {
-	var err error
+
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
-	if wc.WriteCloser != nil {
-		err = wc.WriteCloser.Close()
-		wc.WriteCloser = nil
+	if !wc.closed {
+		wc.closeErr = wc.WriteCloser.Close()
+		wc.closed = true
 	}
-	return err
+	return wc.closeErr
+
 }
