@@ -1,7 +1,6 @@
 package blockhashstore
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/pelletier/go-toml"
@@ -19,8 +18,6 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	}
 
 	tree, err := toml.Load(tomlString)
-	fmt.Println("tomlString")
-	fmt.Println(tomlString)
 	if err != nil {
 		return jb, errors.Wrap(err, "loading toml")
 	}
