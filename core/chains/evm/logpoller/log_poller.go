@@ -328,16 +328,7 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
-		filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
-		lp.filterDirty = true
-		if err != nil {
-			// Most likely, we will get them anyway once RegisterFilter() is called, but
-			//  this could result in some missed logs in some circumstances.  Log an
-			//  error and hope it gets noticed, but keep going.
-			lp.lggr.Errorf("Failed to load filters while initializing logpoller")
-		}
 
-		lp.filters = filters
 		go lp.run()
 		return nil
 	})
@@ -372,8 +363,23 @@ func (lp *logPoller) run() {
 	logPollTick := time.After(0)
 	// trigger first backup poller run shortly after first log poller run
 	backupLogPollTick := time.After(100 * time.Millisecond)
-
 	blockPruneTick := time.After(0)
+	filtersLoaded := false
+
+	loadFilters := func() error {
+		lp.filterMu.Lock()
+		defer lp.filterMu.Unlock()
+		filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
+
+		if err != nil {
+			return errors.Wrapf(err, "Failed to load initial filters from db, retrying")
+		}
+
+		lp.filters = filters
+		lp.filterDirty = true
+		filtersLoaded = true
+		return nil
+	}
 
 	for {
 		select {
@@ -382,9 +388,16 @@ func (lp *logPoller) run() {
 		case replayReq := <-lp.replayStart:
 			fromBlock, err := lp.getReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
 			if err == nil {
-				// Serially process replay requests.
-				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
+				if !filtersLoaded {
+					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					if err = loadFilters(); err != nil {
+						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
+					}
+				} else {
+					// Serially process replay requests.
+					lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
+				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
@@ -399,6 +412,13 @@ func (lp *logPoller) run() {
 			}
 		case <-logPollTick:
 			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
+			if !filtersLoaded {
+				if err := loadFilters(); err != nil {
+					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
+					continue
+				}
+			}
+
 			// Always start from the latest block in the db.
 			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
@@ -441,6 +461,10 @@ func (lp *logPoller) run() {
 			const backupPollerBlockDelay = 100
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
+			if !filtersLoaded {
+				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
+				continue
+			}
 
 			if lp.backupPollerNextBlock == 0 {
 				lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
