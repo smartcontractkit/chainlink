@@ -357,9 +357,9 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 	// we need
 	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 	err := r.poller.RegisterFilter(logpoller.Filter{
-		FilterName: filterName,
-		EventSigs:  append(upkeepStateEvents, upkeepActiveEvents...),
-		Addresses:  []common.Address{addr},
+		Name:      filterName,
+		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
+		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()

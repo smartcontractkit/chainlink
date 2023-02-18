@@ -52,33 +52,31 @@ func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 	for _, ev := range filter.EventSigs {
 		events = append(events, ev.Bytes())
 	}
-	err = q.ExecQ(`INSERT INTO log_poller_filters
-								(filter_name, evm_chain_id, created_at, address, event)
+	return q.ExecQ(`INSERT INTO log_poller_filters
+								(name, evm_chain_id, created_at, address, event)
 								SELECT * FROM
 									(SELECT $1, $2::NUMERIC, NOW()) x,
 									(SELECT unnest($3::BYTEA[]) addr) a,
 									(SELECT unnest($4::BYTEA[]) ev) e
-								ON CONFLICT (filter_name, evm_chain_id, address, event) DO NOTHING`,
-		filter.FilterName, utils.NewBig(o.chainID), addresses, events)
-	return err
+								ON CONFLICT (name, evm_chain_id, address, event) DO NOTHING`,
+		filter.Name, utils.NewBig(o.chainID), addresses, events)
 }
 
 // DeleteFilter removes all events,address pairs associated with the filter
 func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`DELETE FROM log_poller_filters WHERE filter_name = $1`, name)
-	return err
+	return q.ExecQ(`DELETE FROM log_poller_filters WHERE name = $1`, name)
 }
 
 // LoadFiltersForChain returns all filters for this chain
 func (o *ORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 	q := o.q.WithOpts(qopts...)
 	rows := make([]Filter, 0)
-	err := q.Select(&rows, `SELECT filter_name, ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs
-									FROM log_poller_filters WHERE evm_chain_id = $1 GROUP BY filter_name`, utils.NewBig(o.chainID))
+	err := q.Select(&rows, `SELECT name, ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs
+									FROM log_poller_filters WHERE evm_chain_id = $1 GROUP BY name`, utils.NewBig(o.chainID))
 	filters := make(map[string]Filter)
 	for _, filter := range rows {
-		filters[filter.FilterName] = filter
+		filters[filter.Name] = filter
 	}
 
 	return filters, err

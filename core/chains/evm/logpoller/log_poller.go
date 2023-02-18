@@ -106,7 +106,7 @@ type ReplayRequest struct {
 func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
 	finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 
-	lp := &logPoller{
+	return &logPoller{
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
@@ -121,19 +121,20 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		filters:           make(map[string]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
-
-	return lp
 }
 
 type Filter struct {
-	FilterName string // see FilterName(id, args) below
-	EventSigs  evmtypes.HashArray
-	Addresses  evmtypes.AddressArray
+	Name      string // see FilterName(id, args) below
+	EventSigs evmtypes.HashArray
+	Addresses evmtypes.AddressArray
 }
 
 // FilterName is a suggested convenience function for clients to construct unique filter names
-// to populate FilterName field of struct Filter
+// to populate Name field of struct Filter
 func FilterName(id string, args ...any) string {
+	if len(args) == 0 {
+		return id
+	}
 	s := &strings.Builder{}
 	s.WriteString(id)
 	s.WriteString(" - ")
@@ -144,10 +145,13 @@ func FilterName(id string, args ...any) string {
 	return s.String()
 }
 
-// CompareTo returns true if this filter is already contained within existing filter
+// compareTo returns true if this filter is already contained within existing filter
 //
 // Returns false if it includes any new addresses or events.
-func (filter *Filter) CompareTo(existing *Filter) bool {
+func (filter *Filter) compareTo(existing *Filter) bool {
+	if existing == nil {
+		return true
+	}
 	addresses := make(map[common.Address]interface{})
 	for _, addr := range existing.Addresses {
 		addresses[addr] = struct{}{}
@@ -181,7 +185,7 @@ func (filter *Filter) CompareTo(existing *Filter) bool {
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
-// The filter may be unregistered later by FilterName
+// The filter may be unregistered later by Filter.Name
 func (lp *logPoller) RegisterFilter(filter Filter) error {
 	if len(filter.Addresses) == 0 {
 		return errors.Errorf("at least one address must be specified")
@@ -204,20 +208,20 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
-	if existingFilter, ok := lp.filters[filter.FilterName]; ok {
-		if filter.CompareTo(&existingFilter) {
+	if existingFilter, ok := lp.filters[filter.Name]; ok {
+		if filter.compareTo(&existingFilter) {
 			// Nothing new in this filter
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "FilterName", filter.FilterName)
+		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "filter.Name", filter.Name)
 	} else {
-		lp.lggr.Debugf("Creating new filter %s", filter.FilterName)
+		lp.lggr.Debugf("Creating new filter %s", filter.Name)
 	}
 
 	if err := lp.orm.InsertFilter(filter); err != nil {
 		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
 	}
-	lp.filters[filter.FilterName] = filter
+	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
 	return nil
 }

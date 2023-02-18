@@ -428,9 +428,9 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 		dbFilter := dbFilter
 		memFilter, ok := lp.filters[name]
 		require.True(t, ok)
-		assert.True(t, dbFilter.CompareTo(&memFilter),
+		assert.True(t, dbFilter.compareTo(&memFilter),
 			fmt.Sprintf("in-memory filter %s is missing some addresses or events from db filter table", name))
-		assert.True(t, memFilter.CompareTo(&dbFilter),
+		assert.True(t, memFilter.compareTo(&dbFilter),
 			fmt.Sprintf("db filter table %s is missing some addresses or events from in-memory filter", name))
 	}
 }
@@ -540,18 +540,18 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 
 	filter, ok := filters["first filter"]
 	require.True(t, ok)
-	assert.True(t, filter.CompareTo(&filter1))
-	assert.True(t, filter1.CompareTo(&filter))
+	assert.True(t, filter.compareTo(&filter1))
+	assert.True(t, filter1.compareTo(&filter))
 
 	filter, ok = filters["second filter"]
 	require.True(t, ok)
-	assert.True(t, filter.CompareTo(&filter2))
-	assert.True(t, filter2.CompareTo(&filter))
+	assert.True(t, filter.compareTo(&filter2))
+	assert.True(t, filter2.compareTo(&filter))
 
 	filter, ok = filters["third filter"]
 	require.True(t, ok)
-	assert.True(t, filter.CompareTo(&filter3))
-	assert.True(t, filter3.CompareTo(&filter))
+	assert.True(t, filter.compareTo(&filter3))
+	assert.True(t, filter3.compareTo(&filter))
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
@@ -725,7 +725,7 @@ func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 		for j := 0; j < nEvents; j++ {
 			events = append(events, common.BigToHash(big.NewInt(int64(j+1))))
 		}
-		err := lp.RegisterFilter(Filter{FilterName: "my filter", EventSigs: events, Addresses: addresses})
+		err := lp.RegisterFilter(Filter{Name: "my filter", EventSigs: events, Addresses: addresses})
 		require.NoError(b, err)
 	}
 	b.ResetTimer()

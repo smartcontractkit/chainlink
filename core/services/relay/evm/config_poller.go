@@ -144,7 +144,7 @@ type ConfigPoller struct {
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
 	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-	err := destChainPoller.RegisterFilter(logpoller.Filter{FilterName: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}

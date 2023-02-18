@@ -2,18 +2,15 @@
 
 CREATE TABLE log_poller_filters(
     id BIGSERIAL PRIMARY KEY,
-    filter_name TEXT,
+    name TEXT NOT NULL CHECK (length(name) > 0),
     address BYTEA CHECK (octet_length(address) = 20) NOT NULL,
     event BYTEA CHECK (octet_length(event) = 32) NOT NULL,
     evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE,
     created_at TIMESTAMPTZ NOT NULL,
-    UNIQUE (filter_name, evm_chain_id, address, event)
+    UNIQUE (name, evm_chain_id, address, event)
 );
-
-CREATE INDEX idx_log_poller_filters_filter_name ON log_poller_filters(filter_name);
 
 -- +goose Down
 
-DROP INDEX IF EXISTS idx_log_poller_filters_filter_name;
-DROP TABLE log_poller_filters;
+DROP TABLE log_poller_filters CASCADE;
 
