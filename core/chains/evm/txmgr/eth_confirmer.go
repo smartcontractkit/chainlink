@@ -3,12 +3,10 @@ package txmgr
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -237,7 +235,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 
 	ec.lggr.Debugw("processHead start", "headNum", head.Number, "id", "eth_confirmer")
 
-	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
+	if err := ec.orm.SetBroadcastBeforeBlockNum(head.Number, ec.chainID); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
@@ -313,16 +311,9 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 //
 // This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
 func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
-	var attempts []EthTxAttempt
-	err = ec.q.Select(&attempts,
-		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
-		FROM eth_tx_attempts
-		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
-		WHERE evm_chain_id = $1
-		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
-		ec.chainID.String())
+	attempts, err := ec.orm.FindEtxAttemptsConfirmedMissingReceipt(ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed to query")
+		return err
 	}
 	if len(attempts) == 0 {
 		return nil
@@ -344,19 +335,19 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 
 		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
 	}
-	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
+	err = ec.orm.UpdateEthTxsUnconfirmed(ethTxIDsToUnconfirm)
 
 	if err != nil {
-		return errors.Wrap(err, "CheckConfirmedMissingReceipt: marking as unconfirmed failed")
+		return err
 	}
 	return
 }
 
 // CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number
 func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
-	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
+	attempts, err := ec.orm.FindEthTxAttemptsRequiringReceiptFetch(ec.chainID)
 	if err != nil {
-		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
+		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed")
 	}
 	if len(attempts) == 0 {
 		return nil
@@ -396,7 +387,7 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 		}
 	}
 
-	if err := ec.markAllConfirmedMissingReceipt(); err != nil {
+	if err := ec.orm.MarkAllConfirmedMissingReceipt(ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
@@ -464,7 +455,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 		if err != nil {
 			return errors.Wrap(err, "batchFetchReceipts failed")
 		}
-		if err := ec.saveFetchedReceipts(receipts); err != nil {
+		if err := ec.orm.SaveFetchedReceipts(receipts, ec.chainID); err != nil {
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
@@ -475,23 +466,6 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
 
 	return nil
-}
-
-func (ec *EthConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []EthTxAttempt, err error) {
-	err = ec.q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&attempts, `
-SELECT eth_tx_attempts.* FROM eth_tx_attempts
-JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND eth_txes.evm_chain_id = $1
-WHERE eth_tx_attempts.state != 'insufficient_eth'
-ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
-`, ec.chainID.String())
-		if err != nil {
-			return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
-		}
-		err = loadEthTxes(tx, attempts)
-		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
-	}, pg.OptReadOnlyTx())
-	return
 }
 
 func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
@@ -505,7 +479,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 	// Metadata is required to determine whether a tx is forwarded or not.
 	if ec.config.EvmUseForwarders() {
-		err = loadEthTxes(ec.q, attempts)
+		err = ec.orm.PreloadEthTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")
 		}
@@ -618,85 +592,6 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
-func (ec *EthConfirmer) saveFetchedReceipts(receipts []evmtypes.Receipt) (err error) {
-	if len(receipts) == 0 {
-		return nil
-	}
-	// Notes on this query:
-	//
-	// # Receipts insert
-	// Conflict on (tx_hash, block_hash) shouldn't be possible because there
-	// should only ever be one receipt for an eth_tx.
-	//
-	// ASIDE: This is because we mark confirmed atomically with receipt insert
-	// in this query, and delete receipts upon marking unconfirmed - see
-	// markForRebroadcast.
-	//
-	// If a receipt with the same (tx_hash, block_hash) exists then the
-	// transaction is marked confirmed which means we _should_ never get here.
-	// However, even so, it still shouldn't be an error to upsert a receipt we
-	// already have.
-	//
-	// # EthTxAttempts update
-	// It should always be safe to mark the attempt as broadcast here because
-	// if it were not successfully broadcast how could it possibly have a
-	// receipt?
-	//
-	// This state is reachable for example if the eth node errors so the
-	// attempt was left in_progress but the transaction was actually accepted
-	// and mined.
-	//
-	// # EthTxes update
-	// Should be self-explanatory. If we got a receipt, the eth_tx is confirmed.
-	//
-	var valueStrs []string
-	var valueArgs []interface{}
-	for _, r := range receipts {
-		var receiptJSON []byte
-		receiptJSON, err = json.Marshal(r)
-		if err != nil {
-			return errors.Wrap(err, "saveFetchedReceipts failed to marshal JSON")
-		}
-		valueStrs = append(valueStrs, "(?,?,?,?,?,NOW())")
-		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
-	}
-	valueArgs = append(valueArgs, ec.chainID.String())
-
-	/* #nosec G201 */
-	sql := `
-	WITH inserted_receipts AS (
-		INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at)
-		VALUES %s
-		ON CONFLICT (tx_hash, block_hash) DO UPDATE SET
-			block_number = EXCLUDED.block_number,
-			transaction_index = EXCLUDED.transaction_index,
-			receipt = EXCLUDED.receipt
-		RETURNING eth_receipts.tx_hash, eth_receipts.block_number
-	),
-	updated_eth_tx_attempts AS (
-		UPDATE eth_tx_attempts
-		SET
-			state = 'broadcast',
-			broadcast_before_block_num = COALESCE(eth_tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
-		FROM inserted_receipts
-		WHERE inserted_receipts.tx_hash = eth_tx_attempts.hash
-		RETURNING eth_tx_attempts.eth_tx_id
-	)
-	UPDATE eth_txes
-	SET state = 'confirmed'
-	FROM updated_eth_tx_attempts
-	WHERE updated_eth_tx_attempts.eth_tx_id = eth_txes.id
-	AND evm_chain_id = ?
-	`
-
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
-
-	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
-
-	err = ec.q.ExecQ(stmt, valueArgs...)
-	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
-}
-
 // markAllConfirmedMissingReceipt
 // It is possible that we can fail to get a receipt for all eth_tx_attempts
 // even though a transaction with this nonce has long since been confirmed (we
@@ -722,7 +617,8 @@ func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
 FROM (
-	SELECT from_address, MAX(nonce) as max_nonce from eth_txes
+	SELECT from_address, MAX(nonce) as max_nonce 
+	FROM eth_txes
 	WHERE state = 'confirmed' AND evm_chain_id = $1
 	GROUP BY from_address
 ) AS max_table
@@ -904,11 +800,11 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
 func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
-	attempts, err := getInProgressEthTxAttempts(ctx, ec.q, ec.lggr, address, ec.chainID)
+	attempts, err := ec.orm.GetInProgressEthTxAttempts(ctx, address, ec.chainID)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
+		return errors.Wrap(err, "GetInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
 		err := ec.handleInProgressAttempt(ctx, a.EthTx.GetLogger(ec.lggr), a.EthTx, a, blockHeight)
@@ -917,47 +813,6 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 		} else if err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
-	}
-	return nil
-}
-
-func getInProgressEthTxAttempts(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
-	qq := q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&attempts, `
-SELECT eth_tx_attempts.* FROM eth_tx_attempts
-INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
-`, address, chainID.String())
-		if err != nil {
-			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
-		}
-		err = loadEthTxes(q, attempts)
-		return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_txes")
-	}, pg.OptReadOnlyTx())
-	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
-}
-
-func loadEthTxes(q pg.Queryer, attempts []EthTxAttempt) error {
-	ethTxM := make(map[int64]EthTx)
-	for _, attempt := range attempts {
-		ethTxM[attempt.EthTxID] = EthTx{}
-	}
-	ethTxIDs := make([]int64, len(ethTxM))
-	var i int
-	for id := range ethTxM {
-		ethTxIDs[i] = id
-		i++
-	}
-	ethTxs := make([]EthTx, len(ethTxIDs))
-	if err := q.Select(&ethTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
-		return errors.Wrap(err, "loadEthTxes failed")
-	}
-	for _, etx := range ethTxs {
-		ethTxM[etx.ID] = etx
-	}
-	for i, attempt := range attempts {
-		attempts[i].EthTx = ethTxM[attempt.EthTxID]
 	}
 	return nil
 }

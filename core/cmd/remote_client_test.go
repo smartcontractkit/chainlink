@@ -54,6 +54,20 @@ type startOptions struct {
 	WithKey bool
 }
 
+// many parallel test call start a test application. this leads to lock contention when creating a test session
+// increase the lock deadline based on the test timeout
+func overrideDatabseLockTimeout(t *testing.T, initial time.Duration) time.Duration {
+	// inititialize with a guess based on CI failure for the case where there is no explicit time timeout
+	lockDuration := 4 * initial
+
+	deadline, ok := t.Deadline()
+	if ok {
+		lockDuration = time.Duration(0.5 * deadline.Sub(time.Now()).Seconds())
+	}
+
+	return lockDuration
+}
+
 func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets), setup ...func(opts *startOptions)) *cltest.TestApplication {
 	t.Helper()
 
@@ -70,6 +84,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 		c.EVM[0].Enabled = &f
 		c.P2P.V1.Enabled = &f
 		c.P2P.V2.Enabled = &f
+		c.Database.DefaultLockTimeout = models.MustNewDuration(overrideDatabseLockTimeout(t, c.Database.DefaultLockTimeout.Duration()))
 
 		if overrideFn != nil {
 			overrideFn(c, s)
@@ -95,6 +110,10 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// Setup config
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
+
+	config.Overrides.SetDefaultDatabaseLockTimeout(
+		overrideDatabseLockTimeout(t, config.DatabaseDefaultLockTimeout()),
+	)
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test
