@@ -40,7 +40,7 @@ func createAndStartBHSJob(
 		PollPeriod:            time.Second,
 		RunTimeout:            100 * time.Millisecond,
 		EVMChainID:            1337,
-		FromAdresses:          fromAddresses,
+		FromAddresses:         fromAddresses,
 	})
 	jb, err := blockhashstore.ValidatedSpec(s.Toml())
 	require.NoError(t, err)
