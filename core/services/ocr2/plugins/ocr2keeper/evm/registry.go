@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -164,7 +163,7 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) 
 }
 
 func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdentifier, error) {
-	_, id, err := blockAndIdFromKey(key, r.lggr)
+	_, id, err := blockAndIdFromKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +415,6 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
 		if err != nil {
 			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
-			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
 			return
 		}
 
@@ -486,14 +484,6 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 }
 
 func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chResult chan checkResult) {
-	r.lggr.Debugf("before checkUpkeeps we have %d keys", len(keys))
-
-	var kStr []string
-	for _, k := range keys {
-		kStr = append(kStr, k.String())
-	}
-
-	r.lggr.Debugf("before checkUpkeeps we have the following keys: %s", strings.Join(kStr, ","))
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -501,19 +491,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
-	r.lggr.Debugf("after checkUpkeeps we have %d upkeepResults", len(upkeepResults))
 
-	kStr = []string{}
-	for _, k := range upkeepResults {
-		if k.Key == nil {
-			kStr = append(kStr, "nil")
-		} else {
-			kStr = append(kStr, k.Key.String())
-		}
-	}
-	r.lggr.Debugf("after checkUpkeeps we have the following keys: %s", strings.Join(kStr, ","))
-
-	r.lggr.Debugf("before simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -521,21 +499,9 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
-	r.lggr.Debugf("after simulatePerformUpkeeps we have %d upkeepResults", len(upkeepResults))
-
-	kStr = []string{}
-	for _, k := range upkeepResults {
-		if k.Key == nil {
-			kStr = append(kStr, "nil")
-		} else {
-			kStr = append(kStr, k.Key.String())
-		}
-	}
-	r.lggr.Debugf("after simulatePerformUpkeeps we have the following keys: %s", strings.Join(kStr, ","))
 
 	for i, res := range upkeepResults {
-		r.lggr.Debugf("processing upkeep key: %+v", res.Key)
-		_, id, err := blockAndIdFromKey(res.Key, r.lggr)
+		_, id, err := blockAndIdFromKey(res.Key)
 		if err != nil {
 			continue
 		}
@@ -554,6 +520,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 }
 
+// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) ([]types.UpkeepResult, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
@@ -561,7 +528,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 	)
 
 	for i, key := range keys {
-		block, upkeepId, err := blockAndIdFromKey(key, r.lggr)
+		block, upkeepId, err := blockAndIdFromKey(key)
 		if err != nil {
 			return nil, err
 		}
@@ -597,20 +564,16 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 	}
 
 	var (
-		err     error
-		results = make([]types.UpkeepResult, len(keys))
+		multiErr error
+		results  = make([]types.UpkeepResult, len(keys))
 	)
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
-			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert error encountered for key %s with message '%s' in check", keys[i], req.Error)
-				continue
-			}
-			// some other error
-			multierr.AppendInto(&err, req.Error)
+			multierr.AppendInto(&multiErr, req.Error)
 		} else {
+			var err error
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
 				return nil, err
@@ -618,9 +581,10 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 		}
 	}
 
-	return results, err
+	return results, multiErr
 }
 
+// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
@@ -633,8 +597,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
-		r.lggr.Debugf("simulatePerformUpkeeps with checkResult: %+v", checkResult)
-		block, upkeepId, err := blockAndIdFromKey(checkResult.Key, r.lggr)
+		block, upkeepId, err := blockAndIdFromKey(checkResult.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -673,17 +636,12 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
-	var err error
+	var multiErr error
 
 	for i, req := range performReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
-			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert error encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
-				continue
-			}
-			// some other error
-			multierr.AppendInto(&err, req.Error)
+			r.lggr.Debugf("error encountered for key %s with message '%s' in simulate perform", checkResults[i].Key, req.Error)
+			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 			if err != nil {
@@ -696,11 +654,10 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
-	r.lggr.Debugf("returning from simulatePerformUpkeeps, err is %s but we are returning nil", err)
-
-	return checkResults, nil
+	return checkResults, multiErr
 }
 
+// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
 	if len(ids) == 0 {
 		return []activeUpkeep{}, nil
@@ -743,19 +700,16 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	var (
-		err     error
-		results = make([]activeUpkeep, len(ids))
+		multiErr error
+		results  = make([]activeUpkeep, len(ids))
 	)
 
 	for i, req := range uReqs {
 		if req.Error != nil {
-			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert errror encountered for config id %s with message '%s' in get config", ids[i], req.Error)
-				continue
-			}
-			// some other error
-			multierr.AppendInto(&err, req.Error)
+			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
+			multierr.AppendInto(&multiErr, req.Error)
 		} else {
+			var err error
 			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack result: %s", err)
@@ -763,20 +717,14 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 		}
 	}
 
-	return results, err
+	return results, multiErr
 }
 
 func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
 	return chain.UpkeepKey(fmt.Sprintf("%s%s%s", block, separator, id))
 }
 
-func blockAndIdFromKey(key types.UpkeepKey, lggr logger.Logger) (*big.Int, *big.Int, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			lggr.Debugf("blockAndIdFromKey recovered from panic: %s", string(debug.Stack()))
-		}
-	}()
-
+func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
 	parts := strings.Split(key.String(), separator)
 	if len(parts) != 2 {
 		return nil, nil, fmt.Errorf("%w: missing data in upkeep key", ErrUpkeepKeyNotParsable)
