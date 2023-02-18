@@ -590,13 +590,13 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 
 	var formattedFromAddresses string
 	if params.FromAddresses == nil {
-		formattedFromAddresses = "[0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B]"
+		formattedFromAddresses = "[\"0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B\"]"
 	} else {
 		var addresses []string
 		for _, address := range params.FromAddresses {
 			addresses = append(addresses, fmt.Sprintf("%q", address))
 		}
-		formattedFromAddresses = strings.Join(addresses, ", ")
+		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
 	}
 
 	template := `
