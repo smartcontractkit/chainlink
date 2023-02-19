@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -259,10 +260,16 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	return wc.Close()
 }
 
+const (
+	cpuProf   = "cpu"
+	traceProf = "trace"
+)
+
 func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	wc, err := n.createFile(now, "cpu", false)
+	n.log.Debug("gathering cpu")
+	defer n.log.Debug("done gathering cpu")
+	wc, err := n.createFile(now, cpuProf, false)
 	if err != nil {
 		n.log.Errorw("could not write cpu profile", "error", err)
 		return
@@ -274,12 +281,13 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 		n.log.Errorw("could not start cpu profile", "error", err)
 		return
 	}
-	defer pprof.StopCPUProfile()
 
 	select {
 	case <-n.chStop:
 	case <-time.After(n.cfg.AutoPprofGatherDuration().Duration()):
 	}
+
+	pprof.StopCPUProfile()
 
 	err = wc.Close()
 	if err != nil {
@@ -292,7 +300,7 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	wc, err := n.createFile(now, "trace", true)
+	wc, err := n.createFile(now, traceProf, true)
 	if err != nil {
 		n.log.Errorw("could not write trace profile", "error", err)
 		return
@@ -304,12 +312,13 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 		n.log.Errorw("could not start trace profile", "error", err)
 		return
 	}
-	defer trace.Stop()
 
 	select {
 	case <-n.chStop:
 	case <-time.After(n.cfg.AutoPprofGatherTraceDuration().Duration()):
 	}
+
+	trace.Stop()
 
 	err = wc.Close()
 	if err != nil {
@@ -395,11 +404,13 @@ func collectProfile(p *pprof.Profile) (*profile.Profile, error) {
 }
 
 func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.DeferableWriterCloser, error) {
-	filename := fmt.Sprintf("%v.%v.pprof", now, typ)
+	filename := fmt.Sprintf("%v.%v.pprof", now.UnixMicro(), typ)
 	if shouldGzip {
 		filename += ".gz"
 	}
 	fullpath := filepath.Join(n.cfg.AutoPprofProfileRoot(), filename)
+	n.log.Debugf("creating file %s", fullpath)
+
 	mode := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	file, err := os.OpenFile(fullpath, mode, profilePerms)
 	if err != nil {
@@ -414,12 +425,29 @@ func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.D
 }
 
 func (n *Nurse) totalProfileBytes() (uint64, error) {
-	entries, err := os.ReadDir(n.cfg.AutoPprofProfileRoot())
+	profiles, err := n.listProfiles()
 	if err != nil {
 		return 0, err
 	}
 	var size uint64
+	for _, p := range profiles {
+		size += uint64(p.Size())
+	}
+	return size, nil
+}
+
+func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
+	out := make([]fs.FileInfo, 0)
+	n.log.Debugf("list profiles dir %s", n.cfg.AutoPprofProfileRoot())
+
+	entries, err := os.ReadDir(n.cfg.AutoPprofProfileRoot())
+
+	if err != nil {
+		return nil, err
+	}
+	n.log.Debugf("list profiles dir %+v", entries)
 	for _, entry := range entries {
+		n.log.Debugf("list entry %+v", entry)
 		if entry.IsDir() ||
 			(filepath.Ext(entry.Name()) != ".pprof" &&
 				entry.Name() != "nurse.log" &&
@@ -428,9 +456,10 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 		}
 		info, err := entry.Info()
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		size += uint64(info.Size())
+		out = append(out, info)
 	}
-	return size, nil
+	return out, nil
+
 }
