@@ -59,6 +59,11 @@ type gatherRequest struct {
 
 type Meta map[string]interface{}
 
+const (
+	cpuProfName   = "cpu"
+	traceProfName = "trace"
+)
+
 func NewNurse(cfg Config, log logger.Logger) *Nurse {
 	return &Nurse{
 		cfg:      cfg,
@@ -259,16 +264,11 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	return wc.Close()
 }
 
-const (
-	cpuProf   = "cpu"
-	traceProf = "trace"
-)
-
 func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 	n.log.Debug("gathering cpu")
 	defer n.log.Debug("done gathering cpu")
-	wc, err := n.createFile(now, cpuProf, false)
+	wc, err := n.createFile(now, cpuProfName, false)
 	if err != nil {
 		n.log.Errorw("could not write cpu profile", "error", err)
 		return
@@ -299,7 +299,7 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	wc, err := n.createFile(now, traceProf, true)
+	wc, err := n.createFile(now, traceProfName, true)
 	if err != nil {
 		n.log.Errorw("could not write trace profile", "error", err)
 		return

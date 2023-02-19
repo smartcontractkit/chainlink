@@ -2,7 +2,6 @@ package services
 
 import (
 	"io/fs"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -116,6 +115,7 @@ func TestNurse(t *testing.T) {
 	require.NoError(t, nrse.Start())
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
+
 	wc, err := nrse.createFile(time.Now(), "test", false)
 	require.NoError(t, err)
 	n, err := wc.Write([]byte("junk"))
@@ -130,6 +130,7 @@ func TestNurse(t *testing.T) {
 	profs, err := nrse.listProfiles()
 	require.Nil(t, err)
 
+	// check both of the files exist
 	assertProfileExists(t, profs, "test")
 	assertProfileExists(t, profs, "testgz")
 
@@ -146,12 +147,12 @@ func TestNurse(t *testing.T) {
 
 	profiles, err := nrse.listProfiles()
 	require.NoError(t, err)
-	assertProfileExists(t, profiles, cpuProf)
+	assertProfileExists(t, profiles, cpuProfName)
 	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
 	require.Greater(t, n2, uint64(0))
 
-	assertProfileExists(t, profiles, traceProf)
+	assertProfileExists(t, profiles, traceProfName)
 
 }
 
@@ -164,11 +165,4 @@ func assertProfileExists(t *testing.T, profiles []fs.FileInfo, typ string) {
 		}
 	}
 	assert.Failf(t, "profile doesn't exist", "require profile '%s' does not exist %+v", typ, names)
-}
-
-func requireRemoveProfiles(t *testing.T, profiles []fs.FileInfo) {
-	for _, p := range profiles {
-		require.NoError(t, os.Remove(p.Name()))
-	}
-
 }
