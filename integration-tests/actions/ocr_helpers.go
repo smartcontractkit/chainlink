@@ -31,6 +31,25 @@ func DeployOCRContracts(
 ) ([]contracts.OffchainAggregator, error) {
 	// Deploy contracts
 	var ocrInstances []contracts.OffchainAggregator
+	ocrInstances, err := DeployOCRContractsWithoutConfig(numberOfContracts, linkTokenContract, client, contractDeployer)
+	if err != nil {
+		return nil, fmt.Errorf("failed deploying OCR contracts without config: %w", err)
+	}
+	ocrInstances, err = ConfigOCRContracts(ocrInstances, chainlinkNodes, client)
+	if err != nil {
+		return nil, fmt.Errorf("failed configuring OCR contracts: %w", err)
+	}
+	return ocrInstances, nil
+}
+
+func DeployOCRContractsWithoutConfig(
+	numberOfContracts int,
+	linkTokenContract contracts.LinkToken,
+	client blockchain.EVMClient,
+	contractDeployer contracts.ContractDeployer,
+) ([]contracts.OffchainAggregator, error) {
+	// Deploy contracts
+	var ocrInstances []contracts.OffchainAggregator
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		ocrInstance, err := contractDeployer.DeployOffChainAggregator(
 			linkTokenContract.Address(),
@@ -51,7 +70,14 @@ func DeployOCRContracts(
 	if err != nil {
 		return nil, fmt.Errorf("error waiting for OCR contract deployments: %w", err)
 	}
+	return ocrInstances, nil
+}
 
+func ConfigOCRContracts(
+	ocrInstances []contracts.OffchainAggregator,
+	chainlinkNodes []*client.Chainlink,
+	client blockchain.EVMClient,
+) ([]contracts.OffchainAggregator, error) {
 	// Gather transmitter and address payees
 	var transmitters, payees []string
 	for _, node := range chainlinkNodes[1:] {
@@ -65,7 +91,7 @@ func DeployOCRContracts(
 
 	// Set Payees
 	for contractCount, ocrInstance := range ocrInstances {
-		err = ocrInstance.SetPayees(transmitters, payees)
+		err := ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
 			return nil, fmt.Errorf("error settings OCR payees: %w", err)
 		}
@@ -76,7 +102,7 @@ func DeployOCRContracts(
 			}
 		}
 	}
-	err = client.WaitForEvents()
+	err := client.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
 	}
