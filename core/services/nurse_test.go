@@ -34,8 +34,8 @@ type mockConfig struct {
 
 var (
 	testInterval = time.Duration(100 * time.Millisecond)
-	testRate     = 1
-	testSize     = 1024 * 1024
+	testRate     = 100
+	testSize     = 16 * 1024 * 1024
 )
 
 func newMockConfig(t *testing.T) *mockConfig {
@@ -45,7 +45,7 @@ func newMockConfig(t *testing.T) *mockConfig {
 		gatherDuration:       models.MustNewDuration(testInterval),
 		traceDuration:        models.MustNewDuration(testInterval),
 		profileSize:          utils.FileSize(testSize),
-		memProfileRate:       testRate,
+		memProfileRate:       1,
 		blockProfileRate:     testRate,
 		mutexProfileFraction: testRate,
 		memThreshold:         utils.FileSize(testSize),
@@ -55,7 +55,6 @@ func newMockConfig(t *testing.T) *mockConfig {
 }
 
 func (c mockConfig) AutoPprofProfileRoot() string {
-
 	return c.root
 }
 
@@ -109,47 +108,50 @@ func (c mockConfig) AutoPprofGoroutineThreshold() int {
 	return c.goroutineThreshold
 }
 
-func TestNurse_appendLog(t *testing.T) {
+func TestNurse(t *testing.T) {
 
 	l := logger.TestLogger(t)
 	nrse := NewNurse(newMockConfig(t), l)
+
+	require.NoError(t, nrse.Start())
+
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 	wc, err := nrse.createFile(time.Now(), "test", false)
 	require.NoError(t, err)
+	n, err := wc.Write([]byte("junk"))
+	require.NoError(t, err)
+	require.Greater(t, n, 0)
 	require.NoError(t, wc.Close())
 
 	wc, err = nrse.createFile(time.Now(), "testgz", false)
 	require.NoError(t, err)
 	require.NoError(t, wc.Close())
 
+	profs, err := nrse.listProfiles()
+	require.Nil(t, err)
+
+	assertProfileExists(t, profs, "test")
+	assertProfileExists(t, profs, "testgz")
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	nrse.gatherCPU(time.Now(), &wg)
+	wg.Add(1)
+	nrse.gatherTrace(time.Now(), &wg)
+
 	wg.Wait()
+
+	require.NoError(t, nrse.Close())
 
 	profiles, err := nrse.listProfiles()
 	require.NoError(t, err)
 	assertProfileExists(t, profiles, cpuProf)
-	n, err := nrse.totalProfileBytes()
+	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
-	require.Greater(t, n, 0)
-	requireRemoveProfiles(t, profiles)
+	require.Greater(t, n2, uint64(0))
 
-	wg.Add(1)
-	nrse.gatherTrace(time.Now(), &wg)
-	wg.Wait()
-
-	profiles, err = nrse.listProfiles()
-	require.NoError(t, err)
 	assertProfileExists(t, profiles, traceProf)
-	requireRemoveProfiles(t, profiles)
-
-	wg.Add(1)
-	nrse.gather(cpuProf, time.Now(), &wg)
-	wg.Wait()
-	assertProfileExists(t, profiles, cpuProf)
-	requireRemoveProfiles(t, profiles)
 
 }
 

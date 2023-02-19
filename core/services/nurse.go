@@ -59,8 +59,6 @@ type gatherRequest struct {
 
 type Meta map[string]interface{}
 
-const profilePerms = 0666
-
 func NewNurse(cfg Config, log logger.Logger) *Nurse {
 	return &Nurse{
 		cfg:      cfg,
@@ -80,7 +78,7 @@ func (n *Nurse) Start() error {
 		runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
 		runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
 
-		err := utils.EnsureDirAndMaxPerms(n.cfg.AutoPprofProfileRoot(), 0644)
+		err := utils.EnsureDirAndMaxPerms(n.cfg.AutoPprofProfileRoot(), 0744)
 		if err != nil {
 			return err
 		}
@@ -226,9 +224,10 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	filename := filepath.Join(n.cfg.AutoPprofProfileRoot(), "nurse.log")
-	mode := os.O_APPEND | os.O_CREATE | os.O_WRONLY
 
-	file, err := os.OpenFile(filename, mode, profilePerms)
+	n.log.Debugf("creating nurse log %s", filename)
+	file, err := os.Create(filename)
+
 	if err != nil {
 		return err
 	}
@@ -411,8 +410,7 @@ func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.D
 	fullpath := filepath.Join(n.cfg.AutoPprofProfileRoot(), filename)
 	n.log.Debugf("creating file %s", fullpath)
 
-	mode := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-	file, err := os.OpenFile(fullpath, mode, profilePerms)
+	file, err := os.Create(fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -438,14 +436,11 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 
 func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 	out := make([]fs.FileInfo, 0)
-	n.log.Debugf("list profiles dir %s", n.cfg.AutoPprofProfileRoot())
-
 	entries, err := os.ReadDir(n.cfg.AutoPprofProfileRoot())
 
 	if err != nil {
 		return nil, err
 	}
-	n.log.Debugf("list profiles dir %+v", entries)
 	for _, entry := range entries {
 		n.log.Debugf("list entry %+v", entry)
 		if entry.IsDir() ||
