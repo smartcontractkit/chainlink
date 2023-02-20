@@ -758,4 +758,5 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
+	assert.NoError(t, txm.Close())
 }
