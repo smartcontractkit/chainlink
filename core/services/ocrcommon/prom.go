@@ -12,13 +12,13 @@ import (
 )
 
 var (
-	promBridgeJsonParseValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	PromBridgeJsonParseValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "bridge_json_parse_values",
 		Help: "Values returned by json_parse for bridge task",
 	},
 		[]string{"job_id", "job_name", "bridge_name", "task_id"})
 
-	promOcrMedianValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	PromOcrMedianValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ocr_median_values",
 		Help: "Median value returned by ocr job",
 	},
@@ -38,10 +38,8 @@ func promSetBridgeParseMetrics(ds *inMemoryDataSource, trrs *pipeline.TaskRunRes
 			if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 				fetchedValue := cast.ToFloat64(nextTask.Result.Value)
 
-				promBridgeJsonParseValues.WithLabelValues(fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
-
+				PromBridgeJsonParseValues.WithLabelValues(fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
 			}
-
 		}
 	}
 }
@@ -62,6 +60,5 @@ func promSetFinalResultMetrics(ds *inMemoryDataSource, finalResult *pipeline.Fin
 		return
 	}
 	finalResultFloat, _ := finalResultDecimal.Float64()
-
-	promOcrMedianValues.WithLabelValues(fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String).Set(finalResultFloat)
+	PromOcrMedianValues.WithLabelValues(fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String).Set(finalResultFloat)
 }
