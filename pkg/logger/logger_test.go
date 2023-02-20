@@ -69,19 +69,27 @@ func TestNamed(t *testing.T) {
 	}{
 		{
 			expectedName: "test.test1",
-			logger:       Test(t).Named("test").Named("test1"),
+			logger:       Named(Named(Test(t), "test"), "test1"),
 		},
 		{
 			expectedName: "nop.nested",
-			logger:       Nop().Named("nop").Named("nested"),
+			logger:       Named(Named(Nop(), "nop"), "nested"),
 		},
 		{
 			expectedName: "prod",
-			logger:       prod.Named("prod"),
+			logger:       Named(prod, "prod"),
 		},
 		{
-			expectedName: "",
-			logger:       &other{zaptest.NewLogger(t).Sugar(), ""},
+			expectedName: "initialized",
+			logger:       &other{zaptest.NewLogger(t).Sugar(), "initialized"},
+		},
+		{
+			expectedName: "different.should_still_work",
+			logger:       Named(&different{zaptest.NewLogger(t).Sugar(), "different"}, "should_still_work"),
+		},
+		{
+			expectedName: "mismatch",
+			logger:       Named(&mismatch{zaptest.NewLogger(t).Sugar(), "mismatch"}, "should_not_work"),
 		},
 	} {
 		t.Run(fmt.Sprintf("test_logger_name_expect_%s", tt.expectedName), func(t *testing.T) {
@@ -142,13 +150,6 @@ func (m *mismatch) With(args ...interface{}) interface{} {
 
 func (m *mismatch) Name() string {
 	return m.name
-}
-
-func (m *mismatch) Named(name string) Logger {
-	newLogger := *m
-	newLogger.name = joinName(m.name, name)
-	newLogger.SugaredLogger = m.SugaredLogger.Named(name)
-	return &newLogger
 }
 
 type differentLogger interface {

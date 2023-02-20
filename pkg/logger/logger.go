@@ -13,7 +13,6 @@ import (
 // Logger is a minimal subset of smartcontractkit/chainlink/core/logger.Logger implemented by go.uber.org/zap.SugaredLogger
 type Logger interface {
 	Name() string
-	Named(name string) Logger
 
 	Debug(args ...interface{})
 	Info(args ...interface{})
@@ -99,7 +98,7 @@ func joinName(old, new string) string {
 	return old + "." + new
 }
 
-func (l *logger) Named(name string) Logger {
+func (l *logger) named(name string) Logger {
 	newLogger := *l
 	newLogger.name = joinName(l.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
@@ -137,4 +136,31 @@ func With(l Logger, keyvals ...interface{}) Logger {
 	var w Logger
 	reflect.ValueOf(&w).Elem().Set(r[0])
 	return w
+}
+
+// Named return a logger with name `n“, if l has a method `Named(name string) L`, where L implements Logger, otherwise it returns l.
+func Named(l Logger, n string) Logger {
+	switch t := l.(type) {
+	case *logger:
+		return t.named(n)
+	}
+	v := reflect.ValueOf(l)
+	m := v.MethodByName("Named")
+	if m == (reflect.Value{}) {
+		// not available
+		return l
+	}
+
+	r := m.Call([]reflect.Value{reflect.ValueOf(n)})
+	if len(r) != 1 {
+		// unclear how to handle
+		return l
+	}
+	ret, ok := r[0].Interface().(Logger)
+
+	// return is not a Logger
+	if !ok {
+		return l
+	}
+	return ret
 }
