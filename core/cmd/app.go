@@ -80,7 +80,7 @@ func NewApp(client *Client) *cli.App {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		if c.IsSet("config") || v2.EnvConfig != "" {
+		if c.IsSet("config") || v2.EnvConfig.Get() != "" {
 			// TOML
 			var opts chainlink.GeneralConfigOpts
 
