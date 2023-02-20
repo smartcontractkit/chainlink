@@ -165,7 +165,7 @@ contract FunctionsOracle is
       gasPrice
     );
     uint96 requiredFee = getRequiredFee(data, billing);
-    uint96 registryFee = getRequiredFee(data, billing);
+    uint96 registryFee = s_registry.getRequiredFee(data, billing);
     return s_registry.estimateCost(gasLimit, gasPrice, requiredFee, registryFee);
   }
 
