@@ -2,15 +2,11 @@ package ocrcommon
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"reflect"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
@@ -20,12 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-var promBridgeTaskValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "bridge_task_values",
-	Help: "-",
-},
-	[]string{"contract", "job_id", "job_name", "bridge_name", "task_id"})
 
 // inMemoryDataSource is an abstraction over the process of initiating a pipeline run
 // and returning the result. Additionally, it converts the result to an
@@ -132,43 +122,10 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pip
 	}
 	finalResult := trrs.FinalResult(ds.lggr)
 
-	extractBridgeMetrics(ds, &trrs, &finalResult)
+	promSetBridgeParseMetrics(ds, &trrs)
+	promSetFinalResultMetrics(ds, &finalResult)
 
 	return run, finalResult, err
-}
-
-func extractBridgeMetrics(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
-	for _, trr := range *trrs {
-		if trr.Task.Type() == pipeline.TaskTypeBridge {
-
-			if nextTask := trrs.GetNextTaskOf(trr); nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
-				fetchedValue, err := getFloat(nextTask.Result.Value)
-				if err == nil {
-					contractAddress := ""
-					if ds.jb.Type == "offchainreporting2" {
-						contractAddress = ds.jb.OCR2OracleSpec.ContractID
-					}
-
-					promBridgeTaskValues.WithLabelValues(contractAddress, fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
-				}
-			}
-		}
-	}
-}
-
-var floatType = reflect.TypeOf(float64(0))
-
-func getFloat(unk interface{}) (float64, error) {
-	if unk == nil {
-		return 0, fmt.Errorf("cannot convert nil to float64")
-	}
-	v := reflect.ValueOf(unk)
-	v = reflect.Indirect(v)
-	if !v.Type().ConvertibleTo(floatType) {
-		return 0, fmt.Errorf("cannot convert %v to float64", v.Type())
-	}
-	fv := v.Convert(floatType)
-	return fv.Float(), nil
 }
 
 // parse uses the finalResult into a big.Int and stores it in the bridge metadata
