@@ -26,22 +26,22 @@ func TestSetupNodes(t *testing.T) {
 [
 	{
 		"name": "mainnet-one",
-		"terraChainId": "mainnet",
+		"solanaChainId": "mainnet",
 		"solanaURL": "ws://test1.invalid"
 	},
 	{
 		"name": "mainnet-two",
-		"terraChainId": "mainnet",
+		"solanaChainId": "mainnet",
 		"solanaURL": "https://test2.invalid"
 	},
 	{
 		"name": "testnet-one",
-		"terraChainId": "testnet",
+		"solanaChainId": "testnet",
 		"solanaURL": "http://test3.invalid"
 	},
 	{
 		"name": "testnet-two",
-		"terraChainId": "testnet",
+		"solanaChainId": "testnet",
 		"solanaURL": "http://test4.invalid"
 	}
 ]

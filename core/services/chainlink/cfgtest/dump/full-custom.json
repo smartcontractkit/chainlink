@@ -86,7 +86,12 @@
         "TxConfirmTimeout": "1h",
         "SkipPreflight": true,
         "Commitment": "foobar",
-        "MaxRetries": 7
+        "MaxRetries": 7,
+        "FeeEstimatorMode": "fixed",
+        "ComputeUnitPriceMax": 1000000,
+        "ComputeUnitPriceMin": 0,
+        "ComputeUnitPriceDefault": 0,
+        "FeeBumpPeriod": "3s"
       }
     }
   ],
@@ -121,36 +126,6 @@
       {
         "Name": "primary",
         "URL": "http://stark.node"
-      }
-    ]
-  },
-  "TerraChains": [
-    {
-      "ID": "Columbus-5",
-      "Enabled": true,
-      "CFG": {
-        "BlockRate": "10m6s",
-        "BlocksUntilTxTimeout": 86,
-        "ConfirmPollPeriod": "1m4s",
-        "FallbackGasPriceULuna": "9.5",
-        "FCDURL": "http://fcd.url",
-        "GasLimitMultiplier": 1.65,
-        "MaxMsgsPerBatch": 9,
-        "OCR2CachePollPeriod": "4m",
-        "OCR2CacheTTL": "6h5s",
-        "TxMsgTimeout": "9m"
-      }
-    }
-  ],
-  "TerraNodes": {
-    "Columbus-5": [
-      {
-        "Name": "mainnet",
-        "TendermintURL": "http://terra.com"
-      },
-      {
-        "Name": "mainnet-2",
-        "TendermintURL": "http://terra.org"
       }
     ]
   }

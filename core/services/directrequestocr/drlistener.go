@@ -315,16 +315,12 @@ func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId in
 
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle request received",
-		"requestID", formatRequestId(request.RequestId),
-		"data", fmt.Sprintf("%0x", request.Data),
-	)
+	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
 	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
 	requestData := make(map[string]interface{})
 	requestData["requestId"] = formatRequestId(request.RequestId)
-	requestData["data"] = fmt.Sprintf("0x%x", request.Data)
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = requestData
 
@@ -356,13 +352,21 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+
 	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
 	if err != nil {
 		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+
+	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
+		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
+		return
+	}
+
+	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
 	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
 		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
@@ -379,7 +383,8 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
-		// Internal problem: Can't find parsed computation results
+		// Internal problem: Can't find computation results
+		l.logger.Errorw("internal error: can't retrieve computation results field", "requestID", formatRequestId(request.RequestId))
 		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errResult.Error()))
 		return
 	}
@@ -391,7 +396,8 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
 	if errErr != nil {
-		// Internal problem: Can't find parsed computation error
+		// Internal problem: Can't find computation errors
+		l.logger.Errorw("internal error: can't retrieve computation error field", "requestID", formatRequestId(request.RequestId))
 		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errErr.Error()))
 		return
 	}
@@ -405,11 +411,13 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		if len(computationResult) != 0 {
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
 		}
+		l.logger.Debugw("saving computation error", "requestID", formatRequestId(request.RequestId))
 		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
 		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
 	} else {
 		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
 		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
+		l.logger.Debugw("saving computation result", "requestID", formatRequestId(request.RequestId))
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}

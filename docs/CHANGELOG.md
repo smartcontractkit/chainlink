@@ -5,13 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 <!-- unreleased -->
 ## [dev]
 
+### Added
+
+- Support for sending OCR2 job specs to the feeds manager
+
+### Removed
+
+- Terra is no longer supported
+
 ...
 
-## 1.12.0 - UNRELEASED
+## 1.12.1 - UNRELEASED
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
+...
+
+## 1.12.0 - 2023-02-15
 
 ### Added
 
@@ -23,14 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entirely.
 - Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 - Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
-- Support for sending OCR2 job specs to the feeds manager
 
 ### Updated
 
 - Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
 - Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
-- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
-of any values provided via configuration files.
 
 ### Fixed
 

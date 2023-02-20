@@ -63,8 +63,6 @@ HTTPURL = 'https://foo.bar' # Required
 	- [Nodes](#Solana-Nodes)
 - [Starknet](#Starknet)
 	- [Nodes](#Starknet-Nodes)
-- [Terra](#Terra)
-	- [Nodes](#Terra-Nodes)
 
 ## Global<a id='Global'></a>
 ```toml
@@ -4543,6 +4541,11 @@ TxConfirmTimeout = '30s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
+FeeEstimatorMode = 'fixed' # Default
+ComputeUnitPriceMax = 1000 # Default
+ComputeUnitPriceMin = 0 # Default
+ComputeUnitPriceDefault = 0 # Default
+FeeBumpPeriod = '3s' # Default
 ```
 
 
@@ -4618,6 +4621,36 @@ MaxRetries = 0 # Default
 ```
 MaxRetries is the maximum number of times the RPC node will automatically rebroadcast a tx.
 The default is 0 for custom txm rebroadcasting method, set to -1 to use the RPC node's default retry strategy.
+
+### FeeEstimatorMode<a id='Solana-FeeEstimatorMode'></a>
+```toml
+FeeEstimatorMode = 'fixed' # Default
+```
+FeeEstimatorMode is the method used to determine the base fee
+
+### ComputeUnitPriceMax<a id='Solana-ComputeUnitPriceMax'></a>
+```toml
+ComputeUnitPriceMax = 1000 # Default
+```
+ComputeUnitPriceMax is the maximum price per compute unit that a transaction can be bumped to
+
+### ComputeUnitPriceMin<a id='Solana-ComputeUnitPriceMin'></a>
+```toml
+ComputeUnitPriceMin = 0 # Default
+```
+ComputeUnitPriceMin is the minimum price per compute unit that transaction can have
+
+### ComputeUnitPriceDefault<a id='Solana-ComputeUnitPriceDefault'></a>
+```toml
+ComputeUnitPriceDefault = 0 # Default
+```
+ComputeUnitPriceDefault is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+
+### FeeBumpPeriod<a id='Solana-FeeBumpPeriod'></a>
+```toml
+FeeBumpPeriod = '3s' # Default
+```
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 
 ## Solana.Nodes<a id='Solana-Nodes'></a>
 ```toml
@@ -4720,114 +4753,4 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://stark.node' # Example
 ```
 URL is the base HTTP(S) endpoint for this node.
-
-## Terra<a id='Terra'></a>
-```toml
-[[Terra]]
-ChainID = 'Bombay-12' # Example
-Enabled = true # Default
-BlockRate = '6s' # Default
-BlocksUntilTxTimeout = 30 # Default
-ConfirmPollPeriod = '1s' # Default
-FallbackGasPriceULuna = '0.015' # Default
-FCDURL = 'http://terra.com' # Example
-GasLimitMultiplier = '1.5' # Default
-MaxMsgsPerBatch = 100 # Default
-OCR2CachePollPeriod = '4s' # Default
-OCR2CacheTTL = '1m' # Default
-TxMsgTimeout = '10m' # Default
-```
-
-
-### ChainID<a id='Terra-ChainID'></a>
-```toml
-ChainID = 'Bombay-12' # Example
-```
-ChainID is the Terra chain ID. Mandatory.
-
-### Enabled<a id='Terra-Enabled'></a>
-```toml
-Enabled = true # Default
-```
-Enabled enables this chain.
-
-### BlockRate<a id='Terra-BlockRate'></a>
-```toml
-BlockRate = '6s' # Default
-```
-BlockRate is the average time between blocks.
-
-### BlocksUntilTxTimeout<a id='Terra-BlocksUntilTxTimeout'></a>
-```toml
-BlocksUntilTxTimeout = 30 # Default
-```
-BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
-
-### ConfirmPollPeriod<a id='Terra-ConfirmPollPeriod'></a>
-```toml
-ConfirmPollPeriod = '1s' # Default
-```
-ConfirmPollPeriod sets how often check for tx confirmation.
-
-### FallbackGasPriceULuna<a id='Terra-FallbackGasPriceULuna'></a>
-```toml
-FallbackGasPriceULuna = '0.015' # Default
-```
-FallbackGasPriceULuna sets a fallback gas price to use when the estimator is not available.
-
-### FCDURL<a id='Terra-FCDURL'></a>
-```toml
-FCDURL = 'http://terra.com' # Example
-```
-FCDURL sets the FCD URL.
-
-### GasLimitMultiplier<a id='Terra-GasLimitMultiplier'></a>
-```toml
-GasLimitMultiplier = '1.5' # Default
-```
-GasLimitMultiplier scales the estimated gas limit.
-
-### MaxMsgsPerBatch<a id='Terra-MaxMsgsPerBatch'></a>
-```toml
-MaxMsgsPerBatch = 100 # Default
-```
-MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
-
-### OCR2CachePollPeriod<a id='Terra-OCR2CachePollPeriod'></a>
-```toml
-OCR2CachePollPeriod = '4s' # Default
-```
-OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
-
-### OCR2CacheTTL<a id='Terra-OCR2CacheTTL'></a>
-```toml
-OCR2CacheTTL = '1m' # Default
-```
-OCR2CacheTTL is the stale OCR2 cache deadline.
-
-### TxMsgTimeout<a id='Terra-TxMsgTimeout'></a>
-```toml
-TxMsgTimeout = '10m' # Default
-```
-TxMsgTimeout is the maximum age for resending transaction before they expire.
-
-## Terra.Nodes<a id='Terra-Nodes'></a>
-```toml
-[[Terra.Nodes]]
-Name = 'primary' # Example
-TendermintURL = 'http://tender.mint' # Example
-```
-
-
-### Name<a id='Terra-Nodes-Name'></a>
-```toml
-Name = 'primary' # Example
-```
-Name is a unique (per-chain) identifier for this node.
-
-### TendermintURL<a id='Terra-Nodes-TendermintURL'></a>
-```toml
-TendermintURL = 'http://tender.mint' # Example
-```
-TendermintURL is the HTTP(S) tendermint endpoint for this node.
 
