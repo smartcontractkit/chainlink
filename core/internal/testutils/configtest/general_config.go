@@ -122,7 +122,6 @@ type GeneralConfigOverrides struct {
 	FeatureLogPoller          null.Bool
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
-	TerraEnabled              null.Bool
 	P2PEnabled                null.Bool
 	SolanaEnabled             null.Bool
 	StarkNetEnabled           null.Bool
@@ -312,14 +311,6 @@ func (c *TestGeneralConfig) EVMRPCEnabled() bool {
 		return c.Overrides.EVMRPCEnabled.Bool
 	}
 	return c.GeneralConfig.EVMRPCEnabled()
-}
-
-// TerraEnabled allows Terra to be used
-func (c *TestGeneralConfig) TerraEnabled() bool {
-	if c.Overrides.TerraEnabled.Valid {
-		return c.Overrides.TerraEnabled.Bool
-	}
-	return c.GeneralConfig.TerraEnabled()
 }
 
 // SolanaEnabled allows Solana to be used
