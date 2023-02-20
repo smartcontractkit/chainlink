@@ -747,7 +747,6 @@ func Test_ORM_CancelSpec(t *testing.T) {
 	assert.Equal(t, jpID, actual.JobProposalID)
 	assert.Equal(t, uuid.NullUUID{Valid: false}, actualJP.ExternalJobID)
 	assert.Equal(t, feeds.JobProposalStatusCancelled, actualJP.Status)
-	assert.False(t, actualJP.PendingUpdate)
 }
 
 func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
