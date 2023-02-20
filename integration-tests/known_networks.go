@@ -103,6 +103,18 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	// https://era.zksync.io/docs/dev/troubleshooting/important-links.html
+	ZKSyncGoerliTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "ZKSync Goerli Testnet",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   280,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{5 * time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	// klaytnBaobab https://klaytn.foundation/
 	KlaytnBaobab blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
@@ -193,6 +205,7 @@ var (
 		"SIMULATED_NONDEV": SimulatedEVMNonDev,
 		// "GENERAL":         generalEVM, // See above
 		"GOERLI":          GoerliTestnet,
+		"ZK_SYNC_GOERLI":  ZKSyncGoerliTestnet,
 		"SEPOLIA":         SepoliaTestnet,
 		"KLAYTN_BAOBAB":   KlaytnBaobab,
 		"METIS_STARDUST":  MetisStardust,
