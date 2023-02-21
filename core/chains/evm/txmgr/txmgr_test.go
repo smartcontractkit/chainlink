@@ -729,6 +729,7 @@ func TestTxm_Reset(t *testing.T) {
 	})
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
+	defer func() { assert.NoError(t, txm.Close()) }()
 
 	t.Run("calls function if started", func(t *testing.T) {
 		f := new(fnMock)
@@ -758,4 +759,5 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
+
 }
