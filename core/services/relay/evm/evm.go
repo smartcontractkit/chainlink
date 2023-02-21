@@ -185,7 +185,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	}
 
 	var configPoller *ConfigPoller
-	if relayConfig.MercuryConfig.FeedID != (common.Hash{}) {
+	if relayConfig.MercuryConfig != nil && relayConfig.MercuryConfig.FeedID != (common.Hash{}) {
 		configPoller, err = NewConfigPoller(lggr,
 			chain.LogPoller(),
 			contractAddress,
