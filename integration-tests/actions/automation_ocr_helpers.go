@@ -17,37 +17,77 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
-func BuildAutoOCR2ConfigVars(
+func BuildMercuryOCR2Config(
+	t *testing.T,
+	chainlinkNodes []*client.Chainlink,
+) contracts.OCRConfig {
+	onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
+	require.NoError(t, err, "Shouldn't fail encoding config")
+
+	alphaPPB := uint64(1000)
+
+	return BuildGeneralOCR2Config(
+		t,
+		chainlinkNodes,
+		2*time.Second,        // deltaProgress time.Duration,
+		20*time.Second,       // deltaResend time.Duration,
+		100*time.Millisecond, // deltaRound time.Duration,
+		0,                    // deltaGrace time.Duration,
+		1*time.Minute,        // deltaStage time.Duration,
+		100,                  // rMax uint8,
+		[]int{len(chainlinkNodes)},
+		median.OffchainConfig{
+			false,
+			alphaPPB,
+			false,
+			alphaPPB,
+			0,
+		}.Encode(),
+		0*time.Millisecond,   // maxDurationQuery time.Duration,
+		250*time.Millisecond, // maxDurationObservation time.Duration,
+		250*time.Millisecond, // maxDurationReport time.Duration,
+		250*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		250*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                    // f int,
+		onchainConfig,
+	)
+}
+
+func BuildKeepersOCR2Config(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
 ) contracts.OCRConfig {
-	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
+	require.NoError(t, err, "Shouldn't fail encoding config")
 
-	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	s := make([]int, len(chainlinkNodes))
+
+	return BuildGeneralOCR2Config(
+		t,
+		chainlinkNodes,
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		1000*time.Millisecond, // deltaRound time.Duration,
 		20*time.Millisecond,   // deltaGrace time.Duration,
 		deltaStage,            // deltaStage time.Duration,
 		48,                    // rMax uint8,
-		S,                     // s []int,
-		oracleIdentities,      // oracles []OracleIdentityExtra,
+		s,
 		types2.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -59,13 +99,54 @@ func BuildAutoOCR2ConfigVars(
 			MinConfirmations:     0,
 			MaxUpkeepBatchSize:   20,
 		}.Encode(), // reportingPluginConfig []byte,
-		20*time.Millisecond,  // maxDurationQuery time.Duration,
-		20*time.Millisecond,  // maxDurationObservation time.Duration,
-		800*time.Millisecond, // maxDurationReport time.Duration,
-		20*time.Millisecond,  // maxDurationShouldAcceptFinalizedReport time.Duration,
-		20*time.Millisecond,  // maxDurationShouldTransmitAcceptedReport time.Duration,
+		0*time.Millisecond,   // maxDurationQuery time.Duration,
+		250*time.Millisecond, // maxDurationObservation time.Duration,
+		250*time.Millisecond, // maxDurationReport time.Duration,
+		250*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		250*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
 		1,                    // f int,
-		nil,                  // onchainConfig []byte,
+		onchainConfig,
+	)
+}
+
+func BuildGeneralOCR2Config(
+	t *testing.T,
+	chainlinkNodes []*client.Chainlink,
+	deltaProgress time.Duration,
+	deltaResend time.Duration,
+	deltaRound time.Duration,
+	deltaGrace time.Duration,
+	deltaStage time.Duration,
+	rMax uint8,
+	s []int,
+	reportingPluginConfig []byte,
+	maxDurationQuery time.Duration,
+	maxDurationObservation time.Duration,
+	maxDurationReport time.Duration,
+	maxDurationShouldAcceptFinalizedReport time.Duration,
+	maxDurationShouldTransmitAcceptedReport time.Duration,
+	f int,
+	onchainConfig []byte,
+) contracts.OCRConfig {
+	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+
+	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		deltaProgress,
+		deltaResend,
+		deltaRound,
+		deltaGrace,
+		deltaStage,
+		rMax,
+		s,
+		oracleIdentities,
+		reportingPluginConfig,
+		maxDurationQuery,
+		maxDurationObservation,
+		maxDurationReport,
+		maxDurationShouldAcceptFinalizedReport,
+		maxDurationShouldTransmitAcceptedReport,
+		f,
+		onchainConfig,
 	)
 	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
 
@@ -81,15 +162,12 @@ func BuildAutoOCR2ConfigVars(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
-	require.NoError(t, err, "Shouldn't fail encoding config")
-
-	log.Info().Msg("Done building OCR config")
+	log.Info().Msg("Done building OCR2 config")
 	return contracts.OCRConfig{
 		Signers:               signers,
 		Transmitters:          transmitters,
-		F:                     f,
-		OnchainConfig:         onchainConfig,
+		F:                     f_,
+		OnchainConfig:         onchainConfig_,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}
