@@ -360,29 +360,49 @@ func (g *generalConfig) SolanaEnabled() bool {
 	return false
 }
 
-// Currently plugins are only supported on Solana configs
 func (g *generalConfig) ChainPluginsSpecified() (bool, error) {
-	// Are any of our Solana configs wanting to use the experimental Solana plugin?
-	for _, c := range g.c.Solana {
-		if c.Plugin != nil && *c.Plugin == true {
-			// DEV NOTE: We are only indicating if a config has requested to use a plugin
-			return true, nil
-		}
-	}
+	/*
+		Currently plugins are only supported on Solana configs - are any of our Solana
+		configs wanting to use the experimental Solana plugin?
+		Other chain configs specifying plugin usage should result in an error
 
-	// Any other configs requesting plugin support should be an error
+		DEV NOTE: Per chain config validation can and should occur before this call
+		is executed, during POC that configuration is strict and will likely halt node
+		startup before getting to this point
+	*/
+	var (
+		badEVMConfig      bool
+		badStarknetConfig bool
+	)
+
 	for _, c := range g.c.EVM {
 		if c.Plugin != nil && *c.Plugin == true {
-			return false, errors.New("experimental plugin support for EVM chains is not currently available")
+			badEVMConfig = true
 		}
 	}
 
 	for _, c := range g.c.Starknet {
 		if c.Plugin != nil && *c.Plugin == true {
-			return false, errors.New("experimental plugin support for Starknet chains is not currently available")
+			badStarknetConfig = true
 		}
 	}
 
+	if badEVMConfig || badStarknetConfig {
+		err := errors.New("bad chain plugin config")
+		if badEVMConfig {
+			err = errors.Wrap(err, "experimental plugin support for EVM chains is not currently available")
+		}
+		if badStarknetConfig {
+			err = errors.Wrap(err, "experimental plugin support for Starknet chains is not currently available")
+		}
+		return false, err
+	}
+
+	for _, c := range g.c.Solana {
+		if c.Plugin != nil && *c.Plugin == true {
+			return true, nil
+		}
+	}
 	return false, nil
 }
 
