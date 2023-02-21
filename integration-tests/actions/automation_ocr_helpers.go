@@ -2,17 +2,12 @@ package actions
 
 //revive:disable:dot-imports
 import (
-	"crypto/ed25519"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -22,51 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
 
-func BuildMercuryOCR2Config(
-	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
-) contracts.OCRConfig {
-	onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
-	require.NoError(t, err, "Shouldn't fail encoding config")
-
-	alphaPPB := uint64(1000)
-
-	return BuildGeneralOCR2Config(
-		t,
-		chainlinkNodes,
-		2*time.Second,        // deltaProgress time.Duration,
-		20*time.Second,       // deltaResend time.Duration,
-		100*time.Millisecond, // deltaRound time.Duration,
-		0,                    // deltaGrace time.Duration,
-		1*time.Minute,        // deltaStage time.Duration,
-		100,                  // rMax uint8,
-		[]int{len(chainlinkNodes)},
-		median.OffchainConfig{
-			false,
-			alphaPPB,
-			false,
-			alphaPPB,
-			0,
-		}.Encode(),
-		0*time.Millisecond,   // maxDurationQuery time.Duration,
-		250*time.Millisecond, // maxDurationObservation time.Duration,
-		250*time.Millisecond, // maxDurationReport time.Duration,
-		250*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
-		250*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                    // f int,
-		onchainConfig,
-	)
-}
-
-func BuildKeepersOCR2Config(
+func BuildAutomationOCR2Config(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 	registryConfig contracts.KeeperRegistrySettings,
@@ -99,139 +55,14 @@ func BuildKeepersOCR2Config(
 			MinConfirmations:     0,
 			MaxUpkeepBatchSize:   20,
 		}.Encode(), // reportingPluginConfig []byte,
-		0*time.Millisecond,   // maxDurationQuery time.Duration,
-		250*time.Millisecond, // maxDurationObservation time.Duration,
-		250*time.Millisecond, // maxDurationReport time.Duration,
-		250*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
-		250*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
+		20*time.Millisecond,  // maxDurationQuery time.Duration,
+		20*time.Millisecond,  // maxDurationObservation time.Duration,
+		800*time.Millisecond, // maxDurationReport time.Duration,
+		20*time.Millisecond,  // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,  // maxDurationShouldTransmitAcceptedReport time.Duration,
 		1,                    // f int,
 		onchainConfig,
 	)
-}
-
-func BuildGeneralOCR2Config(
-	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
-	deltaProgress time.Duration,
-	deltaResend time.Duration,
-	deltaRound time.Duration,
-	deltaGrace time.Duration,
-	deltaStage time.Duration,
-	rMax uint8,
-	s []int,
-	reportingPluginConfig []byte,
-	maxDurationQuery time.Duration,
-	maxDurationObservation time.Duration,
-	maxDurationReport time.Duration,
-	maxDurationShouldAcceptFinalizedReport time.Duration,
-	maxDurationShouldTransmitAcceptedReport time.Duration,
-	f int,
-	onchainConfig []byte,
-) contracts.OCRConfig {
-	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
-
-	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		deltaProgress,
-		deltaResend,
-		deltaRound,
-		deltaGrace,
-		deltaStage,
-		rMax,
-		s,
-		oracleIdentities,
-		reportingPluginConfig,
-		maxDurationQuery,
-		maxDurationObservation,
-		maxDurationReport,
-		maxDurationShouldAcceptFinalizedReport,
-		maxDurationShouldTransmitAcceptedReport,
-		f,
-		onchainConfig,
-	)
-	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
-
-	var signers []common.Address
-	for _, signer := range signerOnchainPublicKeys {
-		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
-		signers = append(signers, common.BytesToAddress(signer))
-	}
-
-	var transmitters []common.Address
-	for _, transmitter := range transmitterAccounts {
-		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
-		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
-	}
-
-	log.Info().Msg("Done building OCR2 config")
-	return contracts.OCRConfig{
-		Signers:               signers,
-		Transmitters:          transmitters,
-		F:                     f_,
-		OnchainConfig:         onchainConfig_,
-		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
-	}
-}
-
-func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
-	S := make([]int, len(chainlinkNodes))
-	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
-	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
-	var wg sync.WaitGroup
-	for i, cl := range chainlinkNodes {
-		wg.Add(1)
-		go func(i int, cl *client.Chainlink) {
-			defer wg.Done()
-
-			address, err := cl.PrimaryEthAddress()
-			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
-			ocr2Keys, err := cl.MustReadOCR2Keys()
-			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
-			var ocr2Config client.OCR2KeyAttributes
-			for _, key := range ocr2Keys.Data {
-				if key.Attributes.ChainType == string(chaintype.EVM) {
-					ocr2Config = key.Attributes
-					break
-				}
-			}
-
-			keys, err := cl.MustReadP2PKeys()
-			require.NoError(t, err, "Shouldn't fail reading P2P keys from node")
-			p2pKeyID := keys.Data[0].Attributes.PeerID
-
-			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
-
-			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
-			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
-
-			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
-
-			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			n = copy(configPkBytesFixed[:], configPkBytes)
-			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
-
-			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
-
-			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
-			oracleIdentities[i] = confighelper.OracleIdentityExtra{
-				OracleIdentity: confighelper.OracleIdentity{
-					OnchainPublicKey:  onchainPkBytes,
-					OffchainPublicKey: offchainPkBytesFixed,
-					PeerID:            p2pKeyID,
-					TransmitAccount:   types.Account(address),
-				},
-				ConfigEncryptionPublicKey: configPkBytesFixed,
-			}
-			S[i] = 1
-		}(i, cl)
-	}
-	wg.Wait()
-	log.Info().Msg("Done fetching oracle identities")
-	return S, oracleIdentities
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
