@@ -91,8 +91,8 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 	finalityDepth := 5
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(10e9)
 	p.Property("synchronized with geth", prop.ForAll(func(mineOrReorg []uint64) bool {
