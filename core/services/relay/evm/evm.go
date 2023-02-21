@@ -183,11 +183,20 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configPoller, err := NewConfigPoller(lggr,
-		chain.LogPoller(),
-		contractAddress,
-		WithFeedId(relayConfig.MercuryConfig.FeedID),
-	)
+
+	var configPoller *ConfigPoller
+	if relayConfig.MercuryConfig.FeedID != (common.Hash{}) {
+		configPoller, err = NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+			WithFeedId(relayConfig.MercuryConfig.FeedID),
+		)
+	} else {
+		configPoller, err = NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
