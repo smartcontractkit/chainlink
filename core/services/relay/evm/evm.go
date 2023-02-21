@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
-	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -186,6 +186,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	configPoller, err := NewConfigPoller(lggr,
 		chain.LogPoller(),
 		contractAddress,
+		WithFeedId(relayConfig.MercuryConfig.FeedID),
 	)
 	if err != nil {
 		return nil, err
