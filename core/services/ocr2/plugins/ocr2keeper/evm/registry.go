@@ -161,15 +161,6 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) 
 	}
 }
 
-func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdentifier, error) {
-	_, id, err := blockAndIdFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return id.Bytes(), nil
-}
-
 func (r *EvmRegistry) Start(ctx context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
