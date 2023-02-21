@@ -121,7 +121,6 @@ func printConfigValues(config *confighelper.PublicConfig) {
 		data = append(data, []string{"PerformLockoutWindow", fmt.Sprintf("%d", offConf.PerformLockoutWindow)})
 		data = append(data, []string{"SamplingJobDuration", fmt.Sprintf("%d", offConf.SamplingJobDuration)})
 		data = append(data, []string{"TargetInRounds", fmt.Sprintf("%d", offConf.TargetInRounds)})
-		data = append(data, []string{"UniqueReports", fmt.Sprintf("%t", offConf.UniqueReports)})
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
