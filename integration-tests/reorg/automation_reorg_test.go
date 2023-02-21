@@ -37,13 +37,27 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+	simulatedEVMNonDevTOML = `
+[[EVM]]
+ChainID = 1337
+MinContractPayment = '0'
+Enabled = true
+FinalityDepth = 50
+LogPollInterval = '1s'
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000`
 	networkTOML = `FinalityDepth = 200
 
 [EVM.HeadTracker]
 HistoryDepth = 400`
 	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
+		"toml":     client.AddNetworkDetailedConfig(baseTOML+simulatedEVMNonDevTOML, networkTOML, activeEVMNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": false,
@@ -100,11 +114,11 @@ const (
 )
 
 func TestAutomationReorg(t *testing.T) {
-	network := networks.SimulatedEVMNonDev1
+	network := networks.SelectedNetwork
 
 	testEnvironment := environment.
 		New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("reorg-automation-%d", automationReorgBlocks),
+			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
 			TTL:             time.Hour * 1}).
 		AddHelm(reorg.New(defaultReorgEthereumSettings)).
 		AddHelm(chainlink.New(0, defaultAutomationSettings)).
@@ -149,7 +163,7 @@ func TestAutomationReorg(t *testing.T) {
 
 	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 1*time.Second)
 	err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be be set successfully")
 	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
@@ -179,7 +193,7 @@ func TestAutomationReorg(t *testing.T) {
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
-	}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 	rc, err := NewReorgController(
 		&ReorgConfig{
