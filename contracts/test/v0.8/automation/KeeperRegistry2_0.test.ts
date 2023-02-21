@@ -2431,12 +2431,18 @@ describe('KeeperRegistry2_0', () => {
 
       it('returns false, error code, and revert data if the target check reverts', async () => {
         await mock.setShouldRevertCheck(true)
-        let checkUpkeepResult = await registry
+        const checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(upkeepId)
-
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
-        const revertReasonBytes = `0x${checkUpkeepResult.performData.slice(10)}` // remove sighash
+
+        const wrappedPerfromData = ethers.utils.defaultAbiCoder.decode(
+          [
+            'tuple(uint32 checkBlockNum, bytes32 checkBlockHash, bytes performData)',
+          ],
+          checkUpkeepResult.performData,
+        )
+        const revertReasonBytes = `0x${wrappedPerfromData[0][2].slice(10)}` // remove sighash
         assert.equal(
           ethers.utils.defaultAbiCoder.decode(['string'], revertReasonBytes)[0],
           'shouldRevertCheck should be false',
