@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -26,9 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -58,6 +57,24 @@ PerformGasOverhead = 150_000
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+
+	automationEnvVars = map[string]any{
+		"FEATURE_LOG_POLLER":                   "true",
+		"FEATURE_OFFCHAIN_REPORTING2":          "true",
+		"FEATURE_OFFCHAIN_REPORTING":           "false",
+		"KEEPER_TURN_LOOK_BACK":                "0",
+		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5m",
+		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
+
+		"P2PV2_ANNOUNCE_ADDRESSES": "0.0.0.0:6690",
+		"P2PV2_LISTEN_ADDRESSES":   "0.0.0.0:6690",
+		"P2P_ANNOUNCE_IP":          "",
+		"P2P_ANNOUNCE_PORT":        "",
+		"P2P_BOOTSTRAP_PEERS":      "",
+		"P2P_LISTEN_IP":            "",
+		"P2P_LISTEN_PORT":          "",
+	}
+
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -98,6 +115,7 @@ func TestMain(m *testing.M) {
 
 func TestAutomatedBasic(t *testing.T) {
 	t.Parallel()
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "basic-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -164,6 +182,7 @@ func TestAutomatedBasic(t *testing.T) {
 
 func TestAutomatedAddFunds(t *testing.T) {
 	t.Parallel()
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "add-funds", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -215,6 +234,7 @@ func TestAutomatedAddFunds(t *testing.T) {
 
 func TestAutomatedPauseUnPause(t *testing.T) {
 	t.Parallel()
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "pause-unpause", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -298,6 +318,7 @@ func TestAutomatedPauseUnPause(t *testing.T) {
 
 func TestAutomatedRegisterUpkeep(t *testing.T) {
 	t.Parallel()
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "register-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -370,6 +391,7 @@ func TestAutomatedRegisterUpkeep(t *testing.T) {
 
 func TestAutomatedPauseRegistry(t *testing.T) {
 	t.Parallel()
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "pause-registry", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -428,6 +450,7 @@ func TestAutomatedPauseRegistry(t *testing.T) {
 
 func TestAutomatedKeeperNodesDown(t *testing.T) {
 	t.Parallel()
+
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "keeper-nodes-down", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -514,6 +537,7 @@ func TestAutomatedKeeperNodesDown(t *testing.T) {
 
 func TestAutomatedPerformSimulation(t *testing.T) {
 	t.Parallel()
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "perform-simulation", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -568,6 +592,7 @@ func TestAutomatedPerformSimulation(t *testing.T) {
 
 func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
+
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "gas-limit", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -751,6 +776,22 @@ func setupAutomationTest(
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		})
+		// For if we end up using env vars
+		automationEnvVars["ETH_URL"] = network.URLs[0]
+		automationEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
+		automationEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
+	}
+	chainlinkChart := chainlink.New(0, map[string]any{
+		"replicas": "5",
+		"toml":     client.AddNetworksConfig(automationBaseTOML, network),
+	})
+
+	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+	if useEnvVars == "true" {
+		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
+			"replicas": "5",
+			"env":      automationEnvVars,
+		})
 	}
 
 	testEnvironment := environment.New(&environment.Config{
@@ -760,10 +801,7 @@ func setupAutomationTest(
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(automationBaseTOML, network),
-		}))
+		AddHelm(chainlinkChart)
 	err := testEnvironment.Run()
 
 	require.NoError(t, err, "Error setting up test environment")

@@ -63,6 +63,22 @@ var (
 		GasEstimationBuffer:       10000,
 	}
 
+	SimulatedEVMNonDev = blockchain.EVMNetwork{
+		Name:                 "simulated",
+		Simulated:            true,
+		ClientImplementation: blockchain.EthereumClientImplementation,
+		ChainID:              1337,
+		PrivateKeys: []string{
+			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+		URLs:                      []string{"ws://simulated-ethereum-geth:8546"},
+		HTTPURLs:                  []string{"http://simulated-ethereum-geth:8544"},
+		ChainlinkTransactionLimit: 500000,
+		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       10000,
+	}
+
 	// sepoliaTestnet https://sepolia.dev/
 	SepoliaTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Sepolia Testnet",
@@ -171,9 +187,10 @@ var (
 	}
 
 	mappedNetworks = map[string]blockchain.EVMNetwork{
-		"SIMULATED":   SimulatedEVM,
-		"SIMULATED_1": SimulatedEVMNonDev1,
-		"SIMULATED_2": SimulatedEVMNonDev2,
+		"SIMULATED":        SimulatedEVM,
+		"SIMULATED_1":      SimulatedEVMNonDev1,
+		"SIMULATED_2":      SimulatedEVMNonDev2,
+		"SIMULATED_NONDEV": SimulatedEVMNonDev,
 		// "GENERAL":         generalEVM, // See above
 		"GOERLI":          GoerliTestnet,
 		"SEPOLIA":         SepoliaTestnet,

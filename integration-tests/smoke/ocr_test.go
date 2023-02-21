@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -18,11 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
-
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -81,7 +82,12 @@ func TestOCRBasic(t *testing.T) {
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 }
 
-func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+var ocrEnvVars = map[string]any{}
+
+func setupOCRTest(t *testing.T) (
+	testEnvironment *environment.Environment,
+	testNetwork blockchain.EVMNetwork,
+) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
@@ -90,7 +96,25 @@ func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testN
 			Simulated:   testNetwork.Simulated,
 			WsURLs:      testNetwork.URLs,
 		})
+		// For if we end up using env vars
+		ocrEnvVars["ETH_URL"] = testNetwork.URLs[0]
+		ocrEnvVars["ETH_HTTP_URL"] = testNetwork.HTTPURLs[0]
+		ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
 	}
+	chainlinkChart := chainlink.New(0, map[string]interface{}{
+		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
+		"replicas": 6,
+	})
+
+	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+	if useEnvVars == "true" {
+		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
+			"replicas": 6,
+			"env":      ocrEnvVars,
+		})
+		log.Debug().Interface("Env", ocrEnvVars).Msg("Using Environment Variable Config")
+	}
+
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -98,10 +122,7 @@ func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testN
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
-			"replicas": 6,
-		}))
+		AddHelm(chainlinkChart)
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork

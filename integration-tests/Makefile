@@ -86,7 +86,7 @@ test_smoke_simulated: install_gotestfmt ## Run all smoke tests on simulated bloc
 test_smoke_verbose: ## Run all smoke tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) ./smoke
 
-.PHONY: test_smoke_verbose
+.PHONY: test_smoke_simulated_verbose
 test_smoke_simulated_verbose: ## Run all smoke tests with verbose logging
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 24h -count=1 -v $(args) ./smoke
@@ -153,5 +153,5 @@ test_soak_automation_simulated:
 	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
-test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests
-	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
+test_benchmark_automation: ## Run the automation benchmark tests
+	go test -timeout 30m -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1

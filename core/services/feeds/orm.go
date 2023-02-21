@@ -318,7 +318,7 @@ func (o *orm) CountJobProposals() (count int64, err error) {
 // CountJobProposals counts the number of job proposal records.
 func (o *orm) CountJobProposalsByStatus() (counts *JobProposalCounts, err error) {
 	stmt := `
-SELECT 
+SELECT
 	COUNT(*) filter (where job_proposals.status = 'pending') as pending,
 	COUNT(*) filter (where job_proposals.status = 'approved') as approved,
 	COUNT(*) filter (where job_proposals.status = 'rejected') as rejected,
@@ -491,7 +491,6 @@ RETURNING job_proposal_id;
 UPDATE job_proposals
 SET status = $1,
 	external_job_id = $2,
-	pending_update = FALSE,
 	updated_at = NOW()
 WHERE id = $3;
 `
