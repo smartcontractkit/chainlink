@@ -497,6 +497,8 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 }
 
 func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) error {
+	o.lggr.Debugf("BCF-2095 sleeping in Record Error")
+	time.Sleep(1 * time.Second)
 	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO job_spec_errors (job_id, description, occurrences, created_at, updated_at)
 	VALUES ($1, $2, 1, $3, $3)
