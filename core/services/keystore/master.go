@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -251,6 +252,7 @@ func (km *keyManager) Unlock(password string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to get encrypted key ring")
 	}
+	ekr.lggr = km.logger
 	kr, err := ekr.Decrypt(password)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt encrypted key ring")

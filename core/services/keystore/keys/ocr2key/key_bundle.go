@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
@@ -92,7 +93,7 @@ func (kb keyBundleBase) GoString() string {
 // nolint
 type Raw []byte
 
-func (raw Raw) Key() (kb KeyBundle) {
+func (raw Raw) Key() (kb KeyBundle, error error) {
 	var temp struct{ ChainType chaintype.ChainType }
 	err := json.Unmarshal(raw, &temp)
 	if err != nil {
@@ -106,7 +107,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:
-		return
+		return nil, errors.Errorf("Detected ocr2 key for unsupported chain '%s'", temp.ChainType)
 	}
 	if err := kb.Unmarshal(raw); err != nil {
 		panic(err)

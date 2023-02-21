@@ -58,7 +58,8 @@ func TestOCR2KeyBundle_RawToKey(t *testing.T) {
 		pk, err := ocr2key.New(chain)
 		require.NoError(t, err)
 
-		pkFromRaw := pk.Raw().Key()
+		pkFromRaw, err := pk.Raw().Key()
+		assert.NoError(t, err)
 		assert.NotNil(t, pkFromRaw)
 	}
 }
