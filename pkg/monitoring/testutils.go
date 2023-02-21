@@ -212,7 +212,7 @@ func generateBigInt(bitSize uint8) *big.Int {
 
 func generate32ByteArr() [32]byte {
 	buf := make([]byte, 32)
-	_, err := rand.Read(buf)
+	_, err := cryptoRand.Read(buf)
 	if err != nil {
 		panic("unable to generate [32]byte from rand")
 	}

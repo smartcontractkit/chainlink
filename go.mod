@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink-relay
 
-go 1.19
+go 1.20
 
 require (
 	github.com/confluentinc/confluent-kafka-go v1.8.2
