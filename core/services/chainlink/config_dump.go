@@ -520,6 +520,8 @@ func (c *Config) loadLegacyCoreEnv() error {
 
 	c.Feature = config.Feature{
 		FeedsManager: envvar.NewBool("FeatureFeedsManager").ParsePtr(),
+		LogPoller:    envvar.NewBool("FeatureLogPoller").ParsePtr(),
+		UICSAKeys:    envvar.NewBool("FeatureUICSAKeys").ParsePtr(),
 	}
 	c.AuditLogger = audit.AuditLoggerConfig{
 		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
