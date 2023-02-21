@@ -1032,16 +1032,20 @@ func (o *OffchainAggregatorRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader
 	}
 	o.blocksSinceAnswer++
 	currRound := lr.RoundId
-	ocrLog := log.Info().
-		Str("Contract Address", o.ocrInstance.Address()).
-		Int64("Current Round", currRound.Int64()).
-		Int64("Waiting for Round", o.roundID.Int64())
 	if currRound.Cmp(o.roundID) >= 0 {
-		ocrLog.Msg("OCR round completed")
+		log.Info().
+			Str("Contract Address", o.ocrInstance.Address()).
+			Int64("Current Round", currRound.Int64()).
+			Int64("Waiting for Round", o.roundID.Int64()).
+			Msg("OCR round completed")
 		o.doneChan <- struct{}{}
 		o.complete = true
 	} else {
-		ocrLog.Msg("Waiting for OCR round")
+		log.Debug().
+			Str("Contract Address", o.ocrInstance.Address()).
+			Int64("Current Round", currRound.Int64()).
+			Int64("Waiting for Round", o.roundID.Int64()).
+			Msg("OCR round completed")
 	}
 	return nil
 }

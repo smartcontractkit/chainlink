@@ -13,10 +13,12 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/stretchr/testify/require"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -37,7 +39,7 @@ func TestCronBasic(t *testing.T) {
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
 	// Register cleanup for any test
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, nil)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, nil)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
