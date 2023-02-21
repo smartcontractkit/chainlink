@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE log_poller_filters(
+CREATE TABLE evm_log_poller_filters(
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL CHECK (length(name) > 0),
     address BYTEA CHECK (octet_length(address) = 20) NOT NULL,
@@ -12,5 +12,5 @@ CREATE TABLE log_poller_filters(
 
 -- +goose Down
 
-DROP TABLE log_poller_filters CASCADE;
+DROP TABLE evm_log_poller_filters CASCADE;
 
