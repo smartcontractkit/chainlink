@@ -65,7 +65,7 @@ func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 // DeleteFilter removes all events,address pairs associated with the filter
 func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM log_poller_filters WHERE name = $1`, name)
+	return q.ExecQ(`DELETE FROM log_poller_filters WHERE name = $1 AND evm_chain_id = $2`, name, utils.NewBig(o.chainID))
 }
 
 // LoadFiltersForChain returns all filters for this chain

@@ -428,9 +428,9 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 		dbFilter := dbFilter
 		memFilter, ok := lp.filters[name]
 		require.True(t, ok)
-		assert.True(t, dbFilter.compareTo(&memFilter),
+		assert.True(t, memFilter.contains(&dbFilter),
 			fmt.Sprintf("in-memory filter %s is missing some addresses or events from db filter table", name))
-		assert.True(t, memFilter.compareTo(&dbFilter),
+		assert.True(t, dbFilter.contains(&memFilter),
 			fmt.Sprintf("db filter table %s is missing some addresses or events from in-memory filter", name))
 	}
 }
@@ -517,6 +517,15 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 }
 
 func TestLogPoller_LoadFilters(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	o := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	ec := evmmocks.NewClient(t)
+
+	lp := NewLogPoller(o, ec, lggr, 1*time.Hour, 2, 3, 2, 1000)
+	lp.run()
+
 	th := SetupTH(t, 2, 3, 2)
 
 	filter1 := Filter{"first filter", []common.Hash{
@@ -540,18 +549,18 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 
 	filter, ok := filters["first filter"]
 	require.True(t, ok)
-	assert.True(t, filter.compareTo(&filter1))
-	assert.True(t, filter1.compareTo(&filter))
+	assert.True(t, filter.contains(&filter1))
+	assert.True(t, filter1.contains(&filter))
 
 	filter, ok = filters["second filter"]
 	require.True(t, ok)
-	assert.True(t, filter.compareTo(&filter2))
-	assert.True(t, filter2.compareTo(&filter))
+	assert.True(t, filter.contains(&filter2))
+	assert.True(t, filter2.contains(&filter))
 
 	filter, ok = filters["third filter"]
 	require.True(t, ok)
-	assert.True(t, filter.compareTo(&filter3))
-	assert.True(t, filter3.compareTo(&filter))
+	assert.True(t, filter.contains(&filter3))
+	assert.True(t, filter3.contains(&filter))
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {

@@ -145,28 +145,27 @@ func FilterName(id string, args ...any) string {
 	return s.String()
 }
 
-// compareTo returns true if this filter is already contained within existing filter
-//
-// Returns false if it includes any new addresses or events.
-func (filter *Filter) compareTo(existing *Filter) bool {
-	if existing == nil {
+// contains returns true if this filter already fully contains a
+// filter passed to it.
+func (filter *Filter) contains(other *Filter) bool {
+	if other == nil {
 		return true
 	}
 	addresses := make(map[common.Address]interface{})
-	for _, addr := range existing.Addresses {
+	for _, addr := range filter.Addresses {
 		addresses[addr] = struct{}{}
 	}
 	events := make(map[common.Hash]interface{})
-	for _, ev := range existing.EventSigs {
+	for _, ev := range filter.EventSigs {
 		events[ev] = struct{}{}
 	}
 
-	for _, addr := range filter.Addresses {
+	for _, addr := range other.Addresses {
 		if _, ok := addresses[addr]; !ok {
 			return false
 		}
 	}
-	for _, ev := range filter.EventSigs {
+	for _, ev := range other.EventSigs {
 		if _, ok := events[ev]; !ok {
 			return false
 		}
@@ -209,7 +208,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	defer lp.filterMu.Unlock()
 
 	if existingFilter, ok := lp.filters[filter.Name]; ok {
-		if filter.compareTo(&existingFilter) {
+		if existingFilter.contains(&filter) {
 			// Nothing new in this filter
 			return nil
 		}
