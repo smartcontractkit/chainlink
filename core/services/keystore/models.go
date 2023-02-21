@@ -324,8 +324,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	for _, rawOCR2Key := range rawKeys.OCR2 {
-		ocr2Key := rawOCR2Key.Key()
-		keyRing.OCR2[ocr2Key.ID()] = ocr2Key
+		// ocr2Key might be nil if unsupported chain keys are in the db
+		if ocr2Key := rawOCR2Key.Key(); ocr2Key != nil {
+			keyRing.OCR2[ocr2Key.ID()] = ocr2Key
+		}
 	}
 	for _, rawP2PKey := range rawKeys.P2P {
 		p2pKey := rawP2PKey.Key()

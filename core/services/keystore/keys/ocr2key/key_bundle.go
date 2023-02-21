@@ -106,7 +106,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:
-		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
+		return
 	}
 	if err := kb.Unmarshal(raw); err != nil {
 		panic(err)
