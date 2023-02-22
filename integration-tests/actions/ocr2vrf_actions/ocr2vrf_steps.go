@@ -58,9 +58,9 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	require.NoError(t, err, "Error setting OCR config for DKG contract")
 
 	// wait for the event ConfigSet from DKG contract
-	// dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent()
-	// require.NoError(t, err, "Error waiting for ConfigSet Event for DKG contract")
-	// log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config Set")
+	dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent()
+	require.NoError(t, err, "Error waiting for ConfigSet Event for DKG contract")
+	log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config Set")
 	// wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
 	dkgSharesTransmittedEvent, err := dkg.WaitForTransmittedEvent()
 	require.NoError(t, err)
