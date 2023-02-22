@@ -254,7 +254,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -265,6 +265,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 0)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, callback requests", func(t *testing.T) {
@@ -311,7 +313,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -322,6 +324,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 3)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, beacon requests, beacon fulfillments", func(t *testing.T) {
@@ -376,7 +380,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -387,6 +391,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, callback requests, callback fulfillments", func(t *testing.T) {
@@ -445,7 +451,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -456,6 +462,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, only beacon fulfillment", func(t *testing.T) {
@@ -505,7 +513,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -516,6 +524,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, callback requests & callback fulfillments in-flight", func(t *testing.T) {
@@ -605,7 +615,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}, coordinatorAddress),
 		}, nil).Once()
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -616,6 +626,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, blocks requested hits batch gas limit", func(t *testing.T) {
@@ -667,7 +679,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        blockhashLookback,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{1: {}},
@@ -681,6 +693,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 99)
 		assert.Len(t, callbacks, 0)
+		assert.Equal(t, uint64(latestHeadNumber-blockhashLookback+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(blockhashLookback))
 	})
 
 	t.Run("happy path, last callback hits batch gas limit", func(t *testing.T) {
@@ -729,7 +743,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -743,6 +757,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 2)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, sandwiched callbacks hit batch gas limit", func(t *testing.T) {
@@ -791,7 +807,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -804,6 +820,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 1)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("happy path, sandwiched callbacks with valid callback in next block hit batch gas limit", func(t *testing.T) {
@@ -853,7 +871,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, _, _, err := c.ReportBlocks(
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -868,6 +886,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 2)
 		assert.Len(t, callbacks, 2)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
 	t.Run("logpoller GetBlocks returns error", func(tt *testing.T) {
