@@ -72,6 +72,7 @@ func (er *EthResender) Start() {
 func (er *EthResender) Stop() {
 	er.cancel()
 	<-er.chDone
+	er.orm.Close()
 }
 
 func (er *EthResender) runLoop() {
