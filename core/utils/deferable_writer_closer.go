@@ -12,24 +12,21 @@ import (
 // *and* defer the Close() to handle returns before the explicit close
 //
 // For example rather than
-// 		f, err := os.Create(...)
-// 		if err != nil {...}
+//		import "os"
+// 		f, err := os.Create("./foo")
+// 		if err != nil { return err}
 // 		defer f.Close()
-// 		f.Write(...)
-// 		...
-// 		return
+// 		return f.Write([]bytes("hi"))
 //
 // do
-//
-// 		f, err := os.Create(...)
-// 		if err != nil {...}
+//		import "os"
+// 		f, err := os.Create("./foo")
+// 		if err != nil {return nil}
 // 		wc := NewDeferableWriteCloser(f)
 // 		defer wc.Close()
-// 		wc.Write(...)
-// 		...
-// 		err = wc.Close()
-// 		if err != nil {...}
-// 		return
+// 		err = wc.Write([]bytes("hi"))
+// 		if err != nil {return err}
+// 		return wc.Close()
 type DeferableWriteCloser struct {
 	mu       sync.Mutex
 	closed   bool
