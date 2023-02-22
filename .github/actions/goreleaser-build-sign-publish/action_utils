@@ -58,13 +58,13 @@ goreleaser_release() {
     MACOS_SDK_DIR=$(echo "$(cd "$(dirname "$MACOS_SDK_DIR")" || exit; pwd)/$(basename "$MACOS_SDK_DIR")")
   fi
   if [[ $ENABLE_GORELEASER_SNAPSHOT == "true" ]]; then
-    $GORELEASER_EXEC release --snapshot --rm-dist --config "$GORELEASER_CONFIG" "$@"
+    $GORELEASER_EXEC release --snapshot --clean --config "$GORELEASER_CONFIG" "$@"
     if [[ $ENABLE_DOCKER_PUBLISH == "true" ]]; then
       _publish_snapshot_images
       _publish_snapshot_manifests
     fi
   else
-    $GORELEASER_EXEC release --rm-dist --config "$GORELEASER_CONFIG" "$@"
+    $GORELEASER_EXEC release --clean --config "$GORELEASER_CONFIG" "$@"
   fi
   if [[ $ENABLE_COSIGN == "true" ]]; then
     rm -rf cosign.pub

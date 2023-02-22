@@ -16,7 +16,8 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && apt-get clean all
 
 COPY . /usr/local/bin/
-COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
+# Copy native libs if cgo is enabled
+# COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
