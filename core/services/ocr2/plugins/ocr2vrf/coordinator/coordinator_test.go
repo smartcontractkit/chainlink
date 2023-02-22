@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
+	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
 func TestCoordinator_BeaconPeriod(t *testing.T) {
@@ -219,7 +220,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -275,7 +276,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -331,7 +332,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -395,7 +396,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
 		// Both RandomWordsFulfilled and NewTransmission events are emitted
 		// when a VRF fulfillment happens on chain.
 		lp.On(
@@ -463,7 +464,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{}, latestHeadNumber, true)
+		lp := getLogPoller(t, []uint64{}, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -522,32 +523,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
-		lp.On(
-			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
-			[]common.Hash{
-				tp.randomnessRequestedTopic,
-				tp.randomnessFulfillmentRequestedTopic,
-				tp.randomWordsFulfilledTopic,
-				tp.outputsServedTopic,
-			},
-			coordinatorAddress,
-			mock.Anything,
-		).Return([]logpoller.Log{
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000, coordinatorAddress),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000, coordinatorAddress),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000, coordinatorAddress),
-			newOutputsServedLog(t, []vrf_coordinator.VRFBeaconTypesOutputServed{
-				{
-					Height:            195,
-					ConfirmationDelay: big.NewInt(3),
-					ProofG1X:          proofG1X,
-					ProofG1Y:          proofG1Y,
-				},
-			}, coordinatorAddress),
-		}, nil).Once()
+		// Do not include latestHeadNumber in "GetBlocksRange" call for initial "ReportWillBeTransmitted."
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, false, false /* includeLatestHeadInRange */)
 
 		c := &coordinator{
 			onchainRouter:            onchainRouter,
@@ -590,6 +567,35 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		err = c.ReportWillBeTransmitted(testutils.Context(t), report)
 		require.NoError(t, err)
 
+		// Include latestHeadNumber in "GetBlocksRange" call for "ReportBlocks" call.
+		lp = getLogPoller(t, []uint64{195}, latestHeadNumber, true, true /* includeLatestHeadInRange */)
+		c.lp = lp
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.outputsServedTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000, coordinatorAddress),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000, coordinatorAddress),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000, coordinatorAddress),
+			newOutputsServedLog(t, []vrf_coordinator.VRFBeaconTypesOutputServed{
+				{
+					Height:            195,
+					ConfirmationDelay: big.NewInt(3),
+					ProofG1X:          proofG1X,
+					ProofG1Y:          proofG1Y,
+				},
+			}, coordinatorAddress),
+		}, nil).Once()
+
 		blocks, callbacks, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
@@ -622,7 +628,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			logs = append(logs, newRandomnessRequestedLog(t, 1, uint64(i), 0, int64(i), coordinatorAddress))
 			requestedBlocks = append(requestedBlocks, uint64(i))
 		}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -678,7 +684,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -739,7 +745,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -799,7 +805,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195, 196}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -866,7 +872,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On("LatestBlock", mock.Anything).
 			Return(latestHeadNumber, nil)
 
-		lp.On("GetBlocksRange", mock.Anything, requestedBlocks, mock.Anything).
+		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber)), mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
 		lp.On(
 			"LogsWithSigs",
@@ -922,7 +928,7 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
 		lookbackBlocks := int64(0)
-		lp := getLogPoller(t, []uint64{199}, 200, false)
+		lp := getLogPoller(t, []uint64{199}, 200, false, false)
 		c := &coordinator{
 			lp:                       lp,
 			lggr:                     logger.TestLogger(t),
@@ -939,7 +945,7 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
 	t.Run("re-org", func(t *testing.T) {
 		lookbackBlocks := int64(0)
-		lp := getLogPoller(t, []uint64{199}, 200, false)
+		lp := getLogPoller(t, []uint64{199}, 200, false, false)
 		c := &coordinator{
 			lp:                       lp,
 			lggr:                     logger.TestLogger(t),
@@ -1569,7 +1575,13 @@ func newAddress(t *testing.T) common.Address {
 	return common.HexToAddress(hexutil.Encode(b))
 }
 
-func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64, needsLatestBlock bool) *lp_mocks.LogPoller {
+func getLogPoller(
+	t *testing.T,
+	requestedBlocks []uint64,
+	latestHeadNumber int64,
+	needsLatestBlock bool,
+	includeLatestHeadInRange bool,
+) *lp_mocks.LogPoller {
 	lp := lp_mocks.NewLogPoller(t)
 	if needsLatestBlock {
 		lp.On("LatestBlock", mock.Anything).
@@ -1578,11 +1590,16 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 	var logPollerBlocks []logpoller.LogPollerBlock
 
 	// Fill range of blocks based on requestedBlocks
-	// example: requestedBlocks [195, 196] -> [{BlockNumber: 195, BlockHash: 0x001}, {BlockNumber: 196, BlockHash: 0x002}]
-	for i, bn := range requestedBlocks {
+	// example: requestedBlocks [195, 197] -> [{BlockNumber: 195, BlockHash: 0x001}, {BlockNumber: 196, BlockHash: 0x002}, {BlockNumber: 197, BlockHash: 0x003}]
+	if includeLatestHeadInRange {
+		requestedBlocks = append(requestedBlocks, uint64(latestHeadNumber))
+	}
+	minRequestedBlock := mathutil.Min(requestedBlocks[0], requestedBlocks[1:]...)
+	maxRequestedBlock := mathutil.Max(requestedBlocks[0], requestedBlocks[1:]...)
+	for i := minRequestedBlock; i <= maxRequestedBlock; i++ {
 		logPollerBlocks = append(logPollerBlocks, logpoller.LogPollerBlock{
-			BlockNumber: int64(bn),
-			BlockHash:   common.HexToHash(fmt.Sprintf("0x00%d", i+1)),
+			BlockNumber: int64(i),
+			BlockHash:   common.HexToHash(fmt.Sprintf("0x00%d", i-minRequestedBlock+1)),
 		})
 	}
 
