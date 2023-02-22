@@ -522,28 +522,33 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) ([]types.UpkeepResult, error) {
 	var (
-		checkReqs    = make([]rpc.BatchElem, len(keys))
-		checkResults = make([]*string, len(keys))
+		multiErr     error
+		results      []types.UpkeepResult
+		checkReqs    []rpc.BatchElem
+		checkResults []*string
 	)
 
-	for i, key := range keys {
+	for _, key := range keys {
 		block, upkeepId, err := blockAndIdFromKey(key)
 		if err != nil {
-			return nil, err
+			r.lggr.Debugf("error encountered calling blockAndIdFromKey: %s", err)
+			continue
 		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			return nil, err
+			r.lggr.Debugf("error encountered calling buildCallOpts: %s", err)
+			continue
 		}
 
 		payload, err := r.abi.Pack("checkUpkeep", upkeepId)
 		if err != nil {
-			return nil, err
+			r.lggr.Debugf("error encountered calling abi.Pack for checkUpkeep: %s", err)
+			continue
 		}
 
 		var result string
-		checkReqs[i] = rpc.BatchElem{
+		checkReqs = append(checkReqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
@@ -553,30 +558,25 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 				hexutil.EncodeBig(opts.BlockNumber),
 			},
 			Result: &result,
-		}
+		})
 
-		checkResults[i] = &result
+		checkResults = append(checkResults, &result)
 	}
 
 	if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
 		return nil, err
 	}
 
-	var (
-		multiErr error
-		results  = make([]types.UpkeepResult, len(keys))
-	)
-
 	for i, req := range checkReqs {
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			var err error
-			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
+			result, err := r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
 				return nil, err
 			}
+			results = append(results, result)
 		}
 	}
 
@@ -586,9 +586,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	var (
-		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
-		performResults  = make([]*string, 0, len(checkResults))
-		performToKeyIdx = make([]int, 0, len(checkResults))
+		performReqs     []rpc.BatchElem
+		performResults  []*string
+		performToKeyIdx []int
 	)
 
 	for i, checkResult := range checkResults {
@@ -598,18 +598,21 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, upkeepId, err := blockAndIdFromKey(checkResult.Key)
 		if err != nil {
-			return nil, err
+			r.lggr.Debugf("error encountered calling blockAndIdFromKey: %s", err)
+			continue
 		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			return nil, err
+			r.lggr.Debugf("error encountered calling buildCallOpts: %s", err)
+			continue
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, checkResult.PerformData)
 		if err != nil {
-			return nil, err
+			r.lggr.Debugf("error encountered calling abi.Pack for simulatePerformUpkeep: %s", err)
+			continue
 		}
 
 		var result string
@@ -663,23 +666,27 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	var (
-		uReqs    = make([]rpc.BatchElem, len(ids))
-		uResults = make([]*string, len(ids))
+		multiErr error
+		results  []activeUpkeep
+		uReqs    []rpc.BatchElem
+		uResults []*string
 	)
 
-	for i, id := range ids {
+	for _, id := range ids {
 		opts, err := r.buildCallOpts(ctx, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get call opts: %s", err)
+			r.lggr.Debugf("error encountered calling buildCallOpts: %s", err)
+			continue
 		}
 
 		payload, err := r.abi.Pack("getUpkeep", id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
+			r.lggr.Debugf("error encountered calling abi.Pack for getUpkeep: %s", err)
+			continue
 		}
 
 		var result string
-		uReqs[i] = rpc.BatchElem{
+		uReqs = append(uReqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
@@ -689,30 +696,25 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 				hexutil.EncodeBig(opts.BlockNumber),
 			},
 			Result: &result,
-		}
+		})
 
-		uResults[i] = &result
+		uResults = append(uResults, &result)
 	}
 
 	if err := r.client.BatchCallContext(ctx, uReqs); err != nil {
 		return nil, fmt.Errorf("rpc error: %s", err)
 	}
 
-	var (
-		multiErr error
-		results  = make([]activeUpkeep, len(ids))
-	)
-
 	for i, req := range uReqs {
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			var err error
-			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
+			result, err := r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack result: %s", err)
 			}
+			results = append(results, result)
 		}
 	}
 
