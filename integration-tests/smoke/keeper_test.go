@@ -35,16 +35,15 @@ const (
 	keeperDefaultUpkeepsToDeploy      = 10
 	numUpkeepsAllowedForStragglingTxs = 6
 	keeperExpectedData                = "abcdef"
-)
-
-var (
-	keeperBaseTOML = `[Keeper]
+	keeperBaseTOML                    = `[Keeper]
 	TurnLookBack = 0
 	
 	[Keeper.Registry]
 	SyncInterval = '5s'
 	PerformGasOverhead = 150_000`
+)
 
+var (
 	keeperEnvVars = map[string]any{
 		"KEEPER_TURN_LOOK_BACK":                "0",
 		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",

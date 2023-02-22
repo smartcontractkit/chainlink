@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -36,7 +37,7 @@ func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OC
 	)
 	require.NoError(t, err, "Error setting OCR config for VRFBeacon contract")
 
-	vrfConfigSetEvent, err := vrfBeacon.WaitForConfigSetEvent()
+	vrfConfigSetEvent, err := vrfBeacon.WaitForConfigSetEvent(time.Minute)
 	require.NoError(t, err, "Error waiting for ConfigSet Event for VRFBeacon contract")
 	log.Info().Interface("Event", vrfConfigSetEvent).Msg("OCR2 VRF Config was set")
 }
@@ -57,11 +58,11 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	require.NoError(t, err, "Error setting OCR config for DKG contract")
 
 	// wait for the event ConfigSet from DKG contract
-	dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent()
+	dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent(time.Minute)
 	require.NoError(t, err, "Error waiting for ConfigSet Event for DKG contract")
 	log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config Set")
 	// wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
-	dkgSharesTransmittedEvent, err := dkg.WaitForTransmittedEvent()
+	dkgSharesTransmittedEvent, err := dkg.WaitForTransmittedEvent(time.Minute * 5)
 	require.NoError(t, err)
 	log.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
 }
@@ -211,7 +212,7 @@ func RequestAndRedeemRandomness(
 
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
 
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent()
+	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
 
@@ -247,7 +248,7 @@ func RequestRandomnessFulfillment(
 
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
 
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent()
+	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness Fulfillment transmitted by DON")
 

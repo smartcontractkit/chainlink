@@ -23,7 +23,6 @@ import (
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/rs/zerolog/log"
@@ -169,17 +168,17 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 		})
 	}
 
-	// 	networkDetailTOML := `[EVM.GasEstimator]
-	// LimitDefault = 1_400_000
-	// PriceMax = 100000000000
-	// FeeCapDefault = 100000000000`
+	networkDetailTOML := `[EVM.GasEstimator]
+LimitDefault = 3_500_000
+PriceMax = 100000000000
+FeeCapDefault = 100000000000`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]any{
-			"toml": client.AddNetworkDetailedConfig("", config.DefaultOCR2VRFNetworkDetailTomlConfig, testNetwork),
+			"toml": client.AddNetworkDetailedConfig("", networkDetailTOML, testNetwork),
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")

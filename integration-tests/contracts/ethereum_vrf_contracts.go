@@ -698,7 +698,7 @@ func (dkgContract *EthereumDKG) SetConfig(
 	return dkgContract.client.ProcessTransaction(tx)
 }
 
-func (dkgContract *EthereumDKG) WaitForTransmittedEvent() (*dkg.DKGTransmitted, error) {
+func (dkgContract *EthereumDKG) WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error) {
 	transmittedEventsChannel := make(chan *dkg.DKGTransmitted)
 	subscription, err := dkgContract.dkg.WatchTransmitted(nil, transmittedEventsChannel)
 	if err != nil {
@@ -710,7 +710,7 @@ func (dkgContract *EthereumDKG) WaitForTransmittedEvent() (*dkg.DKGTransmitted, 
 		select {
 		case err = <-subscription.Err():
 			return nil, err
-		case <-time.After(time.Minute * 5): // this can take a while
+		case <-time.After(timeout):
 			return nil, errors.New("timeout waiting for DKGTransmitted event")
 		case transmittedEvent := <-transmittedEventsChannel:
 			return transmittedEvent, nil
@@ -718,7 +718,7 @@ func (dkgContract *EthereumDKG) WaitForTransmittedEvent() (*dkg.DKGTransmitted, 
 	}
 }
 
-func (dkgContract *EthereumDKG) WaitForConfigSetEvent() (*dkg.DKGConfigSet, error) {
+func (dkgContract *EthereumDKG) WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error) {
 	configSetEventsChannel := make(chan *dkg.DKGConfigSet)
 	subscription, err := dkgContract.dkg.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
@@ -730,7 +730,7 @@ func (dkgContract *EthereumDKG) WaitForConfigSetEvent() (*dkg.DKGConfigSet, erro
 		select {
 		case err = <-subscription.Err():
 			return nil, err
-		case <-time.After(time.Minute):
+		case <-time.After(timeout):
 			return nil, errors.New("timeout waiting for DKGConfigSet event")
 		case configSetEvent := <-configSetEventsChannel:
 			return configSetEvent, nil
@@ -895,7 +895,7 @@ func (beacon *EthereumVRFBeacon) SetConfig(
 	return beacon.client.ProcessTransaction(tx)
 }
 
-func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error) {
+func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error) {
 	configSetEventsChannel := make(chan *vrf_beacon.VRFBeaconConfigSet)
 	subscription, err := beacon.vrfBeacon.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
@@ -907,7 +907,7 @@ func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconC
 		select {
 		case err := <-subscription.Err():
 			return nil, err
-		case <-time.After(5 * time.Minute):
+		case <-time.After(timeout):
 			return nil, fmt.Errorf("timeout waiting for config set event")
 		case configSetEvent := <-configSetEventsChannel:
 			return configSetEvent, nil
@@ -915,7 +915,7 @@ func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconC
 	}
 }
 
-func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error) {
+func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
 	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
 	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
 	if err != nil {
@@ -927,7 +927,7 @@ func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent() (*vrf_beacon.VRFB
 		select {
 		case err := <-subscription.Err():
 			return nil, err
-		case <-time.After(5 * time.Minute):
+		case <-time.After(timeout):
 			return nil, fmt.Errorf("timeout waiting for new transmission event")
 		case newTransmissionEvent := <-newTransmissionEventsChannel:
 			return newTransmissionEvent, nil
