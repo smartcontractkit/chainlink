@@ -573,7 +573,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 		} else {
 			result, err := r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
-				return nil, err
+				multierr.AppendInto(&multiErr, err)
+				continue
 			}
 			results = append(results, result)
 		}
@@ -646,7 +647,8 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 			if err != nil {
-				return nil, err
+				multierr.AppendInto(&multiErr, err)
+				continue
 			}
 
 			if !simulatePerformSuccess {
@@ -711,7 +713,8 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 		} else {
 			result, err := r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
 			if err != nil {
-				return nil, fmt.Errorf("failed to unpack result: %s", err)
+				multierr.AppendInto(&multiErr, fmt.Errorf("failed to unpack result: %s", err))
+				continue
 			}
 			results = append(results, result)
 		}
