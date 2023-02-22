@@ -33,5 +33,6 @@ func TestLegacyEdDSAKeyring(t *testing.T) {
 
 	_lk := legacyEdDSAKeyring{}
 	err = _lk.Unmarshal(seed)
+	assert.NoError(t, err)
 	assert.Equal(t, _lk, lk)
 }

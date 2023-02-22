@@ -29,7 +29,6 @@ import (
 type encryptedKeyRing struct {
 	UpdatedAt     time.Time
 	EncryptedKeys []byte
-	lggr          logger.Logger
 }
 
 func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
@@ -46,7 +45,6 @@ func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
 		return nil, err
 	}
 	var rawKeys rawKeyRing
-	rawKeys.lggr = ekr.lggr
 	err = json.Unmarshal(marshalledRawKeyRingJson, &rawKeys)
 	if err != nil {
 		return nil, err
@@ -309,7 +307,6 @@ type rawKeyRing struct {
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw
-	lggr       logger.Logger
 }
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
@@ -327,13 +324,7 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	for _, rawOCR2Key := range rawKeys.OCR2 {
-		//ocr2Key might return error if unsupported chain keys
-		//are in the db, the keys should be ignored
-		ocr2Key, err := rawOCR2Key.Key()
-		if err != nil {
-			rawKeys.lggr.Warn(err.Error())
-			continue
-		}
+		ocr2Key := rawOCR2Key.Key()
 		keyRing.OCR2[ocr2Key.ID()] = ocr2Key
 	}
 	for _, rawP2PKey := range rawKeys.P2P {

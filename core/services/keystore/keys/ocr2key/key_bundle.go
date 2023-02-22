@@ -92,7 +92,7 @@ func (kb keyBundleBase) GoString() string {
 // nolint
 type Raw []byte
 
-func (raw Raw) Key() (kb KeyBundle, error error) {
+func (raw Raw) Key() (kb KeyBundle) {
 	var temp struct{ ChainType chaintype.ChainType }
 	err := json.Unmarshal(raw, &temp)
 	if err != nil {

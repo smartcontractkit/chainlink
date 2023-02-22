@@ -252,7 +252,6 @@ func (km *keyManager) Unlock(password string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to get encrypted key ring")
 	}
-	ekr.lggr = km.logger
 	kr, err := ekr.Decrypt(password)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt encrypted key ring")
