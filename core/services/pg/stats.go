@@ -72,6 +72,7 @@ type StatsReporter struct {
 	cancel   context.CancelFunc
 	lggr     logger.Logger
 	once     sync.Once
+	wg       sync.WaitGroup
 }
 
 func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *StatsReporter {
@@ -91,31 +92,35 @@ func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *
 
 func (r *StatsReporter) Start(ctx context.Context) {
 
-	run := func() {
-		ready := make(chan struct{})
+	startOnce := func() {
+		r.wg.Add(1)
 		r.lggr.Debug("Starting DB stat reporter")
 		rctx, cancelFunc := context.WithCancel(ctx)
 		r.cancel = cancelFunc
-		go r.loop(rctx, ready)
-		<-ready
+		go r.loop(rctx)
 	}
-	r.once.Do(run)
+
+	r.once.Do(startOnce)
 }
 
+// Stop stops all resources owned by the reporter and waits
+// for all of them to be done
 func (r *StatsReporter) Stop() {
 	if r.cancel != nil {
 		r.lggr.Debug("Stopping DB stat reporter")
 		r.cancel()
 		r.cancel = nil
+		r.wg.Wait()
 	}
 }
 
-func (r *StatsReporter) loop(ctx context.Context, ready chan struct{}) {
+func (r *StatsReporter) loop(ctx context.Context) {
+	defer r.wg.Done()
+
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 
 	r.reportFn(r.statFn())
-	close(ready)
 	for {
 		select {
 		case <-ticker.C:

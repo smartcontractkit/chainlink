@@ -91,6 +91,7 @@ func testParentContextCanceled(t *testing.T, r *StatsReporter, interval time.Dur
 	tctx, cancel := context.WithTimeout(ctx, time.Duration(n)*interval)
 
 	r.Start(tctx)
+	defer r.Stop()
 	// wait for parent cancelation
 	<-tctx.Done()
 	// call cancel to statisy linter
