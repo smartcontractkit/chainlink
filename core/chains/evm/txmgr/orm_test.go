@@ -571,21 +571,29 @@ func TestORM_PreloadEthTxes(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	// insert etx with attempt
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(7), fromAddress)
+	t.Run("loads eth transaction", func(t *testing.T) {
+		// insert etx with attempt
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(7), fromAddress)
 
-	// create unloaded attempt
-	unloadedAttempt := txmgr.EthTxAttempt{EthTxID: etx.ID}
+		// create unloaded attempt
+		unloadedAttempt := txmgr.EthTxAttempt{EthTxID: etx.ID}
 
-	// uninitialized EthTx
-	assert.Equal(t, int64(0), unloadedAttempt.EthTx.ID)
+		// uninitialized EthTx
+		assert.Equal(t, int64(0), unloadedAttempt.EthTx.ID)
 
-	attempts := []txmgr.EthTxAttempt{unloadedAttempt}
+		attempts := []txmgr.EthTxAttempt{unloadedAttempt}
 
-	err := borm.PreloadEthTxes(attempts)
-	require.NoError(t, err)
+		err := borm.PreloadEthTxes(attempts)
+		require.NoError(t, err)
 
-	assert.Equal(t, etx.ID, attempts[0].EthTx.ID)
+		assert.Equal(t, etx.ID, attempts[0].EthTx.ID)
+	})
+
+	t.Run("returns nil when attempts slice is empty", func(t *testing.T) {
+		emptyAttempts := []txmgr.EthTxAttempt{}
+		err := borm.PreloadEthTxes(emptyAttempts)
+		require.NoError(t, err)
+	})
 }
 
 func TestORM_GetInProgressEthTxAttempts(t *testing.T) {
@@ -888,5 +896,43 @@ func TestORM_SaveInProgressAttempt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, txmgr.EthTxAttemptInProgress, attemptResult.State)
 
+	})
+}
+
+func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	currentBlockNum := int64(10)
+
+	t.Run("gets txs requiring gas bump", func(t *testing.T) {
+		etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, borm, 1, fromAddress, txmgr.EthTxAttemptBroadcast)
+		borm.SetBroadcastBeforeBlockNum(currentBlockNum, *ethClient.ChainID())
+
+		// this tx will require gas bump
+		etx, err := borm.FindEthTxWithAttempts(etx.ID)
+		attempts := etx.EthTxAttempts
+		require.NoError(t, err)
+		assert.Len(t, attempts, 1)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempts[0].State)
+		assert.Equal(t, currentBlockNum, *attempts[0].BroadcastBeforeBlockNum)
+
+		// this tx will not require gas bump
+		cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, borm, 2, fromAddress, txmgr.EthTxAttemptBroadcast)
+		borm.SetBroadcastBeforeBlockNum(currentBlockNum+1, *ethClient.ChainID())
+
+		// any tx broadcast <= 10 will require gas bump
+		newBlock := int64(12)
+		gasBumpThreshold := int64(2)
+		etxs, err := borm.FindEthTxsRequiringGasBump(context.Background(), fromAddress, newBlock, gasBumpThreshold, int64(0), *ethClient.ChainID())
+		require.NoError(t, err)
+		assert.Len(t, etxs, 1)
+		assert.Equal(t, etx.ID, etxs[0].ID)
 	})
 }

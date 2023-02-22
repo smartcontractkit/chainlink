@@ -31,6 +31,7 @@ type ORM interface {
 	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EthReceiptsPlus, err error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error)
 	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
 	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error)
@@ -753,4 +754,31 @@ func (o *orm) SaveInProgressAttempt(attempt *EthTxAttempt) error {
 		return errors.Wrapf(sql.ErrNoRows, "SaveInProgressAttempt tried to update eth_tx_attempts but no rows matched id %d", attempt.ID)
 	}
 	return nil
+}
+
+// FindEthTxsRequiringGasBump returns transactions that have all
+// attempts which are unconfirmed for at least gasBumpThreshold blocks,
+// limited by limit pending transactions
+//
+// It also returns eth_txes that are unconfirmed with no eth_tx_attempts
+func (o *orm) FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error) {
+	if gasBumpThreshold == 0 {
+		return
+	}
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT eth_txes.* FROM eth_txes
+LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND (broadcast_before_block_num > $4 OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')
+WHERE eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
+	AND (($3 = 0) OR (eth_txes.id IN (SELECT id FROM eth_txes WHERE state = 'unconfirmed' AND from_address = $1 ORDER BY nonce ASC LIMIT $3)))
+ORDER BY nonce ASC
+`
+		if err = tx.Select(&etxs, stmt, address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
+			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
+		}
+		err = loadEthTxesAttempts(tx, etxs)
+		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
+	}, pg.OptReadOnlyTx())
+	return
 }
