@@ -519,13 +519,12 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 }
 
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) ([]types.UpkeepResult, error) {
 	var (
 		multiErr     error
-		results      []types.UpkeepResult
-		checkReqs    []rpc.BatchElem
-		checkResults []*string
+		results      = make([]types.UpkeepResult, 0, len(keys))
+		checkReqs    = make([]rpc.BatchElem, 0, len(keys))
+		checkResults = make([]*string, 0, len(keys))
 	)
 
 	for _, key := range keys {
@@ -586,9 +585,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	var (
-		performReqs     []rpc.BatchElem
-		performResults  []*string
-		performToKeyIdx []int
+		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
+		performResults  = make([]*string, 0, len(checkResults))
+		performToKeyIdx = make([]int, 0, len(checkResults))
 	)
 
 	for i, checkResult := range checkResults {
@@ -667,9 +666,9 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 
 	var (
 		multiErr error
-		results  []activeUpkeep
-		uReqs    []rpc.BatchElem
-		uResults []*string
+		results  = make([]activeUpkeep, 0, len(ids))
+		uReqs    = make([]rpc.BatchElem, 0, len(ids))
+		uResults = make([]*string, 0, len(ids))
 	)
 
 	for _, id := range ids {
