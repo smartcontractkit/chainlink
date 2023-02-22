@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -34,16 +35,15 @@ const (
 	keeperDefaultUpkeepsToDeploy      = 10
 	numUpkeepsAllowedForStragglingTxs = 6
 	keeperExpectedData                = "abcdef"
-)
-
-var (
-	keeperBaseTOML = `[Keeper]
+	keeperBaseTOML                    = `[Keeper]
 	TurnLookBack = 0
 	
 	[Keeper.Registry]
 	SyncInterval = '5s'
 	PerformGasOverhead = 150_000`
+)
 
+var (
 	keeperEnvVars = map[string]any{
 		"KEEPER_TURN_LOOK_BACK":                "0",
 		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",
@@ -1160,7 +1160,7 @@ func setupKeeperTest(
 
 		// Register cleanup for any test
 		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 			require.NoError(t, err, "Error tearing down environment")
 		})
 

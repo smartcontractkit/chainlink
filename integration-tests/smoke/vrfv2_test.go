@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -45,7 +46,7 @@ func TestVRFv2Basic(t *testing.T) {
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)
@@ -168,7 +169,7 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 	}
 
 	networkDetailTOML := `[EVM.GasEstimator]
-LimitDefault = 1400000
+LimitDefault = 3_500_000
 PriceMax = 100000000000
 FeeCapDefault = 100000000000`
 	testEnvironment = environment.New(&environment.Config{
@@ -176,7 +177,7 @@ FeeCapDefault = 100000000000`
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"toml": client.AddNetworkDetailedConfig("", networkDetailTOML, testNetwork),
 		}))
 	err := testEnvironment.Run()
