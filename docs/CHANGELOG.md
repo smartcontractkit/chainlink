@@ -39,6 +39,8 @@ of any values provided via configuration files.
   entirely.
 - Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 - Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
+- Support for sending OCR2 job specs to the feeds manager
+- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 
 ### Updated
 
