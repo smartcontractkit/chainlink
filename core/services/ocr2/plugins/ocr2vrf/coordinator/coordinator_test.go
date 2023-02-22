@@ -890,6 +890,120 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
+	t.Run("correct blockhashes are retrieved with the maximum lookback", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+		beaconAddress := newAddress(t)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(1000)
+		lookbackBlocks := int64(256)
+
+		tp := newTopics()
+
+		requestedBlocks := []uint64{}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.outputsServedTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{}, nil)
+
+		c := &coordinator{
+			onchainRouter:            onchainRouter,
+			beaconAddress:            beaconAddress,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
+		}
+
+		_, _, recentHeightStart, recentBlocks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", 1)), recentBlocks[0])
+		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", lookbackBlocks)), recentBlocks[len(recentBlocks)-1])
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
+	})
+
+	t.Run("correct blockhashes are retrieved with a capped lookback (close to genesis block)", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+		beaconAddress := newAddress(t)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(100)
+		lookbackBlocks := int64(100)
+
+		tp := newTopics()
+
+		requestedBlocks := []uint64{}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.outputsServedTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{}, nil)
+
+		c := &coordinator{
+			onchainRouter:            onchainRouter,
+			beaconAddress:            beaconAddress,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
+		}
+
+		_, _, recentHeightStart, recentBlocks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", 1)), recentBlocks[0])
+		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", lookbackBlocks)), recentBlocks[len(recentBlocks)-1])
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
+	})
+
 	t.Run("logpoller GetBlocks returns error", func(tt *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
