@@ -90,14 +90,18 @@ func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *
 }
 
 func (r *StatsReporter) Start(ctx context.Context) {
+	var wg sync.WaitGroup
+
 	run := func() {
+		wg.Add(1)
+		defer wg.Done()
 		r.lggr.Debug("Starting DB stat reporter")
 		rctx, cancelFunc := context.WithCancel(ctx)
 		r.cancel = cancelFunc
 		go r.loop(rctx)
 	}
-
 	r.once.Do(run)
+	wg.Wait()
 }
 
 func (r *StatsReporter) Stop() {
