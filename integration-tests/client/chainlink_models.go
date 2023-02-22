@@ -417,7 +417,7 @@ type EIKey struct {
 	Attributes EIAttributes `json:"attributes"`
 }
 
-type TerraChainConfig struct {
+type CosmosChainConfig struct {
 	BlockRate             null.String
 	BlocksUntilTxTimeout  null.Int
 	ConfirmPollPeriod     null.String
@@ -426,38 +426,38 @@ type TerraChainConfig struct {
 	MaxMsgsPerBatch       null.Int
 }
 
-// TerraChainAttributes is the model that represents the terra chain
-type TerraChainAttributes struct {
+// CosmosChainAttributes is the model that represents the terra chain
+type CosmosChainAttributes struct {
 	ChainID string           `json:"chainID"`
-	Config  TerraChainConfig `json:"config"`
+	Config  CosmosChainConfig `json:"config"`
 	FCDURL  string           `json:"fcdURL" db:"fcd_url"`
 }
 
-// TerraChain is the model that represents the terra chain when read
-type TerraChain struct {
-	Attributes TerraChainAttributes `json:"attributes"`
+// CosmosChain is the model that represents the terra chain when read
+type CosmosChain struct {
+	Attributes CosmosChainAttributes `json:"attributes"`
 }
 
-// TerraChainCreate is the model that represents the terra chain when created
-type TerraChainCreate struct {
-	Data TerraChain `json:"data"`
+// CosmosChainCreate is the model that represents the terra chain when created
+type CosmosChainCreate struct {
+	Data CosmosChain `json:"data"`
 }
 
-// TerraNodeAttributes is the model that represents the terra noded
-type TerraNodeAttributes struct {
+// CosmosNodeAttributes is the model that represents the terra noded
+type CosmosNodeAttributes struct {
 	Name          string `json:"name"`
-	TerraChainID  string `json:"terraChainId"`
+	CosmosChainID  string `json:"cosmosChainId"`
 	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
 }
 
-// TerraNode is the model that represents the terra node when read
-type TerraNode struct {
-	Attributes TerraNodeAttributes `json:"attributes"`
+// CosmosNode is the model that represents the terra node when read
+type CosmosNode struct {
+	Attributes CosmosNodeAttributes `json:"attributes"`
 }
 
-// TerraNodeCreate is the model that represents the terra node when created
-type TerraNodeCreate struct {
-	Data TerraNode `json:"data"`
+// CosmosNodeCreate is the model that represents the terra node when created
+type CosmosNodeCreate struct {
+	Data CosmosNode `json:"data"`
 }
 
 type SolanaChainConfig struct {

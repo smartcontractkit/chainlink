@@ -263,6 +263,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", transmitterID)
 						}
+					case relay.Cosmos:
+						_, err := o.keyStore.Cosmos().Get(transmitterID)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", transmitterID)
+						}
 					case relay.Solana:
 						_, err := o.keyStore.Solana().Get(transmitterID)
 						if err != nil {
@@ -272,11 +277,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 						_, err := o.keyStore.StarkNet().Get(transmitterID)
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
-						}
-					case relay.Terra:
-						_, err := o.keyStore.Terra().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Terra key matching %q", transmitterID)
 						}
 					}
 				}

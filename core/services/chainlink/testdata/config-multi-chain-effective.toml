@@ -434,6 +434,40 @@ GasLimit = 5300000
 Name = 'primary'
 WSURL = 'wss://web.socket/test'
 
+[[Cosmos]]
+ChainID = 'Columbus-5'
+BlockRate = '6s'
+BlocksUntilTxTimeout = 30
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
+MaxMsgsPerBatch = 13
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://columbus.cosmos.com'
+
+[[Cosmos]]
+ChainID = 'Bombay-12'
+BlockRate = '6s'
+BlocksUntilTxTimeout = 20
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
+MaxMsgsPerBatch = 100
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://bombay.cosmos.com'
+
 [[Solana]]
 ChainID = 'mainnet'
 BalancePollPeriod = '5s'
@@ -490,37 +524,3 @@ TxMaxBatchSize = 100
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
-
-[[Terra]]
-ChainID = 'Columbus-5'
-BlockRate = '6s'
-BlocksUntilTxTimeout = 30
-ConfirmPollPeriod = '1s'
-FallbackGasPriceULuna = '0.015'
-FCDURL = ''
-GasLimitMultiplier = '1.5'
-MaxMsgsPerBatch = 13
-OCR2CachePollPeriod = '4s'
-OCR2CacheTTL = '1m0s'
-TxMsgTimeout = '10m0s'
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://columbus.terra.com'
-
-[[Terra]]
-ChainID = 'Bombay-12'
-BlockRate = '6s'
-BlocksUntilTxTimeout = 20
-ConfirmPollPeriod = '1s'
-FallbackGasPriceULuna = '0.015'
-FCDURL = ''
-GasLimitMultiplier = '1.5'
-MaxMsgsPerBatch = 100
-OCR2CachePollPeriod = '4s'
-OCR2CacheTTL = '1m0s'
-TxMsgTimeout = '10m0s'
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://bombay.terra.com'

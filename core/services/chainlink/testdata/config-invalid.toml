@@ -77,6 +77,20 @@ WSURL = 'ws://dupe.com'
 
 [[EVM]]
 
+[[Cosmos]]
+ChainID = 'Bombay-12'
+
+[[Cosmos.Nodes]]
+Name = 'test'
+
+[[Cosmos.Nodes]]
+Name = 'test'
+
+[[Cosmos]]
+ChainID = 'Bombay-12'
+
+[[Cosmos]]
+
 [[Solana]]
 ChainID = 'mainnet'
 
@@ -102,17 +116,3 @@ Name = 'primary'
 URL = 'http://second.stark.node'
 
 [[Starknet]]
-
-[[Terra]]
-ChainID = 'Bombay-12'
-
-[[Terra.Nodes]]
-Name = 'test'
-
-[[Terra.Nodes]]
-Name = 'test'
-
-[[Terra]]
-ChainID = 'Bombay-12'
-
-[[Terra]]

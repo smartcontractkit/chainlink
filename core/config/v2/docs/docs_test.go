@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
@@ -78,6 +78,13 @@ func TestDoc(t *testing.T) {
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
 
+	t.Run("Cosmos", func(t *testing.T) {
+		var fallbackDefaults cosmos.CosmosConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Cosmos[0].Chain)
+	})
+
 	t.Run("Solana", func(t *testing.T) {
 		var fallbackDefaults solana.SolanaConfig
 		fallbackDefaults.SetDefaults()
@@ -90,13 +97,6 @@ func TestDoc(t *testing.T) {
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Starknet[0].Chain)
-	})
-
-	t.Run("Terra", func(t *testing.T) {
-		var fallbackDefaults terra.TerraConfig
-		fallbackDefaults.SetDefaults()
-
-		assertTOML(t, fallbackDefaults.Chain, defaults.Terra[0].Chain)
 	})
 }
 

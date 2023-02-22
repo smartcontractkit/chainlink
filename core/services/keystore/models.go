@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -143,13 +143,13 @@ func (ks *keyStates) delete(addr common.Address) {
 }
 
 type keyRing struct {
+	Cosmos     map[string]cosmoskey.Key
 	CSA        map[string]csakey.KeyV2
 	Eth        map[string]ethkey.KeyV2
 	OCR        map[string]ocrkey.KeyV2
 	OCR2       map[string]ocr2key.KeyBundle
 	P2P        map[string]p2pkey.KeyV2
 	Solana     map[string]solkey.Key
-	Terra      map[string]terrakey.Key
 	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
@@ -159,13 +159,13 @@ type keyRing struct {
 
 func newKeyRing() *keyRing {
 	return &keyRing{
+		Cosmos:     make(map[string]cosmoskey.Key),
 		CSA:        make(map[string]csakey.KeyV2),
 		Eth:        make(map[string]ethkey.KeyV2),
 		OCR:        make(map[string]ocrkey.KeyV2),
 		OCR2:       make(map[string]ocr2key.KeyBundle),
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Solana:     make(map[string]solkey.Key),
-		Terra:      make(map[string]terrakey.Key),
 		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
@@ -203,6 +203,9 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 }
 
 func (kr *keyRing) raw() (rawKeys rawKeyRing) {
+	for _, cosmoskey := range kr.Cosmos {
+		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw())
+	}
 	for _, csaKey := range kr.CSA {
 		rawKeys.CSA = append(rawKeys.CSA, csaKey.Raw())
 	}
@@ -221,9 +224,6 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
 	}
-	for _, terrakey := range kr.Terra {
-		rawKeys.Terra = append(rawKeys.Terra, terrakey.Raw())
-	}
 	for _, starkkey := range kr.StarkNet {
 		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
 	}
@@ -241,6 +241,10 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 
 func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	lggr = lggr.Named("KeyRing")
+	var cosmosIDs []string
+	for _, cosmosKey := range kr.Cosmos {
+		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
+	}
 	var csaIDs []string
 	for _, CSAKey := range kr.CSA {
 		csaIDs = append(csaIDs, CSAKey.ID())
@@ -265,10 +269,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, solanaKey := range kr.Solana {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
-	var terraIDs []string
-	for _, terraKey := range kr.Terra {
-		terraIDs = append(terraIDs, terraKey.ID())
-	}
 	var starknetIDs []string
 	for _, starkkey := range kr.StarkNet {
 		starknetIDs = append(starknetIDs, starkkey.ID())
@@ -284,6 +284,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	var dkgEncryptIDs []string
 	for _, dkgEncryptKey := range kr.DKGEncrypt {
 		dkgEncryptIDs = append(dkgEncryptIDs, dkgEncryptKey.ID())
+	}
+	if len(cosmosIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
 	}
 	if len(csaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d CSA keys", len(csaIDs)), "keys", csaIDs)
@@ -302,9 +305,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	}
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
-	}
-	if len(terraIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Terra keys", len(terraIDs)), "keys", terraIDs)
 	}
 	if len(starknetIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
@@ -328,12 +328,12 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 // (like public keys) to the database
 type rawKeyRing struct {
 	Eth        []ethkey.Raw
+	Cosmos     []cosmoskey.Raw
 	CSA        []csakey.Raw
 	OCR        []ocrkey.Raw
 	OCR2       []ocr2key.Raw
 	P2P        []p2pkey.Raw
 	Solana     []solkey.Raw
-	Terra      []terrakey.Raw
 	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
@@ -343,6 +343,10 @@ type rawKeyRing struct {
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	keyRing := newKeyRing()
+	for _, rawCosmosKey := range rawKeys.Cosmos {
+		cosmosKey := rawCosmosKey.Key()
+		keyRing.Cosmos[cosmosKey.ID()] = cosmosKey
+	}
 	for _, rawCSAKey := range rawKeys.CSA {
 		csaKey := rawCSAKey.Key()
 		keyRing.CSA[csaKey.ID()] = csaKey
@@ -367,10 +371,6 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawSolKey := range rawKeys.Solana {
 		solKey := rawSolKey.Key()
 		keyRing.Solana[solKey.ID()] = solKey
-	}
-	for _, rawTerraKey := range rawKeys.Terra {
-		terraKey := rawTerraKey.Key()
-		keyRing.Terra[terraKey.ID()] = terraKey
 	}
 	for _, rawStarkNetKey := range rawKeys.StarkNet {
 		starkKey := rawStarkNetKey.Key()

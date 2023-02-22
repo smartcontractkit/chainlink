@@ -28,6 +28,22 @@ func (_m *Master) CSA() keystore.CSA {
 	return r0
 }
 
+// Cosmos provides a mock function with given fields:
+func (_m *Master) Cosmos() keystore.Cosmos {
+	ret := _m.Called()
+
+	var r0 keystore.Cosmos
+	if rf, ok := ret.Get(0).(func() keystore.Cosmos); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Cosmos)
+		}
+	}
+
+	return r0
+}
+
 // DKGEncrypt provides a mock function with given fields:
 func (_m *Master) DKGEncrypt() keystore.DKGEncrypt {
 	ret := _m.Called()
@@ -188,22 +204,6 @@ func (_m *Master) StarkNet() keystore.StarkNet {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(keystore.StarkNet)
-		}
-	}
-
-	return r0
-}
-
-// Terra provides a mock function with given fields:
-func (_m *Master) Terra() keystore.Terra {
-	ret := _m.Called()
-
-	var r0 keystore.Terra
-	if rf, ok := ret.Get(0).(func() keystore.Terra); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(keystore.Terra)
 		}
 	}
 

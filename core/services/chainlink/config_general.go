@@ -24,10 +24,10 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
@@ -186,16 +186,16 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
 }
 
+func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+	return g.c.Cosmos
+}
+
 func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
 	return g.c.Solana
 }
 
 func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 	return g.c.Starknet
-}
-
-func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
-	return g.c.Terra
 }
 
 func (g *generalConfig) Validate() error {
@@ -361,8 +361,8 @@ func (g *generalConfig) SolanaEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) TerraEnabled() bool {
-	for _, c := range g.c.Terra {
+func (g *generalConfig) CosmosEnabled() bool {
+	for _, c := range g.c.Cosmos {
 		if c.IsEnabled() {
 			return true
 		}

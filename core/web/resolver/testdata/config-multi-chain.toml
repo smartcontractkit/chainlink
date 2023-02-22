@@ -68,6 +68,22 @@ Mode = 'FixedPrice'
 Name = 'primary'
 WSURL = 'wss://web.socket/test'
 
+[[Cosmos]]
+ChainID = 'Ibiza-808'
+MaxMsgsPerBatch = 13
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://columbus.cosmos.com'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+BlocksUntilTxTimeout = 20
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://bombay.cosmos.com'
+
 [[Solana]]
 ChainID = 'mainnet'
 MaxRetries = 12
@@ -91,19 +107,3 @@ TxSendFrequency = '1h0m0s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
-
-[[Terra]]
-ChainID = 'Columbus-5'
-MaxMsgsPerBatch = 13
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://columbus.terra.com'
-
-[[Terra]]
-ChainID = 'Bombay-12'
-BlocksUntilTxTimeout = 20
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://bombay.terra.com'

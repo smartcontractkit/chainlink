@@ -127,14 +127,14 @@ storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 chainID = "Chainlink-99"`
 
-	OCR2TerraSpecMinimal = `type = "offchainreporting2"
+	OCR2CosmosSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
-contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+contractID = "cosmos1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 isBootstrapPeer = false
 p2pv2Bootstrappers = []
-relay = "terra"
-transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+relay = "cosmos"
+transmitterID = "cosmos1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 observationSource = """
 """
 juelsPerFeeCoinSource = """
@@ -142,7 +142,7 @@ juelsPerFeeCoinSource = """
 
 [relayConfig]
 chainID = "Chainlink-99"`
-	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
+	OCR2CosmosNodeSpecMinimal = OCR2CosmosSpecMinimal + `
 nodeName = "some-test-node"`
 
 	OCR2EVMSpecMinimal = `type = "offchainreporting2"

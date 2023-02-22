@@ -17,15 +17,15 @@ type (
 		OffchainKeyring []byte
 		EVMKeyring      []byte
 	}
+	XXXOldCosmosKeyBundleRawData struct {
+		ChainType       chaintype.ChainType
+		OffchainKeyring []byte
+		CosmosKeyring   []byte
+	}
 	XXXOldSolanaKeyBundleRawData struct {
 		ChainType       chaintype.ChainType
 		OffchainKeyring []byte
 		SolanaKeyring   []byte
-	}
-	XXXOldTerraKeyBundleRawData struct {
-		ChainType       chaintype.ChainType
-		OffchainKeyring []byte
-		TerraKeyring    []byte
 	}
 	XXXOldV1GenericKeyBundleRawData struct {
 		ChainType       chaintype.ChainType
@@ -114,24 +114,24 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})
 
-	t.Run("Terra", func(t *testing.T) {
+	t.Run("Cosmos", func(t *testing.T) {
 		// onchain key
-		onKey, err := newTerraKeyring(cryptorand.Reader)
+		onKey, err := newCosmosKeyring(cryptorand.Reader)
 		require.NoError(t, err)
 		onBytes, err := onKey.Marshal()
 		require.NoError(t, err)
 
 		// marshal old key format
-		oldKey := XXXOldTerraKeyBundleRawData{
-			ChainType:       chaintype.Terra,
+		oldKey := XXXOldCosmosKeyBundleRawData{
+			ChainType:       chaintype.Cosmos,
 			OffchainKeyring: offBytes,
-			TerraKeyring:    onBytes,
+			CosmosKeyring:   onBytes,
 		}
 		bundleBytes, err := json.Marshal(oldKey)
 		require.NoError(t, err)
 
 		// test Unmarshal with old raw bundle
-		bundle := newKeyBundle(&terraKeyring{})
+		bundle := newKeyBundle(&cosmosKeyring{})
 		require.NoError(t, bundle.Unmarshal(bundleBytes))
 		newBundleBytes, err := bundle.Marshal()
 		require.NoError(t, err)
@@ -141,11 +141,11 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		require.NoError(t, json.Unmarshal(newBundleBytes, &newRawBundle))
 		assert.Equal(t, oldKey.ChainType, newRawBundle.ChainType)
 		assert.Equal(t, oldKey.OffchainKeyring, newRawBundle.OffchainKeyring)
-		assert.Equal(t, oldKey.TerraKeyring, newRawBundle.Keyring)
+		assert.Equal(t, oldKey.CosmosKeyring, newRawBundle.Keyring)
 
 		// test unmarshalling again to ensure ID has not changed
 		// the underlying bytes have changed, but ID should be preserved
-		newBundle := newKeyBundle(&terraKeyring{})
+		newBundle := newKeyBundle(&cosmosKeyring{})
 		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
 		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})

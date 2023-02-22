@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -55,7 +56,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -69,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
@@ -77,7 +78,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -123,12 +123,12 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
+	DefaultCosmosKey     = cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
 	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
-	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
@@ -424,31 +424,31 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if err != nil {
 		lggr.Fatal(err)
 	}
-	if cfg.TerraEnabled() {
-		terraLggr := lggr.Named("Terra")
-		opts := terra.ChainSetOpts{
+	if cfg.CosmosEnabled() {
+		cosmosLggr := lggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
 			Config:           cfg,
-			Logger:           terraLggr,
+			Logger:           cosmosLggr,
 			DB:               db,
-			KeyStore:         keyStore.Terra(),
+			KeyStore:         keyStore.Cosmos(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
-			cfgs := newCfg.TerraConfigs()
-			opts.ORM = terra.NewORMImmut(cfgs)
-			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+		if newCfg, ok := cfg.(interface{ CosmosConfigs() cosmos.CosmosConfigs }); ok {
+			cfgs := newCfg.CosmosConfigs()
+			opts.ORM = cosmos.NewORMImmut(cfgs)
+			chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
 			var ids []string
 			for _, c := range cfgs {
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
-				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
+				if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
 					t.Fatal(err)
 				}
 			}
 		} else {
-			opts.ORM = terra.NewORM(db, terraLggr, cfg)
-			chains.Terra, err = terra.NewChainSet(opts)
+			opts.ORM = cosmos.NewORM(db, cosmosLggr, cfg)
+			chains.Cosmos, err = cosmos.NewChainSet(opts)
 		}
 		if err != nil {
 			lggr.Fatal(err)

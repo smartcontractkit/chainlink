@@ -20,17 +20,17 @@ import (
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	pkgcosmos "github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
@@ -164,20 +164,20 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
+	Cosmos   cosmos.ChainSet   // nil if disabled
 	Solana   solana.ChainSet   // nil if disabled
-	Terra    terra.ChainSet    // nil if disabled
 	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
+	if c.Cosmos != nil {
+		s = append(s, c.Cosmos)
+	}
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
 	if c.Solana != nil {
 		s = append(s, c.Solana)
-	}
-	if c.Terra != nil {
-		s = append(s, c.Terra)
 	}
 	if c.StarkNet != nil {
 		s = append(s, c.StarkNet)
@@ -386,15 +386,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
 		}
+		if cfg.CosmosEnabled() {
+			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
+			relayers[relay.Cosmos] = cosmosRelayer
+			srvcs = append(srvcs, cosmosRelayer)
+		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			relayers[relay.Solana] = solanaRelayer
 			srvcs = append(srvcs, solanaRelayer)
-		}
-		if cfg.TerraEnabled() {
-			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relayers[relay.Terra] = terraRelayer
-			srvcs = append(srvcs, terraRelayer)
 		}
 		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)

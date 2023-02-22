@@ -205,8 +205,8 @@ func ExampleRun_keys() {
 	//    csa         Remote commands for administering the node's CSA keys
 	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
+	//    cosmos      Remote commands for administering the node's Cosmos keys
 	//    solana      Remote commands for administering the node's Solana keys
-	//    terra       Remote commands for administering the node's Terra keys
 	//    starknet    Remote commands for administering the node's StarkNet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
 	//    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
@@ -336,21 +336,21 @@ func ExampleRun_keys_solana() {
 	//    --help, -h  show help
 }
 
-func ExampleRun_keys_terra() {
-	Run("keys", "terra", "--help")
+func ExampleRun_keys_cosmos() {
+	Run("keys", "cosmos", "--help")
 	// Output:
 	// NAME:
-	//    core.test keys terra - Remote commands for administering the node's Terra keys
+	//    core.test keys cosmos - Remote commands for administering the node's Cosmos keys
 	//
 	// USAGE:
-	//    core.test keys terra command [command options] [arguments...]
+	//    core.test keys cosmos command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a Terra key
-	//    import  Import Terra key from keyfile
-	//    export  Export Terra key to keyfile
-	//    delete  Delete Terra key if present
-	//    list    List the Terra keys
+	//    create  Create a Cosmos key
+	//    import  Import Cosmos key from keyfile
+	//    export  Export Cosmos key to keyfile
+	//    delete  Delete Cosmos key if present
+	//    list    List the Cosmos keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -518,8 +518,8 @@ func ExampleRun_txs() {
 	//
 	// COMMANDS:
 	//    evm     Commands for handling EVM transactions
+	//    cosmos  Commands for handling Cosmos transactions
 	//    solana  Commands for handling Solana transactions
-	//    terra   Commands for handling Terra transactions
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -559,17 +559,17 @@ func ExampleRun_txs_solana() {
 	//    --help, -h  show help
 }
 
-func ExampleRun_txs_terra() {
-	Run("txs", "terra", "--help")
+func ExampleRun_txs_cosmos() {
+	Run("txs", "cosmos", "--help")
 	// Output:
 	// NAME:
-	//    core.test txs terra - Commands for handling Terra transactions
+	//    core.test txs cosmos - Commands for handling Cosmos transactions
 	//
 	// USAGE:
-	//    core.test txs terra command [command options] [arguments...]
+	//    core.test txs cosmos command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Send <amount> Luna from node Terra account <fromAddress> to destination <toAddress>.
+	//    create  Send <amount> Luna from node Cosmos account <fromAddress> to destination <toAddress>.
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -586,9 +586,9 @@ func ExampleRun_chains() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM chains
+	//    cosmos    Commands for handling Cosmos chains
 	//    solana    Commands for handling Solana chains
 	//    starknet  Commands for handling StarkNet chains
-	//    terra     Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -642,20 +642,20 @@ func ExampleRun_chains_starknet() {
 	//    --help, -h  show help
 }
 
-func ExampleRun_chains_terra() {
-	Run("chains", "terra", "--help")
+func ExampleRun_chains_cosmos() {
+	Run("chains", "cosmos", "--help")
 	// Output:
 	// NAME:
-	//    core.test chains terra - Commands for handling Terra chains
+	//    core.test chains cosmos - Commands for handling Cosmos chains
 	//
 	// USAGE:
-	//    core.test chains terra command [command options] [arguments...]
+	//    core.test chains cosmos command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new Terra chain
-	//    delete     Delete an existing Terra chain
-	//    list       List all existing Terra chains
-	//    configure  Configure an existing Terra chain
+	//    create     Create a new Cosmos chain
+	//    delete     Delete an existing Cosmos chain
+	//    list       List all existing Cosmos chains
+	//    configure  Configure an existing Cosmos chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -672,9 +672,9 @@ func ExampleRun_nodes() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM node configuration
+	//    cosmos    Commands for handling Cosmos node configuration
 	//    solana    Commands for handling Solana node configuration
 	//    starknet  Commands for handling StarkNet node configuration
-	//    terra     Commands for handling Terra node configuration
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -741,19 +741,19 @@ func ExampleRun_nodes_starknet() {
 	//    --help, -h  show help
 }
 
-func ExampleRun_nodes_terra() {
-	Run("nodes", "terra", "--help")
+func ExampleRun_nodes_cosmos() {
+	Run("nodes", "cosmos", "--help")
 	// Output:
 	// NAME:
-	//    core.test nodes terra - Commands for handling Terra node configuration
+	//    core.test nodes cosmos - Commands for handling Cosmos node configuration
 	//
 	// USAGE:
-	//    core.test nodes terra command [command options] [arguments...]
+	//    core.test nodes cosmos command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new Terra node
-	//    delete  Delete an existing Terra node
-	//    list    List all existing Terra nodes
+	//    create  Create a new Cosmos node
+	//    delete  Delete an existing Cosmos node
+	//    list    List all existing Cosmos nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-//nolint
+// nolint
 type KeyBundle interface {
 	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
@@ -31,8 +31,8 @@ type KeyBundle interface {
 
 // check generic keybundle for each chain conforms to KeyBundle interface
 var _ KeyBundle = &keyBundle[*evmKeyring]{}
+var _ KeyBundle = &keyBundle[*cosmosKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
-var _ KeyBundle = &keyBundle[*terraKeyring]{}
 var _ KeyBundle = &keyBundle[*starknet.OCR2Key]{}
 
 var curve = secp256k1.S256()
@@ -42,10 +42,10 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:
 		return newKeyBundleRand(chaintype.EVM, newEVMKeyring)
+	case chaintype.Cosmos:
+		return newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
 	case chaintype.Solana:
 		return newKeyBundleRand(chaintype.Solana, newSolanaKeyring)
-	case chaintype.Terra:
-		return newKeyBundleRand(chaintype.Terra, newTerraKeyring)
 	case chaintype.StarkNet:
 		return newKeyBundleRand(chaintype.StarkNet, starknet.NewOCR2Key)
 	}
@@ -57,10 +57,10 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	switch chainType {
 	case chaintype.EVM:
 		return mustNewKeyBundleInsecure(chaintype.EVM, newEVMKeyring, reader)
+	case chaintype.Cosmos:
+		return mustNewKeyBundleInsecure(chaintype.Cosmos, newCosmosKeyring, reader)
 	case chaintype.Solana:
 		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
-	case chaintype.Terra:
-		return mustNewKeyBundleInsecure(chaintype.Terra, newTerraKeyring, reader)
 	case chaintype.StarkNet:
 		return mustNewKeyBundleInsecure(chaintype.StarkNet, starknet.NewOCR2Key, reader)
 	}
@@ -94,7 +94,7 @@ func (kb keyBundleBase) GoString() string {
 	return kb.String()
 }
 
-//nolint
+// nolint
 type Raw []byte
 
 func (raw Raw) Key() (kb KeyBundle) {
@@ -106,10 +106,10 @@ func (raw Raw) Key() (kb KeyBundle) {
 	switch temp.ChainType {
 	case chaintype.EVM:
 		kb = newKeyBundle(new(evmKeyring))
+	case chaintype.Cosmos:
+		kb = newKeyBundle(new(cosmosKeyring))
 	case chaintype.Solana:
 		kb = newKeyBundle(new(solanaKeyring))
-	case chaintype.Terra:
-		kb = newKeyBundle(new(terraKeyring))
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:

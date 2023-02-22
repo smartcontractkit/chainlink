@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -41,7 +41,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	p2p1, p2p2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)), p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	sol1, sol2 := solkey.MustNewInsecure(rand.Reader), solkey.MustNewInsecure(rand.Reader)
 	vrf1, vrf2 := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1)), vrfkey.MustNewV2XXXTestingOnly(big.NewInt(2))
-	tk1, tk2 := terrakey.MustNewInsecure(rand.Reader), terrakey.MustNewInsecure(rand.Reader)
+	tk1, tk2 := cosmoskey.MustNewInsecure(rand.Reader), cosmoskey.MustNewInsecure(rand.Reader)
 	dkgsign1, dkgsign2 := dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1)), dkgsignkey.MustNewXXXTestingOnly(big.NewInt(2))
 	dkgencrypt1, dkgencrypt2 := dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1)), dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(2))
 	originalKeyRingRaw := rawKeyRing{
@@ -52,7 +52,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		P2P:        []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
 		Solana:     []solkey.Raw{sol1.Raw(), sol2.Raw()},
 		VRF:        []vrfkey.Raw{vrf1.Raw(), vrf2.Raw()},
-		Terra:      []terrakey.Raw{tk1.Raw(), tk2.Raw()},
+		Cosmos:     []cosmoskey.Raw{tk1.Raw(), tk2.Raw()},
 		DKGSign:    []dkgsignkey.Raw{dkgsign1.Raw(), dkgsign2.Raw()},
 		DKGEncrypt: []dkgencryptkey.Raw{dkgencrypt1.Raw(), dkgencrypt2.Raw()},
 	}

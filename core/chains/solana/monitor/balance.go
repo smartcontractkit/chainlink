@@ -1,4 +1,4 @@
-// TODO: Improve code reuse (mostly c/p of core/chains/terra/monitor/balance.go)
+// TODO: Improve code reuse (mostly c/p of core/chains/cosmos/monitor/balance.go)
 package monitor
 
 import (

@@ -31,10 +31,10 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
@@ -222,39 +222,39 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
 
-	if cfg.TerraEnabled() {
-		terraLggr := appLggr.Named("Terra")
-		opts := terra.ChainSetOpts{
+	if cfg.CosmosEnabled() {
+		cosmosLggr := appLggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
 			Config:           cfg,
-			Logger:           terraLggr,
+			Logger:           cosmosLggr,
 			DB:               db,
-			KeyStore:         keyStore.Terra(),
+			KeyStore:         keyStore.Cosmos(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
-			cfgs := newCfg.TerraConfigs()
+		if newCfg, ok := cfg.(interface{ CosmosConfigs() cosmos.CosmosConfigs }); ok {
+			cfgs := newCfg.CosmosConfigs()
 			var ids []string
 			for _, c := range cfgs {
 				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
-				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup Terra chains")
+				if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup Cosmos chains")
 				}
 			}
-			opts.ORM = terra.NewORMImmut(cfgs)
-			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+			opts.ORM = cosmos.NewORMImmut(cfgs)
+			chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
 
 		} else {
-			if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Terra nodes")
+			if err = cosmos.SetupNodes(db, cfg, cosmosLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Cosmos nodes")
 			}
-			opts.ORM = terra.NewORM(db, terraLggr, cfg)
-			chains.Terra, err = terra.NewChainSet(opts)
+			opts.ORM = cosmos.NewORM(db, cosmosLggr, cfg)
+			chains.Cosmos, err = cosmos.NewChainSet(opts)
 		}
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Terra chainset")
+			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
 		}
 	}
 

@@ -37,7 +37,6 @@ type FeatureFlags interface {
 	EVMRPCEnabled() bool
 	P2PEnabled() bool
 	SolanaEnabled() bool
-	TerraEnabled() bool
 	StarkNetEnabled() bool
 }
 
