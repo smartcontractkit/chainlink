@@ -6,6 +6,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
+import {AutomationForwarderFactory} from "./AutomationForwarder.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 
 // TODO - we can probably combine these interfaces
@@ -31,10 +32,11 @@ contract KeeperRegistryLogicA2_1 is
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed
+    address fastGasFeed,
+    address forwarderFactory
   )
-    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
-    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory)
+    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory)))
   {}
 
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;

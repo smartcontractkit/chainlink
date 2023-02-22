@@ -11,6 +11,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed
-  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed) {}
+    address fastGasFeed,
+    address forwarderFactory
+  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory) {}
 }

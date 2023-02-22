@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import {AutomationRegistryBaseInterface as IRegistry} from "../../interfaces/automation/2_1/AutomationRegistryInterface2_1.sol";
+import {AutomationRegistryBaseInterface as IRegistry} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
 
 uint256 constant PERFORM_GAS_CUSHION = 5_000;

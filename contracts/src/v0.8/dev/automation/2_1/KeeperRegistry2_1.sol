@@ -8,6 +8,7 @@ import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicA2_1.sol";
 import "./Chainable.sol";
 import {AutomationRegistryExecutableInterface, UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
+import {AutomationForwarderFactory} from "./AutomationForwarder.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
 import "../../../OCR2Abstract.sol";
 
@@ -49,10 +50,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed
+    address fastGasFeed,
+    address forwarderFactory
   )
-    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
-    Chainable(address(new KeeperRegistryLogicA2_1(mode, link, linkNativeFeed, fastGasFeed)))
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory)
+    Chainable(address(new KeeperRegistryLogicA2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory)))
   {}
 
   ////////
