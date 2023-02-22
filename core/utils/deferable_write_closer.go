@@ -6,7 +6,7 @@ import (
 )
 
 // DeferableWriteCloser is to be used in leiu of defer'ing
-// Close on an io.WriteClose (// For more background see https://www.joeshaw.org/dont-defer-close-on-writable-files/)
+// Close on an [io.WriteCloser] (// For more background see https://www.joeshaw.org/dont-defer-close-on-writable-files/)
 // Callers should *both*
 // explicitly call Close and check for errors when done with the underlying writerclose
 // *and* defer the Close() to handle returns before the explicit close
