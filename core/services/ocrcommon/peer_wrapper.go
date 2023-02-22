@@ -183,6 +183,7 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 				IncomingMessageBufferSize: p.config.P2PIncomingMessageBufferSize(),
 				OutgoingMessageBufferSize: p.config.P2POutgoingMessageBufferSize(),
 			},
+			Metrics: NewMetricVecFactory(NewDefaultMetricVec),
 		}
 
 		p.lggr.Debugw("Creating OCR/OCR2 Peer", "config", peerConfig)

@@ -236,6 +236,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
+			Metrics:                      ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
 		}
 		eaMonitoringEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA)
 		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg, eaMonitoringEndpoint)
@@ -277,6 +278,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
 			OffchainKeyring:        kb,
 			OnchainKeyring:         kb,
+			Metrics:                ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
 		}
 		return dkg.NewDKGServices(
 			jb,
@@ -593,6 +595,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       pluginFactory,
+		Metrics:                      ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOracle")

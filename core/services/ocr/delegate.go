@@ -308,6 +308,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			V2Bootstrappers:              v2Bootstrappers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.OCR),
 			ConfigOverrider:              configOverrider,
+			Metrics:                      ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
