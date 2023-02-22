@@ -142,6 +142,14 @@ func (r *runner) Close() error {
 	})
 }
 
+func (r *runner) Name() string {
+	return r.lggr.Name()
+}
+
+func (r *runner) HealthReport() map[string]error {
+	return map[string]error{}
+}
+
 func (r *runner) destroy() {
 	err := r.runReaperWorker.Stop()
 	if err != nil {
