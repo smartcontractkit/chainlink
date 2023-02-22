@@ -296,7 +296,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		return err
 	}
 	if fromBlock < 1 || fromBlock > latest.Number {
-		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
+		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
 	// Block until replay notification accepted or cancelled.
 	select {

@@ -235,7 +235,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	currentBlock := th.LogPoller.PollAndSaveLogs(ctx, 1)
 	assert.Equal(t, int64(35), currentBlock)
 
-	// simluate logs becoming available
+	// simulate logs becoming available
 	rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
 	require.True(t, rawdb.HasReceipts(th.EthDB, h.Hash(), h.Number.Uint64()))
 	body.Transactions = txs
