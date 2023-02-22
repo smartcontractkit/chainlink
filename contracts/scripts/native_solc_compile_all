@@ -43,6 +43,7 @@ $SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistry1_3.sol
 $SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_6_compile tests/UpkeepAPIFetch.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol

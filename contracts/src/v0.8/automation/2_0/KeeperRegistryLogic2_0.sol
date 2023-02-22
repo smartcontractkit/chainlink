@@ -62,23 +62,25 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
-    if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
-
-    bytes memory userPerformData;
-    (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
-    if (!upkeepNeeded)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
-    if (userPerformData.length > s_storage.maxPerformDataSize)
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+    if (!success) {
+      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
+    } else {
+      (upkeepNeeded, result) = abi.decode(result, (bool, bytes));
+      if (!upkeepNeeded)
+        return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
+      if (result.length > s_storage.maxPerformDataSize)
+        return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+    }
 
     performData = abi.encode(
       PerformDataWrapper({
         checkBlockNumber: uint32(block.number - 1),
         checkBlockhash: blockhash(block.number - 1),
-        performData: userPerformData
+        performData: result
       })
     );
-    return (true, performData, UpkeepFailureReason.NONE, gasUsed, fastGasWei, linkNative);
+
+    return (success, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
   /**
