@@ -54,7 +54,8 @@ func NewOCRContractTransmitter(
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	_, err := lp.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	filterName := logpoller.FilterName("OCR ContractTransmitter", address.String())
+	err := lp.RegisterFilter(logpoller.Filter{Name: filterName, EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
 	}
