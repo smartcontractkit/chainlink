@@ -190,7 +190,7 @@ func (ec *EthConfirmer) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
 		ec.ctxCancel()
 		ec.wg.Wait()
-
+		ec.orm.Close()
 		return nil
 	})
 }

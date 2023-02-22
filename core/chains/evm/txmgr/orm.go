@@ -56,6 +56,7 @@ type ORM interface {
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
 	UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error
+	Close()
 }
 
 type EthReceiptsPlus struct {
@@ -65,16 +66,28 @@ type EthReceiptsPlus struct {
 }
 
 type orm struct {
-	q      pg.Q
-	logger logger.Logger
+	q         pg.Q
+	logger    logger.Logger
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("TxmORM")
-	q := pg.NewQ(db, namedLogger, cfg)
-	return &orm{q, namedLogger}
+	ctx, cancel := context.WithCancel(context.Background())
+	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
+	return &orm{
+		q:         q,
+		logger:    namedLogger,
+		ctx:       ctx,
+		ctxCancel: cancel,
+	}
+}
+
+func (o *orm) Close() {
+	o.ctxCancel()
 }
 
 func (o *orm) preloadTxAttempts(txs []EthTx) error {
