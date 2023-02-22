@@ -113,6 +113,7 @@ func TestNurse(t *testing.T) {
 	nrse := NewNurse(newMockConfig(t), l)
 
 	require.NoError(t, nrse.Start())
+	defer func() { require.NoError(t, nrse.Close())}()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 
