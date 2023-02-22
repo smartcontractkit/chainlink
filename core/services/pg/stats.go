@@ -90,18 +90,16 @@ func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *
 }
 
 func (r *StatsReporter) Start(ctx context.Context) {
-	var wg sync.WaitGroup
 
 	run := func() {
-		wg.Add(1)
-		defer wg.Done()
+		ready := make(chan struct{})
 		r.lggr.Debug("Starting DB stat reporter")
 		rctx, cancelFunc := context.WithCancel(ctx)
 		r.cancel = cancelFunc
-		go r.loop(rctx)
+		go r.loop(rctx, ready)
+		<-ready
 	}
 	r.once.Do(run)
-	wg.Wait()
 }
 
 func (r *StatsReporter) Stop() {
@@ -112,11 +110,12 @@ func (r *StatsReporter) Stop() {
 	}
 }
 
-func (r *StatsReporter) loop(ctx context.Context) {
+func (r *StatsReporter) loop(ctx context.Context, ready chan struct{}) {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 
 	r.reportFn(r.statFn())
+	close(ready)
 	for {
 		select {
 		case <-ticker.C:
