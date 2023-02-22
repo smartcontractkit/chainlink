@@ -16,7 +16,6 @@ import (
 )
 
 type mockConfig struct {
-	//mock.Mock
 	t                    *testing.T
 	root                 string
 	pollInterval         *models.Duration
@@ -113,7 +112,7 @@ func TestNurse(t *testing.T) {
 	nrse := NewNurse(newMockConfig(t), l)
 
 	require.NoError(t, nrse.Start())
-	defer func() { require.NoError(t, nrse.Close())}()
+	defer func() { require.NoError(t, nrse.Close()) }()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 
