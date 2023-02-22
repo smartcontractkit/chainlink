@@ -82,6 +82,7 @@ struct State {
  */
 struct UpkeepInfo {
   address target;
+  address forwarder;
   uint32 executeGas;
   bytes checkData;
   uint96 balance;

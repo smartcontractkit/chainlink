@@ -380,6 +380,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory reg = s_upkeep[id];
     upkeepInfo = UpkeepInfo({
       target: reg.target,
+      forwarder: address(reg.forwarder),
       executeGas: reg.executeGas,
       checkData: s_checkData[id],
       balance: reg.balance,

@@ -6,7 +6,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
-import {AutomationForwarderFactory} from "./AutomationForwarder.sol";
+import {AutomationForwarder, AutomationForwarderFactory} from "./AutomationForwarder.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 
 // TODO - we can probably combine these interfaces
@@ -177,7 +177,8 @@ contract KeeperRegistryLogicA2_1 is
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
     id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
+    AutomationForwarder forwarder = i_forwarderFactory.deploy(target);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
@@ -432,6 +433,9 @@ contract KeeperRegistryLogicA2_1 is
     (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins) = abi
       .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
+      if (address(upkeeps[idx].forwarder) == address(0)) {
+        upkeeps[idx].forwarder = i_forwarderFactory.deploy(upkeeps[idx].target);
+      }
       _createUpkeep(
         ids[idx],
         upkeeps[idx].target,
@@ -439,7 +443,9 @@ contract KeeperRegistryLogicA2_1 is
         upkeepAdmins[idx],
         upkeeps[idx].balance,
         checkDatas[idx],
-        upkeeps[idx].paused
+        upkeeps[idx].paused,
+        offchainConfigs[idx],
+        upkeeps[idx].forwarder
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
@@ -461,7 +467,9 @@ contract KeeperRegistryLogicA2_1 is
     address admin,
     uint96 balance,
     bytes memory checkData,
-    bool paused
+    bool paused,
+    bytes memory offchainConfig,
+    AutomationForwarder forwarder
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!target.isContract()) revert NotAContract();
@@ -475,7 +483,8 @@ contract KeeperRegistryLogicA2_1 is
       maxValidBlocknumber: UINT32_MAX,
       lastPerformBlockNumber: 0,
       amountSpent: 0,
-      paused: paused
+      paused: paused,
+      forwarder: forwarder
     });
     s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
