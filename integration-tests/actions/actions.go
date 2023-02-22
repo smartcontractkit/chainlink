@@ -4,6 +4,7 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"math/big"
 	"strings"
 	"testing"
@@ -229,7 +230,7 @@ func TeardownSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	clients ...blockchain.EVMClient,
 ) error {
-	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, zapcore.DebugLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	for _, c := range clients {
