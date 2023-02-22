@@ -108,7 +108,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 	case chaintype.Terra:
 		kb = newKeyBundle(new(legacyEdDSAKeyring))
 	default:
-		panic("unsupported chain type")
+		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
 	}
 	if err := kb.Unmarshal(raw); err != nil {
 		panic(err)
