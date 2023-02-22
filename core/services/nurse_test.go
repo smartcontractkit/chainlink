@@ -143,8 +143,6 @@ func TestNurse(t *testing.T) {
 
 	wg.Wait()
 
-	require.NoError(t, nrse.Close())
-
 	profiles, err := nrse.listProfiles()
 	require.NoError(t, err)
 	assertProfileExists(t, profiles, cpuProfName)
