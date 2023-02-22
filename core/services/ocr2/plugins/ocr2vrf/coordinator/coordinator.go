@@ -1072,7 +1072,9 @@ func (c *coordinator) SetOffChainConfig(b []byte) error {
 	c.toBeTransmittedBlocks.SetEvictonWindow(cacheEvictionWindow)
 	c.toBeTransmittedCallbacks.SetEvictonWindow(cacheEvictionWindow)
 
-	c.blockhashLookback = mathutil.Min(256, uint64(c.coordinatorConfig.LookbackBlocks))
+	c.blockhashLookback = int64(
+		mathutil.Min(256, uint64(c.coordinatorConfig.LookbackBlocks)),
+	)
 	c.lggr.Infow("set offchain config",
 		offchainConfigFields(c.coordinatorConfig)...,
 	)
