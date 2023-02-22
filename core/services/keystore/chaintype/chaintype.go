@@ -17,6 +17,9 @@ const (
 	Solana ChainType = "solana"
 	// StarkNet for the StarkNet chain
 	StarkNet ChainType = "starknet"
+	// Terra for the Terra chain
+	//legacy, only here to support any terra keys that may be in db
+	Terra ChainType = "terra"
 )
 
 type ChainTypes []ChainType
@@ -34,6 +37,10 @@ func (c ChainTypes) String() (out string) {
 
 // SupportedChainTypes contain all chains that are supported
 var SupportedChainTypes = ChainTypes{EVM, Solana, StarkNet}
+
+// LegacyChainTypes contain all chains that have been removed but
+// still have some key support for backwards compatibility
+var LegacyChainTypes = ChainTypes{Terra}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error

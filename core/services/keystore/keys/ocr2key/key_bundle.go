@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
@@ -106,8 +105,10 @@ func (raw Raw) Key() (kb KeyBundle, error error) {
 		kb = newKeyBundle(new(solanaKeyring))
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starknet.OCR2Key))
+	case chaintype.Terra:
+		kb = newKeyBundle(new(legacyEdDSAKeyring))
 	default:
-		return nil, errors.Errorf("Detected ocr2 key for unsupported chain '%s'", temp.ChainType)
+		panic("unsupported chain type")
 	}
 	if err := kb.Unmarshal(raw); err != nil {
 		panic(err)
