@@ -32,6 +32,7 @@ type ORM interface {
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error)
+	FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error)
 	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
 	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error)
@@ -46,6 +47,7 @@ type ORM interface {
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
 	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
+	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
 	PreloadEthTxes(attempts []EthTxAttempt) error
 	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
@@ -794,4 +796,125 @@ ORDER BY nonce ASC
 		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
+}
+
+// FindEthTxsRequiringResubmissionDueToInsufficientEth returns transactions
+// that need to be re-sent because they hit an out-of-eth error on a previous
+// block
+func (o *orm) FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error) {
+	qq := o.q.WithOpts(qopts...)
+	// qq := q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&etxs, `
+SELECT DISTINCT eth_txes.* FROM eth_txes
+INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'
+WHERE eth_txes.from_address = $1 AND eth_txes.state = 'unconfirmed' AND eth_txes.evm_chain_id = $2
+ORDER BY nonce ASC
+`, address, chainID.String())
+		if err != nil {
+			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
+		}
+
+		err = loadEthTxesAttempts(tx, etxs)
+		return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_tx_attempts")
+	}, pg.OptReadOnlyTx())
+	return
+}
+
+// markOldTxesMissingReceiptAsErrored
+//
+// Once eth_tx has all of its attempts broadcast before some cutoff threshold
+// without receiving any receipts, we mark it as fatally errored (never sent).
+//
+// The job run will also be marked as errored in this case since we never got a
+// receipt and thus cannot pass on any transaction hash
+func (o *orm) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+	// cutoffBlockNum is a block height
+	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
+	// We will not try to query for receipts for this transaction any more
+	cutoff := blockNum - int64(finalityDepth)
+	if cutoff <= 0 {
+		return nil
+	}
+	if cutoff <= 0 {
+		return nil
+	}
+	// note: if QOpt passes in a sql.Tx this will reuse it
+	return qq.Transaction(func(q pg.Queryer) error {
+		type etx struct {
+			ID    int64
+			Nonce int64
+		}
+		var data []etx
+		err := q.Select(&data, `
+UPDATE eth_txes
+SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL, initial_broadcast_at=NULL
+FROM (
+	SELECT e1.id, e1.nonce, e1.from_address FROM eth_txes AS e1 WHERE id IN (
+		SELECT e2.id FROM eth_txes AS e2
+		INNER JOIN eth_tx_attempts ON e2.id = eth_tx_attempts.eth_tx_id
+		WHERE e2.state = 'confirmed_missing_receipt'
+		AND e2.evm_chain_id = $3
+		GROUP BY e2.id
+		HAVING max(eth_tx_attempts.broadcast_before_block_num) < $2
+	)
+	FOR UPDATE OF e1
+) e0
+WHERE e0.id = eth_txes.id
+RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, chainID.String())
+
+		if err != nil {
+			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
+		}
+
+		// We need this little lookup table because we have to have the nonce
+		// from the first query, BEFORE it was updated/nullified
+		lookup := make(map[int64]etx)
+		for _, d := range data {
+			lookup[d.ID] = d
+		}
+		etxIDs := make([]int64, len(data))
+		for i := 0; i < len(data); i++ {
+			etxIDs[i] = data[i].ID
+		}
+
+		type result struct {
+			ID                         int64
+			FromAddress                common.Address
+			MaxBroadcastBeforeBlockNum int64
+			TxHashes                   pq.ByteaArray
+		}
+
+		var results []result
+		err = q.Select(&results, `
+SELECT e.id, e.from_address, max(a.broadcast_before_block_num) AS max_broadcast_before_block_num, array_agg(a.hash) AS tx_hashes
+FROM eth_txes e
+INNER JOIN eth_tx_attempts a ON e.id = a.eth_tx_id
+WHERE e.id = ANY($1)
+GROUP BY e.id
+`, etxIDs)
+
+		if err != nil {
+			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to load additional data")
+		}
+
+		for _, r := range results {
+			nonce := lookup[r.ID].Nonce
+			txHashesHex := make([]common.Address, len(r.TxHashes))
+			for i := 0; i < len(r.TxHashes); i++ {
+				txHashesHex[i] = common.BytesToAddress(r.TxHashes[i])
+			}
+
+			o.logger.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
+				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
+				"an external wallet has been used to send a transaction from account %s with nonce %v."+
+				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
+				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
+				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.Hex(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
+		}
+
+		return nil
+	})
 }

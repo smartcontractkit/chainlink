@@ -14,6 +14,8 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -934,5 +936,105 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, etxs, 1)
 		assert.Equal(t, etx.ID, etxs[0].ID)
+	})
+}
+
+func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	borm := cltest.NewTxmORM(t, db, cfg)
+
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	// Insert order is mixed up to test sorting
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 1, fromAddress)
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
+	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, etx3.ID)
+	attempt3_2.State = txmgr.EthTxAttemptInsufficientEth
+	attempt3_2.GasPrice = assets.NewWeiI(100)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt3_2))
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, fromAddress)
+
+	// These should never be returned
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 3, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 4, 100, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherAddress)
+
+	t.Run("returns all eth_txes with at least one attempt that is in insufficient_eth state", func(t *testing.T) {
+		etxs, err := borm.FindEthTxsRequiringResubmissionDueToInsufficientEth(fromAddress, cltest.FixtureChainID)
+		require.NoError(t, err)
+
+		assert.Len(t, etxs, 3)
+
+		assert.Equal(t, *etx1.Nonce, *etxs[0].Nonce)
+		assert.Equal(t, etx1.ID, etxs[0].ID)
+		assert.Equal(t, *etx2.Nonce, *etxs[1].Nonce)
+		assert.Equal(t, etx2.ID, etxs[1].ID)
+		assert.Equal(t, *etx3.Nonce, *etxs[2].Nonce)
+		assert.Equal(t, etx3.ID, etxs[2].ID)
+	})
+
+	t.Run("does not return eth_txes with different chain ID", func(t *testing.T) {
+		etxs, err := borm.FindEthTxsRequiringResubmissionDueToInsufficientEth(fromAddress, *big.NewInt(42))
+		require.NoError(t, err)
+
+		assert.Len(t, etxs, 0)
+	})
+
+	t.Run("does not return confirmed or fatally errored eth_txes", func(t *testing.T) {
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx1.ID)
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL, initial_broadcast_at=NULL WHERE id = $1`, etx2.ID)
+
+		etxs, err := borm.FindEthTxsRequiringResubmissionDueToInsufficientEth(fromAddress, cltest.FixtureChainID)
+		require.NoError(t, err)
+
+		assert.Len(t, etxs, 1)
+
+		assert.Equal(t, *etx3.Nonce, *etxs[0].Nonce)
+		assert.Equal(t, etx3.ID, etxs[0].ID)
+	})
+}
+
+func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	// tx state should be confirmed missing receipt
+	// attempt should be broadcast before cutoff time
+	t.Run("succesfully mark errored transactions", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, borm, 1, 7, time.Now(), fromAddress)
+
+		err := borm.MarkOldTxesMissingReceiptAsErrored(10, 2, *ethClient.ChainID())
+		require.NoError(t, err)
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
+	})
+
+	t.Run("succesfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
+		q := pg.NewQ(db, logger.TestLogger(t), cfg)
+
+		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, borm, 1, 7, time.Now(), fromAddress)
+		q.Transaction(func(q pg.Queryer) error {
+			err := borm.MarkOldTxesMissingReceiptAsErrored(10, 2, *ethClient.ChainID(), pg.WithQueryer(q))
+			require.NoError(t, err)
+			return nil
+		})
+		// must run other query outside of postgres transaction so changes are committed
+		etx, err := borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
 }
