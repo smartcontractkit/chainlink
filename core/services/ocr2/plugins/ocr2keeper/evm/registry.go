@@ -75,7 +75,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		chLog:    make(chan logpoller.Log, 1000),
 	}
 
-	if err := r.registerEvents(addr); err != nil {
+	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
@@ -118,7 +118,7 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterID      int
+	filterName    string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -249,9 +249,6 @@ func (r *EvmRegistry) Close() error {
 		r.cancel()
 		r.runState = 0
 		r.runError = nil
-		if r.filterID > 0 {
-			return r.poller.UnregisterFilter(r.filterID)
-		}
 		return nil
 	})
 }
@@ -355,16 +352,18 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
-func (r *EvmRegistry) registerEvents(addr common.Address) error {
+func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterID, err := r.poller.RegisterFilter(logpoller.Filter{
+	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+	err := r.poller.RegisterFilter(logpoller.Filter{
+		Name:      filterName,
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()
-		r.filterID = filterID
+		r.filterName = filterName
 		r.mu.Unlock()
 	}
 	return err

@@ -168,10 +168,12 @@ func New(
 	}
 
 	t := newTopics()
+	filterName := logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	_, err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(logpoller.Filter{
+		Name: filterName,
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
 			t.randomnessFulfillmentRequestedTopic,
