@@ -23,7 +23,7 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.2
 	github.com/umbracle/ethgo v0.1.3
-	github.com/urfave/cli v1.22.10
+	github.com/urfave/cli v1.22.12
 	go.dedis.ch/kyber/v3 v3.0.14
 )
 
