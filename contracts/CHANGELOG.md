@@ -4,6 +4,14 @@
 
 ### Changed
 
+## 0.6.2 - 2023-02-06
+
+### Added
+
+- Added `getLatestNonce` and `checkRequestIdsToTimeout` to FunctionsBillingRegistry.sol enabling users to search for requestIds which hae expired
+
+### Changed
+
 - Change Functions Client variables to internal for use when integrating Automation (#8429)
 - Make Functions Billing Registry and Functions Oracle upgradable using the transparent proxy pattern (#8371)
 - Update dependency hardhat from version 2.10.1 to 2.12.7 (#8464)

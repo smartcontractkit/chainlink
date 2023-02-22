@@ -845,7 +845,7 @@ contract FunctionsBillingRegistry is
     address consumer,
     uint64 subscriptionId
   ) external view onlySubOwner(subscriptionId) returns (uint64) {
-    return s_consumers(consumer, subscriptionId);
+    return s_consumers[consumer][subscriptionId];
   }
 
   /**
@@ -853,11 +853,13 @@ contract FunctionsBillingRegistry is
    * @param requestIds Array of requestIds to check
    * @return Boolean array indicating if the corresponding requestId should be timed out
    */
-  function checkRequestIdsToTimeout(bytes32[] requestIds) external view returns (bool[]) {
-    bool[] requestIdsToTimeout = new bool[](requestIds.length);
+  function checkRequestIdsToTimeout(
+    bytes32[] calldata requestIds
+  ) external view returns (bool[] memory) {
+    bool[] memory requestIdsToTimeout = new bool[](requestIds.length);
 
     for (uint256 i = 0; i < requestIds.length; i++) {
-      uint256 requestStartTime = s_requestCommitments[requestId].timestamp;
+      uint256 requestStartTime = s_requestCommitments[requestIds[i]].timestamp;
       requestIdsToTimeout[i] = (
         // Checks if the request actually exists
         requestStartTime > 0 &&
@@ -866,7 +868,7 @@ contract FunctionsBillingRegistry is
       );
     }
 
-    return isRequestIdExpired;
+    return requestIdsToTimeout;
   }
 
 
