@@ -6,6 +6,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
@@ -31,6 +32,8 @@ type Config struct {
 	Solana solana.SolanaConfigs `toml:",omitempty"`
 
 	Starknet starknet.StarknetConfigs `toml:",omitempty"`
+
+	Terra terra.TerraConfigs `toml:",omitempty"`
 }
 
 // TOMLString returns a TOML encoded string.
@@ -76,6 +79,13 @@ func (c *Config) setDefaults() {
 		}
 		c.Starknet[i].Chain.SetDefaults()
 	}
+
+	for i := range c.Terra {
+		if c.Terra[i] == nil {
+			c.Terra[i] = new(terra.TerraConfig)
+		}
+		c.Terra[i].Chain.SetDefaults()
+	}
 }
 
 func (c *Config) SetFrom(f *Config) {
@@ -83,6 +93,7 @@ func (c *Config) SetFrom(f *Config) {
 	c.EVM.SetFrom(&f.EVM)
 	c.Solana.SetFrom(&f.Solana)
 	c.Starknet.SetFrom(&f.Starknet)
+	c.Terra.SetFrom(&f.Terra)
 }
 
 type Secrets struct {

@@ -166,6 +166,7 @@ func NewApp(client *Client) *cli.App {
 				initOCR2KeysSubCmd(client),
 
 				keysCommand("Solana", NewSolanaKeysClient(client)),
+				keysCommand("Terra", NewTerraKeysClient(client)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
 				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
@@ -192,6 +193,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				initEVMTxSubCmd(client),
 				initSolanaTxSubCmd(client),
+				initTerraTxSubCmd(client),
 			},
 		},
 		{
@@ -202,6 +204,7 @@ func NewApp(client *Client) *cli.App {
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
 				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Terra", TerraChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
 		{
@@ -211,6 +214,7 @@ func NewApp(client *Client) *cli.App {
 				initEVMNodeSubCmd(client),
 				initSolanaNodeSubCmd(client),
 				initStarkNetNodeSubCmd(client),
+				initTerraNodeSubCmd(client),
 			},
 		},
 		{

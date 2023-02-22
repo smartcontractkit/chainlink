@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -148,6 +149,7 @@ type keyRing struct {
 	OCR2       map[string]ocr2key.KeyBundle
 	P2P        map[string]p2pkey.KeyV2
 	Solana     map[string]solkey.Key
+	Terra      map[string]terrakey.Key
 	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
@@ -163,6 +165,7 @@ func newKeyRing() *keyRing {
 		OCR2:       make(map[string]ocr2key.KeyBundle),
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Solana:     make(map[string]solkey.Key),
+		Terra:      make(map[string]terrakey.Key),
 		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
@@ -218,6 +221,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
 	}
+	for _, terrakey := range kr.Terra {
+		rawKeys.Terra = append(rawKeys.Terra, terrakey.Raw())
+	}
 	for _, starkkey := range kr.StarkNet {
 		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
 	}
@@ -259,6 +265,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, solanaKey := range kr.Solana {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
+	var terraIDs []string
+	for _, terraKey := range kr.Terra {
+		terraIDs = append(terraIDs, terraKey.ID())
+	}
 	var starknetIDs []string
 	for _, starkkey := range kr.StarkNet {
 		starknetIDs = append(starknetIDs, starkkey.ID())
@@ -293,6 +303,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
 	}
+	if len(terraIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Terra keys", len(terraIDs)), "keys", terraIDs)
+	}
 	if len(starknetIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
 	}
@@ -320,6 +333,7 @@ type rawKeyRing struct {
 	OCR2       []ocr2key.Raw
 	P2P        []p2pkey.Raw
 	Solana     []solkey.Raw
+	Terra      []terrakey.Raw
 	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
@@ -353,6 +367,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawSolKey := range rawKeys.Solana {
 		solKey := rawSolKey.Key()
 		keyRing.Solana[solKey.ID()] = solKey
+	}
+	for _, rawTerraKey := range rawKeys.Terra {
+		terraKey := rawTerraKey.Key()
+		keyRing.Terra[terraKey.ID()] = terraKey
 	}
 	for _, rawStarkNetKey := range rawKeys.StarkNet {
 		starkKey := rawStarkNetKey.Key()

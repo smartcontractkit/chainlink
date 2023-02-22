@@ -206,6 +206,7 @@ func ExampleRun_keys() {
 	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
 	//    solana      Remote commands for administering the node's Solana keys
+	//    terra       Remote commands for administering the node's Terra keys
 	//    starknet    Remote commands for administering the node's StarkNet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
 	//    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
@@ -330,6 +331,26 @@ func ExampleRun_keys_solana() {
 	//    export  Export Solana key to keyfile
 	//    delete  Delete Solana key if present
 	//    list    List the Solana keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_terra() {
+	Run("keys", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys terra - Remote commands for administering the node's Terra keys
+	//
+	// USAGE:
+	//    core.test keys terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Terra key
+	//    import  Import Terra key from keyfile
+	//    export  Export Terra key to keyfile
+	//    delete  Delete Terra key if present
+	//    list    List the Terra keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -498,6 +519,7 @@ func ExampleRun_txs() {
 	// COMMANDS:
 	//    evm     Commands for handling EVM transactions
 	//    solana  Commands for handling Solana transactions
+	//    terra   Commands for handling Terra transactions
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -537,6 +559,22 @@ func ExampleRun_txs_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_txs_terra() {
+	Run("txs", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs terra - Commands for handling Terra transactions
+	//
+	// USAGE:
+	//    core.test txs terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> Luna from node Terra account <fromAddress> to destination <toAddress>.
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_chains() {
 	Run("chains", "--help")
 	// Output:
@@ -550,6 +588,7 @@ func ExampleRun_chains() {
 	//    evm       Commands for handling EVM chains
 	//    solana    Commands for handling Solana chains
 	//    starknet  Commands for handling StarkNet chains
+	//    terra     Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -603,6 +642,25 @@ func ExampleRun_chains_starknet() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_chains_terra() {
+	Run("chains", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains terra - Commands for handling Terra chains
+	//
+	// USAGE:
+	//    core.test chains terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create     Create a new Terra chain
+	//    delete     Delete an existing Terra chain
+	//    list       List all existing Terra chains
+	//    configure  Configure an existing Terra chain
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_nodes() {
 	Run("nodes", "--help")
 	// Output:
@@ -616,6 +674,7 @@ func ExampleRun_nodes() {
 	//    evm       Commands for handling EVM node configuration
 	//    solana    Commands for handling Solana node configuration
 	//    starknet  Commands for handling StarkNet node configuration
+	//    terra     Commands for handling Terra node configuration
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -677,6 +736,24 @@ func ExampleRun_nodes_starknet() {
 	//
 	// COMMANDS:
 	//    list  List all existing StarkNet nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_terra() {
+	Run("nodes", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes terra - Commands for handling Terra node configuration
+	//
+	// USAGE:
+	//    core.test nodes terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new Terra node
+	//    delete  Delete an existing Terra node
+	//    list    List all existing Terra nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

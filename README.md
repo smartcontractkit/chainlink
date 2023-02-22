@@ -50,6 +50,8 @@ For the latest information on setting up a development environment, see the [Dev
 
 Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 
+Chainlink Docker image currently has an indirect dependency on WebAssemby because of our `terra-money/core` (CosmWasm) dependency via `smartcontractkit/chainlink-terra`. This dependency requires a native `libwasmvm` library, which needs to be sourced depending on the underlying system architecture.
+
 An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
 
 ```bash

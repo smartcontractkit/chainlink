@@ -15,6 +15,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
@@ -89,6 +90,13 @@ func TestDoc(t *testing.T) {
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Starknet[0].Chain)
+	})
+
+	t.Run("Terra", func(t *testing.T) {
+		var fallbackDefaults terra.TerraConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Terra[0].Chain)
 	})
 }
 

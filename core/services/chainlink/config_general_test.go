@@ -18,6 +18,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
+	assert.False(t, config.TerraEnabled())
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())

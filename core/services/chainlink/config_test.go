@@ -18,12 +18,14 @@ import (
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -167,6 +169,24 @@ var (
 					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
 				},
 			},
+		},
+		Terra: []*terra.TerraConfig{
+			{
+				ChainID: ptr("Columbus-5"),
+				Chain: tercfg.Chain{
+					MaxMsgsPerBatch: ptr[int64](13),
+				},
+				Nodes: []*tercfg.Node{
+					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://columbus.terra.com")},
+				}},
+			{
+				ChainID: ptr("Bombay-12"),
+				Chain: tercfg.Chain{
+					BlocksUntilTxTimeout: ptr[int64](20),
+				},
+				Nodes: []*tercfg.Node{
+					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://bombay.terra.com")},
+				}},
 		},
 	}
 )
@@ -569,6 +589,29 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
+	full.Terra = []*terra.TerraConfig{
+		{
+			ChainID: ptr("Bombay-12"),
+			Enabled: ptr(true),
+			Chain: tercfg.Chain{
+				BlockRate:             relayutils.MustNewDuration(time.Minute),
+				BlocksUntilTxTimeout:  ptr[int64](12),
+				ConfirmPollPeriod:     relayutils.MustNewDuration(time.Second),
+				FallbackGasPriceULuna: mustDecimal("0.001"),
+				FCDURL:                relayutils.MustParseURL("http://terra.com"),
+				GasLimitMultiplier:    mustDecimal("1.2"),
+				MaxMsgsPerBatch:       ptr[int64](17),
+				OCR2CachePollPeriod:   relayutils.MustNewDuration(time.Minute),
+				OCR2CacheTTL:          relayutils.MustNewDuration(time.Hour),
+				TxMsgTimeout:          relayutils.MustNewDuration(time.Second),
+			},
+			Nodes: []*tercfg.Node{
+				{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://tender.mint")},
+				{Name: ptr("foo"), TendermintURL: relayutils.MustParseURL("http://foo.url")},
+				{Name: ptr("bar"), TendermintURL: relayutils.MustParseURL("http://bar.web")},
+			},
+		},
+	}
 
 	for _, tt := range []struct {
 		name   string
@@ -923,6 +966,32 @@ TxMaxBatchSize = 17
 Name = 'primary'
 URL = 'http://stark.node'
 `},
+		{"Terra", Config{Terra: full.Terra}, `[[Terra]]
+ChainID = 'Bombay-12'
+Enabled = true
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.001'
+FCDURL = 'http://terra.com'
+GasLimitMultiplier = '1.2'
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Terra.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Terra.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'
+`},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
 	} {
@@ -967,7 +1036,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 4 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
@@ -1034,6 +1103,16 @@ func TestConfig_Validate(t *testing.T) {
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 0.ChainID: missing: required for all chains
 		- 1: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Terra: 5 errors:
+		- 1.ChainID: invalid value (Bombay-12): duplicate - must be unique
+		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
+		- 0.Nodes: 2 errors:
+				- 0.TendermintURL: missing: required for all nodes
+				- 1.TendermintURL: missing: required for all nodes
+		- 1.Nodes: missing: must have at least one node
+		- 2: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node`},
 	} {
@@ -1231,6 +1310,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
 	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Terra = terra.TerraConfigs{{ChainID: ptr("unknown terra chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)

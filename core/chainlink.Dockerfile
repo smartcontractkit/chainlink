@@ -34,6 +34,13 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
+
+# Dependency of terra-money/core - choose arch by using `--build-arg LIBWASMVM_ARCH=(aarch64|x86_64)` or use default
+ARG LIBWASMVM_ARCH
+COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/api/libwasmvm.*.so /usr/lib/
+RUN DEFAULT_ARCH=`uname -m` && cp /usr/lib/libwasmvm.${LIBWASMVM_ARCH:-$DEFAULT_ARCH}.so /usr/lib/libwasmvm.so
+RUN chmod 755 /usr/lib/libwasmvm.so
+
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi

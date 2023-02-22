@@ -273,6 +273,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
 						}
+					case relay.Terra:
+						_, err := o.keyStore.Terra().Get(transmitterID)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Terra key matching %q", transmitterID)
+						}
 					}
 				}
 			}

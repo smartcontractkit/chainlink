@@ -257,6 +257,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ets := EVMTransfersController{app}
 		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
 		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
+		tts := TerraTransfersController{app}
+		authv2.POST("/transfers/terra", auth.RequiresAdminRole(tts.Create))
 		sts := SolanaTransfersController{app}
 		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
@@ -324,6 +326,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			kc   KeysController
 		}{
 			{"solana", NewSolanaKeysController(app)},
+			{"terra", NewTerraKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"dkgsign", NewDKGSignKeysController(app)},
 			{"dkgencrypt", NewDKGEncryptKeysController(app)},
@@ -373,6 +376,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
+			{"terra", NewTerraChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
@@ -386,6 +390,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
+			{"terra", NewTerraNodesController(app)},
 		} {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration

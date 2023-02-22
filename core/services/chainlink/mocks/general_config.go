@@ -2594,6 +2594,34 @@ func (_m *GeneralConfig) TelemetryIngressUseBatchSend() bool {
 	return r0
 }
 
+// TerraEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) TerraEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TerraNodes provides a mock function with given fields:
+func (_m *GeneralConfig) TerraNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // TriggerFallbackDBPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	ret := _m.Called()

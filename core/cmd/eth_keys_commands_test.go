@@ -25,8 +25,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-func ptr[T any](t T) *T { return &t }
-
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 

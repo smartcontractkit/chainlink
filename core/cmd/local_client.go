@@ -379,6 +379,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
+	if cli.Config.TerraEnabled() {
+		err2 := app.GetKeyStore().Terra().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure terra key")
+		}
+	}
 	if cli.Config.StarkNetEnabled() {
 		err2 := app.GetKeyStore().StarkNet().EnsureKey()
 		if err2 != nil {

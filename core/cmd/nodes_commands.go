@@ -9,6 +9,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 )
 
+func initTerraNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("Terra", NewTerraNodeClient(client),
+		cli.StringFlag{
+			Name:  "chain-id",
+			Usage: "chain ID",
+		},
+		cli.StringFlag{
+			Name:  "tendermint-url",
+			Usage: "Tendermint URL",
+		})
+}
+
 func initStarkNetNodeSubCmd(client *Client) cli.Command {
 	return nodeCommand("StarkNet", NewStarkNetNodeClient(client),
 		cli.StringFlag{

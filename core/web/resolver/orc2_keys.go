@@ -19,6 +19,8 @@ const (
 	OCR2ChainTypeEVM = "EVM"
 	// OCR2ChainTypeSolana defines OCR2 Solana Chain Type
 	OCR2ChainTypeSolana = "SOLANA"
+	// OCR2ChainTypeTerra defines OCR2 Terra Chain Type
+	OCR2ChainTypeTerra = "TERRA"
 )
 
 // ToOCR2ChainType turns a valid string into a OCR2ChainType
@@ -28,6 +30,8 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 		return OCR2ChainTypeEVM, nil
 	case "solana":
 		return OCR2ChainTypeSolana, nil
+	case "terra":
+		return OCR2ChainTypeTerra, nil
 	default:
 		return "", errors.New("invalid ocr2 chain type")
 	}
@@ -40,6 +44,8 @@ func FromOCR2ChainType(ct OCR2ChainType) string {
 		return "evm"
 	case OCR2ChainTypeSolana:
 		return "solana"
+	case OCR2ChainTypeTerra:
+		return "terra"
 	default:
 		return strings.ToLower(string(ct))
 	}

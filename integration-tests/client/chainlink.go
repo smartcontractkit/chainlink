@@ -902,6 +902,34 @@ func (c *Chainlink) DeleteEI(name string) (*http.Response, error) {
 	return resp.RawResponse, err
 }
 
+// CreateTerraChain creates a terra chain
+func (c *Chainlink) CreateTerraChain(chain *TerraChainAttributes) (*TerraChainCreate, *http.Response, error) {
+	response := TerraChainCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Terra Chain")
+	resp, err := c.APIClient.R().
+		SetBody(chain).
+		SetResult(&response).
+		Post("/v2/chains/terra")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
+// CreateTerraNode creates a terra node
+func (c *Chainlink) CreateTerraNode(node *TerraNodeAttributes) (*TerraNodeCreate, *http.Response, error) {
+	response := TerraNodeCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating Terra Node")
+	resp, err := c.APIClient.R().
+		SetBody(node).
+		SetResult(&response).
+		Post("/v2/nodes/terra")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
 // CreateSolanaChain creates a solana chain
 func (c *Chainlink) CreateSolanaChain(chain *SolanaChainAttributes) (*SolanaChainCreate, *http.Response, error) {
 	response := SolanaChainCreate{}
