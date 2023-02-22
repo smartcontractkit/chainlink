@@ -366,6 +366,9 @@ func (c *Chainlink) MustReadOCR2Keys() (*OCR2Keys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(ocr2Keys).
 		Get("/v2/keys/ocr2")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return ocr2Keys, err
 }
@@ -807,6 +810,9 @@ func (c *Chainlink) MustReadDKGSignKeys() (*DKGSignKeys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(dkgSignKeys).
 		Get("/v2/keys/dkgsign")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return dkgSignKeys, err
 }
@@ -818,6 +824,9 @@ func (c *Chainlink) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(dkgEncryptKeys).
 		Get("/v2/keys/dkgencrypt")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return dkgEncryptKeys, err
 }

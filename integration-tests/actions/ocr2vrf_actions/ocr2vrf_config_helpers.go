@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -44,8 +45,14 @@ func CreateOCR2VRFJobs(
 	log.Info().Msg("Done creating OCR automation jobs")
 }
 
-func createNonBootstrapJobs(t *testing.T, nonBootstrapNodes []*client.Chainlink, OCR2VRFPluginConfig *OCR2VRFPluginConfig, chainID int64, keyIndex int, P2Pv2Bootstrapper string) {
-
+func createNonBootstrapJobs(
+	t *testing.T,
+	nonBootstrapNodes []*client.Chainlink,
+	OCR2VRFPluginConfig *OCR2VRFPluginConfig,
+	chainID int64,
+	keyIndex int,
+	P2Pv2Bootstrapper string,
+) {
 	for index, nonBootstrapNode := range nonBootstrapNodes {
 		nodeTransmitterAddress, err := nonBootstrapNode.EthAddresses()
 		require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node %d", index)

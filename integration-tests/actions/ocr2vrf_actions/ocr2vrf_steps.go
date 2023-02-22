@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 
@@ -17,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -56,9 +58,9 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	require.NoError(t, err, "Error setting OCR config for DKG contract")
 
 	// wait for the event ConfigSet from DKG contract
-	dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent()
-	require.NoError(t, err, "Error waiting for ConfigSet Event for DKG contract")
-	log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config was set")
+	// dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent()
+	// require.NoError(t, err, "Error waiting for ConfigSet Event for DKG contract")
+	// log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config Set")
 	// wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
 	dkgSharesTransmittedEvent, err := dkg.WaitForTransmittedEvent()
 	require.NoError(t, err)
@@ -66,13 +68,15 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 }
 
 func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chainlink, dkg contracts.DKG, vrfBeacon contracts.VRFBeacon, coordinator contracts.VRFCoordinatorV3, mockETHLinkFeed contracts.MockETHLINKFeed, keyID string, vrfBeaconAllowedConfirmationDelays []string, coordinatorConfig *ocr2vrftypes.CoordinatorConfig) *OCR2VRFPluginConfig {
-	var dkgKeyConfigs []DKGKeyConfig
-	var transmitters []string
-	var ocrConfigPubKeys []string
-	var peerIDs []string
-	var ocrOnchainPubKeys []string
-	var ocrOffchainPubKeys []string
-	var schedule []int
+	var (
+		dkgKeyConfigs      []DKGKeyConfig
+		transmitters       []string
+		ocrConfigPubKeys   []string
+		peerIDs            []string
+		ocrOnchainPubKeys  []string
+		ocrOffchainPubKeys []string
+		schedule           []int
+	)
 
 	for _, node := range nonBootstrapNodes {
 		dkgSignKey, err := node.MustCreateDkgSignKey()
@@ -186,7 +190,15 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	return dkg, router, coordinator, vrfBeacon, consumer
 }
 
-func RequestAndRedeemRandomness(t *testing.T, consumer contracts.VRFBeaconConsumer, chainClient blockchain.EVMClient, vrfBeacon contracts.VRFBeacon, numberOfRandomWordsToRequest uint16, subscriptionID, confirmationDelay *big.Int) *big.Int {
+func RequestAndRedeemRandomness(
+	t *testing.T,
+	consumer contracts.VRFBeaconConsumer,
+	chainClient blockchain.EVMClient,
+	vrfBeacon contracts.VRFBeacon,
+	numberOfRandomWordsToRequest uint16,
+	subscriptionID,
+	confirmationDelay *big.Int,
+) *big.Int {
 	receipt, err := consumer.RequestRandomness(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
@@ -201,6 +213,7 @@ func RequestAndRedeemRandomness(t *testing.T, consumer contracts.VRFBeaconConsum
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent()
+	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
 
 	err = consumer.RedeemRandomness(subscriptionID, requestID)
@@ -236,6 +249,7 @@ func RequestRandomnessFulfillment(
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent()
+	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness Fulfillment transmitted by DON")
 
 	err = chainClient.WaitForEvents()

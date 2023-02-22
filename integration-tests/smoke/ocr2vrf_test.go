@@ -163,7 +163,9 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 			"replicas": "6",
 			"toml": client.AddNetworkDetailedConfig(
 				config.BaseOCR2VRFTomlConfig,
-				config.DefaultOCR2VRFNetworkDetailTomlConfig, testNetwork),
+				config.DefaultOCR2VRFNetworkDetailTomlConfig,
+				testNetwork,
+			),
 		}))
 	err := testEnvironment.Run()
 
