@@ -161,6 +161,7 @@ func BuildOCR2DKGConfigVars(
 	}
 
 	keyIDBytes, err := DecodeHexTo32ByteArray(ocr2VRFPluginConfig.DKGConfig.DKGKeyID)
+	require.NoError(t, err, "Shouldn't fail decoding DKG key ID")
 
 	offchainConfig, err := dkg.OffchainConfig(encryptionKeys, signingKeys, &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
 		Suite: &altbn_128.PairingSuite{},
@@ -188,6 +189,7 @@ func BuildOCR2DKGConfigVars(
 			1,                   // f int,
 			onchainConfig,       // onchainConfig []byte,
 		)
+	require.NoError(t, err, "Shouldn't fail building OCR config")
 
 	log.Info().Msg("Done building DKG OCR config")
 	return contracts.OCRConfig{
