@@ -490,6 +490,15 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		return
 	}
 
+	// check for offchainLookup
+	err = r.offchainLookup(ctx, upkeepResults)
+	if err != nil {
+		chResult <- checkResult{
+			err: err,
+		}
+		return
+	}
+
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -499,8 +508,8 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 
 	for i, res := range upkeepResults {
-		_, id, err := blockAndIdFromKey(res.Key)
-		if err != nil {
+		_, id, err2 := blockAndIdFromKey(res.Key)
+		if err2 != nil {
 			continue
 		}
 
@@ -590,12 +599,12 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		performToKeyIdx = make([]int, 0, len(checkResults))
 	)
 
-	for i, checkResult := range checkResults {
-		if checkResult.State == types.NotEligible {
+	for i, check := range checkResults {
+		if check.State == types.NotEligible {
 			continue
 		}
 
-		block, upkeepId, err := blockAndIdFromKey(checkResult.Key)
+		block, upkeepId, err := blockAndIdFromKey(check.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -606,7 +615,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
-		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, checkResult.PerformData)
+		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, check.PerformData)
 		if err != nil {
 			return nil, err
 		}

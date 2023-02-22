@@ -15,6 +15,18 @@ type evmRegistryPackerV2_0 struct {
 	abi abi.ABI
 }
 
+// enum UpkeepFailureReason
+// https://github.com/smartcontractkit/chainlink/blob/d9dee8ea6af26bc82463510cb8786b951fa98585/contracts/src/v0.8/interfaces/AutomationRegistryInterface2_0.sol#L94
+const (
+	UPKEEP_FAILURE_REASON_NONE = iota
+	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED
+	UPKEEP_FAILURE_REASON_UPKEEP_PAUSED
+	UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
+	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
+	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
+)
+
 func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
 	if err != nil {
@@ -35,8 +47,9 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 
 	if !upkeepNeeded {
 		result.State = types.NotEligible
-	} else {
-		var ret0 = new(res)
+	}
+	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
+		var ret0 = new(performDataWrapper)
 		err = pdataABI.UnpackIntoInterface(ret0, "check", rawPerformData)
 		if err != nil {
 			return types.UpkeepResult{}, err
@@ -113,7 +126,7 @@ var (
 	))
 )
 
-type res struct {
+type performDataWrapper struct {
 	Result performDataStruct
 }
 type performDataStruct struct {

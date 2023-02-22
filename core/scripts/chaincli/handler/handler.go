@@ -60,7 +60,7 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	// Created a client by the given node address
 	rpcClient, err := rpc.Dial(cfg.NodeURL)
 	if err != nil {
-		log.Fatal("failed to deal with ETH node", err)
+		log.Fatal("failed to deal with ETH node: ", err)
 	}
 	nodeClient := ethclient.NewClient(rpcClient)
 

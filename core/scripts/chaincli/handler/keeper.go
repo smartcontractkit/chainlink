@@ -15,6 +15,7 @@ import (
 	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_apifetch_wrapper"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -345,7 +346,14 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 			)
+		} else if k.cfg.UpkeepAPIFetch {
+			fmt.Println("API-Fetch")
+			upkeepAddr, deployUpkeepTx, _, err = upkeep_apifetch_wrapper.DeployUpkeepAPIFetch(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange),
+				big.NewInt(k.cfg.UpkeepInterval),
+			)
 		} else {
+			fmt.Println("counter")
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
 			)
