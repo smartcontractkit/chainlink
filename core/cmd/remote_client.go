@@ -322,7 +322,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 				errs <- err
 				return
 			}
-			wc := utils.NewDeferableWriterCloser(f)
+			wc := utils.NewDeferableWriteCloser(f)
 			defer wc.Close()
 
 			_, err = io.Copy(wc, resp.Body)

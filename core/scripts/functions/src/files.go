@@ -22,7 +22,7 @@ func writeLines(lines []string, path string) error {
 	if err != nil {
 		return err
 	}
-	wc := utils.NewDeferableWriterCloser(file)
+	wc := utils.NewDeferableWriteCloser(file)
 	defer wc.Close()
 
 	w := bufio.NewWriter(file)

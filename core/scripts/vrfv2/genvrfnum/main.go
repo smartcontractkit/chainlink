@@ -122,7 +122,7 @@ func main() {
 		}
 
 		outFile, err := os.Create(*outfile)
-		wc := utils.NewDeferableWriterCloser(outFile)
+		wc := utils.NewDeferableWriteCloser(outFile)
 		defer wc.Close()
 		helpers.PanicErr(err)
 

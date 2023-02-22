@@ -236,7 +236,7 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	if err != nil {
 		return err
 	}
-	wc := utils.NewDeferableWriterCloser(file)
+	wc := utils.NewDeferableWriteCloser(file)
 	defer wc.Close()
 
 	if _, err = wc.Write([]byte(fmt.Sprintf("==== %v\n", now))); err != nil {
@@ -416,10 +416,10 @@ func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.D
 	}
 	if shouldGzip {
 		gw := gzip.NewWriter(file)
-		return utils.NewDeferableWriterCloser(gw), nil
+		return utils.NewDeferableWriteCloser(gw), nil
 	}
 
-	return utils.NewDeferableWriterCloser(file), nil
+	return utils.NewDeferableWriteCloser(file), nil
 }
 
 func (n *Nurse) totalProfileBytes() (uint64, error) {

@@ -5,32 +5,32 @@ import (
 	"sync"
 )
 
-// DeferableWriterCloser is to be used in leiu of defer'ing
-// Close on an io.WriterClose (// For more background see https://www.joeshaw.org/dont-defer-close-on-writable-files/)
+// DeferableWriteCloser is to be used in leiu of defer'ing
+// Close on an io.WriteClose (// For more background see https://www.joeshaw.org/dont-defer-close-on-writable-files/)
 // Callers should *both*
 // explicitly call Close and check for errors when done with the underlying writerclose
 // *and* defer the Close() to handle returns before the explicit close
 //
 // For example rather than
-// f, err := os.Create(...)
-// if err != nil {...}
-// defer f.Close()
-// f.Write(...)
-// ...
-// return
+// 		f, err := os.Create(...)
+// 		if err != nil {...}
+// 		defer f.Close()
+// 		f.Write(...)
+// 		...
+// 		return
 //
 // do
 //
-// f, err := os.Create(...)
-// if err != nil {...}
-// wc := NewDeferableWriterCloser(f)
-// defer wc.Close()
-// wc.Write(...)
-// ...
-// err = wc.Close()
-// if err != nil {...}
-// return
-type DeferableWriterCloser struct {
+// 		f, err := os.Create(...)
+// 		if err != nil {...}
+// 		wc := NewDeferableWriteCloser(f)
+// 		defer wc.Close()
+// 		wc.Write(...)
+// 		...
+// 		err = wc.Close()
+// 		if err != nil {...}
+// 		return
+type DeferableWriteCloser struct {
 	mu       sync.Mutex
 	closed   bool
 	closeErr error
@@ -39,7 +39,7 @@ type DeferableWriterCloser struct {
 
 // NewDeferableWriterCloser creates a deferable writercloser. Callers
 // should explicit call and defer Close. See DeferabelWriterCloser for details.
-func NewDeferableWriterCloser(wc io.WriteCloser) *DeferableWriterCloser {
+func NewDeferableWriteCloser(wc io.WriteCloser) *DeferableWriterCloser {
 	return &DeferableWriterCloser{
 		WriteCloser: wc,
 	}
@@ -49,7 +49,7 @@ func NewDeferableWriterCloser(wc io.WriteCloser) *DeferableWriterCloser {
 // is Closed exactly once and resulting error is cached.
 // Should be called explicitly AND defered
 // Thread safe
-func (wc *DeferableWriterCloser) Close() error {
+func (wc *DeferableWriteCloser) Close() error {
 
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
