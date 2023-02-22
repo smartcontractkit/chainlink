@@ -138,33 +138,43 @@ jobs:
           - name: automation
             nodes: 9
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: cron
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: flux
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: keeper
             nodes: 30
             os: ubuntu20.04-4cores-16GB
+            pyroscope_env: ""
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: ocr
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: runlog
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: vrf
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: vrfv2
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: ocr2vrf
             nodes: 2
             os: ubuntu-latest
+            pyroscope_env: ""
     runs-on: ${{ matrix.product.os }}
     steps:
       - name: Checkout the repo
@@ -180,6 +190,9 @@ jobs:
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.${{ github.sha }}
+          PYROSCOPE_SERVER: "${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }}" # https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
