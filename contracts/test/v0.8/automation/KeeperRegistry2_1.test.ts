@@ -3922,7 +3922,7 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe.only('migrateUpkeeps() / #receiveUpkeeps()', async () => {
+  describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
     let registry2: KeeperRegistry
     let registryLogic2: KeeperRegistryLogic
 
