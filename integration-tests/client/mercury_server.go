@@ -2,6 +2,7 @@ package client
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -21,12 +22,12 @@ func NewMercuryServer(url string) *MercuryServer {
 	}
 }
 
-func (ms *MercuryServer) GetReports(feedIDStr string, blockNumber string) (*GetReportsResult, *http.Response, error) {
+func (ms *MercuryServer) GetReports(feedIDStr string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
 	resp, err := ms.APIClient.R().
 		SetPathParams(map[string]string{
 			"feedIDStr":     feedIDStr,
-			"L2Blocknumber": blockNumber,
+			"L2Blocknumber": strconv.FormatUint(blockNumber, 10),
 		}).
 		SetResult(&result).
 		Get("/client?feedIDStr={feedIDStr}&L2Blocknumber={L2Blocknumber}")

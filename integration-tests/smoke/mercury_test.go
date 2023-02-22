@@ -99,9 +99,8 @@ func TestMercuryDONReportsGeneration(t *testing.T) {
 	mercuryServerRemoteUrl := testEnvironment.URLs[mercury_server.URLsKey][1]
 	msClient := client.NewMercuryServer(mercuryServerRemoteUrl)
 	latestBlockNum, err := chainClient.LatestBlockNumber(context.Background())
-	_ = latestBlockNum
 	require.NoError(t, err, "Err getting latest block number")
-	report, _, err := msClient.GetReports(mercuryFeedID, "5554794")
+	report, _, err := msClient.GetReports(mercuryFeedID, latestBlockNum)
 	require.NoError(t, err, "Error getting report from Mercury Server")
 	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 }
