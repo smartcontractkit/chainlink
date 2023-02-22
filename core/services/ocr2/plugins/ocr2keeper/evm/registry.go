@@ -91,6 +91,7 @@ var upkeepStateEvents = []common.Hash{
 
 var upkeepActiveEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {

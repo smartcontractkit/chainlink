@@ -45,6 +45,7 @@ func NewLogProvider(
 	_, err = logPoller.RegisterFilter(logpoller.Filter{
 		EventSigs: []common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
+			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
 	})
@@ -82,7 +83,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
 
-	performed, err := c.unmarshalLogs(logs)
+	performed, err := c.unmarshalPerformLogs(logs)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
 	}
@@ -102,7 +103,48 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 	return vals, nil
 }
 
-func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
+func (c *LogProvider) ReorgLogs(ctx context.Context) ([]plugintypes.ReorgLog, error) {
+	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
+	}
+
+	// always check the last lookback number of blocks and rebroadcast
+	// this allows the plugin to make decisions based on event confirmations
+	logs, err := c.logPoller.LogsWithSigs(
+		end-c.lookbackBlocks,
+		end,
+		[]common.Hash{
+			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+		},
+		c.registryAddress,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
+	}
+
+	reorged, err := c.unmarshalReorgLogs(logs)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
+	}
+
+	vals := []plugintypes.ReorgLog{}
+	for _, r := range reorged {
+		// broadcast log to subscribers
+		l := plugintypes.ReorgLog{
+			UpkeepId:        plugintypes.UpkeepIdentifier(r.Id.String()),
+			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+			TransactionHash: r.TxHash.Hex(),
+			Confirmations:   end - r.BlockNumber,
+		}
+		vals = append(vals, l)
+	}
+
+	return vals, nil
+}
+
+func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, error) {
 	results := []performed{}
 
 	for _, log := range logs {
@@ -130,7 +172,40 @@ func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
 	return results, nil
 }
 
+func (c *LogProvider) unmarshalReorgLogs(logs []logpoller.Log) ([]reorged, error) {
+	results := []reorged{}
+
+	for _, log := range logs {
+		rawLog := log.ToGethLog()
+		abilog, err := c.registry.ParseLog(rawLog)
+		if err != nil {
+			return results, err
+		}
+
+		switch l := abilog.(type) {
+		case *registry.KeeperRegistryReorgedUpkeepReport:
+			if l == nil {
+				continue
+			}
+
+			r := reorged{
+				Log:                               log,
+				KeeperRegistryReorgedUpkeepReport: *l,
+			}
+
+			results = append(results, r)
+		}
+	}
+
+	return results, nil
+}
+
 type performed struct {
 	logpoller.Log
 	registry.KeeperRegistryUpkeepPerformed
+}
+
+type reorged struct {
+	logpoller.Log
+	registry.KeeperRegistryReorgedUpkeepReport
 }
