@@ -402,7 +402,7 @@ func collectProfile(p *pprof.Profile) (*profile.Profile, error) {
 	return p0, nil
 }
 
-func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.DeferableWriterCloser, error) {
+func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.DeferableWriteCloser, error) {
 	filename := fmt.Sprintf("%v.%v.pprof", now.UnixMicro(), typ)
 	if shouldGzip {
 		filename += ".gz"
