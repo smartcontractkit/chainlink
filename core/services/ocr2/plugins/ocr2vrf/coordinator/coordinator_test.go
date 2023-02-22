@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -220,7 +221,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -250,9 +251,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -276,7 +278,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -306,9 +308,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -332,7 +335,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -370,9 +373,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -396,7 +400,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		// Both RandomWordsFulfilled and NewTransmission events are emitted
 		// when a VRF fulfillment happens on chain.
 		lp.On(
@@ -438,9 +442,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -464,7 +469,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, []uint64{}, latestHeadNumber, true, true)
+		lp := getLogPoller(t, []uint64{}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -497,9 +502,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -524,7 +530,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		lookbackBlocks := int64(5)
 		// Do not include latestHeadNumber in "GetBlocksRange" call for initial "ReportWillBeTransmitted."
-		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, false, false /* includeLatestHeadInRange */)
+		// Do not include recent blockhashes in range either.
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, false, false /* includeLatestHeadInRange */, 0)
 
 		c := &coordinator{
 			onchainRouter:            onchainRouter,
@@ -537,6 +544,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
 		report := ocr2vrftypes.AbstractReport{
@@ -568,7 +576,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		require.NoError(t, err)
 
 		// Include latestHeadNumber in "GetBlocksRange" call for "ReportBlocks" call.
-		lp = getLogPoller(t, []uint64{195}, latestHeadNumber, true, true /* includeLatestHeadInRange */)
+		// Include recent blockhashes in range.
+		lp = getLogPoller(t, []uint64{195}, latestHeadNumber, true, true /* includeLatestHeadInRange */, lookbackBlocks)
 		c.lp = lp
 		lp.On(
 			"LogsWithSigs",
@@ -596,7 +605,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}, coordinatorAddress),
 		}, nil).Once()
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -617,6 +626,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(400)
 		lookbackBlocks := int64(400)
+		blockhashLookback := int64(256)
 
 		tp := newTopics()
 
@@ -628,7 +638,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			logs = append(logs, newRandomnessRequestedLog(t, 1, uint64(i), 0, int64(i), coordinatorAddress))
 			requestedBlocks = append(requestedBlocks, uint64(i))
 		}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, blockhashLookback)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -654,9 +664,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        blockhashLookback,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{1: {}},
@@ -684,7 +695,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -715,9 +726,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -745,7 +757,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -776,9 +788,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -805,7 +818,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195, 196}
-		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true)
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -837,9 +850,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -872,7 +886,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On("LatestBlock", mock.Anything).
 			Return(latestHeadNumber, nil)
 
-		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber)), mock.Anything).
+		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber-lookbackBlocks+1), uint64(latestHeadNumber)), mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
 		lp.On(
 			"LogsWithSigs",
@@ -905,9 +919,10 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
 		}
 
-		blocks, callbacks, err := c.ReportBlocks(
+		blocks, callbacks, _, _, err := c.ReportBlocks(
 			testutils.Context(t),
 			0, // slotInterval: unused
 			map[uint32]struct{}{3: {}},
@@ -928,7 +943,7 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
 		lookbackBlocks := int64(0)
-		lp := getLogPoller(t, []uint64{199}, 200, false, false)
+		lp := getLogPoller(t, []uint64{199}, 200, false, false, 0)
 		c := &coordinator{
 			lp:                       lp,
 			lggr:                     logger.TestLogger(t),
@@ -945,7 +960,7 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
 	t.Run("re-org", func(t *testing.T) {
 		lookbackBlocks := int64(0)
-		lp := getLogPoller(t, []uint64{199}, 200, false, false)
+		lp := getLogPoller(t, []uint64{199}, 200, false, false, 0)
 		c := &coordinator{
 			lp:                       lp,
 			lggr:                     logger.TestLogger(t),
@@ -1581,6 +1596,7 @@ func getLogPoller(
 	latestHeadNumber int64,
 	needsLatestBlock bool,
 	includeLatestHeadInRange bool,
+	blockhashLookback int64,
 ) *lp_mocks.LogPoller {
 	lp := lp_mocks.NewLogPoller(t)
 	if needsLatestBlock {
@@ -1589,11 +1605,23 @@ func getLogPoller(
 	}
 	var logPollerBlocks []logpoller.LogPollerBlock
 
-	// Fill range of blocks based on requestedBlocks
-	// example: requestedBlocks [195, 197] -> [{BlockNumber: 195, BlockHash: 0x001}, {BlockNumber: 196, BlockHash: 0x002}, {BlockNumber: 197, BlockHash: 0x003}]
+	// If provided, ajust the blockhash range such that it starts at the most recent head.
 	if includeLatestHeadInRange {
 		requestedBlocks = append(requestedBlocks, uint64(latestHeadNumber))
 	}
+
+	// If provided, adjust the blockhash range such that it includes all recent available blockhashes.
+	if blockhashLookback != 0 {
+		requestedBlocks = append(requestedBlocks, uint64(latestHeadNumber-blockhashLookback+1))
+	}
+
+	// Sort the blocks to match the coordinator's calls.
+	sort.Slice(requestedBlocks, func(a, b int) bool {
+		return requestedBlocks[a] < requestedBlocks[b]
+	})
+
+	// Fill range of blocks based on requestedBlocks
+	// example: requestedBlocks [195, 197] -> [{BlockNumber: 195, BlockHash: 0x001}, {BlockNumber: 196, BlockHash: 0x002}, {BlockNumber: 197, BlockHash: 0x003}]
 	minRequestedBlock := mathutil.Min(requestedBlocks[0], requestedBlocks[1:]...)
 	maxRequestedBlock := mathutil.Max(requestedBlocks[0], requestedBlocks[1:]...)
 	for i := minRequestedBlock; i <= maxRequestedBlock; i++ {
