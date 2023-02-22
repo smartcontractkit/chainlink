@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeferableWriterCloser_Close(t *testing.T) {
+func TestDeferableWriteCloser_Close(t *testing.T) {
 
 	d := t.TempDir()
 	f, err := os.Create(filepath.Join(d, "test-file"))
 	require.NoError(t, err)
 
-	wc := NewDeferableWriterCloser(f)
+	wc := NewDeferableWriteCloser(f)
 	wantStr := "wanted"
 	_, err = wc.Write([]byte(wantStr))
 	assert.NoError(t, err)

@@ -37,10 +37,10 @@ type DeferableWriteCloser struct {
 	io.WriteCloser
 }
 
-// NewDeferableWriterCloser creates a deferable writercloser. Callers
+// NewDeferableWriteCloser creates a deferable writercloser. Callers
 // should explicit call and defer Close. See DeferabelWriterCloser for details.
-func NewDeferableWriteCloser(wc io.WriteCloser) *DeferableWriterCloser {
-	return &DeferableWriterCloser{
+func NewDeferableWriteCloser(wc io.WriteCloser) *DeferableWriteCloser {
+	return &DeferableWriteCloser{
 		WriteCloser: wc,
 	}
 }
