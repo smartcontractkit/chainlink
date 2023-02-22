@@ -15,6 +15,7 @@ require (
 	github.com/smartcontractkit/chainlink v1.10.0
 	github.com/smartcontractkit/chainlink-env v0.3.13
 	github.com/smartcontractkit/chainlink-testing-framework v1.9.8
+	github.com/smartcontractkit/go-gauntlet v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 	github.com/smartcontractkit/ocr2keepers v0.6.9
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
@@ -92,6 +93,7 @@ require (
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-github/v45 v45.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
@@ -334,4 +336,8 @@ replace (
 
 	// Make sure we're working with the latest chainlink libs
 	github.com/smartcontractkit/chainlink => ../
+
+	// We need to pull go-gauntlet locally since package is not published
+	github.com/smartcontractkit/go-gauntlet => ../../go-gauntlet
+
 )

@@ -20,6 +20,8 @@ type ContractLoader interface {
 	LoadAuthorizedForwarder(address common.Address) (AuthorizedForwarder, error)
 	LoadKeeperConsumerBenchmark(address common.Address) (KeeperConsumerBenchmark, error)
 	LoadUpkeepResetter(address common.Address) (UpkeepResetter, error)
+	LoadLinkToken(address common.Address) (LinkToken, error)
+	LoadOcrContract(address common.Address) (OffchainAggregator, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -147,5 +149,41 @@ func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (Upk
 		address:  &address,
 		client:   e.client,
 		consumer: instance.(*int_ethereum.UpkeepResetter),
+	}, err
+}
+
+// LoadLinkToken returns deployed on given address Link contract
+func (e *EthereumContractLoader) LoadLinkToken(address common.Address) (LinkToken, error) {
+	instance, err := e.client.LoadContract("LINK Token", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return ethereum.NewLinkToken(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumLinkToken{
+		client:   e.client,
+		instance: instance.(*ethereum.LinkToken),
+		address:  address,
+	}, err
+}
+
+// LoadOCRContract returns deployed on given address OCR contract
+func (e *EthereumContractLoader) LoadOcrContract(address common.Address) (OffchainAggregator, error) {
+	instance, err := e.client.LoadContract("OffChain Aggregator", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return ethereum.NewOffchainAggregator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregator{
+		client:  e.client,
+		ocr:     instance.(*ethereum.OffchainAggregator),
+		address: &address,
 	}, err
 }
