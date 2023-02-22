@@ -190,7 +190,7 @@ jobs:
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.${{ github.sha }}
-          PYROSCOPE_SERVER: "${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }}" # https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_SERVER: "${{ matrix.product.pyroscope_env == '' && '' || "success" }}" # https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
