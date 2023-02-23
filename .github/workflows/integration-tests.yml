@@ -231,7 +231,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }})
+          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }}${{ fromJSON('[", matrix.product.pyroscope_env", null]')[matrix.product.pyroscope_env == ''] }})
         continue-on-error: true
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
