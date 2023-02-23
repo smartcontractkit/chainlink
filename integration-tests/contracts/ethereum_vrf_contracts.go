@@ -12,16 +12,16 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
-
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 )
 
 // DeployVRFContract deploy VRF contract
@@ -585,22 +585,22 @@ func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) 
 	if err != nil {
 		return err
 	}
-	l := log.Debug().
-		Str("Contract Address", f.consumer.Address()).
-		Int64("Waiting for Round", f.roundID.Int64()).
-		Int64("Current round ID", roundID.Int64()).
-		Uint64("Header Number", header.Number.Uint64())
+	logFields := map[string]any{
+		"Contract Address":  f.consumer.Address(),
+		"Waiting for Round": f.roundID.Int64(),
+		"Current Round ID":  roundID.Int64(),
+		"Header Number":     header.Number.Uint64(),
+	}
 	if roundID.Int64() == f.roundID.Int64() {
 		randomness, err := f.consumer.RandomnessOutput(context.Background())
 		if err != nil {
 			return err
 		}
-		l.Uint64("Randomness", randomness.Uint64()).
-			Msg("VRFConsumer round completed")
+		log.Info().Fields(logFields).Uint64("Randomness", randomness.Uint64()).Msg("VRFConsumer round completed")
 		f.done = true
 		f.doneChan <- struct{}{}
 	} else {
-		l.Msg("Waiting for VRFConsumer round")
+		log.Debug().Fields(logFields).Msg("Waiting for VRFConsumer round")
 	}
 	return nil
 }
@@ -698,33 +698,44 @@ func (dkgContract *EthereumDKG) SetConfig(
 	return dkgContract.client.ProcessTransaction(tx)
 }
 
-func (dkgContract *EthereumDKG) WaitForTransmittedEvent() (*dkg.DKGTransmitted, error) {
+func (dkgContract *EthereumDKG) WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error) {
 	transmittedEventsChannel := make(chan *dkg.DKGTransmitted)
 	subscription, err := dkgContract.dkg.WatchTransmitted(nil, transmittedEventsChannel)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	transmittedEvent := <-transmittedEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err = <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, errors.New("timeout waiting for DKGTransmitted event")
+		case transmittedEvent := <-transmittedEventsChannel:
+			return transmittedEvent, nil
+		}
 	}
-	return transmittedEvent, nil
 }
 
-func (dkgContract *EthereumDKG) WaitForConfigSetEvent() (*dkg.DKGConfigSet, error) {
-
+func (dkgContract *EthereumDKG) WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error) {
 	configSetEventsChannel := make(chan *dkg.DKGConfigSet)
 	subscription, err := dkgContract.dkg.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	configSetEvent := <-configSetEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err = <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, errors.New("timeout waiting for DKGConfigSet event")
+		case configSetEvent := <-configSetEventsChannel:
+			return configSetEvent, nil
+		}
 	}
-	return configSetEvent, nil
 }
 
 // EthereumVRFRouter represents EthereumVRFRouter contract
@@ -884,32 +895,44 @@ func (beacon *EthereumVRFBeacon) SetConfig(
 	return beacon.client.ProcessTransaction(tx)
 }
 
-func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error) {
+func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error) {
 	configSetEventsChannel := make(chan *vrf_beacon.VRFBeaconConfigSet)
 	subscription, err := beacon.vrfBeacon.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	configSetEvent := <-configSetEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for config set event")
+		case configSetEvent := <-configSetEventsChannel:
+			return configSetEvent, nil
+		}
 	}
-	return configSetEvent, nil
 }
 
-func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error) {
+func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
 	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
 	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	newTransmissionEvent := <-newTransmissionEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for new transmission event")
+		case newTransmissionEvent := <-newTransmissionEventsChannel:
+			return newTransmissionEvent, nil
+		}
 	}
-	return newTransmissionEvent, nil
 }
 
 func (beacon *EthereumVRFBeacon) LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,

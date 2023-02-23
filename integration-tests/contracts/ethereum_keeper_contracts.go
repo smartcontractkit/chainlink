@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"math/big"
 	"strconv"
 	"strings"
@@ -15,12 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	goabi "github.com/umbracle/ethgo/abi"
 
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -454,9 +454,9 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
-
-	return fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
 
 // AddUpkeepFunds adds link for particular upkeep id
@@ -1734,28 +1734,27 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 			return nil, err
 		}
 		return req, nil
-	} else {
-		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
-		if err != nil {
-			return nil, err
-		}
-		req, err := registryABI.Pack(
-			"register",
-			name,
-			email,
-			common.HexToAddress(upkeepAddr),
-			gasLimit,
-			common.HexToAddress(adminAddr),
-			checkData,
-			amount,
-			source,
-			common.HexToAddress(senderAddr),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return req, nil
 	}
+	registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
+	if err != nil {
+		return nil, err
+	}
+	req, err := registryABI.Pack(
+		"register",
+		name,
+		email,
+		common.HexToAddress(upkeepAddr),
+		gasLimit,
+		common.HexToAddress(adminAddr),
+		checkData,
+		amount,
+		source,
+		common.HexToAddress(senderAddr),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
 }
 
 // EthereumUpkeepTranscoder represents the transcoder which is used to perform migrations
