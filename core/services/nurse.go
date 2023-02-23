@@ -81,12 +81,8 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 
 func (n *Nurse) Start() error {
 	return n.StartOnce("nurse", func() error {
-		globalMu.Lock()
-		defer globalMu.Unlock()
-		globalNurseCnt++
-		if globalNurseCnt > 1 {
-			panic("too many nurses")
-		}
+		panic("feret out all nurses in tests")
+
 		// This must be set *once*, and it must occur as early as possible
 		runtime.MemProfileRate = n.cfg.AutoPprofMemProfileRate()
 
