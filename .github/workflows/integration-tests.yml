@@ -181,6 +181,8 @@ jobs:
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Determine Pyroscope Values
+        run:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -190,7 +192,7 @@ jobs:
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.${{ github.sha }}
-          PYROSCOPE_SERVER: ${{ fromJSON('["${{ secrets.QA_PYROSCOPE_INSTANCE }}", null]')[matrix.product.pyroscope_env == ''] }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
@@ -231,7 +233,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }}${{ fromJSON('[", ${{ matrix.product.pyroscope_env }}", null]')[matrix.product.pyroscope_env == ''] }})
+          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }})
         continue-on-error: true
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
