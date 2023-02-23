@@ -15,7 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/terra.go/msg"
 	"github.com/stretchr/testify/require"
-	wasmtypes "github.com/terra-money/core/x/wasm/types"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
