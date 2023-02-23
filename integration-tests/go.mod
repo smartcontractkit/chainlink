@@ -334,4 +334,8 @@ replace (
 
 	// Make sure we're working with the latest chainlink libs
 	github.com/smartcontractkit/chainlink => ../
+
+	// We need to pull go-gauntlet locally since package is not published
+    github.com/smartcontractkit/go-gauntlet => ../../go-gauntlet
+
 )
