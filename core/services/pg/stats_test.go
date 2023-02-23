@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -61,34 +62,36 @@ func TestStatReporter(t *testing.T) {
 		{name: "multi_stop", testFn: testMultiStop},
 	} {
 
-		d := newtestDbStater(t, scenario.name)
-		d.Mock.On("Stats").Return(sql.DBStats{})
-		d.Mock.On("Report").Return()
-		reporter := NewStatsReporter(d.Stats,
-			lggr,
-			StatsInterval(interval),
-			StatsCustomReporterFn(d.Report),
-		)
+		t.Run(scenario.name, func(t *testing.T) {
+			d := newtestDbStater(t, scenario.name)
+			d.Mock.On("Stats").Return(sql.DBStats{})
+			d.Mock.On("Report").Return()
+			reporter := NewStatsReporter(d.Stats,
+				lggr,
+				StatsInterval(interval),
+				StatsCustomReporterFn(d.Report),
+			)
 
-		scenario.testFn(
-			t,
-			reporter,
-			interval,
-			expectedIntervals,
-		)
+			scenario.testFn(
+				t,
+				reporter,
+				interval,
+				expectedIntervals,
+			)
 
-		// d.checkReport()
-		d.AssertCalled(t, "Stats")
-		d.AssertCalled(t, "Report")
+			d.AssertCalled(t, "Stats")
+			d.AssertCalled(t, "Report")
+		})
 	}
 }
 
 // test appropriate handling of context cancellation
 func testParentContextCanceled(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	tctx, cancel := context.WithTimeout(ctx, time.Duration(n)*interval)
 
 	r.Start(tctx)
+	defer r.Stop()
 	// wait for parent cancelation
 	<-tctx.Done()
 	// call cancel to statisy linter
@@ -97,7 +100,7 @@ func testParentContextCanceled(t *testing.T, r *StatsReporter, interval time.Dur
 
 // test normal stop
 func testCollectAndStop(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	r.Start(ctx)
 	time.Sleep(time.Duration(n) * interval)
@@ -106,7 +109,7 @@ func testCollectAndStop(t *testing.T, r *StatsReporter, interval time.Duration, 
 
 // test multiple start calls are idempotent
 func testMultiStart(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	ticker := time.NewTicker(time.Duration(n) * interval)
 	defer ticker.Stop()
@@ -119,7 +122,7 @@ func testMultiStart(t *testing.T, r *StatsReporter, interval time.Duration, n in
 
 // test multiple stop calls are idempotent
 func testMultiStop(t *testing.T, r *StatsReporter, interval time.Duration, n int) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	ticker := time.NewTicker(time.Duration(n) * interval)
 	defer ticker.Stop()
