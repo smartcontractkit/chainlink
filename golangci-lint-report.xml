@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<checkstyle version="5.0">
-  <file name="core/chains/evm/logpoller/log_poller.go">
-    <error column="10" line="211" message="indent-error-flow: if block ends with a return statement, so drop this else and outdent its block" severity="warning" source="revive">
-    </error>
-  </file>
-</checkstyle>
