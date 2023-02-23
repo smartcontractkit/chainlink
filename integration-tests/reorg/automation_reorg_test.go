@@ -4,14 +4,16 @@ package reorg
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
-	"time"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/rs/zerolog/log"
 
@@ -139,7 +141,7 @@ func TestAutomationReorg(t *testing.T) {
 
 	// Register cleanup for any test
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
