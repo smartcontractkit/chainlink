@@ -161,7 +161,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	}
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
-		d.jobORM.TryRecordError(jb.ID, msg)
+		lggr.Criticalf("BCF-2097 hacking. skipping saving error %s %s", jb.ID, msg)
+		//d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
 	lc := toLocalConfig(chain.Config(), *concreteSpec)
