@@ -809,7 +809,6 @@ ORDER BY nonce ASC
 // block
 func (o *orm) FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error) {
 	qq := o.q.WithOpts(qopts...)
-	// qq := q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
