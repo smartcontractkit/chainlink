@@ -34,7 +34,7 @@ import (
 )
 
 func SetupMercuryEnv(t *testing.T) (
-	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
+	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string, string,
 	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer) {
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
@@ -102,17 +102,18 @@ func SetupMercuryEnv(t *testing.T) (
 	})
 
 	return testEnvironment, isExistingTestEnv, testNetwork, chainlinkNodes,
-		mercuryServerInternalUrl, evmClient, mockserverClient, mercuryServerClient
+		mercuryServerInternalUrl, mercuryServerRemoteUrl, evmClient, mockserverClient, mercuryServerClient
 }
 
-func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, feedId string, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy) {
+func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId string, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
 	accessController, err := contractDeployer.DeployReadAccessController()
 	require.NoError(t, err, "Error deploying ReadAccessController contract")
 
-	verifierProxy, err := contractDeployer.DeployVerifierProxy(accessController.Address())
+	// verifierProxy, err := contractDeployer.DeployVerifierProxy(accessController.Address())
+	verifierProxy, err := contractDeployer.DeployVerifierProxy("0x0")
 	require.NoError(t, err, "Error deploying VerifierProxy contract")
 
 	var feedIdBytes [32]byte
@@ -123,10 +124,17 @@ func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, feedId 
 	verifier.SetConfig(ocrConfig)
 	latestConfigDetails, err := verifier.LatestConfigDetails()
 	require.NoError(t, err, "Error getting Verifier.LatestConfigDetails()")
+	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
+	log.Info().Msgf("Latest config details: %v", latestConfigDetails)
 
 	verifierProxy.InitializeVerifier(latestConfigDetails.ConfigDigest, verifier.Address())
 
-	return verifier, verifierProxy
+	// Setup client contract
+	// --constructor-args "0x8d1b5b56B78918FcEfd20637B9BA680E6E9461c8" 'http://localhost:3000/client' 255
+	// mercuryLookupUrl := fmt.Sprintf("%s/client", mercuryRemoteUrl)
+	// exchanger, err := contractDeployer.DeployExchanger(verifier.Address(), mercuryLookupUrl, 255)
+
+	return verifier, verifierProxy, accessController, nil
 }
 
 func SetupMercuryNodeJobs(

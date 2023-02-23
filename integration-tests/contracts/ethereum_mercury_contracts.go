@@ -14,6 +14,9 @@ import (
 
 type Exchanger interface {
 	Address() string
+	CommitTrade(commitment [32]byte) error
+	ResolveTrade(encodedCommitment []byte) (string, error)
+	ResolveTradeWithReport(chainlinkBlob []byte, encodedCommitment []byte) (*types.Receipt, error)
 }
 
 type EthereumExchanger struct {
@@ -24,6 +27,56 @@ type EthereumExchanger struct {
 
 func (v *EthereumExchanger) Address() string {
 	return v.address.Hex()
+}
+
+func (e *EthereumExchanger) CommitTrade(commitment [32]byte) error {
+	txOpts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.exchanger.CommitTrade(txOpts, commitment)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumExchanger) ResolveTrade(encodedCommitment []byte) (string, error) {
+	callOpts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	data, err := e.exchanger.ResolveTrade(callOpts, encodedCommitment)
+	if err != nil {
+		return "", err
+	}
+	return data, nil
+}
+
+func (e *EthereumExchanger) ResolveTradeWithReport(chainlinkBlob []byte, encodedCommitment []byte) (*types.Receipt, error) {
+	txOpts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	txOpts.GasLimit = 1000000
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.exchanger.ResolveTradeWithReport(txOpts, chainlinkBlob, encodedCommitment)
+	if err != nil {
+		// blockchain.LogRevertReason(err, exchanger.ExchangerABI)
+		return nil, err
+	}
+	err = e.client.ProcessTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	err = e.client.WaitForEvents()
+	if err != nil {
+		return nil, err
+	}
+	receipt, err := e.client.GetTxReceipt(tx.Hash())
+	if err != nil {
+		return nil, err
+	}
+	return receipt, nil
 }
 
 type VerifierProxy interface {
