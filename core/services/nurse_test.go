@@ -164,3 +164,12 @@ func assertProfileExists(t *testing.T, profiles []fs.FileInfo, typ string) {
 	}
 	assert.Failf(t, "profile doesn't exist", "require profile '%s' does not exist %+v", typ, names)
 }
+
+func TestHackThatShouldPanic(t *testing.T) {
+
+	n1 := NewNurse(newMockConfig(t), logger.TestLogger(t))
+	n2 := NewNurse(newMockConfig(t), logger.TestLogger(t))
+	n1.Start()
+	defer n1.Close()
+	require.Panics(t, func() { n2.Start() })
+}
