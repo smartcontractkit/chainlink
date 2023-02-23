@@ -2,9 +2,11 @@ package zksync
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
 	"math/big"
 	"strings"
@@ -14,6 +16,9 @@ type ZKSyncClient struct {
 	GRunner              *gauntlet.GauntletRunner
 	LinkAddr             string
 	OCRAddr              string
+	ContractLoader       contracts.ContractLoader
+	LinkContract         contracts.LinkToken
+	OCRContract          contracts.OffchainAggregator
 	AccessControllerAddr string
 	L2RPC                string
 	NKeys                []client.NodeKeysBundle
@@ -57,33 +62,8 @@ func (z *ZKSyncClient) DeployAccessController() error {
 	return nil
 }
 
-func (z *ZKSyncClient) DeployOCR(
-	maxGasPrice string,
-	reasonableGasPrice string,
-	microLinkPerEth string,
-	linkGweiPerObservation string,
-	linkGweiPerTransmission string,
-	minAnswer string,
-	maxAnswer string,
-	decimals string,
-	description string,
-) error {
-	output, err := z.GRunner.ExecuteCommand([]string{"ocr:deploy",
-		fmt.Sprintf("--maxGasPrice=%s", maxGasPrice),
-		fmt.Sprintf("--maxGasPrice=%s", maxGasPrice),
-		fmt.Sprintf("--reasonableGasPrice=%s", reasonableGasPrice),
-		fmt.Sprintf("--microLinkPerEth=%s", microLinkPerEth),
-		fmt.Sprintf("--linkGweiPerObservation=%s", linkGweiPerObservation),
-		fmt.Sprintf("--linkGweiPerTransmission=%s", linkGweiPerTransmission),
-		fmt.Sprintf("--minAnswer=%s", minAnswer),
-		fmt.Sprintf("--maxAnswer=%s", maxAnswer),
-		fmt.Sprintf("--billingController=%s", z.AccessControllerAddr),
-		fmt.Sprintf("--requesterController=%s", z.AccessControllerAddr),
-		fmt.Sprintf("--decimals=%s", decimals),
-		fmt.Sprintf("--description=%s", description),
-		fmt.Sprintf("--link=%s", z.LinkAddr),
-	},
-	)
+func (z *ZKSyncClient) DeployOCR(ocrContractValues string) error {
+	output, err := z.GRunner.ExecuteCommand([]string{"ocr:deploy", fmt.Sprintf("--input=%s", ocrContractValues)})
 	if err != nil {
 		return err
 	}
@@ -124,36 +104,8 @@ func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.Chainlink) error {
 	return nil
 }
 
-func (z *ZKSyncClient) SetConfig(
-	ocrAddress string,
-	threshold string,
-	badEpochTimeout string,
-	resendInterval string,
-	roundInterval string,
-	observationGracePeriod string,
-	maxContractValueAge string,
-	relativeDeviationThresholdPPB string,
-	transmissionStageTimeout string,
-	maxRoundCount string,
-	transmissionStages string,
-) error {
-	_, err := z.GRunner.ExecuteCommand([]string{"ocr:set_config",
-		ocrAddress,
-		fmt.Sprintf("--signers=%s", strings.Join(z.Signers, ",")),
-		fmt.Sprintf("--transmitters=%s", strings.Join(z.Transmitters, ",")),
-		fmt.Sprintf("--threshold=%s", threshold),
-		fmt.Sprintf("--badEpochTimeout=%s", badEpochTimeout),
-		fmt.Sprintf("--resendInterval=%s", resendInterval),
-		fmt.Sprintf("--roundInterval=%s", roundInterval),
-		fmt.Sprintf("--observationGracePeriod=%s", observationGracePeriod),
-		fmt.Sprintf("--maxContractValueAge=%s", maxContractValueAge),
-		fmt.Sprintf("--relativeDeviationThresholdPPB=%s", relativeDeviationThresholdPPB),
-		fmt.Sprintf("--transmissionStageTimeout=%s", transmissionStageTimeout),
-		fmt.Sprintf("--maxRoundCount=%s", maxRoundCount),
-		fmt.Sprintf("--transmissionStages=%s", transmissionStages),
-		fmt.Sprintf("--ocrConfigPublicKeys=%s", strings.Join(z.OcrConfigPubKeys, ",")),
-		fmt.Sprintf("--operatorsPeerIds=%v", strings.Join(z.PeerIds, ",")),
-		"--secret=Test123"})
+func (z *ZKSyncClient) SetConfig(ocrAddress, ocrConfigValues string) error {
+	_, err := z.GRunner.ExecuteCommand([]string{"ocr:set_config", ocrAddress, fmt.Sprintf("--input=%s", ocrConfigValues)})
 	if err != nil {
 		return err
 	}
@@ -162,39 +114,35 @@ func (z *ZKSyncClient) SetConfig(
 
 func (z *ZKSyncClient) FundNodes(chainlinkClient blockchain.EVMClient) error {
 	for _, key := range z.NKeys {
-		log.Info().Str("ZKSync=", fmt.Sprintf("Funding %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
+		log.Info().Str("ZKSync", fmt.Sprintf("Funding ETH to: %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
 		amount := big.NewFloat(100000000000000000)
 		err := chainlinkClient.Fund(key.TXKey.Data.ID, amount)
 		if err != nil {
 			return err
 		}
+
+		//TO-DO Link funding seems to hang but tx is present on chain
+		//log.Info().Str("ZKSync", fmt.Sprintf("Funding LINK to: %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
+		//err = z.LinkContract.Transfer(key.TXKey.Data.ID, big.NewInt(100))
+		//if err != nil {
+		//	return err
+		//}
 	}
 	return nil
 }
 
-func (z *ZKSyncClient) DeployContracts(
-	chainlinkClient blockchain.EVMClient,
-	maxGasPrice string,
-	reasonableGasPrice string,
-	microLinkPerEth string,
-	linkGweiPerObservation string,
-	linkGweiPerTransmission string,
-	minAnswer string,
-	maxAnswer string,
-	decimals string,
-	description string,
-	threshold string,
-	badEpochTimeout string,
-	resendInterval string,
-	roundInterval string,
-	observationGracePeriod string,
-	maxContractValueAge string,
-	relativeDeviationThresholdPPB string,
-	transmissionStageTimeout string,
-	maxRoundCount string,
-	transmissionStages string,
-) error {
+func (z *ZKSyncClient) DeployContracts(chainlinkClient blockchain.EVMClient, ocrContractValues *gauntlet.OCRContract, ocrConfigValues *gauntlet.OCRConfig) error {
 	err := z.DeployLinkToken()
+	if err != nil {
+		return err
+	}
+	z.ContractLoader, err = contracts.NewContractLoader(chainlinkClient)
+	if err != nil {
+		return err
+	}
+	z.LinkContract, err = z.ContractLoader.LoadLinkToken(common.HexToAddress(z.LinkAddr))
+
+	err = z.FundNodes(chainlinkClient)
 	if err != nil {
 		return err
 	}
@@ -204,7 +152,24 @@ func (z *ZKSyncClient) DeployContracts(
 		return err
 	}
 
-	err = z.DeployOCR(maxGasPrice, reasonableGasPrice, microLinkPerEth, linkGweiPerObservation, linkGweiPerTransmission, minAnswer, maxAnswer, decimals, description)
+	ocrContractValues.Link = z.LinkAddr
+	ocrContractValues.BillingAccessController = z.AccessControllerAddr
+	ocrContractValues.RequesterAccessController = z.AccessControllerAddr
+
+	ocrConfigValues.Signers = z.Signers
+	ocrConfigValues.Transmitters = z.Transmitters
+	ocrConfigValues.OcrConfigPublicKeys = z.OcrConfigPubKeys
+	ocrConfigValues.OperatorsPeerIds = strings.Join(z.PeerIds, ",")
+
+	ocrJsonContract, err := ocrContractValues.MarshalOCR()
+	if err != nil {
+		return err
+	}
+	err = z.DeployOCR(ocrJsonContract)
+	if err != nil {
+		return err
+	}
+	z.OCRContract, err = z.ContractLoader.LoadOcrContract(common.HexToAddress(z.OCRAddr))
 	if err != nil {
 		return err
 	}
@@ -219,12 +184,11 @@ func (z *ZKSyncClient) DeployContracts(
 		return err
 	}
 
-	err = z.SetConfig(z.OCRAddr, threshold, badEpochTimeout, resendInterval, roundInterval, observationGracePeriod, maxContractValueAge, relativeDeviationThresholdPPB, transmissionStageTimeout, maxRoundCount, transmissionStages)
+	ocrJsonConfig, err := ocrConfigValues.MarshalOCRConfig()
 	if err != nil {
 		return err
 	}
-
-	err = z.FundNodes(chainlinkClient)
+	err = z.SetConfig(z.OCRAddr, ocrJsonConfig)
 	if err != nil {
 		return err
 	}
