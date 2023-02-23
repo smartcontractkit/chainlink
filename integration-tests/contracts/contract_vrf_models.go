@@ -3,11 +3,12 @@ package contracts
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
@@ -76,8 +77,8 @@ type DKG interface {
 		offchainConfigVersion uint64,
 		offchainConfig []byte,
 	) error
-	WaitForConfigSetEvent() (*dkg.DKGConfigSet, error)
-	WaitForTransmittedEvent() (*dkg.DKGTransmitted, error)
+	WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error)
+	WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error)
 }
 
 type VRFRouter interface {
@@ -104,8 +105,8 @@ type VRFBeacon interface {
 		offchainConfigVersion uint64,
 		offchainConfig []byte,
 	) error
-	WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error)
-	WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error)
+	WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error)
+	WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error)
 	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
 		error)
 }

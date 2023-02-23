@@ -19,6 +19,7 @@ import (
 type LogProvider struct {
 	logger          logger.Logger
 	logPoller       logpoller.LogPoller
+	FilterName      string
 	registryAddress common.Address
 	lookbackBlocks  int64
 	registry        *registry.KeeperRegistry
@@ -34,6 +35,7 @@ func NewLogProvider(
 	lookbackBlocks int64,
 ) (*LogProvider, error) {
 	var err error
+	filterName := logpoller.FilterName("OCR2KeeperRegistry", registryAddress)
 
 	contract, err := registry.NewKeeperRegistry(common.HexToAddress("0x"), client)
 	if err != nil {
@@ -41,8 +43,9 @@ func NewLogProvider(
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need. Not unregistering the filter later so we ignore the id
-	_, err = logPoller.RegisterFilter(logpoller.Filter{
+	// we need.
+	err = logPoller.RegisterFilter(logpoller.Filter{
+		Name: filterName,
 		EventSigs: []common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 		},
@@ -55,6 +58,7 @@ func NewLogProvider(
 	return &LogProvider{
 		logger:          logger,
 		logPoller:       logPoller,
+		FilterName:      filterName,
 		registryAddress: registryAddress,
 		lookbackBlocks:  lookbackBlocks,
 		registry:        contract,

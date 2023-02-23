@@ -370,3 +370,41 @@ func TestSelectGasLimit(t *testing.T) {
 		assert.Equal(t, uint32(999), gasLimit)
 	})
 }
+func TestGetNextTaskOf(t *testing.T) {
+	trrs := pipeline.TaskRunResults{
+		{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(1, "t1", nil, nil, 0),
+			},
+		},
+		{
+			Task: &pipeline.HTTPTask{
+				BaseTask: pipeline.NewBaseTask(2, "t2", nil, nil, 0),
+			},
+		},
+		{
+			Task: &pipeline.ETHABIDecodeTask{
+				BaseTask: pipeline.NewBaseTask(3, "t3", nil, nil, 0),
+			},
+		},
+		{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(4, "t4", nil, nil, 0),
+			},
+		},
+	}
+
+	firstTask := trrs[0]
+	nextTask := trrs.GetNextTaskOf(firstTask)
+	assert.Equal(t, nextTask.Task.ID(), 2)
+
+	nextTask = trrs.GetNextTaskOf(*nextTask)
+	assert.Equal(t, nextTask.Task.ID(), 3)
+
+	nextTask = trrs.GetNextTaskOf(*nextTask)
+	assert.Equal(t, nextTask.Task.ID(), 4)
+
+	nextTask = trrs.GetNextTaskOf(*nextTask)
+	assert.Empty(t, nextTask)
+
+}
