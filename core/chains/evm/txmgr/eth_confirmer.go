@@ -18,8 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
@@ -115,12 +113,8 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer struct {
 	utils.StartStopOnce
-
-	orm ORM
-
+	orm       ORM
 	lggr      logger.Logger
-	db        *sqlx.DB
-	q         pg.Q
 	ethClient evmclient.Client
 	ChainKeyStore
 	estimator      gas.Estimator
@@ -137,19 +131,16 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
-	q := pg.NewQ(db, lggr, config)
 
 	return &EthConfirmer{
 		utils.StartStopOnce{},
-		NewORM(db, lggr, config),
+		orm,
 		lggr,
-		db,
-		q,
 		ethClient,
 		ChainKeyStore{
 			*ethClient.ChainID(),
