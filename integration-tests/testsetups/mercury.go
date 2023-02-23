@@ -32,20 +32,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-// type MercuryTest struct {
-// 	Namespace     string
-// 	IsExistingEnv bool
-// }
-
-// func NewMercuryTest() *MercuryTest {
-// 	existingNamespace := os.Getenv(cl_env_config.EnvVarNamespace)
-
-// 	return &MercuryTest{
-// 		Namespace:     existingNamespace,
-// 		IsExistingEnv: existingNamespace != "",
-// 	}
-// }
-
 func SetupMercuryEnv(t *testing.T) (
 	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
 	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer) {
