@@ -40,6 +40,7 @@ type ORM interface {
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
 	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error)
+	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int) error
 	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error)
 	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
 	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
@@ -942,4 +943,10 @@ func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacem
 		}
 		return errors.Wrap(tx.Get(replacementAttempt, query, args...), "saveReplacementInProgressAttempt failed to insert replacement attempt")
 	})
+}
+
+// Finds earliest saved transaction that has yet to be broadcast from the given address
+func (o *orm) FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int) error {
+	err := o.q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
+	return errors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 }

@@ -2,6 +2,7 @@ package txmgr_test
 
 import (
 	"context"
+	"database/sql"
 	"math/big"
 	"testing"
 	"time"
@@ -1048,8 +1049,6 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	// tx state should be confirmed missing receipt
-	// attempt should be broadcast before cutoff time
 	t.Run("load eth tx attempt", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, borm, 1, 7, time.Now(), fromAddress)
 		etx.EthTxAttempts = []txmgr.EthTxAttempt{}
@@ -1096,8 +1095,6 @@ func TestORM_SaveReplacementInProgressAttempt(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	// tx state should be confirmed missing receipt
-	// attempt should be broadcast before cutoff time
 	t.Run("replace eth tx attempt", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 123, fromAddress)
 		oldAttempt := etx.EthTxAttempts[0]
@@ -1110,5 +1107,32 @@ func TestORM_SaveReplacementInProgressAttempt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		require.Equal(t, etx.EthTxAttempts[0].Hash, newAttempt.Hash)
+	})
+}
+
+func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("cannot find unstarted tx", func(t *testing.T) {
+		cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 13, fromAddress)
+
+		resultEtx := new(txmgr.EthTx)
+		err := borm.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, *ethClient.ChainID())
+		assert.ErrorIs(t, err, sql.ErrNoRows)
+	})
+
+	t.Run("finds unstarted tx", func(t *testing.T) {
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+
+		resultEtx := new(txmgr.EthTx)
+		borm.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, *ethClient.ChainID())
 	})
 }
