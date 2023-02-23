@@ -49,6 +49,8 @@ func NewLogProvider(
 		EventSigs: []common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
 	})
@@ -107,7 +109,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 	return vals, nil
 }
 
-func (c *LogProvider) ReorgLogs(ctx context.Context) ([]plugintypes.ReorgLog, error) {
+func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleReportLog, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -115,6 +117,8 @@ func (c *LogProvider) ReorgLogs(ctx context.Context) ([]plugintypes.ReorgLog, er
 
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
+
+	// ReorgedUpkeepReportLogs
 	logs, err := c.logPoller.LogsWithSigs(
 		end-c.lookbackBlocks,
 		end,
@@ -130,13 +134,68 @@ func (c *LogProvider) ReorgLogs(ctx context.Context) ([]plugintypes.ReorgLog, er
 
 	reorged, err := c.unmarshalReorgLogs(logs)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
+		return nil, fmt.Errorf("%w: failed to unmarshal reorg logs", err)
 	}
 
-	vals := []plugintypes.ReorgLog{}
+	// StaleUpkeepReportLogs
+	logs, err = c.logPoller.LogsWithSigs(
+		end-c.lookbackBlocks,
+		end,
+		[]common.Hash{
+			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
+		},
+		c.registryAddress,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
+	}
+
+	staleUpkeep, err := c.unmarshalStaleUpkeepLogs(logs)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to unmarshal stale upkeep logs", err)
+	}
+
+	// InsufficientFundsUpkeepReportLogs
+	logs, err = c.logPoller.LogsWithSigs(
+		end-c.lookbackBlocks,
+		end,
+		[]common.Hash{
+			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+		},
+		c.registryAddress,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
+	}
+
+	insufficientFunds, err := c.unmarshalInsufficientFundsUpkeepLogs(logs)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to unmarshal insufficient fund upkeep logs", err)
+	}
+
+	vals := []plugintypes.StaleReportLog{}
 	for _, r := range reorged {
-		// broadcast log to subscribers
-		l := plugintypes.ReorgLog{
+		l := plugintypes.StaleReportLog{
+			UpkeepId:        plugintypes.UpkeepIdentifier(r.Id.String()),
+			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+			TransactionHash: r.TxHash.Hex(),
+			Confirmations:   end - r.BlockNumber,
+		}
+		vals = append(vals, l)
+	}
+	for _, r := range staleUpkeep {
+		l := plugintypes.StaleReportLog{
+			UpkeepId:        plugintypes.UpkeepIdentifier(r.Id.String()),
+			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+			TransactionHash: r.TxHash.Hex(),
+			Confirmations:   end - r.BlockNumber,
+		}
+		vals = append(vals, l)
+	}
+	for _, r := range insufficientFunds {
+		l := plugintypes.StaleReportLog{
 			UpkeepId:        plugintypes.UpkeepIdentifier(r.Id.String()),
 			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
 			TransactionHash: r.TxHash.Hex(),
@@ -204,6 +263,62 @@ func (c *LogProvider) unmarshalReorgLogs(logs []logpoller.Log) ([]reorged, error
 	return results, nil
 }
 
+func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpkeep, error) {
+	results := []staleUpkeep{}
+
+	for _, log := range logs {
+		rawLog := log.ToGethLog()
+		abilog, err := c.registry.ParseLog(rawLog)
+		if err != nil {
+			return results, err
+		}
+
+		switch l := abilog.(type) {
+		case *registry.KeeperRegistryStaleUpkeepReport:
+			if l == nil {
+				continue
+			}
+
+			r := staleUpkeep{
+				Log:                             log,
+				KeeperRegistryStaleUpkeepReport: *l,
+			}
+
+			results = append(results, r)
+		}
+	}
+
+	return results, nil
+}
+
+func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log) ([]insufficientFunds, error) {
+	results := []insufficientFunds{}
+
+	for _, log := range logs {
+		rawLog := log.ToGethLog()
+		abilog, err := c.registry.ParseLog(rawLog)
+		if err != nil {
+			return results, err
+		}
+
+		switch l := abilog.(type) {
+		case *registry.KeeperRegistryInsufficientFundsUpkeepReport:
+			if l == nil {
+				continue
+			}
+
+			r := insufficientFunds{
+				Log: log,
+				KeeperRegistryInsufficientFundsUpkeepReport: *l,
+			}
+
+			results = append(results, r)
+		}
+	}
+
+	return results, nil
+}
+
 type performed struct {
 	logpoller.Log
 	registry.KeeperRegistryUpkeepPerformed
@@ -212,4 +327,14 @@ type performed struct {
 type reorged struct {
 	logpoller.Log
 	registry.KeeperRegistryReorgedUpkeepReport
+}
+
+type staleUpkeep struct {
+	logpoller.Log
+	registry.KeeperRegistryStaleUpkeepReport
+}
+
+type insufficientFunds struct {
+	logpoller.Log
+	registry.KeeperRegistryInsufficientFundsUpkeepReport
 }
