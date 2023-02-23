@@ -1,18 +1,21 @@
 package evm
 
 import (
-	"context"
 	"database/sql"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"context"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 // Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/OCR2Abstract.sol#L23
@@ -165,6 +168,7 @@ func ConfigFromLog(logData []byte, withFeedId bool) (FullConfigFromLog, error) {
 
 type ConfigPoller struct {
 	lggr               logger.Logger
+	filterName         string
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
@@ -178,13 +182,17 @@ func WithFeedId(feedId common.Hash) ConfigPollerOption {
 	}
 }
 
+
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, opts ...ConfigPollerOption) (*ConfigPoller, error) {
-	_, err := destChainPoller.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
+
 	cp := &ConfigPoller{
 		lggr:               lggr,
+		filterName:         configFilterName,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 	}
