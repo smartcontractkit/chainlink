@@ -26,9 +26,9 @@ func (disabled) Healthy() error { return ErrDisabled }
 
 func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrDisabled }
 
-func (disabled) RegisterFilter(filter Filter) (int, error) { return -1, ErrDisabled }
+func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(filterID int) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 
