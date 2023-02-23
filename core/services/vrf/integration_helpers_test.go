@@ -158,11 +158,13 @@ func testMultipleConsumersNeedBHS(
 	var bhsKeys []ethkey.KeyV2
 	var bhsKeyAddresses []string
 	var keySpecificOverrides []v2.KeySpecific
+	var keys []interface{}
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
 		bhsKey := cltest.MustGenerateRandomKey(t)
 		bhsKeys = append(bhsKeys, bhsKey)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
+		keys = append(keys, bhsKey)
 		keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
 			Key:          ptr(bhsKey.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
@@ -179,7 +181,8 @@ func testMultipleConsumersNeedBHS(
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhsKeys)
+	keys = append(keys, ownerKey, vrfKey)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
@@ -202,10 +205,10 @@ func testMultipleConsumersNeedBHS(
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
 		consumerContract := consumerContracts[i]
-		consumerContractAddress := consumerContractAddresses[i]
 
 		// Create a subscription and fund with 0 LINK.
-		subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, new(big.Int), coordinator, uni)
+		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int))
+		require.Equal(t, uint64(i+1), subID)
 
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
@@ -239,7 +242,9 @@ func testMultipleConsumersNeedBHS(
 		mine(t, requestID, subID, uni, db)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
-		assertions[0](t, coordinator, rwfe)
+		if len(assertions) > 0 {
+			assertions[0](t, coordinator, rwfe)
+		}
 
 		// Assert correct number of random words sent by coordinator.
 		assertNumRandomWords(t, consumerContract, numWords)
