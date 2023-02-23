@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -112,7 +113,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 	}
 
-	for testcaseName, testCase := range testCases {
+	for testcaseName, tc := range testCases {
+		testCase := tc
 		t.Run(testcaseName, func(t *testing.T) {
 			t.Parallel()
 			testNetwork := networks.SelectedNetwork
@@ -145,7 +147,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
