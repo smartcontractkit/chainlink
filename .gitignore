@@ -68,7 +68,7 @@ cosign.*
 dist/
 MacOSX*
 
-# Test/linter reports
+# Test & linter reports
 *report.xml
 *report.json
 *.out
