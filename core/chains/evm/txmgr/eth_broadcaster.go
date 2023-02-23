@@ -422,7 +422,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) (err error, retryable bool) {
-	etx, err := eb.getInProgressEthTx(eb.q, fromAddress)
+	etx, err := eb.getInProgressEthTx(fromAddress)
 	if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed"), true
 	}
@@ -438,15 +438,15 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func (eb *EthBroadcaster) getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err error) {
+func (eb *EthBroadcaster) getInProgressEthTx(fromAddress gethCommon.Address) (etx *EthTx, err error) {
 	etx = new(EthTx)
-	err = q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
+	err = eb.q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading eth tx")
 	}
-	if err = eb.orm.LoadEthTxAttempts(etx, pg.WithQueryer(q)); err != nil {
+	if err = eb.orm.LoadEthTxAttempts(etx); err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading EthTxAttempts")
 	}
 	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
