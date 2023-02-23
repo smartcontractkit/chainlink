@@ -90,6 +90,7 @@ type TransmitChecker interface {
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster struct {
 	logger    logger.Logger
+	orm       ORM
 	db        *sqlx.DB
 	q         pg.Q
 	ethClient evmclient.Client
@@ -129,6 +130,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 	logger = logger.Named("EthBroadcaster")
 	return &EthBroadcaster{
 		logger:    logger,
+		orm:       NewORM(db, logger, config),
 		db:        db,
 		q:         pg.NewQ(db, logger, config),
 		ethClient: ethClient,
@@ -420,7 +422,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) (err error, retryable bool) {
-	etx, err := getInProgressEthTx(eb.q, fromAddress)
+	etx, err := eb.getInProgressEthTx(eb.q, fromAddress)
 	if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed"), true
 	}
@@ -436,7 +438,7 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err error) {
+func (eb *EthBroadcaster) getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err error) {
 	etx = new(EthTx)
 	err = q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
 	if errors.Is(err, sql.ErrNoRows) {
@@ -444,7 +446,7 @@ func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err
 	} else if err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading eth tx")
 	}
-	if err = loadEthTxAttempts(q, etx); err != nil {
+	if err = eb.orm.LoadEthTxAttempts(etx, pg.WithQueryer(q)); err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading EthTxAttempts")
 	}
 	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {

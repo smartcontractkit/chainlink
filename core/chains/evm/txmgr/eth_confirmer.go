@@ -10,11 +10,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -575,100 +573,6 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
-// markOldTxesMissingReceiptAsErrored
-//
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold
-// without receiving any receipts, we mark it as fatally errored (never sent).
-//
-// The job run will also be marked as errored in this case since we never got a
-// receipt and thus cannot pass on any transaction hash
-func (ec *EthConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error {
-	// cutoff is a block height
-	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
-	// We will not try to query for receipts for this transaction any more
-	cutoff := blockNum - int64(ec.config.EvmFinalityDepth())
-	if cutoff <= 0 {
-		return nil
-	}
-
-	return ec.q.Transaction(func(q pg.Queryer) error {
-		type etx struct {
-			ID    int64
-			Nonce int64
-		}
-		var data []etx
-		err := q.Select(&data, `
-UPDATE eth_txes
-SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL, initial_broadcast_at=NULL
-FROM (
-	SELECT e1.id, e1.nonce, e1.from_address FROM eth_txes AS e1 WHERE id IN (
-		SELECT e2.id FROM eth_txes AS e2
-		INNER JOIN eth_tx_attempts ON e2.id = eth_tx_attempts.eth_tx_id
-		WHERE e2.state = 'confirmed_missing_receipt'
-		AND e2.evm_chain_id = $3
-		GROUP BY e2.id
-		HAVING max(eth_tx_attempts.broadcast_before_block_num) < $2
-	)
-	FOR UPDATE OF e1
-) e0
-WHERE e0.id = eth_txes.id
-RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, ec.chainID.String())
-
-		if err != nil {
-			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
-		}
-
-		// We need this little lookup table because we have to have the nonce
-		// from the first query, BEFORE it was updated/nullified
-		lookup := make(map[int64]etx)
-		for _, d := range data {
-			lookup[d.ID] = d
-		}
-		etxIDs := make([]int64, len(data))
-		for i := 0; i < len(data); i++ {
-			etxIDs[i] = data[i].ID
-		}
-
-		type result struct {
-			ID                         int64
-			FromAddress                gethCommon.Address
-			MaxBroadcastBeforeBlockNum int64
-			TxHashes                   pq.ByteaArray
-		}
-
-		var results []result
-		err = q.Select(&results, `
-SELECT e.id, e.from_address, max(a.broadcast_before_block_num) AS max_broadcast_before_block_num, array_agg(a.hash) AS tx_hashes
-FROM eth_txes e
-INNER JOIN eth_tx_attempts a ON e.id = a.eth_tx_id
-WHERE e.id = ANY($1)
-GROUP BY e.id
-`, etxIDs)
-
-		if err != nil {
-			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to load additional data")
-		}
-
-		for _, r := range results {
-			nonce := lookup[r.ID].Nonce
-			txHashesHex := make([]common.Address, len(r.TxHashes))
-			for i := 0; i < len(r.TxHashes); i++ {
-				txHashesHex[i] = gethCommon.BytesToAddress(r.TxHashes[i])
-			}
-
-			ec.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
-				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
-				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
-				"an external wallet has been used to send a transaction from account %s with nonce %v."+
-				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
-				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.Hex(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
-		}
-
-		return nil
-	})
-}
-
 // RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-eth
 func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
@@ -911,7 +815,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
 		// "Lazily" load attempts here since the overwhelmingly common case is
 		// that we don't need them unless we enter this path
-		if err := loadEthTxesAttempts(ec.q.WithOpts(pg.WithParentCtx(ctx)), []*EthTx{&etx}); err != nil {
+		if err := ec.orm.LoadEthTxAttempts(&etx, pg.WithParentCtx(ctx)); err != nil {
 			return errors.Wrap(err, "failed to load EthTxAttempts while bumping on terminally underpriced error")
 		}
 		if len(etx.EthTxAttempts) == 0 {

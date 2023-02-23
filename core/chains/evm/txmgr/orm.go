@@ -46,6 +46,8 @@ type ORM interface {
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error
+	LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error
 	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
 	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
 	PreloadEthTxes(attempts []EthTxAttempt) error
@@ -268,7 +270,7 @@ func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
 		if err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
 		}
-		if err = loadEthTxAttempts(tx, &etx); err != nil {
+		if err = o.LoadEthTxAttempts(&etx, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrapf(err, "failed to load eth_tx_attempts for eth_tx with id %d", etxID)
 		}
 		if err = loadEthTxAttemptsReceipts(tx, &etx); err != nil {
@@ -292,7 +294,8 @@ func (o *orm) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, 
 	return attempts, errors.Wrap(err, "FindEthTxAttemptConfirmedByEthTxIDs failed")
 }
 
-func loadEthTxesAttempts(q pg.Queryer, etxs []*EthTx) error {
+func (o *orm) LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
 	ethTxIDs := make([]int64, len(etxs))
 	ethTxesM := make(map[int64]*EthTx, len(etxs))
 	for i, etx := range etxs {
@@ -301,7 +304,7 @@ func loadEthTxesAttempts(q pg.Queryer, etxs []*EthTx) error {
 		ethTxesM[etx.ID] = etxs[i]
 	}
 	var ethTxAttempts []EthTxAttempt
-	if err := q.Select(&ethTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
+	if err := qq.Select(&ethTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttempts failed to load eth_tx_attempts")
 	}
 	for _, attempt := range ethTxAttempts {
@@ -311,8 +314,8 @@ func loadEthTxesAttempts(q pg.Queryer, etxs []*EthTx) error {
 	return nil
 }
 
-func loadEthTxAttempts(q pg.Queryer, etx *EthTx) error {
-	return loadEthTxesAttempts(q, []*EthTx{etx})
+func (o *orm) LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error {
+	return o.LoadEthTxesAttempts([]*EthTx{etx}, qopts...)
 }
 
 func loadEthTxAttemptsReceipts(q pg.Queryer, etx *EthTx) (err error) {
@@ -614,7 +617,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxWithNonce failed to load eth_txes")
 		}
-		err = loadEthTxAttempts(tx, etx)
+		err = o.LoadEthTxAttempts(etx, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxWithNonce failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	if errors.Is(err, sql.ErrNoRows) {
@@ -673,7 +676,7 @@ ORDER BY nonce ASC
 		if err != nil {
 			return errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load eth_txes")
 		}
-		if err = loadEthTxesAttempts(tx, etxs); err != nil {
+		if err = o.LoadEthTxesAttempts(etxs, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load eth_tx_attempts")
 		}
 		err = loadEthTxesAttemptsReceipts(tx, etxs)
@@ -792,7 +795,7 @@ ORDER BY nonce ASC
 		if err = tx.Select(&etxs, stmt, address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
 		}
-		err = loadEthTxesAttempts(tx, etxs)
+		err = o.LoadEthTxesAttempts(etxs, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -815,7 +818,7 @@ ORDER BY nonce ASC
 			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
 		}
 
-		err = loadEthTxesAttempts(tx, etxs)
+		err = o.LoadEthTxesAttempts(etxs, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
