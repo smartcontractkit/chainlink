@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 )
 
@@ -95,7 +96,7 @@ func SetupMercuryEnv(t *testing.T) (
 		if isExistingTestEnv {
 			log.Info().Msg("Do not tear down existing environment")
 		} else {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, evmClient)
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
 			require.NoError(t, err, "Error tearing down environment")
 		}
 	})
