@@ -24,7 +24,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	DefaultOCR2VRFNetworkDetailTomlConfig = `FinalityDepth = 5
 [EVM.GasEstimator]
-LimitDefault = 1400000
+LimitDefault = 3_500_000
 PriceMax = 100000000000
 FeeCapDefault = 100000000000`
 )

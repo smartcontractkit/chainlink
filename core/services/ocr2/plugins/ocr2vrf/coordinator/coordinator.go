@@ -369,7 +369,7 @@ func (c *coordinator) ReportBlocks(
 
 	// Get start height for recent blockhashes.
 	recentBlockHashesStartHeight = uint64(0)
-	if currentHeight > c.blockhashLookback {
+	if currentHeight >= c.blockhashLookback {
 		recentBlockHashesStartHeight = uint64(currentHeight - c.blockhashLookback + 1)
 	}
 
