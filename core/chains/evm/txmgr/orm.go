@@ -55,6 +55,7 @@ type ORM interface {
 	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
 	SaveInProgressAttempt(attempt *EthTxAttempt) error
 	SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
+	SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error
 	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
@@ -919,5 +920,25 @@ GROUP BY e.id
 		}
 
 		return nil
+	})
+}
+
+func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
+		return errors.New("expected attempts to be in_progress")
+	}
+	if oldAttempt.ID == 0 {
+		return errors.New("expected oldAttempt to have an ID")
+	}
+	return qq.Transaction(func(tx pg.Queryer) error {
+		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
+			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
+		}
+		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, replacementAttempt)
+		if e != nil {
+			return errors.Wrap(e, "saveReplacementInProgressAttempt failed to BindNamed")
+		}
+		return errors.Wrap(tx.Get(replacementAttempt, query, args...), "saveReplacementInProgressAttempt failed to insert replacement attempt")
 	})
 }

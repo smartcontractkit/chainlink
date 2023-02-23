@@ -823,7 +823,7 @@ func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logg
 		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
 	}
 
-	if err = saveReplacementInProgressAttempt(eb.q, attempt, &replacementAttempt); err != nil {
+	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
 	}
 	lgr.Debugw("Bumped legacy gas on initial send", "oldGasPrice", attempt.GasPrice, "newGasPrice", newGasPrice)
@@ -836,7 +836,7 @@ func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, lgr 
 		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
 	}
 
-	if err = saveReplacementInProgressAttempt(eb.q, attempt, &replacementAttempt); err != nil {
+	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
 	}
 	lgr.Debugw("Bumped dynamic fee gas on initial send", "oldFee", attempt.DynamicFee(), "newFee", newDynamicFee)

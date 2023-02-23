@@ -1038,3 +1038,77 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
 }
+
+func TestORM_LoadEthTxesAttempts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	// tx state should be confirmed missing receipt
+	// attempt should be broadcast before cutoff time
+	t.Run("load eth tx attempt", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, borm, 1, 7, time.Now(), fromAddress)
+		etx.EthTxAttempts = []txmgr.EthTxAttempt{}
+
+		err := borm.LoadEthTxesAttempts([]*txmgr.EthTx{&etx})
+		require.NoError(t, err)
+		assert.Len(t, etx.EthTxAttempts, 1)
+	})
+
+	t.Run("load new attempt inserted in current postgres transaction", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, borm, 3, 9, time.Now(), fromAddress)
+		etx.EthTxAttempts = []txmgr.EthTxAttempt{}
+
+		q := pg.NewQ(db, logger.TestLogger(t), cfg)
+
+		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
+		q.Transaction(func(tx pg.Queryer) error {
+			const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
+				:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
+				) RETURNING *`
+			_, err := tx.NamedExec(insertEthTxAttemptSQL, newAttempt)
+			require.NoError(t, err)
+
+			err = borm.LoadEthTxesAttempts([]*txmgr.EthTx{&etx}, pg.WithQueryer(tx))
+			require.NoError(t, err)
+			assert.Len(t, etx.EthTxAttempts, 2)
+
+			return nil
+		})
+		// also check after postgres transaction is committed
+		etx.EthTxAttempts = []txmgr.EthTxAttempt{}
+		err := borm.LoadEthTxesAttempts([]*txmgr.EthTx{&etx})
+		require.NoError(t, err)
+		assert.Len(t, etx.EthTxAttempts, 2)
+	})
+}
+
+func TestORM_SaveReplacementInProgressAttempt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	// tx state should be confirmed missing receipt
+	// attempt should be broadcast before cutoff time
+	t.Run("replace eth tx attempt", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 123, fromAddress)
+		oldAttempt := etx.EthTxAttempts[0]
+
+		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
+		err := borm.SaveReplacementInProgressAttempt(oldAttempt, &newAttempt)
+		require.NoError(t, err)
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		require.Equal(t, etx.EthTxAttempts[0].Hash, newAttempt.Hash)
+	})
+}

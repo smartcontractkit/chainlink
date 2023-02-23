@@ -649,25 +649,6 @@ VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_n
 RETURNING *;
 `
 
-func saveReplacementInProgressAttempt(q pg.Q, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
-	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
-		return errors.New("expected attempts to be in_progress")
-	}
-	if oldAttempt.ID == 0 {
-		return errors.New("expected oldAttempt to have an ID")
-	}
-	return q.Transaction(func(tx pg.Queryer) error {
-		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
-			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
-		}
-		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, replacementAttempt)
-		if e != nil {
-			return errors.Wrap(e, "saveReplacementInProgressAttempt failed to BindNamed")
-		}
-		return errors.Wrap(tx.Get(replacementAttempt, query, args...), "saveReplacementInProgressAttempt failed to insert replacement attempt")
-	})
-}
-
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func CountUnconfirmedTransactions(q pg.Q, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
 	return countTransactionsWithState(q, fromAddress, EthTxUnconfirmed, chainID)
