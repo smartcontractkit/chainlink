@@ -378,7 +378,6 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: Live Testnet Smoke Tests Matrix
     needs: [build-chainlink, build-test-image]
     env:
       SELECTED_NETWORKS: ${{ matrix.testnet }}
@@ -403,6 +402,7 @@ jobs:
       fail-fast: false
       matrix:
         testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+    name: Live Testnet Smoke Tests ${{ matrix.testnet }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -417,6 +417,9 @@ jobs:
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.${{ github.sha }}
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/ocr_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
