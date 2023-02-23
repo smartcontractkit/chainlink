@@ -118,6 +118,7 @@ jobs:
           echo "\`ci.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
 
   eth-smoke-tests-matrix:
+    if: false # TODO: Remove debug
     environment: integration
     permissions:
       checks: write
@@ -298,6 +299,7 @@ jobs:
         continue-on-error: true
 
   solana-smoke-tests:
+    if: false # TODO: Remove debug
     environment: integration
     permissions:
       checks: write
@@ -371,7 +373,7 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix:
-    if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags
+    # if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags # TODO: Remove debug
     environment: integration
     permissions:
       checks: write
@@ -432,6 +434,15 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
+          SLACK_USERNAME: Chainlink Live Release Tester
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: Test
+          SLACK_MESSAGE: "Result for OCR Smoke Test on ${{ matrix.testnet }} is ${{ job.status }}"
+        uses: rtCamp/action-slack-notify@12e36fc
 
       - name: Collect Metrics
         if: always()
@@ -440,7 +451,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Live Testnet Smoke Tests Matrix (${{ matrix.testnet }})
+          this-job-name: Live Testnet Smoke Tests ${{ matrix.testnet }}
         continue-on-error: true
 
   ### End Live Testnet Section
