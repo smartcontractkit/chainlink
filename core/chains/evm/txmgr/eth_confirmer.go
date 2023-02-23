@@ -178,8 +178,8 @@ func (ec *EthConfirmer) Start(_ context.Context) error {
 func (ec *EthConfirmer) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
 		ec.ctxCancel()
-		ec.wg.Wait()
 		ec.orm.Close()
+		ec.wg.Wait()
 		return nil
 	})
 }
