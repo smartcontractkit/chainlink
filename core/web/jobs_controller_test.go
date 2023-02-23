@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -473,17 +474,14 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
-	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V1.Enabled = ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
 
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ethClient)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -502,16 +500,11 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 
+	// BCF-2095
 	// disable check that chain id exists for rest of tests
-	//require.NoError(t, utils.JustError(
-	//	app.GetSqlxDB().Exec(`SET CONSTRAINTS job_spec_errors_v2_job_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(
+		app.GetSqlxDB().Exec(`SET CONSTRAINTS job_spec_errors_v2_job_id_fkey DEFERRED`)))
 
-	// alternatively, set an eth client in flags and deps of NewApplicationWithConfigandKey so
-	// the orm doesn't delete the job on a null head
-	/*
-		require.NoError(t, utils.JustError(
-			app.GetSqlxDB().Exec(`ALTER TABLE job_spec_errors DISABLE TRIGGER ALL`)))
-	*/
 	var ocrSpec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
