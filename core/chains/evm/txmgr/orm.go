@@ -91,6 +91,8 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	}
 }
 
+// TODO: create method to pass in new context to orm (which will also create a new pg.Q)
+
 func (o *orm) Close() {
 	o.ctxCancel()
 }

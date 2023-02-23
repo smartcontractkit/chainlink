@@ -96,7 +96,6 @@ type reset struct {
 
 type Txm struct {
 	utils.StartStopOnce
-	orm              ORM
 	logger           logger.Logger
 	db               *sqlx.DB
 	q                pg.Q
@@ -138,7 +137,6 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	)
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
-		orm:              NewORM(db, lggr, cfg),
 		logger:           lggr,
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
@@ -156,7 +154,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, NewORM(b.db, b.logger, b.config), ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
@@ -191,7 +189,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 
 		var ms services.MultiStart
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		ec := NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		ec := NewEthConfirmer(NewORM(b.db, b.logger, b.config), b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, eb); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -312,7 +310,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 		}
 
 		eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		ec = NewEthConfirmer(NewORM(b.db, b.logger, b.config), b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
