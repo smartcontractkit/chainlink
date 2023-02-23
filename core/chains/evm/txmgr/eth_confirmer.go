@@ -274,21 +274,6 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 	return nil
 }
 
-// SetBroadcastBeforeBlockNum updates already broadcast attempts with the
-// current block number. This is safe no matter how old the head is because if
-// the attempt is already broadcast it _must_ have been before this head.
-func (ec *EthConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
-	_, err := ec.q.Exec(
-		`UPDATE eth_tx_attempts
-SET broadcast_before_block_num = $1 
-FROM eth_txes
-WHERE eth_tx_attempts.broadcast_before_block_num IS NULL AND eth_tx_attempts.state = 'broadcast'
-AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
-		blockNum, ec.chainID.String(),
-	)
-	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
-}
-
 // CheckConfirmedMissingReceipt will attempt to re-send any transaction in the
 // state of "confirmed_missing_receipt". If we get back any type of senderror
 // other than "nonce too low" it means that this transaction isn't actually
