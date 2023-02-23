@@ -124,7 +124,6 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes, build-test-image]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
@@ -176,13 +175,12 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ""
     runs-on: ${{ matrix.product.os }}
+    name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Determine Pyroscope Values
-        run:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
