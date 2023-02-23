@@ -22,6 +22,20 @@ type ORM struct {
 	mock.Mock
 }
 
+// DeleteInProgressAttempt provides a mock function with given fields: ctx, attempt
+func (_m *ORM) DeleteInProgressAttempt(ctx context.Context, attempt txmgr.EthTxAttempt) error {
+	ret := _m.Called(ctx, attempt)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, txmgr.EthTxAttempt) error); ok {
+		r0 = rf(ctx, attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // EthTransactions provides a mock function with given fields: offset, limit
 func (_m *ORM) EthTransactions(offset int, limit int) ([]txmgr.EthTx, int, error) {
 	ret := _m.Called(offset, limit)
@@ -119,6 +133,32 @@ func (_m *ORM) EthTxAttempts(offset int, limit int) ([]txmgr.EthTxAttempt, int, 
 	}
 
 	return r0, r1, r2
+}
+
+// FindEthReceiptsPendingConfirmation provides a mock function with given fields: ctx, blockNum, chainID
+func (_m *ORM) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) ([]txmgr.EthReceiptsPlus, error) {
+	ret := _m.Called(ctx, blockNum, chainID)
+
+	var r0 []txmgr.EthReceiptsPlus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) ([]txmgr.EthReceiptsPlus, error)); ok {
+		return rf(ctx, blockNum, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) []txmgr.EthReceiptsPlus); ok {
+		r0 = rf(ctx, blockNum, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgr.EthReceiptsPlus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, big.Int) error); ok {
+		r1 = rf(ctx, blockNum, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindEthTxAttempt provides a mock function with given fields: hash
@@ -301,6 +341,32 @@ func (_m *ORM) FindEthTxWithAttempts(etxID int64) (txmgr.EthTx, error) {
 	return r0, r1
 }
 
+// FindEthTxWithNonce provides a mock function with given fields: fromAddress, nonce
+func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (*txmgr.EthTx, error) {
+	ret := _m.Called(fromAddress, nonce)
+
+	var r0 *txmgr.EthTx
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Address, uint) (*txmgr.EthTx, error)); ok {
+		return rf(fromAddress, nonce)
+	}
+	if rf, ok := ret.Get(0).(func(common.Address, uint) *txmgr.EthTx); ok {
+		r0 = rf(fromAddress, nonce)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*txmgr.EthTx)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Address, uint) error); ok {
+		r1 = rf(fromAddress, nonce)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEtxAttemptsConfirmedMissingReceipt provides a mock function with given fields: chainID
 func (_m *ORM) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) ([]txmgr.EthTxAttempt, error) {
 	ret := _m.Called(chainID)
@@ -320,6 +386,32 @@ func (_m *ORM) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) ([]txmgr.
 
 	if rf, ok := ret.Get(1).(func(big.Int) error); ok {
 		r1 = rf(chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTransactionsConfirmedInBlockRange provides a mock function with given fields: highBlockNumber, lowBlockNumber, chainID
+func (_m *ORM) FindTransactionsConfirmedInBlockRange(highBlockNumber int64, lowBlockNumber int64, chainID big.Int) ([]*txmgr.EthTx, error) {
+	ret := _m.Called(highBlockNumber, lowBlockNumber, chainID)
+
+	var r0 []*txmgr.EthTx
+	var r1 error
+	if rf, ok := ret.Get(0).(func(int64, int64, big.Int) ([]*txmgr.EthTx, error)); ok {
+		return rf(highBlockNumber, lowBlockNumber, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(int64, int64, big.Int) []*txmgr.EthTx); ok {
+		r0 = rf(highBlockNumber, lowBlockNumber, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*txmgr.EthTx)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(int64, int64, big.Int) error); ok {
+		r1 = rf(highBlockNumber, lowBlockNumber, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -423,6 +515,20 @@ func (_m *ORM) PreloadEthTxes(attempts []txmgr.EthTxAttempt) error {
 	return r0
 }
 
+// SaveConfirmedMissingReceiptAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
+func (_m *ORM) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *txmgr.EthTxAttempt, broadcastAt time.Time) error {
+	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *txmgr.EthTxAttempt, time.Time) error); ok {
+		r0 = rf(ctx, timeout, attempt, broadcastAt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveFetchedReceipts provides a mock function with given fields: receipts, chainID
 func (_m *ORM) SaveFetchedReceipts(receipts []types.Receipt, chainID big.Int) error {
 	ret := _m.Called(receipts, chainID)
@@ -430,6 +536,48 @@ func (_m *ORM) SaveFetchedReceipts(receipts []types.Receipt, chainID big.Int) er
 	var r0 error
 	if rf, ok := ret.Get(0).(func([]types.Receipt, big.Int) error); ok {
 		r0 = rf(receipts, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SaveInProgressAttempt provides a mock function with given fields: attempt
+func (_m *ORM) SaveInProgressAttempt(attempt *txmgr.EthTxAttempt) error {
+	ret := _m.Called(attempt)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*txmgr.EthTxAttempt) error); ok {
+		r0 = rf(attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SaveInsufficientEthAttempt provides a mock function with given fields: timeout, attempt, broadcastAt
+func (_m *ORM) SaveInsufficientEthAttempt(timeout time.Duration, attempt *txmgr.EthTxAttempt, broadcastAt time.Time) error {
+	ret := _m.Called(timeout, attempt, broadcastAt)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(time.Duration, *txmgr.EthTxAttempt, time.Time) error); ok {
+		r0 = rf(timeout, attempt, broadcastAt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SaveSentAttempt provides a mock function with given fields: timeout, attempt, broadcastAt
+func (_m *ORM) SaveSentAttempt(timeout time.Duration, attempt *txmgr.EthTxAttempt, broadcastAt time.Time) error {
+	ret := _m.Called(timeout, attempt, broadcastAt)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(time.Duration, *txmgr.EthTxAttempt, time.Time) error); ok {
+		r0 = rf(timeout, attempt, broadcastAt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -458,6 +606,20 @@ func (_m *ORM) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(time.Time, []int64) error); ok {
 		r0 = rf(now, etxIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateEthTxForRebroadcast provides a mock function with given fields: etx, etxAttempt
+func (_m *ORM) UpdateEthTxForRebroadcast(etx txmgr.EthTx, etxAttempt txmgr.EthTxAttempt) error {
+	ret := _m.Called(etx, etxAttempt)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(txmgr.EthTx, txmgr.EthTxAttempt) error); ok {
+		r0 = rf(etx, etxAttempt)
 	} else {
 		r0 = ret.Error(0)
 	}

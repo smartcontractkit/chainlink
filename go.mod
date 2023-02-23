@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink
 
-go 1.19
+go 1.20
 
 require (
 	github.com/Depado/ginprom v1.7.4
@@ -29,6 +29,7 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/jackc/pgconn v1.13.0
+	github.com/jackc/pgtype v1.12.0
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
@@ -59,8 +60,8 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230216171252-49e2a3db1b5c
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230125162500-4e7ec33e60db
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.6.9
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0
+	github.com/smartcontractkit/ocr2keepers v0.6.10
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.6.1
 	github.com/spf13/cobra v1.5.0
@@ -165,7 +166,6 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.1 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
