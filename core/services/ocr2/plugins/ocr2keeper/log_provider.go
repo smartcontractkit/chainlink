@@ -131,7 +131,6 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
-
 	reorged, err := c.unmarshalReorgLogs(logs)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unmarshal reorg logs", err)
@@ -150,7 +149,6 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
-
 	staleUpkeep, err := c.unmarshalStaleUpkeepLogs(logs)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unmarshal stale upkeep logs", err)
@@ -169,7 +167,6 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
-
 	insufficientFunds, err := c.unmarshalInsufficientFundsUpkeepLogs(logs)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unmarshal insufficient fund upkeep logs", err)
