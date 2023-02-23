@@ -53,13 +53,13 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		DKGSign:    []dkgsignkey.Raw{dkgsign1.Raw(), dkgsign2.Raw()},
 		DKGEncrypt: []dkgencryptkey.Raw{dkgencrypt1.Raw(), dkgencrypt2.Raw()},
 	}
-	originalKeyRing, err := originalKeyRingRaw.keys()
-	require.NoError(t, err)
+	originalKeyRing, kerr := originalKeyRingRaw.keys()
+	require.NoError(t, kerr)
 
 	t.Run("test encrypt/decrypt", func(t *testing.T) {
-		encryptedKeyRing, err := originalKeyRing.Encrypt(password, utils.FastScryptParams)
+		encryptedKr, err := originalKeyRing.Encrypt(password, utils.FastScryptParams)
 		require.NoError(t, err)
-		decryptedKeyRing, err := encryptedKeyRing.Decrypt(password)
+		decryptedKeyRing, err := encryptedKr.Decrypt(password)
 		require.NoError(t, err)
 		// compare csa keys
 		require.Equal(t, 2, len(decryptedKeyRing.CSA))
@@ -120,7 +120,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 				"bar", "biz",
 			},
 		}
-		err = json.Unmarshal(rawJson, &allKeys)
+		err := json.Unmarshal(rawJson, &allKeys)
 		require.NoError(t, err)
 		//Add more ocr2 keys
 		newOCR2Key1 := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(5))
