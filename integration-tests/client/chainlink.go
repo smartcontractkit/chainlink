@@ -1099,8 +1099,11 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 				return nil, nil, err
 			}
 		}
-
-		ocrKey, _, err := n.CreateOCR2Key(chainName)
+		ocrKey, _, err := n.CreateOCRKey()
+		if err != nil {
+			return nil, nil, err
+		}
+		ocr2Key, _, err := n.CreateOCR2Key(chainName)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1110,7 +1113,8 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 		}
 		bundle := NodeKeysBundle{
 			PeerID:     peerID,
-			OCR2Key:    *ocrKey,
+			OCRKey:     *ocrKey,
+			OCR2Key:    *ocr2Key,
 			TXKey:      *txKey,
 			P2PKeys:    *p2pkeys,
 			EthAddress: ethAddress,
