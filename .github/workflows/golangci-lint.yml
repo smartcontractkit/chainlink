@@ -7,13 +7,12 @@ on:
       - trying
       - rollup
   pull_request:
-    branches-ignore:
-      - 'release/**'
   schedule:
     - cron: '0 0 * * *'
 
 jobs:
   changes:
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
@@ -32,6 +31,7 @@ jobs:
             - '.golangci.yml'
             - '.github/workflows/golangci-lint.yml'
   golangci:
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
     name: lint
     runs-on: ubuntu-latest
     needs: [changes]
