@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"reflect"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
@@ -169,15 +168,6 @@ func newKeyRing() *keyRing {
 		DKGSign:    make(map[string]dkgsignkey.Key),
 		DKGEncrypt: make(map[string]dkgencryptkey.Key),
 	}
-}
-
-func (kr *keyRing) GetKeysName() []string {
-	keyNames := make([]string, 0)
-	val := reflect.ValueOf(kr).Elem()
-	for i := 0; i < val.NumField(); i++ {
-		keyNames = append(keyNames, val.Type().Field(i).Name)
-	}
-	return keyNames
 }
 
 func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ekr encryptedKeyRing, err error) {
