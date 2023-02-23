@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -17,33 +18,30 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
 
-func BuildAutomationOCR2Config(
+func BuildAutoOCR2ConfigVars(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
 ) contracts.OCRConfig {
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
-	require.NoError(t, err, "Shouldn't fail encoding config")
+	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
-	s := make([]int, len(chainlinkNodes))
-
-	return BuildGeneralOCR2Config(
-		t,
-		chainlinkNodes,
+	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		1000*time.Millisecond, // deltaRound time.Duration,
 		20*time.Millisecond,   // deltaGrace time.Duration,
 		deltaStage,            // deltaStage time.Duration,
 		48,                    // rMax uint8,
-		s,
+		S,                     // s []int,
+		oracleIdentities,      // oracles []OracleIdentityExtra,
 		types2.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -60,8 +58,34 @@ func BuildAutomationOCR2Config(
 		20*time.Millisecond,  // maxDurationShouldAcceptFinalizedReport time.Duration,
 		20*time.Millisecond,  // maxDurationShouldTransmitAcceptedReport time.Duration,
 		1,                    // f int,
-		onchainConfig,
+		nil,                  // onchainConfig []byte,
 	)
+	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
+
+	var signers []common.Address
+	for _, signer := range signerOnchainPublicKeys {
+		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
+		signers = append(signers, common.BytesToAddress(signer))
+	}
+
+	var transmitters []common.Address
+	for _, transmitter := range transmitterAccounts {
+		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
+		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
+	}
+
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
+	require.NoError(t, err, "Shouldn't fail encoding config")
+
+	log.Info().Msg("Done building OCR config")
+	return contracts.OCRConfig{
+		Signers:               signers,
+		Transmitters:          transmitters,
+		F:                     f,
+		OnchainConfig:         onchainConfig,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
+	}
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs

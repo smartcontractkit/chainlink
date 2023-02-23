@@ -171,7 +171,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
-		ocrConfig := actions.BuildAutomationOCR2Config(
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(
 			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.BlockTime*5,
 		)
 
