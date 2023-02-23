@@ -863,14 +863,7 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 			return errors.Wrap(err, "failed to resume pipeline")
 		}
 	}
-	etx.Nonce = nil
-	etx.State = EthTxFatalError
-	return eb.q.Transaction(func(tx pg.Queryer) error {
-		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
-			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
-		}
-		return errors.Wrap(tx.Get(etx, `UPDATE eth_txes SET state=$1, error=$2, broadcast_at=NULL, initial_broadcast_at=NULL, nonce=NULL WHERE id=$3 RETURNING *`, etx.State, etx.Error, etx.ID), "saveFatallyErroredTransaction failed to save eth_tx")
-	})
+	return eb.orm.UpdateEthTxFatalError(etx)
 }
 
 func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {

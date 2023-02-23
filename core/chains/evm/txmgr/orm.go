@@ -40,7 +40,7 @@ type ORM interface {
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
 	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error)
-	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int) error
+	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error
 	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error)
 	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
 	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
@@ -61,6 +61,7 @@ type ORM interface {
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
+	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
 	UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error
 	Close()
 }
@@ -946,7 +947,29 @@ func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacem
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func (o *orm) FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int) error {
-	err := o.q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
+func (o *orm) FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+	err := qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	return errors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+}
+
+func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+
+	if etx.State != EthTxInProgress {
+		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
+	}
+	if !etx.Error.Valid {
+		return errors.New("expected error field to be set")
+	}
+
+	etx.Nonce = nil
+	etx.State = EthTxFatalError
+
+	return qq.Transaction(func(tx pg.Queryer) error {
+		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
+			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
+		}
+		return errors.Wrap(tx.Get(etx, `UPDATE eth_txes SET state=$1, error=$2, broadcast_at=NULL, initial_broadcast_at=NULL, nonce=NULL WHERE id=$3 RETURNING *`, etx.State, etx.Error, etx.ID), "saveFatallyErroredTransaction failed to save eth_tx")
+	})
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1134,5 +1135,30 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 
 		resultEtx := new(txmgr.EthTx)
 		borm.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, *ethClient.ChainID())
+	})
+}
+
+func TestORM_UpdateEthTxFatalError(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	// q := pg.NewQ(db, logger.TestLogger(t), cfg)
+
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("update successful", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 13, fromAddress)
+		etxPretendError := null.StringFrom("no more toilet paper")
+		etx.Error = etxPretendError
+
+		err := borm.UpdateEthTxFatalError(&etx)
+		require.NoError(t, err)
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Len(t, etx.EthTxAttempts, 0)
+		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
 }
