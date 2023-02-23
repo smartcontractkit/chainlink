@@ -120,7 +120,7 @@ jobs:
       contents: read
     name: EVM Pods Chaos Tests
     runs-on: ubuntu-latest
-    needs: [build-test-runner]
+    needs: [build-test-runner, build-chainlink]
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
