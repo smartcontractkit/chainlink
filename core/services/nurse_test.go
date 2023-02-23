@@ -43,7 +43,7 @@ func newMockConfig(t *testing.T) *mockConfig {
 		gatherDuration:       models.MustNewDuration(testInterval),
 		traceDuration:        models.MustNewDuration(testInterval),
 		profileSize:          utils.FileSize(testSize),
-		memProfileRate:       1,
+		memProfileRate:       16 * 1024,
 		blockProfileRate:     testRate,
 		mutexProfileFraction: testRate,
 		memThreshold:         utils.FileSize(testSize),
@@ -111,10 +111,8 @@ func TestNurse(t *testing.T) {
 	l := logger.TestLogger(t)
 	nrse := NewNurse(newMockConfig(t), l)
 
-	//require.NoError(t, nrse.Start())
-	require.Panics(t, func() { nrse.Start() })
-	return
-	//defer func() { require.NoError(t, nrse.Close()) }()
+	require.NoError(t, nrse.Start())
+	defer func() { require.NoError(t, nrse.Close()) }()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 
@@ -167,12 +165,25 @@ func assertProfileExists(t *testing.T, profiles []fs.FileInfo, typ string) {
 	assert.Failf(t, "profile doesn't exist", "require profile '%s' does not exist %+v", typ, names)
 }
 
-func TestHackThatShouldPanic(t *testing.T) {
+func TestHypothesis(t *testing.T) {
+	var x int
 
-	n1 := NewNurse(newMockConfig(t), logger.TestLogger(t))
-	n2 := NewNurse(newMockConfig(t), logger.TestLogger(t))
-	require.Panics(t, func() { n1.Start() })
-	//n1.Start()
-	//defer n1.Close()
-	require.Panics(t, func() { n2.Start() })
+	wg := sync.WaitGroup{}
+	oncer := &utils.StartStopOnce{}
+	oncer.StartOnce("hack", func() error {
+
+		x = 0
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t.Logf("x is %+v", int64(x))
+		}()
+		time.Sleep(1 * time.Second)
+		return nil
+	},
+	)
+	t.Log("done")
+	wg.Wait()
+	t.Log("exit")
+
 }

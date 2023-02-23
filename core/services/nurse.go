@@ -22,11 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var (
-	globalMu       sync.Mutex
-	globalNurseCnt int
-)
-
 type Nurse struct {
 	utils.StartStopOnce
 
@@ -81,8 +76,6 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 
 func (n *Nurse) Start() error {
 	return n.StartOnce("nurse", func() error {
-		panic("feret out all nurses in tests")
-
 		// This must be set *once*, and it must occur as early as possible
 		runtime.MemProfileRate = n.cfg.AutoPprofMemProfileRate()
 
@@ -144,9 +137,6 @@ func (n *Nurse) Close() error {
 	return n.StopOnce("nurse", func() error {
 		close(n.chStop)
 		n.wgDone.Wait()
-		globalMu.Lock()
-		globalNurseCnt--
-		globalMu.Unlock()
 		return nil
 	})
 }
