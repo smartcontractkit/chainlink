@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"reflect"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
@@ -53,6 +54,13 @@ func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = rawKeys.LegacyKeys.StoreUnsupported(marshalledRawKeyRingJson, ring)
+	if err != nil {
+		return nil, err
+	}
+	ring.LegacyKeys = rawKeys.LegacyKeys
+
 	return ring, nil
 }
 
@@ -145,6 +153,7 @@ type keyRing struct {
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
 	DKGEncrypt map[string]dkgencryptkey.Key
+	LegacyKeys LegacyKeyStorage
 }
 
 func newKeyRing() *keyRing {
@@ -162,11 +171,26 @@ func newKeyRing() *keyRing {
 	}
 }
 
+func (kr *keyRing) GetKeysName() []string {
+	keyNames := make([]string, 0)
+	val := reflect.ValueOf(kr).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		keyNames = append(keyNames, val.Type().Field(i).Name)
+	}
+	return keyNames
+}
+
 func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ekr encryptedKeyRing, err error) {
 	marshalledRawKeyRingJson, err := json.Marshal(kr.raw())
 	if err != nil {
 		return ekr, err
 	}
+
+	marshalledRawKeyRingJson, err = kr.LegacyKeys.UnloadUnsupported(marshalledRawKeyRingJson)
+	if err != nil {
+		return encryptedKeyRing{}, err
+	}
+
 	cryptoJSON, err := gethkeystore.EncryptDataV3(
 		marshalledRawKeyRingJson,
 		[]byte(adulteratedPassword(password)),
@@ -291,6 +315,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(dkgEncryptIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d DKGEncrypt keys", len(dkgEncryptIDs)), "keys", dkgEncryptIDs)
 	}
+	if len(kr.LegacyKeys.legacyRawKeys) > 0 {
+		lggr.Infow(fmt.Sprintf("%d keys stored in legacy system", kr.LegacyKeys.legacyRawKeys.len()))
+	}
 }
 
 // rawKeyRing is an intermediate struct for encrypting / decrypting keyRing
@@ -307,6 +334,7 @@ type rawKeyRing struct {
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw
+	LegacyKeys LegacyKeyStorage `json:"-"`
 }
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
@@ -324,8 +352,9 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	for _, rawOCR2Key := range rawKeys.OCR2 {
-		ocr2Key := rawOCR2Key.Key()
-		keyRing.OCR2[ocr2Key.ID()] = ocr2Key
+		if ocr2Key := rawOCR2Key.Key(); ocr2Key != nil {
+			keyRing.OCR2[ocr2Key.ID()] = ocr2Key
+		}
 	}
 	for _, rawP2PKey := range rawKeys.P2P {
 		p2pKey := rawP2PKey.Key()
@@ -351,6 +380,8 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		dkgEncryptKey := rawDKGEncryptKey.Key()
 		keyRing.DKGEncrypt[dkgEncryptKey.ID()] = dkgEncryptKey
 	}
+
+	keyRing.LegacyKeys = rawKeys.LegacyKeys
 	return keyRing, nil
 }
 

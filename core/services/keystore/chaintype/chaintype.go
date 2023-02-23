@@ -17,10 +17,6 @@ const (
 	Solana ChainType = "solana"
 	// StarkNet for the StarkNet chain
 	StarkNet ChainType = "starknet"
-
-	// Terra for the Terra chain LEGACY SUPPORT
-	// only here to enable any terra keys that might be in the db
-	Terra ChainType = "terra"
 )
 
 type ChainTypes []ChainType
