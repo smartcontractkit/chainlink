@@ -1145,7 +1145,6 @@ func TestORM_UpdateEthTxFatalError(t *testing.T) {
 	cfg := newTestChainScopedConfig(t)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	// q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -1160,5 +1159,37 @@ func TestORM_UpdateEthTxFatalError(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, etx.EthTxAttempts, 0)
 		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
+	})
+}
+
+func TestORM_UpdateEthTxAttemptInProgressToBroadcast(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("update successful", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 13, fromAddress)
+		attempt := etx.EthTxAttempts[0]
+		require.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+
+		time1 := time.Now()
+		i := int16(0)
+		etx.BroadcastAt = &time1
+		etx.InitialBroadcastAt = &time1
+		borm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgr.EthTxAttemptBroadcast, func(_ pg.Queryer) error {
+			// dummy function because tests do not use keystore as source of truth for next nonce number
+			i++
+			return nil
+		})
+
+		attemptResult, err := borm.FindEthTxAttempt(attempt.Hash)
+		require.NoError(t, err)
+		require.Equal(t, attempt.Hash, attemptResult.Hash)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attemptResult.State)
+		assert.Equal(t, int16(1), i)
 	})
 }

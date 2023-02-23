@@ -60,6 +60,7 @@ type ORM interface {
 	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
+	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
 	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
 	UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error
@@ -971,5 +972,62 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
 		return errors.Wrap(tx.Get(etx, `UPDATE eth_txes SET state=$1, error=$2, broadcast_at=NULL, initial_broadcast_at=NULL, nonce=NULL WHERE id=$3 RETURNING *`, etx.State, etx.Error, etx.ID), "saveFatallyErroredTransaction failed to save eth_tx")
+	})
+}
+
+type QueryerFunc func(tx pg.Queryer) error
+
+// Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
+// Before it updates both tables though it increments the nonce from the keystore
+// One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
+func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error {
+	qopts := []pg.QOpt{}
+	afterSaveCallbacks := []QueryerFunc{}
+	for _, value := range args {
+		switch v := value.(type) {
+		case QueryerFunc:
+			afterSaveCallbacks = append(afterSaveCallbacks, v)
+		case pg.QOpt:
+			qopts = append(qopts, v)
+		default:
+			return fmt.Errorf("unable to accept arg of type %T", value)
+		}
+	}
+
+	qq := o.q.WithOpts(qopts...)
+
+	if etx.BroadcastAt == nil {
+		return errors.New("unconfirmed transaction must have broadcast_at time")
+	}
+	if etx.InitialBroadcastAt == nil {
+		return errors.New("unconfirmed transaciton must have initial_broadcast_at time")
+	}
+	if etx.State != EthTxInProgress {
+		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
+	}
+	if attempt.State != EthTxAttemptInProgress {
+		return errors.New("attempt must be in in_progress state")
+	}
+	if !(NewAttemptState == EthTxAttemptBroadcast) {
+		return errors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
+	}
+	etx.State = EthTxUnconfirmed
+	attempt.State = NewAttemptState
+	return qq.Transaction(func(tx pg.Queryer) error {
+		if err := incrNextNonceCallback(tx); err != nil {
+			return errors.Wrap(err, "SaveEthTxAttempt failed on incrNextNonceCallback")
+		}
+		if err := tx.Get(etx, `UPDATE eth_txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, etx.State, etx.Error, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID); err != nil {
+			return errors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx")
+		}
+		if err := tx.Get(&attempt, `UPDATE eth_tx_attempts SET state = $1 WHERE id = $2 RETURNING *`, attempt.State, attempt.ID); err != nil {
+			return errors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx_attempt")
+		}
+		for _, f := range afterSaveCallbacks {
+			if err := f(tx); err != nil {
+				return errors.Wrap(err, "SaveEthTxAttempt failed on afterSaveCallbacks")
+			}
+		}
+		return nil
 	})
 }

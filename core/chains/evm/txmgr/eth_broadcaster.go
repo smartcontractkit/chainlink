@@ -455,6 +455,16 @@ func (eb *EthBroadcaster) getInProgressEthTx(fromAddress gethCommon.Address) (et
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
 
+// this function is used to pass the queryer from the txmgr to the keystore
+// it is inevitable we have to pass the queryer because we need none increment to happen in atomic transaction
+// but that happens in the keystore orm rather than the txmgr orm
+func (eb *EthBroadcaster) incrementNonceAtomic(tx pg.Queryer, etx EthTx) error {
+	if err := eb.incrementNextNonce(etx.FromAddress, *etx.Nonce, pg.WithQueryer(tx)); err != nil {
+		return errors.Wrap(err, "saveUnconfirmed failed")
+	}
+	return nil
+}
+
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
 func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (error, bool) {
@@ -598,7 +608,9 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// and we pass the same initialBroadcastAt timestamp there, when we re-enter
 		// this function we'll be using the same initialBroadcastAt.
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		return eb.saveAttempt(&etx, attempt, EthTxAttemptBroadcast), true
+		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, EthTxAttemptBroadcast, func(tx pg.Queryer) error {
+			return eb.incrementNonceAtomic(tx, etx)
+		}), true
 	}
 
 	// In the case of timeout, we fall back to the backoff retry loop and
@@ -654,7 +666,9 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// Despite the error, the RPC node considers the previously sent
 		// transaction to have been accepted. In this case, the right thing to
 		// do is assume success and hand off to EthConfirmer
-		return eb.saveAttempt(&etx, attempt, EthTxAttemptBroadcast), true
+		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, EthTxAttemptBroadcast, func(tx pg.Queryer) error {
+			return eb.incrementNonceAtomic(tx, etx)
+		}), true
 	}
 
 	// Either the unknown error prevented the transaction from being mined, or
@@ -686,6 +700,7 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 	return etx, nil
 }
 
+// Saves in_progress eth tx and in_progress eth attempt
 func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAttempt) error {
 	if etx.State != EthTxUnstarted {
 		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
@@ -711,37 +726,6 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 		}
 		err = tx.Get(etx, `UPDATE eth_txes SET nonce=$1, state=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id=$5 RETURNING *`, etx.Nonce, etx.State, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID)
 		return errors.Wrap(err, "saveInProgressTransaction failed to save eth_tx")
-	})
-}
-
-func (eb *EthBroadcaster) saveAttempt(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, callbacks ...func(tx pg.Queryer) error) error {
-	if etx.State != EthTxInProgress {
-		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
-	}
-	if attempt.State != EthTxAttemptInProgress {
-		return errors.New("attempt must be in in_progress state")
-	}
-	if !(NewAttemptState == EthTxAttemptBroadcast) {
-		return errors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
-	}
-	etx.State = EthTxUnconfirmed
-	attempt.State = NewAttemptState
-	return eb.q.Transaction(func(tx pg.Queryer) error {
-		if err := eb.incrementNextNonce(etx.FromAddress, *etx.Nonce, pg.WithQueryer(tx)); err != nil {
-			return errors.Wrap(err, "saveUnconfirmed failed")
-		}
-		if err := tx.Get(etx, `UPDATE eth_txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, etx.State, etx.Error, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID); err != nil {
-			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx")
-		}
-		if err := tx.Get(&attempt, `UPDATE eth_tx_attempts SET state = $1 WHERE id = $2 RETURNING *`, attempt.State, attempt.ID); err != nil {
-			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx_attempt")
-		}
-		for _, f := range callbacks {
-			if err := f(tx); err != nil {
-				return errors.Wrap(err, "saveUnconfirmed failed")
-			}
-		}
-		return nil
 	})
 }
 
