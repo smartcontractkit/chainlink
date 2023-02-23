@@ -501,27 +501,25 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 			registrar20: instance.(*ethereum.KeeperRegistrar20),
 			address:     address,
 		}, err
-	} else {
-		// non OCR registrar
-		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
-			opts *bind.TransactOpts,
-			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
-				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
-		})
+	}
+	// non OCR registrar
+	address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
+		opts *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+			registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
+	})
 
-		if err != nil {
-			return nil, err
-		}
-
-		return &EthereumKeeperRegistrar{
-			client:    e.client,
-			registrar: instance.(*ethereum.KeeperRegistrar),
-			address:   address,
-		}, err
+	if err != nil {
+		return nil, err
 	}
 
+	return &EthereumKeeperRegistrar{
+		client:    e.client,
+		registrar: instance.(*ethereum.KeeperRegistrar),
+		address:   address,
+	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(

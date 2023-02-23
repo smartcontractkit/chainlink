@@ -422,27 +422,17 @@ func (_m *LogPoller) Ready() error {
 }
 
 // RegisterFilter provides a mock function with given fields: filter
-func (_m *LogPoller) RegisterFilter(filter logpoller.Filter) (int, error) {
+func (_m *LogPoller) RegisterFilter(filter logpoller.Filter) error {
 	ret := _m.Called(filter)
 
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(logpoller.Filter) (int, error)); ok {
-		return rf(filter)
-	}
-	if rf, ok := ret.Get(0).(func(logpoller.Filter) int); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(logpoller.Filter) error); ok {
 		r0 = rf(filter)
 	} else {
-		r0 = ret.Get(0).(int)
+		r0 = ret.Error(0)
 	}
 
-	if rf, ok := ret.Get(1).(func(logpoller.Filter) error); ok {
-		r1 = rf(filter)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // Replay provides a mock function with given fields: ctx, fromBlock
@@ -473,13 +463,13 @@ func (_m *LogPoller) Start(_a0 context.Context) error {
 	return r0
 }
 
-// UnregisterFilter provides a mock function with given fields: filterID
-func (_m *LogPoller) UnregisterFilter(filterID int) error {
-	ret := _m.Called(filterID)
+// UnregisterFilter provides a mock function with given fields: name
+func (_m *LogPoller) UnregisterFilter(name string) error {
+	ret := _m.Called(name)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int) error); ok {
-		r0 = rf(filterID)
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(name)
 	} else {
 		r0 = ret.Error(0)
 	}
