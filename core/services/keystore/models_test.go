@@ -120,8 +120,8 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 				"bar", "biz",
 			},
 		}
-		json.Unmarshal(rawJson, &allKeys)
-
+		err = json.Unmarshal(rawJson, &allKeys)
+		require.NoError(t, err)
 		//Add more ocr2 keys
 		newOCR2Key1 := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(5))
 		newOCR2Key2 := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(6))
@@ -144,7 +144,8 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		unloadedKeysJson, err := originalKeyRing.LegacyKeys.UnloadUnsupported(marshalledRawKeyRingJson)
 		require.NoError(t, err)
 		var shouldHaveAllKeys = map[string][]string{}
-		json.Unmarshal(unloadedKeysJson, &shouldHaveAllKeys)
+		err = json.Unmarshal(unloadedKeysJson, &shouldHaveAllKeys)
+		require.NoError(t, err)
 
 		//Check if keys where added to the raw json
 		require.Equal(t, shouldHaveAllKeys["foo"], []string{"bar", "biz"})
