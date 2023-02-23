@@ -200,25 +200,41 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	now := time.Now()
 
-	var wg sync.WaitGroup
-	wg.Add(9)
-
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
 		n.log.Warnw("cannot write pprof profile", loggerFields.With("error", err).Slice()...)
 		return
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go n.gatherCPU(now, &wg)
+	wg.Add(1)
 	go n.gatherTrace(now, &wg)
+	wg.Add(1)
 	go n.gather("allocs", now, &wg)
+	wg.Add(1)
 	go n.gather("block", now, &wg)
+	wg.Add(1)
 	go n.gather("goroutine", now, &wg)
-	go n.gather("heap", now, &wg)
+
+	// pprof docs state memory profile is not
+	// created if the MemProfileRate is zero
+	if runtime.MemProfileRate != 0 {
+		wg.Add(1)
+		go n.gather("heap", now, &wg)
+	} else {
+		n.log.Info("skipping heap collection because runtime.MemProfileRate = 0")
+	}
+
+	wg.Add(1)
 	go n.gather("mutex", now, &wg)
+	wg.Add(1)
 	go n.gather("threadcreate", now, &wg)
 
 	ch := make(chan struct{})
+	n.wgDone.Add(1)
 	go func() {
+		defer n.wgDone.Done()
 		defer close(ch)
 		wg.Wait()
 	}()

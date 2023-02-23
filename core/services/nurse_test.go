@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -103,7 +102,6 @@ func TestNurse(t *testing.T) {
 	nrse := NewNurse(newMockConfig(t), l)
 
 	require.NoError(t, nrse.Start())
-	defer func() { require.NoError(t, nrse.Close()) }()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 
@@ -125,14 +123,9 @@ func TestNurse(t *testing.T) {
 	assertProfileExists(t, profs, "test")
 	assertProfileExists(t, profs, "testgz")
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	nrse.gatherCPU(time.Now(), &wg)
-	wg.Add(1)
-	nrse.gatherTrace(time.Now(), &wg)
-
-	wg.Wait()
+	nrse.GatherVitals("test", Meta{})
+	// must call close here so all the profiles finish being collected
+	require.NoError(t, nrse.Close())
 
 	profiles, err := nrse.listProfiles()
 	require.NoError(t, err)
