@@ -2,6 +2,7 @@ package services
 
 import (
 	"io/fs"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -43,7 +44,7 @@ func newMockConfig(t *testing.T) *mockConfig {
 		gatherDuration:       models.MustNewDuration(testInterval),
 		traceDuration:        models.MustNewDuration(testInterval),
 		profileSize:          utils.FileSize(testSize),
-		memProfileRate:       16 * 1024,
+		memProfileRate:       runtime.MemProfileRate,
 		blockProfileRate:     testRate,
 		mutexProfileFraction: testRate,
 		memThreshold:         utils.FileSize(testSize),
@@ -57,52 +58,42 @@ func (c mockConfig) AutoPprofProfileRoot() string {
 }
 
 func (c mockConfig) AutoPprofPollInterval() models.Duration {
-
 	return *c.pollInterval
 }
 
 func (c mockConfig) AutoPprofGatherDuration() models.Duration {
-
 	return *c.gatherDuration
 }
 
 func (c mockConfig) AutoPprofGatherTraceDuration() models.Duration {
-
 	return *c.traceDuration
 }
 
 func (c mockConfig) AutoPprofMaxProfileSize() utils.FileSize {
-
 	return c.profileSize
 }
 
 func (c mockConfig) AutoPprofCPUProfileRate() int {
-
 	return c.cpuProfileRate
 }
 
 func (c mockConfig) AutoPprofMemProfileRate() int {
-
 	return c.memProfileRate
 }
 
 func (c mockConfig) AutoPprofBlockProfileRate() int {
-
 	return c.blockProfileRate
 }
 
 func (c mockConfig) AutoPprofMutexProfileFraction() int {
-
 	return c.mutexProfileFraction
 }
 
 func (c mockConfig) AutoPprofMemThreshold() utils.FileSize {
-
 	return c.memThreshold
 }
 
 func (c mockConfig) AutoPprofGoroutineThreshold() int {
-
 	return c.goroutineThreshold
 }
 
@@ -163,27 +154,4 @@ func assertProfileExists(t *testing.T, profiles []fs.FileInfo, typ string) {
 		}
 	}
 	assert.Failf(t, "profile doesn't exist", "require profile '%s' does not exist %+v", typ, names)
-}
-
-func TestHypothesis(t *testing.T) {
-	var x int
-
-	wg := sync.WaitGroup{}
-	oncer := &utils.StartStopOnce{}
-	oncer.StartOnce("hack", func() error {
-
-		x = 0
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			t.Logf("x is %+v", int64(x))
-		}()
-		time.Sleep(1 * time.Second)
-		return nil
-	},
-	)
-	t.Log("done")
-	wg.Wait()
-	t.Log("exit")
-
 }

@@ -77,7 +77,9 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 func (n *Nurse) Start() error {
 	return n.StartOnce("nurse", func() error {
 		// This must be set *once*, and it must occur as early as possible
-		runtime.MemProfileRate = n.cfg.AutoPprofMemProfileRate()
+		if n.cfg.AutoPprofMemProfileRate() != runtime.MemProfileRate {
+			runtime.MemProfileRate = n.cfg.AutoPprofBlockProfileRate()
+		}
 
 		runtime.SetCPUProfileRate(n.cfg.AutoPprofCPUProfileRate())
 		runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
