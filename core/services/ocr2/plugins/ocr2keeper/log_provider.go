@@ -131,7 +131,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
-	reorged, err := c.unmarshalReorgLogs(logs)
+	reorged, err := c.unmarshalReorgUpkeepLogs(logs)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unmarshal reorg logs", err)
 	}
@@ -232,7 +232,7 @@ func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, e
 	return results, nil
 }
 
-func (c *LogProvider) unmarshalReorgLogs(logs []logpoller.Log) ([]reorged, error) {
+func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged, error) {
 	results := []reorged{}
 
 	for _, log := range logs {
