@@ -16,6 +16,14 @@ type ORM struct {
 	mock.Mock
 }
 
+type ORM_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ORM) EXPECT() *ORM_Expecter {
+	return &ORM_Expecter{mock: &_m.Mock}
+}
+
 // ApproveSpec provides a mock function with given fields: id, externalJobID, qopts
 func (_m *ORM) ApproveSpec(id int64, externalJobID uuid.UUID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -37,6 +45,43 @@ func (_m *ORM) ApproveSpec(id int64, externalJobID uuid.UUID, qopts ...pg.QOpt) 
 	return r0
 }
 
+// ORM_ApproveSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApproveSpec'
+type ORM_ApproveSpec_Call struct {
+	*mock.Call
+}
+
+// ApproveSpec is a helper method to define mock.On call
+//   - id int64
+//   - externalJobID uuid.UUID
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) ApproveSpec(id interface{}, externalJobID interface{}, qopts ...interface{}) *ORM_ApproveSpec_Call {
+	return &ORM_ApproveSpec_Call{Call: _e.mock.On("ApproveSpec",
+		append([]interface{}{id, externalJobID}, qopts...)...)}
+}
+
+func (_c *ORM_ApproveSpec_Call) Run(run func(id int64, externalJobID uuid.UUID, qopts ...pg.QOpt)) *ORM_ApproveSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), args[1].(uuid.UUID), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_ApproveSpec_Call) Return(_a0 error) *ORM_ApproveSpec_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_ApproveSpec_Call) RunAndReturn(run func(int64, uuid.UUID, ...pg.QOpt) error) *ORM_ApproveSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CancelSpec provides a mock function with given fields: id, qopts
 func (_m *ORM) CancelSpec(id int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -56,6 +101,42 @@ func (_m *ORM) CancelSpec(id int64, qopts ...pg.QOpt) error {
 	}
 
 	return r0
+}
+
+// ORM_CancelSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelSpec'
+type ORM_CancelSpec_Call struct {
+	*mock.Call
+}
+
+// CancelSpec is a helper method to define mock.On call
+//   - id int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) CancelSpec(id interface{}, qopts ...interface{}) *ORM_CancelSpec_Call {
+	return &ORM_CancelSpec_Call{Call: _e.mock.On("CancelSpec",
+		append([]interface{}{id}, qopts...)...)}
+}
+
+func (_c *ORM_CancelSpec_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_CancelSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_CancelSpec_Call) Return(_a0 error) *ORM_CancelSpec_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_CancelSpec_Call) RunAndReturn(run func(int64, ...pg.QOpt) error) *ORM_CancelSpec_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CountJobProposals provides a mock function with given fields:
@@ -80,6 +161,33 @@ func (_m *ORM) CountJobProposals() (int64, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_CountJobProposals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountJobProposals'
+type ORM_CountJobProposals_Call struct {
+	*mock.Call
+}
+
+// CountJobProposals is a helper method to define mock.On call
+func (_e *ORM_Expecter) CountJobProposals() *ORM_CountJobProposals_Call {
+	return &ORM_CountJobProposals_Call{Call: _e.mock.On("CountJobProposals")}
+}
+
+func (_c *ORM_CountJobProposals_Call) Run(run func()) *ORM_CountJobProposals_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ORM_CountJobProposals_Call) Return(_a0 int64, _a1 error) *ORM_CountJobProposals_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CountJobProposals_Call) RunAndReturn(run func() (int64, error)) *ORM_CountJobProposals_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CountJobProposalsByStatus provides a mock function with given fields:
@@ -108,6 +216,33 @@ func (_m *ORM) CountJobProposalsByStatus() (*feeds.JobProposalCounts, error) {
 	return r0, r1
 }
 
+// ORM_CountJobProposalsByStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountJobProposalsByStatus'
+type ORM_CountJobProposalsByStatus_Call struct {
+	*mock.Call
+}
+
+// CountJobProposalsByStatus is a helper method to define mock.On call
+func (_e *ORM_Expecter) CountJobProposalsByStatus() *ORM_CountJobProposalsByStatus_Call {
+	return &ORM_CountJobProposalsByStatus_Call{Call: _e.mock.On("CountJobProposalsByStatus")}
+}
+
+func (_c *ORM_CountJobProposalsByStatus_Call) Run(run func()) *ORM_CountJobProposalsByStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ORM_CountJobProposalsByStatus_Call) Return(counts *feeds.JobProposalCounts, err error) *ORM_CountJobProposalsByStatus_Call {
+	_c.Call.Return(counts, err)
+	return _c
+}
+
+func (_c *ORM_CountJobProposalsByStatus_Call) RunAndReturn(run func() (*feeds.JobProposalCounts, error)) *ORM_CountJobProposalsByStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CountManagers provides a mock function with given fields:
 func (_m *ORM) CountManagers() (int64, error) {
 	ret := _m.Called()
@@ -130,6 +265,33 @@ func (_m *ORM) CountManagers() (int64, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_CountManagers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountManagers'
+type ORM_CountManagers_Call struct {
+	*mock.Call
+}
+
+// CountManagers is a helper method to define mock.On call
+func (_e *ORM_Expecter) CountManagers() *ORM_CountManagers_Call {
+	return &ORM_CountManagers_Call{Call: _e.mock.On("CountManagers")}
+}
+
+func (_c *ORM_CountManagers_Call) Run(run func()) *ORM_CountManagers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ORM_CountManagers_Call) Return(_a0 int64, _a1 error) *ORM_CountManagers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CountManagers_Call) RunAndReturn(run func() (int64, error)) *ORM_CountManagers_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CreateBatchChainConfig provides a mock function with given fields: cfgs, qopts
@@ -165,6 +327,42 @@ func (_m *ORM) CreateBatchChainConfig(cfgs []feeds.ChainConfig, qopts ...pg.QOpt
 	return r0, r1
 }
 
+// ORM_CreateBatchChainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateBatchChainConfig'
+type ORM_CreateBatchChainConfig_Call struct {
+	*mock.Call
+}
+
+// CreateBatchChainConfig is a helper method to define mock.On call
+//   - cfgs []feeds.ChainConfig
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) CreateBatchChainConfig(cfgs interface{}, qopts ...interface{}) *ORM_CreateBatchChainConfig_Call {
+	return &ORM_CreateBatchChainConfig_Call{Call: _e.mock.On("CreateBatchChainConfig",
+		append([]interface{}{cfgs}, qopts...)...)}
+}
+
+func (_c *ORM_CreateBatchChainConfig_Call) Run(run func(cfgs []feeds.ChainConfig, qopts ...pg.QOpt)) *ORM_CreateBatchChainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].([]feeds.ChainConfig), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_CreateBatchChainConfig_Call) Return(_a0 []int64, _a1 error) *ORM_CreateBatchChainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CreateBatchChainConfig_Call) RunAndReturn(run func([]feeds.ChainConfig, ...pg.QOpt) ([]int64, error)) *ORM_CreateBatchChainConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateChainConfig provides a mock function with given fields: cfg, qopts
 func (_m *ORM) CreateChainConfig(cfg feeds.ChainConfig, qopts ...pg.QOpt) (int64, error) {
 	_va := make([]interface{}, len(qopts))
@@ -196,6 +394,42 @@ func (_m *ORM) CreateChainConfig(cfg feeds.ChainConfig, qopts ...pg.QOpt) (int64
 	return r0, r1
 }
 
+// ORM_CreateChainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateChainConfig'
+type ORM_CreateChainConfig_Call struct {
+	*mock.Call
+}
+
+// CreateChainConfig is a helper method to define mock.On call
+//   - cfg feeds.ChainConfig
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) CreateChainConfig(cfg interface{}, qopts ...interface{}) *ORM_CreateChainConfig_Call {
+	return &ORM_CreateChainConfig_Call{Call: _e.mock.On("CreateChainConfig",
+		append([]interface{}{cfg}, qopts...)...)}
+}
+
+func (_c *ORM_CreateChainConfig_Call) Run(run func(cfg feeds.ChainConfig, qopts ...pg.QOpt)) *ORM_CreateChainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(feeds.ChainConfig), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_CreateChainConfig_Call) Return(_a0 int64, _a1 error) *ORM_CreateChainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CreateChainConfig_Call) RunAndReturn(run func(feeds.ChainConfig, ...pg.QOpt) (int64, error)) *ORM_CreateChainConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateJobProposal provides a mock function with given fields: jp
 func (_m *ORM) CreateJobProposal(jp *feeds.JobProposal) (int64, error) {
 	ret := _m.Called(jp)
@@ -218,6 +452,34 @@ func (_m *ORM) CreateJobProposal(jp *feeds.JobProposal) (int64, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_CreateJobProposal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateJobProposal'
+type ORM_CreateJobProposal_Call struct {
+	*mock.Call
+}
+
+// CreateJobProposal is a helper method to define mock.On call
+//   - jp *feeds.JobProposal
+func (_e *ORM_Expecter) CreateJobProposal(jp interface{}) *ORM_CreateJobProposal_Call {
+	return &ORM_CreateJobProposal_Call{Call: _e.mock.On("CreateJobProposal", jp)}
+}
+
+func (_c *ORM_CreateJobProposal_Call) Run(run func(jp *feeds.JobProposal)) *ORM_CreateJobProposal_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*feeds.JobProposal))
+	})
+	return _c
+}
+
+func (_c *ORM_CreateJobProposal_Call) Return(_a0 int64, _a1 error) *ORM_CreateJobProposal_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CreateJobProposal_Call) RunAndReturn(run func(*feeds.JobProposal) (int64, error)) *ORM_CreateJobProposal_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CreateManager provides a mock function with given fields: ms, qopts
@@ -251,6 +513,42 @@ func (_m *ORM) CreateManager(ms *feeds.FeedsManager, qopts ...pg.QOpt) (int64, e
 	return r0, r1
 }
 
+// ORM_CreateManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateManager'
+type ORM_CreateManager_Call struct {
+	*mock.Call
+}
+
+// CreateManager is a helper method to define mock.On call
+//   - ms *feeds.FeedsManager
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) CreateManager(ms interface{}, qopts ...interface{}) *ORM_CreateManager_Call {
+	return &ORM_CreateManager_Call{Call: _e.mock.On("CreateManager",
+		append([]interface{}{ms}, qopts...)...)}
+}
+
+func (_c *ORM_CreateManager_Call) Run(run func(ms *feeds.FeedsManager, qopts ...pg.QOpt)) *ORM_CreateManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(*feeds.FeedsManager), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_CreateManager_Call) Return(_a0 int64, _a1 error) *ORM_CreateManager_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CreateManager_Call) RunAndReturn(run func(*feeds.FeedsManager, ...pg.QOpt) (int64, error)) *ORM_CreateManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateSpec provides a mock function with given fields: spec, qopts
 func (_m *ORM) CreateSpec(spec feeds.JobProposalSpec, qopts ...pg.QOpt) (int64, error) {
 	_va := make([]interface{}, len(qopts))
@@ -282,6 +580,42 @@ func (_m *ORM) CreateSpec(spec feeds.JobProposalSpec, qopts ...pg.QOpt) (int64, 
 	return r0, r1
 }
 
+// ORM_CreateSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateSpec'
+type ORM_CreateSpec_Call struct {
+	*mock.Call
+}
+
+// CreateSpec is a helper method to define mock.On call
+//   - spec feeds.JobProposalSpec
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) CreateSpec(spec interface{}, qopts ...interface{}) *ORM_CreateSpec_Call {
+	return &ORM_CreateSpec_Call{Call: _e.mock.On("CreateSpec",
+		append([]interface{}{spec}, qopts...)...)}
+}
+
+func (_c *ORM_CreateSpec_Call) Run(run func(spec feeds.JobProposalSpec, qopts ...pg.QOpt)) *ORM_CreateSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(feeds.JobProposalSpec), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_CreateSpec_Call) Return(_a0 int64, _a1 error) *ORM_CreateSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CreateSpec_Call) RunAndReturn(run func(feeds.JobProposalSpec, ...pg.QOpt) (int64, error)) *ORM_CreateSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteChainConfig provides a mock function with given fields: id
 func (_m *ORM) DeleteChainConfig(id int64) (int64, error) {
 	ret := _m.Called(id)
@@ -304,6 +638,34 @@ func (_m *ORM) DeleteChainConfig(id int64) (int64, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_DeleteChainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteChainConfig'
+type ORM_DeleteChainConfig_Call struct {
+	*mock.Call
+}
+
+// DeleteChainConfig is a helper method to define mock.On call
+//   - id int64
+func (_e *ORM_Expecter) DeleteChainConfig(id interface{}) *ORM_DeleteChainConfig_Call {
+	return &ORM_DeleteChainConfig_Call{Call: _e.mock.On("DeleteChainConfig", id)}
+}
+
+func (_c *ORM_DeleteChainConfig_Call) Run(run func(id int64)) *ORM_DeleteChainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_DeleteChainConfig_Call) Return(_a0 int64, _a1 error) *ORM_DeleteChainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_DeleteChainConfig_Call) RunAndReturn(run func(int64) (int64, error)) *ORM_DeleteChainConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ExistsSpecByJobProposalIDAndVersion provides a mock function with given fields: jpID, version, qopts
@@ -337,6 +699,112 @@ func (_m *ORM) ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qo
 	return r0, r1
 }
 
+// ORM_ExistsSpecByJobProposalIDAndVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExistsSpecByJobProposalIDAndVersion'
+type ORM_ExistsSpecByJobProposalIDAndVersion_Call struct {
+	*mock.Call
+}
+
+// ExistsSpecByJobProposalIDAndVersion is a helper method to define mock.On call
+//   - jpID int64
+//   - version int32
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) ExistsSpecByJobProposalIDAndVersion(jpID interface{}, version interface{}, qopts ...interface{}) *ORM_ExistsSpecByJobProposalIDAndVersion_Call {
+	return &ORM_ExistsSpecByJobProposalIDAndVersion_Call{Call: _e.mock.On("ExistsSpecByJobProposalIDAndVersion",
+		append([]interface{}{jpID, version}, qopts...)...)}
+}
+
+func (_c *ORM_ExistsSpecByJobProposalIDAndVersion_Call) Run(run func(jpID int64, version int32, qopts ...pg.QOpt)) *ORM_ExistsSpecByJobProposalIDAndVersion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), args[1].(int32), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_ExistsSpecByJobProposalIDAndVersion_Call) Return(exists bool, err error) *ORM_ExistsSpecByJobProposalIDAndVersion_Call {
+	_c.Call.Return(exists, err)
+	return _c
+}
+
+func (_c *ORM_ExistsSpecByJobProposalIDAndVersion_Call) RunAndReturn(run func(int64, int32, ...pg.QOpt) (bool, error)) *ORM_ExistsSpecByJobProposalIDAndVersion_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetApprovedSpec provides a mock function with given fields: jpID, qopts
+func (_m *ORM) GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*feeds.JobProposalSpec, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jpID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *feeds.JobProposalSpec
+	var r1 error
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) (*feeds.JobProposalSpec, error)); ok {
+		return rf(jpID, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) *feeds.JobProposalSpec); ok {
+		r0 = rf(jpID, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposalSpec)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(int64, ...pg.QOpt) error); ok {
+		r1 = rf(jpID, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_GetApprovedSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetApprovedSpec'
+type ORM_GetApprovedSpec_Call struct {
+	*mock.Call
+}
+
+// GetApprovedSpec is a helper method to define mock.On call
+//   - jpID int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) GetApprovedSpec(jpID interface{}, qopts ...interface{}) *ORM_GetApprovedSpec_Call {
+	return &ORM_GetApprovedSpec_Call{Call: _e.mock.On("GetApprovedSpec",
+		append([]interface{}{jpID}, qopts...)...)}
+}
+
+func (_c *ORM_GetApprovedSpec_Call) Run(run func(jpID int64, qopts ...pg.QOpt)) *ORM_GetApprovedSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_GetApprovedSpec_Call) Return(_a0 *feeds.JobProposalSpec, _a1 error) *ORM_GetApprovedSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetApprovedSpec_Call) RunAndReturn(run func(int64, ...pg.QOpt) (*feeds.JobProposalSpec, error)) *ORM_GetApprovedSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetChainConfig provides a mock function with given fields: id
 func (_m *ORM) GetChainConfig(id int64) (*feeds.ChainConfig, error) {
 	ret := _m.Called(id)
@@ -361,6 +829,34 @@ func (_m *ORM) GetChainConfig(id int64) (*feeds.ChainConfig, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_GetChainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChainConfig'
+type ORM_GetChainConfig_Call struct {
+	*mock.Call
+}
+
+// GetChainConfig is a helper method to define mock.On call
+//   - id int64
+func (_e *ORM_Expecter) GetChainConfig(id interface{}) *ORM_GetChainConfig_Call {
+	return &ORM_GetChainConfig_Call{Call: _e.mock.On("GetChainConfig", id)}
+}
+
+func (_c *ORM_GetChainConfig_Call) Run(run func(id int64)) *ORM_GetChainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_GetChainConfig_Call) Return(_a0 *feeds.ChainConfig, _a1 error) *ORM_GetChainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetChainConfig_Call) RunAndReturn(run func(int64) (*feeds.ChainConfig, error)) *ORM_GetChainConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetJobProposal provides a mock function with given fields: id, qopts
@@ -396,6 +892,42 @@ func (_m *ORM) GetJobProposal(id int64, qopts ...pg.QOpt) (*feeds.JobProposal, e
 	return r0, r1
 }
 
+// ORM_GetJobProposal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetJobProposal'
+type ORM_GetJobProposal_Call struct {
+	*mock.Call
+}
+
+// GetJobProposal is a helper method to define mock.On call
+//   - id int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) GetJobProposal(id interface{}, qopts ...interface{}) *ORM_GetJobProposal_Call {
+	return &ORM_GetJobProposal_Call{Call: _e.mock.On("GetJobProposal",
+		append([]interface{}{id}, qopts...)...)}
+}
+
+func (_c *ORM_GetJobProposal_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_GetJobProposal_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_GetJobProposal_Call) Return(_a0 *feeds.JobProposal, _a1 error) *ORM_GetJobProposal_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetJobProposal_Call) RunAndReturn(run func(int64, ...pg.QOpt) (*feeds.JobProposal, error)) *ORM_GetJobProposal_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetJobProposalByRemoteUUID provides a mock function with given fields: _a0
 func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, error) {
 	ret := _m.Called(_a0)
@@ -420,6 +952,34 @@ func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, er
 	}
 
 	return r0, r1
+}
+
+// ORM_GetJobProposalByRemoteUUID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetJobProposalByRemoteUUID'
+type ORM_GetJobProposalByRemoteUUID_Call struct {
+	*mock.Call
+}
+
+// GetJobProposalByRemoteUUID is a helper method to define mock.On call
+//   - _a0 uuid.UUID
+func (_e *ORM_Expecter) GetJobProposalByRemoteUUID(_a0 interface{}) *ORM_GetJobProposalByRemoteUUID_Call {
+	return &ORM_GetJobProposalByRemoteUUID_Call{Call: _e.mock.On("GetJobProposalByRemoteUUID", _a0)}
+}
+
+func (_c *ORM_GetJobProposalByRemoteUUID_Call) Run(run func(_a0 uuid.UUID)) *ORM_GetJobProposalByRemoteUUID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *ORM_GetJobProposalByRemoteUUID_Call) Return(_a0 *feeds.JobProposal, _a1 error) *ORM_GetJobProposalByRemoteUUID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetJobProposalByRemoteUUID_Call) RunAndReturn(run func(uuid.UUID) (*feeds.JobProposal, error)) *ORM_GetJobProposalByRemoteUUID_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetLatestSpec provides a mock function with given fields: jpID
@@ -448,6 +1008,34 @@ func (_m *ORM) GetLatestSpec(jpID int64) (*feeds.JobProposalSpec, error) {
 	return r0, r1
 }
 
+// ORM_GetLatestSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestSpec'
+type ORM_GetLatestSpec_Call struct {
+	*mock.Call
+}
+
+// GetLatestSpec is a helper method to define mock.On call
+//   - jpID int64
+func (_e *ORM_Expecter) GetLatestSpec(jpID interface{}) *ORM_GetLatestSpec_Call {
+	return &ORM_GetLatestSpec_Call{Call: _e.mock.On("GetLatestSpec", jpID)}
+}
+
+func (_c *ORM_GetLatestSpec_Call) Run(run func(jpID int64)) *ORM_GetLatestSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_GetLatestSpec_Call) Return(_a0 *feeds.JobProposalSpec, _a1 error) *ORM_GetLatestSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetLatestSpec_Call) RunAndReturn(run func(int64) (*feeds.JobProposalSpec, error)) *ORM_GetLatestSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetManager provides a mock function with given fields: id
 func (_m *ORM) GetManager(id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(id)
@@ -472,6 +1060,34 @@ func (_m *ORM) GetManager(id int64) (*feeds.FeedsManager, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_GetManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetManager'
+type ORM_GetManager_Call struct {
+	*mock.Call
+}
+
+// GetManager is a helper method to define mock.On call
+//   - id int64
+func (_e *ORM_Expecter) GetManager(id interface{}) *ORM_GetManager_Call {
+	return &ORM_GetManager_Call{Call: _e.mock.On("GetManager", id)}
+}
+
+func (_c *ORM_GetManager_Call) Run(run func(id int64)) *ORM_GetManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_GetManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *ORM_GetManager_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetManager_Call) RunAndReturn(run func(int64) (*feeds.FeedsManager, error)) *ORM_GetManager_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetSpec provides a mock function with given fields: id, qopts
@@ -507,6 +1123,42 @@ func (_m *ORM) GetSpec(id int64, qopts ...pg.QOpt) (*feeds.JobProposalSpec, erro
 	return r0, r1
 }
 
+// ORM_GetSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSpec'
+type ORM_GetSpec_Call struct {
+	*mock.Call
+}
+
+// GetSpec is a helper method to define mock.On call
+//   - id int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) GetSpec(id interface{}, qopts ...interface{}) *ORM_GetSpec_Call {
+	return &ORM_GetSpec_Call{Call: _e.mock.On("GetSpec",
+		append([]interface{}{id}, qopts...)...)}
+}
+
+func (_c *ORM_GetSpec_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_GetSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_GetSpec_Call) Return(_a0 *feeds.JobProposalSpec, _a1 error) *ORM_GetSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetSpec_Call) RunAndReturn(run func(int64, ...pg.QOpt) (*feeds.JobProposalSpec, error)) *ORM_GetSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsJobManaged provides a mock function with given fields: jobID, qopts
 func (_m *ORM) IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error) {
 	_va := make([]interface{}, len(qopts))
@@ -538,6 +1190,42 @@ func (_m *ORM) IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error) {
 	return r0, r1
 }
 
+// ORM_IsJobManaged_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsJobManaged'
+type ORM_IsJobManaged_Call struct {
+	*mock.Call
+}
+
+// IsJobManaged is a helper method to define mock.On call
+//   - jobID int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) IsJobManaged(jobID interface{}, qopts ...interface{}) *ORM_IsJobManaged_Call {
+	return &ORM_IsJobManaged_Call{Call: _e.mock.On("IsJobManaged",
+		append([]interface{}{jobID}, qopts...)...)}
+}
+
+func (_c *ORM_IsJobManaged_Call) Run(run func(jobID int64, qopts ...pg.QOpt)) *ORM_IsJobManaged_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_IsJobManaged_Call) Return(_a0 bool, _a1 error) *ORM_IsJobManaged_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_IsJobManaged_Call) RunAndReturn(run func(int64, ...pg.QOpt) (bool, error)) *ORM_IsJobManaged_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListChainConfigsByManagerIDs provides a mock function with given fields: mgrIDs
 func (_m *ORM) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]feeds.ChainConfig, error) {
 	ret := _m.Called(mgrIDs)
@@ -564,6 +1252,34 @@ func (_m *ORM) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]feeds.ChainConfig
 	return r0, r1
 }
 
+// ORM_ListChainConfigsByManagerIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListChainConfigsByManagerIDs'
+type ORM_ListChainConfigsByManagerIDs_Call struct {
+	*mock.Call
+}
+
+// ListChainConfigsByManagerIDs is a helper method to define mock.On call
+//   - mgrIDs []int64
+func (_e *ORM_Expecter) ListChainConfigsByManagerIDs(mgrIDs interface{}) *ORM_ListChainConfigsByManagerIDs_Call {
+	return &ORM_ListChainConfigsByManagerIDs_Call{Call: _e.mock.On("ListChainConfigsByManagerIDs", mgrIDs)}
+}
+
+func (_c *ORM_ListChainConfigsByManagerIDs_Call) Run(run func(mgrIDs []int64)) *ORM_ListChainConfigsByManagerIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]int64))
+	})
+	return _c
+}
+
+func (_c *ORM_ListChainConfigsByManagerIDs_Call) Return(_a0 []feeds.ChainConfig, _a1 error) *ORM_ListChainConfigsByManagerIDs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_ListChainConfigsByManagerIDs_Call) RunAndReturn(run func([]int64) ([]feeds.ChainConfig, error)) *ORM_ListChainConfigsByManagerIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListJobProposals provides a mock function with given fields:
 func (_m *ORM) ListJobProposals() ([]feeds.JobProposal, error) {
 	ret := _m.Called()
@@ -588,6 +1304,33 @@ func (_m *ORM) ListJobProposals() ([]feeds.JobProposal, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_ListJobProposals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListJobProposals'
+type ORM_ListJobProposals_Call struct {
+	*mock.Call
+}
+
+// ListJobProposals is a helper method to define mock.On call
+func (_e *ORM_Expecter) ListJobProposals() *ORM_ListJobProposals_Call {
+	return &ORM_ListJobProposals_Call{Call: _e.mock.On("ListJobProposals")}
+}
+
+func (_c *ORM_ListJobProposals_Call) Run(run func()) *ORM_ListJobProposals_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ORM_ListJobProposals_Call) Return(jps []feeds.JobProposal, err error) *ORM_ListJobProposals_Call {
+	_c.Call.Return(jps, err)
+	return _c
+}
+
+func (_c *ORM_ListJobProposals_Call) RunAndReturn(run func() ([]feeds.JobProposal, error)) *ORM_ListJobProposals_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ListJobProposalsByManagersIDs provides a mock function with given fields: ids, qopts
@@ -623,6 +1366,42 @@ func (_m *ORM) ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]f
 	return r0, r1
 }
 
+// ORM_ListJobProposalsByManagersIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListJobProposalsByManagersIDs'
+type ORM_ListJobProposalsByManagersIDs_Call struct {
+	*mock.Call
+}
+
+// ListJobProposalsByManagersIDs is a helper method to define mock.On call
+//   - ids []int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) ListJobProposalsByManagersIDs(ids interface{}, qopts ...interface{}) *ORM_ListJobProposalsByManagersIDs_Call {
+	return &ORM_ListJobProposalsByManagersIDs_Call{Call: _e.mock.On("ListJobProposalsByManagersIDs",
+		append([]interface{}{ids}, qopts...)...)}
+}
+
+func (_c *ORM_ListJobProposalsByManagersIDs_Call) Run(run func(ids []int64, qopts ...pg.QOpt)) *ORM_ListJobProposalsByManagersIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].([]int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_ListJobProposalsByManagersIDs_Call) Return(_a0 []feeds.JobProposal, _a1 error) *ORM_ListJobProposalsByManagersIDs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_ListJobProposalsByManagersIDs_Call) RunAndReturn(run func([]int64, ...pg.QOpt) ([]feeds.JobProposal, error)) *ORM_ListJobProposalsByManagersIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListManagers provides a mock function with given fields:
 func (_m *ORM) ListManagers() ([]feeds.FeedsManager, error) {
 	ret := _m.Called()
@@ -649,6 +1428,33 @@ func (_m *ORM) ListManagers() ([]feeds.FeedsManager, error) {
 	return r0, r1
 }
 
+// ORM_ListManagers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListManagers'
+type ORM_ListManagers_Call struct {
+	*mock.Call
+}
+
+// ListManagers is a helper method to define mock.On call
+func (_e *ORM_Expecter) ListManagers() *ORM_ListManagers_Call {
+	return &ORM_ListManagers_Call{Call: _e.mock.On("ListManagers")}
+}
+
+func (_c *ORM_ListManagers_Call) Run(run func()) *ORM_ListManagers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ORM_ListManagers_Call) Return(mgrs []feeds.FeedsManager, err error) *ORM_ListManagers_Call {
+	_c.Call.Return(mgrs, err)
+	return _c
+}
+
+func (_c *ORM_ListManagers_Call) RunAndReturn(run func() ([]feeds.FeedsManager, error)) *ORM_ListManagers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListManagersByIDs provides a mock function with given fields: ids
 func (_m *ORM) ListManagersByIDs(ids []int64) ([]feeds.FeedsManager, error) {
 	ret := _m.Called(ids)
@@ -673,6 +1479,34 @@ func (_m *ORM) ListManagersByIDs(ids []int64) ([]feeds.FeedsManager, error) {
 	}
 
 	return r0, r1
+}
+
+// ORM_ListManagersByIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListManagersByIDs'
+type ORM_ListManagersByIDs_Call struct {
+	*mock.Call
+}
+
+// ListManagersByIDs is a helper method to define mock.On call
+//   - ids []int64
+func (_e *ORM_Expecter) ListManagersByIDs(ids interface{}) *ORM_ListManagersByIDs_Call {
+	return &ORM_ListManagersByIDs_Call{Call: _e.mock.On("ListManagersByIDs", ids)}
+}
+
+func (_c *ORM_ListManagersByIDs_Call) Run(run func(ids []int64)) *ORM_ListManagersByIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]int64))
+	})
+	return _c
+}
+
+func (_c *ORM_ListManagersByIDs_Call) Return(_a0 []feeds.FeedsManager, _a1 error) *ORM_ListManagersByIDs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_ListManagersByIDs_Call) RunAndReturn(run func([]int64) ([]feeds.FeedsManager, error)) *ORM_ListManagersByIDs_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ListSpecsByJobProposalIDs provides a mock function with given fields: ids, qopts
@@ -708,6 +1542,42 @@ func (_m *ORM) ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]feeds
 	return r0, r1
 }
 
+// ORM_ListSpecsByJobProposalIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListSpecsByJobProposalIDs'
+type ORM_ListSpecsByJobProposalIDs_Call struct {
+	*mock.Call
+}
+
+// ListSpecsByJobProposalIDs is a helper method to define mock.On call
+//   - ids []int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) ListSpecsByJobProposalIDs(ids interface{}, qopts ...interface{}) *ORM_ListSpecsByJobProposalIDs_Call {
+	return &ORM_ListSpecsByJobProposalIDs_Call{Call: _e.mock.On("ListSpecsByJobProposalIDs",
+		append([]interface{}{ids}, qopts...)...)}
+}
+
+func (_c *ORM_ListSpecsByJobProposalIDs_Call) Run(run func(ids []int64, qopts ...pg.QOpt)) *ORM_ListSpecsByJobProposalIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].([]int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_ListSpecsByJobProposalIDs_Call) Return(_a0 []feeds.JobProposalSpec, _a1 error) *ORM_ListSpecsByJobProposalIDs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_ListSpecsByJobProposalIDs_Call) RunAndReturn(run func([]int64, ...pg.QOpt) ([]feeds.JobProposalSpec, error)) *ORM_ListSpecsByJobProposalIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RejectSpec provides a mock function with given fields: id, qopts
 func (_m *ORM) RejectSpec(id int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -727,6 +1597,42 @@ func (_m *ORM) RejectSpec(id int64, qopts ...pg.QOpt) error {
 	}
 
 	return r0
+}
+
+// ORM_RejectSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RejectSpec'
+type ORM_RejectSpec_Call struct {
+	*mock.Call
+}
+
+// RejectSpec is a helper method to define mock.On call
+//   - id int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) RejectSpec(id interface{}, qopts ...interface{}) *ORM_RejectSpec_Call {
+	return &ORM_RejectSpec_Call{Call: _e.mock.On("RejectSpec",
+		append([]interface{}{id}, qopts...)...)}
+}
+
+func (_c *ORM_RejectSpec_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_RejectSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_RejectSpec_Call) Return(_a0 error) *ORM_RejectSpec_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_RejectSpec_Call) RunAndReturn(run func(int64, ...pg.QOpt) error) *ORM_RejectSpec_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // UpdateChainConfig provides a mock function with given fields: cfg
@@ -753,6 +1659,34 @@ func (_m *ORM) UpdateChainConfig(cfg feeds.ChainConfig) (int64, error) {
 	return r0, r1
 }
 
+// ORM_UpdateChainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateChainConfig'
+type ORM_UpdateChainConfig_Call struct {
+	*mock.Call
+}
+
+// UpdateChainConfig is a helper method to define mock.On call
+//   - cfg feeds.ChainConfig
+func (_e *ORM_Expecter) UpdateChainConfig(cfg interface{}) *ORM_UpdateChainConfig_Call {
+	return &ORM_UpdateChainConfig_Call{Call: _e.mock.On("UpdateChainConfig", cfg)}
+}
+
+func (_c *ORM_UpdateChainConfig_Call) Run(run func(cfg feeds.ChainConfig)) *ORM_UpdateChainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(feeds.ChainConfig))
+	})
+	return _c
+}
+
+func (_c *ORM_UpdateChainConfig_Call) Return(_a0 int64, _a1 error) *ORM_UpdateChainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_UpdateChainConfig_Call) RunAndReturn(run func(feeds.ChainConfig) (int64, error)) *ORM_UpdateChainConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateJobProposalStatus provides a mock function with given fields: id, status, qopts
 func (_m *ORM) UpdateJobProposalStatus(id int64, status feeds.JobProposalStatus, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -772,6 +1706,43 @@ func (_m *ORM) UpdateJobProposalStatus(id int64, status feeds.JobProposalStatus,
 	}
 
 	return r0
+}
+
+// ORM_UpdateJobProposalStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateJobProposalStatus'
+type ORM_UpdateJobProposalStatus_Call struct {
+	*mock.Call
+}
+
+// UpdateJobProposalStatus is a helper method to define mock.On call
+//   - id int64
+//   - status feeds.JobProposalStatus
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) UpdateJobProposalStatus(id interface{}, status interface{}, qopts ...interface{}) *ORM_UpdateJobProposalStatus_Call {
+	return &ORM_UpdateJobProposalStatus_Call{Call: _e.mock.On("UpdateJobProposalStatus",
+		append([]interface{}{id, status}, qopts...)...)}
+}
+
+func (_c *ORM_UpdateJobProposalStatus_Call) Run(run func(id int64, status feeds.JobProposalStatus, qopts ...pg.QOpt)) *ORM_UpdateJobProposalStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), args[1].(feeds.JobProposalStatus), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_UpdateJobProposalStatus_Call) Return(_a0 error) *ORM_UpdateJobProposalStatus_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_UpdateJobProposalStatus_Call) RunAndReturn(run func(int64, feeds.JobProposalStatus, ...pg.QOpt) error) *ORM_UpdateJobProposalStatus_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // UpdateManager provides a mock function with given fields: mgr, qopts
@@ -795,6 +1766,42 @@ func (_m *ORM) UpdateManager(mgr feeds.FeedsManager, qopts ...pg.QOpt) error {
 	return r0
 }
 
+// ORM_UpdateManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateManager'
+type ORM_UpdateManager_Call struct {
+	*mock.Call
+}
+
+// UpdateManager is a helper method to define mock.On call
+//   - mgr feeds.FeedsManager
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) UpdateManager(mgr interface{}, qopts ...interface{}) *ORM_UpdateManager_Call {
+	return &ORM_UpdateManager_Call{Call: _e.mock.On("UpdateManager",
+		append([]interface{}{mgr}, qopts...)...)}
+}
+
+func (_c *ORM_UpdateManager_Call) Run(run func(mgr feeds.FeedsManager, qopts ...pg.QOpt)) *ORM_UpdateManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(feeds.FeedsManager), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_UpdateManager_Call) Return(_a0 error) *ORM_UpdateManager_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_UpdateManager_Call) RunAndReturn(run func(feeds.FeedsManager, ...pg.QOpt) error) *ORM_UpdateManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateSpecDefinition provides a mock function with given fields: id, spec, qopts
 func (_m *ORM) UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -814,6 +1821,43 @@ func (_m *ORM) UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) err
 	}
 
 	return r0
+}
+
+// ORM_UpdateSpecDefinition_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSpecDefinition'
+type ORM_UpdateSpecDefinition_Call struct {
+	*mock.Call
+}
+
+// UpdateSpecDefinition is a helper method to define mock.On call
+//   - id int64
+//   - spec string
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) UpdateSpecDefinition(id interface{}, spec interface{}, qopts ...interface{}) *ORM_UpdateSpecDefinition_Call {
+	return &ORM_UpdateSpecDefinition_Call{Call: _e.mock.On("UpdateSpecDefinition",
+		append([]interface{}{id, spec}, qopts...)...)}
+}
+
+func (_c *ORM_UpdateSpecDefinition_Call) Run(run func(id int64, spec string, qopts ...pg.QOpt)) *ORM_UpdateSpecDefinition_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_UpdateSpecDefinition_Call) Return(_a0 error) *ORM_UpdateSpecDefinition_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_UpdateSpecDefinition_Call) RunAndReturn(run func(int64, string, ...pg.QOpt) error) *ORM_UpdateSpecDefinition_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // UpsertJobProposal provides a mock function with given fields: jp, qopts
@@ -845,6 +1889,42 @@ func (_m *ORM) UpsertJobProposal(jp *feeds.JobProposal, qopts ...pg.QOpt) (int64
 	}
 
 	return r0, r1
+}
+
+// ORM_UpsertJobProposal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertJobProposal'
+type ORM_UpsertJobProposal_Call struct {
+	*mock.Call
+}
+
+// UpsertJobProposal is a helper method to define mock.On call
+//   - jp *feeds.JobProposal
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) UpsertJobProposal(jp interface{}, qopts ...interface{}) *ORM_UpsertJobProposal_Call {
+	return &ORM_UpsertJobProposal_Call{Call: _e.mock.On("UpsertJobProposal",
+		append([]interface{}{jp}, qopts...)...)}
+}
+
+func (_c *ORM_UpsertJobProposal_Call) Run(run func(jp *feeds.JobProposal, qopts ...pg.QOpt)) *ORM_UpsertJobProposal_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(*feeds.JobProposal), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_UpsertJobProposal_Call) Return(_a0 int64, _a1 error) *ORM_UpsertJobProposal_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_UpsertJobProposal_Call) RunAndReturn(run func(*feeds.JobProposal, ...pg.QOpt) (int64, error)) *ORM_UpsertJobProposal_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 type mockConstructorTestingTNewORM interface {
