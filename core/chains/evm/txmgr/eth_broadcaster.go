@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/jackc/pgconn"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -405,7 +404,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			}
 		}
 
-		if err := eb.saveInProgressTransaction(etx, &a); errors.Is(err, errEthTxRemoved) {
+		if err := eb.orm.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
@@ -698,35 +697,6 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 	}
 	etx.Nonce = &nonce
 	return etx, nil
-}
-
-// Saves in_progress eth tx and in_progress eth attempt
-func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAttempt) error {
-	if etx.State != EthTxUnstarted {
-		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
-	}
-	if attempt.State != EthTxAttemptInProgress {
-		return errors.New("attempt state must be in_progress")
-	}
-	etx.State = EthTxInProgress
-	return eb.q.Transaction(func(tx pg.Queryer) error {
-		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
-		if e != nil {
-			return errors.Wrap(e, "failed to BindNamed")
-		}
-		err := tx.Get(attempt, query, args...)
-		if err != nil {
-			switch e := err.(type) {
-			case *pgconn.PgError:
-				if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
-					return errEthTxRemoved
-				}
-			}
-			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
-		}
-		err = tx.Get(etx, `UPDATE eth_txes SET nonce=$1, state=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id=$5 RETURNING *`, etx.Nonce, etx.State, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID)
-		return errors.Wrap(err, "saveInProgressTransaction failed to save eth_tx")
-	})
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {

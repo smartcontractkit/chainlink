@@ -1193,3 +1193,29 @@ func TestORM_UpdateEthTxAttemptInProgressToBroadcast(t *testing.T) {
 		assert.Equal(t, int16(1), i)
 	})
 }
+
+func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("update successful", func(t *testing.T) {
+		nonce := int64(123)
+		etx := cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+		etx.Nonce = &nonce
+
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+
+		err := borm.UpdateEthTxUnstartedToInProgress(&etx, &attempt)
+		require.NoError(t, err)
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+	})
+}

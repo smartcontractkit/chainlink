@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -62,6 +63,7 @@ type ORM interface {
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
+	UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error
 	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
 	UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error
 	Close()
@@ -1029,5 +1031,38 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 			}
 		}
 		return nil
+	})
+}
+
+// Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
+func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+	if etx.Nonce == nil {
+		return errors.New("in_progress transaction must have nonce")
+	}
+	if etx.State != EthTxUnstarted {
+		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
+	}
+	if attempt.State != EthTxAttemptInProgress {
+		return errors.New("attempt state must be in_progress")
+	}
+	etx.State = EthTxInProgress
+	return qq.Transaction(func(tx pg.Queryer) error {
+		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
+		if e != nil {
+			return errors.Wrap(e, "failed to BindNamed")
+		}
+		err := tx.Get(attempt, query, args...)
+		if err != nil {
+			switch e := err.(type) {
+			case *pgconn.PgError:
+				if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+					return errEthTxRemoved
+				}
+			}
+			return errors.Wrap(err, "UpdateEthTxUnstartedToInProgress failed to create eth_tx_attempt")
+		}
+		err = tx.Get(etx, `UPDATE eth_txes SET nonce=$1, state=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id=$5 RETURNING *`, etx.Nonce, etx.State, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID)
+		return errors.Wrap(err, "UpdateEthTxUnstartedToInProgress failed to update eth_tx")
 	})
 }
