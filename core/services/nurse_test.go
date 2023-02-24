@@ -1,7 +1,6 @@
 package services
 
 import (
-	"io/fs"
 	"runtime"
 	"strings"
 	"testing"
@@ -10,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -31,7 +31,8 @@ type mockConfig struct {
 }
 
 var (
-	testInterval = time.Duration(100 * time.Millisecond)
+	testInterval = time.Duration(50 * time.Millisecond)
+	testDuration = time.Duration(20 * time.Millisecond)
 	testRate     = 100
 	testSize     = 16 * 1024 * 1024
 )
@@ -40,8 +41,8 @@ func newMockConfig(t *testing.T) *mockConfig {
 	return &mockConfig{
 		root:                 t.TempDir(),
 		pollInterval:         models.MustNewDuration(testInterval),
-		gatherDuration:       models.MustNewDuration(testInterval),
-		traceDuration:        models.MustNewDuration(testInterval),
+		gatherDuration:       models.MustNewDuration(testDuration),
+		traceDuration:        models.MustNewDuration(testDuration),
 		profileSize:          utils.FileSize(testSize),
 		memProfileRate:       runtime.MemProfileRate,
 		blockProfileRate:     testRate,
@@ -100,8 +101,10 @@ func TestNurse(t *testing.T) {
 
 	l := logger.TestLogger(t)
 	nrse := NewNurse(newMockConfig(t), l)
+	nrse.AddCheck("test", func() (bool, Meta) { return true, Meta{} })
 
 	require.NoError(t, nrse.Start())
+	defer func() { require.NoError(t, nrse.Close()) }()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 
@@ -116,35 +119,27 @@ func TestNurse(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, wc.Close())
 
-	profs, err := nrse.listProfiles()
-	require.Nil(t, err)
+	// check both of the files exist. synchronous, check immediately
+	assert.True(t, profileExists(t, nrse, "test"))
+	assert.True(t, profileExists(t, nrse, "testgz"))
 
-	// check both of the files exist
-	assertProfileExists(t, profs, "test")
-	assertProfileExists(t, profs, "testgz")
-
-	nrse.GatherVitals("test", Meta{})
-	// must call close here so all the profiles finish being collected
-	require.NoError(t, nrse.Close())
-
-	profiles, err := nrse.listProfiles()
-	require.NoError(t, err)
-	assertProfileExists(t, profiles, cpuProfName)
+	testutils.AssertEventually(t, func() bool { return profileExists(t, nrse, cpuProfName) })
+	testutils.AssertEventually(t, func() bool { return profileExists(t, nrse, traceProfName) })
 	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
 	require.Greater(t, n2, uint64(0))
 
-	assertProfileExists(t, profiles, traceProfName)
-
 }
 
-func assertProfileExists(t *testing.T, profiles []fs.FileInfo, typ string) {
+func profileExists(t *testing.T, nrse *Nurse, typ string) bool {
+	profiles, err := nrse.listProfiles()
+	require.Nil(t, err)
 	var names []string
 	for _, p := range profiles {
 		names = append(names, p.Name())
 		if strings.Contains(p.Name(), typ) {
-			return
+			return true
 		}
 	}
-	assert.Failf(t, "profile doesn't exist", "require profile '%s' does not exist %+v", typ, names)
+	return false
 }
