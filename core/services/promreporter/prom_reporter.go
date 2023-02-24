@@ -125,6 +125,13 @@ func (pr *promReporter) Close() error {
 		return nil
 	})
 }
+func (pr *promReporter) Name() string {
+	return pr.lggr.Name()
+}
+
+func (pr *promReporter) HealthReport() map[string]error {
+	return map[string]error{pr.Name(): pr.Healthy()}
+}
 
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	pr.newHeads.Deliver(head)

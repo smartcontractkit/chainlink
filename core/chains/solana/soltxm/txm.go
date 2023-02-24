@@ -521,6 +521,7 @@ func (txm *Txm) Close() error {
 		return txm.fee.Close()
 	})
 }
+func (txm *Txm) Name() string { return "solanatxm" }
 
 // Healthy service is healthy
 func (txm *Txm) Healthy() error {
@@ -531,3 +532,5 @@ func (txm *Txm) Healthy() error {
 func (txm *Txm) Ready() error {
 	return nil
 }
+
+func (txm *Txm) HealthReport() map[string]error { return map[string]error{txm.Name(): txm.Healthy()} }
