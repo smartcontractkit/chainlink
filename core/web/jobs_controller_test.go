@@ -474,13 +474,11 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
-
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V1.Enabled = ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
-
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -501,7 +499,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	// BCF-2095
-	// disable check that chain id exists for rest of tests
+	// disable fkey checks until the end of the test transaction
 	require.NoError(t, utils.JustError(
 		app.GetSqlxDB().Exec(`SET CONSTRAINTS job_spec_errors_v2_job_id_fkey DEFERRED`)))
 
