@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"context"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
@@ -181,7 +180,6 @@ func WithFeedId(feedId common.Hash) ConfigPollerOption {
 		cp.feedId = feedId
 	}
 }
-
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, opts ...ConfigPollerOption) (*ConfigPoller, error) {
 	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
