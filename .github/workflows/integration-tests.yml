@@ -437,10 +437,10 @@ jobs:
       - name: Notify Slack
         if: always()
         id: slack
-        uses: slackapi/slack-github-action@v1.23.0
+        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
-          slack-message: "Test Result for ${{ matrix.testnet }} is ${{ job.status }}"
+          slack-message: "Test Result for ${{ matrix.testnet }} is a ${{ job.status }} on tage ${{ github.ref_name}} and commit ${{ github.sha }}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
