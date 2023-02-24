@@ -66,8 +66,9 @@ func (w *client) Close() error {
 }
 
 func (w *client) Name() string {
-	return w.Name()
+	return "EVM.Mercury.WSRPCClient"
 }
+
 func (w *client) HealthReport() map[string]error {
 	return map[string]error{w.Name(): w.Healthy()}
 }

@@ -88,12 +88,12 @@ func (bm *balanceMonitor) Healthy() error {
 	return nil
 }
 
-func (b *balanceMonitor) Name() string {
-	return b.logger.Name()
+func (bm *balanceMonitor) Name() string {
+	return bm.logger.Name()
 }
 
-func (b *balanceMonitor) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+func (bm *balanceMonitor) HealthReport() map[string]error {
+	return map[string]error{bm.Name(): bm.Healthy()}
 }
 
 // OnNewLongestChain checks the balance for each key

@@ -127,11 +127,12 @@ func (backup *databaseBackup) Close() error {
 	})
 }
 
-func (b *databaseBackup) Name() string {
-	return b.logger.Name()
+func (backup *databaseBackup) Name() string {
+	return backup.logger.Name()
 }
-func (b *databaseBackup) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+
+func (backup *databaseBackup) HealthReport() map[string]error {
+	return map[string]error{backup.Name(): backup.Healthy()}
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
