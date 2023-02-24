@@ -8,13 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	evmtypes "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
+	pluginevm "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -30,7 +29,7 @@ type LogProvider struct {
 	lookbackBlocks  int64
 	registry        *registry.KeeperRegistry
 	client          evmclient.Client
-	packer          *evmtypes.EvmRegistryPackerV2_0
+	packer          *pluginevm.EvmRegistryPackerV2_0
 }
 
 var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
@@ -50,9 +49,9 @@ func NewLogProvider(
 		return nil, err
 	}
 
-	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	abi, err := abi.JSON(strings.NewReader(registry.KeeperRegistryABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", evmtypes.ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %s", pluginevm.ErrABINotParsable, err)
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
@@ -79,7 +78,7 @@ func NewLogProvider(
 		lookbackBlocks:  lookbackBlocks,
 		registry:        contract,
 		client:          client,
-		packer:          evmtypes.NewEvmRegistryPackerV2_0(abi),
+		packer:          pluginevm.NewEvmRegistryPackerV2_0(abi),
 	}, nil
 }
 
