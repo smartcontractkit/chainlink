@@ -86,7 +86,7 @@ HistoryDepth = 400`
 					"networkId": "1337",
 				},
 				"miner": map[string]interface{}{
-					"replicas": "3",
+					"replicas": "2",
 				},
 			},
 		},
@@ -112,7 +112,7 @@ const (
 	defaultUpkeepGasLimit = uint32(2500000)
 	defaultLinkFunds      = int64(9e18)
 	numberOfUpkeeps       = 2
-	automationReorgBlocks = 10
+	automationReorgBlocks = 100
 )
 
 func TestAutomationReorg(t *testing.T) {
@@ -218,6 +218,20 @@ func TestAutomationReorg(t *testing.T) {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 10
+			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+		}
+	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+	err = rc.WaitDepthReached()
+
+	gom.Eventually(func(g gomega.Gomega) {
+		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+		for i := 0; i < len(upkeepIDs); i++ {
+			counter, err := consumers[i].Counter(context.Background())
+			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			expect := 20
 			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
