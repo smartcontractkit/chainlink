@@ -15,53 +15,53 @@ import (
 
 const (
 	// ----- content types ----
-	codecSelferCcUTF82517 = 1
-	codecSelferCcRAW2517  = 255
+	codecSelferCcUTF89000 = 1
+	codecSelferCcRAW9000  = 255
 	// ----- value types used ----
-	codecSelferValueTypeArray2517     = 10
-	codecSelferValueTypeMap2517       = 9
-	codecSelferValueTypeString2517    = 6
-	codecSelferValueTypeInt2517       = 2
-	codecSelferValueTypeUint2517      = 3
-	codecSelferValueTypeFloat2517     = 4
-	codecSelferValueTypeNil2517       = 1
-	codecSelferBitsize2517            = uint8(32 << (^uint(0) >> 63))
-	codecSelferDecContainerLenNil2517 = -2147483648
+	codecSelferValueTypeArray9000     = 10
+	codecSelferValueTypeMap9000       = 9
+	codecSelferValueTypeString9000    = 6
+	codecSelferValueTypeInt9000       = 2
+	codecSelferValueTypeUint9000      = 3
+	codecSelferValueTypeFloat9000     = 4
+	codecSelferValueTypeNil9000       = 1
+	codecSelferBitsize9000            = uint8(32 << (^uint(0) >> 63))
+	codecSelferDecContainerLenNil9000 = -2147483648
 )
 
 var (
-	errCodecSelferOnlyMapOrArrayEncodeToStruct2517                = errors.New(`only encoded map or array can be decoded into a struct`)
+	errCodecSelferOnlyMapOrArrayEncodeToStruct9000                = errors.New(`only encoded map or array can be decoded into a struct`)
 	_                                              sort.Interface = nil
 )
 
-type codecSelfer2517 struct{}
+type codecSelfer9000 struct{}
 
-func codecSelfer2517False() bool { return false }
-func codecSelfer2517True() bool  { return true }
+func codecSelfer9000False() bool { return false }
+func codecSelfer9000True() bool  { return true }
 
-type codecSelfer2517stringSlice []string
+type codecSelfer9000stringSlice []string
 
-func (p codecSelfer2517stringSlice) Len() int           { return len(p) }
-func (p codecSelfer2517stringSlice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
-func (p codecSelfer2517stringSlice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
+func (p codecSelfer9000stringSlice) Len() int           { return len(p) }
+func (p codecSelfer9000stringSlice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
+func (p codecSelfer9000stringSlice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
 
-type codecSelfer2517uint64Slice []uint64
+type codecSelfer9000uint64Slice []uint64
 
-func (p codecSelfer2517uint64Slice) Len() int           { return len(p) }
-func (p codecSelfer2517uint64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
-func (p codecSelfer2517uint64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
+func (p codecSelfer9000uint64Slice) Len() int           { return len(p) }
+func (p codecSelfer9000uint64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
+func (p codecSelfer9000uint64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
 
-type codecSelfer2517int64Slice []int64
+type codecSelfer9000int64Slice []int64
 
-func (p codecSelfer2517int64Slice) Len() int           { return len(p) }
-func (p codecSelfer2517int64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
-func (p codecSelfer2517int64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
+func (p codecSelfer9000int64Slice) Len() int           { return len(p) }
+func (p codecSelfer9000int64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
+func (p codecSelfer9000int64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
 
-type codecSelfer2517float64Slice []float64
+type codecSelfer9000float64Slice []float64
 
-func (p codecSelfer2517float64Slice) Len() int           { return len(p) }
-func (p codecSelfer2517float64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
-func (p codecSelfer2517float64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
+func (p codecSelfer9000float64Slice) Len() int           { return len(p) }
+func (p codecSelfer9000float64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)] = p[uint(j)], p[uint(i)] }
+func (p codecSelfer9000float64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
 
 func init() {
 	if codec1978.GenVersion != 26 {
@@ -73,7 +73,7 @@ func init() {
 
 func (BlockHistoryEstimator) codecSelferViaCodecgen() {}
 func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
-	var h codecSelfer2517
+	var h codecSelfer9000
 	z, r := codec1978.GenHelper().Encoder(e)
 	_, _, _ = h, z, r
 	if z.EncBasicHandle().CheckCircularRef {
@@ -147,11 +147,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 			z.EncWriteMapStart(6)
 			if z.EncBasicHandle().Canonical {
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"BatchSize\"")
-				} else {
-					r.EncodeString(`BatchSize`)
-				}
+				z.EncWr().WriteStr("\"BatchSize\"")
 				z.EncWriteMapElemValue()
 				if yyn3 {
 					r.EncodeNil()
@@ -160,11 +156,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy21))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"BlockHistorySize\"")
-				} else {
-					r.EncodeString(`BlockHistorySize`)
-				}
+				z.EncWr().WriteStr("\"BlockHistorySize\"")
 				z.EncWriteMapElemValue()
 				if yyn4 {
 					r.EncodeNil()
@@ -173,11 +165,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy23))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"CheckInclusionBlocks\"")
-				} else {
-					r.EncodeString(`CheckInclusionBlocks`)
-				}
+				z.EncWr().WriteStr("\"CheckInclusionBlocks\"")
 				z.EncWriteMapElemValue()
 				if yyn5 {
 					r.EncodeNil()
@@ -186,11 +174,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy25))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"CheckInclusionPercentile\"")
-				} else {
-					r.EncodeString(`CheckInclusionPercentile`)
-				}
+				z.EncWr().WriteStr("\"CheckInclusionPercentile\"")
 				z.EncWriteMapElemValue()
 				if yyn6 {
 					r.EncodeNil()
@@ -199,11 +183,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy27))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"EIP1559FeeCapBufferBlocks\"")
-				} else {
-					r.EncodeString(`EIP1559FeeCapBufferBlocks`)
-				}
+				z.EncWr().WriteStr("\"EIP1559FeeCapBufferBlocks\"")
 				z.EncWriteMapElemValue()
 				if yyn7 {
 					r.EncodeNil()
@@ -212,11 +192,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy29))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"TransactionPercentile\"")
-				} else {
-					r.EncodeString(`TransactionPercentile`)
-				}
+				z.EncWr().WriteStr("\"TransactionPercentile\"")
 				z.EncWriteMapElemValue()
 				if yyn8 {
 					r.EncodeNil()
@@ -226,11 +202,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 				}
 			} else {
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"BatchSize\"")
-				} else {
-					r.EncodeString(`BatchSize`)
-				}
+				z.EncWr().WriteStr("\"BatchSize\"")
 				z.EncWriteMapElemValue()
 				if yyn3 {
 					r.EncodeNil()
@@ -239,11 +211,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy33))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"BlockHistorySize\"")
-				} else {
-					r.EncodeString(`BlockHistorySize`)
-				}
+				z.EncWr().WriteStr("\"BlockHistorySize\"")
 				z.EncWriteMapElemValue()
 				if yyn4 {
 					r.EncodeNil()
@@ -252,11 +220,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy35))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"CheckInclusionBlocks\"")
-				} else {
-					r.EncodeString(`CheckInclusionBlocks`)
-				}
+				z.EncWr().WriteStr("\"CheckInclusionBlocks\"")
 				z.EncWriteMapElemValue()
 				if yyn5 {
 					r.EncodeNil()
@@ -265,11 +229,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy37))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"CheckInclusionPercentile\"")
-				} else {
-					r.EncodeString(`CheckInclusionPercentile`)
-				}
+				z.EncWr().WriteStr("\"CheckInclusionPercentile\"")
 				z.EncWriteMapElemValue()
 				if yyn6 {
 					r.EncodeNil()
@@ -278,11 +238,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy39))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"EIP1559FeeCapBufferBlocks\"")
-				} else {
-					r.EncodeString(`EIP1559FeeCapBufferBlocks`)
-				}
+				z.EncWr().WriteStr("\"EIP1559FeeCapBufferBlocks\"")
 				z.EncWriteMapElemValue()
 				if yyn7 {
 					r.EncodeNil()
@@ -291,11 +247,7 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 					r.EncodeUint(uint64(yy41))
 				}
 				z.EncWriteMapElemKey()
-				if z.IsJSONHandle() {
-					z.EncWr().WriteStr("\"TransactionPercentile\"")
-				} else {
-					r.EncodeString(`TransactionPercentile`)
-				}
+				z.EncWr().WriteStr("\"TransactionPercentile\"")
 				z.EncWriteMapElemValue()
 				if yyn8 {
 					r.EncodeNil()
@@ -310,32 +262,32 @@ func (x *BlockHistoryEstimator) CodecEncodeSelf(e *codec1978.Encoder) {
 }
 
 func (x *BlockHistoryEstimator) CodecDecodeSelf(d *codec1978.Decoder) {
-	var h codecSelfer2517
+	var h codecSelfer9000
 	z, r := codec1978.GenHelper().Decoder(d)
 	_, _, _ = h, z, r
 	yyct2 := r.ContainerType()
-	if yyct2 == codecSelferValueTypeNil2517 {
+	if yyct2 == codecSelferValueTypeNil9000 {
 		*(x) = BlockHistoryEstimator{}
-	} else if yyct2 == codecSelferValueTypeMap2517 {
+	} else if yyct2 == codecSelferValueTypeMap9000 {
 		yyl2 := z.DecReadMapStart()
 		if yyl2 == 0 {
 		} else {
 			x.codecDecodeSelfFromMap(yyl2, d)
 		}
 		z.DecReadMapEnd()
-	} else if yyct2 == codecSelferValueTypeArray2517 {
+	} else if yyct2 == codecSelferValueTypeArray9000 {
 		yyl2 := z.DecReadArrayStart()
 		if yyl2 != 0 {
 			x.codecDecodeSelfFromArray(yyl2, d)
 		}
 		z.DecReadArrayEnd()
 	} else {
-		panic(errCodecSelferOnlyMapOrArrayEncodeToStruct2517)
+		panic(errCodecSelferOnlyMapOrArrayEncodeToStruct9000)
 	}
 }
 
 func (x *BlockHistoryEstimator) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
-	var h codecSelfer2517
+	var h codecSelfer9000
 	z, r := codec1978.GenHelper().Decoder(d)
 	_, _, _ = h, z, r
 	var yyhl3 bool = l >= 0
@@ -417,7 +369,7 @@ func (x *BlockHistoryEstimator) codecDecodeSelfFromMap(l int, d *codec1978.Decod
 }
 
 func (x *BlockHistoryEstimator) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
-	var h codecSelfer2517
+	var h codecSelfer9000
 	z, r := codec1978.GenHelper().Decoder(d)
 	_, _, _ = h, z, r
 	var yyj16 int
