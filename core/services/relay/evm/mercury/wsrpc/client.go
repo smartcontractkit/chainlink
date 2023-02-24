@@ -65,6 +65,14 @@ func (w *client) Close() error {
 	})
 }
 
+func (w *client) Name() string {
+	return "EVM.Mercury.WSRPCClient"
+}
+
+func (w *client) HealthReport() map[string]error {
+	return map[string]error{w.Name(): w.Healthy()}
+}
+
 func (w *client) Transmit(ctx context.Context, in *report.ReportRequest) (rr *report.ReportResponse, err error) {
 	ok := w.IfStarted(func() {
 		rr, err = w.client.Transmit(ctx, in)

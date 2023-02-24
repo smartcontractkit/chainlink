@@ -322,15 +322,22 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 				errs <- err
 				return
 			}
-			defer f.Close()
+			wc := utils.NewDeferableWriteCloser(f)
+			defer wc.Close()
 
-			_, err = io.Copy(f, resp.Body)
+			_, err = io.Copy(wc, resp.Body)
 			if err != nil {
 				cli.Logger.Errorf("error writing to file for %s: %s", vt, err.Error())
 				errs <- err
 				return
 			}
 			cli.Logger.Infof("Collected %s", vt)
+			err = wc.Close()
+			if err != nil {
+				cli.Logger.Errorf("error closing file for %s: %s", vt, err.Error())
+				errs <- err
+				return
+			}
 		}(vt)
 	}
 	wgPprof.Wait()

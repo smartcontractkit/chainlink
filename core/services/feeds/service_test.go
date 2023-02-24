@@ -196,7 +196,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
 	// We need to stop the service because the manager will attempt to make a
 	// connection
-	defer svc.Close()
+	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -1229,8 +1229,8 @@ answer1 [type=median index=0];
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -1340,15 +1340,56 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
 		},
 		{
-			name:        "already existing job replacement success if forced",
+			name:        "already existing self managed job replacement success if forced",
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
+
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: true,
+		},
+		{
+			name:        "already existing FMS managed job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
+
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -1443,6 +1484,37 @@ answer1 [type=median index=0];
 			id:      spec.ID,
 			force:   false,
 			wantErr: "fms rpc client: Not Connected",
+		},
+		{
+			name:        "Fetching the approved spec fails",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, errors.New("failure"))
+			},
+			id:      spec.ID,
+			force:   true,
+			wantErr: "could not approve job proposal: GetApprovedSpec failed: failure",
+		},
+		{
+			name:        "spec cancellation fails",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(errors.New("failure"))
+			},
+			id:      spec.ID,
+			force:   true,
+			wantErr: "could not approve job proposal: failure",
 		},
 		{
 			name:        "create job error",
@@ -1644,7 +1716,6 @@ answer1      [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
@@ -1752,14 +1823,53 @@ answer1      [type=median index=0];
 			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
 		},
 		{
-			name:        "already existing job replacement success if forced",
+			name:        "already existing self managed job replacement success if forced",
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: true,
+		},
+		{
+			name:        "already existing FMS managed job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 

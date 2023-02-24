@@ -28,6 +28,7 @@ import (
 	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
@@ -768,7 +769,7 @@ func getFreePort(t *testing.T) uint16 {
 
 	l, err := net.ListenTCP("tcp", addr)
 	require.NoError(t, err)
-	defer l.Close()
+	defer func() { assert.NoError(t, l.Close()) }()
 
 	return uint16(l.Addr().(*net.TCPAddr).Port)
 }

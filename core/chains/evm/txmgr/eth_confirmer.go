@@ -2,7 +2,6 @@ package txmgr
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math/big"
 	"sort"
@@ -19,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
@@ -195,6 +193,14 @@ func (ec *EthConfirmer) Close() error {
 
 		return nil
 	})
+}
+
+func (ec *EthConfirmer) Name() string {
+	return ec.lggr.Name()
+}
+
+func (ec *EthConfirmer) HealthReport() map[string]error {
+	return map[string]error{ec.Name(): ec.Healthy()}
 }
 
 func (ec *EthConfirmer) runLoop() {
@@ -592,54 +598,6 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
-// markAllConfirmedMissingReceipt
-// It is possible that we can fail to get a receipt for all eth_tx_attempts
-// even though a transaction with this nonce has long since been confirmed (we
-// know this because transactions with higher nonces HAVE returned a receipt).
-//
-// This can probably only happen if an external wallet used the account (or
-// conceivably because of some bug in the remote eth node that prevents it
-// from returning a receipt for a valid transaction).
-//
-// In this case we mark these transactions as 'confirmed_missing_receipt' to
-// prevent gas bumping.
-//
-// NOTE: We continue to attempt to resend eth_txes in this state on
-// every head to guard against the extremely rare scenario of nonce gap due to
-// reorg that excludes the transaction (from another wallet) that had this
-// nonce (until finality depth is reached, after which we make the explicit
-// decision to give up). This is done in the EthResender.
-//
-// We will continue to try to fetch a receipt for these attempts until all
-// attempts are below the finality depth from current head.
-func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
-	res, err := ec.q.Exec(`
-UPDATE eth_txes
-SET state = 'confirmed_missing_receipt'
-FROM (
-	SELECT from_address, MAX(nonce) as max_nonce 
-	FROM eth_txes
-	WHERE state = 'confirmed' AND evm_chain_id = $1
-	GROUP BY from_address
-) AS max_table
-WHERE state = 'unconfirmed'
-	AND evm_chain_id = $1
-	AND nonce < max_table.max_nonce
-	AND eth_txes.from_address = max_table.from_address
-	`, ec.chainID.String())
-	if err != nil {
-		return errors.Wrap(err, "markAllConfirmedMissingReceipt failed")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "markAllConfirmedMissingReceipt RowsAffected failed")
-	}
-	if rowsAffected > 0 {
-		ec.lggr.Infow(fmt.Sprintf("%d transactions missing receipt", rowsAffected), "n", rowsAffected)
-	}
-	return
-}
-
 // markOldTxesMissingReceiptAsErrored
 //
 // Once eth_tx has all of its attempts broadcast before some cutoff threshold
@@ -783,7 +741,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 
 		lggr.Debugw("Rebroadcasting transaction", "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
-		if err := ec.saveInProgressAttempt(&attempt); err != nil {
+		if err := ec.orm.SaveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
 		}
 
@@ -901,25 +859,6 @@ ORDER BY nonce ASC
 	return
 }
 
-func loadEthTxesAttempts(q pg.Queryer, etxs []*EthTx) error {
-	ethTxIDs := make([]int64, len(etxs))
-	ethTxesM := make(map[int64]*EthTx, len(etxs))
-	for i, etx := range etxs {
-		etx.EthTxAttempts = nil // this will overwrite any previous preload
-		ethTxIDs[i] = etx.ID
-		ethTxesM[etx.ID] = etxs[i]
-	}
-	var ethTxAttempts []EthTxAttempt
-	if err := q.Select(&ethTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
-		return errors.Wrap(err, "loadEthTxesAttempts failed to load eth_tx_attempts")
-	}
-	for _, attempt := range ethTxAttempts {
-		etx := ethTxesM[attempt.EthTxID]
-		etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
-	}
-	return nil
-}
-
 // FindEthTxsRequiringGasBump returns transactions that have all
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions
@@ -1030,34 +969,6 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
 }
 
-// saveInProgressAttempt inserts or updates an attempt
-func (ec *EthConfirmer) saveInProgressAttempt(attempt *EthTxAttempt) error {
-	if attempt.State != EthTxAttemptInProgress {
-		return errors.New("saveInProgressAttempt failed: attempt state must be in_progress")
-	}
-	// Insert is the usual mode because the attempt is new
-	if attempt.ID == 0 {
-		query, args, e := ec.q.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
-		if e != nil {
-			return errors.Wrap(e, "saveInProgressAttempt failed to BindNamed")
-		}
-		return errors.Wrap(ec.q.Get(attempt, query, args...), "saveInProgressAttempt failed to insert into eth_tx_attempts")
-	}
-	// Update only applies to case of insufficient eth and simply changes the state to in_progress
-	res, err := ec.q.Exec(`UPDATE eth_tx_attempts SET state=$1, broadcast_before_block_num=$2 WHERE id=$3`, attempt.State, attempt.BroadcastBeforeBlockNum, attempt.ID)
-	if err != nil {
-		return errors.Wrap(err, "saveInProgressAttempt failed to update eth_tx_attempts")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "saveInProgressAttempt failed to get RowsAffected")
-	}
-	if rowsAffected == 0 {
-		return errors.Wrapf(sql.ErrNoRows, "saveInProgressAttempt tried to update eth_tx_attempts but no rows matched id %d", attempt.ID)
-	}
-	return nil
-}
-
 func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
@@ -1127,7 +1038,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"blockHeight", blockHeight,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return deleteInProgressAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), attempt)
+		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
 	}
 
 	if sendError.Fatal() {
@@ -1144,7 +1055,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"blockHeight", blockHeight,
 		)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
-		return deleteInProgressAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), attempt)
+		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
 	}
 
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
@@ -1153,7 +1064,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		sendError = nil
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
-		return saveConfirmedMissingReceiptAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), timeout, ec.lggr, &attempt, now)
+		return ec.orm.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	}
 
 	if sendError.IsReplacementUnderpriced() {
@@ -1185,13 +1096,13 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
-		return saveInsufficientEthAttempt(ec.q, timeout, ec.lggr, &attempt, now)
+		return ec.orm.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	}
 
 	if sendError == nil {
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
-		return saveSentAttempt(ec.db, timeout, lggr, &attempt, now)
+		return ec.orm.SaveSentAttempt(timeout, &attempt, now)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -1199,62 +1110,6 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 	// attempt (leave it in_progress). Safest thing to do is bail out and wait
 	// for the next head.
 	return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.Hex())
-}
-
-func deleteInProgressAttempt(q pg.Q, attempt EthTxAttempt) error {
-	if attempt.State != EthTxAttemptInProgress {
-		return errors.New("deleteInProgressAttempt: expected attempt state to be in_progress")
-	}
-	if attempt.ID == 0 {
-		return errors.New("deleteInProgressAttempt: expected attempt to have an id")
-	}
-	_, err := q.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
-	return errors.Wrap(err, "deleteInProgressAttempt failed")
-}
-
-func saveConfirmedMissingReceiptAttempt(q pg.Q, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	err := q.Transaction(func(tx pg.Queryer) error {
-		if err := saveSentAttempt(tx, timeout, lggr, attempt, broadcastAt); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(`UPDATE eth_txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.EthTxID); err != nil {
-			return errors.Wrap(err, "failed to update eth_txes")
-		}
-		return nil
-	})
-	return errors.Wrap(err, "saveConfirmedMissingReceiptAttempt failed")
-}
-
-func saveSentAttempt(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	if attempt.State != EthTxAttemptInProgress {
-		return errors.New("expected state to be in_progress")
-	}
-	attempt.State = EthTxAttemptBroadcast
-	return errors.Wrap(saveAttemptWithNewState(q, timeout, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
-}
-
-func saveInsufficientEthAttempt(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	if !(attempt.State == EthTxAttemptInProgress || attempt.State == EthTxAttemptInsufficientEth) {
-		return errors.New("expected state to be either in_progress or insufficient_eth")
-	}
-	attempt.State = EthTxAttemptInsufficientEth
-	return errors.Wrap(saveAttemptWithNewState(q, timeout, lggr, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
-
-}
-
-func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return pg.SqlxTransaction(ctx, q, lggr, func(tx pg.Queryer) error {
-		// In case of null broadcast_at (shouldn't happen) we don't want to
-		// update anyway because it indicates a state where broadcast_at makes
-		// no sense e.g. fatal_error
-		if _, err := tx.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = $2 AND broadcast_at < $1`, broadcastAt, attempt.EthTxID); err != nil {
-			return errors.Wrap(err, "saveAttemptWithNewState failed to update eth_txes")
-		}
-		_, err := tx.Exec(`UPDATE eth_tx_attempts SET state=$1 WHERE id=$2`, attempt.State, attempt.ID)
-		return errors.Wrap(err, "saveAttemptWithNewState failed to update eth_tx_attempts")
-	})
 }
 
 // EnsureConfirmedTransactionsInLongestChain finds all confirmed eth_txes up to the depth
@@ -1279,7 +1134,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
-	etxs, err := findTransactionsConfirmedInBlockRange(ec.q, ec.lggr, head.Number, head.EarliestInChain().Number, ec.chainID)
+	etxs, err := ec.orm.FindTransactionsConfirmedInBlockRange(head.Number, head.EarliestInChain().Number, ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 	}
@@ -1314,27 +1169,6 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	wg.Wait()
 
 	return multierr.Combine(errors...)
-}
-
-func findTransactionsConfirmedInBlockRange(q pg.Q, lggr logger.Logger, highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error) {
-	err = q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&etxs, `
-SELECT DISTINCT eth_txes.* FROM eth_txes
-INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'broadcast'
-INNER JOIN eth_receipts ON eth_receipts.tx_hash = eth_tx_attempts.hash
-WHERE eth_txes.state IN ('confirmed', 'confirmed_missing_receipt') AND block_number BETWEEN $1 AND $2 AND evm_chain_id = $3
-ORDER BY nonce ASC
-`, lowBlockNumber, highBlockNumber, chainID.String())
-		if err != nil {
-			return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_txes")
-		}
-		if err = loadEthTxesAttempts(tx, etxs); err != nil {
-			return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_tx_attempts")
-		}
-		err = loadEthTxesAttemptsReceipts(tx, etxs)
-		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_receipts")
-	}, pg.OptReadOnlyTx())
-	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
 func hasReceiptInLongestChain(etx EthTx, head *evmtypes.Head) bool {
@@ -1380,42 +1214,8 @@ func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *evmtypes.Head) error
 		"id", "eth_confirmer")
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
-	err := ec.q.Transaction(func(tx pg.Queryer) error {
-		if err := deleteAllReceipts(tx, etx.ID); err != nil {
-			return errors.Wrapf(err, "deleteAllReceipts failed for etx %v", etx.ID)
-		}
-		if err := unconfirmEthTx(tx, etx); err != nil {
-			return errors.Wrapf(err, "unconfirmEthTx failed for etx %v", etx.ID)
-		}
-		return unbroadcastAttempt(tx, attempt)
-	})
+	err := ec.orm.UpdateEthTxForRebroadcast(etx, attempt)
 	return errors.Wrap(err, "markForRebroadcast failed")
-}
-
-func deleteAllReceipts(q pg.Queryer, etxID int64) (err error) {
-	_, err = q.Exec(`
-DELETE FROM eth_receipts
-USING eth_tx_attempts
-WHERE eth_receipts.tx_hash = eth_tx_attempts.hash
-AND eth_tx_attempts.eth_tx_id = $1
-	`, etxID)
-	return errors.Wrap(err, "deleteAllReceipts failed")
-}
-
-func unconfirmEthTx(q pg.Queryer, etx EthTx) error {
-	if etx.State != EthTxConfirmed {
-		return errors.New("expected eth_tx state to be confirmed")
-	}
-	_, err := q.Exec(`UPDATE eth_txes SET state = 'unconfirmed' WHERE id = $1`, etx.ID)
-	return errors.Wrap(err, "unconfirmEthTx failed")
-}
-
-func unbroadcastAttempt(q pg.Queryer, attempt EthTxAttempt) error {
-	if attempt.State != EthTxAttemptBroadcast {
-		return errors.New("expected eth_tx_attempt to be broadcast")
-	}
-	_, err := q.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = NULL, state = 'in_progress' WHERE id = $1`, attempt.ID)
-	return errors.Wrap(err, "unbroadcastAttempt failed")
 }
 
 // ForceRebroadcast sends a transaction for every nonce in the given nonce range at the given gas price.
@@ -1428,7 +1228,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
-		etx, err := findEthTxWithNonce(ec.q, ec.lggr, address, n)
+		etx, err := ec.orm.FindEthTxWithNonce(address, n)
 		if err != nil {
 			return errors.Wrap(err, "ForceRebroadcast failed")
 		}
@@ -1472,53 +1272,21 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	return tx.Hash(), nil
 }
 
-// findEthTxWithNonce returns any broadcast ethtx with the given nonce
-func findEthTxWithNonce(q pg.Q, lggr logger.Logger, fromAddress gethCommon.Address, nonce uint) (etx *EthTx, err error) {
-	etx = new(EthTx)
-	err = q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Get(etx, `
-SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-`, fromAddress, nonce)
-		if err != nil {
-			return errors.Wrap(err, "findEthTxWithNonce failed to load eth_txes")
-		}
-		err = loadEthTxAttempts(tx, etx)
-		return errors.Wrap(err, "findEthTxWithNonce failed to load eth_tx_attempts")
-	}, pg.OptReadOnlyTx())
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	return
-}
-
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes.Head) error {
-	type x struct {
-		ID           uuid.UUID        `db:"id"`
-		Receipt      evmtypes.Receipt `db:"receipt"`
-		FailOnRevert bool             `db:"FailOnRevert"`
-	}
-	var receipts []x
 
-	// NOTE: we don't filter on eth_txes.state = 'confirmed', because a transaction with an attached receipt
-	// is guaranteed to be confirmed. This results in a slightly better query plan.
-	if err := ec.q.SelectContext(ctx, &receipts, `
-	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
-	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
-	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id
-	INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id
-	INNER JOIN eth_receipts ON eth_tx_attempts.hash = eth_receipts.tx_hash
-	WHERE pipeline_runs.state = 'suspended' AND eth_receipts.block_number <= ($1 - eth_txes.min_confirmations) AND eth_txes.evm_chain_id = $2
-	`, head.Number, ec.chainID.String()); err != nil {
+	receiptsPlus, err := ec.orm.FindEthReceiptsPendingConfirmation(ctx, head.Number, ec.chainID)
+
+	if err != nil {
 		return err
 	}
 
-	if len(receipts) > 0 {
-		ec.lggr.Debugf("Resuming %d task runs pending receipt", len(receipts))
+	if len(receiptsPlus) > 0 {
+		ec.lggr.Debugf("Resuming %d task runs pending receipt", len(receiptsPlus))
 	} else {
 		ec.lggr.Debug("No task runs to resume")
 	}
-	for _, data := range receipts {
+	for _, data := range receiptsPlus {
 		var taskErr error
 		var output interface{}
 		if data.FailOnRevert && data.Receipt.Status == 0 {

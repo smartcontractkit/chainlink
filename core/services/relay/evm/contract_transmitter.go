@@ -54,7 +54,8 @@ func NewOCRContractTransmitter(
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	_, err := lp.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	filterName := logpoller.FilterName("OCR ContractTransmitter", address.String())
+	err := lp.RegisterFilter(logpoller.Filter{Name: filterName, EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
 	}
@@ -173,3 +174,7 @@ func (oc *contractTransmitter) Close() error                    { return nil }
 // Has no state/lifecycle so it's always healthy and ready
 func (oc *contractTransmitter) Healthy() error { return nil }
 func (oc *contractTransmitter) Ready() error   { return nil }
+func (oc *contractTransmitter) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): oc.Healthy()}
+}
+func (oc *contractTransmitter) Name() string { return "" }

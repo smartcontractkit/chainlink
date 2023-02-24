@@ -1,6 +1,7 @@
 package feeds_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/lib/pq"
@@ -788,6 +789,41 @@ func Test_ORM_GetSpec(t *testing.T) {
 	assert.Equal(t, jpID, actual.JobProposalID)
 }
 
+func Test_ORM_GetApprovedSpec(t *testing.T) {
+	t.Parallel()
+
+	var (
+		orm           = setupORM(t)
+		fmID          = createFeedsManager(t, orm)
+		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+		specID        = createJobSpec(t, orm, int64(jpID))
+		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	)
+
+	// Defer the FK requirement of a job proposal so we don't have to setup a
+	// real job.
+	require.NoError(t, utils.JustError(orm.db.Exec(
+		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+	)))
+
+	err := orm.ApproveSpec(specID, externalJobID.UUID)
+	require.NoError(t, err)
+
+	actual, err := orm.GetApprovedSpec(jpID)
+	require.NoError(t, err)
+
+	assert.Equal(t, specID, actual.ID)
+	assert.Equal(t, feeds.SpecStatusApproved, actual.Status)
+
+	err = orm.CancelSpec(specID)
+	require.NoError(t, err)
+
+	_, err = orm.GetApprovedSpec(jpID)
+	require.Error(t, err)
+
+	assert.ErrorIs(t, err, sql.ErrNoRows)
+}
+
 func Test_ORM_GetLatestSpec(t *testing.T) {
 	t.Parallel()
 
@@ -1048,7 +1084,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
-	defer orm.Close()
+	defer func() { assert.NoError(t, orm.Close()) }()
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)

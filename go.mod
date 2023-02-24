@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink
 
-go 1.19
+go 1.20
 
 require (
 	github.com/Depado/ginprom v1.7.4
@@ -29,6 +29,7 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/jackc/pgconn v1.13.0
+	github.com/jackc/pgtype v1.12.0
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
@@ -55,14 +56,15 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20230118141007-0773f68325cd
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230216171252-49e2a3db1b5c
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230125162500-4e7ec33e60db
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230221200635-404a44389f85
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230221200929-d415eda78bff
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be75fb81118
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.6.9
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0
+	github.com/smartcontractkit/ocr2keepers v0.6.12
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.6.1
+	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.1
@@ -165,7 +167,6 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.1 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
@@ -253,7 +254,6 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
