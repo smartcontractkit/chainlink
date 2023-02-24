@@ -25,7 +25,7 @@ type Keystore interface {
 	GetAll() ([]cosmoskey.Key, error)
 }
 
-// NewBalanceMonitor returns a balance monitoring services.ServiceCtx which reports the luna balance of all ks keys to prometheus.
+// NewBalanceMonitor returns a balance monitoring services.ServiceCtx which reports the atom balance of all ks keys to prometheus.
 func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (client.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
@@ -124,18 +124,18 @@ func (b *balanceMonitor) updateBalances() {
 		default:
 		}
 		acc := sdk.AccAddress(k.PublicKey().Address())
-		bal, err := reader.Balance(acc, "uluna")
+		bal, err := reader.Balance(acc, "uatom")
 		if err != nil {
 			b.lggr.Errorw("Failed to get balance", "account", acc, "err", err)
 			continue
 		}
 		gotSomeBals = true
-		balLuna, err := denom.ConvertToLuna(*bal)
+		balAtom, err := denom.ConvertToAtom(*bal)
 		if err != nil {
-			b.lggr.Errorw("Failed to convert uluna to luna", "account", acc, "err", err)
+			b.lggr.Errorw("Failed to convert uatom to atom", "account", acc, "err", err)
 			continue
 		}
-		b.updateFn(acc, &balLuna)
+		b.updateFn(acc, &balAtom)
 	}
 	if !gotSomeBals {
 		// Try a new client next time.

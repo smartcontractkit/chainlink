@@ -21,8 +21,8 @@ func initCosmosTxSubCmd(client *Client) cli.Command {
 		Subcommands: []cli.Command{
 			{
 				Name:   "create",
-				Usage:  "Send <amount> Luna from node Cosmos account <fromAddress> to destination <toAddress>.",
-				Action: client.CosmosSendLuna,
+				Usage:  "Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.",
+				Action: client.CosmosSendAtom,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Name:  "force",
@@ -61,8 +61,8 @@ func (p *CosmosMsgPresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// CosmosSendLuna transfers coins from the node's account to a specified address.
-func (cli *Client) CosmosSendLuna(c *cli.Context) (err error) {
+// CosmosSendAtom transfers coins from the node's account to a specified address.
+func (cli *Client) CosmosSendAtom(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
 		return cli.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
 	}

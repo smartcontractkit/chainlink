@@ -18,14 +18,14 @@ func TestBalanceMonitor(t *testing.T) {
 	const chainID = "Chainlinktest-42"
 	ks := keystore{cosmoskey.New(), cosmoskey.New(), cosmoskey.New()}
 	bals := []sdk.Coin{
-		sdk.NewInt64Coin("uluna", 0),
-		sdk.NewInt64Coin("uluna", 1),
-		sdk.NewInt64Coin("uluna", 100000000000),
+		sdk.NewInt64Coin("uatom", 0),
+		sdk.NewInt64Coin("uatom", 1),
+		sdk.NewInt64Coin("uatom", 100000000000),
 	}
 	expBals := []string{
-		"0.000000000000000000luna",
-		"0.000001000000000000luna",
-		"100000.000000000000000000luna",
+		"0.000000000000000000atom",
+		"0.000001000000000000atom",
+		"100000.000000000000000000atom",
 	}
 	client := new(mocks.ReaderWriter)
 	client.Test(t)

@@ -11,9 +11,9 @@ func init() {
 		denom    string
 		decimals int64
 	}{
-		{"luna", 0},
-		{"mluna", 3},
-		{"uluna", 6},
+		{"atom", 0},
+		{"matom", 3},
+		{"uatom", 6},
 	} {
 		dec := sdk.NewDecWithPrec(1, d.decimals)
 		if err := sdk.RegisterDenom(d.denom, dec); err != nil {
@@ -22,14 +22,14 @@ func init() {
 	}
 }
 
-// ConvertToLuna is a helper for converting to luna.
-func ConvertToLuna(coin sdk.Coin) (sdk.DecCoin, error) {
-	return sdk.ConvertDecCoin(sdk.NewDecCoinFromCoin(coin), "luna")
+// ConvertToAtom is a helper for converting to atom.
+func ConvertToAtom(coin sdk.Coin) (sdk.DecCoin, error) {
+	return sdk.ConvertDecCoin(sdk.NewDecCoinFromCoin(coin), "atom")
 }
 
-// ConvertToULuna is a helper for converting to uluna.
-func ConvertToULuna(coin sdk.DecCoin) (sdk.Coin, error) {
-	decCoin, err := sdk.ConvertDecCoin(coin, "uluna")
+// ConvertToUAtom is a helper for converting to uatom.
+func ConvertToUAtom(coin sdk.DecCoin) (sdk.Coin, error) {
+	decCoin, err := sdk.ConvertDecCoin(coin, "uatom")
 	if err != nil {
 		return sdk.Coin{}, err
 	}

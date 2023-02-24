@@ -198,8 +198,8 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.ConfirmPollPeriod != nil {
 		c.ConfirmPollPeriod = f.ConfirmPollPeriod
 	}
-	if f.FallbackGasPriceULuna != nil {
-		c.FallbackGasPriceULuna = f.FallbackGasPriceULuna
+	if f.FallbackGasPriceUAtom != nil {
+		c.FallbackGasPriceUAtom = f.FallbackGasPriceUAtom
 	}
 	if f.FCDURL != nil {
 		c.FCDURL = f.FCDURL
@@ -260,7 +260,7 @@ func (c *CosmosConfig) AsV1() types.DBChain {
 			BlockRate:             c.Chain.BlockRate,
 			BlocksUntilTxTimeout:  null.IntFromPtr(c.Chain.BlocksUntilTxTimeout),
 			ConfirmPollPeriod:     c.Chain.ConfirmPollPeriod,
-			FallbackGasPriceULuna: nullString(c.Chain.FallbackGasPriceULuna),
+			FallbackGasPriceUAtom: nullString(c.Chain.FallbackGasPriceUAtom),
 			FCDURL:                nullString((*url.URL)(c.Chain.FCDURL)),
 			GasLimitMultiplier:    null.FloatFrom(c.Chain.GasLimitMultiplier.InexactFloat64()),
 			MaxMsgsPerBatch:       null.IntFromPtr(c.Chain.MaxMsgsPerBatch),
@@ -292,8 +292,8 @@ func (c *CosmosConfig) ConfirmPollPeriod() time.Duration {
 	return c.Chain.ConfirmPollPeriod.Duration()
 }
 
-func (c *CosmosConfig) FallbackGasPriceULuna() sdk.Dec {
-	return sdkDecFromDecimal(c.Chain.FallbackGasPriceULuna)
+func (c *CosmosConfig) FallbackGasPriceUAtom() sdk.Dec {
+	return sdkDecFromDecimal(c.Chain.FallbackGasPriceUAtom)
 }
 
 func (c *CosmosConfig) FCDURL() url.URL {

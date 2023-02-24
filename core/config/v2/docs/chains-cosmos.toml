@@ -9,8 +9,8 @@ BlockRate = '6s' # Default
 BlocksUntilTxTimeout = 30 # Default
 # ConfirmPollPeriod sets how often check for tx confirmation.
 ConfirmPollPeriod = '1s' # Default
-# FallbackGasPriceULuna sets a fallback gas price to use when the estimator is not available.
-FallbackGasPriceULuna = '0.015' # Default
+# FallbackGasPriceUAtom sets a fallback gas price to use when the estimator is not available.
+FallbackGasPriceUAtom = '0.015' # Default
 # FCDURL sets the FCD URL.
 FCDURL = 'http://cosmos.com' # Example
 # GasLimitMultiplier scales the estimated gas limit.

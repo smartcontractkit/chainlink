@@ -494,12 +494,12 @@ func (txm *Txm) GetMsgs(ids ...int64) (cosmos.Msgs, error) {
 	return txm.orm.GetMsgs(ids...)
 }
 
-// GasPrice returns the gas price from the estimator in uluna.
+// GasPrice returns the gas price from the estimator in uatom.
 func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
 	prices := txm.gpe.GasPrices()
-	gasPrice, ok := prices["uluna"]
+	gasPrice, ok := prices["uatom"]
 	if !ok {
-		return sdk.DecCoin{}, errors.New("unexpected empty uluna price")
+		return sdk.DecCoin{}, errors.New("unexpected empty uatom price")
 	}
 	return gasPrice, nil
 }

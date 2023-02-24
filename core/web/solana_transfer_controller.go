@@ -24,7 +24,7 @@ type SolanaTransfersController struct {
 	App chainlink.Application
 }
 
-// Create sends Luna and other native coins from the Chainlink's account to a specified address.
+// Create sends Atom and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	solanaChains := tc.App.GetChains().Solana
 	if solanaChains == nil {

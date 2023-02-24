@@ -143,12 +143,12 @@ func (ks *keyStates) delete(addr common.Address) {
 }
 
 type keyRing struct {
-	Cosmos     map[string]cosmoskey.Key
 	CSA        map[string]csakey.KeyV2
 	Eth        map[string]ethkey.KeyV2
 	OCR        map[string]ocrkey.KeyV2
 	OCR2       map[string]ocr2key.KeyBundle
 	P2P        map[string]p2pkey.KeyV2
+	Cosmos     map[string]cosmoskey.Key
 	Solana     map[string]solkey.Key
 	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
@@ -159,12 +159,12 @@ type keyRing struct {
 
 func newKeyRing() *keyRing {
 	return &keyRing{
-		Cosmos:     make(map[string]cosmoskey.Key),
 		CSA:        make(map[string]csakey.KeyV2),
 		Eth:        make(map[string]ethkey.KeyV2),
 		OCR:        make(map[string]ocrkey.KeyV2),
 		OCR2:       make(map[string]ocr2key.KeyBundle),
 		P2P:        make(map[string]p2pkey.KeyV2),
+		Cosmos:     make(map[string]cosmoskey.Key),
 		Solana:     make(map[string]solkey.Key),
 		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
@@ -203,9 +203,6 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 }
 
 func (kr *keyRing) raw() (rawKeys rawKeyRing) {
-	for _, cosmoskey := range kr.Cosmos {
-		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw())
-	}
 	for _, csaKey := range kr.CSA {
 		rawKeys.CSA = append(rawKeys.CSA, csaKey.Raw())
 	}
@@ -220,6 +217,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	}
 	for _, p2pKey := range kr.P2P {
 		rawKeys.P2P = append(rawKeys.P2P, p2pKey.Raw())
+	}
+	for _, cosmoskey := range kr.Cosmos {
+		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw())
 	}
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
@@ -241,10 +241,6 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 
 func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	lggr = lggr.Named("KeyRing")
-	var cosmosIDs []string
-	for _, cosmosKey := range kr.Cosmos {
-		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
-	}
 	var csaIDs []string
 	for _, CSAKey := range kr.CSA {
 		csaIDs = append(csaIDs, CSAKey.ID())
@@ -264,6 +260,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	var p2pIDs []string
 	for _, P2PKey := range kr.P2P {
 		p2pIDs = append(p2pIDs, P2PKey.ID())
+	}
+	var cosmosIDs []string
+	for _, cosmosKey := range kr.Cosmos {
+		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
 	}
 	var solanaIDs []string
 	for _, solanaKey := range kr.Solana {
@@ -285,9 +285,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, dkgEncryptKey := range kr.DKGEncrypt {
 		dkgEncryptIDs = append(dkgEncryptIDs, dkgEncryptKey.ID())
 	}
-	if len(cosmosIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
-	}
 	if len(csaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d CSA keys", len(csaIDs)), "keys", csaIDs)
 	}
@@ -302,6 +299,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	}
 	if len(p2pIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d P2P keys", len(p2pIDs)), "keys", p2pIDs)
+	}
+	if len(cosmosIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
 	}
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
@@ -328,11 +328,11 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 // (like public keys) to the database
 type rawKeyRing struct {
 	Eth        []ethkey.Raw
-	Cosmos     []cosmoskey.Raw
 	CSA        []csakey.Raw
 	OCR        []ocrkey.Raw
 	OCR2       []ocr2key.Raw
 	P2P        []p2pkey.Raw
+	Cosmos     []cosmoskey.Raw
 	Solana     []solkey.Raw
 	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
@@ -343,10 +343,6 @@ type rawKeyRing struct {
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	keyRing := newKeyRing()
-	for _, rawCosmosKey := range rawKeys.Cosmos {
-		cosmosKey := rawCosmosKey.Key()
-		keyRing.Cosmos[cosmosKey.ID()] = cosmosKey
-	}
 	for _, rawCSAKey := range rawKeys.CSA {
 		csaKey := rawCSAKey.Key()
 		keyRing.CSA[csaKey.ID()] = csaKey
@@ -367,6 +363,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawP2PKey := range rawKeys.P2P {
 		p2pKey := rawP2PKey.Key()
 		keyRing.P2P[p2pKey.ID()] = p2pKey
+	}
+	for _, rawCosmosKey := range rawKeys.Cosmos {
+		cosmosKey := rawCosmosKey.Key()
+		keyRing.Cosmos[cosmosKey.ID()] = cosmosKey
 	}
 	for _, rawSolKey := range rawKeys.Solana {
 		solKey := rawSolKey.Key()

@@ -46,7 +46,7 @@ func Test_CosmosChainsController_Create(t *testing.T) {
 		&db.ChainCfg{
 			BlocksUntilTxTimeout:  null.IntFrom(1),
 			ConfirmPollPeriod:     &minute,
-			FallbackGasPriceULuna: null.StringFrom("9.999"),
+			FallbackGasPriceUAtom: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 			MaxMsgsPerBatch:       null.IntFrom(10),
 		}))
@@ -67,7 +67,7 @@ func Test_CosmosChainsController_Create(t *testing.T) {
 	assert.Equal(t, resource.ID, dbChain.ID)
 	assert.Equal(t, resource.Config.BlocksUntilTxTimeout, dbChain.Cfg.BlocksUntilTxTimeout)
 	assert.Equal(t, resource.Config.ConfirmPollPeriod, dbChain.Cfg.ConfirmPollPeriod)
-	assert.Equal(t, resource.Config.FallbackGasPriceULuna, dbChain.Cfg.FallbackGasPriceULuna)
+	assert.Equal(t, resource.Config.FallbackGasPriceUAtom, dbChain.Cfg.FallbackGasPriceUAtom)
 	assert.Equal(t, resource.Config.GasLimitMultiplier, dbChain.Cfg.GasLimitMultiplier)
 	assert.Equal(t, resource.Config.MaxMsgsPerBatch, dbChain.Cfg.MaxMsgsPerBatch)
 }
@@ -91,7 +91,7 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 					ID:      validId,
 					Enabled: true,
 					Cfg: db.ChainCfg{
-						FallbackGasPriceULuna: null.StringFrom("9.999"),
+						FallbackGasPriceUAtom: null.StringFrom("9.999"),
 						GasLimitMultiplier:    null.FloatFrom(1.55555),
 					},
 				}
@@ -118,7 +118,7 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 
 			controller := setupCosmosChainsControllerTestV2(t, &cosmos.CosmosConfig{ChainID: ptr(validId), Enabled: ptr(true),
 				Chain: coscfg.Chain{
-					FallbackGasPriceULuna: ptr(decimal.RequireFromString("9.999")),
+					FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
 					GasLimitMultiplier:    ptr(decimal.RequireFromString("1.55555")),
 				}})
 
@@ -135,7 +135,7 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Equal(t, resource1.ID, wantedResult.ID)
-				assert.Equal(t, resource1.Config.FallbackGasPriceULuna, wantedResult.Cfg.FallbackGasPriceULuna)
+				assert.Equal(t, resource1.Config.FallbackGasPriceUAtom, wantedResult.Cfg.FallbackGasPriceUAtom)
 				assert.Equal(t, resource1.Config.GasLimitMultiplier, wantedResult.Cfg.GasLimitMultiplier)
 			}
 		})
@@ -149,7 +149,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
-			FallbackGasPriceULuna: ptr(decimal.RequireFromString("9.999")),
+			FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
 	chainB := &cosmos.CosmosConfig{
@@ -185,7 +185,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	assert.Len(t, links, 1)
 	assert.Equal(t, *chainA.ChainID, chains[0].ID)
-	assert.Equal(t, chainA.Chain.FallbackGasPriceULuna.String(), chains[0].Config.FallbackGasPriceULuna.String)
+	assert.Equal(t, chainA.Chain.FallbackGasPriceUAtom.String(), chains[0].Config.FallbackGasPriceUAtom.String)
 	assert.Equal(t, chainA.Chain.GasLimitMultiplier.InexactFloat64(), chains[0].Config.GasLimitMultiplier.Float64)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
@@ -200,7 +200,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	assert.Len(t, links, 1)
 	assert.Equal(t, *chainB.ChainID, chains[0].ID)
-	assert.Equal(t, chainB.Chain.FallbackGasPriceULuna.String(), chains[0].Config.FallbackGasPriceULuna.String)
+	assert.Equal(t, chainB.Chain.FallbackGasPriceUAtom.String(), chains[0].Config.FallbackGasPriceUAtom.String)
 	assert.Equal(t, chainB.Chain.GasLimitMultiplier.InexactFloat64(), chains[0].Config.GasLimitMultiplier.Float64)
 }
 
@@ -211,7 +211,7 @@ func Test_CosmosChainsController_Update(t *testing.T) {
 	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
 		Config: &db.ChainCfg{
-			FallbackGasPriceULuna: null.StringFrom("9.999"),
+			FallbackGasPriceUAtom: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 		},
 	}
@@ -229,7 +229,7 @@ func Test_CosmosChainsController_Update(t *testing.T) {
 			name:    "success",
 			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				newChainConfig := db.ChainCfg{
-					FallbackGasPriceULuna: null.StringFrom("9.999"),
+					FallbackGasPriceUAtom: null.StringFrom("9.999"),
 					GasLimitMultiplier:    null.FloatFrom(1.55555),
 				}
 
@@ -281,7 +281,7 @@ func Test_CosmosChainsController_Update(t *testing.T) {
 
 				assert.Equal(t, resource1.ID, beforeUpdate.ID)
 				assert.Equal(t, resource1.Enabled, chainUpdate.Enabled)
-				assert.Equal(t, resource1.Config.FallbackGasPriceULuna, chainUpdate.Config.FallbackGasPriceULuna)
+				assert.Equal(t, resource1.Config.FallbackGasPriceUAtom, chainUpdate.Config.FallbackGasPriceUAtom)
 				assert.Equal(t, resource1.Config.GasLimitMultiplier, chainUpdate.Config.GasLimitMultiplier)
 			}
 		})
@@ -295,7 +295,7 @@ func Test_CosmosChainsController_Delete(t *testing.T) {
 	controller := setupCosmosChainsControllerTest(t)
 
 	newChainConfig := db.ChainCfg{
-		FallbackGasPriceULuna: null.StringFrom("9.999"),
+		FallbackGasPriceUAtom: null.StringFrom("9.999"),
 		GasLimitMultiplier:    null.FloatFrom(1.55555),
 	}
 

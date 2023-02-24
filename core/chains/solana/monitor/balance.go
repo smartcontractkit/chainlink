@@ -25,7 +25,7 @@ type Keystore interface {
 	GetAll() ([]solkey.Key, error)
 }
 
-// NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
+// NewBalanceMonitor returns a balance monitoring services.Service which reports the atom balance of all ks keys to prometheus.
 func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func() (solanaClient.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }

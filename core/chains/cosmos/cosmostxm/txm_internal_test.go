@@ -69,7 +69,7 @@ func TestTxm(t *testing.T) {
 	}, lggr)
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
-			"uluna": cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")),
+			"uatom": cosmostypes.NewDecCoinFromDec("uatom", cosmostypes.MustNewDecFromStr("0.01")),
 		}),
 	}, lggr)
 

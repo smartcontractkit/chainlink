@@ -597,7 +597,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockRate:             relayutils.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout:  ptr[int64](12),
 				ConfirmPollPeriod:     relayutils.MustNewDuration(time.Second),
-				FallbackGasPriceULuna: mustDecimal("0.001"),
+				FallbackGasPriceUAtom: mustDecimal("0.001"),
 				FCDURL:                relayutils.MustParseURL("http://cosmos.com"),
 				GasLimitMultiplier:    mustDecimal("1.2"),
 				MaxMsgsPerBatch:       ptr[int64](17),

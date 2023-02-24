@@ -56,7 +56,7 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.Address, "uluna")
+		coin, err := reader.Balance(from.Address, "uatom")
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -82,17 +82,17 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.Address, "uluna")
+			startBal, err := reader.Balance(from.Address, "uatom")
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
-			cltest.FlagSetApplyFromAction(client.CosmosSendLuna, set, "cosmos")
+			cltest.FlagSetApplyFromAction(client.CosmosSendAtom, set, "cosmos")
 
 			require.NoError(t, set.Set("id", chainID))
 			require.NoError(t, set.Parse([]string{tt.amount, from.Address.String(), to.Address.String()}))
 
 			c := cli.NewContext(cliapp, set, nil)
-			err = client.CosmosSendLuna(c)
+			err = client.CosmosSendAtom(c)
 			if tt.expErr == "" {
 				require.NoError(t, err)
 			} else {
@@ -141,11 +141,11 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 			}
 
 			// Check balance
-			endBal, err := reader.Balance(from.Address, "uluna")
+			endBal, err := reader.Balance(from.Address, "uatom")
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.ConvertToULuna(sdk.NewDecCoinFromDec("luna", sdk.MustNewDecFromStr(tt.amount)))
+				sent, err := denom.ConvertToUAtom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)))
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())

@@ -569,7 +569,7 @@ func ExampleRun_txs_cosmos() {
 	//    core.test txs cosmos command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Send <amount> Luna from node Cosmos account <fromAddress> to destination <toAddress>.
+	//    create  Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
 	//
 	// OPTIONS:
 	//    --help, -h  show help

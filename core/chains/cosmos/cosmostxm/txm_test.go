@@ -37,9 +37,9 @@ import (
 func TestTxm_Integration(t *testing.T) {
 	t.Skip("requires cosmosd")
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	fallbackGasPrice := sdk.NewDecCoinFromDec("uluna", sdk.MustNewDecFromStr("0.01"))
+	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	chain := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: coscfg.Chain{
-		FallbackGasPriceULuna: ptr(decimal.RequireFromString("0.01")),
+		FallbackGasPriceUAtom: ptr(decimal.RequireFromString("0.01")),
 		GasLimitMultiplier:    ptr(decimal.RequireFromString("1.5")),
 	}}
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "cosmos_txm", func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -49,7 +49,7 @@ func TestTxm_Integration(t *testing.T) {
 	logCfg := pgtest.NewQConfig(true)
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
-			"uluna": fallbackGasPrice,
+			"uatom": fallbackGasPrice,
 		}),
 	}, lggr)
 	orm := cosmostxm.NewORM(chainID, db, lggr, logCfg)
@@ -61,7 +61,7 @@ func TestTxm_Integration(t *testing.T) {
 	tc, err := cosmosclient.NewClient("42", tendermintURL, cosmos.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
-	// First create a transmitter key and fund it with 1k uluna
+	// First create a transmitter key and fund it with 1k uatom
 	require.NoError(t, ks.Unlock("blah"))
 	transmitterKey, err := ks.Cosmos().Create()
 	require.NoError(t, err)
@@ -69,8 +69,8 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
-	_, err = tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("uluna", 100000)))},
-		an, sn, gpe.GasPrices()["uluna"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+	_, err = tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("uatom", 100000)))},
+		an, sn, gpe.GasPrices()["uatom"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
 
 	// TODO: find a way to pull this test artifact from

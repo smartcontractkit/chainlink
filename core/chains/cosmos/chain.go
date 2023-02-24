@@ -68,7 +68,7 @@ func newChain(id string, cfg cosmos.Config, db *sqlx.DB, ks keystore.Cosmos, log
 		cosmosclient.NewCachingGasPriceEstimator(gpeFCD, lggr),
 		cosmosclient.NewClosureGasPriceEstimator(func() (map[string]sdk.DecCoin, error) {
 			return map[string]sdk.DecCoin{
-				"uluna": sdk.NewDecCoinFromDec("uluna", cfg.FallbackGasPriceULuna()),
+				"uatom": sdk.NewDecCoinFromDec("uatom", cfg.FallbackGasPriceUAtom()),
 			}, nil
 		}),
 	}, lggr)

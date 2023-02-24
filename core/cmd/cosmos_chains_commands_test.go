@@ -121,7 +121,7 @@ func TestClient_ConfigureCosmosChain(t *testing.T) {
 	minute, err := utils.NewDuration(time.Minute)
 	require.NoError(t, err)
 	original := db.ChainCfg{
-		FallbackGasPriceULuna: null.StringFrom("99.07"),
+		FallbackGasPriceUAtom: null.StringFrom("99.07"),
 		GasLimitMultiplier:    null.FloatFrom(1.111),
 		ConfirmPollPeriod:     &minute,
 	}
@@ -138,7 +138,7 @@ func TestClient_ConfigureCosmosChain(t *testing.T) {
 	require.NoError(t, set.Set("id", cosmosChainID))
 	require.NoError(t, set.Parse([]string{
 		"BlocksUntilTxTimeout=7",
-		"FallbackGasPriceULuna=\"9.999\"",
+		"FallbackGasPriceUAtom=\"9.999\"",
 		"GasLimitMultiplier=1.55555",
 	}))
 	c := cli.NewContext(nil, set, nil)
@@ -152,7 +152,7 @@ func TestClient_ConfigureCosmosChain(t *testing.T) {
 
 	assert.Equal(t, cosmosChainID, ch.ID)
 	assert.Equal(t, null.IntFrom(7), ch.Cfg.BlocksUntilTxTimeout)
-	assert.Equal(t, null.StringFrom("9.999"), ch.Cfg.FallbackGasPriceULuna)
+	assert.Equal(t, null.StringFrom("9.999"), ch.Cfg.FallbackGasPriceUAtom)
 	assert.Equal(t, null.FloatFrom(1.55555), ch.Cfg.GasLimitMultiplier)
 	assert.Equal(t, original.ConfirmPollPeriod, ch.Cfg.ConfirmPollPeriod)
 	assertTableRenders(t, r)
