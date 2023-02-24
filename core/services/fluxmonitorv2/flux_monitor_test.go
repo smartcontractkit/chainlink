@@ -1920,7 +1920,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Maybe()
 
 	require.NoError(t, fm.Start(testutils.Context(t)))
-	defer fm.Close()
+	defer func() { assert.NoError(t, fm.Close()) }()
 
 	waitTime := 15 * time.Second
 	interval := 50 * time.Millisecond

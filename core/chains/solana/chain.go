@@ -190,6 +190,10 @@ func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr lo
 	return &ch, nil
 }
 
+func (c *chain) Name() string {
+	return c.lggr.Name()
+}
+
 func (c *chain) ID() string {
 	return c.id
 }
@@ -316,4 +320,8 @@ func (c *chain) Healthy() error {
 		c.StartStopOnce.Healthy(),
 		c.txm.Healthy(),
 	)
+}
+
+func (c *chain) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
 }
