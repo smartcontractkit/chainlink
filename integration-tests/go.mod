@@ -16,7 +16,7 @@ require (
 	github.com/smartcontractkit/chainlink-env v0.3.15
 	github.com/smartcontractkit/chainlink-testing-framework v1.10.2
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.6.10-0.20230223233804-ce1d0fcda0ec
+	github.com/smartcontractkit/ocr2keepers v0.6.10-0.20230224171114-2fd842bd5876
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
 	github.com/stretchr/testify v1.8.1
 	github.com/umbracle/ethgo v0.1.3
