@@ -13,10 +13,10 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.12.1
 	github.com/smartcontractkit/chainlink v1.10.0
-	github.com/smartcontractkit/chainlink-env v0.3.15
+	github.com/smartcontractkit/chainlink-env v0.3.16
 	github.com/smartcontractkit/chainlink-testing-framework v1.10.2
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.6.10
+	github.com/smartcontractkit/ocr2keepers v0.6.12
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
 	github.com/stretchr/testify v1.8.1
 	github.com/umbracle/ethgo v0.1.3
@@ -231,8 +231,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20230118141007-0773f68325cd // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230125162500-4e7ec33e60db // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230221200635-404a44389f85 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be75fb81118 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

@@ -1896,7 +1896,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, false)
 
 		require.NoError(t, eb.Start(ctx))
-		defer eb.Close()
+		defer func() { assert.NoError(t, eb.Close()) }()
 
 		testutils.WaitForLogMessage(t, observed, "Skipping nonce auto-sync")
 	})
@@ -1911,7 +1911,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		})).Return(ethNodeNonce, nil).Once()
 
 		require.NoError(t, eb.Start(ctx))
-		defer eb.Close()
+		defer func() { assert.NoError(t, eb.Close()) }()
 
 		testutils.WaitForLogMessage(t, observed, "Fast-forwarded nonce")
 
@@ -1943,7 +1943,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		})).Return(ethNodeNonce, nil).Once()
 
 		require.NoError(t, eb.Start(ctx))
-		defer eb.Close()
+		defer func() { assert.NoError(t, eb.Close()) }()
 
 		testutils.WaitForLogMessage(t, observed, "Fast-forwarded nonce")
 

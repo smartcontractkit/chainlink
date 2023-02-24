@@ -152,7 +152,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, btORM, config, cc, nil, nil, lggr, nil, nil)
-		defer runner.Close()
+
 		jobORM := NewTestORM(t, db, cc, orm, btORM, keyStore, cfg)
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
