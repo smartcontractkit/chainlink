@@ -172,7 +172,9 @@ func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
 func (oc *contractTransmitter) Close() error                    { return nil }
 
 // Has no state/lifecycle so it's always healthy and ready
-func (oc *contractTransmitter) Healthy() error                 { return nil }
-func (oc *contractTransmitter) Ready() error                   { return nil }
-func (oc *contractTransmitter) HealthReport() map[string]error { return map[string]error{} }
-func (oc *contractTransmitter) Name() string                   { return "" }
+func (oc *contractTransmitter) Healthy() error { return nil }
+func (oc *contractTransmitter) Ready() error   { return nil }
+func (oc *contractTransmitter) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): oc.Healthy()}
+}
+func (oc *contractTransmitter) Name() string { return "" }

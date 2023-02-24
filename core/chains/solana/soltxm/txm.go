@@ -533,4 +533,4 @@ func (txm *Txm) Ready() error {
 	return nil
 }
 
-func (txm *Txm) HealthReport() map[string]error { return map[string]error{} }
+func (txm *Txm) HealthReport() map[string]error { return map[string]error{txm.Name(): txm.Healthy()} }
