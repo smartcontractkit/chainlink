@@ -211,7 +211,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA.jobID = jobSpecIDA
 
 		require.NoError(t, spawner.Start(testutils.Context(t)))
-		defer spawner.Close()
+		defer func() { assert.NoError(t, spawner.Close()) }()
 
 		eventuallyStart.AwaitOrFail(t)
 
