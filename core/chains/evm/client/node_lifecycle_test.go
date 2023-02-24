@@ -110,7 +110,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return
 		})
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -128,7 +128,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		syncTimeoutsDisabledCfg := TestNodeConfig{PollFailureThreshold: 3, PollInterval: testutils.TestInterval}
 		n := newTestNode(t, syncTimeoutsDisabledCfg)
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -162,7 +162,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -180,7 +180,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		pollDisabledCfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
 		n := newTestNodeWithCallback(t, pollDisabledCfg, func(string, gjson.Result) (resp testutils.JSONRPCResponse) { return })
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		_, err := n.EthSubscribe(testutils.Context(t), make(chan *evmtypes.Head))
 		assert.Error(t, err)
@@ -225,7 +225,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		n := iN.(*node)
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -271,7 +271,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		n := iN.(*node)
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -309,7 +309,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		n := iN.(*node)
 		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -357,7 +357,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		}
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -419,7 +419,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		}
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -478,7 +478,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		}
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -531,7 +531,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n := newTestNodeWithCallback(t, cfg, func(string, gjson.Result) (resp testutils.JSONRPCResponse) { return })
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 
@@ -561,7 +561,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
@@ -608,7 +608,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		start(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num < 43 })
@@ -666,7 +666,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		start(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.outOfSyncLoop(n.isOutOfSync)
@@ -720,7 +720,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.outOfSyncLoop(func(num int64, td *utils.Big) bool { return num == 0 })
@@ -756,7 +756,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
 		start(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
 
@@ -773,7 +773,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
 		n := iN.(*node)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		start(t, n)
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
@@ -792,7 +792,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
 		iN := NewNode(cfg, lggr, *testutils.MustParseURL(t, "ws://test.invalid"), nil, "test node", 0, big.NewInt(42))
 		n := iN.(*node)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		start(t, n)
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
@@ -827,7 +827,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		n.setState(NodeStateInvalidChainID)
 		n.wg.Add(1)
 
@@ -844,7 +844,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
 		n := iN.(*node)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		dial(t, n)
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
