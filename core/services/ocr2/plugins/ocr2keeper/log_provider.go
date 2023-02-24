@@ -376,7 +376,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugi
 		}
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("upkeep %s not found in tx hash %s", id, txHash)
 }
 
 type performed struct {
