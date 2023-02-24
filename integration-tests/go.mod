@@ -2,6 +2,10 @@ module github.com/smartcontractkit/chainlink/integration-tests
 
 go 1.20
 
+replace github.com/smartcontractkit/chainlink-env => /Users/lukasz/Documents/smartcontractkit/chainlink-env
+
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/lukasz/Documents/smartcontractkit/chainlink-testing-framework
+
 require (
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-resty/resty/v2 v2.7.0
