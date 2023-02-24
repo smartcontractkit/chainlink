@@ -11,10 +11,10 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/terra.go/msg"
 	"github.com/stretchr/testify/require"
 
 	cosmosclient "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client"
@@ -65,11 +65,11 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, ks.Unlock("blah"))
 	transmitterKey, err := ks.Cosmos().Create()
 	require.NoError(t, err)
-	transmitterID, err := msg.AccAddressFromBech32(transmitterKey.PublicKeyStr())
+	transmitterID, err := sdk.AccAddressFromBech32(transmitterKey.PublicKeyStr())
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
-	_, err = tc.SignAndBroadcast([]msg.Msg{msg.NewMsgSend(accounts[0].Address, transmitterID, msg.NewCoins(msg.NewInt64Coin("uluna", 100000)))},
+	_, err = tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("uluna", 100000)))},
 		an, sn, gpe.GasPrices()["uluna"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
 
