@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	pluginevm "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
-	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/chain"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	pluginchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -22,14 +26,20 @@ import (
 )
 
 type LogProvider struct {
-	logger          logger.Logger
-	logPoller       logpoller.LogPoller
-	FilterName      string
-	registryAddress common.Address
-	lookbackBlocks  int64
-	registry        *registry.KeeperRegistry
-	client          evmclient.Client
-	packer          *pluginevm.EvmRegistryPackerV2_0
+	sync              utils.StartStopOnce
+	mu                sync.RWMutex
+	runState          int
+	runError          error
+	logger            logger.Logger
+	logPoller         logpoller.LogPoller
+	FilterName        string
+	registryAddress   common.Address
+	lookbackBlocks    int64
+	registry          *registry.KeeperRegistry
+	client            evmclient.Client
+	packer            *pluginevm.EvmRegistryPackerV2_0
+	txCheckBlockCache *pluginutils.Cache[string]
+	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
 var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
@@ -71,15 +81,60 @@ func NewLogProvider(
 	}
 
 	return &LogProvider{
-		logger:          logger,
-		logPoller:       logPoller,
-		FilterName:      filterName,
-		registryAddress: registryAddress,
-		lookbackBlocks:  lookbackBlocks,
-		registry:        contract,
-		client:          client,
-		packer:          pluginevm.NewEvmRegistryPackerV2_0(abi),
+		logger:            logger,
+		logPoller:         logPoller,
+		FilterName:        filterName,
+		registryAddress:   registryAddress,
+		lookbackBlocks:    lookbackBlocks,
+		registry:          contract,
+		client:            client,
+		packer:            pluginevm.NewEvmRegistryPackerV2_0(abi),
+		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
+		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil
+}
+
+func (c *LogProvider) Start(ctx context.Context) error {
+	return c.sync.StartOnce("AutomationLogProvider", func() error {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		go c.cacheCleaner.Run(c.txCheckBlockCache)
+		c.runState = 1
+		return nil
+	})
+}
+
+func (c *LogProvider) Close() error {
+	return c.sync.StopOnce("AutomationRegistry", func() error {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		c.cacheCleaner.Stop()
+		c.runState = 0
+		c.runError = nil
+		return nil
+	})
+}
+
+func (c *LogProvider) Ready() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.runState == 1 {
+		return nil
+	}
+	return c.sync.Ready()
+}
+
+func (c *LogProvider) Healthy() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.runState > 1 {
+		return fmt.Errorf("failed run state: %w", c.runError)
+	}
+	return c.sync.Healthy()
 }
 
 func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog, error) {
@@ -112,8 +167,8 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 	for _, p := range performed {
 		// broadcast log to subscribers
 		l := plugintypes.PerformLog{
-			Key:             pluginutils.NewUpkeepKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
-			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
+			Key:             pluginchain.NewUpkeepKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
+			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
 			TransactionHash: p.TxHash.Hex(),
 			Confirmations:   end - p.BlockNumber,
 		}
@@ -195,8 +250,8 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 			continue
 		}
 		l := plugintypes.StaleReportLog{
-			Key:             pluginutils.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
-			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+			Key:             pluginchain.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
+			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -210,8 +265,8 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 			continue
 		}
 		l := plugintypes.StaleReportLog{
-			Key:             pluginutils.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
-			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+			Key:             pluginchain.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
+			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -225,8 +280,8 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 			continue
 		}
 		l := plugintypes.StaleReportLog{
-			Key:             pluginutils.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
-			TransmitBlock:   pluginutils.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+			Key:             pluginchain.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
+			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -351,7 +406,13 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
 // so this function should not be used heavily
 func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugintypes.UpkeepIdentifier) (plugintypes.BlockKey, error) {
-	// TODO: add a cache over this
+	// Check if value already exists in cache for txHash, id pair
+	cacheKey := txHash.String() + "|" + string(id)
+	val, ok := c.txCheckBlockCache.Get(cacheKey)
+	if ok {
+		return pluginchain.BlockKey(val), nil
+	}
+
 	var tx gethtypes.Transaction
 	err := c.client.CallContext(context.Background(), &tx, "eth_getTransactionByHash", txHash)
 	if err != nil {
@@ -371,6 +432,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugi
 			return nil, err
 		}
 		if string(ui) == string(id) {
+			c.txCheckBlockCache.Set(cacheKey, bl.String(), pluginutils.DefaultCacheExpiration)
 			return bl, nil
 		}
 	}
