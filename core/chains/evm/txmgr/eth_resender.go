@@ -71,7 +71,6 @@ func (er *EthResender) Start() {
 // Stop is a comment which satisfies the linter
 func (er *EthResender) Stop() {
 	er.cancel()
-	er.orm.Close()
 	<-er.chDone
 }
 

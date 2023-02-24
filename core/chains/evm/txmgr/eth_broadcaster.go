@@ -182,7 +182,6 @@ func (eb *EthBroadcaster) Close() error {
 		}
 
 		close(eb.chStop)
-		eb.orm.Close()
 		eb.wg.Wait()
 		return nil
 	})
