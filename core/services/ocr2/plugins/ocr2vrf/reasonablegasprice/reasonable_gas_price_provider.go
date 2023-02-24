@@ -12,7 +12,7 @@ import (
 
 // reasonableGasPriceProvider provides an estimate for the average gas price
 type reasonableGasPriceProvider struct {
-	estimator          gas.Estimator
+	estimator          gas.FeeEstimator
 	timeout            time.Duration
 	maxGasPrice        *assets.Wei
 	supportsDynamicFee bool
@@ -21,7 +21,7 @@ type reasonableGasPriceProvider struct {
 var _ types.ReasonableGasPrice = (*reasonableGasPriceProvider)(nil)
 
 func NewReasonableGasPriceProvider(
-	estimator gas.Estimator,
+	estimator gas.FeeEstimator,
 	timeout time.Duration,
 	maxGasPrice *assets.Wei,
 	supportsDynamicFee bool,

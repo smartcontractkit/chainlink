@@ -51,7 +51,7 @@ type UpkeepExecuter struct {
 	config                 Config
 	executionQueue         chan struct{}
 	headBroadcaster        httypes.HeadBroadcasterRegistry
-	gasEstimator           gas.Estimator
+	gasEstimator           gas.FeeEstimator
 	job                    job.Job
 	mailbox                *utils.Mailbox[*evmtypes.Head]
 	orm                    ORM
@@ -69,7 +69,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	gasEstimator gas.Estimator,
+	gasEstimator gas.FeeEstimator,
 	logger logger.Logger,
 	config Config,
 	effectiveKeeperAddress common.Address,
