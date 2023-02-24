@@ -112,31 +112,6 @@ func BenchmarkBlockHistoryEstimator_withNil_Marshal_Codec(b *testing.B) {
 	}
 }
 
-/*
-	func BenchmarkBlockHistoryEstimator_Marshal_EasyJSON(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			bt, err := easyjson.Marshal(&static)
-			if err != nil {
-				b.Fatalf("err %+v", err)
-			}
-			if bt == nil {
-				b.Fatal("nil buf")
-			}
-		}
-	}
-
-	func BenchmarkBlockHistoryEstimator_withNil_Marshal_EasyJSON(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			bt, err := easyjson.Marshal(&staticWithNil)
-			if err != nil {
-				b.Fatalf("err %+v", err)
-			}
-			if bt == nil {
-				b.Fatal("nil buf")
-			}
-		}
-	}
-*/
 func ptr[T any](t T) *T {
 	return &t
 }
