@@ -44,6 +44,9 @@ type DBNodeSet[I ID, N Node] interface {
 type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
 	services.ServiceCtx
 
+	Name() string
+	HealthReport() map[string]error
+
 	DBChainSet[I, C]
 
 	DBNodeSet[I, N]
@@ -354,4 +357,12 @@ func (c *chainSet[I, C, N, S]) Healthy() (err error) {
 		err = multierr.Combine(err, c.Healthy())
 	}
 	return
+}
+
+func (c *chainSet[I, C, N, S]) Name() string {
+	return c.lggr.Name()
+}
+
+func (c *chainSet[I, C, N, S]) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
 }
