@@ -436,13 +436,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Notify Slack
         if: always()
+        id: slack
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+          slack-message: "Test Result for ${{ matrix.testnet }} is ${{ job.status }}"
         env:
-          SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
-          SLACK_USERNAME: Chainlink Live Release Tester
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: Test
-          SLACK_MESSAGE: "Result for OCR Smoke Test on ${{ matrix.testnet }} is ${{ job.status }}"
-        uses: rtCamp/action-slack-notify@12e36fc
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
       - name: Collect Metrics
         if: always()
