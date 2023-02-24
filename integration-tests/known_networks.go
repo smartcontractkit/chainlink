@@ -64,7 +64,7 @@ var (
 	}
 
 	SimulatedEVMNonDev = blockchain.EVMNetwork{
-		Name:                 "simulated",
+		Name:                 "geth",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
 		ChainID:              1337,
