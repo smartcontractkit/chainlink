@@ -28,7 +28,7 @@ func IsBumpErr(err error) bool {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Estimator {
+func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) FeeEstimator {
 	s := cfg.GasEstimatorMode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
 		"estimatorMode", s,
@@ -51,16 +51,16 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 	)
 	switch s {
 	case "Arbitrum":
-		return NewArbitrumEstimator(lggr, cfg, ethClient, ethClient)
+		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, cfg, ethClient, ethClient), cfg)
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
+		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID()), cfg)
 	case "FixedPrice":
-		return NewFixedPriceEstimator(cfg, lggr)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(cfg, lggr), cfg)
 	case "Optimism2", "L2Suggested":
-		return NewL2SuggestedPriceEstimator(lggr, ethClient)
+		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), cfg)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewFixedPriceEstimator(cfg, lggr)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(cfg, lggr), cfg)
 	}
 }
 
@@ -104,6 +104,69 @@ type Estimator interface {
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
 	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
+}
+
+type EvmFee struct {
+	Legacy  *assets.Wei
+	Dynamic *DynamicFee
+}
+
+type FeeEstimator interface {
+	OnNewLongestChain(context.Context, *evmtypes.Head)
+	Start(context.Context) error
+	Close() error
+
+	GetFee(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (fee EvmFee, chainSpecificGasLimit uint32, err error)
+	BumpFee(ctx context.Context, originalFee EvmFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedFee EvmFee, chainSpecificGasLimit uint32, err error)
+}
+
+type WrappedEvmEstimator struct {
+	Estimator
+	EIP1559Enabled bool
+}
+
+var _ FeeEstimator = (*WrappedEvmEstimator)(nil)
+
+func NewWrappedEvmEstimator(e Estimator, cfg Config) FeeEstimator {
+	return &WrappedEvmEstimator{
+		Estimator:      e,
+		EIP1559Enabled: cfg.EvmEIP1559DynamicFees(),
+	}
+}
+
+func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (fee EvmFee, chainSpecificGasLimit uint32, err error) {
+	// get dynamic fee
+	if e.EIP1559Enabled {
+		var dynamicFee DynamicFee
+		dynamicFee, chainSpecificGasLimit, err = e.Estimator.GetDynamicFee(ctx, gasLimit, maxGasPriceWei)
+		fee.Dynamic = &dynamicFee
+		return
+	}
+
+	// get legacy fee
+	fee.Legacy, chainSpecificGasLimit, err = e.Estimator.GetLegacyGas(ctx, calldata, gasLimit, maxGasPriceWei, opts...)
+	return
+}
+
+func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedFee EvmFee, chainSpecificGasLimit uint32, err error) {
+	// validate only 1 fee type is present
+	if (originalFee.Dynamic == nil && originalFee.Legacy == nil) || (originalFee.Dynamic != nil && originalFee.Legacy != nil) {
+		err = errors.New("only one dynamic or legacy fee can be defined")
+		return
+	}
+
+	// bump fee based on what fee the tx has previously used (not based on config)
+	// bump dynamic original
+	if originalFee.Dynamic != nil {
+		var bumpedDynamic DynamicFee
+		bumpedDynamic, chainSpecificGasLimit, err = e.Estimator.BumpDynamicFee(ctx, *originalFee.Dynamic, gasLimit, maxGasPriceWei, attempts)
+		bumpedFee.Dynamic = &bumpedDynamic
+		return
+	}
+
+	// bump legacy fee
+	bumpedFee.Legacy, chainSpecificGasLimit, err = e.Estimator.BumpLegacyGas(ctx, originalFee.Legacy, gasLimit, maxGasPriceWei, attempts)
+	return
 }
 
 // Opt is an option for a gas estimator

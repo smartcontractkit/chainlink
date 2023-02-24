@@ -117,7 +117,7 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      gas.Estimator
+	estimator      gas.FeeEstimator
 	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
@@ -131,8 +131,8 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+func NewEthConfirmer(orm ORM ethClient evmclient.Client, config Config, keystore KeyStore,
+	keyStates []ethkey.State, estimator gas.FeeEstimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -769,23 +769,23 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	switch previousAttempt.TxType {
 	case 0x0: // Legacy
-		var bumpedGasPrice *assets.Wei
+		var bumpedFee gas.EvmFee
 		var bumpedGasLimit uint32
-		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(ctx, previousAttempt.GasPrice, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpFee(ctx, gas.EvmFee{Legacy: previousAttempt.GasPrice}, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
-			return ec.NewLegacyAttempt(etx, bumpedGasPrice, bumpedGasLimit)
+			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedFee.Legacy.String())...)
+			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedGasLimit)
 		}
 	case 0x2: // EIP1559
-		var bumpedFee gas.DynamicFee
+		var bumpedFee gas.EvmFee
 		var bumpedGasLimit uint32
 		original := previousAttempt.DynamicFee()
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(ctx, original, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpFee(ctx, gas.EvmFee{Dynamic: &original}, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
-			return ec.NewDynamicFeeAttempt(etx, bumpedFee, bumpedGasLimit)
+			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.Dynamic.TipCap.String(), "bumpedFeeCap", bumpedFee.Dynamic.FeeCap.String())...)
+			return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedGasLimit)
 		}
 	default:
 		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
