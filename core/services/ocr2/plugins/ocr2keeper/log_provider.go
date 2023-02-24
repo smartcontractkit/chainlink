@@ -4,16 +4,22 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	evmtypes "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 type LogProvider struct {
@@ -23,6 +29,8 @@ type LogProvider struct {
 	registryAddress common.Address
 	lookbackBlocks  int64
 	registry        *registry.KeeperRegistry
+	client          evmclient.Client
+	packer          *evmtypes.EvmRegistryPackerV2_0
 }
 
 var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
@@ -40,6 +48,11 @@ func NewLogProvider(
 	contract, err := registry.NewKeeperRegistry(common.HexToAddress("0x"), client)
 	if err != nil {
 		return nil, err
+	}
+
+	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", evmtypes.ErrABINotParsable, err)
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
@@ -65,6 +78,8 @@ func NewLogProvider(
 		registryAddress: registryAddress,
 		lookbackBlocks:  lookbackBlocks,
 		registry:        contract,
+		client:          client,
+		packer:          evmtypes.NewEvmRegistryPackerV2_0(abi),
 	}, nil
 }
 
@@ -314,6 +329,35 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 	}
 
 	return results, nil
+}
+
+// Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
+// so this function should not be used heavily
+func (c *LogProvider) getCheckBlockNumberForUpkeep(txHash common.Hash, id plugintypes.UpkeepIdentifier) (plugintypes.BlockKey, error) {
+	var tx gethtypes.Transaction
+	err := c.client.CallContext(context.Background(), &tx, "eth_getTransactionByHash", txHash)
+	if err != nil {
+		return nil, err
+	}
+	txData := tx.Data()
+	if len(txData) < 4 {
+		return nil, fmt.Errorf("error in getCheckBlockNumberForUpkeep, got invalid tx data %s", txData)
+	}
+	decodedReport, err := c.packer.UnpackTransmitTxInput(txData[4:]) // Remove first 4 bytes of function signature
+	if err != nil {
+		return nil, err
+	}
+	for _, upkeep := range decodedReport {
+		bl, ui, err := upkeep.Key.BlockKeyAndUpkeepID()
+		if err != nil {
+			return nil, err
+		}
+		if string(ui) == string(id) {
+			return bl, nil
+		}
+	}
+
+	return nil, nil
 }
 
 type performed struct {
