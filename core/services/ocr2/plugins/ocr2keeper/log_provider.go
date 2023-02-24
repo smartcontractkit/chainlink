@@ -352,6 +352,7 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
 // so this function should not be used heavily
 func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugintypes.UpkeepIdentifier) (plugintypes.BlockKey, error) {
+	// TODO: add a cache over this
 	var tx gethtypes.Transaction
 	err := c.client.CallContext(context.Background(), &tx, "eth_getTransactionByHash", txHash)
 	if err != nil {
