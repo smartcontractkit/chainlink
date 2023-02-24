@@ -54,6 +54,10 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 	return ch, nil
 }
 
+func (c *chain) Name() string {
+	return c.lggr.Name()
+}
+
 func (c *chain) Config() config.Config {
 	return c.cfg
 }
@@ -107,10 +111,6 @@ func (c *chain) getClient() (*starknet.Client, error) {
 	}
 	c.lggr.Debugw("Created client", "name", node.Name, "starknet-url", node.URL)
 	return client, nil
-}
-
-func (c *chain) Name() string {
-	return c.lggr.Name()
 }
 
 func (c *chain) Start(ctx context.Context) error {
