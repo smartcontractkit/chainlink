@@ -29,8 +29,8 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = false
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	})
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 
@@ -82,8 +82,8 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = false
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
@@ -121,7 +121,7 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = false
-		c.EVM[0].Enabled = ptr(false)
+		c.EVM[0].Enabled = testutils.Ptr(false)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
@@ -156,9 +156,9 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
+		c.EVM[0].GasEstimator.Mode = testutils.Ptr("FixedPrice")
 	})
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
@@ -209,7 +209,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	})
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)

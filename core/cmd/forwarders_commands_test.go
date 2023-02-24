@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -68,7 +69,7 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = id
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = testutils.Ptr(true)
 	})
 	client, r := app.NewClientAndRenderer()
 
@@ -113,7 +114,7 @@ func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = id
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = testutils.Ptr(true)
 	})
 	client, _ := app.NewClientAndRenderer()
 
@@ -132,7 +133,7 @@ func TestClient_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = testutils.Ptr(true)
 	})
 	client, _ := app.NewClientAndRenderer()
 

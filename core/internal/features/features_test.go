@@ -81,7 +81,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		c.JobPipeline.ExternalInitiatorsEnabled = testutils.Ptr(true)
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
 	})
 
@@ -353,7 +353,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// in a single callback.
 			config := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
-				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
 			})
 			operatorContracts := setupOperatorContracts(t)
 			b := operatorContracts.sim
@@ -671,33 +671,33 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.OCR.Enabled = ptr(true)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.OCR2.Enabled = testutils.Ptr(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
+		c.P2P.PeerID = testutils.Ptr(p2pKey.PeerID())
 		switch ns {
 		case ocrnetworking.NetworkingStackV1:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(false)
+			c.P2P.V1.Enabled = testutils.Ptr(true)
+			c.P2P.V2.Enabled = testutils.Ptr(false)
 			// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
 			// we'll flood it with messages and slow things down. 5s is about how long it takes the
 			// bootstrap node to come up.
 			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
+			c.P2P.V1.ListenPort = testutils.Ptr(uint16(portV1))
 
 		case ocrnetworking.NetworkingStackV2:
-			c.P2P.V1.Enabled = ptr(false)
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V1.Enabled = testutils.Ptr(false)
+			c.P2P.V2.Enabled = testutils.Ptr(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 
 		case ocrnetworking.NetworkingStackV1V2:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V1.Enabled = testutils.Ptr(true)
+			c.P2P.V2.Enabled = testutils.Ptr(true)
 			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
 			// Note v1 and v2 ports must be distinct,
 			// v1v2 mode will listen on both.
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
+			c.P2P.V1.ListenPort = testutils.Ptr(uint16(portV1))
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 		}
@@ -753,38 +753,38 @@ func setupForwarderEnabledNode(
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.OCR.Enabled = ptr(true)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.OCR2.Enabled = testutils.Ptr(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
+		c.P2P.PeerID = testutils.Ptr(p2pKey.PeerID())
 		switch ns {
 		case ocrnetworking.NetworkingStackV1:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(false)
+			c.P2P.V1.Enabled = testutils.Ptr(true)
+			c.P2P.V2.Enabled = testutils.Ptr(false)
 			// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
 			// we'll flood it with messages and slow things down. 5s is about how long it takes the
 			// bootstrap node to come up.
 			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
+			c.P2P.V1.ListenPort = testutils.Ptr(uint16(portV1))
 
 		case ocrnetworking.NetworkingStackV2:
-			c.P2P.V1.Enabled = ptr(false)
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V1.Enabled = testutils.Ptr(false)
+			c.P2P.V2.Enabled = testutils.Ptr(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 
 		case ocrnetworking.NetworkingStackV1V2:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V1.Enabled = testutils.Ptr(true)
+			c.P2P.V2.Enabled = testutils.Ptr(true)
 			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
 			// Note v1 and v2 ports must be distinct,
 			// v1v2 mode will listen on both.
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
+			c.P2P.V1.ListenPort = testutils.Ptr(uint16(portV1))
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 		}
 
-		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
+		c.EVM[0].Transactions.ForwardersEnabled = testutils.Ptr(true)
 
 		if overrides != nil {
 			overrides(c, s)
@@ -867,8 +867,8 @@ func TestIntegration_OCR(t *testing.T) {
 				portV1 := bootstrapNodePortV1 + i + 1
 				portV2 := bootstrapNodePortV2 + i + 1
 				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, test.id), b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
-					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
+					c.EVM[0].FlagsContractAddress = testutils.Ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
+					c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(test.eip1559)
 					if test.ns != ocrnetworking.NetworkingStackV1 {
 						c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
 							{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
@@ -1090,9 +1090,9 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			portV1 := bootstrapNodePortV1 + i + 1
 			portV2 := bootstrapNodePortV2 + i + 1
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, 1), b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.Feature.LogPoller = ptr(true)
-				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
-				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+				c.Feature.LogPoller = testutils.Ptr(true)
+				c.EVM[0].FlagsContractAddress = testutils.Ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
 				c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
 					{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
 				}
@@ -1300,13 +1300,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(10 * initialDefaultGasPrice)
 
 	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](0)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
+		c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = testutils.Ptr[uint16](0)
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWeiI(initialDefaultGasPrice)
-		c.EVM[0].GasEstimator.Mode = ptr("BlockHistory")
-		c.EVM[0].RPCBlockQueryDelay = ptr[uint16](0)
-		c.EVM[0].GasEstimator.BlockHistory.BlockHistorySize = ptr[uint16](2)
-		c.EVM[0].FinalityDepth = ptr[uint32](3)
+		c.EVM[0].GasEstimator.Mode = testutils.Ptr("BlockHistory")
+		c.EVM[0].RPCBlockQueryDelay = testutils.Ptr[uint16](0)
+		c.EVM[0].GasEstimator.BlockHistory.BlockHistorySize = testutils.Ptr[uint16](2)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](3)
 	})
 
 	ethClient := cltest.NewEthMocks(t)
@@ -1428,5 +1428,3 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 	require.NoError(t, err)
 	assert.True(t, jpy.Cmp(haveJpy) == 0)
 }
-
-func ptr[T any](v T) *T { return &v }

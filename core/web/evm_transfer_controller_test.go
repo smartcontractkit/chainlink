@@ -113,7 +113,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)

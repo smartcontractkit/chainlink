@@ -96,7 +96,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	}
 
 	globalConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.LogQueries = ptr(true)
+		c.Database.LogQueries = testutils.Ptr(true)
 		finality := uint32(10)
 		c.EVM[0].FinalityDepth = &finality
 

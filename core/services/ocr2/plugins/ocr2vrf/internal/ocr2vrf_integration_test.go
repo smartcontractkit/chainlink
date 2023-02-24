@@ -234,11 +234,11 @@ func setupNodeOCR2(
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = testutils.Ptr(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V1.Enabled = ptr(false)
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.PeerID = testutils.Ptr(p2pKey.PeerID())
+		c.P2P.V1.Enabled = testutils.Ptr(false)
+		c.P2P.V2.Enabled = testutils.Ptr(true)
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
@@ -246,11 +246,11 @@ func setupNodeOCR2(
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(false)
+		c.OCR2.Enabled = testutils.Ptr(true)
 
 		c.EVM[0].LogPollInterval = models.MustNewDuration(500 * time.Millisecond)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = testutils.Ptr[uint32](3_500_000)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
 		c.OCR2.ContractPollInterval = models.MustNewDuration(10 * time.Second)
 	})
@@ -773,5 +773,3 @@ func getFreePort(t *testing.T) uint16 {
 
 	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
-
-func ptr[T any](v T) *T { return &v }

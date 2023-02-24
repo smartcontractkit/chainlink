@@ -410,9 +410,9 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	logger := logger.TestLogger(t)
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
+		c.EVM[0].HeadTracker.MaxBufferSize = testutils.Ptr[uint32](100)
 		c.EVM[0].HeadTracker.SamplingInterval = models.MustNewDuration(2500 * time.Millisecond)
 	})
 
@@ -541,9 +541,9 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	logger := logger.TestLogger(t)
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
+		c.EVM[0].HeadTracker.MaxBufferSize = testutils.Ptr[uint32](100)
 		c.EVM[0].HeadTracker.SamplingInterval = models.MustNewDuration(0)
 	})
 
@@ -1050,5 +1050,3 @@ func (u *headTrackerUniverse) Stop(t *testing.T) {
 	require.NoError(t, u.headTracker.Close())
 	require.NoError(t, u.mailMon.Close())
 }
-
-func ptr[T any](t T) *T { return &t }

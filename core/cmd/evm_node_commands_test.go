@@ -42,10 +42,10 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 
 	chainID := newRandChainID()
 	node := evmcfg.Node{
-		Name:     ptr("Test node"),
+		Name:     testutils.Ptr("Test node"),
 		WSURL:    models.MustParseURL("ws://localhost:8546"),
 		HTTPURL:  models.MustParseURL("http://localhost:8546"),
-		SendOnly: ptr(false),
+		SendOnly: testutils.Ptr(false),
 	}
 	chain := evmcfg.EVMConfig{
 		ChainID: chainID,

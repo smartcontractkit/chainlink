@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -285,7 +286,7 @@ func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = testutils.Ptr(true)
 	})
 	client, r := app.NewClientAndRenderer()
 
@@ -311,7 +312,7 @@ func TestClient_ShowJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = testutils.Ptr(true)
 	})
 	client, r := app.NewClientAndRenderer()
 
@@ -341,13 +342,13 @@ func TestClient_CreateJobV2(t *testing.T) {
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Enabled = testutils.Ptr(true)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
+		c.EVM[0].GasEstimator.Mode = testutils.Ptr("FixedPrice")
 	}, func(opts *startOptions) {
 		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})
@@ -376,10 +377,10 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Enabled = testutils.Ptr(true)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
+		c.EVM[0].GasEstimator.Mode = testutils.Ptr("FixedPrice")
 	})
 	client, r := app.NewClientAndRenderer()
 

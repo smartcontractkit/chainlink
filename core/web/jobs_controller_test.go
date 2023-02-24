@@ -474,8 +474,8 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
@@ -530,8 +530,8 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 
 func TestJobsController_Update_NonExistentID(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
@@ -615,8 +615,8 @@ func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.QConfig) (b1, b2 string) {
 
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
@@ -631,8 +631,8 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)

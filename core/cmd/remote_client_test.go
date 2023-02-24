@@ -179,10 +179,10 @@ func deleteKeyExportFile(t *testing.T) {
 func TestClient_ReplayBlocks(t *testing.T) {
 	t.Parallel()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Enabled = testutils.Ptr(true)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
+		c.EVM[0].GasEstimator.Mode = testutils.Ptr("FixedPrice")
 	})
 	client, _ := app.NewClientAndRenderer()
 
@@ -700,11 +700,11 @@ func TestClient_ConfigDump(t *testing.T) {
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.EVM[0].Enabled = testutils.Ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.Mode = testutils.Ptr("FixedPrice")
 	}, func(opts *startOptions) {
 		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})

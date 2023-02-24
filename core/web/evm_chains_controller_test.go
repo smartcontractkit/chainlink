@@ -79,17 +79,17 @@ func Test_EVMChainsController_Show(t *testing.T) {
 			name:    "success",
 			want: &evmcfg.EVMConfig{
 				ChainID: validId,
-				Enabled: ptr(true),
+				Enabled: testutils.Ptr(true),
 				Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
-						EIP1559DynamicFees: ptr(true),
+						EIP1559DynamicFees: testutils.Ptr(true),
 						BlockHistory: evmcfg.BlockHistoryEstimator{
-							BlockHistorySize: ptr[uint16](50),
+							BlockHistorySize: testutils.Ptr[uint16](50),
 						},
 					},
-					RPCBlockQueryDelay:       ptr[uint16](23),
-					MinIncomingConfirmations: ptr[uint32](12),
-					LinkContractAddress:      ptr(ethkey.EIP55AddressFromAddress(testutils.NewAddress())),
+					RPCBlockQueryDelay:       testutils.Ptr[uint16](23),
+					MinIncomingConfirmations: testutils.Ptr[uint32](12),
+					LinkContractAddress:      testutils.Ptr(ethkey.EIP55AddressFromAddress(testutils.NewAddress())),
 				}),
 			},
 			wantStatusCode: http.StatusOK,
@@ -151,27 +151,27 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		{
 			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
 			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
-				RPCBlockQueryDelay: ptr[uint16](13),
+				RPCBlockQueryDelay: testutils.Ptr[uint16](13),
 				GasEstimator: evmcfg.GasEstimator{
-					EIP1559DynamicFees: ptr(true),
+					EIP1559DynamicFees: testutils.Ptr(true),
 					BlockHistory: evmcfg.BlockHistoryEstimator{
-						BlockHistorySize: ptr[uint16](1),
+						BlockHistorySize: testutils.Ptr[uint16](1),
 					},
 				},
-				MinIncomingConfirmations: ptr[uint32](120),
+				MinIncomingConfirmations: testutils.Ptr[uint32](120),
 			}),
 		},
 		{
 			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
 			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
-				RPCBlockQueryDelay: ptr[uint16](5),
+				RPCBlockQueryDelay: testutils.Ptr[uint16](5),
 				GasEstimator: evmcfg.GasEstimator{
-					EIP1559DynamicFees: ptr(false),
+					EIP1559DynamicFees: testutils.Ptr(false),
 					BlockHistory: evmcfg.BlockHistoryEstimator{
-						BlockHistorySize: ptr[uint16](2),
+						BlockHistorySize: testutils.Ptr[uint16](2),
 					},
 				},
-				MinIncomingConfirmations: ptr[uint32](30),
+				MinIncomingConfirmations: testutils.Ptr[uint32](30),
 			}),
 		},
 	}
@@ -422,5 +422,3 @@ func setupEVMChainsControllerTestLegacy(t *testing.T) *TestEVMChainsController {
 		client: client,
 	}
 }
-
-func ptr[T any](t T) *T { return &t }

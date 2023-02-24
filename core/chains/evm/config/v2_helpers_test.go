@@ -5,6 +5,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -24,46 +25,46 @@ func FallbackDefaultsAsV2() v2.Chain {
 func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	c := v2.Chain{
 		// moved from global, so setting that default here
-		BlockBackfillDepth: ptr[uint32](10),
-		BlockBackfillSkip:  ptr(false),
+		BlockBackfillDepth: testutils.Ptr[uint32](10),
+		BlockBackfillSkip:  testutils.Ptr(false),
 
-		ChainType:                ptr(string(set.chainType)),
-		FinalityDepth:            ptr(set.finalityDepth),
+		ChainType:                testutils.Ptr(string(set.chainType)),
+		FinalityDepth:            testutils.Ptr(set.finalityDepth),
 		FlagsContractAddress:     asEIP155Address(set.flagsContractAddress),
 		LinkContractAddress:      asEIP155Address(set.linkContractAddress),
-		LogBackfillBatchSize:     ptr(set.logBackfillBatchSize),
+		LogBackfillBatchSize:     testutils.Ptr(set.logBackfillBatchSize),
 		LogPollInterval:          models.MustNewDuration(set.logPollInterval),
-		LogKeepBlocksDepth:       ptr(set.logKeepBlocksDepth),
-		MinIncomingConfirmations: ptr(set.minIncomingConfirmations),
+		LogKeepBlocksDepth:       testutils.Ptr(set.logKeepBlocksDepth),
+		MinIncomingConfirmations: testutils.Ptr(set.minIncomingConfirmations),
 		MinContractPayment:       set.minimumContractPayment,
-		NonceAutoSync:            ptr(set.nonceAutoSync),
+		NonceAutoSync:            testutils.Ptr(set.nonceAutoSync),
 		NoNewHeadsThreshold:      models.MustNewDuration(set.nodeDeadAfterNoNewHeadersThreshold),
 		OperatorFactoryAddress:   asEIP155Address(set.operatorFactoryAddress),
-		RPCDefaultBatchSize:      ptr(set.rpcDefaultBatchSize),
-		RPCBlockQueryDelay:       ptr(set.blockHistoryEstimatorBlockDelay),
+		RPCDefaultBatchSize:      testutils.Ptr(set.rpcDefaultBatchSize),
+		RPCBlockQueryDelay:       testutils.Ptr(set.blockHistoryEstimatorBlockDelay),
 		Transactions: v2.Transactions{
-			ForwardersEnabled:    ptr(set.useForwarders),
-			MaxInFlight:          ptr(set.maxInFlightTransactions),
-			MaxQueued:            ptr(uint32(set.maxQueuedTransactions)),
+			ForwardersEnabled:    testutils.Ptr(set.useForwarders),
+			MaxInFlight:          testutils.Ptr(set.maxInFlightTransactions),
+			MaxQueued:            testutils.Ptr(uint32(set.maxQueuedTransactions)),
 			ReaperInterval:       models.MustNewDuration(set.ethTxReaperInterval),
 			ReaperThreshold:      models.MustNewDuration(set.ethTxReaperThreshold),
 			ResendAfterThreshold: models.MustNewDuration(set.ethTxResendAfterThreshold),
 		},
 		BalanceMonitor: v2.BalanceMonitor{
-			Enabled: ptr(set.balanceMonitorEnabled),
+			Enabled: testutils.Ptr(set.balanceMonitorEnabled),
 		},
 		GasEstimator: v2.GasEstimator{
-			Mode:               ptr(set.gasEstimatorMode),
-			EIP1559DynamicFees: ptr(set.eip1559DynamicFees),
+			Mode:               testutils.Ptr(set.gasEstimatorMode),
+			EIP1559DynamicFees: testutils.Ptr(set.eip1559DynamicFees),
 			BumpMin:            &set.gasBumpWei,
-			BumpPercent:        ptr(set.gasBumpPercent),
-			BumpThreshold:      ptr(uint32(set.gasBumpThreshold)),
-			BumpTxDepth:        ptr(set.gasBumpTxDepth),
+			BumpPercent:        testutils.Ptr(set.gasBumpPercent),
+			BumpThreshold:      testutils.Ptr(uint32(set.gasBumpThreshold)),
+			BumpTxDepth:        testutils.Ptr(set.gasBumpTxDepth),
 			FeeCapDefault:      &set.gasFeeCapDefault,
-			LimitDefault:       ptr(uint32(set.gasLimitDefault)),
-			LimitMax:           ptr(uint32(set.gasLimitMax)),
-			LimitMultiplier:    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
-			LimitTransfer:      ptr(uint32(set.gasLimitTransfer)),
+			LimitDefault:       testutils.Ptr(uint32(set.gasLimitDefault)),
+			LimitMax:           testutils.Ptr(uint32(set.gasLimitMax)),
+			LimitMultiplier:    testutils.Ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
+			LimitTransfer:      testutils.Ptr(uint32(set.gasLimitTransfer)),
 			TipCapDefault:      &set.gasTipCapDefault,
 			TipCapMin:          &set.gasTipCapMinimum,
 			PriceDefault:       &set.gasPriceDefault,
@@ -77,34 +78,34 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 				Keeper: set.gasLimitKeeperJobType,
 			},
 			BlockHistory: v2.BlockHistoryEstimator{
-				BatchSize:                ptr(set.blockHistoryEstimatorBatchSize),
-				BlockHistorySize:         ptr(set.blockHistoryEstimatorBlockHistorySize),
-				CheckInclusionBlocks:     ptr(set.blockHistoryEstimatorCheckInclusionBlocks),
-				CheckInclusionPercentile: ptr(set.blockHistoryEstimatorCheckInclusionPercentile),
-				TransactionPercentile:    ptr(set.blockHistoryEstimatorTransactionPercentile),
+				BatchSize:                testutils.Ptr(set.blockHistoryEstimatorBatchSize),
+				BlockHistorySize:         testutils.Ptr(set.blockHistoryEstimatorBlockHistorySize),
+				CheckInclusionBlocks:     testutils.Ptr(set.blockHistoryEstimatorCheckInclusionBlocks),
+				CheckInclusionPercentile: testutils.Ptr(set.blockHistoryEstimatorCheckInclusionPercentile),
+				TransactionPercentile:    testutils.Ptr(set.blockHistoryEstimatorTransactionPercentile),
 			},
 		},
 		HeadTracker: v2.HeadTracker{
-			HistoryDepth:     ptr(set.headTrackerHistoryDepth),
-			MaxBufferSize:    ptr(set.headTrackerMaxBufferSize),
+			HistoryDepth:     testutils.Ptr(set.headTrackerHistoryDepth),
+			MaxBufferSize:    testutils.Ptr(set.headTrackerMaxBufferSize),
 			SamplingInterval: models.MustNewDuration(set.headTrackerSamplingInterval),
 		},
 		KeySpecific: nil,
 		NodePool: v2.NodePool{
-			PollFailureThreshold: ptr(set.nodePollFailureThreshold),
+			PollFailureThreshold: testutils.Ptr(set.nodePollFailureThreshold),
 			PollInterval:         models.MustNewDuration(set.nodePollInterval),
-			SelectionMode:        ptr(set.nodeSelectionMode),
-			SyncThreshold:        ptr(set.nodeSyncThreshold),
+			SelectionMode:        testutils.Ptr(set.nodeSelectionMode),
+			SyncThreshold:        testutils.Ptr(set.nodeSyncThreshold),
 		},
 		OCR: v2.OCR{
-			ContractConfirmations:              ptr(set.ocrContractConfirmations),
+			ContractConfirmations:              testutils.Ptr(set.ocrContractConfirmations),
 			ContractTransmitterTransmitTimeout: models.MustNewDuration(set.ocrContractTransmitterTransmitTimeout),
 			DatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
 			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
 		},
 		OCR2: v2.OCR2{
 			Automation: v2.Automation{
-				GasLimit: ptr(set.ocr2AutomationGasLimit),
+				GasLimit: testutils.Ptr(set.ocr2AutomationGasLimit),
 			},
 		},
 	}
@@ -112,10 +113,6 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 		c.ChainType = nil
 	}
 	return c
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func asEIP155Address(s string) *ethkey.EIP55Address {

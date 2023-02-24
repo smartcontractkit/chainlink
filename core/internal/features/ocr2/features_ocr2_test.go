@@ -113,14 +113,14 @@ func setupNodeOCR2(
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = testutils.Ptr(true)
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(false)
+		c.OCR2.Enabled = testutils.Ptr(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V1.Enabled = ptr(false)
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.PeerID = testutils.Ptr(p2pKey.PeerID())
+		c.P2P.V1.Enabled = testutils.Ptr(false)
+		c.P2P.V2.Enabled = testutils.Ptr(true)
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
@@ -709,5 +709,3 @@ juelsPerFeeCoinSource = """
 	require.NoError(t, err)
 	assert.Equal(t, digestAndEpoch.Epoch, epoch)
 }
-
-func ptr[T any](v T) *T { return &v }

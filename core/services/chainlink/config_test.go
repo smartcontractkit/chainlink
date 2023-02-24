@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
@@ -43,12 +44,12 @@ var (
 
 	multiChain = Config{
 		Core: config.Core{
-			RootDir: ptr("my/root/dir"),
+			RootDir: testutils.Ptr("my/root/dir"),
 
 			AuditLogger: audit.AuditLoggerConfig{
-				Enabled:      ptr(true),
+				Enabled:      testutils.Ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr([]audit.ServiceHeader{
+				Headers: testutils.Ptr([]audit.ServiceHeader{
 					{
 						Header: "Authorization",
 						Value:  "token",
@@ -58,7 +59,7 @@ var (
 						Value:  "value with spaces | and a bar+*",
 					},
 				}),
-				JsonWrapperKey: ptr("event"),
+				JsonWrapperKey: testutils.Ptr("event"),
 			},
 
 			Database: config.Database{
@@ -67,8 +68,8 @@ var (
 				},
 			},
 			Log: config.Log{
-				Level:       ptr(config.LogLevel(zapcore.PanicLevel)),
-				JSONConsole: ptr(true),
+				Level:       testutils.Ptr(config.LogLevel(zapcore.PanicLevel)),
+				JSONConsole: testutils.Ptr(true),
 			},
 			JobPipeline: config.JobPipeline{
 				HTTPRequest: config.JobPipelineHTTPRequest{
@@ -76,38 +77,38 @@ var (
 				},
 			},
 			OCR2: config.OCR2{
-				Enabled:         ptr(true),
+				Enabled:         testutils.Ptr(true),
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
 			},
 			OCR: config.OCR{
-				Enabled:           ptr(true),
+				Enabled:           testutils.Ptr(true),
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
 			P2P: config.P2P{
-				IncomingMessageBufferSize: ptr[int64](999),
+				IncomingMessageBufferSize: testutils.Ptr[int64](999),
 			},
 			Keeper: config.Keeper{
-				GasPriceBufferPercent: ptr[uint16](10),
+				GasPriceBufferPercent: testutils.Ptr[uint16](10),
 			},
 			AutoPprof: config.AutoPprof{
-				CPUProfileRate: ptr[int64](7),
+				CPUProfileRate: testutils.Ptr[int64](7),
 			},
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
-					FinalityDepth: ptr[uint32](26),
+					FinalityDepth: testutils.Ptr[uint32](26),
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
+						Name:  testutils.Ptr("primary"),
 						WSURL: mustURL("wss://web.socket/mainnet"),
 					},
 					{
-						Name:     ptr("secondary"),
+						Name:     testutils.Ptr("secondary"),
 						HTTPURL:  mustURL("http://broadcast.mirror"),
-						SendOnly: ptr(true),
+						SendOnly: testutils.Ptr(true),
 					},
 				}},
 			{
@@ -119,7 +120,7 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
+						Name:  testutils.Ptr("primary"),
 						WSURL: mustURL("wss://web.socket/test"),
 					},
 				}},
@@ -127,44 +128,44 @@ var (
 				ChainID: utils.NewBigI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
-						Mode: ptr("FixedPrice"),
+						Mode: testutils.Ptr("FixedPrice"),
 					},
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
+						Name:  testutils.Ptr("primary"),
 						WSURL: mustURL("wss://web.socket/test"),
 					},
 				}},
 		},
 		Solana: []*solana.SolanaConfig{
 			{
-				ChainID: ptr("mainnet"),
+				ChainID: testutils.Ptr("mainnet"),
 				Chain: solcfg.Chain{
-					MaxRetries: ptr[int64](12),
+					MaxRetries: testutils.Ptr[int64](12),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://mainnet.solana.com")},
+					{Name: testutils.Ptr("primary"), URL: relayutils.MustParseURL("http://mainnet.solana.com")},
 				},
 			},
 			{
-				ChainID: ptr("testnet"),
+				ChainID: testutils.Ptr("testnet"),
 				Chain: solcfg.Chain{
 					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+					{Name: testutils.Ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
 		Starknet: []*starknet.StarknetConfig{
 			{
-				ChainID: ptr("foobar"),
+				ChainID: testutils.Ptr("foobar"),
 				Chain: stkcfg.Chain{
 					TxSendFrequency: relayutils.MustNewDuration(time.Hour),
 				},
 				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+					{Name: testutils.Ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
 				},
 			},
 		},
@@ -195,8 +196,8 @@ func TestConfig_Marshal(t *testing.T) {
 	global := Config{
 		Core: config.Core{
 			ExplorerURL:         mustURL("http://explorer.url"),
-			InsecureFastScrypt:  ptr(true),
-			RootDir:             ptr("test/root/dir"),
+			InsecureFastScrypt:  testutils.Ptr(true),
+			RootDir:             testutils.Ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
 		},
 	}
@@ -208,148 +209,148 @@ func TestConfig_Marshal(t *testing.T) {
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
 	full.AuditLogger = audit.AuditLoggerConfig{
-		Enabled:        ptr(true),
+		Enabled:        testutils.Ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
-		Headers:        ptr(serviceHeaders),
-		JsonWrapperKey: ptr("event"),
+		Headers:        testutils.Ptr(serviceHeaders),
+		JsonWrapperKey: testutils.Ptr("event"),
 	}
 
 	full.Feature = config.Feature{
-		FeedsManager: ptr(true),
-		LogPoller:    ptr(true),
-		UICSAKeys:    ptr(true),
+		FeedsManager: testutils.Ptr(true),
+		LogPoller:    testutils.Ptr(true),
+		UICSAKeys:    testutils.Ptr(true),
 	}
 	full.Database = config.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
 		DefaultLockTimeout:            models.MustNewDuration(time.Hour),
 		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
-		LogQueries:                    ptr(true),
-		MigrateOnStartup:              ptr(true),
-		MaxIdleConns:                  ptr[int64](7),
-		MaxOpenConns:                  ptr[int64](13),
+		LogQueries:                    testutils.Ptr(true),
+		MigrateOnStartup:              testutils.Ptr(true),
+		MaxIdleConns:                  testutils.Ptr[int64](7),
+		MaxOpenConns:                  testutils.Ptr[int64](13),
 		Listener: config.DatabaseListener{
 			MaxReconnectDuration: models.MustNewDuration(time.Minute),
 			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
 		Lock: config.DatabaseLock{
-			Enabled:              ptr(false),
+			Enabled:              testutils.Ptr(false),
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
 		Backup: config.DatabaseBackup{
-			Dir:              ptr("test/backup/dir"),
+			Dir:              testutils.Ptr("test/backup/dir"),
 			Frequency:        &hour,
 			Mode:             &legacy.DatabaseBackupModeFull,
-			OnVersionUpgrade: ptr(true),
+			OnVersionUpgrade: testutils.Ptr(true),
 		},
 	}
 	full.TelemetryIngress = config.TelemetryIngress{
-		UniConn:      ptr(true),
-		Logging:      ptr(true),
-		ServerPubKey: ptr("test-pub-key"),
+		UniConn:      testutils.Ptr(true),
+		Logging:      testutils.Ptr(true),
+		ServerPubKey: testutils.Ptr("test-pub-key"),
 		URL:          mustURL("https://prom.test"),
-		BufferSize:   ptr[uint16](1234),
-		MaxBatchSize: ptr[uint16](4321),
+		BufferSize:   testutils.Ptr[uint16](1234),
+		MaxBatchSize: testutils.Ptr[uint16](4321),
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
-		UseBatchSend: ptr(true),
+		UseBatchSend: testutils.Ptr(true),
 	}
 	full.Log = config.Log{
-		Level:       ptr(config.LogLevel(zapcore.DPanicLevel)),
-		JSONConsole: ptr(true),
-		UnixTS:      ptr(true),
+		Level:       testutils.Ptr(config.LogLevel(zapcore.DPanicLevel)),
+		JSONConsole: testutils.Ptr(true),
+		UnixTS:      testutils.Ptr(true),
 		File: config.LogFile{
-			Dir:        ptr("log/file/dir"),
-			MaxSize:    ptr[utils.FileSize](100 * utils.GB),
-			MaxAgeDays: ptr[int64](17),
-			MaxBackups: ptr[int64](9),
+			Dir:        testutils.Ptr("log/file/dir"),
+			MaxSize:    testutils.Ptr[utils.FileSize](100 * utils.GB),
+			MaxAgeDays: testutils.Ptr[int64](17),
+			MaxBackups: testutils.Ptr[int64](9),
 		},
 	}
 	full.WebServer = config.WebServer{
-		AllowOrigins:            ptr("*"),
+		AllowOrigins:            testutils.Ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
 		HTTPWriteTimeout:        models.MustNewDuration(time.Minute),
-		HTTPPort:                ptr[uint16](56),
-		SecureCookies:           ptr(true),
+		HTTPPort:                testutils.Ptr[uint16](56),
+		SecureCookies:           testutils.Ptr(true),
 		SessionTimeout:          models.MustNewDuration(time.Hour),
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
 		MFA: config.WebServerMFA{
-			RPID:     ptr("test-rpid"),
-			RPOrigin: ptr("test-rp-origin"),
+			RPID:     testutils.Ptr("test-rpid"),
+			RPOrigin: testutils.Ptr("test-rp-origin"),
 		},
 		RateLimit: config.WebServerRateLimit{
-			Authenticated:         ptr[int64](42),
+			Authenticated:         testutils.Ptr[int64](42),
 			AuthenticatedPeriod:   models.MustNewDuration(time.Second),
-			Unauthenticated:       ptr[int64](7),
+			Unauthenticated:       testutils.Ptr[int64](7),
 			UnauthenticatedPeriod: models.MustNewDuration(time.Minute),
 		},
 		TLS: config.WebServerTLS{
-			CertPath:      ptr("tls/cert/path"),
-			Host:          ptr("tls-host"),
-			KeyPath:       ptr("tls/key/path"),
-			HTTPSPort:     ptr[uint16](6789),
-			ForceRedirect: ptr(true),
+			CertPath:      testutils.Ptr("tls/cert/path"),
+			Host:          testutils.Ptr("tls-host"),
+			KeyPath:       testutils.Ptr("tls/key/path"),
+			HTTPSPort:     testutils.Ptr[uint16](6789),
+			ForceRedirect: testutils.Ptr(true),
 		},
 	}
 	full.JobPipeline = config.JobPipeline{
-		ExternalInitiatorsEnabled: ptr(true),
+		ExternalInitiatorsEnabled: testutils.Ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
-		MaxSuccessfulRuns:         ptr[uint64](123456),
+		MaxSuccessfulRuns:         testutils.Ptr[uint64](123456),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
-		ResultWriteQueueDepth:     ptr[uint32](10),
+		ResultWriteQueueDepth:     testutils.Ptr[uint32](10),
 		HTTPRequest: config.JobPipelineHTTPRequest{
-			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
+			MaxSize:        testutils.Ptr[utils.FileSize](100 * utils.MB),
 			DefaultTimeout: models.MustNewDuration(time.Minute),
 		},
 	}
 	full.FluxMonitor = config.FluxMonitor{
-		DefaultTransactionQueueDepth: ptr[uint32](100),
-		SimulateTransactions:         ptr(true),
+		DefaultTransactionQueueDepth: testutils.Ptr[uint32](100),
+		SimulateTransactions:         testutils.Ptr(true),
 	}
 	full.OCR2 = config.OCR2{
-		Enabled:                            ptr(true),
-		ContractConfirmations:              ptr[uint32](11),
+		Enabled:                            testutils.Ptr(true),
+		ContractConfirmations:              testutils.Ptr[uint32](11),
 		BlockchainTimeout:                  models.MustNewDuration(3 * time.Second),
 		ContractPollInterval:               models.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:          models.MustNewDuration(time.Minute),
 		ContractTransmitterTransmitTimeout: models.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
-		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
+		KeyBundleID:                        testutils.Ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 	}
 	full.OCR = config.OCR{
-		Enabled:                      ptr(true),
+		Enabled:                      testutils.Ptr(true),
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
 		BlockchainTimeout:            models.MustNewDuration(3 * time.Second),
 		ContractPollInterval:         models.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:    models.MustNewDuration(time.Minute),
-		DefaultTransactionQueueDepth: ptr[uint32](12),
-		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
-		SimulateTransactions:         ptr(true),
-		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
+		DefaultTransactionQueueDepth: testutils.Ptr[uint32](12),
+		KeyBundleID:                  testutils.Ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
+		SimulateTransactions:         testutils.Ptr(true),
+		TransmitterAddress:           testutils.Ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 	}
 	full.P2P = config.P2P{
-		IncomingMessageBufferSize: ptr[int64](13),
-		OutgoingMessageBufferSize: ptr[int64](17),
+		IncomingMessageBufferSize: testutils.Ptr[int64](13),
+		OutgoingMessageBufferSize: testutils.Ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
-		TraceLogging:              ptr(true),
+		TraceLogging:              testutils.Ptr(true),
 		V1: config.P2PV1{
-			Enabled:                          ptr(false),
+			Enabled:                          testutils.Ptr(false),
 			AnnounceIP:                       mustIP("1.2.3.4"),
-			AnnouncePort:                     ptr[uint16](1234),
+			AnnouncePort:                     testutils.Ptr[uint16](1234),
 			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
 			DefaultBootstrapPeers:            &[]string{"foo", "bar", "should", "these", "be", "typed"},
-			DHTAnnouncementCounterUserPrefix: ptr[uint32](4321),
-			DHTLookupInterval:                ptr[int64](9),
+			DHTAnnouncementCounterUserPrefix: testutils.Ptr[uint32](4321),
+			DHTLookupInterval:                testutils.Ptr[int64](9),
 			ListenIP:                         mustIP("4.3.2.1"),
-			ListenPort:                       ptr[uint16](9),
+			ListenPort:                       testutils.Ptr[uint16](9),
 			NewStreamTimeout:                 models.MustNewDuration(time.Second),
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: config.P2PV2{
-			Enabled:           ptr(true),
+			Enabled:           testutils.Ptr(true),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
@@ -361,70 +362,70 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Keeper = config.Keeper{
-		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint16](12),
-		GasTipCapBufferPercent:       ptr[uint16](43),
-		BaseFeeBufferPercent:         ptr[uint16](89),
-		MaxGracePeriod:               ptr[int64](31),
-		TurnLookBack:                 ptr[int64](91),
+		DefaultTransactionQueueDepth: testutils.Ptr[uint32](17),
+		GasPriceBufferPercent:        testutils.Ptr[uint16](12),
+		GasTipCapBufferPercent:       testutils.Ptr[uint16](43),
+		BaseFeeBufferPercent:         testutils.Ptr[uint16](89),
+		MaxGracePeriod:               testutils.Ptr[int64](31),
+		TurnLookBack:                 testutils.Ptr[int64](91),
 		Registry: config.KeeperRegistry{
-			CheckGasOverhead:    ptr[uint32](90),
-			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
+			CheckGasOverhead:    testutils.Ptr[uint32](90),
+			PerformGasOverhead:  testutils.Ptr[uint32](math.MaxUint32),
 			SyncInterval:        models.MustNewDuration(time.Hour),
-			SyncUpkeepQueueSize: ptr[uint32](31),
-			MaxPerformDataSize:  ptr[uint32](5000),
+			SyncUpkeepQueueSize: testutils.Ptr[uint32](31),
+			MaxPerformDataSize:  testutils.Ptr[uint32](5000),
 		},
 	}
 	full.AutoPprof = config.AutoPprof{
-		Enabled:              ptr(true),
-		ProfileRoot:          ptr("prof/root"),
+		Enabled:              testutils.Ptr(true),
+		ProfileRoot:          testutils.Ptr("prof/root"),
 		PollInterval:         models.MustNewDuration(time.Minute),
 		GatherDuration:       models.MustNewDuration(12 * time.Second),
 		GatherTraceDuration:  models.MustNewDuration(13 * time.Second),
-		MaxProfileSize:       ptr[utils.FileSize](utils.GB),
-		CPUProfileRate:       ptr[int64](7),
-		MemProfileRate:       ptr[int64](9),
-		BlockProfileRate:     ptr[int64](5),
-		MutexProfileFraction: ptr[int64](2),
-		MemThreshold:         ptr[utils.FileSize](utils.GB),
-		GoroutineThreshold:   ptr[int64](999),
+		MaxProfileSize:       testutils.Ptr[utils.FileSize](utils.GB),
+		CPUProfileRate:       testutils.Ptr[int64](7),
+		MemProfileRate:       testutils.Ptr[int64](9),
+		BlockProfileRate:     testutils.Ptr[int64](5),
+		MutexProfileFraction: testutils.Ptr[int64](2),
+		MemThreshold:         testutils.Ptr[utils.FileSize](utils.GB),
+		GoroutineThreshold:   testutils.Ptr[int64](999),
 	}
 	full.Pyroscope = config.Pyroscope{
-		ServerAddress: ptr("http://localhost:4040"),
-		Environment:   ptr("tests"),
+		ServerAddress: testutils.Ptr("http://localhost:4040"),
+		Environment:   testutils.Ptr("tests"),
 	}
 	full.Sentry = config.Sentry{
-		Debug:       ptr(true),
-		DSN:         ptr("sentry-dsn"),
-		Environment: ptr("dev"),
-		Release:     ptr("v1.2.3"),
+		Debug:       testutils.Ptr(true),
+		DSN:         testutils.Ptr("sentry-dsn"),
+		Environment: testutils.Ptr("dev"),
+		Release:     testutils.Ptr("v1.2.3"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
-			Enabled: ptr(false),
+			Enabled: testutils.Ptr(false),
 			Chain: evmcfg.Chain{
 				BalanceMonitor: evmcfg.BalanceMonitor{
-					Enabled: ptr(true),
+					Enabled: testutils.Ptr(true),
 				},
-				BlockBackfillDepth:   ptr[uint32](100),
-				BlockBackfillSkip:    ptr(true),
-				ChainType:            ptr("Optimism"),
-				FinalityDepth:        ptr[uint32](42),
+				BlockBackfillDepth:   testutils.Ptr[uint32](100),
+				BlockBackfillSkip:    testutils.Ptr(true),
+				ChainType:            testutils.Ptr("Optimism"),
+				FinalityDepth:        testutils.Ptr[uint32](42),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasEstimator: evmcfg.GasEstimator{
-					Mode:               ptr("L2Suggested"),
-					EIP1559DynamicFees: ptr(true),
-					BumpPercent:        ptr[uint16](10),
-					BumpThreshold:      ptr[uint32](6),
-					BumpTxDepth:        ptr[uint16](6),
+					Mode:               testutils.Ptr("L2Suggested"),
+					EIP1559DynamicFees: testutils.Ptr(true),
+					BumpPercent:        testutils.Ptr[uint16](10),
+					BumpThreshold:      testutils.Ptr[uint32](6),
+					BumpTxDepth:        testutils.Ptr[uint16](6),
 					BumpMin:            assets.NewWeiI(100),
 					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
-					LimitDefault:       ptr[uint32](12),
-					LimitMax:           ptr[uint32](17),
+					LimitDefault:       testutils.Ptr[uint32](12),
+					LimitMax:           testutils.Ptr[uint32](17),
 					LimitMultiplier:    mustDecimal("1.234"),
-					LimitTransfer:      ptr[uint32](100),
+					LimitTransfer:      testutils.Ptr[uint32](100),
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
@@ -432,20 +433,20 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
-						OCR:    ptr[uint32](1001),
-						DR:     ptr[uint32](1002),
-						VRF:    ptr[uint32](1003),
-						FM:     ptr[uint32](1004),
-						Keeper: ptr[uint32](1005),
+						OCR:    testutils.Ptr[uint32](1001),
+						DR:     testutils.Ptr[uint32](1002),
+						VRF:    testutils.Ptr[uint32](1003),
+						FM:     testutils.Ptr[uint32](1004),
+						Keeper: testutils.Ptr[uint32](1005),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
-						BatchSize:                 ptr[uint32](17),
-						BlockHistorySize:          ptr[uint16](12),
-						CheckInclusionBlocks:      ptr[uint16](18),
-						CheckInclusionPercentile:  ptr[uint16](19),
-						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
-						TransactionPercentile:     ptr[uint16](15),
+						BatchSize:                 testutils.Ptr[uint32](17),
+						BlockHistorySize:          testutils.Ptr[uint16](12),
+						CheckInclusionBlocks:      testutils.Ptr[uint16](18),
+						CheckInclusionPercentile:  testutils.Ptr[uint16](19),
+						EIP1559FeeCapBufferBlocks: testutils.Ptr[uint16](13),
+						TransactionPercentile:     testutils.Ptr[uint16](15),
 					},
 				},
 
@@ -459,72 +460,72 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize:     ptr[uint32](17),
+				LogBackfillBatchSize:     testutils.Ptr[uint32](17),
 				LogPollInterval:          &minute,
-				LogKeepBlocksDepth:       ptr[uint32](100000),
+				LogKeepBlocksDepth:       testutils.Ptr[uint32](100000),
 				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
-				MinIncomingConfirmations: ptr[uint32](13),
-				NonceAutoSync:            ptr(true),
+				MinIncomingConfirmations: testutils.Ptr[uint32](13),
+				NonceAutoSync:            testutils.Ptr(true),
 				NoNewHeadsThreshold:      &minute,
 				OperatorFactoryAddress:   mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-				RPCDefaultBatchSize:      ptr[uint32](17),
-				RPCBlockQueryDelay:       ptr[uint16](10),
+				RPCDefaultBatchSize:      testutils.Ptr[uint32](17),
+				RPCBlockQueryDelay:       testutils.Ptr[uint16](10),
 
 				Transactions: evmcfg.Transactions{
-					MaxInFlight:          ptr[uint32](19),
-					MaxQueued:            ptr[uint32](99),
+					MaxInFlight:          testutils.Ptr[uint32](19),
+					MaxQueued:            testutils.Ptr[uint32](99),
 					ReaperInterval:       &minute,
 					ReaperThreshold:      &minute,
 					ResendAfterThreshold: &hour,
-					ForwardersEnabled:    ptr(true),
+					ForwardersEnabled:    testutils.Ptr(true),
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth:     ptr[uint32](15),
-					MaxBufferSize:    ptr[uint32](17),
+					HistoryDepth:     testutils.Ptr[uint32](15),
+					MaxBufferSize:    testutils.Ptr[uint32](17),
 					SamplingInterval: &hour,
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold: ptr[uint32](5),
+					PollFailureThreshold: testutils.Ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
-					SyncThreshold:        ptr[uint32](13),
+					SyncThreshold:        testutils.Ptr[uint32](13),
 				},
 				OCR: evmcfg.OCR{
-					ContractConfirmations:              ptr[uint16](11),
+					ContractConfirmations:              testutils.Ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
 					Automation: evmcfg.Automation{
-						GasLimit: ptr[uint32](540),
+						GasLimit: testutils.Ptr[uint32](540),
 					},
 				},
 			},
 			Nodes: []*evmcfg.Node{
 				{
-					Name:    ptr("foo"),
+					Name:    testutils.Ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
 					WSURL:   mustURL("wss://web.socket/test"),
 				},
 				{
-					Name:    ptr("bar"),
+					Name:    testutils.Ptr("bar"),
 					HTTPURL: mustURL("https://bar.com"),
 					WSURL:   mustURL("wss://web.socket/test"),
 				},
 				{
-					Name:     ptr("broadcast"),
+					Name:     testutils.Ptr("broadcast"),
 					HTTPURL:  mustURL("http://broadcast.mirror"),
-					SendOnly: ptr(true),
+					SendOnly: testutils.Ptr(true),
 				},
 			}},
 	}
 	full.Solana = []*solana.SolanaConfig{
 		{
-			ChainID: ptr("mainnet"),
-			Enabled: ptr(false),
+			ChainID: testutils.Ptr("mainnet"),
+			Enabled: testutils.Ptr(false),
 			Chain: solcfg.Chain{
 				BalancePollPeriod:       relayutils.MustNewDuration(time.Minute),
 				ConfirmPollPeriod:       relayutils.MustNewDuration(time.Second),
@@ -533,36 +534,36 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:               relayutils.MustNewDuration(time.Hour),
 				TxRetryTimeout:          relayutils.MustNewDuration(time.Minute),
 				TxConfirmTimeout:        relayutils.MustNewDuration(time.Second),
-				SkipPreflight:           ptr(true),
-				Commitment:              ptr("banana"),
-				MaxRetries:              ptr[int64](7),
-				FeeEstimatorMode:        ptr("fixed"),
-				ComputeUnitPriceMax:     ptr[uint64](1000),
-				ComputeUnitPriceMin:     ptr[uint64](10),
-				ComputeUnitPriceDefault: ptr[uint64](100),
+				SkipPreflight:           testutils.Ptr(true),
+				Commitment:              testutils.Ptr("banana"),
+				MaxRetries:              testutils.Ptr[int64](7),
+				FeeEstimatorMode:        testutils.Ptr("fixed"),
+				ComputeUnitPriceMax:     testutils.Ptr[uint64](1000),
+				ComputeUnitPriceMin:     testutils.Ptr[uint64](10),
+				ComputeUnitPriceDefault: testutils.Ptr[uint64](100),
 				FeeBumpPeriod:           relayutils.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: relayutils.MustParseURL("http://solana.foo")},
-				{Name: ptr("bar"), URL: relayutils.MustParseURL("http://solana.bar")},
+				{Name: testutils.Ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
+				{Name: testutils.Ptr("foo"), URL: relayutils.MustParseURL("http://solana.foo")},
+				{Name: testutils.Ptr("bar"), URL: relayutils.MustParseURL("http://solana.bar")},
 			},
 		},
 	}
 	full.Starknet = []*starknet.StarknetConfig{
 		{
-			ChainID: ptr("foobar"),
-			Enabled: ptr(true),
+			ChainID: testutils.Ptr("foobar"),
+			Enabled: testutils.Ptr(true),
 			Chain: stkcfg.Chain{
 				OCR2CachePollPeriod: relayutils.MustNewDuration(6 * time.Hour),
 				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
 				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
 				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
 				TxSendFrequency:     relayutils.MustNewDuration(42 * time.Second),
-				TxMaxBatchSize:      ptr[int64](17),
+				TxMaxBatchSize:      testutils.Ptr[int64](17),
 			},
 			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+				{Name: testutils.Ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
 			},
 		},
 	}
@@ -945,7 +946,7 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].WSURL = new(models.URL)
 			}
 			if got.EVM[c].Nodes[n].SendOnly == nil {
-				got.EVM[c].Nodes[n].SendOnly = ptr(true)
+				got.EVM[c].Nodes[n].SendOnly = testutils.Ptr(true)
 			}
 		}
 	}
@@ -1151,7 +1152,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	require.NoError(t, opts.ParseTOML(fullTOML, secretsFullTOML))
 	c, err := opts.New(logger.TestLogger(t))
 	assert.NoError(t, err)
-	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
+	c.SetPasswords(testutils.Ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
@@ -1234,8 +1235,8 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
-	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
-	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Solana = solana.SolanaConfigs{{ChainID: testutils.Ptr("unknown solana chain")}}
+	c.Starknet = starknet.StarknetConfigs{{ChainID: testutils.Ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)

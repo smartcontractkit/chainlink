@@ -248,11 +248,11 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	t.Parallel()
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.OCR.Enabled = testutils.Ptr(true)
+		c.P2P.V1.Enabled = testutils.Ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))

@@ -57,12 +57,12 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 
 	id := solanatest.RandomChainID()
 	node := solcfg.Node{
-		Name: ptr("second"),
+		Name: testutils.Ptr("second"),
 		URL:  utils.MustParseURL("https://solana.example"),
 	}
 	chain := solana.SolanaConfig{
 		ChainID: &id,
-		Enabled: ptr(true),
+		Enabled: testutils.Ptr(true),
 		Nodes:   solana.SolanaNodes{&node},
 	}
 	app := solanaStartNewApplication(t, &chain)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -101,7 +102,7 @@ func Test_EthResender_Start(t *testing.T) {
 		// This can be anything as long as it isn't zero
 		c.EVM[0].Transactions.ResendAfterThreshold = models.MustNewDuration(42 * time.Hour)
 		// Set batch size low to test batching
-		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
+		c.EVM[0].RPCDefaultBatchSize = testutils.Ptr[uint32](1)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()

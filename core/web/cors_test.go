@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
@@ -13,7 +14,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.AllowOrigins = ptr("http://localhost:3000,http://localhost:6689")
+		c.WebServer.AllowOrigins = testutils.Ptr("http://localhost:3000,http://localhost:6689")
 	})
 
 	tests := []struct {
@@ -57,7 +58,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 		t.Run(test.origin, func(t *testing.T) {
 
 			config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.WebServer.AllowOrigins = ptr(test.allow)
+				c.WebServer.AllowOrigins = testutils.Ptr(test.allow)
 			})
 			app := cltest.NewApplicationWithConfig(t, config)
 

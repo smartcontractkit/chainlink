@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -222,7 +223,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].Name = testutils.Ptr("fake")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})
 			db := pgtest.NewSqlxDB(t)
@@ -302,7 +303,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].Name = testutils.Ptr("fake")
 				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})

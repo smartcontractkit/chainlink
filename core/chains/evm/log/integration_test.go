@@ -288,7 +288,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 
 	// Pool two logs from subscription, then shut down
 	helper := helperCfg.new(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](confs)
 	})
 	listener := helper.newLogListenerWithJob("one")
 	listener.SkipMarkingConsumed(true)
@@ -333,7 +333,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 
 	// Backfill pool with both, then broadcast one, but don't consume
 	helper = helperCfg.new(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](confs)
 	})
 	listener = helper.newLogListenerWithJob("one")
 	listener.SkipMarkingConsumed(true)
@@ -374,7 +374,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 
 	// Backfill pool and broadcast two, but only consume one
 	helper = helperCfg.new(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](confs)
 	})
 	listener = helper.newLogListenerWithJob("one")
 	listener2 = helper.newLogListenerWithJob("two")
@@ -416,7 +416,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 
 	// Backfill pool, broadcast and consume one
 	helper = helperCfg.new(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](confs)
 	})
 	listener = helper.newLogListenerWithJob("one")
 	listener2 = helper.newLogListenerWithJob("two")
@@ -470,8 +470,8 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].BlockBackfillSkip = ptr(true)
-		c.EVM[0].BlockBackfillDepth = ptr[uint32](15)
+		c.EVM[0].BlockBackfillSkip = testutils.Ptr(true)
+		c.EVM[0].BlockBackfillDepth = testutils.Ptr[uint32](15)
 	})
 	helper.mockEth = mockEth
 
@@ -520,7 +520,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].LogBackfillBatchSize = ptr(uint32(batchSize))
+		c.EVM[0].LogBackfillBatchSize = testutils.Ptr(uint32(batchSize))
 	})
 	helper.mockEth = mockEth
 
@@ -593,7 +593,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].LogBackfillBatchSize = ptr(batchSize)
+		c.EVM[0].LogBackfillBatchSize = testutils.Ptr(batchSize)
 	})
 	helper.mockEth = mockEth
 
@@ -763,7 +763,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](1)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](1)
 	})
 	helper.start()
 	defer helper.stop()
@@ -829,7 +829,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](4)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](4)
 	})
 	helper.start()
 	defer helper.stop()
@@ -895,7 +895,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](3)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](3)
 	})
 	helper.start()
 	defer helper.stop()
@@ -980,7 +980,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](2)
 	})
 	helper.start()
 
@@ -1075,7 +1075,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testing.T) {
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](2)
 	})
 	helper.start()
 
@@ -1356,7 +1356,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			const backfillDepth = 5
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2, func(c *chainlink.Config, s *chainlink.Secrets) {
 				// something other than default
-				c.EVM[0].BlockBackfillDepth = ptr[uint32](backfillDepth)
+				c.EVM[0].BlockBackfillDepth = testutils.Ptr[uint32](backfillDepth)
 			})
 
 			helper.start()
@@ -1784,5 +1784,3 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		return len(listener1.getUniqueLogs()) == len(addr1SentLogs) && len(listener2.getUniqueLogs()) == len(addr1SentLogs)
 	}, 1*time.Second, cltest.DBPollingInterval).Should(gomega.BeTrue())
 }
-
-func ptr[T any](t T) *T { return &t }

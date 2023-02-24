@@ -523,7 +523,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](2)
+		c.EVM[0].RPCDefaultBatchSize = testutils.Ptr[uint32](2)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
@@ -586,8 +586,8 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 	db := pgtest.NewSqlxDB(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
-		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
+		c.EVM[0].RPCDefaultBatchSize = testutils.Ptr[uint32](1)
+		c.EVM[0].Transactions.ForwardersEnabled = testutils.Ptr(true)
 	})
 
 	borm := cltest.NewTxmORM(t, db, cfg)
@@ -637,7 +637,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](6)
+		c.EVM[0].RPCDefaultBatchSize = testutils.Ptr[uint32](6)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
@@ -792,7 +792,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](50)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
@@ -1049,7 +1049,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](50)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
@@ -1128,7 +1128,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](50)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
@@ -1191,8 +1191,8 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
-		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
+		c.EVM[0].FinalityDepth = testutils.Ptr[uint32](50)
+		c.EVM[0].RPCDefaultBatchSize = testutils.Ptr[uint32](1)
 	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
@@ -2454,7 +2454,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		etxCount := 4
 
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.BumpTxDepth = ptr(uint16(depth))
+			c.EVM[0].GasEstimator.BumpTxDepth = testutils.Ptr(uint16(depth))
 		})
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, keyStates, nil)
@@ -2904,5 +2904,3 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		}
 	})
 }
-
-func ptr[T any](t T) *T { return &t }

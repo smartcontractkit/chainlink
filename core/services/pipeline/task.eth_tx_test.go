@@ -577,8 +577,8 @@ func TestETHTxTask(t *testing.T) {
 			txManager := txmmocks.NewTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)
-				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
+				c.EVM[0].GasEstimator.LimitDefault = testutils.Ptr(defaultGasLimit)
+				c.EVM[0].GasEstimator.LimitJobType.DR = testutils.Ptr(drJobTypeGasLimit)
 			})
 			lggr := logger.TestLogger(t)
 
@@ -606,5 +606,3 @@ func TestETHTxTask(t *testing.T) {
 		})
 	}
 }
-
-func ptr[T any](t T) *T { return &t }

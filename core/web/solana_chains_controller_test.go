@@ -118,9 +118,9 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupSolanaChainsControllerTestV2(t, &solana.SolanaConfig{ChainID: ptr(validId),
-				Enabled: ptr(true), Chain: config.Chain{
-					SkipPreflight: ptr(false),
+			controller := setupSolanaChainsControllerTestV2(t, &solana.SolanaConfig{ChainID: testutils.Ptr(validId),
+				Enabled: testutils.Ptr(true), Chain: config.Chain{
+					SkipPreflight: testutils.Ptr(false),
 					TxTimeout:     utils.MustNewDuration(time.Hour),
 				},
 			})
@@ -149,17 +149,17 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &solana.SolanaConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
-		Enabled: ptr(true),
+		ChainID: testutils.Ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		Enabled: testutils.Ptr(true),
 		Chain: config.Chain{
 			TxTimeout: utils.MustNewDuration(time.Hour),
 		},
 	}
 	chainB := &solana.SolanaConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
-		Enabled: ptr(true),
+		ChainID: testutils.Ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		Enabled: testutils.Ptr(true),
 		Chain: config.Chain{
-			SkipPreflight: ptr(false),
+			SkipPreflight: testutils.Ptr(false),
 		},
 	}
 	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)

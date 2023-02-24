@@ -257,7 +257,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	rnd := int64(1000000000 + rand.Intn(5000))
 	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
 		c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(rnd)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.NewWeiI(rnd + 1)
 		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(rnd + 2)
@@ -1527,7 +1527,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// validation)
 		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
-			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
+			c.EVM[0].GasEstimator.BumpPercent = testutils.Ptr[uint16](0)
 		}))
 		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
@@ -1642,9 +1642,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// to zero (even though that should not be possible due to config
 		// validation)
 		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
 			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
-			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
+			c.EVM[0].GasEstimator.BumpPercent = testutils.Ptr[uint16](0)
 		}))
 		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
@@ -1692,7 +1692,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Check gas tip cap verification
 		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
 			c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(0)
 		}))
 		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
@@ -1705,7 +1705,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		gasTipCapDefault := assets.NewWeiI(42)
 
 		evmcfg2 = evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
 			c.EVM[0].GasEstimator.TipCapDefault = gasTipCapDefault
 		}))
 		eb2 = cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
@@ -1871,7 +1871,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].NonceAutoSync = ptr(true)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(true)
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 

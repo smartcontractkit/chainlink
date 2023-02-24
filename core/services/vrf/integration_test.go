@@ -123,8 +123,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 func TestIntegration_VRF_WithBHS(t *testing.T) {
 	t.Parallel()
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_with_bhs", func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
+		c.EVM[0].BlockBackfillDepth = testutils.Ptr[uint32](500)
 	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)

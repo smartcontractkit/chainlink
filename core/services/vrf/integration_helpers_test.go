@@ -43,14 +43,14 @@ func testSingleConsumerHappyPath(
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          testutils.Ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, v2.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key2.EIP55Address),
+			Key:          testutils.Ptr(key2.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -156,13 +156,13 @@ func testSingleConsumerNeedsBHS(
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
-			Key:          ptr(vrfKey.EIP55Address),
+			Key:          testutils.Ptr(vrfKey.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, v2.KeySpecific{
-			Key:          ptr(bhsKey.EIP55Address),
+			Key:          testutils.Ptr(bhsKey.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhsKey)
 
@@ -274,11 +274,11 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_batch_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          testutils.Ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].GasEstimator.LimitDefault = testutils.Ptr[uint32](5_000_000)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 
@@ -372,10 +372,10 @@ func testSingleConsumerNeedsTopUp(
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_needstopup", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(1000), v2.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key.EIP55Address),
+			Key:          testutils.Ptr(key.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 

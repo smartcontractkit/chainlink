@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
@@ -133,9 +134,9 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = testutils.Ptr(true)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	},
 		withKey(),
 		withMocks(ethMock, key),
@@ -181,9 +182,9 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = testutils.Ptr(true)
+		c.EVM[0].NonceAutoSync = testutils.Ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = testutils.Ptr(false)
 	},
 		withKey(),
 		withMocks(ethMock, key),

@@ -238,14 +238,14 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// setup app
 			config, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("keeper_eth_integration_%s", test.name), func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
-				c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
+				c.Keeper.MaxGracePeriod = testutils.Ptr[int64](0)                       // avoid waiting to re-submit for upkeeps
 				c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 
-				c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
+				c.Keeper.TurnLookBack = testutils.Ptr[int64](0) // testing doesn't need to do far look back
 
-				c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
-				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
-				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
+				c.EVM[0].BlockBackfillDepth = testutils.Ptr[uint32](0)          // backfill will trigger sync on startup
+				c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)    // disable reorg protection for this test
+				c.EVM[0].HeadTracker.MaxBufferSize = testutils.Ptr[uint32](100) // helps prevent missed heads
 			})
 			scopedConfig := evmtest.NewChainScopedConfig(t, config)
 			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
@@ -394,17 +394,17 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 
 		// setup app
 		config, db := heavyweight.FullTestDBV2(t, "keeper_forwarder_flow", func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.Feature.LogPoller = ptr(true)
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
+			c.Feature.LogPoller = testutils.Ptr(true)
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = testutils.Ptr(true)
+			c.Keeper.MaxGracePeriod = testutils.Ptr[int64](0)                       // avoid waiting to re-submit for upkeeps
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 
-			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
+			c.Keeper.TurnLookBack = testutils.Ptr[int64](0) // testing doesn't need to do far look back
 
-			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
-			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
-			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
-			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
+			c.EVM[0].BlockBackfillDepth = testutils.Ptr[uint32](0)          // backfill will trigger sync on startup
+			c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)    // disable reorg protection for this test
+			c.EVM[0].HeadTracker.MaxBufferSize = testutils.Ptr[uint32](100) // helps prevent missed heads
+			c.EVM[0].Transactions.ForwardersEnabled = testutils.Ptr(true)   // Enable Operator Forwarder flow
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
@@ -539,15 +539,15 @@ func TestMaxPerformDataSize(t *testing.T) {
 
 		// setup app
 		config, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("keeper_max_perform_data_test"), func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
-			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
-			c.Keeper.Registry.MaxPerformDataSize = ptr(uint32(maxPerformDataSize))  // set the max perform data size
+			c.Keeper.MaxGracePeriod = testutils.Ptr[int64](0)                                // avoid waiting to re-submit for upkeeps
+			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour)          // disable full sync ticker for test
+			c.Keeper.Registry.MaxPerformDataSize = testutils.Ptr(uint32(maxPerformDataSize)) // set the max perform data size
 
-			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
+			c.Keeper.TurnLookBack = testutils.Ptr[int64](0) // testing doesn't need to do far look back
 
-			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
-			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
-			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
+			c.EVM[0].BlockBackfillDepth = testutils.Ptr[uint32](0)          // backfill will trigger sync on startup
+			c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)    // disable reorg protection for this test
+			c.EVM[0].HeadTracker.MaxBufferSize = testutils.Ptr[uint32](100) // helps prevent missed heads
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)

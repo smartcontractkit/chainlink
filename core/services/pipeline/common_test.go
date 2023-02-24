@@ -14,6 +14,7 @@ import (
 
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -323,13 +324,13 @@ func TestSelectGasLimit(t *testing.T) {
 	t.Parallel()
 
 	gcfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(999))
+		c.EVM[0].GasEstimator.LimitDefault = testutils.Ptr(uint32(999))
 		c.EVM[0].GasEstimator.LimitJobType = v2.GasLimitJobType{
-			DR:     ptr(uint32(100)),
-			VRF:    ptr(uint32(101)),
-			FM:     ptr(uint32(102)),
-			OCR:    ptr(uint32(103)),
-			Keeper: ptr(uint32(103)),
+			DR:     testutils.Ptr(uint32(100)),
+			VRF:    testutils.Ptr(uint32(101)),
+			FM:     testutils.Ptr(uint32(102)),
+			OCR:    testutils.Ptr(uint32(103)),
+			Keeper: testutils.Ptr(uint32(103)),
 		}
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)

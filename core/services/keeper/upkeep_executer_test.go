@@ -65,7 +65,7 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 	keeper.ORM,
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Keeper.TurnLookBack = ptr[int64](0)
+		c.Keeper.TurnLookBack = testutils.Ptr[int64](0)
 		if fn := overrideFn; fn != nil {
 			fn(c, s)
 		}
@@ -319,5 +319,3 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, "eth_txes", 0)
 }
-
-func ptr[T any](t T) *T { return &t }

@@ -40,7 +40,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	runner := pipeline_mocks.NewRunner(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 	})
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon})
@@ -121,7 +121,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg config.GeneralConfig, 
 
 func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 	})
 	return NewDirectRequestUniverseWithConfig(t, cfg, nil)
 }
@@ -353,7 +353,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has sufficient funds", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+			c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 			c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
 		})
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
@@ -404,7 +404,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has insufficient funds", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+			c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 			c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
 		})
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
@@ -443,7 +443,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	t.Run("requesters is specified and log is requested by a whitelisted address", func(t *testing.T) {
 		requester := testutils.NewAddress()
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+			c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 			c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
 		})
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
@@ -501,7 +501,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	t.Run("requesters is specified and log is requested by a non-whitelisted address", func(t *testing.T) {
 		requester := testutils.NewAddress()
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+			c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 			c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
 		})
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
@@ -540,5 +540,3 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.service.Close()
 	})
 }
-
-func ptr[T any](t T) *T { return &t }

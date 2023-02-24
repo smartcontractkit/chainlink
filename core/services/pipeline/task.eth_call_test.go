@@ -246,8 +246,8 @@ func TestETHCallTask(t *testing.T) {
 			test.setupClientMocks(ethClient, config)
 
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.LimitDefault = ptr(gasLimit)
-				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
+				c.EVM[0].GasEstimator.LimitDefault = testutils.Ptr(gasLimit)
+				c.EVM[0].GasEstimator.LimitJobType.DR = testutils.Ptr(drJobTypeGasLimit)
 			})
 			lggr := logger.TestLogger(t)
 

@@ -27,12 +27,12 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
 	node := solcfg.Node{
-		Name: ptr(t.Name()),
+		Name: testutils.Ptr(t.Name()),
 		URL:  utils.MustParseURL(url),
 	}
 	cfg := solana.SolanaConfig{
 		ChainID: &chainID,
-		Enabled: ptr(true),
+		Enabled: testutils.Ptr(true),
 		Nodes:   solana.SolanaNodes{&node},
 	}
 	app := solanaStartNewApplication(t, &cfg)

@@ -41,11 +41,9 @@ type DRListenerUniverse struct {
 	logBroadcaster *log_mocks.Broadcaster
 }
 
-func ptr[T any](t T) *T { return &t }
-
 func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+		c.EVM[0].MinIncomingConfirmations = testutils.Ptr[uint32](1)
 	})
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
