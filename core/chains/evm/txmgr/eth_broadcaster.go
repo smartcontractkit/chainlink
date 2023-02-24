@@ -408,7 +408,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on saveInProgressTransaction"), true
+			return errors.Wrap(err, "processUnstartedEthTxs failed on UpdateEthTxUnstartedToInProgress"), true
 		}
 
 		if err, retryable := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {

@@ -102,6 +102,8 @@ func (o *orm) Close() {
 	o.ctxCancel()
 }
 
+//
+
 func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	// Preload TxAttempts
 	var ids []int64
@@ -1065,4 +1067,35 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 		err = tx.Get(etx, `UPDATE eth_txes SET nonce=$1, state=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id=$5 RETURNING *`, etx.Nonce, etx.State, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID)
 		return errors.Wrap(err, "UpdateEthTxUnstartedToInProgress failed to update eth_tx")
 	})
+}
+
+// GetEthTxInProgress returns either 0 or 1 transaction that was left in
+// an unfinished state because something went screwy the last time. Most likely
+// the node crashed in the middle of the ProcessUnstartedEthTxs loop.
+// It may or may not have been broadcast to an eth node.
+func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error) {
+	qq := o.q.WithOpts()
+	etx = new(EthTx)
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
+		if errors.Is(err, sql.ErrNoRows) {
+			return err
+		} else if err != nil {
+			return errors.Wrap(err, "GetEthTxInProgress failed while loading eth tx")
+		}
+		if err = o.LoadEthTxAttempts(etx, pg.WithQueryer(tx)); err != nil {
+			return errors.Wrap(err, "GetEthTxInProgress failed while loading EthTxAttempts")
+		}
+		if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
+			return errors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
+				"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", etx.ID)
+		}
+		return nil
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
