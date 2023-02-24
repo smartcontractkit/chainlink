@@ -1,6 +1,7 @@
 package testsetups
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -33,6 +34,101 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+type csaKey struct {
+	NodeName    string `json:"nodeName"`
+	NodeAddress string `json:"nodeAddress"`
+	PublicKey   string `json:"publicKey"`
+}
+
+type oracle struct {
+	Id                    string   `json:"id"`
+	Website               string   `json:"website"`
+	Name                  string   `json:"name"`
+	Status                string   `json:"status"`
+	NodeAddress           []string `json:"nodeAddress"`
+	OracleAddress         string   `json:"oracleAddress"`
+	CsaKeys               []csaKey `json:"csaKeys"`
+	Ocr2ConfigPublicKey   []string `json:"ocr2ConfigPublicKey"`
+	Ocr2OffchainPublicKey []string `json:"ocr2OffchainPublicKey"`
+	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
+}
+
+func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) {
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+
+	// Build rpc config for Mercury server
+	var msRpcNodesConf []*oracle
+	for i, chainlinkNode := range chainlinkNodes {
+		nodeName := fmt.Sprint(i)
+		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
+		require.NoError(t, err)
+		csaKeys, resp, err := chainlinkNode.ReadCSAKeys()
+		_ = csaKeys
+		_ = resp
+		require.NoError(t, err)
+		csaKeyId := csaKeys.Data[0].ID
+		ocr2Keys, resp, err := chainlinkNode.ReadOCR2Keys()
+		_ = ocr2Keys
+		_ = resp
+		require.NoError(t, err)
+		var ocr2Config client.OCR2KeyAttributes
+		for _, key := range ocr2Keys.Data {
+			if key.Attributes.ChainType == string(chaintype.EVM) {
+				ocr2Config = key.Attributes
+				break
+			}
+		}
+		ocr2ConfigPublicKey := strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_")
+		ocr2OffchainPublicKey := strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_")
+		ocr2OnchainPublicKey := strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_")
+
+		node := &oracle{
+			Id:            fmt.Sprint(i),
+			Name:          nodeName,
+			Status:        "active",
+			NodeAddress:   []string{nodeAddress},
+			OracleAddress: "0x0000000000000000000000000000000000000000",
+			CsaKeys: []csaKey{
+				{
+					NodeName:    nodeName,
+					NodeAddress: nodeAddress,
+					PublicKey:   csaKeyId,
+				},
+			},
+			Ocr2ConfigPublicKey:   []string{ocr2ConfigPublicKey},
+			Ocr2OffchainPublicKey: []string{ocr2OffchainPublicKey},
+			Ocr2OnchainPublicKey:  []string{ocr2OnchainPublicKey},
+		}
+		msRpcNodesConf = append(msRpcNodesConf, node)
+	}
+	msRpcNodesJsonConf, _ := json.Marshal(msRpcNodesConf)
+	// result := []interface{}{}
+	// err = json.Unmarshal([]byte(msRpcNodesJsonConf), &result)
+	// err = mapstructure.Decode(msRpcNodesConf[0], &result)
+
+	testEnv.AddHelm(mercury_server.New(map[string]interface{}{
+		"imageRepo": os.Getenv("MERCURY_SERVER_IMAGE"),
+		"imageTag":  os.Getenv("MERCURY_SERVER_TAG"),
+		// "envVars": mercuryServerEnvVars,
+		"rpcNodesConf": string(msRpcNodesJsonConf),
+	})).Run()
+
+	mercuryServerEnvVars := map[string]any{
+		"PORT":                 "3000",
+		"DATABASE_URL":         "postgresql://postgres:verylongdatabasepassword@localhost:5432/mercury?sslmode=disable",
+		"AUTH_CLIENT_USER":     "client",
+		"AUTH_CLIENT_PASSWORD": "clientpass",
+		"AUTH_NODE_USER":       "node",
+		"AUTH_NODE_PASSWORD":   "nodepass",
+		"RPC_PRIVATE_KEY":      "05617baaf5d051eb7841aba802eb6c51dd9bad9cc048f11dd0dc5ee294262898724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
+		"RPC_PORT":             "1338",
+		"RPC_HEALTHZ_PORT":     "1339",
+	}
+	_ = mercuryServerEnvVars
+}
+
 func SetupMercuryEnv(t *testing.T) (
 	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
 	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer) {
@@ -55,17 +151,13 @@ func SetupMercuryEnv(t *testing.T) (
 	)
 
 	testEnvironment := environment.New(&environment.Config{
-		// TTL:             1 * time.Hour,
+		// TTL:             2 * time.Hour,
 		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(mercury_server.New(map[string]interface{}{
-			"imageRepo": os.Getenv("MERCURY_SERVER_IMAGE"),
-			"imageTag":  os.Getenv("MERCURY_SERVER_TAG"),
-		})).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
@@ -75,6 +167,8 @@ func SetupMercuryEnv(t *testing.T) (
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
+
+	SetupMercuryServer(t, testEnvironment)
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
