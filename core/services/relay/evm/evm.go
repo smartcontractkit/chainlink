@@ -58,6 +58,10 @@ func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg Rela
 	}
 }
 
+func (r *Relayer) Name() string {
+	return r.lggr.Name()
+}
+
 // Start does noop: no subservices started on relay start, but when the first job is started
 func (r *Relayer) Start(context.Context) error {
 	return nil
@@ -76,6 +80,15 @@ func (r *Relayer) Ready() error {
 // Healthy does noop: always healthy
 func (r *Relayer) Healthy() error {
 	return nil
+}
+
+func (r *Relayer) HealthReport() map[string]error {
+	return map[string]error{r.Name(): r.Healthy()}
+}
+
+// This is a stub, to be added in smartcontractkit/chainlink#8340
+func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
+	return nil, errors.New("mercury is not supported")
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
@@ -129,6 +142,10 @@ func newConfigWatcher(lggr logger.Logger,
 
 }
 
+func (c *configWatcher) Name() string {
+	return c.lggr.Name()
+}
+
 func (c *configWatcher) Start(ctx context.Context) error {
 	return c.StartOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
 		if c.runReplay && c.fromBlock != 0 {
@@ -154,6 +171,10 @@ func (c *configWatcher) Close() error {
 		c.wg.Wait()
 		return nil
 	})
+}
+
+func (c *configWatcher) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
@@ -385,6 +406,10 @@ type medianProvider struct {
 	ms services.MultiStart
 }
 
+func (p *medianProvider) Name() string {
+	return "EVM.MedianProvider"
+}
+
 func (p *medianProvider) Start(ctx context.Context) error {
 	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter)
 }
@@ -399,6 +424,10 @@ func (p *medianProvider) Ready() error {
 
 func (p *medianProvider) Healthy() error {
 	return multierr.Combine(p.configWatcher.Healthy(), p.contractTransmitter.Healthy())
+}
+
+func (p *medianProvider) HealthReport() map[string]error {
+	return map[string]error{p.Name(): p.Healthy()}
 }
 
 func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
