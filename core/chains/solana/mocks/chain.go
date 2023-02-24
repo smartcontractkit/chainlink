@@ -50,6 +50,22 @@ func (_m *Chain) Config() config.Config {
 	return r0
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *Chain) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
 // Healthy provides a mock function with given fields:
 func (_m *Chain) Healthy() error {
 	ret := _m.Called()
@@ -66,6 +82,20 @@ func (_m *Chain) Healthy() error {
 
 // ID provides a mock function with given fields:
 func (_m *Chain) ID() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// Name provides a mock function with given fields:
+func (_m *Chain) Name() string {
 	ret := _m.Called()
 
 	var r0 string
