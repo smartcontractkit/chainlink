@@ -35,6 +35,7 @@ type ORM interface {
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CountJobProposals() (int64, error)
 	CountJobProposalsByStatus() (counts *JobProposalCounts, err error)
+	DeleteProposal(id int64, qopts ...pg.QOpt) error
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	ListJobProposals() (jps []JobProposal, err error)
@@ -484,19 +485,29 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusCancelled, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusCancelled, id); err != nil {
 		return err
 	}
 
 	stmt = `
 UPDATE job_proposals
-SET status = $1,
-	external_job_id = $2,
+SET STATUS = subquery.updateStatus,
+	pending_update = FALSE,
+	external_job_id = $3,
 	updated_at = NOW()
-WHERE id = $3;
+FROM (
+		SELECT (
+				CASE
+					WHEN STATUS = 'deleted' THEN 'deleted'::job_proposal_status
+					ELSE 'cancelled'::job_proposal_status
+				END
+			) AS updateStatus
+		FROM job_proposals
+		WHERE id = $1
+	) AS subquery
+WHERE id = $2;
 `
-
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusCancelled, nil, jpID)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, jpID, nil)
 	if err != nil {
 		return err
 	}
@@ -539,6 +550,34 @@ SELECT exists (
 
 	err = o.q.WithOpts(qopts...).Get(&exists, stmt, jpID, version)
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
+}
+
+// DeleteProposal performs a soft delete of the job proposal by setting the
+// status to deleted, remove the external job id, and update the status to
+// deleted
+func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
+	stmt := `
+UPDATE job_proposals
+SET status = $1,
+	external_job_id = $2,
+	updated_at = NOW()
+WHERE id = $3;
+`
+
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, nil, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 // GetSpec fetches the job proposal spec by id
@@ -614,21 +653,27 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusRejected, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusRejected, id); err != nil {
 		return err
 	}
 
 	stmt = `
 UPDATE job_proposals
-SET status = subquery.updateStatus,
+SET STATUS = subquery.updateStatus,
 	pending_update = FALSE,
 	updated_at = NOW()
 FROM (
-	SELECT (CASE WHEN status = 'approved' THEN 'approved'::job_proposal_status ELSE 'rejected'::job_proposal_status END) as updateStatus
-	FROM job_proposals
-	WHERE id = $1
-) as subquery
-WHERE id = $2;
+		SELECT (
+				CASE
+					WHEN STATUS = 'approved' THEN 'approved'::job_proposal_status
+					WHEN STATUS = 'deleted' THEN 'deleted'::job_proposal_status
+					ELSE 'rejected'::job_proposal_status
+				END
+			) AS updateStatus
+		FROM job_proposals
+		WHERE id = $1
+	) AS subquery
+WHERE id = $2
 `
 
 	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, jpID)

@@ -716,6 +716,80 @@ func Test_ORM_ApproveSpec(t *testing.T) {
 func Test_ORM_CancelSpec(t *testing.T) {
 	t.Parallel()
 
+	testCases := []struct {
+		name               string
+		before             func(orm *TestORM) (int64, int64)
+		wantSpecStatus     feeds.SpecStatus
+		wantProposalStatus feeds.JobProposalStatus
+		wantErr            string
+	}{
+		{
+			name: "pending proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusCancelled,
+			wantProposalStatus: feeds.JobProposalStatusCancelled,
+		},
+		{
+			name: "deleted proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusCancelled,
+			wantProposalStatus: feeds.JobProposalStatusDeleted,
+		},
+		{
+			name: "not found",
+			before: func(orm *TestORM) (int64, int64) {
+				return 0, 0
+			},
+			wantErr: "sql: no rows in result set",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			orm := setupORM(t)
+
+			jpID, specID := tc.before(orm)
+
+			err := orm.CancelSpec(specID)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+
+				actual, err := orm.GetSpec(specID)
+				require.NoError(t, err)
+
+				assert.Equal(t, specID, actual.ID)
+				assert.Equal(t, tc.wantSpecStatus, actual.Status)
+
+				actualJP, err := orm.GetJobProposal(jpID)
+				require.NoError(t, err)
+
+				assert.Equal(t, tc.wantProposalStatus, actualJP.Status)
+				assert.False(t, actualJP.PendingUpdate)
+			}
+		})
+	}
+}
+
+func Test_ORM_DeleteProposal(t *testing.T) {
+	t.Parallel()
+
 	var (
 		orm           = setupORM(t)
 		fmID          = createFeedsManager(t, orm)
@@ -733,21 +807,14 @@ func Test_ORM_CancelSpec(t *testing.T) {
 	err := orm.ApproveSpec(specID, externalJobID.UUID)
 	require.NoError(t, err)
 
-	err = orm.CancelSpec(specID)
+	err = orm.DeleteProposal(jpID)
 	require.NoError(t, err)
-
-	actual, err := orm.GetSpec(specID)
-	require.NoError(t, err)
-
-	assert.Equal(t, specID, actual.ID)
-	assert.Equal(t, feeds.SpecStatusCancelled, actual.Status)
 
 	actualJP, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	assert.Equal(t, jpID, actual.JobProposalID)
 	assert.Equal(t, uuid.NullUUID{Valid: false}, actualJP.ExternalJobID)
-	assert.Equal(t, feeds.JobProposalStatusCancelled, actualJP.Status)
+	assert.Equal(t, feeds.JobProposalStatusDeleted, actualJP.Status)
 }
 
 func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
@@ -941,6 +1008,18 @@ func Test_ORM_RejectSpec(t *testing.T) {
 			},
 			wantSpecStatus:     feeds.SpecStatusRejected,
 			wantProposalStatus: feeds.JobProposalStatusRejected,
+		},
+		{
+			name: "deleted proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusRejected,
+			wantProposalStatus: feeds.JobProposalStatusDeleted,
 		},
 		{
 			name: "not found",
