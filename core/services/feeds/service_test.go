@@ -196,7 +196,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
 	// We need to stop the service because the manager will attempt to make a
 	// connection
-	defer svc.Close()
+	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
