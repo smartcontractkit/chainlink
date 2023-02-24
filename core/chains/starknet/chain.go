@@ -109,6 +109,10 @@ func (c *chain) getClient() (*starknet.Client, error) {
 	return client, nil
 }
 
+func (c *chain) Name() string {
+	return c.lggr.Name()
+}
+
 func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
 		return c.txm.Start(ctx)
@@ -127,4 +131,8 @@ func (c *chain) Ready() error {
 
 func (c *chain) Healthy() error {
 	return c.StartStopOnce.Healthy()
+}
+
+func (c *chain) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
 }
