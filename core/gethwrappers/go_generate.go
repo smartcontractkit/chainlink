@@ -35,7 +35,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.bin KeeperRegistryLogic keeper_registry_logic1_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistry2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistry2_0.bin KeeperRegistry keeper_registry_wrapper2_0
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.bin KeeperRegistryLogic keeper_registry_logic2_0
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/UpkeepAPIFetch.abi ../../contracts/solc/v0.8.6/UpkeepAPIFetch.bin UpkeepAPIFetch upkeep_apifetch_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.15/UpkeepAPIFetch.abi ../../contracts/solc/v0.8.15/UpkeepAPIFetch.bin UpkeepAPIFetch upkeep_apifetch_wrapper
 
 // v0.8.6 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/patrickmn/go-cache"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
@@ -56,23 +57,40 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
+	defaultUpkeepExpiration := 10 * time.Minute
+	cleanupInterval := 15 * time.Minute
+	// cache that stores UpkeepInfo for callback during OffchainLookup
+	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
+
+	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
+	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
+	defaultCooldownExpiration := 5 * time.Second
+	// cache for Offchainlookup Upkeeps that are on ice due to errors
+	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
+	defaultApiErrExpiration := 10 * time.Minute
+	// cache for tracking errors for an Upkeep during OffchainLookup
+	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
+
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan types.BlockKey, 1),
 		},
-		lggr:     lggr,
-		poller:   client.LogPoller(),
-		addr:     addr,
-		client:   client.Client(),
-		txHashes: make(map[string]bool),
-		registry: registry,
-		abi:      abi,
-		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_0{abi: abi},
-		headFunc: func(types.BlockKey) {},
-		chLog:    make(chan logpoller.Log, 1000),
+		lggr:          lggr,
+		poller:        client.LogPoller(),
+		addr:          addr,
+		client:        client.Client(),
+		txHashes:      make(map[string]bool),
+		registry:      registry,
+		abi:           abi,
+		active:        make(map[string]activeUpkeep),
+		packer:        &evmRegistryPackerV2_0{abi: abi},
+		headFunc:      func(types.BlockKey) {},
+		chLog:         make(chan logpoller.Log, 1000),
+		upkeepCache:   upkeepInfoCache,
+		cooldownCache: cooldownCache,
+		apiErrCache:   apiErrCache,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -129,6 +147,9 @@ type EvmRegistry struct {
 	headFunc      func(types.BlockKey)
 	runState      int
 	runError      error
+	upkeepCache   *cache.Cache
+	cooldownCache *cache.Cache
+	apiErrCache   *cache.Cache
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a

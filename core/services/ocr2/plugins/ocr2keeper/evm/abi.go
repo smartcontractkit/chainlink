@@ -58,6 +58,7 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 	if !upkeepNeeded {
 		result.State = types.NotEligible
 	}
+	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
 	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 		var ret0 = new(performDataWrapper)
 		err = pdataABI.UnpackIntoInterface(ret0, "check", rawPerformData)

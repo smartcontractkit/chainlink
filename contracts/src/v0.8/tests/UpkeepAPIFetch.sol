@@ -1,15 +1,9 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.15;
+
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract UpkeepAPIFetch {
-  event PerformingUpkeep(
-    address indexed from,
-    uint256 initialBlock,
-    uint256 lastBlock,
-    uint256 previousBlock,
-    uint256 counter,
-    string gender,
-    string name
-  );
+  event PerformingUpkeep(address indexed from, uint256 lastBlock, uint256 counter, string id, string name);
 
   error ChainlinkAPIFetch(string url, bytes extraData, string[] jsonFields, bytes4 callbackSelector);
 
@@ -22,6 +16,8 @@ contract UpkeepAPIFetch {
   uint256 public initialBlock;
   uint256 public counter;
   string public url;
+  string public id;
+  string public pokemon;
   string[] public fields;
 
   constructor(uint256 _testRange, uint256 _interval) {
@@ -31,8 +27,8 @@ contract UpkeepAPIFetch {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    fields = ["gender", "name"];
-    url = "https://api.genderize.io/?name=chris";
+    fields = ["id", "name"];
+    url = "https://pokeapi.co/api/v2/pokemon/";
   }
 
   function callback(
@@ -40,26 +36,38 @@ contract UpkeepAPIFetch {
     string[] calldata values,
     uint256 statusCode
   ) external view returns (bool, bytes memory) {
-    //    if (statusCode > 299) {
-    //      // could also pass true here with statusCode so performUpkeep could trigger changes when a url sees an error
-    //      return (false, abi.encode("error", statusCode));
-    //    }
-    string memory gender = values[0];
+    if (statusCode > 299) {
+      // pass true here with msg to perform to trigger changes when a url sees an error
+      return (true, abi.encode("error", "error"));
+    }
+    string memory pid = values[0];
     string memory name = values[1];
-    return (true, abi.encode(gender, name));
+    return (true, abi.encode(pid, name));
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
-    revert ChainlinkAPIFetch(url, abi.encode(data), fields, CALLBACK_SELECTOR);
+    if (!eligible()) {
+      return (false, data);
+    }
+    string memory pid = Strings.toString(counter + 1);
+    string memory urlWithId = string(abi.encodePacked(url, pid));
+    revert ChainlinkAPIFetch(urlWithId, abi.encode(data), fields, CALLBACK_SELECTOR);
   }
 
   function performUpkeep(bytes calldata performData) external {
     if (initialBlock == 0) {
       initialBlock = block.number;
     }
+    lastBlock = block.number;
     counter = counter + 1;
-    (string memory gender, string memory name) = abi.decode(performData, (string, string));
-    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter, gender, name);
+    (string memory pid, string memory name) = abi.decode(performData, (string, string));
+    if (keccak256(abi.encodePacked(pid)) == keccak256(abi.encodePacked("error"))) {
+      counter = 0;
+    } else {
+      id = pid;
+      pokemon = name;
+    }
+    emit PerformingUpkeep(tx.origin, lastBlock, counter, pid, name);
     previousPerformBlock = lastBlock;
   }
 
@@ -80,17 +88,5 @@ contract UpkeepAPIFetch {
 
   function setURLs(string memory input) external {
     url = input;
-  }
-
-  function stringToUint(string memory s) public pure returns (uint256) {
-    bytes memory b = bytes(s);
-    uint256 result = 0;
-    for (uint256 i = 0; i < b.length; i++) {
-      uint256 c = uint256(uint8(b[i]));
-      if (c >= 48 && c <= 57) {
-        result = result * 10 + (c - 48);
-      }
-    }
-    return result;
   }
 }
