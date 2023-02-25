@@ -405,7 +405,12 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
 // so this function should not be used heavily
-func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugintypes.UpkeepIdentifier) (plugintypes.BlockKey, error) {
+func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugintypes.UpkeepIdentifier) (bk plugintypes.BlockKey, e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = fmt.Errorf("recovered from panic in getCheckBlockNumberForUpkeep: %v", r)
+		}
+	}()
 	// Check if value already exists in cache for txHash, id pair
 	cacheKey := txHash.String() + "|" + string(id)
 	val, ok := c.txCheckBlockCache.Get(cacheKey)
