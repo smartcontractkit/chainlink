@@ -58,7 +58,7 @@ EXPOSE 8546
 # Default env setup for testing
 ENV CHAINLINK_DB_NAME chainlink_test
 ENV CHAINLINK_PGPASSWORD=node
-ENV DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@localhost:5432/$CHAINLINK_DB_NAME?sslmode=disable
+ENV CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@localhost:5432/$CHAINLINK_DB_NAME?sslmode=disable
 ENV TYPEORM_USERNAME=postgres
 ENV TYPEORM_PASSWORD=node
 ENV ETH_CHAIN_ID=1337
