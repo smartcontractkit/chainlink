@@ -73,16 +73,6 @@ func (w *client) HealthReport() map[string]error {
 	return map[string]error{w.Name(): w.Healthy()}
 }
 
-func (w *client) Transmit(ctx context.Context, in *report.ReportRequest) (rr *report.ReportResponse, err error) {
-	ok := w.IfStarted(func() {
-		rr, err = w.client.Transmit(ctx, in)
-	})
-	if !ok {
-		return nil, errors.New("client is not started")
-	}
-	return
-}
-
 // Healthy if connected
 func (w *client) Healthy() (err error) {
 	if err = w.StartStopOnce.Healthy(); err != nil {

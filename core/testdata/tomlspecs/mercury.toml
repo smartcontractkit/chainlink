@@ -11,7 +11,7 @@ p2pv2Bootstrappers = [
 ]
 relay = "evm"
 pluginType = "mercury"
-transmitterID = "<OCR2 pub key goes here>"
+transmitterID = "<OCR2 CSA pub key goes here>"
 observationSource = """
     // Block Num + Hash
     block           [type=ethgetblock];
