@@ -10,17 +10,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -117,12 +113,8 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer struct {
 	utils.StartStopOnce
-
-	orm ORM
-
+	orm       ORM
 	lggr      logger.Logger
-	db        *sqlx.DB
-	q         pg.Q
 	ethClient evmclient.Client
 	ChainKeyStore
 	estimator      gas.Estimator
@@ -139,19 +131,16 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
-	q := pg.NewQ(db, lggr, config)
 
 	return &EthConfirmer{
 		utils.StartStopOnce{},
-		NewORM(db, lggr, config),
+		orm,
 		lggr,
-		db,
-		q,
 		ethClient,
 		ChainKeyStore{
 			*ethClient.ChainID(),
@@ -190,7 +179,6 @@ func (ec *EthConfirmer) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
 		ec.ctxCancel()
 		ec.wg.Wait()
-
 		return nil
 	})
 }
@@ -280,21 +268,6 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 	ec.lggr.Debugw("processHead finish", "headNum", head.Number, "id", "eth_confirmer")
 
 	return nil
-}
-
-// SetBroadcastBeforeBlockNum updates already broadcast attempts with the
-// current block number. This is safe no matter how old the head is because if
-// the attempt is already broadcast it _must_ have been before this head.
-func (ec *EthConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
-	_, err := ec.q.Exec(
-		`UPDATE eth_tx_attempts
-SET broadcast_before_block_num = $1 
-FROM eth_txes
-WHERE eth_tx_attempts.broadcast_before_block_num IS NULL AND eth_tx_attempts.state = 'broadcast'
-AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
-		blockNum, ec.chainID.String(),
-	)
-	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
 
 // CheckConfirmedMissingReceipt will attempt to re-send any transaction in the
@@ -397,7 +370,7 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.markOldTxesMissingReceiptAsErrored(blockNum); err != nil {
+	if err := ec.orm.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.EvmFinalityDepth(), ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 	return nil
@@ -598,100 +571,6 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
-// markOldTxesMissingReceiptAsErrored
-//
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold
-// without receiving any receipts, we mark it as fatally errored (never sent).
-//
-// The job run will also be marked as errored in this case since we never got a
-// receipt and thus cannot pass on any transaction hash
-func (ec *EthConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error {
-	// cutoff is a block height
-	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
-	// We will not try to query for receipts for this transaction any more
-	cutoff := blockNum - int64(ec.config.EvmFinalityDepth())
-	if cutoff <= 0 {
-		return nil
-	}
-
-	return ec.q.Transaction(func(q pg.Queryer) error {
-		type etx struct {
-			ID    int64
-			Nonce int64
-		}
-		var data []etx
-		err := q.Select(&data, `
-UPDATE eth_txes
-SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL, initial_broadcast_at=NULL
-FROM (
-	SELECT e1.id, e1.nonce, e1.from_address FROM eth_txes AS e1 WHERE id IN (
-		SELECT e2.id FROM eth_txes AS e2
-		INNER JOIN eth_tx_attempts ON e2.id = eth_tx_attempts.eth_tx_id
-		WHERE e2.state = 'confirmed_missing_receipt'
-		AND e2.evm_chain_id = $3
-		GROUP BY e2.id
-		HAVING max(eth_tx_attempts.broadcast_before_block_num) < $2
-	)
-	FOR UPDATE OF e1
-) e0
-WHERE e0.id = eth_txes.id
-RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, ec.chainID.String())
-
-		if err != nil {
-			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
-		}
-
-		// We need this little lookup table because we have to have the nonce
-		// from the first query, BEFORE it was updated/nullified
-		lookup := make(map[int64]etx)
-		for _, d := range data {
-			lookup[d.ID] = d
-		}
-		etxIDs := make([]int64, len(data))
-		for i := 0; i < len(data); i++ {
-			etxIDs[i] = data[i].ID
-		}
-
-		type result struct {
-			ID                         int64
-			FromAddress                gethCommon.Address
-			MaxBroadcastBeforeBlockNum int64
-			TxHashes                   pq.ByteaArray
-		}
-
-		var results []result
-		err = q.Select(&results, `
-SELECT e.id, e.from_address, max(a.broadcast_before_block_num) AS max_broadcast_before_block_num, array_agg(a.hash) AS tx_hashes
-FROM eth_txes e
-INNER JOIN eth_tx_attempts a ON e.id = a.eth_tx_id
-WHERE e.id = ANY($1)
-GROUP BY e.id
-`, etxIDs)
-
-		if err != nil {
-			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to load additional data")
-		}
-
-		for _, r := range results {
-			nonce := lookup[r.ID].Nonce
-			txHashesHex := make([]common.Address, len(r.TxHashes))
-			for i := 0; i < len(r.TxHashes); i++ {
-				txHashesHex[i] = gethCommon.BytesToAddress(r.TxHashes[i])
-			}
-
-			ec.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
-				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
-				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
-				"an external wallet has been used to send a transaction from account %s with nonce %v."+
-				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
-				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.Hex(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
-		}
-
-		return nil
-	})
-}
-
 // RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-eth
 func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
@@ -727,7 +606,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	threshold := int64(ec.config.EvmGasBumpThreshold())
 	bumpDepth := int64(ec.config.EvmGasBumpTxDepth())
 	maxInFlightTransactions := ec.config.EvmMaxInFlightTransactions()
-	etxs, err := FindEthTxsRequiringRebroadcast(ctx, ec.q, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
+	etxs, err := ec.FindEthTxsRequiringRebroadcast(ctx, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
@@ -777,10 +656,10 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
-func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
+func (ec *EthConfirmer) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
-	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx, q, lggr, address, chainID)
+	etxInsufficientEths, err := ec.orm.FindEthTxsRequiringResubmissionDueToInsufficientEth(address, chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -790,7 +669,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 	}
 
 	// TODO: Just pass the Q through everything
-	etxBumps, err := FindEthTxsRequiringGasBump(ctx, q, lggr, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
+	etxBumps, err := ec.orm.FindEthTxsRequiringGasBump(ctx, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
 	if ctx.Err() != nil {
 		return nil, nil
 	} else if err != nil {
@@ -834,55 +713,6 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 		etxs = etxs[:maxInFlightTransactions]
 	}
 
-	return
-}
-
-// FindEthTxsRequiringResubmissionDueToInsufficientEth returns transactions
-// that need to be re-sent because they hit an out-of-eth error on a previous
-// block
-func FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (etxs []*EthTx, err error) {
-	qq := q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&etxs, `
-SELECT DISTINCT eth_txes.* FROM eth_txes
-INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'
-WHERE eth_txes.from_address = $1 AND eth_txes.state = 'unconfirmed' AND eth_txes.evm_chain_id = $2
-ORDER BY nonce ASC
-`, address, chainID.String())
-		if err != nil {
-			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
-		}
-
-		err = loadEthTxesAttempts(tx, etxs)
-		return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_tx_attempts")
-	}, pg.OptReadOnlyTx())
-	return
-}
-
-// FindEthTxsRequiringGasBump returns transactions that have all
-// attempts which are unconfirmed for at least gasBumpThreshold blocks,
-// limited by limit pending transactions
-//
-// It also returns eth_txes that are unconfirmed with no eth_tx_attempts
-func FindEthTxsRequiringGasBump(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error) {
-	if gasBumpThreshold == 0 {
-		return
-	}
-	qq := q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		stmt := `
-SELECT eth_txes.* FROM eth_txes
-LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND (broadcast_before_block_num > $4 OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')
-WHERE eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
-	AND (($3 = 0) OR (eth_txes.id IN (SELECT id FROM eth_txes WHERE state = 'unconfirmed' AND from_address = $1 ORDER BY nonce ASC LIMIT $3)))
-ORDER BY nonce ASC
-`
-		if err = tx.Select(&etxs, stmt, address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
-			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
-		}
-		err = loadEthTxesAttempts(tx, etxs)
-		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
-	}, pg.OptReadOnlyTx())
 	return
 }
 
@@ -983,7 +813,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
 		// "Lazily" load attempts here since the overwhelmingly common case is
 		// that we don't need them unless we enter this path
-		if err := loadEthTxesAttempts(ec.q.WithOpts(pg.WithParentCtx(ctx)), []*EthTx{&etx}); err != nil {
+		if err := ec.orm.LoadEthTxAttempts(&etx, pg.WithParentCtx(ctx)); err != nil {
 			return errors.Wrap(err, "failed to load EthTxAttempts while bumping on terminally underpriced error")
 		}
 		if len(etx.EthTxAttempts) == 0 {
@@ -1008,7 +838,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"replacementAttempt", replacementAttempt,
 		).Errorf("gas price was rejected by the eth node for being too low. Eth node returned: '%s'", sendError.Error())
 
-		if err := saveReplacementInProgressAttempt(ec.q, attempt, &replacementAttempt); err != nil {
+		if err := ec.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
