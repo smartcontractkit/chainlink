@@ -140,7 +140,7 @@ func (q Q) originalLogger() logger.Logger {
 	return q.logger.Helper(-2)
 }
 
-func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
+func PrepareQueryRowx(q Queryer, sql string, dest any, arg any) error {
 	stmt, err := q.PrepareNamed(sql)
 	if err != nil {
 		return errors.Wrap(err, "error preparing named statement")
@@ -187,7 +187,7 @@ func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
 //
 // Generally speaking, it makes more sense to use Get/Select in most cases,
 // which avoids this problem
-func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
+func (q Q) ExecQIter(query string, args ...any) (sql.Result, context.CancelFunc, error) {
 	ctx, cancel := q.Context()
 
 	ql := q.newQueryLogger(query, args)
@@ -197,7 +197,7 @@ func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.Can
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
 	return res, cancel, ql.withLogError(err)
 }
-func (q Q) ExecQ(query string, args ...interface{}) error {
+func (q Q) ExecQ(query string, args ...any) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
@@ -208,7 +208,7 @@ func (q Q) ExecQ(query string, args ...interface{}) error {
 	_, err := q.Queryer.ExecContext(ctx, query, args...)
 	return ql.withLogError(err)
 }
-func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
+func (q Q) ExecQNamed(query string, arg any) (err error) {
 	query, args, err := q.BindNamed(query, arg)
 	if err != nil {
 		return errors.Wrap(err, "error binding arg")
@@ -226,7 +226,7 @@ func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 
 // Select and Get are safe to wrap the context cancellation because the rows
 // are entirely consumed within the call
-func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
+func (q Q) Select(dest any, query string, args ...any) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
@@ -236,7 +236,7 @@ func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
 }
-func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
+func (q Q) Get(dest any, query string, args ...any) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
@@ -246,7 +246,7 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
-func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
+func (q Q) GetNamed(sql string, dest any, arg any) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {
 		return errors.Wrap(err, "error binding arg")
@@ -261,12 +261,12 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	return ql.withLogError(errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query"))
 }
 
-func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
+func (q Q) newQueryLogger(query string, args []any) *queryLogger {
 	return &queryLogger{Q: q, query: query, args: args}
 }
 
 // sprintQ formats the query with the given args and returns the resulting string.
-func sprintQ(query string, args []interface{}) string {
+func sprintQ(query string, args []any) string {
 	if args == nil {
 		return query
 	}
@@ -302,7 +302,7 @@ type queryLogger struct {
 	Q
 
 	query string
-	args  []interface{}
+	args  []any
 
 	str     string
 	strOnce sync.Once

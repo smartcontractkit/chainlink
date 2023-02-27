@@ -154,7 +154,7 @@ type GQLTestCase struct {
 	authenticated bool
 	before        func(*gqlTestFramework)
 	query         string
-	variables     map[string]interface{}
+	variables     map[string]any
 	result        string
 	errors        []*gqlerrors.QueryError
 }
@@ -201,7 +201,7 @@ func RunGQLTests(t *testing.T, testCases []GQLTestCase) {
 // case.
 //
 // The paths will be the query/mutation definition name
-func unauthorizedTestCase(tc GQLTestCase, paths ...interface{}) GQLTestCase {
+func unauthorizedTestCase(tc GQLTestCase, paths ...any) GQLTestCase {
 	tc.name = "not authorized"
 	tc.authenticated = false
 	tc.result = "null"
@@ -210,7 +210,7 @@ func unauthorizedTestCase(tc GQLTestCase, paths ...interface{}) GQLTestCase {
 			ResolverError: unauthorizedError{},
 			Path:          paths,
 			Message:       "Unauthorized",
-			Extensions: map[string]interface{}{
+			Extensions: map[string]any{
 				"code": "UNAUTHORIZED",
 			},
 		},

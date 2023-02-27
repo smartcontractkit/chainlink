@@ -10,10 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     map[string]interface{} with any geth/abigen value type
 //
+//	map[string]any with any geth/abigen value type
 type ETHABIDecodeLogTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`
@@ -52,7 +51,7 @@ func (t *ETHABIDecodeLogTask) Run(_ context.Context, _ logger.Logger, vars Vars,
 		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
 	}
 
-	out := make(map[string]interface{})
+	out := make(map[string]any)
 	if len(data) > 0 {
 		if err2 := args.UnpackIntoMap(out, []byte(data)); err2 != nil {
 			return Result{Error: errors.Wrap(ErrBadInput, err2.Error())}, runInfo

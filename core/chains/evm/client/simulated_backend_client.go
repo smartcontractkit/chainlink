@@ -51,12 +51,12 @@ func (c *SimulatedBackendClient) Close() {}
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
-	args []interface{}) (*CallArgs, *big.Int, error) {
+	args []any) (*CallArgs, *big.Int, error) {
 	if len(args) != 2 {
 		return nil, nil, fmt.Errorf(
 			"should have two arguments after \"eth_call\", got %d", len(args))
 	}
-	callArgs, ok := args[0].(map[string]interface{})
+	callArgs, ok := args[0].(map[string]any)
 	if !ok {
 		return nil, nil, fmt.Errorf("third arg to SimulatedBackendClient.Call "+
 			"must be an eth.CallArgs, got %+#v", args[0])
@@ -77,7 +77,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 
 // CallContext mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
-func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (c *SimulatedBackendClient) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	switch method {
 	case "eth_call":
 		callArgs, _, err := c.checkEthCallArgs(args)
@@ -194,7 +194,7 @@ func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt
 	return c.b.TransactionReceipt(ctx, receipt)
 }
 
-func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *big.Int, err error) {
+func (c *SimulatedBackendClient) blockNumber(number any) (blockNumber *big.Int, err error) {
 	switch n := number.(type) {
 	case string:
 		switch n {
@@ -387,7 +387,7 @@ func (e *revertError) ErrorCode() int {
 }
 
 // ErrorData returns the hex encoded revert reason.
-func (e *revertError) ErrorData() interface{} {
+func (e *revertError) ErrorData() any {
 	return e.reason
 }
 
@@ -399,7 +399,7 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	// type JsonError struct {
 	//	Code    int         `json:"code"`
 	//	Message string      `json:"message"`
-	//	Data    interface{} `json:"data,omitempty"`
+	//	Data    any `json:"data,omitempty"`
 	//}
 	res, err := c.b.CallContract(ctx, msg, blockNumber)
 	if err != nil {
@@ -511,9 +511,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 				return errors.Errorf("SimulatedBackendClient expected result to be *string for eth_call, got: %T", elem.Result)
 			}
 
-			params, ok := elem.Args[0].(map[string]interface{})
+			params, ok := elem.Args[0].(map[string]any)
 			if !ok {
-				return errors.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", elem.Args[0])
+				return errors.Errorf("SimulatedBackendClient expected first arg to be map[string]any for eth_call, got: %T", elem.Args[0])
 			}
 
 			blockNum, ok := elem.Args[1].(string)
@@ -561,7 +561,7 @@ func (c *SimulatedBackendClient) Commit() common.Hash {
 	return c.b.Commit()
 }
 
-func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
+func toCallMsg(params map[string]any) ethereum.CallMsg {
 	var callMsg ethereum.CallMsg
 
 	switch to := params["to"].(type) {

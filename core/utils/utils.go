@@ -100,7 +100,7 @@ func DurationFromNow(t time.Time) time.Duration {
 }
 
 // FormatJSON applies indent to format a JSON response.
-func FormatJSON(v interface{}) ([]byte, error) {
+func FormatJSON(v any) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
@@ -246,14 +246,14 @@ func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 }
 
 // UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object
-func UnmarshalToMap(input string) (map[string]interface{}, error) {
-	var output map[string]interface{}
+func UnmarshalToMap(input string) (map[string]any, error) {
+	var output map[string]any
 	err := json.Unmarshal([]byte(input), &output)
 	return output, err
 }
 
 // MustUnmarshalToMap performs UnmarshalToMap, panics upon failure
-func MustUnmarshalToMap(input string) map[string]interface{} {
+func MustUnmarshalToMap(input string) map[string]any {
 	output, err := UnmarshalToMap(input)
 	if err != nil {
 		panic(err)
@@ -355,7 +355,7 @@ func MustHash(in string) common.Hash {
 }
 
 // JustError takes a tuple and returns the last entry, the error.
-func JustError(_ interface{}, err error) error {
+func JustError(_ any, err error) error {
 	return err
 }
 
@@ -1026,7 +1026,7 @@ func (m *KeyedMutex) LockInt64(key int64) func() {
 // BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of
 // arrows pointing at their content, in order to better highlight it. See
 // ExampleBoxOutput
-func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
+func BoxOutput(errorMsgTemplate string, errorMsgValues ...any) string {
 	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
 	lines := strings.Split(errorMsgTemplate, "\n")
 	maxlen := 0

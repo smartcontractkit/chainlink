@@ -94,7 +94,7 @@ type Application interface {
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
-	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -692,7 +692,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
-	meta map[string]interface{},
+	meta map[string]any,
 ) (int64, error) {
 	if !app.GetConfig().Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
@@ -706,7 +706,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	// Some jobs are special in that they do not have a task graph.
 	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
-		var vars map[string]interface{}
+		var vars map[string]any
 		var saveTasks bool
 		if jb.Type == job.VRF {
 			saveTasks = true
@@ -724,14 +724,14 @@ func (app *ChainlinkApplication) RunJobV2(
 				BlockNumber: 10,
 				BlockHash:   utils.NewHash(),
 			}
-			vars = map[string]interface{}{
-				"jobSpec": map[string]interface{}{
+			vars = map[string]any{
+				"jobSpec": map[string]any{
 					"databaseID":    jb.ID,
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
 				},
-				"jobRun": map[string]interface{}{
+				"jobRun": map[string]any{
 					"meta":           meta,
 					"logBlockHash":   testLog.BlockHash[:],
 					"logBlockNumber": testLog.BlockNumber,
@@ -741,8 +741,8 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		} else {
-			vars = map[string]interface{}{
-				"jobRun": map[string]interface{}{
+			vars = map[string]any{
+				"jobRun": map[string]any{
 					"meta": meta,
 				},
 			}

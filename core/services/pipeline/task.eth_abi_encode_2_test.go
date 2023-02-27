@@ -59,7 +59,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				"outputs":         []
 			}`,
 			`{ "u": $(foo), "b": $(bar), "i": $(baz), "s": $(quux) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo":  big.NewInt(123),
 				"bar":  true,
 				"baz":  big.NewInt(-321),
@@ -90,7 +90,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": bytes32,
 				"bar": []byte("stevetoshi sergeymoto"),
 				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
@@ -120,7 +120,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "a": $(foo), "x": $(bar), "s": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []common.Address{
 					common.HexToAddress("0x6c91b062a774cbe8b9bf52f224c37badf98fc40b"),
 					common.HexToAddress("0xc4f27ead9083c756cc2c02aaa39b223fe8d0a0e5"),
@@ -150,7 +150,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "bools": $(foo), "uints": $(bar) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": [][]bool{{true, false}, {false, true}, {false, false}, {true, true}},
 				"bar": [][]*big.Int{{big.NewInt(123), big.NewInt(456)}, {big.NewInt(22), big.NewInt(19842)}},
 			}),
@@ -181,7 +181,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "s": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": big.NewInt(math.MaxInt64),
 			}),
 			nil,
@@ -201,7 +201,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "a": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 			}),
 			nil,
@@ -249,7 +249,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": bytes32,
 				"bar": []byte("stevetoshi sergeymoto"),
 				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
@@ -271,7 +271,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "b": $(foo)}`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0x0000000000000000000000000000000000000000000000000000000000000001",
 			}),
 			nil,
@@ -301,8 +301,8 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "value": $(value) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"value": map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
+				"value": map[string]any{
 					"first": "0x0000000000000000000000000000000000000000000000000000000000000001",
 					"last":  true,
 				},
@@ -334,8 +334,8 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				]
 			}`,
 			`{ "value": $(value) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"value": []interface{}{
+			pipeline.NewVarsFrom(map[string]any{
+				"value": []any{
 					"0x0000000000000000000000000000000000000000000000000000000000000001",
 					true,
 				},

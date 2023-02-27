@@ -65,7 +65,7 @@ func TestCronBasic(t *testing.T) {
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
 
 		for _, jr := range jobRuns.Data {
-			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
+			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]any{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
 	}, "2m", "1s").Should(gomega.Succeed())
 }
@@ -87,7 +87,7 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"toml": client.AddNetworksConfig("", network),
 		}))
 	err := testEnvironment.Run()

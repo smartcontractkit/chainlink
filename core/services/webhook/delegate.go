@@ -156,13 +156,13 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 	ctx, cancel := utils.WithCloseChan(ctx, spec.chRemove)
 	defer cancel()
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    spec.ID,
 			"externalJobID": spec.ExternalJobID,
 			"name":          spec.Name.ValueOrZero(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"requestBody": requestBody,
 			"meta":        meta.Val,
 		},

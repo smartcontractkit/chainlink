@@ -258,7 +258,7 @@ func (c *chainScopedConfig) ChainID() *big.Int {
 	return c.id
 }
 
-func (c *chainScopedConfig) logEnvOverrideOnce(name string, envVal interface{}) {
+func (c *chainScopedConfig) logEnvOverrideOnce(name string, envVal any) {
 	k := fmt.Sprintf("env-%s", name)
 	c.onceMapMu.RLock()
 	if _, ok := c.onceMap[k]; ok {
@@ -275,7 +275,7 @@ func (c *chainScopedConfig) logEnvOverrideOnce(name string, envVal interface{}) 
 	c.onceMap[k] = struct{}{}
 }
 
-func (c *chainScopedConfig) logPersistedOverrideOnce(name string, pstVal interface{}) {
+func (c *chainScopedConfig) logPersistedOverrideOnce(name string, pstVal any) {
 	k := fmt.Sprintf("pst-%s", name)
 	c.onceMapMu.RLock()
 	if _, ok := c.onceMap[k]; ok {
@@ -292,7 +292,7 @@ func (c *chainScopedConfig) logPersistedOverrideOnce(name string, pstVal interfa
 	c.onceMap[k] = struct{}{}
 }
 
-func (c *chainScopedConfig) logKeySpecificOverrideOnce(name string, addr gethcommon.Address, pstVal interface{}) {
+func (c *chainScopedConfig) logKeySpecificOverrideOnce(name string, addr gethcommon.Address, pstVal any) {
 	k := fmt.Sprintf("ksp-%s", name)
 	c.onceMapMu.RLock()
 	if _, ok := c.onceMap[k]; ok {

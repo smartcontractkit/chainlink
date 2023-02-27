@@ -780,7 +780,7 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 	return jobID, errors.Wrap(err, "FindJobIDByAddress failed")
 }
 
-func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
+func (o *orm) findJob(jb *Job, col string, arg any, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.Transaction(func(tx pg.Queryer) error {
 		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)

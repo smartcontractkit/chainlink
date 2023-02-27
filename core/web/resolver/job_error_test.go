@@ -95,15 +95,15 @@ func TestResolver_DismissJobError(t *testing.T) {
 					}
 				}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
-	invalidVariables := map[string]interface{}{
+	invalidVariables := map[string]any{
 		"id": "asdadada",
 	}
-	d, err := json.Marshal(map[string]interface{}{
-		"dismissJobError": map[string]interface{}{
-			"jobError": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"dismissJobError": map[string]any{
+			"jobError": map[string]any{
 				"id":          "1",
 				"occurrences": 5,
 				"description": "test-description",
@@ -188,7 +188,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"dismissJobError"},
+					Path:          []any{"dismissJobError"},
 					Message:       gError.Error(),
 				},
 			},
@@ -208,7 +208,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"dismissJobError"},
+					Path:          []any{"dismissJobError"},
 					Message:       gError.Error(),
 				},
 			},
@@ -223,7 +223,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: idError,
-					Path:          []interface{}{"dismissJobError"},
+					Path:          []any{"dismissJobError"},
 					Message:       idError.Error(),
 				},
 			},

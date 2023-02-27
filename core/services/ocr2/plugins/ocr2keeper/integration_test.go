@@ -282,7 +282,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 	// Setup config on contract
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
+	onchainConfig, err := abi.Encode(map[string]any{
 		"paymentPremiumPPB":    uint32(0),
 		"flatFeeMicroLink":     uint32(0),
 		"checkGasLimit":        uint32(6500000),
@@ -536,7 +536,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 
 	// Setup config on contract
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
+	onchainConfig, err := abi.Encode(map[string]any{
 		"paymentPremiumPPB":    uint32(0),
 		"flatFeeMicroLink":     uint32(0),
 		"checkGasLimit":        uint32(6500000),

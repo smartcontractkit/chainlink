@@ -90,12 +90,12 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	var (
 		eiName    = "substrate-ei"
-		eiSpec    = map[string]interface{}{"foo": "bar"}
-		eiRequest = map[string]interface{}{"result": 42}
+		eiSpec    = map[string]any{"foo": "bar"}
+		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
-		expectedCreateJobRequest = map[string]interface{}{
+		expectedCreateJobRequest = map[string]any{
 			"jobId":  jobUUID.String(),
 			"type":   eiName,
 			"params": eiSpec,
@@ -114,7 +114,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 				eiNotifiedOfCreate = true
 				defer r.Body.Close()
 
-				var gotCreateJobRequest map[string]interface{}
+				var gotCreateJobRequest map[string]any
 				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
 				require.NoError(t, err)
 
@@ -156,11 +156,11 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			bridgeCalled = true
 			defer r.Body.Close()
 
-			var gotBridgeRequest map[string]interface{}
+			var gotBridgeRequest map[string]any
 			err := json.NewDecoder(r.Body).Decode(&gotBridgeRequest)
 			require.NoError(t, err)
 
-			expectedBridgeRequest := map[string]interface{}{
+			expectedBridgeRequest := map[string]any{
 				"value": float64(42),
 			}
 			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
@@ -527,10 +527,10 @@ observationSource   = """
 		pipelineRun := pipelineRuns[0]
 		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
-		outputs := pipelineRun.Outputs.Val.([]interface{})
+		outputs := pipelineRun.Outputs.Val.([]any)
 		require.Len(t, outputs, 1)
 		output := outputs[0]
-		receipt := output.(map[string]interface{})
+		receipt := output.(map[string]any)
 		assert.Equal(t, "0x7", receipt["blockNumber"])
 		assert.Equal(t, "0x538f", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"]) // success
@@ -609,10 +609,10 @@ observationSource   = """
 		pipelineRun := pipelineRuns[0]
 		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
-		outputs := pipelineRun.Outputs.Val.([]interface{})
+		outputs := pipelineRun.Outputs.Val.([]any)
 		require.Len(t, outputs, 1)
 		output := outputs[0]
-		receipt := output.(map[string]interface{})
+		receipt := output.(map[string]any)
 		assert.Equal(t, "0x11", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])

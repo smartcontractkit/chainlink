@@ -174,7 +174,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: keysError,
-					Path:          []interface{}{"ethKeys"},
+					Path:          []any{"ethKeys"},
 					Message:       keysError.Error(),
 				},
 			},
@@ -195,7 +195,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: statesError,
-					Path:          []interface{}{"ethKeys"},
+					Path:          []any{"ethKeys"},
 					Message:       statesError.Error(),
 				},
 			},
@@ -227,7 +227,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"ethKeys"},
+					Path:          []any{"ethKeys"},
 					Message:       gError.Error(),
 				},
 			},
@@ -261,7 +261,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: chainError,
-					Path:          []interface{}{"ethKeys"},
+					Path:          []any{"ethKeys"},
 					Message:       chainError.Error(),
 				},
 			},

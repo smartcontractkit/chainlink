@@ -103,7 +103,7 @@ func parseETHABIString(theABI []byte, isLog bool) (name string, args abi.Argumen
 	return name, args, indexedArgs, err
 }
 
-func convertToETHABIType(val interface{}, abiType abi.Type) (interface{}, error) {
+func convertToETHABIType(val any, abiType abi.Type) (any, error) {
 	srcVal := reflect.ValueOf(val)
 
 	if abiType.GetType() == srcVal.Type() {
@@ -200,7 +200,7 @@ func convertToETHABIType(val interface{}, abiType abi.Type) (interface{}, error)
 	return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), abiType)
 }
 
-func convertToETHABITuple(abiType abi.Type, srcVal reflect.Value) (interface{}, error) {
+func convertToETHABITuple(abiType abi.Type, srcVal reflect.Value) (any, error) {
 	size := len(abiType.TupleElems)
 	if srcVal.Len() != size {
 		return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", size, srcVal.Len())
@@ -237,7 +237,7 @@ func convertToETHABITuple(abiType abi.Type, srcVal reflect.Value) (interface{}, 
 	}
 }
 
-func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length int) (interface{}, error) {
+func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length int) (any, error) {
 	switch srcVal.Type().Kind() {
 	case reflect.Slice:
 		if destType.Len() != length {
@@ -294,7 +294,7 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 
 var ErrOverflow = errors.New("overflow")
 
-func convertToETHABIInteger(val interface{}, abiType abi.Type) (interface{}, error) {
+func convertToETHABIInteger(val any, abiType abi.Type) (any, error) {
 	d, err := utils.ToDecimal(val)
 	if err != nil {
 		return nil, err

@@ -159,7 +159,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"replicas": "6",
 			"toml": client.AddNetworkDetailedConfig(
 				config.BaseOCR2VRFTomlConfig,

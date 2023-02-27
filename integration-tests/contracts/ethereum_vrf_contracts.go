@@ -29,7 +29,7 @@ func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 	address, _, instance, err := e.client.DeployContract("VRF", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployVRF(auth, backend)
 	})
 	if err != nil {
@@ -47,7 +47,7 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 	address, _, instance, err := e.client.DeployContract("BlockhashStore", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployBlockhashStore(auth, backend)
 	})
 	if err != nil {
@@ -65,7 +65,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAd
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployVRFCoordinatorV2(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr), common.HexToAddress(linkEthFeedAddr))
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr
 	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
 	})
 	if err != nil {
@@ -101,7 +101,7 @@ func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinato
 	address, _, instance, err := e.client.DeployContract("VRFConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployVRFConsumer(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordina
 	address, _, instance, err := e.client.DeployContract("VRFConsumerV2", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployVRFConsumerV2(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
 	})
 	if err != nil {
@@ -137,7 +137,7 @@ func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 	address, _, instance, err := e.client.DeployContract("DKG", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return dkg.DeployDKG(auth, backend)
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func (e *EthereumContractDeployer) DeployVRFRouter() (VRFRouter, error) {
 	address, _, instance, err := e.client.DeployContract("VRFRouter", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return vrf_router.DeployVRFRouter(auth, backend)
 	})
 	if err != nil {
@@ -173,7 +173,7 @@ func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCo
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress), common.HexToAddress(vrfRouter))
 	})
 	if err != nil {
@@ -195,7 +195,7 @@ func (e *EthereumContractDeployer) DeployVRFBeacon(vrfCoordinatorAddress string,
 	address, _, instance, err := e.client.DeployContract("VRFBeacon", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return vrf_beacon.DeployVRFBeacon(auth, backend, common.HexToAddress(linkAddress), common.HexToAddress(vrfCoordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
 	})
 	if err != nil {
@@ -213,7 +213,7 @@ func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr 
 	address, _, instance, err := e.client.DeployContract("BatchBlockhashStore", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return batch_blockhash_store.DeployBatchBlockhashStore(auth, backend, common.HexToAddress(blockhashStoreAddr))
 	})
 	if err != nil {
@@ -245,7 +245,7 @@ func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfRouterAddress stri
 	address, _, instance, err := e.client.DeployContract("VRFBeaconConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfRouterAddress), false, beaconPeriodBlockCount)
 	})
 	if err != nil {

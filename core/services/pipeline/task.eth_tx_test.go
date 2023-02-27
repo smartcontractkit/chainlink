@@ -46,7 +46,7 @@ func TestETHTxTask(t *testing.T) {
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager)
-		expected              interface{}
+		expected              any
 		expectedErrorCause    error
 		expectedErrorContains string
 		expectedRunInfo       pipeline.RunInfo
@@ -106,7 +106,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":          []byte("foobar"),
@@ -151,7 +151,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddr":         common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":           common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":             []byte("foobar"),
@@ -183,12 +183,12 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
-				"requestData": map[string]interface{}{
+				"requestData": map[string]any{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 					"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -230,12 +230,12 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
-				"requestData": map[string]interface{}{
+				"requestData": map[string]any{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 					"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -381,12 +381,12 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
-				"requestData": map[string]interface{}{
+				"requestData": map[string]any{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 					"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -539,7 +539,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":          []byte("foobar"),

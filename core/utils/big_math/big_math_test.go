@@ -9,8 +9,8 @@ import (
 
 func TestMax(t *testing.T) {
 	testCases := []struct {
-		x        interface{}
-		y        interface{}
+		x        any
+		y        any
 		expected *big.Int
 	}{
 		{
@@ -47,8 +47,8 @@ func TestMax(t *testing.T) {
 
 func TestMin(t *testing.T) {
 	testCases := []struct {
-		x        interface{}
-		y        interface{}
+		x        any
+		y        any
 		expected *big.Int
 	}{
 		{
@@ -84,10 +84,10 @@ func TestMin(t *testing.T) {
 }
 
 func TestAccumulate(t *testing.T) {
-	s := []interface{}{1, 2, 3, 4, 5}
+	s := []any{1, 2, 3, 4, 5}
 	expected := big.NewInt(15)
 	require.Equal(t, expected, Accumulate(s))
-	s = []interface{}{}
+	s = []any{}
 	expected = big.NewInt(0)
 	require.Equal(t, expected, Accumulate(s))
 }

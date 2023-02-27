@@ -61,7 +61,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
 func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
-	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
+	from, to common.Address, abi *abi.ABI, method string, args ...any,
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",

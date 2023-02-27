@@ -27,7 +27,7 @@ func WrapRecover(lggr logger.Logger, fn func()) {
 	fn()
 }
 
-func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(interface{})) {
+func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(any)) {
 	defer func() {
 		if err := recover(); err != nil {
 			lggr.Recover(err)

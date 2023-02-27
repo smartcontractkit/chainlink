@@ -179,6 +179,6 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
-	prc.App.GetAuditLogger().Audit(audit.UnauthedRunResumed, map[string]interface{}{"runID": c.Param("runID")})
+	prc.App.GetAuditLogger().Audit(audit.UnauthedRunResumed, map[string]any{"runID": c.Param("runID")})
 	c.Status(http.StatusOK)
 }

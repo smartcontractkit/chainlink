@@ -17,7 +17,7 @@ type (
 	// for determining whether or not the log has been consumed and for marking
 	// the log as consumed
 	Broadcast interface {
-		DecodedLog() interface{}
+		DecodedLog() any
 		RawLog() types.Log
 		String() string
 		LatestBlockNumber() uint64
@@ -35,14 +35,14 @@ type (
 		receiptsRoot      common.Hash
 		transactionsRoot  common.Hash
 		stateRoot         common.Hash
-		decodedLog        interface{}
+		decodedLog        any
 		rawLog            types.Log
 		jobID             int32
 		evmChainID        big.Int
 	}
 )
 
-func (b *broadcast) DecodedLog() interface{} {
+func (b *broadcast) DecodedLog() any {
 	return b.decodedLog
 }
 
@@ -70,7 +70,7 @@ func (b *broadcast) RawLog() types.Log {
 	return b.rawLog
 }
 
-func (b *broadcast) SetDecodedLog(newLog interface{}) {
+func (b *broadcast) SetDecodedLog(newLog any) {
 	b.decodedLog = newLog
 }
 
@@ -86,7 +86,7 @@ func (b *broadcast) EVMChainID() big.Int {
 	return b.evmChainID
 }
 
-func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog interface{}) Broadcast {
+func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog any) Broadcast {
 	return &broadcast{
 		latestBlockNumber: 0,
 		latestBlockHash:   common.Hash{},

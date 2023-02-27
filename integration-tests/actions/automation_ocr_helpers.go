@@ -15,13 +15,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
@@ -175,7 +176,7 @@ func CreateOCRKeeperJobs(
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: registryAddr,
 			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID": int(chainID),
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
@@ -204,10 +205,10 @@ func CreateOCRKeeperJobs(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				PluginType: "ocr2automation",
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": int(chainID),
 				},
-				PluginConfig: map[string]interface{}{
+				PluginConfig: map[string]any{
 					"maxServiceWorkers": 100,
 				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),

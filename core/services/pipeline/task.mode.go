@@ -13,13 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//    map[string]interface{}{
-//        "results": []interface{} containing any other type other pipeline tasks can return
-//        "occurrences": (int64)
-//    }
 //
+//	map[string]any{
+//	    "results": []any containing any other type other pipeline tasks can return
+//	    "occurrences": (int64)
+//	}
 type ModeTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`
@@ -62,13 +61,13 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 
 	type entry struct {
 		count    uint64
-		original interface{}
+		original any
 	}
 
 	var (
 		m     = make(map[string]entry, len(values))
 		max   uint64
-		modes []interface{}
+		modes []any
 	)
 	for _, val := range values {
 		var comparable string
@@ -100,13 +99,13 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 		}
 
 		if m[comparable].count > max {
-			modes = []interface{}{val}
+			modes = []any{val}
 			max = m[comparable].count
 		} else if m[comparable].count == max {
 			modes = append(modes, val)
 		}
 	}
-	return Result{Value: map[string]interface{}{
+	return Result{Value: map[string]any{
 		"results":     modes,
 		"occurrences": max,
 	}}, runInfo

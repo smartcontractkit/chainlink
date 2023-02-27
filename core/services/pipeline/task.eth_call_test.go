@@ -45,7 +45,7 @@ func TestETHCallTask(t *testing.T) {
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(ethClient *evmmocks.Client, config *pipelinemocks.Config)
-		expected              interface{}
+		expected              any
 		expectedErrorCause    error
 		expectedErrorContains string
 	}{
@@ -57,7 +57,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -77,7 +77,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"$(gasLimit)",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo":      []byte("foo bar"),
 				"gasLimit": 100_000,
 			}),
@@ -98,7 +98,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			&specGasLimit,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -118,7 +118,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -139,7 +139,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -154,7 +154,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -169,7 +169,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"zork": []byte("foo bar"),
 			}),
 			nil,
@@ -184,7 +184,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte(nil),
 			}),
 			nil,
@@ -199,7 +199,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
@@ -214,7 +214,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(evmChainID)",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo":        []byte("foo bar"),
 				"evmChainID": "123",
 			}),

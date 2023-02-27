@@ -648,18 +648,18 @@ func TestABIEncodeDecode(t *testing.T) {
 	// which has its own exhaustive test suite.
 	var tt = []struct {
 		abiStr    string
-		vals      []interface{}
+		vals      []any
 		name      string
 		expectErr bool
 	}{
 		{
 			abiStr: `[{ "type": "bool" }]`,
-			vals:   []interface{}{true},
+			vals:   []any{true},
 			name:   "single value",
 		},
 		{
 			abiStr: `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`,
-			vals: []interface{}{struct {
+			vals: []any{struct {
 				Int1 *big.Int `json:"int1"`
 				Int2 *big.Int `json:"int2"`
 			}{big.NewInt(10), big.NewInt(12)}},
@@ -667,12 +667,12 @@ func TestABIEncodeDecode(t *testing.T) {
 		},
 		{
 			abiStr: `[{ "type": "bool" }, {"type": "uint256"}]`,
-			vals:   []interface{}{true, big.NewInt(10)},
+			vals:   []any{true, big.NewInt(10)},
 			name:   "multiple values",
 		},
 		{
 			abiStr:    `[{ "type": "bool" }, {"type": "uint256"}]`,
-			vals:      []interface{}{big.NewInt(1), big.NewInt(10)},
+			vals:      []any{big.NewInt(1), big.NewInt(10)},
 			name:      "mismatch",
 			expectErr: true,
 		},

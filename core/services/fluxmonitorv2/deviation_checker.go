@@ -2,6 +2,7 @@ package fluxmonitorv2
 
 import (
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -37,7 +38,7 @@ func NewZeroDeviationChecker(lggr logger.Logger) *DeviationChecker {
 // OutsideDeviation checks whether the next price is outside the threshold.
 // If both thresholds are zero (default value), always returns true.
 func (c *DeviationChecker) OutsideDeviation(curAnswer, nextAnswer decimal.Decimal) bool {
-	loggerFields := []interface{}{
+	loggerFields := []any{
 		"currentAnswer", curAnswer,
 		"nextAnswer", nextAnswer,
 	}

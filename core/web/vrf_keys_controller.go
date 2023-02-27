@@ -38,7 +38,7 @@ func (vrfkc *VRFKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]any{
 		"type":                "vrf",
 		"id":                  pk.ID(),
 		"vrfPublicKey":        pk.PublicKey,
@@ -65,7 +65,7 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]any{
 		"type": "vrf",
 		"id":   keyID,
 	})
@@ -91,7 +91,7 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]any{
 		"type":                "vrf",
 		"id":                  key.ID(),
 		"vrfPublicKey":        key.PublicKey,
@@ -116,7 +116,7 @@ func (vrfkc *VRFKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]any{
 		"type": "vrf",
 		"id":   keyID,
 	})

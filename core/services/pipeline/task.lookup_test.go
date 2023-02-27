@@ -4,15 +4,16 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_LookupTask(t *testing.T) {
 	task := pipeline.LookupTask{}
-	m := map[string]interface{}{
+	m := map[string]any{
 		"foo": 42,
 		"bar": "baz",
 	}

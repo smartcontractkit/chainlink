@@ -62,17 +62,17 @@ func F32(s string) (float32, error) {
 }
 
 // URL converts string to parsed URL type
-func URL(s string) (interface{}, error) {
+func URL(s string) (any, error) {
 	return url.Parse(s)
 }
 
 // IP converts string to parsed IP type
-func IP(s string) (interface{}, error) {
+func IP(s string) (any, error) {
 	return net.ParseIP(s), nil
 }
 
 // Duration converts string to parsed Duratin type
-func Duration(s string) (interface{}, error) {
+func Duration(s string) (any, error) {
 	return time.ParseDuration(s)
 }
 
@@ -83,7 +83,7 @@ func FileSize(s string) (utils.FileSize, error) {
 }
 
 // Bool parses string as a bool type
-func Bool(s string) (interface{}, error) {
+func Bool(s string) (any, error) {
 	return strconv.ParseBool(s)
 }
 

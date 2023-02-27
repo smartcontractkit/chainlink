@@ -83,7 +83,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 	instance, err := e.client.LoadContract("Operator", address, func(
 		address common.Address,
 		backend bind.ContractBackend,
-	) (interface{}, error) {
+	) (any, error) {
 		return operator_wrapper.NewOperator(address, backend)
 	})
 	if err != nil {
@@ -101,7 +101,7 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 	instance, err := e.client.LoadContract("AuthorizedForwarder", address, func(
 		address common.Address,
 		backend bind.ContractBackend,
-	) (interface{}, error) {
+	) (any, error) {
 		return authorized_forwarder.NewAuthorizedForwarder(address, backend)
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Addr
 	instance, err := e.client.LoadContract("KeeperConsumerBenchmark", address, func(
 		address common.Address,
 		backend bind.ContractBackend,
-	) (interface{}, error) {
+	) (any, error) {
 		return ethereum.NewKeeperConsumerBenchmark(address, backend)
 	})
 	if err != nil {
@@ -137,7 +137,7 @@ func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (Upk
 	instance, err := e.client.LoadContract("KeeperConsumerBenchmark", address, func(
 		address common.Address,
 		backend bind.ContractBackend,
-	) (interface{}, error) {
+	) (any, error) {
 		return int_ethereum.NewUpkeepResetter(address, backend)
 	})
 	if err != nil {

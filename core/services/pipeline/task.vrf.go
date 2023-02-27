@@ -45,7 +45,7 @@ func (t *VRFTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 	if inputs[0].Error != nil {
 		return Result{Error: ErrInputTaskErrored}, runInfo
 	}
-	logValues, ok := inputs[0].Value.(map[string]interface{})
+	logValues, ok := inputs[0].Value.(map[string]any)
 	if !ok {
 		return Result{Error: errors.Wrap(ErrBadInput, "expected map input")}, runInfo
 	}
@@ -110,7 +110,7 @@ func (t *VRFTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	var results = make(map[string]interface{})
+	var results = make(map[string]any)
 	results["onChainProof"] = hexutil.Encode(onChainProof[:])
 
 	return Result{Value: hexutil.Encode(onChainProof[:])}, runInfo

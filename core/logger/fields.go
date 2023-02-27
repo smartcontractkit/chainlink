@@ -1,8 +1,8 @@
 package logger
 
-type Fields map[string]interface{}
+type Fields map[string]any
 
-func (f Fields) With(xs ...interface{}) Fields {
+func (f Fields) With(xs ...any) Fields {
 	if len(xs)%2 != 0 {
 		panic("expected even number of arguments")
 	}
@@ -32,8 +32,8 @@ func (f Fields) Merge(f2 Fields) Fields {
 	return f3
 }
 
-func (f Fields) Slice() []interface{} {
-	s := make([]interface{}, len(f)*2)
+func (f Fields) Slice() []any {
+	s := make([]any, len(f)*2)
 	var i int
 	for k, v := range f {
 		s[i*2] = k

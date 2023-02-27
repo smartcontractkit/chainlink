@@ -120,7 +120,7 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 	return configDigest, epoch, err
 }
 
-func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller contractReader) ([]interface{}, error) {
+func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []any, caller contractReader) ([]any, error) {
 	input, err := contractABI.Pack(method, args...)
 	if err != nil {
 		return nil, err

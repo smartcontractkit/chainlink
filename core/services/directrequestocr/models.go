@@ -133,7 +133,7 @@ const (
 	USER_ERROR
 )
 
-func (r *RequestID) Scan(value interface{}) error {
+func (r *RequestID) Scan(value any) error {
 	bytes, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("can't scan %T into RequestID", value)

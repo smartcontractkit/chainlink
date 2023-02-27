@@ -19,7 +19,7 @@ func TestHexEncodeTask(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		result string
 		error  string
 	}{
@@ -78,8 +78,8 @@ func TestHexEncodeTask(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo": map[string]interface{}{"bar": test.input},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo": map[string]any{"bar": test.input},
 				})
 				task := pipeline.HexEncodeTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -96,7 +96,7 @@ func TestHexEncodeTaskInputParamLiteral(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		result string
 	}{
 		// Only strings can be passed via input param literals (other types will get converted to strings anyway)

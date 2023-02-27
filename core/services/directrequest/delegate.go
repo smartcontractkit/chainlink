@@ -169,7 +169,7 @@ func (l *listener) Start(context.Context) error {
 // Close complies with job.Service
 func (l *listener) Close() error {
 	return l.StopOnce("DirectRequestListener", func() error {
-		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
+		l.runs.Range(func(key, runCloserChannelIf any) bool {
 			runCloserChannel, _ := runCloserChannelIf.(chan struct{})
 			close(runCloserChannel)
 			return true
@@ -273,8 +273,8 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 	}
 }
 
-func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[string]interface{} {
-	result := make(map[string]interface{})
+func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[string]any {
+	result := make(map[string]any)
 	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
 	result["requester"] = request.Requester.Hex()
 	result["requestId"] = formatRequestId(request.RequestId)
@@ -327,7 +327,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		}
 	}
 
-	meta := make(map[string]interface{})
+	meta := make(map[string]any)
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
 	runCloserChannel := make(chan struct{})
@@ -338,8 +338,8 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	ctx, cancel := utils.ContextFromChan(runCloserChannel)
 	defer cancel()
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    l.job.ID,
 			"externalJobID": l.job.ExternalJobID,
 			"name":          l.job.Name.ValueOrZero(),
@@ -347,7 +347,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				ForwardingAllowed: l.job.ForwardingAllowed,
 			},
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"meta":                  meta,
 			"logBlockHash":          request.Raw.BlockHash,
 			"logBlockNumber":        request.Raw.BlockNumber,

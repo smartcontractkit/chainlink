@@ -56,7 +56,7 @@ func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (
 	return assets.NewEth(0), nil
 }
 
-func (nc *NullClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (nc *NullClient) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	nc.lggr.Debug("CallContext")
 	return nil
 }

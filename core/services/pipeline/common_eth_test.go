@@ -35,59 +35,59 @@ func Test_convertToETHABIType(t *testing.T) {
 	oneFunc := [24]byte{23: 0x1}
 	type testCase struct {
 		abiType string
-		exp     interface{}
+		exp     any
 	}
 	for _, tt := range []struct {
-		vals  []interface{}
+		vals  []any
 		cases []testCase
 	}{
-		{[]interface{}{emptyHash, emptyHash[:], emptyHash.Hex(), string(emptyHash[:])}, []testCase{
+		{[]any{emptyHash, emptyHash[:], emptyHash.Hex(), string(emptyHash[:])}, []testCase{
 			{"bytes", make([]byte, 32)},
 			{"bytes32", [32]byte{}},
 		}},
-		{[]interface{}{emptyAddr, emptyAddr[:], emptyAddr.Hex(), string(emptyAddr[:])}, []testCase{
+		{[]any{emptyAddr, emptyAddr[:], emptyAddr.Hex(), string(emptyAddr[:])}, []testCase{
 			{"bytes", make([]byte, 20)},
 			{"bytes20", [20]byte{}},
 			{"address", common.Address{}},
 		}},
-		{[]interface{}{emptyFunc, emptyFunc[:], hexutil.Encode(emptyFunc[:]), string(emptyFunc[:])}, []testCase{
+		{[]any{emptyFunc, emptyFunc[:], hexutil.Encode(emptyFunc[:]), string(emptyFunc[:])}, []testCase{
 			{"bytes", make([]byte, 24)},
 			{"bytes24", [24]byte{}},
 		}},
 
-		{[]interface{}{fullHash, fullHash[:], fullHash.Hex()}, []testCase{
+		{[]any{fullHash, fullHash[:], fullHash.Hex()}, []testCase{
 			{"bytes", fullHash[:]},
 			{"bytes32", [32]byte(fullHash)},
 		}},
-		{[]interface{}{fullAddr, fullAddr[:], fullAddr.Hex()}, []testCase{
+		{[]any{fullAddr, fullAddr[:], fullAddr.Hex()}, []testCase{
 			{"bytes", fullAddr[:]},
 			{"bytes20", [20]byte(fullAddr)},
 			{"address", fullAddr},
 		}},
-		{[]interface{}{fullFunc, fullFunc[:], hexutil.Encode(fullFunc[:])}, []testCase{
+		{[]any{fullFunc, fullFunc[:], hexutil.Encode(fullFunc[:])}, []testCase{
 			{"bytes", fullFunc[:]},
 			{"bytes24", fullFunc},
 		}},
 
-		{[]interface{}{oneHash, oneHash[:], oneHash.Hex()}, []testCase{
+		{[]any{oneHash, oneHash[:], oneHash.Hex()}, []testCase{
 			{"bytes", oneHash[:]},
 			{"bytes32", [32]byte(oneHash)},
 		}},
-		{[]interface{}{oneAddr, oneAddr[:], oneAddr.Hex()}, []testCase{
+		{[]any{oneAddr, oneAddr[:], oneAddr.Hex()}, []testCase{
 			{"bytes", oneAddr[:]},
 			{"bytes20", [20]byte{19: 0x1}},
 			{"address", common.Address{19: 0x1}},
 		}},
-		{[]interface{}{oneFunc, oneFunc[:], hexutil.Encode(oneFunc[:])}, []testCase{
+		{[]any{oneFunc, oneFunc[:], hexutil.Encode(oneFunc[:])}, []testCase{
 			{"bytes", oneFunc[:]},
 			{"bytes24", [24]byte{23: 0x1}},
 		}},
 
-		{[]interface{}{"test", []byte("test")}, []testCase{
+		{[]any{"test", []byte("test")}, []testCase{
 			{"string", "test"},
 		}},
 
-		{[]interface{}{true, "true", "1"}, []testCase{
+		{[]any{true, "true", "1"}, []testCase{
 			{"bool", true},
 		}},
 	} {
@@ -114,7 +114,7 @@ func Test_convertToETHABIType_Errors(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
-		val    interface{}
+		val    any
 		errStr string
 	}{
 		{"0x1234", "expected 20, got 2"},
@@ -133,7 +133,7 @@ func Test_convertToETHABIBytes_Errors(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
-		val    interface{}
+		val    any
 		errStr string
 	}{
 		{"test", "expected 20, got 4"},

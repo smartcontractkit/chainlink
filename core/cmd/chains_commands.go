@@ -98,7 +98,7 @@ func (cli *chainClient[C, R, P, P2]) CreateChain(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	params := map[string]interface{}{
+	params := map[string]any{
 		"chainID": chainID,
 		"config":  json.RawMessage(buf.Bytes()),
 	}
@@ -170,14 +170,14 @@ func (cli *chainClient[C, R, P, P2]) ConfigureChain(c *cli.Context) (err error) 
 	config := chain.GetConfig()
 
 	// Parse new key-value pairs
-	params := map[string]interface{}{}
+	params := map[string]any{}
 	for _, arg := range c.Args() {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
 			return cli.errorOut(errors.Errorf("invalid parameter: %v", arg))
 		}
 
-		var value interface{}
+		var value any
 		if err = json.Unmarshal([]byte(parts[1]), &value); err != nil {
 			// treat it as a string
 			value = parts[1]
@@ -198,7 +198,7 @@ func (cli *chainClient[C, R, P, P2]) ConfigureChain(c *cli.Context) (err error) 
 	}
 
 	// Send the new config
-	params = map[string]interface{}{
+	params = map[string]any{
 		"enabled": chain.IsEnabled(),
 		"config":  config,
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 // ToDecimal converts an input to a decimal
-func ToDecimal(input interface{}) (decimal.Decimal, error) {
+func ToDecimal(input any) (decimal.Decimal, error) {
 	switch v := input.(type) {
 	case string:
 		return decimal.NewFromString(v)

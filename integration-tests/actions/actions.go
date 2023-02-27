@@ -179,7 +179,7 @@ func EncodeOnChainVRFProvingKey(vrfKey client.VRFKey) ([2]*big.Int, error) {
 func GetMockserverInitializerDataForOTPE(
 	OCRInstances []contracts.OffchainAggregator,
 	chainlinkNodes []*client.Chainlink,
-) (interface{}, error) {
+) (any, error) {
 	var contractsInfo []ctfClient.ContractInfoJSON
 
 	for index, OCRInstance := range OCRInstances {

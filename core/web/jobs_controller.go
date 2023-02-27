@@ -121,7 +121,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 
 	jbj, err := json.Marshal(jb)
 	if err == nil {
-		jc.App.GetAuditLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
+		jc.App.GetAuditLogger().Audit(audit.JobCreated, map[string]any{"job": string(jbj)})
 	} else {
 		jc.App.GetLogger().Errorf("Could not send audit log for JobCreation", "err", err)
 	}
@@ -151,7 +151,7 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jc.App.GetAuditLogger().Audit(audit.JobDeleted, map[string]interface{}{"id": j.ID})
+	jc.App.GetAuditLogger().Audit(audit.JobDeleted, map[string]any{"id": j.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }
 

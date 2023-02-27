@@ -130,7 +130,7 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"toml": client.AddNetworksConfig("", testNetwork),
 		}))
 	err := testEnvironment.Run()

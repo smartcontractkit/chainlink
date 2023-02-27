@@ -582,13 +582,13 @@ func readBody(reader io.Reader, lggr logger.Logger) string {
 }
 
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
-	var dst map[string]interface{}
+	var dst map[string]any
 	err := json.Unmarshal(buf.Bytes(), &dst)
 	if err != nil {
 		return "", err
 	}
 
-	cleaned := map[string]interface{}{}
+	cleaned := map[string]any{}
 	for k, v := range dst {
 		if isBlacklisted(k) {
 			cleaned[k] = "*REDACTED*"

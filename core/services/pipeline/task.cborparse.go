@@ -12,12 +12,12 @@ import (
 
 // Return types:
 //
-//	map[string]interface{} with potential value types:
+//	map[string]any with potential value types:
 //	    float64
 //	    string
 //	    bool
-//	    map[string]interface{}
-//	    []interface{}
+//	    map[string]any
+//	    []any
 //	    nil
 type CBORParseTask struct {
 	BaseTask `mapstructure:",squash"`

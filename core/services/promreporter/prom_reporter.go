@@ -86,7 +86,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promReporter {
+func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...any) *promReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	period := 15 * time.Second
 	for _, opt := range opts {

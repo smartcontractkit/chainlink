@@ -29,14 +29,14 @@ func (r *ConfigItemResolver) Value() ConfigItemValue {
 }
 
 type ConfigItemValue struct {
-	Value interface{} `json:"value"`
+	Value any `json:"value"`
 }
 
 func (ConfigItemValue) ImplementsGraphQLType(name string) bool {
 	return name == "ConfigItemValue"
 }
 
-func (c *ConfigItemValue) UnmarshalGraphQL(input interface{}) error {
+func (c *ConfigItemValue) UnmarshalGraphQL(input any) error {
 	switch t := input.(type) {
 	case int32:
 		c.Value = t

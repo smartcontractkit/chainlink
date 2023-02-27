@@ -18,7 +18,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		left  interface{}
+		left  any
 		right string
 		want  bool
 	}{
@@ -88,9 +88,9 @@ func TestLessThanTask_Happy(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo":   map[string]interface{}{"bar": test.left},
-					"chain": map[string]interface{}{"link": test.right},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo":   map[string]any{"bar": test.left},
+					"chain": map[string]any{"link": test.right},
 				})
 				task := pipeline.LessThanTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -115,10 +115,10 @@ func TestLessThanTask_Unhappy(t *testing.T) {
 		wantErrorCause    error
 		wantErrorContains string
 	}{
-		{"map as input from inputs", "", "100", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
-		{"map as input from var", "$(foo)", "100", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": map[string]interface{}{"chain": "link"}}), pipeline.ErrBadInput, "left"},
-		{"slice as input from inputs", "", "100", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
-		{"slice as input from var", "$(foo)", "100", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": []interface{}{"chain", "link"}}), pipeline.ErrBadInput, "left"},
+		{"map as input from inputs", "", "100", []pipeline.Result{{Value: map[string]any{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
+		{"map as input from var", "$(foo)", "100", nil, pipeline.NewVarsFrom(map[string]any{"foo": map[string]any{"chain": "link"}}), pipeline.ErrBadInput, "left"},
+		{"slice as input from inputs", "", "100", []pipeline.Result{{Value: []any{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
+		{"slice as input from var", "$(foo)", "100", nil, pipeline.NewVarsFrom(map[string]any{"foo": []any{"chain", "link"}}), pipeline.ErrBadInput, "left"},
 		{"input as missing var", "$(foo)", "100", nil, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "left"},
 		{"limit as missing var", "", "$(foo)", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "right"},
 	}

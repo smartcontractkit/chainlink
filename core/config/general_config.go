@@ -1267,7 +1267,7 @@ func (c *generalConfig) SessionOptions() sessions.Options {
 }
 
 // Deprecated - prefer getEnvWithFallback with an EnvVar
-func (c *generalConfig) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
+func (c *generalConfig) getWithFallback(name string, parser func(string) (any, error)) any {
 	return getEnvWithFallback(c, envvar.New(name, parser))
 }
 

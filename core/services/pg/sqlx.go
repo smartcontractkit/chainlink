@@ -19,15 +19,15 @@ type Queryer interface {
 	sqlx.Preparer
 	sqlx.PreparerContext
 	sqlx.Queryer
-	Select(dest interface{}, query string, args ...interface{}) error
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Select(dest any, query string, args ...any) error
+	SelectContext(ctx context.Context, dest any, query string, args ...any) error
 	PrepareNamed(query string) (*sqlx.NamedStmt, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-	Get(dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	NamedExec(query string, arg interface{}) (sql.Result, error)
-	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	Get(dest any, query string, args ...any) error
+	GetContext(ctx context.Context, dest any, query string, args ...any) error
+	NamedExec(query string, arg any) (sql.Result, error)
+	NamedQuery(query string, arg any) (*sqlx.Rows, error)
 }
 
 func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {

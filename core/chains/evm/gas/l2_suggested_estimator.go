@@ -22,7 +22,7 @@ var (
 
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result any, method string, args ...any) error
 }
 
 // l2SuggestedPriceEstimator is an Estimator which uses the L2 suggested gas price from eth_gasPrice.

@@ -59,7 +59,7 @@ func (p *PeerID) UnmarshalText(bs []byte) error {
 	return nil
 }
 
-func (p *PeerID) Scan(value interface{}) error {
+func (p *PeerID) Scan(value any) error {
 	*p = PeerID("")
 	switch s := value.(type) {
 	case string:

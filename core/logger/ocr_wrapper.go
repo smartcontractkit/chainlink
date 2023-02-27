@@ -52,8 +52,8 @@ func (ol *ocrWrapper) Critical(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Criticalw(msg, toKeysAndValues(fields)...)
 }
 
-func toKeysAndValues(fields ocrtypes.LogFields) []interface{} {
-	out := []interface{}{}
+func toKeysAndValues(fields ocrtypes.LogFields) []any {
+	out := []any{}
 	for key, val := range fields {
 		out = append(out, key, val)
 	}

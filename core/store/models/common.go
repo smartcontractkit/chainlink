@@ -44,7 +44,7 @@ func (j JSON) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (j *JSON) Scan(value interface{}) error {
+func (j *JSON) Scan(value any) error {
 	switch v := value.(type) {
 	case string:
 		*j = JSON{Result: gjson.Parse(v)}
@@ -86,7 +86,7 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-func (j *JSON) UnmarshalTOML(val interface{}) error {
+func (j *JSON) UnmarshalTOML(val any) error {
 	var bs []byte
 	switch v := val.(type) {
 	case string:
@@ -148,7 +148,7 @@ func (w WebURL) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (w *WebURL) Scan(value interface{}) error {
+func (w *WebURL) Scan(value any) error {
 	s, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("unable to convert %v of %T to WebURL", value, value)
@@ -273,7 +273,7 @@ func (d *Duration) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (d *Duration) Scan(v interface{}) (err error) {
+func (d *Duration) Scan(v any) (err error) {
 	switch tv := v.(type) {
 	case int64:
 		*d, err = MakeDuration(time.Duration(tv))
@@ -336,7 +336,7 @@ func (i *Interval) UnmarshalText(input []byte) error {
 	return nil
 }
 
-func (i *Interval) Scan(v interface{}) error {
+func (i *Interval) Scan(v any) error {
 	if v == nil {
 		*i = Interval(time.Duration(0))
 		return nil
@@ -387,7 +387,7 @@ func (r AddressCollection) Value() (driver.Value, error) {
 }
 
 // Scan parses the database value as a string.
-func (r *AddressCollection) Scan(value interface{}) error {
+func (r *AddressCollection) Scan(value any) error {
 	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("unable to convert %v of %T to AddressCollection", value, value)
@@ -409,11 +409,11 @@ func (r *AddressCollection) Scan(value interface{}) error {
 // Merge returns a new map with all keys merged from left to right
 // On conflicting keys, rightmost inputs will clobber leftmost inputs
 func Merge(inputs ...JSON) (JSON, error) {
-	output := make(map[string]interface{})
+	output := make(map[string]any)
 
 	for _, input := range inputs {
 		switch v := input.Result.Value().(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			for key, value := range v {
 				output[key] = value
 			}
@@ -490,7 +490,7 @@ func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
 	return
 }
 
-func (s *Sha256Hash) Scan(value interface{}) error {
+func (s *Sha256Hash) Scan(value any) error {
 	bytes, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("Failed to unmarshal Sha256Hash value: %v", value)

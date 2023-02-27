@@ -34,7 +34,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg coreconfig.GeneralConfig,
 	backend *backends.SimulatedBackend,
-	flagsAndDeps ...interface{},
+	flagsAndDeps ...any,
 ) *TestApplication {
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())

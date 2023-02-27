@@ -79,7 +79,7 @@ func (kc *keysController[K, R]) Create(c *gin.Context) {
 		return
 	}
 
-	kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
+	kc.auditLogger.Audit(audit.KeyCreated, map[string]any{
 		"type": kc.typ,
 		"id":   key.ID(),
 	})
@@ -100,7 +100,7 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
+	kc.auditLogger.Audit(audit.KeyDeleted, map[string]any{
 		"type": kc.typ,
 		"id":   key.ID(),
 	})
@@ -123,7 +123,7 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 		return
 	}
 
-	kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
+	kc.auditLogger.Audit(audit.KeyImported, map[string]any{
 		"type": kc.typ,
 		"id":   key.ID(),
 	})
@@ -142,7 +142,7 @@ func (kc *keysController[K, R]) Export(c *gin.Context) {
 		return
 	}
 
-	kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
+	kc.auditLogger.Audit(audit.KeyExported, map[string]any{
 		"type": kc.typ,
 		"id":   keyID,
 	})

@@ -151,11 +151,11 @@ func (filter *Filter) contains(other *Filter) bool {
 	if other == nil {
 		return true
 	}
-	addresses := make(map[common.Address]interface{})
+	addresses := make(map[common.Address]any)
 	for _, addr := range filter.Addresses {
 		addresses[addr] = struct{}{}
 	}
-	events := make(map[common.Hash]interface{})
+	events := make(map[common.Hash]any)
 	for _, ev := range filter.EventSigs {
 		events[ev] = struct{}{}
 	}
@@ -942,7 +942,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 		if _, ok := blocksFound[num]; !ok {
 			req := rpc.BatchElem{
 				Method: "eth_getBlockByNumber",
-				Args:   []interface{}{hexutil.EncodeBig(big.NewInt(0).SetUint64(num)), false},
+				Args:   []any{hexutil.EncodeBig(big.NewInt(0).SetUint64(num)), false},
 				Result: &evmtypes.Head{},
 			}
 			reqs = append(reqs, req)

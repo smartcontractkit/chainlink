@@ -179,33 +179,33 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		vars              map[string]interface{}
-		meta              map[string]interface{}
+		vars              map[string]any
+		meta              map[string]any
 		includeInputAtKey string
 	}{
 		{
 			name: "meta + includeInputAtKey",
-			vars: map[string]interface{}{
-				"foo": []interface{}{float64(123), "chainlink"},
+			vars: map[string]any{
+				"foo": []any{float64(123), "chainlink"},
 				"bar": float64(123.45),
 				"baz": "such oracle",
 			},
-			meta:              map[string]interface{}{"roundID": float64(456), "latestAnswer": float64(654)},
+			meta:              map[string]any{"roundID": float64(456), "latestAnswer": float64(654)},
 			includeInputAtKey: "sergey",
 		},
 		{
 			name: "includeInputAtKey",
-			vars: map[string]interface{}{
+			vars: map[string]any{
 				"foo": *mustDecimal(t, "42.1337"),
-				"bar": map[string]interface{}{"steve": "chainlink"},
+				"bar": map[string]any{"steve": "chainlink"},
 				"baz": true,
 			},
 			includeInputAtKey: "best oracles",
 		},
 		{
 			name: "meta",
-			vars: map[string]interface{}{
-				"foo": []interface{}{"asdf", float64(123)},
+			vars: map[string]any{
+				"foo": []any{"asdf", float64(123)},
 				"bar": false,
 				"baz": *mustDecimal(t, "42.1337"),
 			},
@@ -220,17 +220,17 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
 
-			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
-			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
-			expectedRequestSubmit := map[string]interface{}{
+			expectedRequestDS1 := map[string]any{"data": test.vars["foo"]}
+			expectedRequestDS2 := map[string]any{"data": []any{test.vars["bar"], test.vars["baz"]}}
+			expectedRequestSubmit := map[string]any{
 				"median":        "9650000000000000000000",
-				"fetchedValues": []interface{}{"9700", "9600"},
+				"fetchedValues": []any{"9700", "9600"},
 				"someString":    "some random string",
 			}
 			if test.meta != nil {
 				expectedRequestDS1["meta"] = test.meta
 				expectedRequestSubmit["meta"] = test.meta
-				test.vars["jobRun"] = map[string]interface{}{"meta": test.meta}
+				test.vars["jobRun"] = map[string]any{"meta": test.meta}
 			}
 			if test.includeInputAtKey != "" {
 				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
@@ -239,9 +239,9 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			btORM := bridgesMocks.NewORM(t)
 
 			// 1. Setup bridge
-			ds1, bridge := makeBridge(t, db, expectedRequestDS1, map[string]interface{}{
-				"data": map[string]interface{}{
-					"result": map[string]interface{}{
+			ds1, bridge := makeBridge(t, db, expectedRequestDS1, map[string]any{
+				"data": map[string]any{
+					"result": map[string]any{
 						"result": decimal.NewFromInt(9700),
 						"times":  "1000000000000000000",
 					},
@@ -253,8 +253,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			btORM.On("FindBridge", bridge.Name).Return(bridge, nil).Once()
 
 			// 2. Setup success HTTP
-			ds2 := httptest.NewServer(fakeExternalAdapter(t, expectedRequestDS2, map[string]interface{}{
-				"data": map[string]interface{}{
+			ds2 := httptest.NewServer(fakeExternalAdapter(t, expectedRequestDS2, map[string]any{
+				"data": map[string]any{
 					"result": decimal.NewFromInt(9600),
 					"times":  "1000000000000000000",
 				},
@@ -265,7 +265,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer ds4.Close()
 
 			// 3. Setup final bridge task
-			submit, submitBt := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg)
+			submit, submitBt := makeBridge(t, db, expectedRequestSubmit, map[string]any{"ok": true}, cfg)
 			defer submit.Close()
 
 			btORM.On("FindBridge", submitBt.Name).Return(submitBt, nil).Once()
@@ -290,10 +290,10 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 			expectedResults := map[string]pipeline.Result{
 				"ds1":          {Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
-				"ds1_parse":    {Value: map[string]interface{}{"result": "9700", "times": "1000000000000000000"}},
+				"ds1_parse":    {Value: map[string]any{"result": "9700", "times": "1000000000000000000"}},
 				"ds1_multiply": {Value: *mustDecimal(t, "9700000000000000000000")},
 				"ds2":          {Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
-				"ds2_parse":    {Value: map[string]interface{}{"result": "9600", "times": "1000000000000000000"}},
+				"ds2_parse":    {Value: map[string]any{"result": "9600", "times": "1000000000000000000"}},
 				"ds2_multiply": {Value: *mustDecimal(t, "9600000000000000000000")},
 				"ds3":          {Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
 				"ds3_parse":    {Error: pipeline.ErrTooManyErrors},
@@ -359,8 +359,8 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		require.NoError(t, err)
 
 		spec := pipeline.Spec{DotDagSource: s}
-		global := make(map[string]interface{})
-		jobRun := make(map[string]interface{})
+		global := make(map[string]any)
+		jobRun := make(map[string]any)
 		global["jobRun"] = jobRun
 		jobRun["logData"] = hexutil.MustDecode("0x0000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d17a526ff5d8f916fa2f4a218f6ce0a6e410a0d7823f8238979f8579c2145fd6f0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d64ef935700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006148ef28000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000")
 		jobRun["logTopics"] = []common.Hash{
@@ -376,7 +376,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 
 		finalResults := trrs.FinalResult(lggr)
 		require.Len(t, finalResults.Values, 1)
-		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
+		assert.Equal(t, make(map[string]any), finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
 		assert.Nil(t, finalResults.FatalErrors[0])
 	})
@@ -387,8 +387,8 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		require.NoError(t, err)
 
 		spec := pipeline.Spec{DotDagSource: s}
-		global := make(map[string]interface{})
-		jobRun := make(map[string]interface{})
+		global := make(map[string]any)
+		jobRun := make(map[string]any)
 		global["jobRun"] = jobRun
 		jobRun["logData"] = hexutil.MustDecode("0x0000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d17a526ff5d8f916fa2f4a218f6ce0a6e410a0d7823f8238979f8579c2145fd6f0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d64ef935700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006148ef2800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000463666F6F00000000000000000000000000000000000000000000000000000000")
 		jobRun["logTopics"] = []common.Hash{
@@ -506,7 +506,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
-	input := map[string]interface{}{"val": 2}
+	input := map[string]any{"val": 2}
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
@@ -534,7 +534,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), btORM, cfg)
-	input := map[string]interface{}{"val": 2}
+	input := map[string]any{"val": 2}
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
@@ -568,7 +568,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 		// TODO: assert finding the id
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
-		response := map[string]interface{}{}
+		response := map[string]any{}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
 
 	})
@@ -661,7 +661,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	require.Len(t, run.Outputs.Val, 3)
 	require.Len(t, run.FatalErrors, 3)
-	outputs := run.Outputs.Val.([]interface{})
+	outputs := run.Outputs.Val.([]any)
 	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
 	assert.True(t, run.FatalErrors[0].IsZero())
 	assert.Equal(t, "foo-index-1", outputs[1].(string))
@@ -694,7 +694,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 		require.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
-		response := map[string]interface{}{}
+		response := map[string]any{}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
 
 	})
@@ -776,7 +776,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	require.Len(t, run.Outputs.Val, 3)
 	require.Len(t, run.FatalErrors, 3)
-	outputs := run.Outputs.Val.([]interface{})
+	outputs := run.Outputs.Val.([]any)
 	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
 	assert.True(t, run.FatalErrors[0].IsZero())
 	assert.Equal(t, "foo-index-1", outputs[1].(string))
@@ -799,7 +799,7 @@ func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
-	input := map[string]interface{}{
+	input := map[string]any{
 		"first":  "camelCase",
 		"second": "UPPERCASE",
 	}
@@ -823,7 +823,7 @@ func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
-	input := map[string]interface{}{
+	input := map[string]any{
 		"first": "somerAnDomTEST",
 	}
 	lggr := logger.TestLogger(t)
@@ -846,7 +846,7 @@ func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
-	input := map[string]interface{}{
+	input := map[string]any{
 		"astring": "0x12345678",
 	}
 	lggr := logger.TestLogger(t)
@@ -870,7 +870,7 @@ func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
 	inputBytes := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit")
-	input := map[string]interface{}{
+	input := map[string]any{
 		"input_val": inputBytes,
 	}
 	lggr := logger.TestLogger(t)
@@ -895,7 +895,7 @@ func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
-	input := map[string]interface{}{
+	input := map[string]any{
 		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
 	}
 	lggr := logger.TestLogger(t)
@@ -919,7 +919,7 @@ func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
 	inputBytes := []byte("[{\"add\": \"weather\", \"during\": true}, 1478647067]")
-	input := map[string]interface{}{
+	input := map[string]any{
 		"input_val": inputBytes,
 	}
 	lggr := logger.TestLogger(t)

@@ -13,10 +13,10 @@ import (
 // Assumes the input is "diet" CBOR which is like CBOR, except:
 // 1. It is guaranteed to always be a map
 // 2. It may or may not include the opening and closing markers "{}"
-func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
+func ParseDietCBOR(b []byte) (map[string]any, error) {
 	b = autoAddMapDelimiters(b)
 
-	var m map[interface{}]interface{}
+	var m map[any]any
 	if err := cbor.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	output, ok := coerced.(map[string]interface{})
+	output, ok := coerced.(map[string]any)
 	if !ok {
 		return nil, errors.New("cbor data cannot be coerced to map")
 	}
@@ -38,7 +38,7 @@ func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 // Literal values are passed through "as-is".
 // The input is not assumed to be a map.
 // Empty inputs will return nil.
-func ParseStandardCBOR(b []byte) (a interface{}, err error) {
+func ParseStandardCBOR(b []byte) (a any, err error) {
 	if len(b) == 0 {
 		return nil, nil
 	}
@@ -61,14 +61,14 @@ func autoAddMapDelimiters(b []byte) []byte {
 	return b
 }
 
-// CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
-// map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
+// CoerceInterfaceMapToStringMap converts map[any]any (interface maps) to
+// map[string]any (string maps) and []any with interface maps to string maps.
 // Relevant when serializing between CBOR and JSON.
 //
 // It also handles the CBOR 'bignum' type as documented here: https://tools.ietf.org/html/rfc7049#section-2.4.2
-func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
+func CoerceInterfaceMapToStringMap(in any) (any, error) {
 	switch typed := in.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for k, v := range typed {
 			coerced, err := CoerceInterfaceMapToStringMap(v)
 			if err != nil {
@@ -77,8 +77,8 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 			typed[k] = coerced
 		}
 		return typed, nil
-	case map[interface{}]interface{}:
-		m := map[string]interface{}{}
+	case map[any]any:
+		m := map[string]any{}
 		for k, v := range typed {
 			coercedKey, ok := k.(string)
 			if !ok {
@@ -91,8 +91,8 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 			m[coercedKey] = coerced
 		}
 		return m, nil
-	case []interface{}:
-		r := make([]interface{}, len(typed))
+	case []any:
+		r := make([]any, len(typed))
 		for i, v := range typed {
 			coerced, err := CoerceInterfaceMapToStringMap(v)
 			if err != nil {

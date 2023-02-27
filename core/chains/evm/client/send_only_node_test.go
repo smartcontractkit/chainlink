@@ -147,12 +147,12 @@ func TestBatchCallContext(t *testing.T) {
 	req := []rpc.BatchElem{
 		{
 			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{blockNum, true},
+			Args:   []any{blockNum, true},
 			Result: &types.Block{},
 		},
 		{
 			Method: "method",
-			Args:   []interface{}{1, false}},
+			Args:   []any{1, false}},
 	}
 
 	mockBatchSender := mocks.NewBatchSender(t)

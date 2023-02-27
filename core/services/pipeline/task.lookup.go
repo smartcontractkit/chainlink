@@ -12,7 +12,7 @@ import (
 //
 // Return types:
 //
-// interface{}
+// any
 type LookupTask struct {
 	BaseTask `mapstructure:",squash"`
 	Key      string `json:"key"`
@@ -36,9 +36,9 @@ func (t *LookupTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		return Result{Error: err}, runInfo
 	}
 
-	var val interface{}
+	var val any
 	switch m := inputs[0].Value.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		val = m[(string)(key)]
 	default:
 		return Result{Error: errors.Errorf("unexpected input type: %T", inputs[0].Value)}, runInfo

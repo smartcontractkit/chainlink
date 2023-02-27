@@ -111,9 +111,9 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 	chainj, err := json.Marshal(chain)
 	if err != nil {
 		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
-		cc.auditLogger.Audit(audit.ChainAdded, map[string]interface{}{"chain": nil})
+		cc.auditLogger.Audit(audit.ChainAdded, map[string]any{"chain": nil})
 	} else {
-		cc.auditLogger.Audit(audit.ChainAdded, map[string]interface{}{"chain": chainj})
+		cc.auditLogger.Audit(audit.ChainAdded, map[string]any{"chain": chainj})
 	}
 
 	jsonAPIResponseWithStatus(c, cc.newResource(chain), cc.resourceName, http.StatusCreated)
@@ -174,7 +174,7 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 	if err != nil {
 		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
 	} else {
-		cc.auditLogger.Audit(audit.ChainSpecUpdated, map[string]interface{}{"chain": chainj})
+		cc.auditLogger.Audit(audit.ChainSpecUpdated, map[string]any{"chain": chainj})
 	}
 
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
@@ -199,7 +199,7 @@ func (cc *chainsController[I, C, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	cc.auditLogger.Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
+	cc.auditLogger.Audit(audit.ChainDeleted, map[string]any{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, cc.resourceName, http.StatusNoContent)
 }

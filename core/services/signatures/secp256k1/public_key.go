@@ -138,7 +138,7 @@ func (k PublicKey) Value() (driver.Value, error) {
 }
 
 // Scan reconstructs a PublicKey from a DB record of it.
-func (k *PublicKey) Scan(value interface{}) error {
+func (k *PublicKey) Scan(value any) error {
 	rawKey, ok := value.(string)
 	if !ok {
 		return errors.Wrap(fmt.Errorf("unable to convert %+v of type %T to PublicKey", value, value), "scan failure")

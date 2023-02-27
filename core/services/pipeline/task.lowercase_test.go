@@ -17,7 +17,7 @@ func TestLowercaseTask(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  string
 	}{
 		{"uppercase string", "UPPERCASE", "uppercase"},
@@ -56,8 +56,8 @@ func TestLowercaseTask(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo": map[string]interface{}{"bar": test.input},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo": map[string]any{"bar": test.input},
 				})
 				task := pipeline.LowercaseTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),

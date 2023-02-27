@@ -48,7 +48,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{},
 				FatalErrors: pipeline.RunErrors{},
-				Outputs:     pipeline.JSONSerializable{Val: []interface{}{10, 10}, Valid: true},
+				Outputs:     pipeline.JSONSerializable{Val: []any{10, 10}, Valid: true},
 				FinishedAt:  now,
 			},
 			want: pipeline.RunStatusCompleted,
@@ -100,7 +100,7 @@ func TestRun_StringOutputs(t *testing.T) {
 
 	testCases := []struct {
 		name string
-		val  interface{}
+		val  any
 		want string
 	}{
 		{"int64", int64(123), "123"},
@@ -118,7 +118,7 @@ func TestRun_StringOutputs(t *testing.T) {
 			run := &pipeline.Run{
 				Outputs: pipeline.JSONSerializable{
 					Valid: true,
-					Val:   []interface{}{tc.val},
+					Val:   []any{tc.val},
 				},
 			}
 			t.Log(tc.val)

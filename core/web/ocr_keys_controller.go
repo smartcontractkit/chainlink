@@ -38,7 +38,7 @@ func (ocrkc *OCRKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleCreated, map[string]interface{}{
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleCreated, map[string]any{
 		"ocrKeyBundleID":                      key.ID(),
 		"ocrKeyBundlePublicKeyAddressOnChain": key.PublicKeyAddressOnChain(),
 	})
@@ -62,7 +62,7 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleDeleted, map[string]interface{}{"id": id})
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleDeleted, map[string]any{"id": id})
 	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
 }
 
@@ -84,7 +84,7 @@ func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleImported, map[string]interface{}{
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleImported, map[string]any{
 		"OCRID":                      encryptedOCRKeyBundle.GetID(),
 		"OCRPublicKeyAddressOnChain": encryptedOCRKeyBundle.PublicKeyAddressOnChain(),
 		"OCRPublicKeyOffChain":       encryptedOCRKeyBundle.PublicKeyOffChain(),
@@ -107,6 +107,6 @@ func (ocrkc *OCRKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleExported, map[string]interface{}{"keyID": stringID})
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleExported, map[string]any{"keyID": stringID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

@@ -34,7 +34,7 @@ func TestORM_broadcasts(t *testing.T) {
 	listener := &mockListener{specV2.ID}
 
 	rawLog := cltest.RandomLog(t)
-	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), cltest.FixtureChainID.String()}
+	queryArgs := []any{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), cltest.FixtureChainID.String()}
 
 	// No rows
 	res, err := db.Exec(selectQuery, queryArgs...)

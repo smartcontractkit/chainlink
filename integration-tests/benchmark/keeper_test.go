@@ -74,25 +74,25 @@ LimitDefault = 5_000_000`
 		"P2P_LISTEN_PORT":          "",
 	}
 
-	performanceChainlinkResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	performanceChainlinkResources = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "1000m",
 				"memory": "4Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "1000m",
 				"memory": "4Gi",
 			},
 		},
 	}
-	performanceDbResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	performanceDbResources = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "1000m",
 				"memory": "1Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "1000m",
 				"memory": "1Gi",
 			},
@@ -101,25 +101,25 @@ LimitDefault = 5_000_000`
 		"capacity": "20Gi",
 	}
 
-	soakChainlinkResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	soakChainlinkResources = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "350m",
 				"memory": "1Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "350m",
 				"memory": "1Gi",
 			},
 		},
 	}
-	soakDbResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	soakDbResources = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "250m",
 				"memory": "256Mi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "250m",
 				"memory": "256Mi",
 			},
@@ -391,12 +391,12 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: activeEVMNetwork.Name,
-				Values: map[string]interface{}{
-					"geth": map[string]interface{}{
-						"tx": map[string]interface{}{
+				Values: map[string]any{
+					"geth": map[string]any{
+						"tx": map[string]any{
 							"replicas": NumberOfNodes,
 						},
-						"miner": map[string]interface{}{
+						"miner": map[string]any{
 							"replicas": 2,
 						},
 					},
@@ -408,18 +408,18 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 				NetworkName: activeEVMNetwork.Name,
 				Simulated:   activeEVMNetwork.Simulated,
 				WsURLs:      activeEVMNetwork.URLs,
-				Values: map[string]interface{}{
-					"resources": map[string]interface{}{
-						"requests": map[string]interface{}{
+				Values: map[string]any{
+					"resources": map[string]any{
+						"requests": map[string]any{
 							"cpu":    "4000m",
 							"memory": "4Gi",
 						},
-						"limits": map[string]interface{}{
+						"limits": map[string]any{
 							"cpu":    "4000m",
 							"memory": "4Gi",
 						},
 					},
-					"geth": map[string]interface{}{
+					"geth": map[string]any{
 						"blocktime": blockTime,
 					},
 				},

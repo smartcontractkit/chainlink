@@ -54,7 +54,7 @@ func TestPaymentChecker_SufficientPayment(t *testing.T) {
 	testCases := []struct {
 		name               string
 		minContractPayment int64
-		minJobPayment      interface{} // nil or int64
+		minJobPayment      any // nil or int64
 		want               bool
 	}{
 		{"payment above min contract payment, no min job payment", lt, nil, true},

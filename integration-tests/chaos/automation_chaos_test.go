@@ -39,18 +39,18 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-	defaultAutomationSettings = map[string]interface{}{
+	defaultAutomationSettings = map[string]any{
 		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"replicas": "6",
-		"db": map[string]interface{}{
+		"db": map[string]any{
 			"stateful": true,
 			"capacity": "10Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
+			"resources": map[string]any{
+				"requests": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
-				"limits": map[string]interface{}{
+				"limits": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
@@ -62,18 +62,18 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		NetworkName: networks.SelectedNetwork.Name,
 		Simulated:   networks.SelectedNetwork.Simulated,
 		WsURLs:      networks.SelectedNetwork.URLs,
-		Values: map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
+		Values: map[string]any{
+			"resources": map[string]any{
+				"requests": map[string]any{
 					"cpu":    "4000m",
 					"memory": "4Gi",
 				},
-				"limits": map[string]interface{}{
+				"limits": map[string]any{
 					"cpu":    "4000m",
 					"memory": "4Gi",
 				},
 			},
-			"geth": map[string]interface{}{
+			"geth": map[string]any{
 				"blocktime": "1",
 			},
 		},

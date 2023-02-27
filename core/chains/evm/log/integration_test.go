@@ -1572,7 +1572,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		log3R1Removed = blocksForked.LogOnBlockNumWithIndexRemoved(3, 0, addr)
 		log3R2Removed = blocksForked.LogOnBlockNumWithIndexRemoved(3, 1, addr)
 
-		events = []interface{}{
+		events = []any{
 			blocks.Head(0), log0,
 			log1, // head1 missing
 			blocks.Head(2), log2,

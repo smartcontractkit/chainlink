@@ -15,7 +15,7 @@ func TestNormalizedJSON(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		input     interface{}
+		input     any
 		want      string
 		wantError bool
 	}{

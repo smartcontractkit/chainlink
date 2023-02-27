@@ -487,10 +487,10 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	relayConfig := map[string]interface{}{
+	relayConfig := map[string]any{
 		"chainID": 1337,
 	}
-	pluginConfig := map[string]interface{}{
+	pluginConfig := map[string]any{
 		"juelsPerFeeCoinSource": 100000000,
 	}
 	require.NoError(t, err)
@@ -836,7 +836,7 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 						ID:                                id,
 						ContractID:                        "0x613a38AC1659769640aaE063C651F48E0250454C",
 						Relay:                             "evm",
-						RelayConfig:                       map[string]interface{}{},
+						RelayConfig:                       map[string]any{},
 						MonitoringEndpoint:                null.String{},
 						BlockchainTimeout:                 models.Interval(2 * time.Minute),
 						ContractConfigTrackerPollInterval: models.Interval(2 * time.Minute),

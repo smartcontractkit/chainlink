@@ -66,14 +66,14 @@ func (cr *Cron) runPipeline() {
 	ctx, cancel := utils.ContextFromChan(cr.chStop)
 	defer cancel()
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    cr.jobSpec.ID,
 			"externalJobID": cr.jobSpec.ExternalJobID,
 			"name":          cr.jobSpec.Name.ValueOrZero(),
 		},
-		"jobRun": map[string]interface{}{
-			"meta": map[string]interface{}{},
+		"jobRun": map[string]any{
+			"meta": map[string]any{},
 		},
 	})
 

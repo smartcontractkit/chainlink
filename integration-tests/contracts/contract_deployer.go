@@ -155,7 +155,7 @@ func (e *EthereumContractDeployer) DeployReadAccessController() (ReadAccessContr
 	address, _, instance, err := e.client.DeployContract("Read Access Controller", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeploySimpleReadAccessController(auth, backend)
 	})
 	if err != nil {
@@ -175,7 +175,7 @@ func (e *EthereumContractDeployer) DeployFlags(
 	address, _, instance, err := e.client.DeployContract("Flags", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		racAddr := common.HexToAddress(rac)
 		return ethereum.DeployFlags(auth, backend, racAddr)
 	})
@@ -197,7 +197,7 @@ func (e *EthereumContractDeployer) DeployDeviationFlaggingValidator(
 	address, _, instance, err := e.client.DeployContract("Deviation flagging validator", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		flagAddr := common.HexToAddress(flags)
 		return ethereum.DeployDeviationFlaggingValidator(auth, backend, flagAddr, flaggingThreshold)
 	})
@@ -219,7 +219,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 	address, _, instance, err := e.client.DeployContract("Flux Aggregator", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		la := common.HexToAddress(linkAddr)
 		return ethereum.DeployFluxAggregator(auth,
 			backend,
@@ -246,7 +246,7 @@ func (e *EthereumContractDeployer) DeployStaking(params ethereum2.StakingPoolCon
 	stakingAddress, _, instance, err := e.client.DeployContract("Staking", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum2.DeployStaking(auth, backend, params)
 	})
 	if err != nil {
@@ -263,7 +263,7 @@ func (e *EthereumContractDeployer) DeployAtlasFunctions() (AtlasFunctions, error
 	address, _, instance, err := e.client.DeployContract("AtlasFunctions", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum2.DeployAtlasFunctions(auth, backend)
 	})
 	if err != nil {
@@ -281,7 +281,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 	linkTokenAddress, _, instance, err := e.client.DeployContract("LINK Token", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployLinkToken(auth, backend)
 	})
 	if err != nil {
@@ -346,7 +346,7 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 	address, _, instance, err := e.client.DeployContract("OffChain Aggregator", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		la := common.HexToAddress(linkAddr)
 		return ethereum.DeployOffchainAggregator(auth,
 			backend,
@@ -378,7 +378,7 @@ func (e *EthereumContractDeployer) DeployStorageContract() (Storage, error) {
 	_, _, instance, err := e.client.DeployContract("Storage", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployStore(auth, backend)
 	})
 	if err != nil {
@@ -395,7 +395,7 @@ func (e *EthereumContractDeployer) DeployAPIConsumer(linkAddr string) (APIConsum
 	addr, _, instance, err := e.client.DeployContract("APIConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployAPIConsumer(auth, backend, common.HexToAddress(linkAddr))
 	})
 	if err != nil {
@@ -413,7 +413,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 	addr, _, instance, err := e.client.DeployContract("Oracle", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployOracle(auth, backend, common.HexToAddress(linkAddr))
 	})
 	if err != nil {
@@ -430,7 +430,7 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 	address, _, instance, err := e.client.DeployContract("MockETHLINKAggregator", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployMockETHLINKAggregator(auth, backend, answer)
 	})
 	if err != nil {
@@ -447,7 +447,7 @@ func (e *EthereumContractDeployer) DeployMockGasFeed(answer *big.Int) (MockGasFe
 	address, _, instance, err := e.client.DeployContract("MockGasFeed", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployMockGASAggregator(auth, backend, answer)
 	})
 	if err != nil {
@@ -464,7 +464,7 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 	address, _, instance, err := e.client.DeployContract("UpkeepTranscoder", func(
 		opts *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployUpkeepTranscoder(opts, backend)
 	})
 
@@ -487,7 +487,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
 			opts *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return ethereum.DeployKeeperRegistrar20(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
 				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
 		})
@@ -506,7 +506,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 	address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
 		opts *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
 			registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
 	})
@@ -542,7 +542,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_1", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return ethereum.DeployKeeperRegistry11(
 				auth,
 				backend,
@@ -574,7 +574,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_2", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return ethereum.DeployKeeperRegistry12(
 				auth,
 				backend,
@@ -612,7 +612,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic1_3", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return ethereum.DeployKeeperRegistryLogic13(
 				auth,
 				backend,
@@ -634,7 +634,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_3", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return ethereum.DeployKeeperRegistry13(
 				auth,
 				backend,
@@ -670,7 +670,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic2_0", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return ethereum.DeployKeeperRegistryLogic20(
 				auth,
 				backend,
@@ -691,7 +691,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry2_0", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 
 			return ethereum.DeployKeeperRegistry20(
 				auth,
@@ -718,7 +718,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 	address, _, instance, err := e.client.DeployContract("KeeperConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployKeeperConsumer(auth, backend, updateInterval)
 	})
 	if err != nil {
@@ -735,7 +735,7 @@ func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, inter
 	address, _, instance, err := e.client.DeployContract("UpkeepCounter", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployUpkeepCounter(auth, backend, testRange, interval)
 	})
 	if err != nil {
@@ -752,7 +752,7 @@ func (e *EthereumContractDeployer) DeployUpkeepPerformCounterRestrictive(testRan
 	address, _, instance, err := e.client.DeployContract("UpkeepPerformCounterRestrictive", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
 	})
 	if err != nil {
@@ -774,7 +774,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 	address, _, instance, err := e.client.DeployContract("KeeperConsumerPerformance", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployKeeperConsumerPerformance(
 			auth,
 			backend,
@@ -804,7 +804,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark(
 	address, _, instance, err := e.client.DeployContract("KeeperConsumerBenchmark", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployKeeperConsumerBenchmark(
 			auth,
 			backend,
@@ -829,7 +829,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 	address, _, instance, err := e.client.DeployContract("PerformDataChecker", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return ethereum.DeployPerformDataChecker(
 			auth,
 			backend,
@@ -851,7 +851,7 @@ func (e *EthereumContractDeployer) DeployOperatorFactory(linkAddr string) (Opera
 	addr, _, instance, err := e.client.DeployContract("OperatorFactory", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return operator_factory.DeployOperatorFactory(auth, backend, common.HexToAddress(linkAddr))
 	})
 	if err != nil {
@@ -869,7 +869,7 @@ func (e *EthereumContractDeployer) DeployUpkeepResetter() (UpkeepResetter, error
 	addr, _, instance, err := e.client.DeployContract("UpkeepResetter", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return int_ethereum.DeployUpkeepResetter(auth, backend)
 	})
 	if err != nil {

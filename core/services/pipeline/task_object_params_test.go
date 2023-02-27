@@ -18,7 +18,7 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		output string
 	}{
 		{"identity", pipeline.ObjectParam{Type: pipeline.BoolType, BoolValue: true}, "true"},
@@ -54,8 +54,8 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 		{"string", "hello world", `"hello world"`},
 
 		{"array", []int{17, 19}, "[17,19]"},
-		{"empty array", []interface{}{}, "[]"},
-		{"interface array", []interface{}{17, 19}, "[17,19]"},
+		{"empty array", []any{}, "[]"},
+		{"interface array", []any{17, 19}, "[17,19]"},
 		{"string array", []string{"hello", "world"}, `["hello","world"]`},
 	}
 
@@ -82,7 +82,7 @@ func TestObjectParam_Marshal(t *testing.T) {
 		{"integer", mustNewObjectParam(t, 17), `"17"`},
 		{"string", mustNewObjectParam(t, "hello world"), `"hello world"`},
 		{"array", mustNewObjectParam(t, []int{17, 19}), "[17,19]"},
-		{"map", mustNewObjectParam(t, map[string]interface{}{"key": 19}), `{"key":19}`},
+		{"map", mustNewObjectParam(t, map[string]any{"key": 19}), `{"key":19}`},
 	}
 
 	for _, test := range tests {

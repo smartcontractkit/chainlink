@@ -179,18 +179,18 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractID                        string                 `json:"contractID"`
-	Relay                             relay.Network          `json:"relay"`
-	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
-	TransmitterID                     null.String            `json:"transmitterID"`
-	ObservationTimeout                models.Interval        `json:"observationTimeout"`
-	BlockchainTimeout                 models.Interval        `json:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval        `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
-	CreatedAt                         time.Time              `json:"createdAt"`
-	UpdatedAt                         time.Time              `json:"updatedAt"`
+	ContractID                        string          `json:"contractID"`
+	Relay                             relay.Network   `json:"relay"`
+	RelayConfig                       map[string]any  `json:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray  `json:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String     `json:"ocrKeyBundleID"`
+	TransmitterID                     null.String     `json:"transmitterID"`
+	ObservationTimeout                models.Interval `json:"observationTimeout"`
+	BlockchainTimeout                 models.Interval `json:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `json:"contractConfigConfirmations"`
+	CreatedAt                         time.Time       `json:"createdAt"`
+	UpdatedAt                         time.Time       `json:"updatedAt"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -348,15 +348,15 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
-	ContractID                             string                 `json:"contractID"`
-	Relay                                  relay.Network          `json:"relay"`
-	RelayConfig                            map[string]interface{} `json:"relayConfig"`
-	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval        `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval        `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16                 `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time              `json:"createdAt"`
-	UpdatedAt                              time.Time              `json:"updatedAt"`
+	ContractID                             string          `json:"contractID"`
+	Relay                                  relay.Network   `json:"relay"`
+	RelayConfig                            map[string]any  `json:"relayConfig"`
+	BlockchainTimeout                      models.Interval `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16          `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time       `json:"createdAt"`
+	UpdatedAt                              time.Time       `json:"updatedAt"`
 }
 
 // NewBootstrapSpec initializes a new BootstrapSpec from a job.BootstrapSpec

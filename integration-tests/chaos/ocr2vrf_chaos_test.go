@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	defaultOCR2VRFSettings = map[string]interface{}{
+	defaultOCR2VRFSettings = map[string]any{
 		"replicas": "6",
 		"toml": client.AddNetworkDetailedConfig(
 			config.BaseOCR2VRFTomlConfig,

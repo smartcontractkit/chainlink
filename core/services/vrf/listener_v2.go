@@ -886,8 +886,8 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		var result string
 		calls[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
+			Args: []any{
+				map[string]any{
 					"to":   lsn.coordinator.Address(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -1012,15 +1012,15 @@ func (lsn *listenerV2) simulateFulfillment(
 		res.juelsNeeded = big.NewInt(0)
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    lsn.job.ID,
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"logBlockHash":   req.req.Raw.BlockHash[:],
 			"logBlockNumber": req.req.Raw.BlockNumber,
 			"logTxHash":      req.req.Raw.TxHash,
@@ -1060,7 +1060,7 @@ func (lsn *listenerV2) simulateFulfillment(
 	res.maxLink = utils.HexToBig(hexutil.Encode(b)[2:])
 	for _, trr := range trrs {
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
-			m := trr.Result.Value.(map[string]interface{})
+			m := trr.Result.Value.(map[string]any)
 			res.payload = m["output"].(string)
 			res.proof = m["proof"].(vrf_coordinator_v2.VRFProof)
 			res.reqCommitment = m["requestCommitment"].(vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)

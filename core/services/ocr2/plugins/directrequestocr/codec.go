@@ -60,7 +60,7 @@ func (c *ReportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error)
 }
 
 func (c *ReportCodec) DecodeReport(raw []byte) ([]*ProcessedRequest, error) {
-	reportElems := map[string]interface{}{}
+	reportElems := map[string]any{}
 	if err := c.reportTypes.UnpackIntoMap(reportElems, raw); err != nil {
 		return nil, errors.WithMessage(err, "unable to unpack elements from raw report")
 	}

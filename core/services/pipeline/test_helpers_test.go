@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) http.Handler {
+func fakeExternalAdapter(t *testing.T, expectedRequest, response any) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Helper()
 
@@ -39,7 +39,7 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 	})
 }
 
-func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}, cfg pg.QConfig) (*httptest.Server, bridges.BridgeType) {
+func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response any, cfg pg.QConfig) (*httptest.Server, bridges.BridgeType) {
 	t.Helper()
 
 	server := httptest.NewServer(fakeExternalAdapter(t, expectedRequest, response))
@@ -52,7 +52,7 @@ func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}
 	return server, *bt
 }
 
-func mustNewObjectParam(t *testing.T, val interface{}) *pipeline.ObjectParam {
+func mustNewObjectParam(t *testing.T, val any) *pipeline.ObjectParam {
 	var value pipeline.ObjectParam
 	if err := value.UnmarshalPipelineParam(val); err != nil {
 		t.Fatalf("failed to init ObjectParam from %v, err: %v", val, err)

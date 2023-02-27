@@ -127,7 +127,7 @@ func isRetryableHTTPError(statusCode int, err error) bool {
 
 // Result is the result of a TaskRun
 type Result struct {
-	Value interface{}
+	Value any
 	Error error
 }
 
@@ -147,7 +147,7 @@ func (result Result) ErrorDB() null.String {
 
 // FinalResult is the result of a Run
 type FinalResult struct {
-	Values      []interface{}
+	Values      []any
 	AllErrors   []error
 	FatalErrors []error
 }
@@ -244,16 +244,16 @@ func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 }
 
 type JSONSerializable struct {
-	Val   interface{}
+	Val   any
 	Valid bool
 }
 
-func reinterpetJsonNumbers(val interface{}) (interface{}, error) {
+func reinterpetJsonNumbers(val any) (any, error) {
 	switch v := val.(type) {
 	case json.Number:
 		return getJsonNumberValue(v)
-	case []interface{}:
-		s := make([]interface{}, len(v))
+	case []any:
+		s := make([]any, len(v))
 		for i, vv := range v {
 			ival, ierr := reinterpetJsonNumbers(vv)
 			if ierr != nil {
@@ -262,8 +262,8 @@ func reinterpetJsonNumbers(val interface{}) (interface{}, error) {
 			s[i] = ival
 		}
 		return s, nil
-	case map[string]interface{}:
-		m := make(map[string]interface{}, len(v))
+	case map[string]any:
+		m := make(map[string]any, len(v))
 		for k, vv := range v {
 			ival, ierr := reinterpetJsonNumbers(vv)
 			if ierr != nil {
@@ -286,7 +286,7 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 		return nil
 	}
 
-	var decoded interface{}
+	var decoded any
 	d := json.NewDecoder(bytes.NewReader(bs))
 	d.UseNumber()
 	if err := d.Decode(&decoded); err != nil {
@@ -317,7 +317,7 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsWithHex)
 }
 
-func (js *JSONSerializable) Scan(value interface{}) error {
+func (js *JSONSerializable) Scan(value any) error {
 	if value == nil {
 		*js = JSONSerializable{}
 		return nil
@@ -397,13 +397,13 @@ var (
 	nullUint32Type = reflect.TypeOf(cnull.Uint32{})
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
 	default:
-		return nil, errors.Errorf("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
-	case map[string]interface{}, map[string]string:
+		return nil, errors.Errorf("UnmarshalTaskFromMap only accepts a map[string]any or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
+	case map[string]any, map[string]string:
 	}
 
 	taskType = TaskType(strings.ToLower(string(taskType)))
@@ -489,7 +489,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
-			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			func(from reflect.Type, to reflect.Type, data any) (any, error) {
 				if from != stringType {
 					return data, nil
 				}
@@ -513,13 +513,13 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	return task, nil
 }
 
-func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]any, error) {
 	if minLen >= 0 && len(inputs) < minLen {
 		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	} else if maxLen >= 0 && len(inputs) > maxLen {
 		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	}
-	var vals []interface{}
+	var vals []any
 	var errs int
 	for _, input := range inputs {
 		if input.Error != nil {
@@ -571,7 +571,7 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings
-func replaceBytesWithHex(val interface{}) interface{} {
+func replaceBytesWithHex(val any) any {
 	switch value := val.(type) {
 	case nil:
 		return value
@@ -599,20 +599,20 @@ func replaceBytesWithHex(val interface{}) interface{} {
 			list = append(list, hash.Hex())
 		}
 		return list
-	case []interface{}:
+	case []any:
 		if value == nil {
 			return value
 		}
-		var list []interface{}
+		var list []any
 		for _, item := range value {
 			list = append(list, replaceBytesWithHex(item))
 		}
 		return list
-	case map[string]interface{}:
+	case map[string]any:
 		if value == nil {
 			return value
 		}
-		m := make(map[string]interface{})
+		m := make(map[string]any)
 		for k, v := range value {
 			m[k] = replaceBytesWithHex(v)
 		}
@@ -630,7 +630,7 @@ func replaceBytesWithHex(val interface{}) interface{} {
 }
 
 // uint8ArrayToSlice converts [N]uint8 array to slice.
-func uint8ArrayToSlice(arr interface{}) interface{} {
+func uint8ArrayToSlice(arr any) any {
 	t := reflect.TypeOf(arr)
 	if t.Kind() != reflect.Array || t.Elem().Kind() != reflect.Uint8 {
 		return nil
@@ -641,8 +641,8 @@ func uint8ArrayToSlice(arr interface{}) interface{} {
 	return s.Interface()
 }
 
-func getJsonNumberValue(value json.Number) (interface{}, error) {
-	var result interface{}
+func getJsonNumberValue(value json.Number) (any, error) {
+	var result any
 
 	bn, ok := new(big.Int).SetString(value.String(), 10)
 	if ok {

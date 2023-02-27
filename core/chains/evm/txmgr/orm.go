@@ -464,7 +464,7 @@ func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) 
 	// Should be self-explanatory. If we got a receipt, the eth_tx is confirmed.
 	//
 	var valueStrs []string
-	var valueArgs []interface{}
+	var valueArgs []any
 	for _, r := range receipts {
 		var receiptJSON []byte
 		receiptJSON, err = json.Marshal(r)

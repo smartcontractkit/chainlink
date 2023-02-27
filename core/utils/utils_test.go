@@ -564,7 +564,7 @@ func TestMustUnmarshalToMap(t *testing.T) {
 	t.Parallel()
 
 	json := `{"foo":123.45}`
-	expected := make(map[string]interface{})
+	expected := make(map[string]any)
 	expected["foo"] = 123.45
 	m := utils.MustUnmarshalToMap(json)
 	assert.Equal(t, expected, m)

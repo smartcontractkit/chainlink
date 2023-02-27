@@ -33,7 +33,7 @@ type Runner interface {
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
 	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
 	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error)
-	ResumeRun(taskID uuid.UUID, value interface{}, err error) error
+	ResumeRun(taskID uuid.UUID, value any, err error) error
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
@@ -186,7 +186,7 @@ type memoryTaskRun struct {
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
 type ErrRunPanicked struct {
-	v interface{}
+	v any
 }
 
 func (err ErrRunPanicked) Error() string {
@@ -321,7 +321,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 			logTaskRunToPrometheus(result, run.PipelineSpec)
 
 			scheduler.report(reportCtx, result)
-		}, func(err interface{}) {
+		}, func(err any) {
 			t := time.Now()
 			scheduler.report(reportCtx, TaskRunResult{
 				ID:         uuid.NewV4(),
@@ -374,7 +374,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	if run.FinishedAt.Valid {
 		var errors []null.String
 		var fatalErrors []null.String
-		var outputs []interface{}
+		var outputs []any
 		for _, result := range run.PipelineTaskRuns {
 			if result.Error.Valid {
 				errors = append(errors, result.Error)
@@ -435,7 +435,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 
 	result, runInfo := taskRun.task.Run(ctx, l, taskRun.vars, taskRun.inputs)
-	loggerFields := []interface{}{"runInfo", runInfo,
+	loggerFields := []any{"runInfo", runInfo,
 		"resultValue", result.Value,
 		"resultError", result.Error,
 		"resultType", fmt.Sprintf("%T", result.Value),
@@ -540,7 +540,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 
 	for {
-		r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
+		r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]any)), l)
 
 		if preinsert {
 			// FailSilently = run failed and task was marked failEarly. skip StoreRun and instead delete all trace of it
@@ -582,7 +582,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 }
 
-func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
+func (r *runner) ResumeRun(taskID uuid.UUID, value any, err error) error {
 	run, start, err := r.orm.UpdateTaskRunResult(taskID, Result{
 		Value: value,
 		Error: err,

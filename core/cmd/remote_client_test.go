@@ -49,7 +49,7 @@ type startOptions struct {
 	// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	SetConfig func(cfg *configtest.TestGeneralConfig)
 	// Use to set up mocks on the app
-	FlagsAndDeps []interface{}
+	FlagsAndDeps []any
 	// Add a key on start up
 	WithKey bool
 }
@@ -72,7 +72,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	t.Helper()
 
 	sopts := &startOptions{
-		FlagsAndDeps: []interface{}{},
+		FlagsAndDeps: []any{},
 	}
 	for _, fn := range setup {
 		fn(sopts)
@@ -102,7 +102,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	t.Helper()
 
 	sopts := &startOptions{
-		FlagsAndDeps: []interface{}{},
+		FlagsAndDeps: []any{},
 	}
 	for _, fn := range setup {
 		fn(sopts)
@@ -140,7 +140,7 @@ func withConfigSet(cfgSet func(*configtest.TestGeneralConfig)) func(opts *startO
 	}
 }
 
-func withMocks(mks ...interface{}) func(opts *startOptions) {
+func withMocks(mks ...any) func(opts *startOptions) {
 	return func(opts *startOptions) {
 		opts.FlagsAndDeps = mks
 	}

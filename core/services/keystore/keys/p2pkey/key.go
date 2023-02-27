@@ -51,7 +51,7 @@ func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (pkb *PublicKeyBytes) Scan(value interface{}) error {
+func (pkb *PublicKeyBytes) Scan(value any) error {
 	switch v := value.(type) {
 	case []byte:
 		*pkb = v

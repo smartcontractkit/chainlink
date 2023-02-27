@@ -349,7 +349,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	now := time.Now()
 	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
-	cborOutput := map[string]interface{}{
+	cborOutput := map[string]any{
 		"blockNum":        "0x13babbd",
 		"confirmations":   int64(10),
 		"contractAddress": address,

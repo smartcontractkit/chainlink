@@ -41,9 +41,9 @@ func TestResolver_GetVRFKey(t *testing.T) {
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 	assert.NoError(t, err)
 
-	d, err := json.Marshal(map[string]interface{}{
-		"vrfKey": map[string]interface{}{
-			"key": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"vrfKey": map[string]any{
+			"key": map[string]any{
 				"id":           fakeKey.PublicKey.String(),
 				"compressed":   fakeKey.PublicKey.String(),
 				"uncompressed": uncompressed,
@@ -54,7 +54,7 @@ func TestResolver_GetVRFKey(t *testing.T) {
 	assert.NoError(t, err)
 	expected := string(d)
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": fakeKey.PublicKey.String(),
 	}
 
@@ -132,8 +132,8 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 		})
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"vrfKeys": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"vrfKeys": map[string]any{
 			"results": expectedKeys,
 		},
 	})
@@ -179,9 +179,9 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 	assert.NoError(t, err)
 
-	d, err := json.Marshal(map[string]interface{}{
-		"createVRFKey": map[string]interface{}{
-			"key": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"createVRFKey": map[string]any{
+			"key": map[string]any{
 				"id":           fakeKey.PublicKey.String(),
 				"compressed":   fakeKey.PublicKey.String(),
 				"uncompressed": uncompressed,
@@ -238,9 +238,9 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 	assert.NoError(t, err)
 
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteVRFKey": map[string]interface{}{
-			"key": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteVRFKey": map[string]any{
+			"key": map[string]any{
 				"id":           fakeKey.PublicKey.String(),
 				"compressed":   fakeKey.PublicKey.String(),
 				"uncompressed": uncompressed,
@@ -251,7 +251,7 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 	assert.NoError(t, err)
 	expected := string(d)
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": fakeKey.PublicKey.String(),
 	}
 

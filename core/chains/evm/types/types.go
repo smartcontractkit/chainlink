@@ -103,7 +103,7 @@ type ChainCfg struct {
 	NodeNoNewHeadsThreshold                        *models.Duration
 }
 
-func (c *ChainCfg) Scan(value interface{}) error {
+func (c *ChainCfg) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -277,7 +277,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (r *Receipt) Scan(value interface{}) error {
+func (r *Receipt) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -400,7 +400,7 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 
 type AddressArray []common.Address
 
-func (a *AddressArray) Scan(src interface{}) error {
+func (a *AddressArray) Scan(src any) error {
 	baArray := pgtype.ByteaArray{}
 	err := baArray.Scan(src)
 	if err != nil {
@@ -427,7 +427,7 @@ func (a *AddressArray) Scan(src interface{}) error {
 
 type HashArray []common.Hash
 
-func (h *HashArray) Scan(src interface{}) error {
+func (h *HashArray) Scan(src any) error {
 	baArray := pgtype.ByteaArray{}
 	err := baArray.Scan(src)
 	if err != nil {

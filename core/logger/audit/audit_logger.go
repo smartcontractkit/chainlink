@@ -351,7 +351,7 @@ func (l *AuditLoggerService) runLoop() {
 // This function blocks when called.
 func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	// Audit log JSON data
-	logItem := map[string]interface{}{
+	logItem := map[string]any{
 		"eventID":  eventID,
 		"hostname": l.hostname,
 		"localIP":  l.localIP,
@@ -361,7 +361,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 
 	// Optionally wrap audit log data into JSON object to help dynamically structure for an HTTP log service call
 	if l.jsonWrapperKey != "" {
-		logItem = map[string]interface{}{l.jsonWrapperKey: logItem}
+		logItem = map[string]any{l.jsonWrapperKey: logItem}
 	}
 
 	serializedLog, err := json.Marshal(logItem)

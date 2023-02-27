@@ -407,15 +407,15 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 
 	lggr.Infow("Processing log request")
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    lsn.job.ID,
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 			"from":          lsn.fromAddresses(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"logBlockHash":   req.req.Raw.BlockHash[:],
 			"logBlockNumber": req.req.Raw.BlockNumber,
 			"logTxHash":      req.req.Raw.TxHash,

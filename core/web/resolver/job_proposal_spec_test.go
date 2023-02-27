@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
 func TestResolver_ApproveJobProposalSpec(t *testing.T) {
@@ -40,7 +41,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
 
@@ -144,7 +145,7 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
 
@@ -232,7 +233,7 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
 
@@ -319,9 +320,9 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
-		"input": map[string]interface{}{
+		"input": map[string]any{
 			"definition": "",
 		},
 	}
