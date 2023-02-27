@@ -135,13 +135,13 @@ func testSingleConsumerHappyPath(
 	t.Log("Done!")
 }
 
-func testSingleConsumerNeedsBHS(
+func testMultipleConsumersNeedBHS(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2Universe,
-	consumer *bind.TransactOpts,
-	consumerContract *vrf_consumer_v2.VRFConsumerV2,
-	consumerContractAddress common.Address,
+	consumers []*bind.TransactOpts,
+	consumerContracts []*vrf_consumer_v2.VRFConsumerV2,
+	consumerContractAddresses []common.Address,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
@@ -150,31 +150,40 @@ func testSingleConsumerNeedsBHS(
 		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
 ) {
+	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
-	bhsKey := cltest.MustGenerateRandomKey(t)
+	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
+
+	// generate n BHS keys to make sure BHS job rotates sending keys
+	var bhsKeys []ethkey.KeyV2
+	var bhsKeyAddresses []string
+	var keySpecificOverrides []v2.KeySpecific
+	var keys []interface{}
 	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
-			// Gas lane.
-			Key:          ptr(vrfKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		}, v2.KeySpecific{
+	for i := 0; i < nConsumers; i++ {
+		bhsKey := cltest.MustGenerateRandomKey(t)
+		bhsKeys = append(bhsKeys, bhsKey)
+		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
+		keys = append(keys, bhsKey)
+		keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
 			Key:          ptr(bhsKey.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		})(c, s)
+		})
+		sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
+	}
+	keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
+		// Gas lane.
+		Key:          ptr(vrfKey.EIP55Address),
+		GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+	})
+
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhsKey)
-
-	// Create a subscription and fund with 0 LINK.
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, new(big.Int), coordinator, uni)
-
-	// Fund gas lane.
-	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
+	keys = append(keys, ownerKey, vrfKey)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
 	require.NoError(t, app.Start(testutils.Context(t)))
-
-	// Fund BHS key
-	sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 
 	// Create VRF job.
 	vrfJobs := createVRFJobs(
@@ -190,27 +199,79 @@ func testSingleConsumerNeedsBHS(
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	_ = createAndStartBHSJob(
-		t, vrfKey.Address.String(), app, uni.bhsContractAddress.String(), "",
+		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
 		coordinatorAddress.String())
 
-	// Make the randomness request. It will not yet succeed since it is underfunded.
-	numWords := uint32(20)
-	requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+	for i := 0; i < nConsumers; i++ {
+		consumer := consumers[i]
+		consumerContract := consumerContracts[i]
 
-	// Wait 101 blocks.
-	for i := 0; i < 100; i++ {
-		uni.backend.Commit()
+		// Create a subscription and fund with 0 LINK.
+		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int))
+		require.Equal(t, uint64(i+1), subID)
+
+		// Make the randomness request. It will not yet succeed since it is underfunded.
+		numWords := uint32(20)
+
+		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+
+		// Wait 101 blocks.
+		for i := 0; i < 100; i++ {
+			uni.backend.Commit()
+		}
+		verifyBlockhashStored(t, uni, requestBlock)
+
+		// Wait another 160 blocks so that the request is outside of the 256 block window
+		for i := 0; i < 160; i++ {
+			uni.backend.Commit()
+		}
+
+		// Fund the subscription
+		_, err := consumerContract.TopUpSubscription(consumer, big.NewInt(5e18 /* 5 LINK */))
+		require.NoError(t, err)
+
+		// Wait for fulfillment to be queued.
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			uni.backend.Commit()
+			runs, err := app.PipelineORM().GetAllRuns()
+			require.NoError(t, err)
+			t.Log("runs", len(runs))
+			return len(runs) == 1
+		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+		mine(t, requestID, subID, uni, db)
+
+		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+		if len(assertions) > 0 {
+			assertions[0](t, coordinator, rwfe)
+		}
+
+		// Assert correct number of random words sent by coordinator.
+		assertNumRandomWords(t, consumerContract, numWords)
 	}
 
+	for i := 0; i < len(bhsKeys); i++ {
+		n, err := uni.backend.PendingNonceAt(testutils.Context(t), bhsKeys[i].Address)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, n)
+	}
+}
+
+func verifyBlockhashStored(
+	t *testing.T,
+	uni coordinatorV2Universe,
+	requestBlock uint64,
+) {
 	// Wait for the blockhash to be stored
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		_, err := uni.bhsContract.GetBlockhash(&bind.CallOpts{
+		callOpts := &bind.CallOpts{
 			Pending:     false,
 			From:        common.Address{},
 			BlockNumber: nil,
 			Context:     nil,
-		}, big.NewInt(int64(requestBlock)))
+		}
+		_, err := uni.bhsContract.GetBlockhash(callOpts, big.NewInt(int64(requestBlock)))
 		if err == nil {
 			return true
 		} else if strings.Contains(err.Error(), "execution reverted") {
@@ -220,36 +281,6 @@ func testSingleConsumerNeedsBHS(
 			return false
 		}
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-
-	// Wait another 160 blocks so that the request is outside of the 256 block window
-	for i := 0; i < 160; i++ {
-		uni.backend.Commit()
-	}
-
-	// Fund the subscription
-	_, err := consumerContract.TopUpSubscription(consumer, big.NewInt(5e18 /* 5 LINK */))
-	require.NoError(t, err)
-
-	// Wait for fulfillment to be queued.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("runs", len(runs))
-		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-
-	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni, db)
-
-	// Assert correct state of RandomWordsFulfilled event.
-	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
-	if len(assertions) > 0 {
-		assertions[0](t, coordinator, rwfe)
-	}
-
-	// Assert correct number of random words sent by coordinator.
-	assertNumRandomWords(t, consumerContract, numWords)
 }
 
 func testSingleConsumerHappyPathBatchFulfillment(

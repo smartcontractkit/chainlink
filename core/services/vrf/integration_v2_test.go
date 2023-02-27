@@ -1230,14 +1230,14 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerNeedsBHS(
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
+	testMultipleConsumersNeedBHS(
 		t,
 		ownerKey,
 		uni,
-		uni.vrfConsumers[0],
-		uni.consumerContracts[0],
-		uni.consumerContractAddresses[0],
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress)
