@@ -430,19 +430,12 @@ func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int6
 		}
 	}
 
-	q := s.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(func(tx pg.Queryer) error {
-		pgOpts := pg.WithQueryer(tx)
+	pctx := pg.WithParentCtx(ctx)
+	if txerr := s.orm.DeleteProposal(proposal.ID, pctx); txerr != nil {
+		s.lggr.Errorw("Failed to delete the proposal", "error", txerr)
 
-		// Delete the proposal
-		if cerr := s.orm.DeleteProposal(proposal.ID, pgOpts); cerr != nil {
-			s.lggr.Errorw("Failed to delete the proposal", "error", cerr)
-
-			return errors.Wrap(cerr, "DeleteProposal failed")
-		}
-
-		return nil
-	})
+		return 0, errors.Wrap(txerr, "DeleteProposal failed")
+	}
 
 	if err != nil {
 		return 0, err
