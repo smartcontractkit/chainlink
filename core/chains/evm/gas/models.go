@@ -111,6 +111,9 @@ type EvmFee struct {
 	Dynamic *DynamicFee
 }
 
+// Estimator provides an interface that wraps the EVM specific dynamic and legacy estimators into one estimator
+//
+//go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
 type FeeEstimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
 	Start(context.Context) error
