@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {ArbSys} from "./ArbSys.sol";
+import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 //@dev A library that abstracts out opcodes that behave differently across chains.
 //@dev The methods below return values that are pertinent to the given chain.
