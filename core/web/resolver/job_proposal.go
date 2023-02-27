@@ -62,6 +62,11 @@ func (r *JobProposalResolver) ID() graphql.ID {
 	return int64GQLID(r.jp.ID)
 }
 
+// Name resolves to the job proposal name
+func (r *JobProposalResolver) Name() *string {
+	return r.jp.Name.Ptr()
+}
+
 // Status resolves to the job proposal Status
 func (r *JobProposalResolver) Status() JobProposalStatus {
 	if status, err := ToJobProposalStatus(r.jp.Status); err == nil {
