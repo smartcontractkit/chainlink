@@ -120,7 +120,7 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
@@ -129,9 +129,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 	logger = logger.Named("EthBroadcaster")
 	return &EthBroadcaster{
 		logger:    logger,
-		orm:       NewORM(db, logger, config),
-		db:        db,
-		q:         pg.NewQ(db, logger, config),
+		orm:       orm,
 		ethClient: ethClient,
 		ChainKeyStore: ChainKeyStore{
 			chainID:  *ethClient.ChainID(),
@@ -307,7 +305,7 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 		eb.logger.Infow("Skipping nonce sync for disabled key", "address", k.Address)
 		return
 	}
-	syncer := NewNonceSyncer(eb.db, eb.logger, eb.config, eb.ethClient, eb.ChainKeyStore.keystore)
+	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ChainKeyStore.keystore)
 	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
 	if err := syncer.Sync(ctx, k); err != nil {
 		// Enter retry loop with backoff
@@ -360,12 +358,12 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
-			nUnconfirmed, err := CountUnconfirmedTransactions(eb.q, fromAddress, eb.chainID)
+			nUnconfirmed, err := eb.orm.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed"), true
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				nUnstarted, err := CountUnstartedTransactions(eb.q, fromAddress, eb.chainID)
+				nUnstarted, err := eb.orm.CountUnstartedTransactions(fromAddress, eb.chainID)
 				if err != nil {
 					return errors.Wrap(err, "CountUnstartedTransactions failed"), true
 				}
@@ -420,7 +418,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) (err error, retryable bool) {
-	etx, err := eb.getInProgressEthTx(fromAddress)
+	etx, err := eb.orm.GetEthTxInProgress(fromAddress)
 	if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed"), true
 	}
@@ -430,28 +428,6 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 		}
 	}
 	return nil, false
-}
-
-// getInProgressEthTx returns either 0 or 1 transaction that was left in
-// an unfinished state because something went screwy the last time. Most likely
-// the node crashed in the middle of the ProcessUnstartedEthTxs loop.
-// It may or may not have been broadcast to an eth node.
-func (eb *EthBroadcaster) getInProgressEthTx(fromAddress gethCommon.Address) (etx *EthTx, err error) {
-	etx = new(EthTx)
-	err = eb.q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading eth tx")
-	}
-	if err = eb.orm.LoadEthTxAttempts(etx); err != nil {
-		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading EthTxAttempts")
-	}
-	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
-		return nil, errors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
-			"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", etx.ID)
-	}
-	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
 
 // this function is used to pass the queryer from the txmgr to the keystore

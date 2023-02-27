@@ -150,49 +150,6 @@ func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
 	})
 }
 
-func TestTxm_CountUnconfirmedTransactions(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	count, err := txmgr.CountUnconfirmedTransactions(q, fromAddress, cltest.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, int(count), 3)
-}
-
-func TestTxm_CountUnstartedTransactions(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	count, err := txmgr.CountUnstartedTransactions(q, fromAddress, cltest.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, int(count), 2)
-}
 func TestTxm_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 

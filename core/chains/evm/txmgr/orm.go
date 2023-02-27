@@ -25,6 +25,8 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
+	CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
 	DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error
 	EthTransactions(offset, limit int) ([]EthTx, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
@@ -43,7 +45,9 @@ type ORM interface {
 	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error)
 	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error
 	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error)
+	GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error)
 	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
+	HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error)
 	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
 	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
@@ -61,6 +65,7 @@ type ORM interface {
 	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
+	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error
 	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
 	UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error
@@ -982,7 +987,7 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 type QueryerFunc func(tx pg.Queryer) error
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
-// Before it updates both tables though it increments the nonce from the keystore
+// Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
 func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error {
 	qopts := []pg.QOpt{}
@@ -1098,4 +1103,47 @@ func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (
 	}
 
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
+}
+
+func (o *orm) HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error) {
+	qq := o.q.WithOpts(qopts...)
+	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
+	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
+}
+
+func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+	return qq.Transaction(func(tx pg.Queryer) error {
+		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, currentNextNonce, chainID.String())
+		if err != nil {
+			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to get RowsAffected")
+		}
+		if rowsAffected == 0 {
+			return ErrZeroRowsAffected
+		}
+		return nil
+	})
+}
+
+var ErrZeroRowsAffected = errors.New("orm: Zero Rows Affected")
+
+func (o *orm) countTransactionsWithState(fromAddress common.Address, state EthTxState, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+	qq := o.q.WithOpts(qopts...)
+	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
+		fromAddress, state, chainID.String())
+	return count, errors.Wrap(err, "failed to countTransactionsWithState")
+}
+
+// CountUnconfirmedTransactions returns the number of unconfirmed transactions
+func (o *orm) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+	return o.countTransactionsWithState(fromAddress, EthTxUnconfirmed, chainID, qopts...)
+}
+
+// CountUnstartedTransactions returns the number of unconfirmed transactions
+func (o *orm) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+	return o.countTransactionsWithState(fromAddress, EthTxUnstarted, chainID, qopts...)
 }

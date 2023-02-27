@@ -1219,3 +1219,120 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		assert.Len(t, etx.EthTxAttempts, 1)
 	})
 }
+
+func TestORM_GetEthTxInProgress(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("gets 0 in progress eth transaction", func(t *testing.T) {
+		etxResult, err := borm.GetEthTxInProgress(fromAddress)
+		require.NoError(t, err)
+		require.Nil(t, etxResult)
+	})
+
+	t.Run("get 1 in progress eth transaction", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 123, fromAddress)
+
+		etxResult, err := borm.GetEthTxInProgress(fromAddress)
+		require.NoError(t, err)
+		assert.Equal(t, etxResult.ID, etx.ID)
+	})
+}
+
+func TestORM_HasInProgressTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("no in progress eth transaction", func(t *testing.T) {
+		exists, err := borm.HasInProgressTransaction(fromAddress, *ethClient.ChainID())
+		require.NoError(t, err)
+		require.False(t, exists)
+	})
+
+	t.Run("has in progress eth transaction", func(t *testing.T) {
+		cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 123, fromAddress)
+
+		exists, err := borm.HasInProgressTransaction(fromAddress, *ethClient.ChainID())
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+}
+
+func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethKeyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("update next nonce", func(t *testing.T) {
+		assert.Equal(t, int64(0), ethKeyState.NextNonce)
+		err := borm.UpdateEthKeyNextNonce(uint64(24), uint64(0), fromAddress, *ethClient.ChainID())
+		require.NoError(t, err)
+
+		newNextNonce, err := ethKeyStore.GetNextNonce(fromAddress, ethClient.ChainID())
+		require.NoError(t, err)
+		assert.Equal(t, int64(24), newNextNonce)
+	})
+
+	t.Run("no rows found", func(t *testing.T) {
+		err := borm.UpdateEthKeyNextNonce(uint64(100), uint64(123), fromAddress, *ethClient.ChainID())
+		require.Error(t, err)
+	})
+}
+
+func TestORM_CountUnconfirmedTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
+
+	count, err := borm.CountUnconfirmedTransactions(fromAddress, cltest.FixtureChainID)
+	require.NoError(t, err)
+	assert.Equal(t, int(count), 3)
+}
+
+func TestORM_CountUnstartedTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+
+	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
+
+	count, err := borm.CountUnstartedTransactions(fromAddress, cltest.FixtureChainID)
+	require.NoError(t, err)
+	assert.Equal(t, int(count), 2)
+}
