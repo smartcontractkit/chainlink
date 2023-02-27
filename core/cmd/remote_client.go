@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	stderrs "errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -347,9 +348,9 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	if len(errs) > 0 {
 		var merr error
 		for err := range errs {
-			merr = multierr.Append(merr, err)
+			merr = stderrs.Join(merr, err)
 		}
-		return cli.errorOut(fmt.Errorf("profile collection failed: %v", merr))
+		return cli.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
 	}
 	return nil
 }

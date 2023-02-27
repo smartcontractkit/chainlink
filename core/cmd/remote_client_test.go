@@ -572,8 +572,8 @@ func TestClient_Profile_Unauthenticated(t *testing.T) {
 	set.String("output_dir", t.TempDir(), "")
 
 	err := client.Profile(cli.NewContext(nil, set, nil))
-	require.ErrorContains(t, err, "profile collections failed")
-	require.ErrorContains(t, err, "Unauthorized;")
+	require.ErrorContains(t, err, "profile collection failed:")
+	require.ErrorContains(t, err, "Unauthorized")
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
