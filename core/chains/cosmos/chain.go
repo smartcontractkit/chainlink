@@ -20,10 +20,8 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -43,13 +41,12 @@ var _ cosmos.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id             string
-	cfg            cosmos.Config
-	cfgImmutable   bool // toml config is immutable
-	txm            *cosmostxm.Txm
-	balanceMonitor services.ServiceCtx
-	orm            types.ORM
-	lggr           logger.Logger
+	id           string
+	cfg          cosmos.Config
+	cfgImmutable bool // toml config is immutable
+	txm          *cosmostxm.Txm
+	orm          types.ORM
+	lggr         logger.Logger
 }
 
 func newChain(id string, cfg cosmos.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
@@ -73,7 +70,6 @@ func newChain(id string, cfg cosmos.Config, db *sqlx.DB, ks keystore.Cosmos, log
 		}),
 	}, lggr)
 	ch.txm = cosmostxm.NewTxm(db, tc, *gpe, ch.id, cfg, ks, lggr, logCfg, eb)
-	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 
 	return &ch, nil
 }
@@ -143,21 +139,14 @@ func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
 		c.lggr.Debug("Starting")
 		//TODO dial client?
-
-		c.lggr.Debug("Starting txm")
-		c.lggr.Debug("Starting balance monitor")
-		var ms services.MultiStart
-		return ms.Start(ctx, c.txm, c.balanceMonitor)
+		return c.txm.Start(ctx)
 	})
 }
 
 func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() error {
 		c.lggr.Debug("Stopping")
-		c.lggr.Debug("Stopping txm")
-		c.lggr.Debug("Stopping balance monitor")
-		return multierr.Combine(c.txm.Close(),
-			c.balanceMonitor.Close())
+		return c.txm.Close()
 	})
 }
 
