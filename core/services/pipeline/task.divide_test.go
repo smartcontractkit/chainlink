@@ -20,7 +20,7 @@ func TestDivideTask_Happy(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		input     interface{}
+		input     any
 		divisor   string
 		precision string
 		expected  *decimal.Decimal
@@ -110,10 +110,10 @@ func TestDivideTask_Happy(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo":    map[string]interface{}{"bar": test.input},
-					"chain":  map[string]interface{}{"link": test.divisor},
-					"sergey": map[string]interface{}{"steve": test.precision},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo":    map[string]any{"bar": test.input},
+					"chain":  map[string]any{"link": test.divisor},
+					"sergey": map[string]any{"steve": test.precision},
 				})
 				task := pipeline.DivideTask{
 					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -139,10 +139,10 @@ func TestDivideTask_Unhappy(t *testing.T) {
 		wantErrorCause    error
 		wantErrorContains string
 	}{
-		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
-		{"map as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": map[string]interface{}{"chain": "link"}}), pipeline.ErrBadInput, "input"},
-		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
-		{"slice as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": []interface{}{"chain", "link"}}), pipeline.ErrBadInput, "input"},
+		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]any{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
+		{"map as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]any{"foo": map[string]any{"chain": "link"}}), pipeline.ErrBadInput, "input"},
+		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []any{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
+		{"slice as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]any{"foo": []any{"chain", "link"}}), pipeline.ErrBadInput, "input"},
 		{"input as missing var", "100", "$(foo)", nil, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "input"},
 		{"divisor as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "divisor"},
 		{"errored inputs", "1000", "", []pipeline.Result{{Error: errors.New("uh oh")}}, pipeline.NewVarsFrom(nil), pipeline.ErrTooManyErrors, "task inputs"},
@@ -183,7 +183,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 		Precision: fmt.Sprintf("%d", math.MaxInt32),
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
 		"a": d1,
 		"b": d2,
 	})

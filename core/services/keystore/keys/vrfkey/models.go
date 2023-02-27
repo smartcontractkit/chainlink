@@ -57,7 +57,7 @@ func (k gethKeyStruct) Value() (driver.Value, error) {
 	return json.Marshal(&k)
 }
 
-func (k *gethKeyStruct) Scan(value interface{}) error {
+func (k *gethKeyStruct) Scan(value any) error {
 	var toUnmarshal []byte
 	switch s := value.(type) {
 	case []byte:

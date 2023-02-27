@@ -34,8 +34,8 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
+	variables := map[string]any{
+		"input": map[string]any{
 			"password": defaultPassword,
 		},
 	}
@@ -124,7 +124,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"createAPIToken"},
+					Path:          []any{"createAPIToken"},
 					Message:       "error",
 				},
 			},
@@ -153,7 +153,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"createAPIToken"},
+					Path:          []any{"createAPIToken"},
 					Message:       "error",
 				},
 			},
@@ -184,8 +184,8 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
+	variables := map[string]any{
+		"input": map[string]any{
 			"password": defaultPassword,
 		},
 	}
@@ -272,7 +272,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteAPIToken"},
+					Path:          []any{"deleteAPIToken"},
 					Message:       "error",
 				},
 			},
@@ -301,7 +301,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteAPIToken"},
+					Path:          []any{"deleteAPIToken"},
 					Message:       "error",
 				},
 			},

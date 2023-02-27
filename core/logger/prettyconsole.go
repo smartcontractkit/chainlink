@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var levelColors = map[string]func(...interface{}) string{
+var levelColors = map[string]func(...any) string{
 	"default": color.New(color.FgWhite).SprintFunc(),
 	"debug":   color.New(color.FgGreen).SprintFunc(),
 	"info":    color.New(color.FgWhite).SprintFunc(),
@@ -68,7 +68,7 @@ func generateHeadline(js gjson.Result) string {
 		// assume already formatted
 		tsStr = ts.Str
 	}
-	headline := []interface{}{
+	headline := []any{
 		tsStr,
 		" ",
 		coloredLevel(js.Get("level")),

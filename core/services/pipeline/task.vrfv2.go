@@ -46,7 +46,7 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	if inputs[0].Error != nil {
 		return Result{Error: ErrInputTaskErrored}, runInfo
 	}
-	logValues, ok := inputs[0].Value.(map[string]interface{})
+	logValues, ok := inputs[0].Value.(map[string]any)
 	if !ok {
 		return Result{Error: errors.Wrap(ErrBadInput, "expected map input")}, runInfo
 	}
@@ -133,7 +133,7 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	results := make(map[string]interface{})
+	results := make(map[string]any)
 	results["output"] = hexutil.Encode(b)
 	// RequestID needs to be a [32]byte for EthTxMeta.
 	results["requestID"] = hexutil.Encode(requestId.Bytes())

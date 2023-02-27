@@ -59,7 +59,7 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 
-	var decoded interface{}
+	var decoded any
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.UseNumber()
 	err = d.Decode(&decoded)
@@ -69,7 +69,7 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 
 	for _, part := range path {
 		switch d := decoded.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			var exists bool
 			decoded, exists = d[part]
 			if !exists && bool(lax) {
@@ -79,7 +79,7 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 
-		case []interface{}:
+		case []any:
 			bigindex, ok := big.NewInt(0).SetString(part, 10)
 			if !ok {
 				return Result{Error: errors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}, runInfo

@@ -43,7 +43,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 		ID:                                100,
 		ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
 		Relay:                             "terra",
-		RelayConfig:                       map[string]interface{}{"chainID": float64(1337)},
+		RelayConfig:                       map[string]any{"chainID": float64(1337)},
 		P2PBootstrapPeers:                 pq.StringArray{""},
 		OCRKeyBundleID:                    null.String{},
 		MonitoringEndpoint:                null.StringFrom("endpoint:chainlink.monitor"),

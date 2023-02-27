@@ -56,8 +56,8 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 		Return(false, nil).
 		Run(func(args mock.Arguments) {
 			run := args.Get(1).(*pipeline.Run)
-			require.Equal(t, map[string]interface{}{
-				"jobSpec": map[string]interface{}{
+			require.Equal(t, map[string]any{
+				"jobSpec": map[string]any{
 					"contractAddress":   toAddress.String(),
 					"fromAddress":       fromAddress.String(),
 					"gasLimit":          gasLimit,

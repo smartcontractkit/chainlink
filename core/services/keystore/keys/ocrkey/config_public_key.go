@@ -38,7 +38,7 @@ func (cpk *ConfigPublicKey) UnmarshalJSON(input []byte) error {
 }
 
 // Scan reads the database value and returns an instance.
-func (cpk *ConfigPublicKey) Scan(value interface{}) error {
+func (cpk *ConfigPublicKey) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("unable to convert %v of type %T to ConfigPublicKey", value, value)

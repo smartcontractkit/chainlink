@@ -17,7 +17,7 @@ import (
 
 // Renderer implements the Render method.
 type Renderer interface {
-	Render(interface{}, ...string) error
+	Render(any, ...string) error
 }
 
 // RendererJSON is used to render JSON data.
@@ -26,7 +26,7 @@ type RendererJSON struct {
 }
 
 // Render writes the given input as a JSON string.
-func (rj RendererJSON) Render(v interface{}, _ ...string) error {
+func (rj RendererJSON) Render(v any, _ ...string) error {
 	b, err := utils.FormatJSON(v)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ type TableRenderer interface {
 
 // Render returns a formatted table of text for a given Job or presenter
 // and relevant information.
-func (rt RendererTable) Render(v interface{}, headers ...string) error {
+func (rt RendererTable) Render(v any, headers ...string) error {
 	for _, h := range headers {
 		fmt.Println(h)
 	}

@@ -40,7 +40,7 @@ type KeeperBenchmarkTestSummary struct {
 	Load       KeeperBenchmarkTestLoad    `json:"load"`
 	Config     KeeperBenchmarkTestConfig  `json:"config"`
 	Metrics    KeeperBenchmarkTestMetrics `json:"metrics"`
-	TestInputs map[string]interface{}     `json:"testInputs"`
+	TestInputs map[string]any             `json:"testInputs"`
 	StartTime  int64                      `json:"startTime"`
 	EndTime    int64                      `json:"endTime"`
 }
@@ -57,12 +57,12 @@ type KeeperBenchmarkTestConfig struct {
 }
 
 type KeeperBenchmarkTestMetrics struct {
-	Delay                         map[string]interface{} `json:"delay"`
-	PercentWithinSLA              float64                `json:"percentWithinSLA"`
-	PercentRevert                 float64                `json:"percentRevert"`
-	TotalTimesEligible            int64                  `json:"totalTimesEligible"`
-	TotalTimesPerformed           int64                  `json:"totalTimesPerformed"`
-	AverageActualPerformsPerBlock float64                `json:"averageActualPerformsPerBlock"`
+	Delay                         map[string]any `json:"delay"`
+	PercentWithinSLA              float64        `json:"percentWithinSLA"`
+	PercentRevert                 float64        `json:"percentRevert"`
+	TotalTimesEligible            int64          `json:"totalTimesEligible"`
+	TotalTimesPerformed           int64          `json:"totalTimesPerformed"`
+	AverageActualPerformsPerBlock float64        `json:"averageActualPerformsPerBlock"`
 }
 
 // KeeperBenchmarkTestReport holds a report information for a single Upkeep Consumer contract
@@ -205,7 +205,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 
 	log.Info().Msg("Successfully wrote report on Keeper Benchmark")
 
-	k.Summary.Metrics.Delay = map[string]interface{}{
+	k.Summary.Metrics.Delay = map[string]any{
 		"mean":   avg,
 		"median": median,
 		"90p":    ninetyPct,

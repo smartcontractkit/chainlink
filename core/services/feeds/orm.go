@@ -128,7 +128,7 @@ RETURNING id;
 
 	var (
 		vStrs = make([]string, 0, len(cfgs))
-		vArgs = make([]interface{}, 0)
+		vArgs = make([]any, 0)
 	)
 
 	for i, cfg := range cfgs {

@@ -115,7 +115,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	meta, _ := vars.Get("jobRun.meta")
 	switch v := meta.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		metaMap = MapParam(v)
 	case nil:
 	default:

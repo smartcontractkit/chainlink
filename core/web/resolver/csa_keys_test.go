@@ -44,8 +44,8 @@ func Test_CSAKeysQuery(t *testing.T) {
 		})
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"csaKeys": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"csaKeys": map[string]any{
 			"results": expectedKeys,
 		},
 	})
@@ -170,7 +170,7 @@ func Test_DeleteCSAKey(t *testing.T) {
 			}
 		}
 	`
-	variables := map[string]interface{}{"id": fakeKey.ID()}
+	variables := map[string]any{"id": fakeKey.ID()}
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query, variables: variables}, "deleteCSAKey"),

@@ -153,7 +153,7 @@ func Int64ToHex(n int64) string {
 
 // HexToInt64 performs the inverse of Int64ToHex
 // Returns 0 on invalid input
-func HexToInt64(input interface{}) int64 {
+func HexToInt64(input any) int64 {
 	switch v := input.(type) {
 	case string:
 		big, err := hexutil.DecodeBig(v)

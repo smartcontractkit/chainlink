@@ -85,9 +85,9 @@ func TestDirectRequestReorg(t *testing.T) {
 		AddHelm(reorg.New(&reorg.Props{
 			NetworkName: "geth",
 			NetworkType: "geth-reorg",
-			Values: map[string]interface{}{
-				"geth": map[string]interface{}{
-					"genesis": map[string]interface{}{
+			Values: map[string]any{
+				"geth": map[string]any{
+					"genesis": map[string]any{
 						"networkId": "1337",
 					},
 				},
@@ -102,8 +102,8 @@ func TestDirectRequestReorg(t *testing.T) {
 	// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 	// node must work and reconnect even if network is not working
 	time.Sleep(90 * time.Second)
-	err = testEnvironment.AddHelm(chainlink.New(0, map[string]interface{}{
-		"env": map[string]interface{}{
+	err = testEnvironment.AddHelm(chainlink.New(0, map[string]any{
+		"env": map[string]any{
 			"eth_url":                        "ws://geth-ethereum-geth:8546",
 			"eth_http_url":                   "http://geth-ethereum-geth:8544",
 			"eth_chain_id":                   "1337",

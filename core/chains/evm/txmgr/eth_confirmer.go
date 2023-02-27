@@ -494,7 +494,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
-			Args:   []interface{}{attempt.Hash},
+			Args:   []any{attempt.Hash},
 			Result: &evmtypes.Receipt{},
 		}
 		reqs = append(reqs, req)
@@ -915,9 +915,9 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
 
-func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interface{} {
+func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []any {
 	etx := attempt.EthTx
-	return []interface{}{
+	return []any{
 		"etxID", etx.ID,
 		"txHash", attempt.Hash,
 		"previousAttempt", attempt,
@@ -1120,7 +1120,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 // re-org'd out and will be rebroadcast.
 func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head *evmtypes.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
-		logArgs := []interface{}{
+		logArgs := []any{
 			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
 		}
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
@@ -1288,7 +1288,7 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	}
 	for _, data := range receiptsPlus {
 		var taskErr error
-		var output interface{}
+		var output any
 		if data.FailOnRevert && data.Receipt.Status == 0 {
 			taskErr = errors.Errorf("transaction %s reverted on-chain", data.Receipt.TxHash)
 		} else {

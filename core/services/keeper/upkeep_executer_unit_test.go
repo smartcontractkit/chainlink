@@ -91,8 +91,8 @@ func TestBuildJobSpec(t *testing.T) {
 
 	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
-	expected := map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	expected := map[string]any{
+		"jobSpec": map[string]any{
 			"jobID":                  int32(10),
 			"fromAddress":            from.String(),
 			"effectiveKeeperAddress": jb.KeeperSpec.FromAddress.String(),

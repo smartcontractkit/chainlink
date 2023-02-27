@@ -108,7 +108,7 @@ func WebURL(t testing.TB, unparsed string) models.WebURL {
 }
 
 // JSONFromString create JSON from given body and arguments
-func JSONFromString(t testing.TB, body string, args ...interface{}) models.JSON {
+func JSONFromString(t testing.TB, body string, args ...any) models.JSON {
 	return JSONFromBytes(t, []byte(fmt.Sprintf(body, args...)))
 }
 
@@ -119,7 +119,7 @@ func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	return j
 }
 
-func MustJSONMarshal(t *testing.T, val interface{}) string {
+func MustJSONMarshal(t *testing.T, val any) string {
 	t.Helper()
 	bs, err := json.Marshal(val)
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EthTx {
 	}
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, opts ...any) txmgr.EthTx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
 	for _, opt := range opts {
@@ -165,7 +165,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromA
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, opts ...any) txmgr.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -181,7 +181,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm txm
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...any) txmgr.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -197,7 +197,7 @@ func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, no
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, opts ...any) txmgr.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewDynamicFeeEthTxAttempt(t, etx.ID)
 
@@ -301,7 +301,7 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm txmgr.ORM, nonce in
 	return etx
 }
 
-func MustInsertUnstartedEthTx(t *testing.T, borm txmgr.ORM, fromAddress common.Address, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnstartedEthTx(t *testing.T, borm txmgr.ORM, fromAddress common.Address, opts ...any) txmgr.EthTx {
 	var subject uuid.NullUUID
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -430,7 +430,7 @@ func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethK
 func MustInsertRandomKey(
 	t testing.TB,
 	keystore keystore.Eth,
-	opts ...interface{},
+	opts ...any,
 ) (ethkey.KeyV2, common.Address) {
 	t.Helper()
 
@@ -473,7 +473,7 @@ func MustInsertRandomKey(
 
 func MustInsertRandomKeyReturningState(t testing.TB,
 	keystore keystore.Eth,
-	opts ...interface{},
+	opts ...any,
 ) (ethkey.State, common.Address) {
 	k, address := MustInsertRandomKey(t, keystore, opts...)
 	state := MustGetStateForKey(t, keystore, k)

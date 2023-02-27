@@ -526,7 +526,7 @@ func TestJob(t *testing.T) {
 					ID:          1,
 					ContractID:  "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
 					Relay:       "evm",
-					RelayConfig: map[string]interface{}{"chainID": 1337},
+					RelayConfig: map[string]any{"chainID": 1337},
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,

@@ -52,7 +52,7 @@ func (ocpk *OffChainPublicKey) UnmarshalText(bs []byte) error {
 	return nil
 }
 
-func (ocpk *OffChainPublicKey) Scan(value interface{}) error {
+func (ocpk *OffChainPublicKey) Scan(value any) error {
 	switch v := value.(type) {
 	case []byte:
 		*ocpk = v

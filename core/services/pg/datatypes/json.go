@@ -20,7 +20,7 @@ func (j JSON) Value() (driver.Value, error) {
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
-func (j *JSON) Scan(value interface{}) error {
+func (j *JSON) Scan(value any) error {
 	if value == nil {
 		*j = JSON("null")
 		return nil

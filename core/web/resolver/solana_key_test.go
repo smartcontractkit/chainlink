@@ -61,7 +61,7 @@ func TestResolver_SolanaKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"solanaKeys"},
+					Path:          []any{"solanaKeys"},
 					Message:       gError.Error(),
 				},
 			},

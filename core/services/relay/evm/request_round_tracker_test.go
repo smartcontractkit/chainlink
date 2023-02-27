@@ -48,7 +48,7 @@ type contractTrackerUni struct {
 	requestRoundTracker *evm.RequestRoundTracker
 }
 
-func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
+func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 	var chain evmconfig.ChainScopedConfig
 	var filterer *ocr2aggregator.OCR2AggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator

@@ -116,7 +116,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				AllErrors:      pipeline.RunErrors{null.String{}},
 				FatalErrors:    pipeline.RunErrors{null.String{}},
-				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
+				Outputs:        pipeline.JSONSerializable{Val: []any{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						ID:         uuid.NewV4(),

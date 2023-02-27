@@ -38,7 +38,7 @@ type UpkeepRegistration struct {
 	PositioningConstant int32
 }
 
-func (k *KeeperIndexMap) Scan(val interface{}) error {
+func (k *KeeperIndexMap) Scan(val any) error {
 	switch v := val.(type) {
 	case []byte:
 		err := json.Unmarshal(v, &k)

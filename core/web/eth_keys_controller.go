@@ -134,7 +134,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		ekc.setKeyMaxGasPriceWei(state, key.Address),
 	)
 
-	ekc.app.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+	ekc.app.GetAuditLogger().Audit(audit.KeyCreated, map[string]any{
 		"type": "ethereum",
 		"id":   key.ID(),
 	})
@@ -194,7 +194,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		ekc.setKeyMaxGasPriceWei(state, key.Address),
 	)
 
-	ekc.app.GetAuditLogger().Audit(audit.KeyUpdated, map[string]interface{}{
+	ekc.app.GetAuditLogger().Audit(audit.KeyUpdated, map[string]any{
 		"type": "ethereum",
 		"id":   keyID,
 	})
@@ -221,7 +221,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	ekc.app.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+	ekc.app.GetAuditLogger().Audit(audit.KeyDeleted, map[string]any{
 		"type": "ethereum",
 		"id":   keyID,
 	})
@@ -268,7 +268,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		ekc.setLinkBalance(c.Request.Context(), state),
 	)
 
-	ekc.app.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+	ekc.app.GetAuditLogger().Audit(audit.KeyImported, map[string]any{
 		"type": "ethereum",
 		"id":   key.ID(),
 	})
@@ -288,7 +288,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ekc.app.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+	ekc.app.GetAuditLogger().Audit(audit.KeyExported, map[string]any{
 		"type": "ethereum",
 		"id":   id,
 	})

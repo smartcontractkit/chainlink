@@ -33,18 +33,18 @@ import (
 )
 
 var (
-	defaultOCRSettings = map[string]interface{}{
+	defaultOCRSettings = map[string]any{
 		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.SelectedNetwork),
 		"replicas": "6",
-		"db": map[string]interface{}{
+		"db": map[string]any{
 			"stateful": true,
 			"capacity": "10Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
+			"resources": map[string]any{
+				"requests": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
-				"limits": map[string]interface{}{
+				"limits": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},

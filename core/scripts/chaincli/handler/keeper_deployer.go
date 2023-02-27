@@ -173,7 +173,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
+	onchainConfig, err := abi.Encode(map[string]any{
 		"paymentPremiumPPB":    d.cfg.PaymentPremiumPBB,
 		"flatFeeMicroLink":     d.cfg.FlatFeeMicroLink,
 		"checkGasLimit":        d.cfg.CheckGasLimit,

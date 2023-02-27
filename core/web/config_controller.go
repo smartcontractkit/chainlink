@@ -33,7 +33,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 	// Legacy config
 	cw := config.NewConfigPrinter(cc.App.GetConfig())
 
-	cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
+	cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]any{})
 	jsonAPIResponse(c, cw, "config")
 }
 
@@ -152,6 +152,6 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		}, EVMChainID: utils.NewBig(chain.ID()),
 	}
 
-	cc.App.GetAuditLogger().Audit(audit.ConfigUpdated, map[string]interface{}{"configResponse": response})
+	cc.App.GetAuditLogger().Audit(audit.ConfigUpdated, map[string]any{"configResponse": response})
 	jsonAPIResponse(c, response, "config")
 }

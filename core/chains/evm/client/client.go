@@ -38,7 +38,7 @@ type Client interface {
 	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
 
 	// Wrapped RPC methods
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result any, method string, args ...any) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	// BatchCallContextAll calls BatchCallContext for every single node including
 	// sendonlys.
@@ -302,11 +302,11 @@ func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 	return csf, nil
 }
 
-func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...any) (ethereum.Subscription, error) {
 	return client.pool.EthSubscribe(ctx, channel, args...)
 }
 
-func (client *client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (client *client) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	return client.pool.CallContext(ctx, result, method, args...)
 }
 

@@ -430,14 +430,14 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 				}, nil)
 				tm.pipelineRunner.
 					On("ExecuteRun", mock.Anything, pipelineSpec, pipeline.NewVarsFrom(
-						map[string]interface{}{
-							"jobRun": map[string]interface{}{
-								"meta": map[string]interface{}{
+						map[string]any{
+							"jobRun": map[string]any{
+								"meta": map[string]any{
 									"latestAnswer": float64(10),
 									"updatedAt":    float64(100),
 								},
 							},
-							"jobSpec": map[string]interface{}{
+							"jobSpec": map[string]any{
 								"databaseID":    int32(0),
 								"externalJobID": uuid.UUID{},
 								"name":          "",
@@ -1867,14 +1867,14 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 		tm.pipelineRunner.
 			On("ExecuteRun", mock.Anything, pipelineSpec, pipeline.NewVarsFrom(
-				map[string]interface{}{
-					"jobRun": map[string]interface{}{
-						"meta": map[string]interface{}{
+				map[string]any{
+					"jobRun": map[string]any{
+						"meta": map[string]any{
 							"latestAnswer": float64(fetchedAnswer),
 							"updatedAt":    float64(100),
 						},
 					},
-					"jobSpec": map[string]interface{}{
+					"jobSpec": map[string]any{
 						"databaseID":    int32(0),
 						"externalJobID": uuid.UUID{},
 						"name":          "",

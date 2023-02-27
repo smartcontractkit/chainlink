@@ -115,7 +115,7 @@ func TestTransmitCheckers(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			client.On("CallContext", mock.Anything,
 				mock.AnythingOfType("*hexutil.Bytes"), "eth_call",
-				mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				mock.MatchedBy(func(callarg map[string]any) bool {
 					return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
 				}), "latest").Return(nil).Once()
 
@@ -130,7 +130,7 @@ func TestTransmitCheckers(t *testing.T) {
 			}
 			client.On("CallContext", mock.Anything,
 				mock.AnythingOfType("*hexutil.Bytes"), "eth_call",
-				mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				mock.MatchedBy(func(callarg map[string]any) bool {
 					return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
 				}), "latest").Return(&jerr).Once()
 
@@ -142,7 +142,7 @@ func TestTransmitCheckers(t *testing.T) {
 		t.Run("non revert error", func(t *testing.T) {
 			client.On("CallContext", mock.Anything,
 				mock.AnythingOfType("*hexutil.Bytes"), "eth_call",
-				mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				mock.MatchedBy(func(callarg map[string]any) bool {
 					return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
 				}), "latest").Return(errors.New("error!")).Once()
 

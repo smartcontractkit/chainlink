@@ -256,9 +256,9 @@ func buildJobSpec(
 	gasTipCap *assets.Wei,
 	gasFeeCap *assets.Wei,
 	chainID string,
-) map[string]interface{} {
-	return map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+) map[string]any {
+	return map[string]any{
+		"jobSpec": map[string]any{
 			"jobID":                  jb.ID,
 			"fromAddress":            upkeep.Registry.FromAddress.String(),
 			"effectiveKeeperAddress": effectiveKeeperAddress.String(),

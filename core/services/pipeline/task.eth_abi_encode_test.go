@@ -37,7 +37,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"unusual characters in method name / uint256, bool, int256, string",
 			"foo_Bar__3928 ( uint256 u, bool b, int256 i, string s )",
 			`{ "u": $(foo), "b": $(bar), "i": $(baz), "s": $(quux) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo":  big.NewInt(123),
 				"bar":  true,
 				"baz":  big.NewInt(-321),
@@ -52,7 +52,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"bytes32, bytes, address",
 			"asdf(bytes32 b, bytes bs, address a)",
 			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": bytes32,
 				"bar": []byte("stevetoshi sergeymoto"),
 				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
@@ -66,7 +66,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"bytes32 (hex), bytes, address",
 			"asdf(bytes32 b, bytes bs, address a)",
 			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": bytes32hex,
 				"bar": []byte("stevetoshi sergeymoto"),
 				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
@@ -80,7 +80,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"address[] calldata, uint80, uint32[2]",
 			"chainLink(address[] calldata a, uint80 x, uint32[2] s)",
 			`{ "a": $(foo), "x": $(bar), "s": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []common.Address{
 					common.HexToAddress("0x6c91b062a774cbe8b9bf52f224c37badf98fc40b"),
 					common.HexToAddress("0xc4f27ead9083c756cc2c02aaa39b223fe8d0a0e5"),
@@ -98,7 +98,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"bool[2][] calldata, uint96[2][] calldata",
 			"arrayOfArrays(bool[2][] calldata bools, uint96[2][] calldata uints)",
 			`{ "bools": $(foo), "uints": $(bar) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": [][]bool{{true, false}, {false, true}, {false, false}, {true, true}},
 				"bar": [][]*big.Int{{big.NewInt(123), big.NewInt(456)}, {big.NewInt(22), big.NewInt(19842)}},
 			}),
@@ -121,7 +121,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"number too large for uint32",
 			"willFail(uint32 s)",
 			`{ "s": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": big.NewInt(math.MaxInt64),
 			}),
 			nil,
@@ -133,7 +133,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"string too large for address",
 			"willFail(address a)",
 			`{ "a": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 			}),
 			nil,
@@ -145,8 +145,8 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"too many array elements",
 			"willFail(uint32[2] a)",
 			`{ "a": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": []interface{}{123, 456, 789},
+			pipeline.NewVarsFrom(map[string]any{
+				"foo": []any{123, 456, 789},
 			}),
 			nil,
 			"",
@@ -157,9 +157,9 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"too many array elements (nested)",
 			"willFail(uint32[2][] a)",
 			`{ "a": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": []interface{}{
-					[]interface{}{123, 456, 789},
+			pipeline.NewVarsFrom(map[string]any{
+				"foo": []any{
+					[]any{123, 456, 789},
 				},
 			}),
 			nil,
@@ -191,7 +191,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"errored task inputs",
 			"asdf(bytes32 b, bytes bs, address a)",
 			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": bytes32,
 				"bar": []byte("stevetoshi sergeymoto"),
 				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
@@ -205,7 +205,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"hex string to fixed size byte array (note used by fulfillOracleRequest(..., bytes32 data))",
 			"asdf(bytes32 b)",
 			`{ "b": $(foo)}`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0x0000000000000000000000000000000000000000000000000000000000000001",
 			}),
 			nil,
@@ -259,7 +259,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int8",
 			"asdf(int8 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int8(1),
 			}),
 			nil,
@@ -271,7 +271,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint8",
 			"asdf(uint8 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint8(1),
 			}),
 			nil,
@@ -284,7 +284,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int16",
 			"asdf(int16 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int16(1),
 			}),
 			nil,
@@ -296,7 +296,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint16",
 			"asdf(uint16 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint16(1),
 			}),
 			nil,
@@ -309,7 +309,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int24",
 			"asdf(int24 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int32(1),
 			}),
 			nil,
@@ -321,7 +321,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint24",
 			"asdf(uint24 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint32(1),
 			}),
 			nil,
@@ -334,7 +334,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int32",
 			"asdf(int32 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int32(1),
 			}),
 			nil,
@@ -346,7 +346,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint32",
 			"asdf(uint32 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint32(1),
 			}),
 			nil,
@@ -359,7 +359,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int40",
 			"asdf(int40 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int64(1),
 			}),
 			nil,
@@ -371,7 +371,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint40",
 			"asdf(uint40 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint64(1),
 			}),
 			nil,
@@ -384,7 +384,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int48",
 			"asdf(int48 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int64(1),
 			}),
 			nil,
@@ -396,7 +396,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint48",
 			"asdf(uint48 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint64(1),
 			}),
 			nil,
@@ -409,7 +409,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int56",
 			"asdf(int56 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int64(1),
 			}),
 			nil,
@@ -421,7 +421,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint56",
 			"asdf(uint56 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint64(1),
 			}),
 			nil,
@@ -434,7 +434,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int64",
 			"asdf(int64 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int64(1),
 			}),
 			nil,
@@ -446,7 +446,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint64",
 			"asdf(uint64 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint64(1),
 			}),
 			nil,
@@ -460,7 +460,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int96",
 			"asdf(int96 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": big.NewInt(1),
 			}),
 			nil,
@@ -472,7 +472,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint96",
 			"asdf(uint96 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": big.NewInt(1),
 			}),
 			nil,
@@ -484,7 +484,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to int128",
 			"asdf(int128 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": big.NewInt(1),
 			}),
 			nil,
@@ -496,7 +496,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 			"encode 1 to uint128",
 			"asdf(uint128 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": big.NewInt(1),
 			}),
 			nil,
@@ -548,7 +548,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 			"encode 1 to int8",
 			"asdf(int8 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": int16(129),
 			}),
 			nil,
@@ -560,7 +560,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 			"encode 1 to uint8",
 			"asdf(uint8 i)",
 			`{ "i": $(foo) }`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": uint16(257),
 			}),
 			nil,

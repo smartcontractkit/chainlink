@@ -311,9 +311,9 @@ func TestResolver_CreateChain(t *testing.T) {
 			}
 		}`
 
-	data, err := json.Marshal(map[string]interface{}{
+	data, err := json.Marshal(map[string]any{
 		"address": "some-address",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"blockHistoryEstimatorBlockDelay": 0,
 			"ethTxReaperThreshold":            "1m0s",
 			"chainType":                       "XDAI",
@@ -324,36 +324,36 @@ func TestResolver_CreateChain(t *testing.T) {
 
 	// Ugly hack to avoid type check issues when using slices of maps against the GQL test library...
 	// This is because the library internally is trying to assert the slice values against map[string]interface{}
-	var keySpecificConfig interface{}
+	var keySpecificConfig any
 	err = json.Unmarshal(data, &keySpecificConfig)
 	require.NoError(t, err)
 
 	linkContractAddress := newRandomAddress().String()
 
-	input := map[string]interface{}{
-		"input": map[string]interface{}{
+	input := map[string]any{
+		"input": map[string]any{
 			"id": "1233",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"blockHistoryEstimatorBlockDelay": 1,
 				"ethTxReaperThreshold":            "1m0s",
 				"chainType":                       "OPTIMISM",
 				"gasEstimatorMode":                "BLOCK_HISTORY",
 				"linkContractAddress":             linkContractAddress,
 			},
-			"keySpecificConfigs": []interface{}{
+			"keySpecificConfigs": []any{
 				keySpecificConfig,
 			},
 		},
 	}
-	badInput := map[string]interface{}{
-		"input": map[string]interface{}{
+	badInput := map[string]any{
+		"input": map[string]any{
 			"id": "1233",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"ethTxReaperThreshold": "asdadadsa",
 				"chainType":            "OPTIMISM",
 				"gasEstimatorMode":     "BLOCK_HISTORY",
 			},
-			"keySpecificConfigs": []interface{}{},
+			"keySpecificConfigs": []any{},
 		},
 	}
 
@@ -474,7 +474,7 @@ func TestResolver_CreateChain(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"createChain"},
+					Path:          []any{"createChain"},
 					Message:       "error",
 				},
 			},
@@ -501,7 +501,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "123",
 	}
 	chainID := *utils.NewBigI(123)
@@ -561,7 +561,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteChain"},
+					Path:          []any{"deleteChain"},
 					Message:       gError.Error(),
 				},
 			},
@@ -614,9 +614,9 @@ func TestResolver_UpdateChain(t *testing.T) {
 			}
 		}`
 	chainID := *utils.NewBigI(1233)
-	data, err := json.Marshal(map[string]interface{}{
+	data, err := json.Marshal(map[string]any{
 		"address": "some-address",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"blockHistoryEstimatorBlockDelay": 0,
 			"ethTxReaperThreshold":            "1m0s",
 			"chainType":                       "XDAI",
@@ -625,38 +625,38 @@ func TestResolver_UpdateChain(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	var keySpecificConfig interface{}
+	var keySpecificConfig any
 	err = json.Unmarshal(data, &keySpecificConfig)
 	require.NoError(t, err)
 
 	linkContractAddress := newRandomAddress().String()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"id": "1233",
-		"input": map[string]interface{}{
+		"input": map[string]any{
 			"enabled": true,
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"blockHistoryEstimatorBlockDelay": 1,
 				"ethTxReaperThreshold":            "1m0s",
 				"chainType":                       "OPTIMISM",
 				"gasEstimatorMode":                "BLOCK_HISTORY",
 				"linkContractAddress":             linkContractAddress,
 			},
-			"keySpecificConfigs": []interface{}{
+			"keySpecificConfigs": []any{
 				keySpecificConfig,
 			},
 		},
 	}
-	badInput := map[string]interface{}{
+	badInput := map[string]any{
 		"id": "1233",
-		"input": map[string]interface{}{
+		"input": map[string]any{
 			"enabled": true,
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"ethTxReaperThreshold": "asdadadsa",
 				"chainType":            "OPTIMISM",
 				"gasEstimatorMode":     "BLOCK_HISTORY",
 			},
-			"keySpecificConfigs": []interface{}{},
+			"keySpecificConfigs": []any{},
 		},
 	}
 
@@ -805,7 +805,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"updateChain"},
+					Path:          []any{"updateChain"},
 					Message:       gError.Error(),
 				},
 			},

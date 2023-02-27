@@ -22,7 +22,7 @@ type Validated interface {
 }
 
 // Validate returns any errors from calling Validated.ValidateConfig on cfg and any nested types that implement Validated.
-func Validate(cfg interface{}) (err error) {
+func Validate(cfg any) (err error) {
 	_, err = utils.MultiErrorList(validate(reflect.ValueOf(cfg), true))
 	return
 }

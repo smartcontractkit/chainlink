@@ -90,7 +90,7 @@ func TestResolver_Nodes(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"nodes"},
+					Path:          []any{"nodes"},
 					Message:       gError.Error(),
 				},
 			},
@@ -191,8 +191,8 @@ func Test_CreateNodeMutation(t *testing.T) {
 		HTTPURL:    null.StringFrom("http://some-url"),
 		SendOnly:   true,
 	}
-	input := map[string]interface{}{
-		"input": map[string]interface{}{
+	input := map[string]any{
+		"input": map[string]any{
 			"name":       createNodeInput.Name,
 			"evmChainID": createNodeInput.EVMChainID,
 			"wsURL":      createNodeInput.WSURL,
@@ -263,13 +263,13 @@ func Test_DeleteNodeMutation(t *testing.T) {
 		SendOnly:   true,
 	}
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": name,
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteNode": map[string]interface{}{
-			"node": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteNode": map[string]any{
+			"node": map[string]any{
 				"name":    fakeNode.Name,
 				"wsURL":   fakeNode.WSURL,
 				"httpURL": fakeNode.HTTPURL,

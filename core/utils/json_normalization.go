@@ -22,7 +22,7 @@ import (
 //	JSON does not have a requirement to respect object key ordering.
 func NormalizedJSON(val []byte) (string, error) {
 	// Unmarshal into a generic interface{}
-	var data interface{}
+	var data any
 	var err error
 	if err = json.Unmarshal(val, &data); err != nil {
 		return "", err
@@ -49,11 +49,11 @@ func NormalizedJSON(val []byte) (string, error) {
 
 // recursively write elements of the JSON to the hash, making sure to sort
 // objects and to represent floats in exponent form
-func marshal(writer io.Writer, data interface{}) error {
+func marshal(writer io.Writer, data any) error {
 	switch element := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return marshalObject(writer, element)
-	case []interface{}:
+	case []any:
 		return marshalArray(writer, element)
 	case float64:
 		return marshalFloat(writer, element)
@@ -68,7 +68,7 @@ func marshal(writer io.Writer, data interface{}) error {
 	}
 }
 
-func marshalObject(writer io.Writer, data map[string]interface{}) error {
+func marshalObject(writer io.Writer, data map[string]any) error {
 	_, err := fmt.Fprintf(writer, "{")
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func marshalObject(writer io.Writer, data map[string]interface{}) error {
 	return err
 }
 
-func orderedKeys(data map[string]interface{}) []string {
+func orderedKeys(data map[string]any) []string {
 	keys := make([]string, 0, len(data))
 	for k := range data {
 		keys = append(keys, k)
@@ -92,7 +92,7 @@ func orderedKeys(data map[string]interface{}) []string {
 	return keys
 }
 
-func marshalMapOrderedKeys(writer io.Writer, orderedKeys []string, data map[string]interface{}) error {
+func marshalMapOrderedKeys(writer io.Writer, orderedKeys []string, data map[string]any) error {
 	for index, key := range orderedKeys {
 		err := marshal(writer, key)
 		if err != nil {
@@ -122,7 +122,7 @@ func marshalMapOrderedKeys(writer io.Writer, orderedKeys []string, data map[stri
 	return nil
 }
 
-func marshalArray(writer io.Writer, data []interface{}) error {
+func marshalArray(writer io.Writer, data []any) error {
 	_, err := fmt.Fprintf(writer, "[")
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func marshalArray(writer io.Writer, data []interface{}) error {
 	return err
 }
 
-func marshalPrimitive(writer io.Writer, data interface{}) error {
+func marshalPrimitive(writer io.Writer, data any) error {
 	output, err := json.Marshal(data)
 	if err != nil {
 		return err

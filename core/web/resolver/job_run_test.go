@@ -72,7 +72,7 @@ func TestQuery_PaginatedJobRuns(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"jobRuns"},
+					Path:          []any{"jobRuns"},
 					Message:       gError.Error(),
 				},
 			},
@@ -110,7 +110,7 @@ func TestResolver_JobRun(t *testing.T) {
 		}
 	`
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "2",
 	}
 	gError := errors.New("error")
@@ -206,7 +206,7 @@ func TestResolver_JobRun(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"jobRun"},
+					Path:          []any{"jobRun"},
 					Message:       gError.Error(),
 				},
 			},
@@ -215,7 +215,7 @@ func TestResolver_JobRun(t *testing.T) {
 			name:          "invalid ID error",
 			authenticated: true,
 			query:         query,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": "asdasads",
 			},
 			result: `null`,
@@ -223,7 +223,7 @@ func TestResolver_JobRun(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: idError,
-					Path:          []interface{}{"jobRun"},
+					Path:          []any{"jobRun"},
 					Message:       idError.Error(),
 				},
 			},
@@ -263,7 +263,7 @@ func TestResolver_RunJob(t *testing.T) {
 		}`
 	id := int32(12)
 	idStr := stringutils.FromInt32(id)
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": idStr,
 	}
 
@@ -284,7 +284,7 @@ func TestResolver_RunJob(t *testing.T) {
 			name:          "success without body",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), nil)
+				f.App.On("RunJobV2", mock.Anything, id, (map[string]any)(nil)).Return(int64(25), nil)
 				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{
 					ID:             2,
 					PipelineSpecID: 5,
@@ -320,7 +320,7 @@ func TestResolver_RunJob(t *testing.T) {
 			name:          "invalid ID error",
 			authenticated: true,
 			query:         mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": "some random ID with some specific length that should not work",
 			},
 			result: `null`,
@@ -328,7 +328,7 @@ func TestResolver_RunJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: idErr,
-					Path:          []interface{}{"runJob"},
+					Path:          []any{"runJob"},
 					Message:       idErr.Error(),
 				},
 			},
@@ -337,10 +337,10 @@ func TestResolver_RunJob(t *testing.T) {
 			name:          "not found job error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), webhook.ErrJobNotExists)
+				f.App.On("RunJobV2", mock.Anything, id, (map[string]any)(nil)).Return(int64(25), webhook.ErrJobNotExists)
 			},
 			query: mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": idStr,
 			},
 			result: `
@@ -355,10 +355,10 @@ func TestResolver_RunJob(t *testing.T) {
 			name:          "generic error on RunJobV2",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), gError)
+				f.App.On("RunJobV2", mock.Anything, id, (map[string]any)(nil)).Return(int64(25), gError)
 			},
 			query: mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": idStr,
 			},
 			result: `null`,
@@ -366,7 +366,7 @@ func TestResolver_RunJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"runJob"},
+					Path:          []any{"runJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -375,12 +375,12 @@ func TestResolver_RunJob(t *testing.T) {
 			name:          "generic error on FindRun",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), nil)
+				f.App.On("RunJobV2", mock.Anything, id, (map[string]any)(nil)).Return(int64(25), nil)
 				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{}, gError)
 				f.App.On("PipelineORM").Return(f.Mocks.pipelineORM)
 			},
 			query: mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": idStr,
 			},
 			result: `null`,
@@ -388,7 +388,7 @@ func TestResolver_RunJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"runJob"},
+					Path:          []any{"runJob"},
 					Message:       gError.Error(),
 				},
 			},

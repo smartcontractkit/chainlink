@@ -114,7 +114,7 @@ func (b Big) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (b *Big) Scan(value interface{}) error {
+func (b *Big) Scan(value any) error {
 	switch v := value.(type) {
 	case string:
 		decoded, ok := b.setString(v, 10)
@@ -172,16 +172,16 @@ func (b *Big) Int64() int64 {
 }
 
 // Add returns the sum of b and c
-func (b *Big) Add(c interface{}) *Big {
+func (b *Big) Add(c any) *Big {
 	return NewBig(bigmath.Add(b, c))
 }
 
 // Sub returns the differencs between b and c
-func (b *Big) Sub(c interface{}) *Big {
+func (b *Big) Sub(c any) *Big {
 	return NewBig(bigmath.Sub(b, c))
 }
 
 // Sub returns b % c
-func (b *Big) Mod(c interface{}) *Big {
+func (b *Big) Mod(c any) *Big {
 	return NewBig(bigmath.Mod(b, c))
 }

@@ -400,7 +400,7 @@ func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result i
 	// Verify the pipeline run data
 	run := pipeline.Run{}
 	require.NoError(t, db.Get(&run, `SELECT * FROM pipeline_runs WHERE id = $1`, stats.PipelineRunID.Int64), "runID %v", stats.PipelineRunID)
-	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
+	assert.Equal(t, []any{result}, run.Outputs.Val)
 	return run
 }
 

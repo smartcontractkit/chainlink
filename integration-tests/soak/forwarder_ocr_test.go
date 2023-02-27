@@ -114,7 +114,7 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 				"env": ocrForwarderEnvVars,
 			}))
 		} else {
-			testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
+			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 				"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
 			}))
 		}

@@ -34,7 +34,7 @@ type contractMockReceiver struct {
 	address common.Address
 }
 
-func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs ...any) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -54,7 +54,7 @@ func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs 
 		Return(encoded, nil)
 }
 
-func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matcher func(callArgs ethereum.CallMsg) bool, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matcher func(callArgs ethereum.CallMsg) bool, responseArgs ...any) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -93,12 +93,12 @@ func (receiver contractMockReceiver) MockRevertResponse(funcName string) *mock.C
 		Return(nil, errors.New("revert"))
 }
 
-func (receiver contractMockReceiver) mustEncodeResponse(funcName string, responseArgs ...interface{}) []byte {
+func (receiver contractMockReceiver) mustEncodeResponse(funcName string, responseArgs ...any) []byte {
 	if len(responseArgs) == 0 {
 		return []byte{}
 	}
 
-	var outputList []interface{}
+	var outputList []any
 
 	firstArg := responseArgs[0]
 	isStruct := reflect.TypeOf(firstArg).Kind() == reflect.Struct
@@ -116,9 +116,9 @@ func (receiver contractMockReceiver) mustEncodeResponse(funcName string, respons
 	return encoded
 }
 
-func structToInterfaceSlice(structArg interface{}) []interface{} {
+func structToInterfaceSlice(structArg any) []any {
 	v := reflect.ValueOf(structArg)
-	values := make([]interface{}, v.NumField())
+	values := make([]any, v.NumField())
 	for i := 0; i < v.NumField(); i++ {
 		values[i] = v.Field(i).Interface()
 	}

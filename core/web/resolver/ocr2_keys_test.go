@@ -38,13 +38,13 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm"),
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "solana"),
 	}
-	expectedBundles := []map[string]interface{}{}
+	expectedBundles := []map[string]any{}
 	for _, k := range fakeKeys {
 		configPublic := k.ConfigEncryptionPublicKey()
 		ct, err := ToOCR2ChainType(string(k.ChainType()))
 		require.NoError(t, err)
 		pubKey := k.OffchainPublicKey()
-		expectedBundles = append(expectedBundles, map[string]interface{}{
+		expectedBundles = append(expectedBundles, map[string]any{
 			"id":                k.ID(),
 			"chainType":         ct,
 			"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", k.ChainType(), k.OnChainPublicKey()),
@@ -53,8 +53,8 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		})
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"ocr2KeyBundles": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"ocr2KeyBundles": map[string]any{
 			"results": expectedBundles,
 		},
 	})
@@ -88,7 +88,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"ocr2KeyBundles"},
+					Path:          []any{"ocr2KeyBundles"},
 					Message:       gError.Error(),
 				},
 			},
@@ -124,9 +124,9 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 
 	configPublic := fakeKey.ConfigEncryptionPublicKey()
 	pubKey := fakeKey.OffchainPublicKey()
-	d, err := json.Marshal(map[string]interface{}{
-		"createOCR2KeyBundle": map[string]interface{}{
-			"bundle": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"createOCR2KeyBundle": map[string]any{
+			"bundle": map[string]any{
 				"id":                fakeKey.ID(),
 				"chainType":         ct,
 				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
@@ -138,7 +138,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	assert.NoError(t, err)
 	expected := string(d)
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"chainType": OCR2ChainTypeEVM,
 	}
 
@@ -171,7 +171,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"createOCR2KeyBundle"},
+					Path:          []any{"createOCR2KeyBundle"},
 					Message:       gError.Error(),
 				},
 			},
@@ -205,7 +205,7 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 			}
 		}
 	`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": fakeKey.ID(),
 	}
 
@@ -214,9 +214,9 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 
 	configPublic := fakeKey.ConfigEncryptionPublicKey()
 	pubKey := fakeKey.OffchainPublicKey()
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteOCR2KeyBundle": map[string]interface{}{
-			"bundle": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteOCR2KeyBundle": map[string]any{
+			"bundle": map[string]any{
 				"id":                fakeKey.ID(),
 				"chainType":         ct,
 				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
@@ -278,7 +278,7 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteOCR2KeyBundle"},
+					Path:          []any{"deleteOCR2KeyBundle"},
 					Message:       gError.Error(),
 				},
 			},

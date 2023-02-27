@@ -78,7 +78,7 @@ func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, err
 func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error) {
 	var fwdrs []Forwarder
 
-	arg := map[string]interface{}{
+	arg := map[string]any{
 		"addresses": addrs,
 		"chainid":   evmChainId,
 	}

@@ -1,7 +1,9 @@
 // Package secp256k1 is an implementation of the kyber.{Group,Point,Scalar}
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // interfaces, based on btcd/btcec and kyber/group/mod
 //
 // XXX: NOT CONSTANT TIME!
@@ -43,7 +45,7 @@ func (s *SuiteSecp256k1) XOF(key []byte) kyber.XOF {
 
 // Read implements the Encoding interface function, and reads a series of objs from r
 // The objs must all be pointers
-func (s *SuiteSecp256k1) Read(r io.Reader, objs ...interface{}) error {
+func (s *SuiteSecp256k1) Read(r io.Reader, objs ...any) error {
 	return fixbuf.Read(r, s, objs...)
 }
 
@@ -51,7 +53,7 @@ func (s *SuiteSecp256k1) Read(r io.Reader, objs ...interface{}) error {
 // built-in binary serializations. Supports Points, Scalars, fixed-length data
 // types supported by encoding/binary/Write(), and structs, arrays, and slices
 // containing these types.
-func (s *SuiteSecp256k1) Write(w io.Writer, objs ...interface{}) error {
+func (s *SuiteSecp256k1) Write(w io.Writer, objs ...any) error {
 	return fixbuf.Write(w, objs)
 }
 
@@ -62,7 +64,7 @@ var tPoint = reflect.TypeOf(aPoint)
 
 // New implements the kyber.Encoding interface, and returns a new element of
 // type t, which can be a Point or a Scalar
-func (s *SuiteSecp256k1) New(t reflect.Type) interface{} {
+func (s *SuiteSecp256k1) New(t reflect.Type) any {
 	switch t {
 	case tScalar:
 		return s.Scalar()

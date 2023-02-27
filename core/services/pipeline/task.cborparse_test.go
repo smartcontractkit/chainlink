@@ -17,19 +17,19 @@ func TestCBORParseTask(t *testing.T) {
 		data                  string
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
-		expected              map[string]interface{}
+		expected              map[string]any
 		expectedErrorCause    error
 		expectedErrorContains string
 	}{
 		{
 			"hello world",
 			"$(foo)",
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff",
 			}),
 			nil,
-			map[string]interface{}{
-				"path": []interface{}{"recent", "usd"},
+			map[string]any{
+				"path": []any{"recent", "usd"},
 				"url":  "https://etherprice.com/api",
 			},
 			nil,
@@ -38,12 +38,12 @@ func TestCBORParseTask(t *testing.T) {
 		{
 			"trailing empty bytes",
 			"$(foo)",
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000",
 			}),
 			nil,
-			map[string]interface{}{
-				"path": []interface{}{"recent", "usd"},
+			map[string]any{
+				"path": []any{"recent", "usd"},
 				"url":  "https://etherprice.com/api",
 			},
 			nil,
@@ -52,16 +52,16 @@ func TestCBORParseTask(t *testing.T) {
 		{
 			"nested maps",
 			"$(foo)",
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0xbf657461736b739f6868747470706f7374ff66706172616d73bf636d73676f68656c6c6f5f636861696e6c696e6b6375726c75687474703a2f2f6c6f63616c686f73743a36363930ffff",
 			}),
 			nil,
-			map[string]interface{}{
-				"params": map[string]interface{}{
+			map[string]any{
+				"params": map[string]any{
 					"msg": "hello_chainlink",
 					"url": "http://localhost:6690",
 				},
-				"tasks": []interface{}{"httppost"},
+				"tasks": []any{"httppost"},
 			},
 			nil,
 			"",
@@ -69,7 +69,7 @@ func TestCBORParseTask(t *testing.T) {
 		{
 			"bignums",
 			"$(foo)",
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": "0x" +
 					"bf" + // map(*)
 					"67" + // text(7)
@@ -95,8 +95,8 @@ func TestCBORParseTask(t *testing.T) {
 					"ff", // primitive(*)
 			}),
 			nil,
-			map[string]interface{}{
-				"bignums": []interface{}{
+			map[string]any{
+				"bignums": []any{
 					testutils.MustParseBigInt(t, "18446744073709551616"),
 					testutils.MustParseBigInt(t, "28948022309329048855892746252171976963317496166410141009864396001978282409984"),
 					testutils.MustParseBigInt(t, "-18446744073709551617"),
@@ -110,11 +110,11 @@ func TestCBORParseTask(t *testing.T) {
 		{
 			"empty data",
 			"$(foo)",
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": nil,
 			}),
 			nil,
-			map[string]interface{}{},
+			map[string]any{},
 			nil,
 			"data",
 		},

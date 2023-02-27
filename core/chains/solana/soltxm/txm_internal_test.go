@@ -306,7 +306,7 @@ func TestTxm(t *testing.T) {
 		wg.Add(1)
 
 		// {"InstructionError":[0,{"Custom":6003}]}
-		tempErr := map[string][]interface{}{
+		tempErr := map[string][]any{
 			"InstructionError": {
 				0, map[string]int{"Custom": 6003},
 			},

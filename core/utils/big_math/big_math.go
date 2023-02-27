@@ -16,33 +16,33 @@ type ToIntable interface {
 func I() *big.Int { return new(big.Int) }
 
 // Add performs addition with the given values after coercing them to big.Int, or panics if it cannot.
-func Add(addend1, addend2 interface{}) *big.Int { return I().Add(bnIfy(addend1), bnIfy(addend2)) }
+func Add(addend1, addend2 any) *big.Int { return I().Add(bnIfy(addend1), bnIfy(addend2)) }
 
 // Div performs division with the given values after coercing them to big.Int, or panics if it cannot.
-func Div(dividend, divisor interface{}) *big.Int { return I().Div(bnIfy(dividend), bnIfy(divisor)) }
+func Div(dividend, divisor any) *big.Int { return I().Div(bnIfy(dividend), bnIfy(divisor)) }
 
 // Equal compares the given values after coercing them to big.Int, or panics if it cannot.
-func Equal(left, right interface{}) bool { return bnIfy(left).Cmp(bnIfy(right)) == 0 }
+func Equal(left, right any) bool { return bnIfy(left).Cmp(bnIfy(right)) == 0 }
 
 // Exp performs modular eponentiation with the given values after coercing them to big.Int, or panics if it cannot.
-func Exp(base, exponent, modulus interface{}) *big.Int {
+func Exp(base, exponent, modulus any) *big.Int {
 	return I().Exp(bnIfy(base), bnIfy(exponent), bnIfy(modulus))
 }
 
 // Mul performs multiplication with the given values after coercing them to big.Int, or panics if it cannot.
-func Mul(multiplicand, multiplier interface{}) *big.Int {
+func Mul(multiplicand, multiplier any) *big.Int {
 	return I().Mul(bnIfy(multiplicand), bnIfy(multiplier))
 }
 
 // Mod performs modulus with the given values after coercing them to big.Int, or panics if it cannot.
-func Mod(dividend, divisor interface{}) *big.Int { return I().Mod(bnIfy(dividend), bnIfy(divisor)) }
+func Mod(dividend, divisor any) *big.Int { return I().Mod(bnIfy(dividend), bnIfy(divisor)) }
 
 // Sub performs subtraction with the given values after coercing them to big.Int, or panics if it cannot.
-func Sub(minuend, subtrahend interface{}) *big.Int { return I().Sub(bnIfy(minuend), bnIfy(subtrahend)) }
+func Sub(minuend, subtrahend any) *big.Int { return I().Sub(bnIfy(minuend), bnIfy(subtrahend)) }
 
 // Max returns the maximum of the two given values after coercing them to big.Int,
 // or panics if it cannot.
-func Max(x, y interface{}) *big.Int {
+func Max(x, y any) *big.Int {
 	xBig := bnIfy(x)
 	yBig := bnIfy(y)
 	if xBig.Cmp(yBig) == 1 {
@@ -53,7 +53,7 @@ func Max(x, y interface{}) *big.Int {
 
 // Min returns the min of the two given values after coercing them to big.Int,
 // or panics if it cannot.
-func Min(x, y interface{}) *big.Int {
+func Min(x, y any) *big.Int {
 	xBig := bnIfy(x)
 	yBig := bnIfy(y)
 	if xBig.Cmp(yBig) == -1 {
@@ -64,7 +64,7 @@ func Min(x, y interface{}) *big.Int {
 
 // Accumulate returns the sum of the given slice after coercing all elements
 // to a big.Int, or panics if it cannot.
-func Accumulate(s []interface{}) (r *big.Int) {
+func Accumulate(s []any) (r *big.Int) {
 	r = big.NewInt(0)
 	for _, e := range s {
 		r.Add(r, bnIfy(e))
@@ -72,7 +72,7 @@ func Accumulate(s []interface{}) (r *big.Int) {
 	return
 }
 
-func bnIfy(val interface{}) *big.Int {
+func bnIfy(val any) *big.Int {
 	if toIntable, ok := val.(ToIntable); ok {
 		return toIntable.ToInt()
 	}

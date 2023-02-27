@@ -45,7 +45,7 @@ func (k *PublicKey) UnmarshalJSON(in []byte) error {
 	return nil
 }
 
-func (k *PublicKey) Scan(value interface{}) error {
+func (k *PublicKey) Scan(value any) error {
 	switch v := value.(type) {
 	case nil:
 		*k = nil

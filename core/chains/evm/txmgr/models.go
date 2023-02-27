@@ -143,7 +143,7 @@ func (e NullableEIP2930AccessList) Value() (driver.Value, error) {
 }
 
 // Scan returns the selector from its serialization in the database
-func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
+func (e *NullableEIP2930AccessList) Scan(value any) error {
 	if value == nil {
 		e.Valid = false
 		return nil

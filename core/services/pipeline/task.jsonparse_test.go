@@ -23,7 +23,7 @@ func TestJSONParseTask(t *testing.T) {
 		lax               string
 		vars              pipeline.Vars
 		inputs            []pipeline.Result
-		wantData          interface{}
+		wantData          any
 		wantErrorCause    error
 		wantErrorContains string
 	}{
@@ -191,7 +191,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
-			[]interface{}{int64(0), int64(1)},
+			[]any{int64(0), int64(1)},
 			nil,
 			"",
 		},
@@ -335,8 +335,8 @@ func TestJSONParseTask(t *testing.T) {
 			"data,0,availability",
 			"",
 			"false",
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
+			pipeline.NewVarsFrom(map[string]any{
+				"foo": map[string]any{"bar": `{"data":[{"availability":"0.99991"}]}`},
 			}),
 			[]pipeline.Result{},
 			"0.99991",
@@ -349,11 +349,11 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"",
 			"false",
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": map[string]interface{}{"bar": `{"data":["stevetoshi sergeymoto"]}`},
+			pipeline.NewVarsFrom(map[string]any{
+				"foo": map[string]any{"bar": `{"data":["stevetoshi sergeymoto"]}`},
 			}),
 			[]pipeline.Result{},
-			map[string]interface{}{"data": []interface{}{"stevetoshi sergeymoto"}},
+			map[string]any{"data": []any{"stevetoshi sergeymoto"}},
 			nil,
 			"",
 		},
@@ -363,9 +363,9 @@ func TestJSONParseTask(t *testing.T) {
 			"$(chain.link)",
 			"",
 			"false",
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
-				"chain": map[string]interface{}{"link": "data,0,availability"},
+			pipeline.NewVarsFrom(map[string]any{
+				"foo":   map[string]any{"bar": `{"data":[{"availability":"0.99991"}]}`},
+				"chain": map[string]any{"link": "data,0,availability"},
 			}),
 			[]pipeline.Result{},
 			"0.99991",
@@ -378,9 +378,9 @@ func TestJSONParseTask(t *testing.T) {
 			"$(chain.link)",
 			"",
 			"sergey",
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
-				"chain": map[string]interface{}{"link": "data,0,availability"},
+			pipeline.NewVarsFrom(map[string]any{
+				"foo":   map[string]any{"bar": `{"data":[{"availability":"0.99991"}]}`},
+				"chain": map[string]any{"link": "data,0,availability"},
 			}),
 			[]pipeline.Result{},
 			"0.99991",

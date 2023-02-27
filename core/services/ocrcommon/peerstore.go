@@ -161,7 +161,7 @@ func (p *Pstorewrapper) WriteToDB() error {
 			}
 		}
 		valueStrings := []string{}
-		valueArgs := []interface{}{}
+		valueArgs := []any{}
 		for _, p := range peers {
 			valueStrings = append(valueStrings, "(?, ?, ?, NOW(), NOW())")
 			valueArgs = append(valueArgs, p.ID)

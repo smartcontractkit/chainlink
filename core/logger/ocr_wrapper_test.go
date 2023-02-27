@@ -14,7 +14,7 @@ func TestOCRWrapper(t *testing.T) {
 		"field": 123,
 	}
 
-	args := []interface{}{"msg"}
+	args := []any{"msg"}
 	args = append(args, toKeysAndValues(testFields)...)
 
 	ml := NewMockLogger(t)

@@ -39,7 +39,7 @@ func batchSendTransactions(
 		hashes[i] = attempt.Hash
 		req := rpc.BatchElem{
 			Method: "eth_sendRawTransaction",
-			Args:   []interface{}{hexutil.Encode(attempt.SignedRawTx)},
+			Args:   []any{hexutil.Encode(attempt.SignedRawTx)},
 			Result: &common.Hash{},
 		}
 		reqs[i] = req

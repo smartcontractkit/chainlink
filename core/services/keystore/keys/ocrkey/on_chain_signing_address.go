@@ -55,7 +55,7 @@ func (ocsa OnChainSigningAddress) Value() (driver.Value, error) {
 	return byteArray[:], nil
 }
 
-func (ocsa *OnChainSigningAddress) Scan(value interface{}) error {
+func (ocsa *OnChainSigningAddress) Scan(value any) error {
 	switch typed := value.(type) {
 	case []byte:
 		if len(typed) != common.AddressLength {

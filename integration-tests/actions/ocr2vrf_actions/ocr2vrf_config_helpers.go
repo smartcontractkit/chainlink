@@ -72,14 +72,14 @@ func createNonBootstrapJobs(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				PluginType: "ocr2vrf",
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": int(chainID),
 				},
 				ContractID:         OCR2VRFPluginConfig.VRFBeaconConfig.VRFBeaconAddress,
 				OCRKeyBundleID:     null.StringFrom(nodeOCRKeyId[keyIndex]),
 				TransmitterID:      null.StringFrom(nodeTransmitterAddress[keyIndex]),
 				P2PV2Bootstrappers: pq.StringArray{P2Pv2Bootstrapper},
-				PluginConfig: map[string]interface{}{
+				PluginConfig: map[string]any{
 					"dkgEncryptionPublicKey": fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGKeyConfigs[index].DKGEncryptionPublicKey),
 					"dkgSigningPublicKey":    fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGKeyConfigs[index].DKGSigningPublicKey),
 					"dkgKeyID":               fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGKeyID),
@@ -105,7 +105,7 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddres
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: dkgAddress,
 			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID": int(chainID),
 			},
 		},

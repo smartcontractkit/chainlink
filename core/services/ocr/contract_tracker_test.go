@@ -53,7 +53,7 @@ type contractTrackerUni struct {
 	tracker *ocr.OCRContractTracker
 }
 
-func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
+func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 	var cfg evmconfig.ChainScopedConfig
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator

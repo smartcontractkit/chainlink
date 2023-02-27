@@ -91,7 +91,7 @@ func (r ReportCodec) BuildReport(paos []median.ParsedAttributedObservation) (typ
 }
 
 func (ReportCodec) MedianFromReport(report types.Report) (*big.Int, error) {
-	reportElems := map[string]interface{}{}
+	reportElems := map[string]any{}
 	if err := reportTypes.UnpackIntoMap(reportElems, report); err != nil {
 		return nil, fmt.Errorf("error during unpack: %w", err)
 	}

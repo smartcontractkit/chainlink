@@ -70,7 +70,7 @@ type KeyStore interface {
 var _ TxManager = &Txm{}
 
 // ResumeCallback is assumed to be idempotent
-type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
+type ResumeCallback func(id uuid.UUID, result any, err error) error
 
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {

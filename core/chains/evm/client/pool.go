@@ -264,7 +264,7 @@ func (p *Pool) selectNode() (node Node) {
 	return p.activeNode
 }
 
-func (p *Pool) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (p *Pool) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	return p.selectNode().CallContext(ctx, result, method, args...)
 }
 
@@ -418,6 +418,6 @@ func (p *Pool) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 }
 
 // EthSubscribe implements evmclient.Client
-func (p *Pool) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (p *Pool) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...any) (ethereum.Subscription, error) {
 	return p.selectNode().EthSubscribe(ctx, channel, args...)
 }

@@ -536,7 +536,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 	}
 }
 
-func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog interface{}, started time.Time) {
+func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog any, started time.Time) {
 	if err := fm.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		fm.logger.Errorw("Failed to mark log as consumed",
 			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
@@ -712,7 +712,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	newRoundLogger.Info("Responding to new round request")
 
 	// Best effort to attach metadata.
-	var metaDataForBridge map[string]interface{}
+	var metaDataForBridge map[string]any
 	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
 	if err != nil {
 		newRoundLogger.Warnw("Couldn't read latest round data for request meta", "err", err)
@@ -723,13 +723,13 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		}
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    fm.jobSpec.ID,
 			"externalJobID": fm.jobSpec.ExternalJobID,
 			"name":          fm.jobSpec.Name.ValueOrZero(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"meta": metaDataForBridge,
 		},
 	})
@@ -911,7 +911,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		return
 	}
 
-	var metaDataForBridge map[string]interface{}
+	var metaDataForBridge map[string]any
 	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
 	if err != nil {
 		l.Warnw("Couldn't read latest round data for request meta", "err", err)
@@ -926,13 +926,13 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as "decimals" in the FM contract.
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    fm.jobSpec.ID,
 			"externalJobID": fm.jobSpec.ExternalJobID,
 			"name":          fm.jobSpec.Name.ValueOrZero(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"meta": metaDataForBridge,
 		},
 	})

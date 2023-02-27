@@ -16,7 +16,7 @@ func TestMemoTask(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		output string
 	}{
 		{"identity", pipeline.ObjectParam{Type: pipeline.BoolType, BoolValue: true}, "true"},

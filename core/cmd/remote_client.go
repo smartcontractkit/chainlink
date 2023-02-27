@@ -172,7 +172,7 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	return err
 }
 
-func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
+func (cli *Client) getPage(requestURI string, page int, model any) (err error) {
 	uri, err := url.Parse(requestURI)
 	if err != nil {
 		return err
@@ -355,7 +355,7 @@ func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, er
 }
 
 func getTOMLString(s string) (string, error) {
-	var val interface{}
+	var val any
 	err := toml.Unmarshal([]byte(s), &val)
 	if err == nil {
 		return s, nil
@@ -395,7 +395,7 @@ func (cli *Client) printResponseBody(resp *http.Response) error {
 	return nil
 }
 
-func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, headers ...string) error {
+func (cli *Client) renderAPIResponse(resp *http.Response, dst any, headers ...string) error {
 	var links jsonapi.Links
 	if err := cli.deserializeAPIResponse(resp, dst, &links); err != nil {
 		return cli.errorOut(err)
@@ -650,7 +650,7 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 }
 
 // deserializeAPIResponse is distinct from deserializeResponse in that it supports JSONAPI responses with Links
-func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
+func (cli *Client) deserializeAPIResponse(resp *http.Response, dst any, links *jsonapi.Links) error {
 	b, err := cli.parseResponse(resp)
 	if err != nil {
 		return errors.Wrap(err, "parseResponse error")

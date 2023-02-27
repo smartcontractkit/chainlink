@@ -96,7 +96,7 @@ func (e *EnvVar[T]) ParseFrom(get func(string) string) (v T, invalid string, err
 		if err == nil {
 			return
 		}
-		var df interface{} = e.defaultValue
+		var df any = e.defaultValue
 		if !e.hasDefault {
 			var t T
 			df = t

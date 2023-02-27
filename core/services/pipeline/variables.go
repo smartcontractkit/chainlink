@@ -17,14 +17,14 @@ var (
 )
 
 type Vars struct {
-	vars map[string]interface{}
+	vars map[string]any
 }
 
 // NewVarsFrom creates new Vars from the given map.
 // If the map is nil, a new map instance will be created.
-func NewVarsFrom(m map[string]interface{}) Vars {
+func NewVarsFrom(m map[string]any) Vars {
 	if m == nil {
-		m = make(map[string]interface{})
+		m = make(map[string]any)
 	}
 	return Vars{vars: m}
 }
@@ -32,7 +32,7 @@ func NewVarsFrom(m map[string]interface{}) Vars {
 // Get returns the value for the given keypath or error.
 // The keypath can consist of one or more parts, e.g. "foo" or "foo.6.a.b".
 // Every part except for the first one can be an index of a slice.
-func (vars Vars) Get(keypathStr string) (interface{}, error) {
+func (vars Vars) Get(keypathStr string) (any, error) {
 	keypathStr = strings.TrimSpace(keypathStr)
 	keypath, err := NewKeypathFromString(keypathStr)
 	if err != nil {
@@ -43,15 +43,15 @@ func (vars Vars) Get(keypathStr string) (interface{}, error) {
 	}
 
 	var exists bool
-	var currVal interface{} = vars.vars
+	var currVal any = vars.vars
 	for i, part := range keypath.Parts {
 		switch v := currVal.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			currVal, exists = v[part]
 			if !exists {
 				return nil, errors.Wrapf(ErrKeypathNotFound, "key %v (segment %v in keypath %v)", part, i, keypathStr)
 			}
-		case []interface{}:
+		case []any:
 			idx, err := strconv.ParseInt(part, 10, 64)
 			if err != nil {
 				return nil, errors.Wrapf(ErrKeypathNotFound, "could not parse key as integer: %v", err)
@@ -69,7 +69,7 @@ func (vars Vars) Get(keypathStr string) (interface{}, error) {
 
 // Set sets a top-level variable specified by dotID.
 // Returns error if either dotID is empty or it is a compound keypath.
-func (vars Vars) Set(dotID string, value interface{}) error {
+func (vars Vars) Set(dotID string, value any) error {
 	dotID = strings.TrimSpace(dotID)
 	if len(dotID) == 0 {
 		return ErrVarsRoot
@@ -85,7 +85,7 @@ func (vars Vars) Set(dotID string, value interface{}) error {
 // Copy makes a copy of Vars by copying the underlying map.
 // Used by scheduler for new tasks to avoid data races.
 func (vars Vars) Copy() Vars {
-	newVars := make(map[string]interface{})
+	newVars := make(map[string]any)
 	// No need to copy recursively, because only the top-level map is mutable (see Set()).
 	for k, v := range vars.vars {
 		newVars[k] = v

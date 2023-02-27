@@ -46,7 +46,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"hash": "0x5431F5F973781809D18643b87B44921b11355d81",
 	}
 	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
@@ -196,7 +196,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"ethTransaction"},
+					Path:          []any{"ethTransaction"},
 					Message:       gError.Error(),
 				},
 			},
@@ -302,7 +302,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"ethTransactions"},
+					Path:          []any{"ethTransactions"},
 					Message:       gError.Error(),
 				},
 			},
@@ -410,7 +410,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"ethTransactionsAttempts"},
+					Path:          []any{"ethTransactionsAttempts"},
 					Message:       gError.Error(),
 				},
 			},

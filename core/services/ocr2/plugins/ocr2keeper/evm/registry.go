@@ -544,8 +544,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 		var result string
 		checkReqs[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
+			Args: []any{
+				map[string]any{
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -614,8 +614,8 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
+			Args: []any{
+				map[string]any{
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -680,8 +680,8 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 		var result string
 		uReqs[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
+			Args: []any{
+				map[string]any{
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},

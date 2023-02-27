@@ -57,7 +57,7 @@ type gatherRequest struct {
 	meta   Meta
 }
 
-type Meta map[string]interface{}
+type Meta map[string]any
 
 const (
 	cpuProfName   = "cpu"

@@ -68,7 +68,7 @@ func (t *ETHGetBlockTask) Run(ctx context.Context, lggr logger.Logger, vars Vars
 		}
 	}
 
-	h := make(map[string]interface{})
+	h := make(map[string]any)
 	h["number"] = latestHead.Number
 	h["hash"] = latestHead.Hash
 	h["parentHash"] = latestHead.ParentHash

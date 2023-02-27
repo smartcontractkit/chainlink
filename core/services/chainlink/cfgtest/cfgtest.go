@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func AssertFieldsNotNil(t *testing.T, s interface{}) {
+func AssertFieldsNotNil(t *testing.T, s any) {
 	err := assertValNotNil(t, "", reflect.ValueOf(s))
 	_, err = utils.MultiErrorList(err)
 	assert.NoError(t, err)

@@ -176,7 +176,7 @@ func (ht *headTracker) getInitialHead(ctx context.Context) (*evmtypes.Head, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch initial head")
 	}
-	loggerFields := []interface{}{"head", head}
+	loggerFields := []any{"head", head}
 	if head != nil {
 		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
 	}

@@ -65,7 +65,7 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 		size     int
 		page     int
 		count    int
-		resource interface{}
+		resource any
 		err      bool
 		output   string
 	}{

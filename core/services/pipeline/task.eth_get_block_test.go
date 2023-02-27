@@ -55,7 +55,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
 		assert.Nil(t, res.Error)
-		hVal, is := res.Value.(map[string]interface{})
+		hVal, is := res.Value.(map[string]any)
 		require.True(t, is, "expected %T to be map[string]interface{}", res.Value)
 		assert.Equal(t, h.Number, hVal["number"])
 		assert.Equal(t, h.Hash, hVal["hash"])
@@ -90,7 +90,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
 		assert.Nil(t, res.Error)
-		hVal, is := res.Value.(map[string]interface{})
+		hVal, is := res.Value.(map[string]any)
 		require.True(t, is, "expected %T to be map[string]interface{}", res.Value)
 		assert.Equal(t, h.Number, hVal["number"])
 		assert.Equal(t, h.Hash, hVal["hash"])
@@ -125,7 +125,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.AnythingOfType("*context.timerCtx"), (*big.Int)(nil)).Return(nil, err)
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
-		assert.Equal(t, pipeline.Result(pipeline.Result{Value: interface{}(nil), Error: err}), res)
+		assert.Equal(t, pipeline.Result(pipeline.Result{Value: any(nil), Error: err}), res)
 		assert.Equal(t, pipeline.RunInfo(pipeline.RunInfo{IsRetryable: false, IsPending: false}), ri)
 
 		chain.AssertExpectations(t)

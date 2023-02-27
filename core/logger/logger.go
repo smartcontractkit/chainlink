@@ -68,7 +68,7 @@ func init() {
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
 type Logger interface {
 	// With creates a new Logger with the given arguments
-	With(args ...interface{}) Logger
+	With(args ...any) Logger
 	// Named creates a new Logger sub-scoped with name.
 	// Names are inherited and dot-separated.
 	//   a := l.Named("a") // logger=a
@@ -78,35 +78,35 @@ type Logger interface {
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
 
-	Trace(args ...interface{})
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Warn(args ...interface{})
-	Error(args ...interface{})
-	Critical(args ...interface{})
-	Panic(args ...interface{})
+	Trace(args ...any)
+	Debug(args ...any)
+	Info(args ...any)
+	Warn(args ...any)
+	Error(args ...any)
+	Critical(args ...any)
+	Panic(args ...any)
 	// Fatal logs and then calls os.Exit(1)
 	// Be careful about using this since it does NOT unwind the stack and may
 	// exit uncleanly
-	Fatal(args ...interface{})
+	Fatal(args ...any)
 
-	Tracef(format string, values ...interface{})
-	Debugf(format string, values ...interface{})
-	Infof(format string, values ...interface{})
-	Warnf(format string, values ...interface{})
-	Errorf(format string, values ...interface{})
-	Criticalf(format string, values ...interface{})
-	Panicf(format string, values ...interface{})
-	Fatalf(format string, values ...interface{})
+	Tracef(format string, values ...any)
+	Debugf(format string, values ...any)
+	Infof(format string, values ...any)
+	Warnf(format string, values ...any)
+	Errorf(format string, values ...any)
+	Criticalf(format string, values ...any)
+	Panicf(format string, values ...any)
+	Fatalf(format string, values ...any)
 
-	Tracew(msg string, keysAndValues ...interface{})
-	Debugw(msg string, keysAndValues ...interface{})
-	Infow(msg string, keysAndValues ...interface{})
-	Warnw(msg string, keysAndValues ...interface{})
-	Errorw(msg string, keysAndValues ...interface{})
-	Criticalw(msg string, keysAndValues ...interface{})
-	Panicw(msg string, keysAndValues ...interface{})
-	Fatalw(msg string, keysAndValues ...interface{})
+	Tracew(msg string, keysAndValues ...any)
+	Debugw(msg string, keysAndValues ...any)
+	Infow(msg string, keysAndValues ...any)
+	Warnw(msg string, keysAndValues ...any)
+	Errorw(msg string, keysAndValues ...any)
+	Criticalw(msg string, keysAndValues ...any)
+	Panicw(msg string, keysAndValues ...any)
+	Fatalw(msg string, keysAndValues ...any)
 
 	// ErrorIf logs the error if present.
 	// Deprecated: use SugaredLogger.ErrorIf
@@ -129,7 +129,7 @@ type Logger interface {
 
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
-	Recover(panicErr interface{})
+	Recover(panicErr any)
 }
 
 // newZapConfigProd returns a new production zap.Config.

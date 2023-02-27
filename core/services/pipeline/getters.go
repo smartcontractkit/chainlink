@@ -11,10 +11,10 @@ import (
 )
 
 // GetterFunc is a function that either returns a value or an error.
-type GetterFunc func() (interface{}, error)
+type GetterFunc func() (any, error)
 
 // From creates []GetterFunc from a mix of getters or bare values.
-func From(getters ...interface{}) []GetterFunc {
+func From(getters ...any) []GetterFunc {
 	var gfs []GetterFunc
 	for _, g := range getters {
 		switch v := g.(type) {
@@ -23,7 +23,7 @@ func From(getters ...interface{}) []GetterFunc {
 
 		default:
 			// If a bare value is passed in, create a simple getter
-			gfs = append(gfs, func() (interface{}, error) {
+			gfs = append(gfs, func() (any, error) {
 				return v, nil
 			})
 		}
@@ -33,7 +33,7 @@ func From(getters ...interface{}) []GetterFunc {
 
 // NonemptyString creates a getter to ensure the string is non-empty.
 func NonemptyString(s string) GetterFunc {
-	return func() (interface{}, error) {
+	return func() (any, error) {
 		trimmed := strings.TrimSpace(s)
 		if len(trimmed) == 0 {
 			return nil, ErrParameterEmpty
@@ -44,7 +44,7 @@ func NonemptyString(s string) GetterFunc {
 
 // ValidDurationInSeconds creates a getter to ensure the string is a valid duration and return duration in seconds.
 func ValidDurationInSeconds(s string) GetterFunc {
-	return func() (interface{}, error) {
+	return func() (any, error) {
 		trimmed := strings.TrimSpace(s)
 		if len(trimmed) == 0 {
 			return nil, ErrParameterEmpty
@@ -59,7 +59,7 @@ func ValidDurationInSeconds(s string) GetterFunc {
 
 // Input creates a getter returning inputs[index] value, or error if index is out of range.
 func Input(inputs []Result, index int) GetterFunc {
-	return func() (interface{}, error) {
+	return func() (any, error) {
 		if index < 0 || index >= len(inputs) {
 			return nil, ErrIndexOutOfRange
 		}
@@ -69,8 +69,8 @@ func Input(inputs []Result, index int) GetterFunc {
 
 // Inputs creates a getter returning array of Result.Value (or Result.Error where not nil).
 func Inputs(inputs []Result) GetterFunc {
-	return func() (interface{}, error) {
-		var vals []interface{}
+	return func() (any, error) {
+		var vals []any
 		for _, input := range inputs {
 			if input.Error != nil {
 				vals = append(vals, input.Error)
@@ -86,7 +86,7 @@ func Inputs(inputs []Result) GetterFunc {
 // The expression allows whitespace on both ends that will be trimmed.
 // Expr examples: $(foo.bar), $(arr.1), $(bar)
 func VarExpr(expr string, vars Vars) GetterFunc {
-	return func() (interface{}, error) {
+	return func() (any, error) {
 		trimmed := strings.TrimSpace(expr)
 		if len(trimmed) < 3 {
 			return nil, ErrParameterEmpty
@@ -115,7 +115,7 @@ func VarExpr(expr string, vars Vars) GetterFunc {
 // allowErrors flag indicates if interpolating values stored in Vars can be errors.
 // jsExpr example: {"requestId": $(decode_log.requestId), "payment": $(decode_log.payment)}
 func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
-	return func() (interface{}, error) {
+	return func() (any, error) {
 		if strings.TrimSpace(jsExpr) == "" {
 			return nil, ErrParameterEmpty
 		}
@@ -125,7 +125,7 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 			return []byte(fmt.Sprintf(`{ "%s": "%s" }`, chainlinkKeyPath, keypathStr))
 		})
 
-		var val interface{}
+		var val any
 		jd := json.NewDecoder(bytes.NewReader(replaced))
 		jd.UseNumber()
 		if err := jd.Decode(&val); err != nil {
@@ -137,8 +137,8 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 		}
 		val = reinterpreted
 
-		return mapGoValue(val, func(val interface{}) (interface{}, error) {
-			if m, is := val.(map[string]interface{}); is {
+		return mapGoValue(val, func(val any) (any, error) {
+			if m, is := val.(map[string]any); is {
 				maybeKeypath, exists := m[chainlinkKeyPath]
 				if !exists {
 					return val, nil
@@ -162,12 +162,12 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 
 // mapGoValue iterates on v object recursively and calls fn for each value.
 // Used by JSONWithVarExprs to interpolate all variables expressions.
-func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (x interface{}, err error) {
+func mapGoValue(v any, fn func(val any) (any, error)) (x any, err error) {
 	type item struct {
-		val         interface{}
-		parentMap   map[string]interface{}
+		val         any
+		parentMap   map[string]any
 		parentKey   string
-		parentSlice []interface{}
+		parentSlice []any
 		parentIdx   int
 	}
 
@@ -189,11 +189,11 @@ func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (x
 			current.parentSlice[current.parentIdx] = val
 		}
 
-		if asMap, isMap := val.(map[string]interface{}); isMap {
+		if asMap, isMap := val.(map[string]any); isMap {
 			for key := range asMap {
 				stack = append(stack, item{val: asMap[key], parentMap: asMap, parentKey: key})
 			}
-		} else if asSlice, isSlice := val.([]interface{}); isSlice {
+		} else if asSlice, isSlice := val.([]any); isSlice {
 			for i := range asSlice {
 				stack = append(stack, item{val: asSlice[i], parentSlice: asSlice, parentIdx: i})
 			}

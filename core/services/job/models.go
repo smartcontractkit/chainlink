@@ -251,7 +251,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 }
 
 // JSONConfig is a Go mapping for JSON based database properties.
-type JSONConfig map[string]interface{}
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -265,7 +265,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (r *JSONConfig) Scan(value interface{}) error {
+func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("expected bytes got %T", b)

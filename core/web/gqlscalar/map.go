@@ -7,13 +7,13 @@ import (
 )
 
 // Map to contain configuration
-type Map map[string]interface{}
+type Map map[string]any
 
 // ImplementsGraphQLType implements GraphQL type for Map
 func (Map) ImplementsGraphQLType(name string) bool { return name == "Map" }
 
 // UnmarshalGraphQL sets the Map
-func (m *Map) UnmarshalGraphQL(input interface{}) error {
+func (m *Map) UnmarshalGraphQL(input any) error {
 	switch input := input.(type) {
 	case Map:
 		*m = input
@@ -27,5 +27,5 @@ func (m *Map) UnmarshalGraphQL(input interface{}) error {
 func (m Map) MarshalJSON() ([]byte, error) {
 	// Cast this so we don't have infinite recursion
 	// (don't want json.Marshal calling the MarshalJSON method on m)
-	return json.Marshal(map[string]interface{}(m))
+	return json.Marshal(map[string]any(m))
 }

@@ -303,7 +303,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 	sendOnlyCount := 3
 
 	b := []rpc.BatchElem{
-		{Method: "method", Args: []interface{}{1, false}},
+		{Method: "method", Args: []any{1, false}},
 		{Method: "method2"},
 	}
 

@@ -219,7 +219,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
 	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := goabi.Encode(map[string]interface{}{
+	onchainConfig, err := goabi.Encode(map[string]any{
 		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
 		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
 		"checkGasLimit":        rcs.CheckGasLimit,

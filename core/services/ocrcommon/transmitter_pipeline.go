@@ -65,8 +65,8 @@ func NewPipelineTransmitter(
 
 func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
 	// t.strategy is ignored currently as pipeline does not support passing this (sc-55115)
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"contractAddress":   toAddress.String(),
 			"fromAddress":       t.fromAddress.String(),
 			"gasLimit":          t.gasLimit,

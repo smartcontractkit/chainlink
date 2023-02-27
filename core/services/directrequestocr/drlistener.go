@@ -319,18 +319,18 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
-	requestData := make(map[string]interface{})
+	requestData := make(map[string]any)
 	requestData["requestId"] = formatRequestId(request.RequestId)
-	meta := make(map[string]interface{})
+	meta := make(map[string]any)
 	meta["oracleRequest"] = requestData
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    l.job.ID,
 			"externalJobID": l.job.ExternalJobID,
 			"name":          l.job.Name.ValueOrZero(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"meta":                  meta,
 			"logBlockHash":          request.Raw.BlockHash,
 			"logBlockNumber":        request.Raw.BlockNumber,

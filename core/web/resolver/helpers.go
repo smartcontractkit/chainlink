@@ -51,7 +51,7 @@ func pageLimit(limit *int32) int {
 
 // ValidateBridgeTypeUniqueness checks that a bridge has not already been created
 //
-/// This validation function should be moved into a bridge service.
+// / This validation function should be moved into a bridge service.
 func ValidateBridgeTypeUniqueness(bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
 	_, err := orm.FindBridge(bt.Name)
 	if err == nil {

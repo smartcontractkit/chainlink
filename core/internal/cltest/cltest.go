@@ -281,7 +281,7 @@ func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplication(t testing.TB, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	c := configtest2.NewGeneralConfig(t, nil)
@@ -291,7 +291,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	config := configtest2.NewGeneralConfig(t, nil)
@@ -300,7 +300,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
@@ -337,7 +337,7 @@ const (
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
-func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -785,7 +785,7 @@ func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 }
 
 // ParseJSONAPIResponse parses the response and returns the JSONAPI resource.
-func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{}) error {
+func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource any) error {
 	t.Helper()
 
 	input := ParseResponseBody(t, resp)
@@ -1036,7 +1036,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.E
 }
 
 // Head given the value convert it into an Head
-func Head(val interface{}) *evmtypes.Head {
+func Head(val any) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
 	switch t := val.(type) {
@@ -1124,7 +1124,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 }
 
 func DecodeSessionCookie(value string) (string, error) {
-	var decrypted map[interface{}]interface{}
+	var decrypted map[any]any
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	err := securecookie.DecodeMulti(webauth.SessionName, value, &decrypted, codecs...)
 	if err != nil {
@@ -1138,7 +1138,7 @@ func DecodeSessionCookie(value string) (string, error) {
 }
 
 func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
-	decrypted := map[interface{}]interface{}{webauth.SessionIDKey: value}
+	decrypted := map[any]any{webauth.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(webauth.SessionName, decrypted, codecs...)
 	if err != nil {
@@ -1276,7 +1276,7 @@ type EthereumLogIterator interface{ Next() bool }
 // It returns the logs as a slice of blank interface{}s, and if rv is non-nil,
 // it must be a pointer to a slice for elements of the same type as the logs,
 // in which case GetLogs will append the logs to it.
-func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface{} {
+func GetLogs(t *testing.T, rv any, logs EthereumLogIterator) []any {
 	v := reflect.ValueOf(rv)
 	require.True(t, rv == nil ||
 		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
@@ -1285,7 +1285,7 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	if rv != nil {
 		e = v.Elem()
 	}
-	var irv []interface{}
+	var irv []any
 	for logs.Next() {
 		log := reflect.Indirect(reflect.ValueOf(logs)).FieldByName("Event")
 		if v.Kind() == reflect.Ptr {
@@ -1330,7 +1330,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmM
 	ethClient.On("Close").Return().Maybe()
 }
 
-func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
+func BatchElemMatchesParams(req rpc.BatchElem, arg any, method string) bool {
 	return req.Method == method &&
 		len(req.Args) == 1 && req.Args[0] == arg
 }
@@ -1528,9 +1528,9 @@ type testifyExpectationsAsserter interface {
 
 type fakeT struct{}
 
-func (ft fakeT) Logf(format string, args ...interface{})   {}
-func (ft fakeT) Errorf(format string, args ...interface{}) {}
-func (ft fakeT) FailNow()                                  {}
+func (ft fakeT) Logf(format string, args ...any)   {}
+func (ft fakeT) Errorf(format string, args ...any) {}
+func (ft fakeT) FailNow()                          {}
 
 func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
 	t.Helper()
@@ -1580,7 +1580,7 @@ func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt string, check func() bool) {
+func AssertRecordEventually(t *testing.T, db *sqlx.DB, model any, stmt string, check func() bool) {
 	t.Helper()
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
@@ -1658,7 +1658,7 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 
 // FlagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
-func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+func FlagSetApplyFromAction(action any, flagSet *flag.FlagSet, parentCommand string) {
 	cliApp := cmd.Client{}
 	app := cmd.NewApp(&cliApp)
 
@@ -1698,6 +1698,6 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 	return nil
 }
 
-func getFuncName(i interface{}) string {
+func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

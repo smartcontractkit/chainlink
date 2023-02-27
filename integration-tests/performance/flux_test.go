@@ -192,7 +192,7 @@ Enabled = true`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
 			"replicas": 3,
 		}))

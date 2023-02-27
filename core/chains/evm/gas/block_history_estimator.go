@@ -524,7 +524,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	gwei, _ := big.NewFloat(0).Quo(float, big.NewFloat(1000000000)).Float64()
 	gasPriceGwei := fmt.Sprintf("%.2f", gwei)
 
-	lggrFields := []interface{}{
+	lggrFields := []any{
 		"gasPriceWei", percentileGasPrice,
 		"gasPriceGWei", gasPriceGwei,
 		"maxGasPriceWei", b.config.EvmMaxGasPriceWei(),
@@ -538,7 +538,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 		float = new(big.Float).SetInt(percentileTipCap.ToInt())
 		gwei, _ = big.NewFloat(0).Quo(float, big.NewFloat(1000000000)).Float64()
 		tipCapGwei := fmt.Sprintf("%.2f", gwei)
-		lggrFields = append(lggrFields, []interface{}{
+		lggrFields = append(lggrFields, []any{
 			"tipCapWei", percentileTipCap,
 			"tipCapGwei", tipCapGwei,
 		}...)
@@ -598,7 +598,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 
 		req := rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{Int64ToHex(i), true},
+			Args:   []any{Int64ToHex(i), true},
 			Result: &evmtypes.Block{},
 		}
 		reqs = append(reqs, req)

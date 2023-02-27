@@ -332,9 +332,9 @@ func isFatalSendError(err error) bool {
 
 // go-ethereum@v1.10.0/rpc/json.go
 type JsonError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 func (err *JsonError) Error() string {

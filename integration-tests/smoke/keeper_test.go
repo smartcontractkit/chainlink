@@ -1123,7 +1123,7 @@ func setupKeeperTest(
 		keeperEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
 
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
+	chainlinkChart := chainlink.New(0, map[string]any{
 		"replicas": "5",
 		"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
 	})

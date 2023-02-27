@@ -172,7 +172,7 @@ func (l Link) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (l *Link) Scan(value interface{}) error {
+func (l *Link) Scan(value any) error {
 	switch v := value.(type) {
 	case string:
 		decoded, ok := l.SetString(v, 10)
@@ -291,7 +291,7 @@ func (e *Eth) ToInt() *big.Int {
 }
 
 // Scan reads the database value and returns an instance.
-func (e *Eth) Scan(value interface{}) error {
+func (e *Eth) Scan(value any) error {
 	return (*utils.Big)(e).Scan(value)
 }
 

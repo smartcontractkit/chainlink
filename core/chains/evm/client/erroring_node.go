@@ -30,7 +30,7 @@ func (e *erroringNode) Verify(ctx context.Context, expectedChainID *big.Int) (er
 	return errors.New(e.errMsg)
 }
 
-func (e *erroringNode) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (e *erroringNode) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	return errors.New(e.errMsg)
 }
 
@@ -106,7 +106,7 @@ func (e *erroringNode) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }
 
-func (e *erroringNode) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (e *erroringNode) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...any) (ethereum.Subscription, error) {
 	return nil, errors.New(e.errMsg)
 }
 

@@ -101,7 +101,7 @@ func (s *SimulateChecker) Check(
 	a EthTxAttempt,
 ) error {
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
-	callArg := map[string]interface{}{
+	callArg := map[string]any{
 		"from": tx.FromAddress,
 		"to":   &tx.ToAddress,
 		"gas":  hexutil.Uint64(a.ChainSpecificGasLimit),
@@ -189,11 +189,11 @@ func (v *VRFV1Checker) Check(
 	requestTransactionReceipt := &gethtypes.Receipt{}
 	batch := []rpc.BatchElem{{
 		Method: "eth_getBlockByNumber",
-		Args:   []interface{}{nil},
+		Args:   []any{nil},
 		Result: mostRecentHead,
 	}, {
 		Method: "eth_getTransactionReceipt",
-		Args:   []interface{}{*meta.RequestTxHash},
+		Args:   []any{*meta.RequestTxHash},
 		Result: requestTransactionReceipt,
 	}}
 	err = v.Client.BatchCallContext(ctx, batch)

@@ -100,7 +100,7 @@ func (n *nodesController[I, N, R]) Create(c *gin.Context) {
 		return
 	}
 
-	n.auditLogger.Audit(audit.ChainRpcNodeAdded, map[string]interface{}{})
+	n.auditLogger.Audit(audit.ChainRpcNodeAdded, map[string]any{})
 
 	jsonAPIResponse(c, n.newResource(node), "node")
 }
@@ -124,7 +124,7 @@ func (n *nodesController[I, N, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	n.auditLogger.Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
+	n.auditLogger.Audit(audit.ChainDeleted, map[string]any{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
 }

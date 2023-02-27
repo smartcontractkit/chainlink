@@ -93,7 +93,7 @@ type Node interface {
 	Name() string
 	ChainID() *big.Int
 
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result any, method string, args ...any) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
@@ -112,7 +112,7 @@ type Node interface {
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
 	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
-	EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error)
+	EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...any) (ethereum.Subscription, error)
 
 	String() string
 }
@@ -414,7 +414,7 @@ func (n *node) getRPCDomain() string {
 // RPC wrappers
 
 // CallContext implementation
-func (n *node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (n *node) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return err
@@ -461,7 +461,7 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return err
 }
 
-func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...any) (ethereum.Subscription, error) {
 	ctx, cancel, ws, _, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -938,7 +938,7 @@ func (n *node) logResult(
 	callDuration time.Duration,
 	rpcDomain,
 	callName string,
-	results ...interface{},
+	results ...any,
 ) {
 	lggr = lggr.With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()

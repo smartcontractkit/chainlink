@@ -161,7 +161,7 @@ PerformGasOverhead = 150_000`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"replicas": "5",
 			"toml":     client.AddNetworksConfig(baseTOML, network),
 		}))

@@ -347,7 +347,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(5) && tx.Value().Cmp(big.NewInt(442)) == 0
 			})).Return(nil).Once()
-			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]any) bool {
 				if fmt.Sprintf("%s", callarg["value"]) == "0x1ba" { // 442
 					assert.Equal(t, ethTx.FromAddress, callarg["from"])
 					assert.Equal(t, &ethTx.ToAddress, callarg["to"])
@@ -392,7 +392,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(6) && tx.Value().Cmp(big.NewInt(542)) == 0
 			})).Return(nil).Once()
-			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]any) bool {
 				return fmt.Sprintf("%s", callarg["value"]) == "0x21e" // 542
 			}), "latest").Return(errors.New("this is not a revert, something unexpected went wrong")).Once()
 
@@ -428,7 +428,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				Message: "oh no, it reverted",
 				Data:    []byte{42, 166, 34},
 			}
-			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]any) bool {
 				return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
 			}), "latest").Return(&jerr).Once()
 
@@ -1095,7 +1095,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {
 				require.NoError(t, borm.InsertEthTx(&etx))
-				fn := func(id uuid.UUID, result interface{}, err error) error {
+				fn := func(id uuid.UUID, result any, err error) error {
 					return errors.New("something exploded in the callback")
 				}
 
@@ -1112,7 +1112,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			})
 
 			t.Run("calls resume with error", func(t *testing.T) {
-				fn := func(id uuid.UUID, result interface{}, err error) error {
+				fn := func(id uuid.UUID, result any, err error) error {
 					require.Equal(t, id, tr.ID)
 					require.Nil(t, result)
 					require.Error(t, err)
