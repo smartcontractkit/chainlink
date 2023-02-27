@@ -469,7 +469,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "OCR ${{ job.status }}"
+                    "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
                   }
                 }
               ]
