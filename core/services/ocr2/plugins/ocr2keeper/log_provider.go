@@ -10,8 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	pluginevm "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	pluginchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
@@ -20,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	pluginevm "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type LogProvider struct {
