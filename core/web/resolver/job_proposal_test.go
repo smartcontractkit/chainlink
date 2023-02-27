@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
@@ -18,6 +19,7 @@ func TestResolver_GetJobProposal(t *testing.T) {
 			jobProposal(id: "1") {
 				... on JobProposal {
 					id
+					name
 					status
 					externalJobID
 					remoteUUID
@@ -38,10 +40,12 @@ func TestResolver_GetJobProposal(t *testing.T) {
 	jpID := int64(1)
 	ejID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
 	rUUID := uuid.NewV4()
+	name := "job_proposal_1"
 	result := `
 		{
 			"jobProposal": {
 				"id": "1",
+				"name": "%s",
 				"status": "APPROVED",
 				"externalJobID": "%s",
 				"remoteUUID": "%s",
@@ -68,6 +72,7 @@ func TestResolver_GetJobProposal(t *testing.T) {
 				}, nil)
 				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(&feeds.JobProposal{
 					ID:             jpID,
+					Name:           null.StringFrom(name),
 					Status:         feeds.JobProposalStatusApproved,
 					ExternalJobID:  ejID,
 					RemoteUUID:     rUUID,
@@ -78,7 +83,7 @@ func TestResolver_GetJobProposal(t *testing.T) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 			},
 			query:  query,
-			result: fmt.Sprintf(result, ejID.UUID.String(), rUUID.String()),
+			result: fmt.Sprintf(result, name, ejID.UUID.String(), rUUID.String()),
 		},
 		{
 			name:          "not found error",
