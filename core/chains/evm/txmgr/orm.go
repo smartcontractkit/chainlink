@@ -26,9 +26,10 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
-	CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error)
+	CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error)
 	DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error
 	EthTransactions(offset, limit int) ([]EthTx, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
@@ -59,6 +60,7 @@ type ORM interface {
 	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
 	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
 	PreloadEthTxes(attempts []EthTxAttempt) error
+	PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
 	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
 	SaveInProgressAttempt(attempt *EthTxAttempt) error
@@ -1165,5 +1167,68 @@ func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTrans
 	if count >= maxQueuedTransactions {
 		err = errors.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, label.MaxQueuedTransactionsWarning)
 	}
+	return
+}
+
+func (o *orm) CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error) {
+	qq := o.q.WithOpts(qopts...)
+	value := 0
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		if newTx.PipelineTaskRunID != nil {
+			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, chainID.String())
+			// If no eth_tx matches (the common case) then continue
+			if !errors.Is(err, sql.ErrNoRows) {
+				if err != nil {
+					return errors.Wrap(err, "CreateEthTransaction")
+				}
+				// if a previous transaction for this task run exists, immediately return it
+				return nil
+			}
+		}
+		err := tx.Get(&etx, `
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
+VALUES (
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
+)
+RETURNING "eth_txes".*
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
+		if err != nil {
+			return errors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
+		}
+
+		pruned, err := newTx.Strategy.PruneQueue(o, tx)
+		if err != nil {
+			return errors.Wrap(err, "CreateEthTransaction failed to prune eth_txes")
+		}
+		if pruned > 0 {
+			o.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
+		}
+		return nil
+	})
+	return
+}
+
+// todo: invoke with parent contex
+func (o *orm) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
+	qq := o.q.WithOpts(qopts...)
+	qq.Transaction(func(tx pg.Queryer) error {
+		res, err := qq.Exec(`
+DELETE FROM eth_txes
+WHERE state = 'unstarted' AND subject = $1 AND
+id < (
+	SELECT min(id) FROM (
+		SELECT id
+		FROM eth_txes
+		WHERE state = 'unstarted' AND subject = $2
+		ORDER BY id DESC
+		LIMIT $3
+	) numbers
+)`, subject, subject, queueSize)
+		if err != nil {
+			return errors.Wrap(err, "DeleteUnstartedEthTx failed")
+		}
+		n, _ = res.RowsAffected()
+		return err
+	})
 	return
 }

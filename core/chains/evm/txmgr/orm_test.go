@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -22,6 +23,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1427,5 +1429,109 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Run("disables check with 0 limit", func(t *testing.T) {
 		err := borm.CheckEthTxQueueCapacity(fromAddress, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
+	})
+}
+
+func TestORM_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg)
+
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
+	toAddress := testutils.NewAddress()
+	gasLimit := uint32(1000)
+	payload := []byte{1, 2, 3}
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
+		subject := uuid.NewV4()
+		strategy := newMockTxStrategy(t)
+		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		etx, err := borm.CreateEthTransaction(txmgr.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+		}, *ethClient.ChainID())
+		assert.NoError(t, err)
+
+		assert.Greater(t, etx.ID, int64(0))
+		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, payload, etx.EncodedPayload)
+		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, subject, etx.Subject.UUID)
+
+		cltest.AssertCount(t, db, "eth_txes", 1)
+
+		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+
+		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, payload, etx.EncodedPayload)
+		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, subject, etx.Subject.UUID)
+	})
+
+	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
+		id := uuid.NewV4()
+		newTx := txmgr.NewTx{
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			GasLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgr.SendEveryStrategy{},
+		}
+		tx1, err := borm.CreateEthTransaction(newTx, *ethClient.ChainID())
+		assert.NoError(t, err)
+
+		tx2, err := borm.CreateEthTransaction(newTx, *ethClient.ChainID())
+		assert.NoError(t, err)
+
+		assert.Equal(t, tx1.ID, tx2.ID)
+	})
+}
+
+func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	subject1 := uuid.NewV4()
+	for i := 0; i < 5; i++ {
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subject1)
+	}
+	subject2 := uuid.NewV4()
+	for i := 0; i < 5; i++ {
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subject2)
+	}
+
+	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
+		n, err := borm.PruneUnstartedEthTxQueue(uint32(5), subject1)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), n)
+	})
+
+	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
+		n, err := borm.PruneUnstartedEthTxQueue(uint32(3), subject1)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), n)
 	})
 }

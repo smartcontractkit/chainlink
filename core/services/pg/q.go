@@ -154,6 +154,7 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
 	ctx := q.ParentCtx
+	// TODO: move parent context nil check to constructor to avoid nil error for queries that don't call Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
