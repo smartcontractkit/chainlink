@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
+	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
@@ -29,6 +29,8 @@ type inMemoryDataSource struct {
 
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
+
+	monitoringEndpoint commontypes.MonitoringEndpoint
 }
 
 // dataSource uses inMemoryDataSource and implements capturing the result to be stored in the DB
