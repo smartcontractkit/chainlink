@@ -349,7 +349,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		for err := range errs {
 			merr = multierr.Append(merr, err)
 		}
-		return cli.errorOut(fmt.Errorf("profile collections failed: %v", merr))
+		return cli.errorOut(fmt.Errorf("profile collection failed: %v", merr))
 	}
 	return nil
 }
