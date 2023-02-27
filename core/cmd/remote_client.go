@@ -277,6 +277,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
+
 	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
 		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
 	}
@@ -287,7 +288,6 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	cli.Logger.Infof("writing pprof to %s", genDir)
 	var wgPprof sync.WaitGroup
 	vitals := []string{
 		"allocs",       // A sampling of all past memory allocations
@@ -301,25 +301,28 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		"trace",        // A trace of execution of the current program.
 	}
 	wgPprof.Add(len(vitals))
-	errs := make(chan error)
+	cli.Logger.Infof("Collecting profiles: %v", vitals)
+	cli.Logger.Infof("writing debug info to %s", genDir)
+
+	errs := make(chan error, len(vitals))
 	for _, vt := range vitals {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			cli.Logger.Infof("Collecting %s ", uri)
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				cli.Logger.Errorf("error collecting vt %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error collecting %s", vt)
+				return
+			}
+			if resp.StatusCode == http.StatusUnauthorized {
+				errs <- errors.Wrapf(errUnauthorized, "error collecting %s", vt)
 				return
 			}
 			defer resp.Body.Close()
-
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
-				cli.Logger.Errorf("error creating file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error creating file for %s", vt)
 				return
 			}
 			wc := utils.NewDeferableWriteCloser(f)
@@ -327,22 +330,26 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 
 			_, err = io.Copy(wc, resp.Body)
 			if err != nil {
-				cli.Logger.Errorf("error writing to file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error writing to file for %s", vt)
 				return
 			}
-			cli.Logger.Infof("Collected %s", vt)
 			err = wc.Close()
 			if err != nil {
-				cli.Logger.Errorf("error closing file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error closing file for %s", vt)
 				return
 			}
 		}(vt)
 	}
 	wgPprof.Wait()
+	close(errs)
+	// Atmost one err is emitted per vital.
+	cli.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
 	if len(errs) > 0 {
-		return cli.errorOut(fmt.Errorf("%d profile collections failed", len(errs)))
+		var merr error
+		for err := range errs {
+			merr = multierr.Append(merr, err)
+		}
+		return cli.errorOut(fmt.Errorf("profile collections failed: %v", merr))
 	}
 	return nil
 }
