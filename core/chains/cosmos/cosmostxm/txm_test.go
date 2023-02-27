@@ -87,13 +87,18 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// Change the contract state
-	setMsg := wasmtypes.NewMsgExecuteContract(transmitterID, contractID, []byte(`{"reset":{"count":5}}`), sdk.Coins{})
+	setMsg := &wasmtypes.MsgExecuteContract{
+		Sender:   transmitterID.String(),
+		Contract: contractID.String(),
+		Msg:      []byte(`{"reset":{"count":5}}`),
+		Funds:    sdk.Coins{},
+	}
 	_, err = txm.Enqueue(contractID.String(), setMsg)
 	require.NoError(t, err)
 
 	// Observe the counter gets set eventually
 	gomega.NewWithT(t).Eventually(func() bool {
-		d, err := tc.ContractStore(contractID, []byte(`{"get_count":{}}`))
+		d, err := tc.ContractState(contractID, []byte(`{"get_count":{}}`))
 		require.NoError(t, err)
 		t.Log("contract value", string(d))
 		return string(d) == `{"count":5}`
@@ -106,7 +111,12 @@ func TestTxm_Integration(t *testing.T) {
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
 
 	// Ensure invalid msgs are marked as errored
-	invalidMsg := wasmtypes.NewMsgExecuteContract(transmitterID, contractID, []byte(`{"blah":{"blah":5}}`), sdk.Coins{})
+	invalidMsg := &wasmtypes.MsgExecuteContract{
+		Sender:   transmitterID.String(),
+		Contract: contractID.String(),
+		Msg:      []byte(`{"blah":{"blah":5}}`),
+		Funds:    sdk.Coins{},
+	}
 	_, err = txm.Enqueue(contractID.String(), invalidMsg)
 	require.NoError(t, err)
 	_, err = txm.Enqueue(contractID.String(), invalidMsg)

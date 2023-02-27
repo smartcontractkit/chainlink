@@ -33,7 +33,12 @@ import (
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {
-	return wasmtypes.NewMsgExecuteContract(from, to, msg, cosmostypes.Coins{})
+	return &wasmtypes.MsgExecuteContract{
+		Sender:   from.String(),
+		Contract: to.String(),
+		Msg:      msg,
+		Funds:    cosmostypes.Coins{},
+	}
 }
 
 func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
@@ -56,9 +61,9 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	sender2, err := cosmostypes.AccAddressFromBech32(k2.PublicKeyStr())
 	require.NoError(t, err)
-	contract, err := cosmostypes.AccAddressFromBech32("cosmos1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
+	contract, err := cosmostypes.AccAddressFromBech32("cosmos1szwzslc5sk7h89sdwj30lxwlek2cn2m3c3w6m4")
 	require.NoError(t, err)
-	contract2, err := cosmostypes.AccAddressFromBech32("cosmos1mx72uukvzqtzhc6gde7shrjqfu5srk22v7gmww")
+	contract2, err := cosmostypes.AccAddressFromBech32("cosmos15d98zd0q47lzs9udxs8cd2ddj0nwv4h3kg77wh")
 	require.NoError(t, err)
 	logCfg := pgtest.NewQConfig(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -85,8 +90,8 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&cosmosclient.BatchSimResults{
 			Failed: nil,
 			Succeeded: cosmosclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
-				Sender:     sender1.String(),
-				ExecuteMsg: []byte(`1`),
+				Sender: sender1.String(),
+				Msg:    []byte(`1`),
 			}}},
 		}, nil)
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
@@ -126,9 +131,9 @@ func TestTxm(t *testing.T) {
 			{
 				ID: id2,
 				Msg: &wasmtypes.MsgExecuteContract{
-					Sender:     sender2.String(),
-					ExecuteMsg: []byte(`1`),
-					Contract:   contract.String(),
+					Sender:   sender2.String(),
+					Msg:      []byte(`1`),
+					Contract: contract.String(),
 				},
 			},
 		}, mock.Anything).Return(&cosmosclient.BatchSimResults{
@@ -137,9 +142,9 @@ func TestTxm(t *testing.T) {
 				{
 					ID: id2,
 					Msg: &wasmtypes.MsgExecuteContract{
-						Sender:     sender2.String(),
-						ExecuteMsg: []byte(`1`),
-						Contract:   contract.String(),
+						Sender:   sender2.String(),
+						Msg:      []byte(`1`),
+						Contract: contract.String(),
 					},
 				},
 			},
@@ -184,9 +189,9 @@ func TestTxm(t *testing.T) {
 				{
 					ID: ids[i],
 					Msg: &wasmtypes.MsgExecuteContract{
-						Sender:     senders[i],
-						ExecuteMsg: []byte(fmt.Sprintf(`%d`, i)),
-						Contract:   contracts[i],
+						Sender:   senders[i],
+						Msg:      []byte(fmt.Sprintf(`%d`, i)),
+						Contract: contracts[i],
 					},
 				},
 			}, mock.Anything).Return(&cosmosclient.BatchSimResults{
@@ -195,9 +200,9 @@ func TestTxm(t *testing.T) {
 					{
 						ID: ids[i],
 						Msg: &wasmtypes.MsgExecuteContract{
-							Sender:     senders[i],
-							ExecuteMsg: []byte(fmt.Sprintf(`%d`, i)),
-							Contract:   contracts[i],
+							Sender:   senders[i],
+							Msg:      []byte(fmt.Sprintf(`%d`, i)),
+							Contract: contracts[i],
 						},
 					},
 				},
@@ -351,9 +356,9 @@ func TestTxm(t *testing.T) {
 		id1 := mustInsertMsg(t, txm, contract.String(), msg1)
 		require.NoError(t, txm.orm.UpdateMsgs([]int64{id1}, Started, nil))
 		msgs := cosmosclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
-			Sender:     sender1.String(),
-			ExecuteMsg: []byte{0x03},
-			Contract:   contract.String(),
+			Sender:   sender1.String(),
+			Msg:      []byte{0x03},
+			Contract: contract.String(),
 		}}}
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&cosmosclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
@@ -371,13 +376,13 @@ func TestTxm(t *testing.T) {
 		time.Sleep(time.Millisecond) // ensure != CreatedAt
 		id3 := mustInsertMsg(t, txm, contract.String(), msg3)
 		msgs = cosmosclient.SimMsgs{{ID: id2, Msg: &wasmtypes.MsgExecuteContract{
-			Sender:     sender1.String(),
-			ExecuteMsg: []byte{0x04},
-			Contract:   contract.String(),
+			Sender:   sender1.String(),
+			Msg:      []byte{0x04},
+			Contract: contract.String(),
 		}}, {ID: id3, Msg: &wasmtypes.MsgExecuteContract{
-			Sender:     sender1.String(),
-			ExecuteMsg: []byte{0x05},
-			Contract:   contract.String(),
+			Sender:   sender1.String(),
+			Msg:      []byte{0x05},
+			Contract: contract.String(),
 		}}}
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&cosmosclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
