@@ -42,14 +42,14 @@ func (h *RPCHandlers) ProposeJob(ctx context.Context, req *pb.ProposeJobRequest)
 	return &pb.ProposeJobResponse{}, nil
 }
 
-// DeleteJob deletes a job proposal record, any associated running jobs, and the associated job spec
+// DeleteJob deletes a job proposal record.
 func (h *RPCHandlers) DeleteJob(ctx context.Context, req *pb.DeleteJobRequest) (*pb.DeleteJobResponse, error) {
 	remoteUUID, err := uuid.FromString(req.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = h.svc.DeleteJob(ctx, &DeleteJobArgs{
+	_, err = h.svc.DeleteProposal(ctx, &DeleteJobArgs{
 		FeedsManagerID: h.feedsManagerID,
 		RemoteUUID:     remoteUUID,
 	})

@@ -74,7 +74,7 @@ type Service interface {
 	UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 
 	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
-	DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error)
+	DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error)
 	SyncNodeInfo(ctx context.Context, id int64) error
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
 
@@ -411,30 +411,14 @@ type DeleteJobArgs struct {
 	RemoteUUID     uuid.UUID
 }
 
-// DeleteJob deletes a job proposal if it exist, the approved spec for the job
-// if it exist, as well as the associated running jobs.
-//
-// The feeds manager id check ensures that only the intended feed manager can
-// make this request.
-func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+// DeleteProposal deletes a job proposal if it exist. The feeds manager id check
+// ensures that only the intended feed manager can make this request.
+func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error) {
 	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, errors.Wrap(err, "failed to check existence of job proposal")
 		}
-	}
-
-	switch proposal.Status {
-	case JobProposalStatusRejected:
-		return 0, errors.New("cannot delete a rejected proposal")
-	case JobProposalStatusCancelled:
-		return 0, errors.New("cannot delete a cancelled proposal")
-	case JobProposalStatusPending:
-		return 0, errors.New("cannot delete a pending proposal")
-	case JobProposalStatusApproved:
-		// NOOP - only approved jobs can be deleted
-	default:
-		return 0, errors.New("invalid status")
 	}
 
 	// Validation for existing job proposals
@@ -448,67 +432,13 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
-		var (
-			txerr error
-
-			pgOpts = pg.WithQueryer(tx)
-		)
-
-		// Get the approved spec to get the contract address of the jobs needing
-		// deletion
-		spec, txerr := s.orm.GetApprovedSpec(proposal.ID, pgOpts)
-		if txerr != nil {
-			if !errors.Is(txerr, sql.ErrNoRows) {
-				// Return an error if the repository errors other than not found.
-				s.lggr.Errorw("Failed to get approved spec to delete", "error", txerr)
-
-				return errors.Wrap(txerr, "GetApprovedSpec failed")
-			}
-
-			// If no approved spec is found, delete the proposal. However, we
-			// won't have to delete any jobs.
-			if cerr := s.orm.DeleteProposal(proposal.ID, pgOpts); cerr != nil {
-				s.lggr.Errorw("Failed to delete the spec", "error", cerr)
-
-				return errors.Wrap(txerr, "DeleteProposal failed")
-			}
-
-			return nil
-		}
+		pgOpts := pg.WithQueryer(tx)
 
 		// Delete the proposal
 		if cerr := s.orm.DeleteProposal(proposal.ID, pgOpts); cerr != nil {
 			s.lggr.Errorw("Failed to delete the proposal", "error", cerr)
 
 			return errors.Wrap(cerr, "DeleteProposal failed")
-		}
-
-		// Generate the job to get the job type
-		j, txerr := s.generateJob(spec.Definition)
-		if txerr != nil {
-			return errors.Wrap(txerr, "Could not generate job from spec while deleting proposal")
-		}
-
-		address, evmChainID, txerr := s.getAddressAndEVMChainIDFromJob(j)
-		if txerr != nil {
-			return txerr
-		}
-
-		// Find the existing job, continuing if no job is found
-		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, evmChainID, pgOpts)
-		if txerr != nil {
-			// Return an error if the repository errors. If there is a not found
-			// error there are no jobs to delete for the proposal.
-			if !errors.Is(txerr, sql.ErrNoRows) {
-				return errors.Wrap(txerr, "FindJobIDByAddress failed")
-			}
-		}
-
-		// Delete the job
-		if txerr = s.jobSpawner.DeleteJob(existingJobID, pgOpts); txerr != nil {
-			s.lggr.Errorw("Failed to delete the job", "error", txerr)
-
-			return errors.Wrap(txerr, "DeleteJob failed")
 		}
 
 		return nil
@@ -1324,7 +1254,7 @@ func (ns NullService) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal,
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
-func (ns NullService) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+func (ns NullService) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {

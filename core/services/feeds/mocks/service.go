@@ -154,8 +154,8 @@ func (_m *Service) DeleteChainConfig(ctx context.Context, id int64) (int64, erro
 	return r0, r1
 }
 
-// DeleteJob provides a mock function with given fields: ctx, args
-func (_m *Service) DeleteJob(ctx context.Context, args *feeds.DeleteJobArgs) (int64, error) {
+// DeleteProposal provides a mock function with given fields: ctx, args
+func (_m *Service) DeleteProposal(ctx context.Context, args *feeds.DeleteJobArgs) (int64, error) {
 	ret := _m.Called(ctx, args)
 
 	var r0 int64
