@@ -553,11 +553,27 @@ func TestClient_Profile(t *testing.T) {
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	set.Uint("seconds", 8, "")
+	set.Uint("seconds", 1, "")
 	set.String("output_dir", t.TempDir(), "")
 
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
+}
+
+func TestClient_Profile_Unauthenticated(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplicationV2(t, nil)
+
+	client := app.NewAuthenticatingClient(&cltest.MockCountingPrompter{T: t, EnteredStrings: []string{}})
+
+	set := flag.NewFlagSet("test", 0)
+	set.Uint("seconds", 1, "")
+	set.String("output_dir", t.TempDir(), "")
+
+	err := client.Profile(cli.NewContext(nil, set, nil))
+	require.ErrorContains(t, err, "profile collection failed:")
+	require.ErrorContains(t, err, "Unauthorized")
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
