@@ -146,6 +146,14 @@ func (ht *headTracker) Healthy() error {
 	return nil
 }
 
+func (ht *headTracker) Name() string {
+	return ht.log.Name()
+}
+
+func (ht *headTracker) HealthReport() map[string]error {
+	return map[string]error{ht.Name(): ht.Healthy()}
+}
+
 func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
@@ -346,11 +354,13 @@ var NullTracker httypes.HeadTracker = &nullTracker{}
 
 type nullTracker struct{}
 
-func (*nullTracker) Start(context.Context) error { return nil }
-func (*nullTracker) Close() error                { return nil }
-func (*nullTracker) Ready() error                { return nil }
-func (*nullTracker) Healthy() error              { return nil }
-func (*nullTracker) SetLogLevel(zapcore.Level)   {}
+func (*nullTracker) Start(context.Context) error    { return nil }
+func (*nullTracker) Close() error                   { return nil }
+func (*nullTracker) Ready() error                   { return nil }
+func (*nullTracker) Healthy() error                 { return nil }
+func (*nullTracker) HealthReport() map[string]error { return map[string]error{} }
+func (*nullTracker) Name() string                   { return "" }
+func (*nullTracker) SetLogLevel(zapcore.Level)      {}
 func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	return nil
 }

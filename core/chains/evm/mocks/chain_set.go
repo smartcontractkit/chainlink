@@ -296,6 +296,22 @@ func (_m *ChainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, off
 	return r0, r1, r2
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *ChainSet) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
 // Healthy provides a mock function with given fields:
 func (_m *ChainSet) Healthy() error {
 	ret := _m.Called()
@@ -341,6 +357,20 @@ func (_m *ChainSet) Index(offset int, limit int) ([]chains.DBChain[utils.Big, *t
 	}
 
 	return r0, r1, r2
+}
+
+// Name provides a mock function with given fields:
+func (_m *ChainSet) Name() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
 }
 
 // ORM provides a mock function with given fields:
