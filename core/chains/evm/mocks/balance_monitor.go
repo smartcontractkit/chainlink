@@ -48,6 +48,22 @@ func (_m *BalanceMonitor) GetEthBalance(_a0 common.Address) *assets.Eth {
 	return r0
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *BalanceMonitor) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
 // Healthy provides a mock function with given fields:
 func (_m *BalanceMonitor) Healthy() error {
 	ret := _m.Called()
@@ -57,6 +73,20 @@ func (_m *BalanceMonitor) Healthy() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Name provides a mock function with given fields:
+func (_m *BalanceMonitor) Name() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

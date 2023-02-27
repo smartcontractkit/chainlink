@@ -58,6 +58,9 @@ type ExplorerClient interface {
 
 type NoopExplorerClient struct{}
 
+func (NoopExplorerClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopExplorerClient) Name() string                   { return "" }
+
 // Url always returns underlying url.
 func (NoopExplorerClient) Url() url.URL { return url.URL{} }
 
@@ -140,6 +143,14 @@ func (ec *explorerClient) Start(context.Context) error {
 		go ec.connectAndWritePump()
 		return nil
 	})
+}
+
+func (ec *explorerClient) Name() string {
+	return ec.lggr.Name()
+}
+
+func (ec *explorerClient) HealthReport() map[string]error {
+	return map[string]error{ec.Name(): ec.Healthy()}
 }
 
 // Send sends data asynchronously across the websocket if it's open, or
