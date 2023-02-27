@@ -412,8 +412,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugi
 	}()
 	// Check if value already exists in cache for txHash, id pair
 	cacheKey := txHash.String() + "|" + string(id)
-	val, ok := c.txCheckBlockCache.Get(cacheKey)
-	if ok {
+	if val, ok := c.txCheckBlockCache.Get(cacheKey); ok {
 		return pluginchain.BlockKey(val), nil
 	}
 
