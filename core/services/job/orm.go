@@ -355,10 +355,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 		case BlockhashStore:
 			var specID int32
-			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_address, created_at, updated_at)
-			VALUES (:coordinator_v1_address, :coordinator_v2_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_address, NOW(), NOW())
+			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
+			VALUES (:coordinator_v1_address, :coordinator_v2_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
 			RETURNING id;`
-			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BlockhashStoreSpec); err != nil {
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockhashStoreSpecRow(jb.BlockhashStoreSpec)); err != nil {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")
 			}
 			jb.BlockhashStoreSpecID = &specID
@@ -1146,7 +1146,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		loadVRFJob(tx, job, job.VRFSpecID),
-		loadJobType(tx, job, "BlockhashStoreSpec", "blockhash_store_specs", job.BlockhashStoreSpecID),
+		loadBlockhashStoreJob(tx, job, job.BlockhashStoreSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 	)
 }
@@ -1210,6 +1210,45 @@ func (r vrfSpecRow) toVRFSpec() *VRFSpec {
 			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.VRFSpec
+}
+
+func loadBlockhashStoreJob(tx pg.Queryer, job *Job, id *int32) error {
+	if id == nil {
+		return nil
+	}
+
+	var row blockhashStoreSpecRow
+	err := tx.Get(&row, `SELECT * FROM blockhash_store_specs WHERE id = $1`, *id)
+	if err != nil {
+		return errors.Wrapf(err, `failed to load job type BlockhashStoreSpec with id %d`, *id)
+	}
+
+	job.BlockhashStoreSpec = row.toBlockhashStoreSpec()
+	return nil
+}
+
+// blockhashStoreSpecRow is a helper type for reading and writing blockhashStore specs to the database. This is necessary
+// because the bytea[] in the DB is not automatically convertible to or from the spec's
+// FromAddresses field. pq.ByteaArray must be used instead.
+type blockhashStoreSpecRow struct {
+	*BlockhashStoreSpec
+	FromAddresses pq.ByteaArray
+}
+
+func toBlockhashStoreSpecRow(spec *BlockhashStoreSpec) blockhashStoreSpecRow {
+	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
+	for i, a := range spec.FromAddresses {
+		addresses[i] = a.Bytes()
+	}
+	return blockhashStoreSpecRow{BlockhashStoreSpec: spec, FromAddresses: addresses}
+}
+
+func (r blockhashStoreSpecRow) toBlockhashStoreSpec() *BlockhashStoreSpec {
+	for _, a := range r.FromAddresses {
+		r.BlockhashStoreSpec.FromAddresses = append(r.BlockhashStoreSpec.FromAddresses,
+			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+	}
+	return r.BlockhashStoreSpec
 }
 
 func loadJobSpecErrors(tx pg.Queryer, jb *Job) error {

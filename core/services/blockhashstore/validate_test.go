@@ -14,7 +14,7 @@ import (
 func TestValidate(t *testing.T) {
 	v1Coordinator := ethkey.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
 	v2Coordinator := ethkey.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
-	fromAddress := ethkey.EIP55Address("0x469aA2CD13e037DC5236320783dCfd0e641c0559")
+	fromAddresses := []ethkey.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
 	var tests = []struct {
 		name      string
@@ -34,7 +34,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 pollPeriod = "23s"
 runTimeout = "7s"
 evmChainID = "4"
-fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
+fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, job.BlockhashStore, os.Type)
@@ -50,8 +50,8 @@ fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
 				require.Equal(t, 23*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockhashStoreSpec.RunTimeout)
 				require.Equal(t, utils.NewBigI(4), os.BlockhashStoreSpec.EVMChainID)
-				require.Equal(t, &fromAddress,
-					os.BlockhashStoreSpec.FromAddress)
+				require.Equal(t, fromAddresses,
+					os.BlockhashStoreSpec.FromAddresses)
 			},
 		},
 		{
@@ -67,7 +67,7 @@ evmChainID = "4"`,
 				require.NoError(t, err)
 				require.Equal(t, int32(100), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
-				require.Nil(t, os.BlockhashStoreSpec.FromAddress)
+				require.Nil(t, os.BlockhashStoreSpec.FromAddresses)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)
 			},
@@ -80,7 +80,7 @@ name = "defaults-test"
 coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
-fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
+fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, &v1Coordinator,
@@ -96,7 +96,7 @@ name = "defaults-test"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
-fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
+fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Nil(t, os.BlockhashStoreSpec.CoordinatorV1Address)
@@ -110,7 +110,7 @@ type = "blockhashstore"
 name = "defaults-test"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
-fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
+fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, `at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
 			},
@@ -122,7 +122,7 @@ type = "blockhashstore"
 name = "defaults-test"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 evmChainID = "4"
-fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
+fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, `"blockhashStoreAddress" must be set`)
 			},
@@ -134,7 +134,7 @@ type = "blockhashstore"
 name = "defaults-test"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
-fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
+fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, `"evmChainID" must be set`)
 			},
