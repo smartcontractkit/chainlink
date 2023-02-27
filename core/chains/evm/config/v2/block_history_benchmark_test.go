@@ -85,10 +85,7 @@ func BenchmarkBlockHistoryEstimator_Marshal_Codec(b *testing.B) {
 }
 
 func BenchmarkBlockHistoryEstimator_Unmarshal_Codec(b *testing.B) {
-	//buf := make([]byte, 0, expectedSize)
 	var h codec.Handle = new(codec.JsonHandle)
-	//enc := codec.NewEncoderBytes(&buf, h)
-
 	var temp BlockHistoryEstimator
 	for i := 0; i < b.N; i++ {
 		dec := codec.NewDecoderBytes(staticBytes, h)
