@@ -14,7 +14,7 @@ require (
 	github.com/slack-go/slack v0.12.1
 	github.com/smartcontractkit/chainlink v1.10.0
 	github.com/smartcontractkit/chainlink-env v0.3.16
-	github.com/smartcontractkit/chainlink-testing-framework v1.10.5
+	github.com/smartcontractkit/chainlink-testing-framework v1.10.6
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 	github.com/smartcontractkit/ocr2keepers v0.6.12
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
@@ -25,8 +25,6 @@ require (
 	golang.org/x/sync v0.1.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
-
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -358,6 +356,7 @@ replace (
 	// fixes deprecation warnings and keychain undefined bugs on macOS
 	// See https://github.com/99designs/keyring/issues/94
 	github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+	github.com/prometheus/common => github.com/prometheus/common v0.10.0
 
 	// Some dependency keeps trying to update this to an unstable version
 	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
@@ -367,7 +366,6 @@ replace (
 
 	// The Loki - Grafana - Prometheus - Cortex stack is all sorts of wack
 	github.com/weaveworks/common => github.com/weaveworks/common v0.0.0-20200625145055-4b1847531bc9
-	github.com/prometheus/common => github.com/prometheus/common v0.10.0
 	google.golang.org/grpc => google.golang.org/grpc v1.29.1
 
 	// K8s imports are weird
