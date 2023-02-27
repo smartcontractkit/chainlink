@@ -75,7 +75,7 @@ secrets:
   config:
     file: config.toml
   secrets:
-    file: secrets.toml
+    file: dev-secrets.toml
 
 volumes:
   explorer-db-data:
