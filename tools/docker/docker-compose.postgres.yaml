@@ -5,13 +5,13 @@ services:
     depends_on:
       - node-db
     environment:
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
 
   node-2:
     depends_on:
       - node-db-2
     environment:
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db-2:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db-2:5432/$CHAINLINK_DB_NAME?sslmode=disable
 
   node-db:
     container_name: chainlink-db

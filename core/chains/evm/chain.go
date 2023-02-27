@@ -276,6 +276,14 @@ func (c *chain) Healthy() (merr error) {
 	return
 }
 
+func (c *chain) Name() string {
+	return c.logger.Name()
+}
+
+func (c *chain) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
+}
+
 func (c *chain) ID() *big.Int                        { return c.id }
 func (c *chain) Client() evmclient.Client            { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig { return c.cfg }
