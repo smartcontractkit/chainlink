@@ -529,6 +529,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			runResultSaver,
 			keeperProvider,
 			rgstry,
+			logProvider,
 			pluginService,
 		}, nil
 	case job.OCR2Functions:
