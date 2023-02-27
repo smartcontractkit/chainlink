@@ -406,20 +406,26 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 			continue
 		}
-		if err != nil {
-			return nil, fmt.Errorf("error getting EVM Chain: %v", err)
-		}
 
-		ethKeys = append(ethKeys, ETHKey{
-			addr:  k.EIP55Address,
-			state: state,
-			chain: chain,
-		})
+		/*
+			It is not an error to have ETH keys persisted which are not part of a currently
+			configured chain; ergo, this should not cause listing the keys that have currently
+			configured chains to fail
+			TBD: Revisit when we have a comprehensive strategy for what can be 'orphaned keys'
+		*/
+		if err == nil {
+			ethKeys = append(ethKeys, ETHKey{
+				addr:  k.EIP55Address,
+				state: state,
+				chain: chain,
+			})
+		}
 	}
 	// Put disabled keys to the end
 	sort.SliceStable(ethKeys, func(i, j int) bool {
 		return !states[i].Disabled && states[j].Disabled
 	})
+
 	return NewETHKeysPayload(ethKeys), nil
 }
 
