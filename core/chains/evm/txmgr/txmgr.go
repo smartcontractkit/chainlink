@@ -15,14 +15,13 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -74,7 +73,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
-	httypes.HeadTrackable
+	txmgrtypes.HeadTrackable
 	services.ServiceCtx
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
@@ -108,7 +107,7 @@ type Txm struct {
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
 
-	chHeads        chan *evmtypes.Head
+	chHeads        chan *txmgrtypes.HeadView
 	trigger        chan common.Address
 	reset          chan reset
 	resumeCallback ResumeCallback
@@ -149,7 +148,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, cfg),
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
-		chHeads:          make(chan *evmtypes.Head),
+		chHeads:          make(chan *txmgrtypes.HeadView),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
@@ -428,16 +427,16 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *Txm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (b *Txm) OnNewLongestChain(ctx context.Context, head *txmgrtypes.HeadView) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
-			b.reaper.SetLatestBlockNum(head.Number)
+			b.reaper.SetLatestBlockNum(head.BlockNumber())
 		}
 		b.gasEstimator.OnNewLongestChain(ctx, head)
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
-			b.logger.Errorw("Timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
+			b.logger.Errorw("Timed out handling head", "blockNum", head.BlockNumber(), "ctxErr", ctx.Err())
 		}
 	})
 	if !ok {
@@ -717,7 +716,7 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, *evmtypes.Head) {}
+func (n *NullTxManager) OnNewLongestChain(context.Context, *txmgrtypes.HeadView) {}
 
 // Start does noop for NullTxManager.
 func (n *NullTxManager) Start(context.Context) error { return nil }

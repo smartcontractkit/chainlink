@@ -1,0 +1,104 @@
+package evm
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/sqlx"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+type txmWrapper struct {
+	httypes.HeadTrackable
+	services.ServiceCtx
+	utils.StartStopOnce
+	txm txmgr.TxManager
+}
+
+func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	txmWrapper.txm.OnNewLongestChain(ctx, newHeadViewImpl(head))
+}
+
+func (txmWrapper *txmWrapper) Start(ctx context.Context) (err error) {
+	return txmWrapper.txm.Start(ctx)
+}
+
+func (txmWrapper *txmWrapper) Close() error {
+	return txmWrapper.txm.Close()
+}
+
+func (txmWrapper *txmWrapper) Ready() error {
+	return txmWrapper.txm.Ready()
+}
+
+func (txmWrapper *txmWrapper) Healthy() error {
+	return txmWrapper.txm.Healthy()
+}
+
+func newTxManagerWrapper(
+	db *sqlx.DB,
+	cfg evmconfig.ChainScopedConfig,
+	client evmclient.Client,
+	lggr logger.Logger,
+	logPoller logpoller.LogPoller,
+	opts ChainSetOpts) txmWrapper {
+	chainID := cfg.ChainID()
+	var txm txmgr.TxManager
+	if !cfg.EVMRPCEnabled() {
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if opts.GenTxManager == nil {
+		checker := &txmgr.CheckerFactory{Client: client}
+		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, logPoller)
+	} else {
+		txm = opts.GenTxManager(chainID)
+	}
+	return txmWrapper{txm: txm}
+}
+
+type headViewImpl struct {
+	txmgrtypes.HeadView
+	evmHead *evmtypes.Head
+}
+
+func newHeadViewImpl(head *evmtypes.Head) *txmgrtypes.HeadView {
+	return &headViewImpl{evmHead: head}
+}
+
+func (head *headViewImpl) BlockNumber() int64 {
+	return head.evmHead.Number
+}
+
+// ChainLength returns the length of the chain followed by recursively looking up parents
+func (head *headViewImpl) ChainLength() uint32 {
+	return head.evmHead.ChainLength()
+}
+
+// EarliestInChain recurses through parents until it finds the earliest one
+func (head *headViewImpl) EarliestInChain() *txmgrtypes.HeadView {
+	return newHeadViewImpl(head.evmHead.EarliestInChain())
+}
+
+func (head *headViewImpl) Hash() common.Hash {
+	return head.evmHead.Hash
+}
+
+func (head *headViewImpl) Parent() *txmgrtypes.HeadView {
+	return newHeadViewImpl(head.evmHead.Parent)
+}
+
+// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
+// If not in chain, returns the zero hash
+func (head *headViewImpl) HashAtHeight(blockNum int64) common.Hash {
+	return head.evmHead.Hash
+}

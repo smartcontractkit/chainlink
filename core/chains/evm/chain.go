@@ -51,7 +51,7 @@ type chain struct {
 	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config - immutability becomes default
 	cfgImmutable    bool // toml config is immutable
 	client          evmclient.Client
-	txm             txmgr.TxManager
+	txmWrapper      txmWrapper
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -141,17 +141,9 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		}
 	}
 
-	var txm txmgr.TxManager
-	if !cfg.EVMRPCEnabled() {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-	} else if opts.GenTxManager == nil {
-		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker, logPoller)
-	} else {
-		txm = opts.GenTxManager(chainID)
-	}
+	var txmWrapper = newTxManagerWrapper(db, cfg, client, l, logPoller, opts)
 
-	headBroadcaster.Subscribe(txm)
+	headBroadcaster.Subscribe(&txmWrapper)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
 	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
@@ -186,7 +178,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		id:              chainID,
 		cfg:             cfg,
 		client:          client,
-		txm:             txm,
+		txmWrapper:      txmWrapper,
 		logger:          l,
 		headBroadcaster: headBroadcaster,
 		headTracker:     headTracker,
@@ -212,7 +204,7 @@ func (c *chain) Start(ctx context.Context) error {
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		var ms services.MultiStart
-		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
+		if err := ms.Start(ctx, &c.txmWrapper, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
 			return err
 		}
 		if c.balanceMonitor != nil {
@@ -239,8 +231,8 @@ func (c *chain) Close() error {
 		merr = multierr.Combine(merr, c.headTracker.Close())
 		c.logger.Debug("Chain: stopping headBroadcaster")
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
-		c.logger.Debug("Chain: stopping txm")
-		merr = multierr.Combine(merr, c.txm.Close())
+		c.logger.Debug("Chain: stopping txmWrapper")
+		merr = multierr.Combine(merr, c.txmWrapper.Close())
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
 		c.logger.Debug("Chain: stopped")
@@ -251,7 +243,7 @@ func (c *chain) Close() error {
 func (c *chain) Ready() (merr error) {
 	merr = multierr.Combine(
 		c.StartStopOnce.Ready(),
-		c.txm.Ready(),
+		c.txmWrapper.Ready(),
 		c.headBroadcaster.Ready(),
 		c.headTracker.Ready(),
 		c.logBroadcaster.Ready(),
@@ -265,7 +257,7 @@ func (c *chain) Ready() (merr error) {
 func (c *chain) Healthy() (merr error) {
 	merr = multierr.Combine(
 		c.StartStopOnce.Healthy(),
-		c.txm.Healthy(),
+		c.txmWrapper.Healthy(),
 		c.headBroadcaster.Healthy(),
 		c.headTracker.Healthy(),
 		c.logBroadcaster.Healthy(),
@@ -297,7 +289,7 @@ func (c *chain) UpdateConfig(cfg *types.ChainCfg) {
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
+func (c *chain) TxManager() txmgr.TxManager               { return c.txmWrapper.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
