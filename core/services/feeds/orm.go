@@ -300,12 +300,12 @@ WHERE id = $4;
 // CreateJobProposal creates a job proposal.
 func (o *orm) CreateJobProposal(jp *JobProposal) (id int64, err error) {
 	stmt := `
-INSERT INTO job_proposals (remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES ($1, $2, $3, $4, NOW(), NOW())
+INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 RETURNING id;
 `
 
-	err = o.q.Get(&id, stmt, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "CreateJobProposal failed")
 }
 
@@ -336,7 +336,7 @@ FROM job_proposals;
 // GetJobProposal gets a job proposal by id.
 func (o *orm) GetJobProposal(id int64, qopts ...pg.QOpt) (jp *JobProposal, err error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals
 WHERE id = $1
 `
@@ -348,7 +348,7 @@ WHERE id = $1
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid.
 func (o *orm) GetJobProposalByRemoteUUID(id uuid.UUID) (jp *JobProposal, err error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals
 WHERE remote_uuid = $1;
 `
@@ -361,7 +361,7 @@ WHERE remote_uuid = $1;
 // ListJobProposals lists all job proposals.
 func (o *orm) ListJobProposals() (jps []JobProposal, err error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals;
 `
 
@@ -372,7 +372,7 @@ FROM job_proposals;
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs.
 func (o *orm) ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
@@ -411,19 +411,19 @@ WHERE id = $2;
 // feeds manager id exists.
 func (o *orm) UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (id int64, err error) {
 	stmt := `
-INSERT INTO job_proposals (remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES ($1, $2, $3, $4, NOW(), NOW())
+INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 ON CONFLICT (remote_uuid)
 DO
 	UPDATE SET
 		pending_update = TRUE,
+		name = EXCLUDED.name,
 		multiaddrs = EXCLUDED.multiaddrs,
 		updated_at = EXCLUDED.updated_at
-
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 

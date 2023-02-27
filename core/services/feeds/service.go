@@ -8,10 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -497,8 +499,13 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
+
+		// Parse the Job Spec TOML to extract the name
+		name := extractName(args.Spec)
+
 		// Upsert job proposal
 		id, txerr = s.orm.UpsertJobProposal(&JobProposal{
+			Name:           name,
 			RemoteUUID:     args.RemoteUUID,
 			Status:         JobProposalStatusPending,
 			FeedsManagerID: args.FeedsManagerID,
@@ -1182,6 +1189,20 @@ func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error
 	s.connectFeedManager(ctx, mgr, privkey)
 
 	return nil
+}
+
+// extractName extracts the name from the TOML returning an null string if
+// there is an error.
+func extractName(defn string) null.String {
+	spec := struct {
+		Name null.String
+	}{}
+
+	if err := toml.Unmarshal([]byte(defn), spec); err != nil {
+		return null.StringFromPtr(nil)
+	}
+
+	return spec.Name
 }
 
 var _ Service = &NullService{}
