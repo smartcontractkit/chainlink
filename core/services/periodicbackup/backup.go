@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/common"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -48,6 +49,8 @@ type (
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
+
+		hr *common.HealthReporter
 		utils.StartStopOnce
 	}
 
@@ -70,6 +73,9 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error
 		dbUrl = *dbBackupUrl
 	}
 
+	//TODO plumb to configuration
+	d := time.Duration(10 * time.Minute)
+
 	outputParentDir := filepath.Join(config.RootDir(), "backup")
 	if config.DatabaseBackupDir() != "" {
 		dir, err := filepath.Abs(config.DatabaseBackupDir())
@@ -80,13 +86,14 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error
 	}
 
 	return &databaseBackup{
-		lggr,
-		dbUrl,
-		config.DatabaseBackupMode(),
-		config.DatabaseBackupFrequency(),
-		outputParentDir,
-		make(chan bool),
-		utils.StartStopOnce{},
+		logger:          lggr,
+		databaseURL:     dbUrl,
+		mode:            config.DatabaseBackupMode(),
+		frequency:       config.DatabaseBackupFrequency(),
+		outputParentDir: outputParentDir,
+		done:            make(chan bool),
+		hr:              common.NewHealthReporter(d),
+		StartStopOnce:   utils.StartStopOnce{},
 	}, nil
 }
 
@@ -111,7 +118,11 @@ func (backup *databaseBackup) Start(context.Context) error {
 				case <-ticker.C:
 					backup.logger.Infow("Starting automatic database backup, this can take a while. To disable periodic backups, set DATABASE_BACKUP_FREQUENCY=0. To disable database backups entirely, set DATABASE_BACKUP_MODE=none.")
 					//nolint:errcheck
-					backup.RunBackup(static.Version)
+					err := backup.RunBackup(static.Version)
+					if err != nil {
+						backup.logger.Criticalf("failed to create database backup %+v", err)
+						backup.hr.Add(common.NewHealthError(backup.Name(), err))
+					}
 				}
 			}
 		}()
@@ -132,7 +143,7 @@ func (backup *databaseBackup) Name() string {
 }
 
 func (backup *databaseBackup) HealthReport() map[string]error {
-	return map[string]error{backup.Name(): backup.Healthy()}
+	return backup.hr.Report()
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
