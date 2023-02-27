@@ -10,23 +10,11 @@ services:
     # Note that the keystore import allows us to submit transactions
     # immediately because addresses are specified when starting the
     # parity/geth node to be prefunded with eth.
-    entrypoint: /bin/sh -c "chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
-      - ETH_CHAIN_ID
-      - LOG_LEVEL
-      - ROOT
-      - ETH_URL
-      - MIN_OUTGOING_CONFIRMATIONS
-      - MIN_INCOMING_CONFIRMATIONS
-      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
-      - DEFAULT_HTTP_TIMEOUT
-      - CHAINLINK_DEV
-      - EXPLORER_URL
-      - EXPLORER_ACCESS_KEY
-      - EXPLORER_SECRET
-      - SECURE_COOKIES
-      - CHAINLINK_TLS_PORT
+      - CL_DEV
+      - CL_DATABASE_URL
     env_file:
       - chainlink-variables.env
     ports:
@@ -35,6 +23,8 @@ services:
       - node_password
       - apicredentials
       - keystore
+      - config
+      - secrets
     depends_on:
       - explorer
 
@@ -44,20 +34,11 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
-    entrypoint: /bin/sh -c "chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
-      - ETH_CHAIN_ID
-      - LOG_LEVEL
-      - ROOT
-      - ETH_URL
-      - MIN_OUTGOING_CONFIRMATIONS
-      - MIN_INCOMING_CONFIRMATIONS
-      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
-      - DEFAULT_HTTP_TIMEOUT
-      - CHAINLINK_DEV
-      - SECURE_COOKIES
-      - CHAINLINK_TLS_PORT
+      - CL_DEV
+      - CL_DATABASE_URL
     env_file:
       - chainlink-variables.env
     ports:
@@ -66,6 +47,8 @@ services:
       - node_password
       - apicredentials
       - keystore
+      - config
+      - secrets
 
   explorer-db:
     container_name: chainlink-explorer-db
@@ -89,6 +72,10 @@ secrets:
     file: ../clroot/apicredentials
   keystore:
     file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
+  config:
+    file: config.toml
+  secrets:
+    file: dev-secrets.toml
 
 volumes:
   explorer-db-data:

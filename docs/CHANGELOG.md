@@ -5,13 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 <!-- unreleased -->
 ## [dev]
 
 ### Added
 
 - Support for sending OCR2 job specs to the feeds manager
+
+### Removed
+
+- Terra is no longer supported
 
 ...
 
@@ -36,6 +39,8 @@ of any values provided via configuration files.
   entirely.
 - Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 - Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
+- Support for sending OCR2 job specs to the feeds manager
+- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 
 ### Updated
 

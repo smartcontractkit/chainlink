@@ -10,6 +10,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
@@ -65,7 +66,7 @@ func CleanupReorgTest(
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 

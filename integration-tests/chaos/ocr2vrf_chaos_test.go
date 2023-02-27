@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -44,7 +45,7 @@ var (
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
-
+	t.Parallel()
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -112,8 +113,9 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 	}
 
-	for testcaseName, testCase := range testCases {
-		t.Run(testcaseName, func(t *testing.T) {
+	for testcaseName, tc := range testCases {
+		testCase := tc
+		t.Run(fmt.Sprintf("OCR2VRF_%s", testcaseName), func(t *testing.T) {
 			t.Parallel()
 			testNetwork := networks.SelectedNetwork
 			testEnvironment := environment.
@@ -129,6 +131,9 @@ func TestOCR2VRFChaos(t *testing.T) {
 				AddHelm(testCase.clChart)
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error running test environment")
+			if testEnvironment.WillUseRemoteRunner() {
+				return
+			}
 
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
@@ -145,7 +150,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

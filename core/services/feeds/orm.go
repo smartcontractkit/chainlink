@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --with-expecter=true --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	CountManagers() (int64, error)
@@ -47,6 +47,7 @@ type ORM interface {
 	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
 	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
 	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
+	GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
@@ -318,7 +319,7 @@ func (o *orm) CountJobProposals() (count int64, err error) {
 // CountJobProposals counts the number of job proposal records.
 func (o *orm) CountJobProposalsByStatus() (counts *JobProposalCounts, err error) {
 	stmt := `
-SELECT 
+SELECT
 	COUNT(*) filter (where job_proposals.status = 'pending') as pending,
 	COUNT(*) filter (where job_proposals.status = 'approved') as approved,
 	COUNT(*) filter (where job_proposals.status = 'rejected') as rejected,
@@ -491,7 +492,6 @@ RETURNING job_proposal_id;
 UPDATE job_proposals
 SET status = $1,
 	external_job_id = $2,
-	pending_update = FALSE,
 	updated_at = NOW()
 WHERE id = $3;
 `
@@ -552,6 +552,21 @@ WHERE id = $1;
 	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
 
 	return &spec, errors.Wrap(err, "CreateJobProposalSpec failed")
+}
+
+// GetApprovedSpec gets the approved spec for a job proposal
+func (o *orm) GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error) {
+	stmt := `
+SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
+FROM job_proposal_specs
+WHERE status = $1
+AND job_proposal_id = $2
+`
+
+	var spec JobProposalSpec
+	err := o.q.WithOpts(qopts...).Get(&spec, stmt, SpecStatusApproved, jpID)
+
+	return &spec, errors.Wrap(err, "GetApprovedSpec failed")
 }
 
 // GetLatestSpec gets the latest spec for a job proposal.

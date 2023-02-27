@@ -148,6 +148,14 @@ func (o *orm) Close() error {
 	})
 }
 
+func (o *orm) Name() string {
+	return o.lggr.Name()
+}
+
+func (o *orm) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.Healthy()}
+}
+
 func (o *orm) CreateSpec(pipeline Pipeline, maxTaskDuration models.Interval, qopts ...pg.QOpt) (id int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
@@ -395,4 +396,57 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 		l.Removed = *dec.Removed
 	}
 	return nil
+}
+
+type AddressArray []common.Address
+
+func (a *AddressArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return errors.Wrap(err, "Expected BYTEA[] column for AddressArray")
+	}
+	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
+		return errors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	for i, ba := range baArray.Elements {
+		addr := common.Address{}
+		if ba.Status != pgtype.Present {
+			return errors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
+		}
+		err = addr.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		*a = append(*a, addr)
+	}
+
+	return nil
+}
+
+type HashArray []common.Hash
+
+func (h *HashArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return errors.Wrap(err, "Expected BYTEA[] column for HashArray")
+	}
+	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
+		return errors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	for i, ba := range baArray.Elements {
+		hash := common.Hash{}
+		if ba.Status != pgtype.Present {
+			return errors.Errorf("Expected all addresses in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
+		}
+		err = hash.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		*h = append(*h, hash)
+	}
+	return err
 }

@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { Signer, Contract, BigNumber } from 'ethers'
 import { assert, expect } from 'chai'
 import { publicAbi } from '../../test-helpers/helpers'
-import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
+import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
 
 describe('VRFCoordinatorV2', () => {
   let vrfCoordinatorV2: Contract

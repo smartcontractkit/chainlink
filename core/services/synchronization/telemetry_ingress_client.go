@@ -43,6 +43,9 @@ func (NoopTelemetryIngressClient) Send(TelemPayload) {}
 // Healthy is a no-op
 func (NoopTelemetryIngressClient) Healthy() error { return nil }
 
+func (NoopTelemetryIngressClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopTelemetryIngressClient) Name() string                   { return "" }
+
 // Ready is a no-op
 func (NoopTelemetryIngressClient) Ready() error { return nil }
 
@@ -104,6 +107,14 @@ func (tc *telemetryIngressClient) Close() error {
 		tc.wgDone.Wait()
 		return nil
 	})
+}
+
+func (tc *telemetryIngressClient) Name() string {
+	return tc.lggr.Name()
+}
+
+func (tc *telemetryIngressClient) HealthReport() map[string]error {
+	return map[string]error{tc.Name(): tc.Healthy()}
 }
 
 func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {

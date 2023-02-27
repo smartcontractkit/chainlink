@@ -278,6 +278,14 @@ func (b *Txm) Close() (merr error) {
 	})
 }
 
+func (b *Txm) Name() string {
+	return b.logger.Name()
+}
+
+func (b *Txm) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
+}
+
 func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
@@ -735,5 +743,7 @@ func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, val
 }
 func (n *NullTxManager) Healthy() error                           { return nil }
 func (n *NullTxManager) Ready() error                             { return nil }
+func (n *NullTxManager) Name() string                             { return "" }
+func (n *NullTxManager) HealthReport() map[string]error           { return nil }
 func (n *NullTxManager) GetGasEstimator() gas.Estimator           { return nil }
 func (n *NullTxManager) RegisterResumeCallback(fn ResumeCallback) {}
