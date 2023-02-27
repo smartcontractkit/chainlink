@@ -8,7 +8,7 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-var static = BlockHistoryEstimator{
+var testBHE = BlockHistoryEstimator{
 	BatchSize:                 ptr(uint32(4096)),
 	BlockHistorySize:          ptr(uint16(1024)),
 	CheckInclusionBlocks:      ptr(uint16(8)),
@@ -17,7 +17,7 @@ var static = BlockHistoryEstimator{
 	TransactionPercentile:     ptr(uint16(75)),
 }
 
-var staticWithNil = BlockHistoryEstimator{
+var testBHEWithNil = BlockHistoryEstimator{
 	BatchSize:                 ptr(uint32(4096)),
 	BlockHistorySize:          ptr(uint16(1024)),
 	CheckInclusionBlocks:      ptr(uint16(8)),
@@ -32,14 +32,14 @@ var staticBytes []byte
 func init() {
 
 	var err error
-	staticBytes, err = json.Marshal(&static)
+	staticBytes, err = json.Marshal(&testBHE)
 	if err != nil {
 		panic(err)
 	}
 }
 func BenchmarkBlockHistoryEstimator_Marshal_JSON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		bt, err := json.Marshal(&static)
+		bt, err := json.Marshal(&testBHE)
 		if err != nil {
 			b.Fatalf("err %+v", err)
 		}
@@ -61,7 +61,7 @@ func BenchmarkBlockHistoryEstimator_Unarshal_JSON(b *testing.B) {
 
 func BenchmarkBlockHistoryEstimator_withNil_Marshal_Marshal_JSON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		bt, err := json.Marshal(&staticWithNil)
+		bt, err := json.Marshal(&testBHEWithNil)
 		if err != nil {
 			b.Fatalf("err %+v", err)
 		}
@@ -76,7 +76,7 @@ func BenchmarkBlockHistoryEstimator_Marshal_Codec(b *testing.B) {
 	var h codec.Handle = new(codec.JsonHandle)
 	enc := codec.NewEncoderBytes(&buf, h)
 	for i := 0; i < b.N; i++ {
-		err := enc.Encode(&static)
+		err := enc.Encode(&testBHE)
 		if err != nil {
 			b.Fatalf("err %+v", err)
 		}
@@ -101,7 +101,7 @@ func BenchmarkBlockHistoryEstimator_withNil_Marshal_Codec(b *testing.B) {
 	var h codec.Handle = new(codec.JsonHandle)
 	enc := codec.NewEncoderBytes(&buf, h)
 	for i := 0; i < b.N; i++ {
-		err := enc.Encode(&staticWithNil)
+		err := enc.Encode(&testBHEWithNil)
 		if err != nil {
 			b.Fatalf("err %+v", err)
 		}
