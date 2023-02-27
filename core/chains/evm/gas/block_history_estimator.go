@@ -218,6 +218,13 @@ func (b *BlockHistoryEstimator) Close() error {
 	})
 }
 
+func (b *BlockHistoryEstimator) Name() string {
+	return b.logger.Name()
+}
+func (b *BlockHistoryEstimator) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
+}
+
 func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())

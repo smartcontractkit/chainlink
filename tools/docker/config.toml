@@ -1,0 +1,24 @@
+ExplorerURL = 'ws://explorer:3001'
+
+[Log]
+Level = 'info'
+
+[WebServer]
+SecureCookies = false
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[JobPipeline]
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '5s'
+
+[[EVM]]
+ChainID = '34055'
+MinIncomingConfirmations = 1
+MinContractPayment = '0.000001 link'
+
+[[EVM.Nodes]]
+Name = 'primary-0-34055'
+WSURL = 'ws://devnet:8546'
+HTTPURL = 'http://devnet:8545'

@@ -309,6 +309,14 @@ func (l *AuditLoggerService) Healthy() error {
 	return nil
 }
 
+func (l *AuditLoggerService) Name() string {
+	return l.logger.Name()
+}
+
+func (l *AuditLoggerService) HealthReport() map[string]error {
+	return map[string]error{l.logger.Name(): l.Healthy()}
+}
+
 func (l *AuditLoggerService) Ready() error {
 	if !l.enabled {
 		return errors.New("the audit logger is not enabled")
