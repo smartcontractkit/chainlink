@@ -26,7 +26,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
     flags:
@@ -46,7 +46,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
     flags:
@@ -66,7 +66,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=$ZIG_EXEC cc -target aarch64-macos $ZIG_FLAGS_DARWIN
       - CCX=$ZIG_EXEC c++ -target aarch64-macos $ZIG_FLAGS_DARWIN
     flags:
@@ -86,7 +86,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=$ZIG_EXEC cc -target x86_64-macos $ZIG_FLAGS_DARWIN
       - CCX=$ZIG_EXEC c++ -target x86_64-macos $ZIG_FLAGS_DARWIN
     flags:
@@ -104,8 +104,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_amd64/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -127,8 +128,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_arm64/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -162,11 +164,13 @@ docker_signs:
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
-archives:
-  - files:
-      - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
-        dst: libs
-        strip_parent: true
+archives: []
+  # uncomment if using native libs / cgo enabled
+  # - rlcp: true
+  #   files:
+  #     - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
+  #       dst: libs
+  #       strip_parent: true
 
 checksum:
   name_template: "checksums.txt"
