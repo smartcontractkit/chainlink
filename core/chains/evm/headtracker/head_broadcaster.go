@@ -71,6 +71,13 @@ func (hb *headBroadcaster) Close() error {
 	})
 }
 
+func (hb *headBroadcaster) Name() string {
+	return hb.logger.Name()
+}
+func (hb *headBroadcaster) HealthReport() map[string]error {
+	return map[string]error{hb.Name(): hb.Healthy()}
+}
+
 func (hb *headBroadcaster) BroadcastNewLongestChain(head *evmtypes.Head) {
 	hb.mailbox.Deliver(head)
 }

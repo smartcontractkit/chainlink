@@ -77,8 +77,11 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 func (n *Nurse) Start() error {
 	return n.StartOnce("nurse", func() error {
 		// This must be set *once*, and it must occur as early as possible
-		runtime.MemProfileRate = n.cfg.AutoPprofMemProfileRate()
+		if n.cfg.AutoPprofMemProfileRate() != runtime.MemProfileRate {
+			runtime.MemProfileRate = n.cfg.AutoPprofBlockProfileRate()
+		}
 
+		n.log.Debugf("Starting nurse with config %+v", n.cfg)
 		runtime.SetCPUProfileRate(n.cfg.AutoPprofCPUProfileRate())
 		runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
 		runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
@@ -91,8 +94,7 @@ func (n *Nurse) Start() error {
 		n.AddCheck("mem", n.checkMem)
 		n.AddCheck("goroutines", n.checkGoroutines)
 
-		n.wgDone.Add(2)
-
+		n.wgDone.Add(1)
 		// Checker
 		go func() {
 			defer n.wgDone.Done()
@@ -116,6 +118,7 @@ func (n *Nurse) Start() error {
 			}
 		}()
 
+		n.wgDone.Add(1)
 		// Responder
 		go func() {
 			defer n.wgDone.Done()
@@ -135,6 +138,8 @@ func (n *Nurse) Start() error {
 
 func (n *Nurse) Close() error {
 	return n.StopOnce("nurse", func() error {
+		n.log.Debug("Nurse closing...")
+		defer n.log.Debug("Nurse closed")
 		close(n.chStop)
 		n.wgDone.Wait()
 		return nil
@@ -198,25 +203,41 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	now := time.Now()
 
-	var wg sync.WaitGroup
-	wg.Add(9)
-
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
 		n.log.Warnw("cannot write pprof profile", loggerFields.With("error", err).Slice()...)
 		return
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go n.gatherCPU(now, &wg)
+	wg.Add(1)
 	go n.gatherTrace(now, &wg)
+	wg.Add(1)
 	go n.gather("allocs", now, &wg)
+	wg.Add(1)
 	go n.gather("block", now, &wg)
+	wg.Add(1)
 	go n.gather("goroutine", now, &wg)
-	go n.gather("heap", now, &wg)
+
+	// pprof docs state memory profile is not
+	// created if the MemProfileRate is zero
+	if runtime.MemProfileRate != 0 {
+		wg.Add(1)
+		go n.gather("heap", now, &wg)
+	} else {
+		n.log.Info("skipping heap collection because runtime.MemProfileRate = 0")
+	}
+
+	wg.Add(1)
 	go n.gather("mutex", now, &wg)
+	wg.Add(1)
 	go n.gather("threadcreate", now, &wg)
 
 	ch := make(chan struct{})
+	n.wgDone.Add(1)
 	go func() {
+		defer n.wgDone.Done()
 		defer close(ch)
 		wg.Wait()
 	}()
@@ -266,8 +287,8 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 
 func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-	n.log.Debug("gathering cpu")
-	defer n.log.Debug("done gathering cpu")
+	n.log.Debugf("gather cpu %d ...", now.UnixMicro())
+	defer n.log.Debugf("gather cpu %d done", now.UnixMicro())
 	wc, err := n.createFile(now, cpuProfName, false)
 	if err != nil {
 		n.log.Errorw("could not write cpu profile", "error", err)
@@ -283,7 +304,10 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 
 	select {
 	case <-n.chStop:
+		n.log.Debug("gather cpu received stop")
+
 	case <-time.After(n.cfg.AutoPprofGatherDuration().Duration()):
+		n.log.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.AutoPprofGatherDuration().Duration().String())
 	}
 
 	pprof.StopCPUProfile()
@@ -299,6 +323,8 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	n.log.Debugf("gather trace %d ...", now.UnixMicro())
+	defer n.log.Debugf("gather trace %d done", now.UnixMicro())
 	wc, err := n.createFile(now, traceProfName, true)
 	if err != nil {
 		n.log.Errorw("could not write trace profile", "error", err)
@@ -328,6 +354,9 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 
 func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	n.log.Debugf("gather %s %d ...", typ, now.UnixMicro())
+	n.log.Debugf("gather %s %d done", typ, now.UnixMicro())
 
 	p := pprof.Lookup(typ)
 	if p == nil {
@@ -442,7 +471,6 @@ func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 		return nil, err
 	}
 	for _, entry := range entries {
-		n.log.Debugf("list entry %+v", entry)
 		if entry.IsDir() ||
 			(filepath.Ext(entry.Name()) != ".pprof" &&
 				entry.Name() != "nurse.log" &&

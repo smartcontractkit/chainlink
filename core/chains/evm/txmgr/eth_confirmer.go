@@ -195,6 +195,14 @@ func (ec *EthConfirmer) Close() error {
 	})
 }
 
+func (ec *EthConfirmer) Name() string {
+	return ec.lggr.Name()
+}
+
+func (ec *EthConfirmer) HealthReport() map[string]error {
+	return map[string]error{ec.Name(): ec.Healthy()}
+}
+
 func (ec *EthConfirmer) runLoop() {
 	defer ec.wg.Done()
 	for {

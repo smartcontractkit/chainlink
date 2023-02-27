@@ -341,6 +341,14 @@ func (lp *logPoller) Close() error {
 	})
 }
 
+func (lp *logPoller) Name() string {
+	return lp.lggr.Name()
+}
+
+func (lp *logPoller) HealthReport() map[string]error {
+	return map[string]error{lp.Name(): lp.Healthy()}
+}
+
 func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
 	lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
