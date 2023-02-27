@@ -512,6 +512,8 @@ func (txm *Txm) Close() error {
 	return nil
 }
 
+func (txm *Txm) Name() string { return "cosmostxm" }
+
 // Healthy service is healthy
 func (txm *Txm) Healthy() error {
 	return nil
@@ -521,3 +523,5 @@ func (txm *Txm) Healthy() error {
 func (txm *Txm) Ready() error {
 	return nil
 }
+
+func (txm *Txm) HealthReport() map[string]error { return map[string]error{txm.Name(): txm.Healthy()} }
