@@ -70,7 +70,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		registry: registry,
 		abi:      abi,
 		active:   make(map[string]activeUpkeep),
-		packer:   &EvmRegistryPackerV2_0{abi: abi},
+		packer:   &evmRegistryPackerV2_0{abi: abi},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 	}
@@ -116,7 +116,7 @@ type EvmRegistry struct {
 	client        client.Client
 	registry      *keeper_registry_wrapper2_0.KeeperRegistry
 	abi           abi.ABI
-	packer        *EvmRegistryPackerV2_0
+	packer        *evmRegistryPackerV2_0
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex

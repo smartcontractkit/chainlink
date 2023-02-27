@@ -24,6 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type TransmitUnpacker interface {
+	UnpackTransmitTxInput([]byte) ([]plugintypes.UpkeepResult, error)
+}
+
 type LogProvider struct {
 	sync              utils.StartStopOnce
 	mu                sync.RWMutex
@@ -36,7 +40,7 @@ type LogProvider struct {
 	lookbackBlocks    int64
 	registry          *registry.KeeperRegistry
 	client            evmclient.Client
-	packer            *pluginevm.EvmRegistryPackerV2_0
+	packer            TransmitUnpacker
 	txCheckBlockCache *pluginutils.Cache[string]
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
