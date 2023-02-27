@@ -77,7 +77,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
-	unauthenticatedDevOnlyMetricRoutes(app, api)
+	debugRoutes(app, api)
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
@@ -170,14 +170,9 @@ func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 
-func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
+func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
-
-	if app.GetConfig().Dev() {
-		// No authentication because `go tool pprof` doesn't support it
-		metricRoutes(r, true)
-	}
 }
 
 func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
@@ -420,7 +415,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, false)
+		metricRoutes(authv2, app.GetConfig().Dev())
 	}
 
 	ping := PingController{app}
