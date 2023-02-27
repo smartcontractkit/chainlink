@@ -110,6 +110,14 @@ func (js *spawner) Close() error {
 	})
 }
 
+func (js *spawner) Name() string {
+	return js.lggr.Name()
+}
+
+func (js *spawner) HealthReport() map[string]error {
+	return map[string]error{js.Name(): js.Healthy()}
+}
+
 func (js *spawner) startAllServices(ctx context.Context) {
 	// TODO: rename to find AllJobs
 	specs, _, err := js.orm.FindJobs(0, math.MaxUint32)

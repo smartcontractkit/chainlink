@@ -14,6 +14,7 @@ import (
 //
 type FeedsManagerClient interface {
 	ApprovedJob(ctx context.Context, in *ApprovedJobRequest) (*ApprovedJobResponse, error)
+	Healthcheck(ctx context.Context, in *HealthcheckRequest) (*HealthcheckResponse, error)
 	UpdateNode(ctx context.Context, in *UpdateNodeRequest) (*UpdateNodeResponse, error)
 	RejectedJob(ctx context.Context, in *RejectedJobRequest) (*RejectedJobResponse, error)
 	CancelledJob(ctx context.Context, in *CancelledJobRequest) (*CancelledJobResponse, error)
@@ -30,6 +31,15 @@ func NewFeedsManagerClient(cc wsrpc.ClientInterface) FeedsManagerClient {
 func (c *feedsManagerClient) ApprovedJob(ctx context.Context, in *ApprovedJobRequest) (*ApprovedJobResponse, error) {
 	out := new(ApprovedJobResponse)
 	err := c.cc.Invoke(ctx, "ApprovedJob", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *feedsManagerClient) Healthcheck(ctx context.Context, in *HealthcheckRequest) (*HealthcheckResponse, error) {
+	out := new(HealthcheckResponse)
+	err := c.cc.Invoke(ctx, "Healthcheck", in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +76,7 @@ func (c *feedsManagerClient) CancelledJob(ctx context.Context, in *CancelledJobR
 // FeedsManagerServer is the server API for FeedsManager service.
 type FeedsManagerServer interface {
 	ApprovedJob(context.Context, *ApprovedJobRequest) (*ApprovedJobResponse, error)
+	Healthcheck(context.Context, *HealthcheckRequest) (*HealthcheckResponse, error)
 	UpdateNode(context.Context, *UpdateNodeRequest) (*UpdateNodeResponse, error)
 	RejectedJob(context.Context, *RejectedJobRequest) (*RejectedJobResponse, error)
 	CancelledJob(context.Context, *CancelledJobRequest) (*CancelledJobResponse, error)
@@ -81,6 +92,14 @@ func _FeedsManager_ApprovedJob_Handler(srv interface{}, ctx context.Context, dec
 		return nil, err
 	}
 	return srv.(FeedsManagerServer).ApprovedJob(ctx, in)
+}
+
+func _FeedsManager_Healthcheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(HealthcheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	return srv.(FeedsManagerServer).Healthcheck(ctx, in)
 }
 
 func _FeedsManager_UpdateNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -117,6 +136,10 @@ var FeedsManager_ServiceDesc = wsrpc.ServiceDesc{
 		{
 			MethodName: "ApprovedJob",
 			Handler:    _FeedsManager_ApprovedJob_Handler,
+		},
+		{
+			MethodName: "Healthcheck",
+			Handler:    _FeedsManager_Healthcheck_Handler,
 		},
 		{
 			MethodName: "UpdateNode",
