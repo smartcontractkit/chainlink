@@ -3,7 +3,6 @@ FROM ubuntu:20.04
 # Add the PostgreSQL PGP key & repository
 RUN apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" > /etc/apt/sources.list.d/pgdg.list
-RUN wget --quiet -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - 2>/dev/null
 
 # Install deps
 RUN apt-get update && apt-get install -y postgresql postgresql-contrib direnv build-essential cmake libudev-dev unzip
