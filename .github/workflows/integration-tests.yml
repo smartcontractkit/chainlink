@@ -440,7 +440,40 @@ jobs:
         uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
-          slack-message: "Test Result for ${{ matrix.testnet }} is a ${{ job.status }} on tag ${{ github.ref_name}} and commit ${{ github.sha }}"
+          payload: |
+            {
+              "text": "",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Live Smoke Test Results for ${{ matrix.testnet }}",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Tag: <https://github.com/smartcontractkit/chainlink/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <https://github.com/smartcontractkit/chainlink/commit/${{ github.sha }}|${{ github.sha }}>"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "OCR ${{ job.status }}"
+                  }
+                }
+              ]
+            }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
