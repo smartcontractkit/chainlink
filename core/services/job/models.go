@@ -510,7 +510,7 @@ type BlockhashStoreSpec struct {
 	EVMChainID *utils.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
-	FromAddress *ethkey.EIP55Address `toml:"fromAddress"`
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
