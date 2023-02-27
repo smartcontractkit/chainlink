@@ -3,6 +3,7 @@ package txmgr_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -1335,4 +1336,96 @@ func TestORM_CountUnstartedTransactions(t *testing.T) {
 	count, err := borm.CountUnstartedTransactions(fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 2)
+}
+
+func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+
+	var maxUnconfirmedTransactions uint64 = 2
+
+	t.Run("with no eth_txes returns nil", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
+
+	// deliberately one extra to exceed limit
+	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
+		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
+	}
+
+	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
+
+	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
+		cltest.MustInsertFatalErrorEthTx(t, borm, otherAddress)
+	}
+
+	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
+
+	var n int64
+	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
+	n++
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
+	n++
+
+	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, 1, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
+
+	// deliberately one extra to exceed limit
+	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
+		n++
+	}
+
+	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
+
+	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+	}
+
+	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
+
+	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+
+	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
+
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+		err = borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
+	})
+
+	t.Run("with different chain ID ignores txes", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, *big.NewInt(42))
+		require.NoError(t, err)
+	})
+
+	t.Run("disables check with 0 limit", func(t *testing.T) {
+		err := borm.CheckEthTxQueueCapacity(fromAddress, 0, cltest.FixtureChainID)
+		require.NoError(t, err)
+	})
 }
