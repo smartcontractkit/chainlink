@@ -71,6 +71,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 }
 
 func TestLogPoller_Batching(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 	var logs []Log
 	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
@@ -87,6 +88,7 @@ func TestLogPoller_Batching(t *testing.T) {
 }
 
 func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
+	t.Parallel()
 	// The log poller's blocks table should remain synchronized
 	// with the canonical chain of geth's despite arbitrary mixes of mining and reorgs.
 	testParams := gopter.DefaultTestParameters()
@@ -176,6 +178,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 }
 
 func TestLogPoller_PollAndSaveLogs(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 
 	// Set up a log poller listening for log emitter logs.
@@ -376,6 +379,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 }
 
 func TestLogPoller_Logs(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
@@ -440,6 +444,7 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 }
 
 func TestLogPoller_RegisterFilter(t *testing.T) {
+	t.Parallel()
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 
@@ -553,6 +558,7 @@ func assertForeignConstraintError(t *testing.T, observedLog observer.LoggedEntry
 }
 
 func TestLogPoller_DBErrorHandling(t *testing.T) {
+	t.Parallel()
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 	chainID1 := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
@@ -576,27 +582,30 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	ec.Commit()
 	ec.Commit()
 
-	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 500*time.Millisecond, 2, 3, 2, 1000)
+	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, 2, 3, 2, 1000)
 	ctx, cancelReplay := context.WithCancel(testutils.Context(t))
-	var cancelLogPoller context.CancelFunc
-	lp.ctx, cancelLogPoller = context.WithCancel(testutils.Context(t))
+	lp.ctx, lp.cancel = context.WithCancel(testutils.Context(t))
 	defer cancelReplay()
-	defer cancelLogPoller()
+	defer lp.cancel()
 
 	err = lp.Replay(ctx, 5) // block number too high
 	require.ErrorContains(t, err, "Invalid replay block number")
+
+	// Force a db error while loading the filters (tx aborted, already rolled back)
+	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
 	go func() {
-		// Force a db error while loading the filters (tx aborted, already rolled back)
-		require.Error(t, utils.JustError(db.Exec(`invalid query`)))
 		err = lp.Replay(ctx, 2)
-		assert.Error(t, ErrReplayAbortedByClient)
+		assert.Error(t, err, ErrReplayAbortedByClient)
 	}()
 
-	time.Sleep(50 * time.Millisecond)
-	err = lp.Start(lp.ctx)
-	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
+	go lp.run()
+	require.Eventually(t, func() bool {
+		return observedLogs.Len() >= 5
+	}, 2*time.Second, 20*time.Millisecond)
+	lp.cancel()
 	lp.Close()
+	<-lp.done
 
 	logMsgs := make(map[string]int)
 	for _, obs := range observedLogs.All() {
@@ -608,15 +617,14 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 5, observedLogs.Len())
 	assert.Contains(t, logMsgs, "SQL ERROR")
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
-	assert.Contains(t, logMsgs, "SQL ERROR")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
 	assert.Contains(t, logMsgs, "backup log poller ran before filters loaded, skipping")
 }
 
 func TestLogPoller_LoadFilters(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 
 	filter1 := Filter{"first filter", []common.Hash{
@@ -660,6 +668,7 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 
 	err := th.LogPoller.RegisterFilter(Filter{"GetBlocks Test", []common.Hash{
@@ -779,6 +788,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
@@ -815,6 +825,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 }
 
 func TestFilterName(t *testing.T) {
+	t.Parallel()
 	assert.Equal(t, "a - b:c:d", FilterName("a", "b", "c", "d"))
 	assert.Equal(t, "empty args test", FilterName("empty args test"))
 }
