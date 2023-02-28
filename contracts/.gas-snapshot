@@ -1,7 +1,3 @@
-NoCancelVRFCoordinatorV2_calculatePaymentAmount:testFuzzCalculatePaymentAmount(uint256,uint32,uint256) (runs: 256, μ: 6336, ~: 6336)
-NoCancelVRFCoordinatorV2_cancelSubscription:testCancelSubscription() (gas: 73330)
-NoCancelVRFCoordinatorV2_cancelSubscription:testOwnerCancelSubscription() (gas: 114994)
-NoCancelVRFCoordinatorV2_cancelSubscription:testOwnerCancelSubscriptionInvalidSubId() (gas: 12703)
 FunctionsOracle_sendRequest:testEmptyRequestDataReverts() (gas: 11137)
 FunctionsOracle_setDONPublicKey:testEmptyPublicKeyReverts() (gas: 10964)
 FunctionsOracle_setDONPublicKey:testOnlyOwnerReverts() (gas: 11341)
