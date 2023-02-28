@@ -89,14 +89,14 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore_NoCancel(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerNeedsBHS(
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
+	testMultipleConsumersNeedBHS(
 		t,
 		ownerKey,
 		uni,
-		uni.vrfConsumers[0],
-		uni.noCancelConsumers[0],
-		uni.noCancelConsumerAddresses[0],
+		uni.vrfConsumers,
+		uni.noCancelConsumers,
+		uni.noCancelConsumerAddresses,
 		uni.noCancelCoordinator,
 		uni.noCancelAddress,
 		uni.noCancelBatchCoordinatorAddress,

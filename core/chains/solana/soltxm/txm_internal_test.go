@@ -1,6 +1,7 @@
 package soltxm
 
 import (
+	"context"
 	"math/rand"
 	"sync"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
+	"github.com/smartcontractkit/chainlink/core/chains/solana/fees"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -46,13 +48,15 @@ func (p soltxmProm) getInflight() float64 {
 	return testutil.ToFloat64(promSolTxmPendingTxs.WithLabelValues(p.id))
 }
 
-// create placeholder transaction
-func getTx(t *testing.T, pubkey solana.PublicKey) *solana.Transaction {
+// create placeholder transaction and returns func for signed tx with fee
+func getTx(t *testing.T, val uint64, key solkey.Key, price fees.ComputeUnitPrice) (*solana.Transaction, func(fees.ComputeUnitPrice) *solana.Transaction) {
+	pubkey := key.PublicKey()
+
 	// create transfer tx
 	tx, err := solana.NewTransaction(
 		[]solana.Instruction{
 			system.NewTransferInstruction(
-				rand.Uint64(), // identifier is the transfer balance
+				val,
 				pubkey,
 				pubkey,
 			).Build(),
@@ -60,8 +64,25 @@ func getTx(t *testing.T, pubkey solana.PublicKey) *solana.Transaction {
 		solana.Hash{},
 		solana.TransactionPayer(pubkey),
 	)
-	assert.NoError(t, err)
-	return tx
+	require.NoError(t, err)
+
+	base := *tx // tx to send to txm, txm will add fee & sign
+
+	return &base, func(price fees.ComputeUnitPrice) *solana.Transaction {
+		tx := base
+		// add fee
+		require.NoError(t, fees.SetComputeUnitPrice(&tx, price))
+
+		// sign tx
+		txMsg, err := tx.Message.MarshalBinary()
+		require.NoError(t, err)
+		sigBytes, err := key.Sign(txMsg)
+		require.NoError(t, err)
+		var finalSig [64]byte
+		copy(finalSig[:], sigBytes)
+		tx.Signatures = append(tx.Signatures, finalSig)
+		return &tx
+	}
 }
 
 func newReaderWriterMock(t *testing.T) *mocks.ReaderWriter {
@@ -80,7 +101,7 @@ func TestTxm(t *testing.T) {
 
 	// mock solana keystore
 	key, err := solkey.New()
-	pubkey := key.PublicKey()
+	require.NoError(t, err)
 
 	require.NoError(t, err)
 	mkey := keyMocks.NewSolana(t)
@@ -120,34 +141,56 @@ func TestTxm(t *testing.T) {
 		assert.NoError(t, errors.New("unable to confirm inflight txs is empty"))
 	}
 
+	// handle signature statuses calls
+	statuses := map[solana.Signature]func() *rpc.SignatureStatusesResult{}
+	mc.On("SignatureStatuses", mock.Anything, mock.AnythingOfType("[]solana.Signature")).Return(
+		func(_ context.Context, sigs []solana.Signature) (out []*rpc.SignatureStatusesResult) {
+			for i := range sigs {
+				get, exists := statuses[sigs[i]]
+				if !exists {
+					out = append(out, nil)
+					continue
+				}
+				out = append(out, get())
+			}
+			return out
+		}, nil,
+	)
+
 	// happy path (send => simulate success => tx: nil => tx: processed => tx: confirmed => done)
 	t.Run("happyPath", func(t *testing.T) {
 		sig := getSig()
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 0, key, 0)
 		var wg sync.WaitGroup
 		wg.Add(3)
 
 		sendCount := 0
 		var countRW sync.RWMutex
-		mc.On("SendTx", mock.Anything, tx).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Run(func(mock.Arguments) {
 			countRW.Lock()
 			sendCount++
 			countRW.Unlock()
 		}).After(500*time.Millisecond).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Return(&rpc.SimulateTransactionResult{}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
-			wg.Done()
-		}).Return([]*rpc.SignatureStatusesResult{nil}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
-			wg.Done()
-		}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			ConfirmationStatus: rpc.ConfirmationStatusProcessed,
-		}}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
-			wg.Done()
-		}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
-		}}, nil).Once()
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Return(&rpc.SimulateTransactionResult{}, nil).Once()
+
+		// handle signature status calls
+		count := 0
+		statuses[sig] = func() (out *rpc.SignatureStatusesResult) {
+			defer func() { count++ }()
+			defer wg.Done()
+
+			out = &rpc.SignatureStatusesResult{}
+			if count == 1 {
+				out.ConfirmationStatus = rpc.ConfirmationStatusProcessed
+				return
+			}
+
+			if count == 2 {
+				out.ConfirmationStatus = rpc.ConfirmationStatusConfirmed
+				return
+			}
+			return nil
+		}
 
 		// send tx
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -162,7 +205,7 @@ func TestTxm(t *testing.T) {
 		countRW.RUnlock()
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 
 		// check prom metric
 		prom.success++
@@ -171,12 +214,12 @@ func TestTxm(t *testing.T) {
 
 	// fail on initial transmit (RPC immediate rejects)
 	t.Run("fail_initialTx", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 1, key, 0)
 		var wg sync.WaitGroup
 		wg.Add(1)
 
 		// should only be called once (tx does not start retry, confirming, or simulation)
-		mc.On("SendTx", mock.Anything, tx).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(solana.Signature{}, errors.New("FAIL")).Once()
 
@@ -195,18 +238,18 @@ func TestTxm(t *testing.T) {
 
 	// tx fails simulation (simulation error)
 	t.Run("fail_simulation", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 2, key, 0)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{
 			Err: "FAIL",
 		}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{nil}, nil).Maybe()
+		// signature status is nil (handled automatically)
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -221,16 +264,24 @@ func TestTxm(t *testing.T) {
 
 	// tx fails simulation (rpc error, timeout should clean up b/c sig status will be nil)
 	t.Run("fail_simulation_confirmNil", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 3, key, 0)
 		sig := getSig()
+		retry0 := getSig()
+		retry1 := getSig()
+		retry2 := getSig()
+		retry3 := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SendTx", mock.Anything, signed(1)).Return(retry0, nil)
+		mc.On("SendTx", mock.Anything, signed(2)).Return(retry1, nil)
+		mc.On("SendTx", mock.Anything, signed(3)).Return(retry2, nil).Maybe()
+		mc.On("SendTx", mock.Anything, signed(4)).Return(retry3, nil).Maybe()
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{}, errors.New("FAIL")).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{nil}, nil)
+		// all signature statuses are nil, handled automatically
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -243,30 +294,30 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 	})
 
 	// tx fails simulation with an InstructionError (indicates reverted execution)
 	// manager should cancel sending retry immediately + increment reverted prom metric
 	t.Run("fail_simulation_instructionError", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 4, key, 0)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
 
 		// {"InstructionError":[0,{"Custom":6003}]}
 		tempErr := map[string][]interface{}{
-			"InstructionError": []interface{}{
+			"InstructionError": {
 				0, map[string]int{"Custom": 6003},
 			},
 		}
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{
 			Err: tempErr,
 		}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{nil}, nil).Maybe()
+		// all signature statuses are nil, handled automatically
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -279,28 +330,38 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 	})
 
 	// tx fails simulation with BlockHashNotFound error
 	// txm should continue to confirm tx (in this case it will succeed)
 	t.Run("fail_simulation_blockhashNotFound", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 5, key, 0)
 		sig := getSig()
 		var wg sync.WaitGroup
-		wg.Add(2)
+		wg.Add(3)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{
 			Err: "BlockhashNotFound",
 		}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
-			wg.Done()
-		}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
-		}}, nil).Once()
+
+		// handle signature status calls
+		count := 0
+		statuses[sig] = func() (out *rpc.SignatureStatusesResult) {
+			defer func() { count++ }()
+			defer wg.Done()
+
+			out = &rpc.SignatureStatusesResult{}
+			if count == 1 {
+				out.ConfirmationStatus = rpc.ConfirmationStatusConfirmed
+				return
+			}
+			return nil
+		}
+
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
@@ -311,29 +372,33 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 	})
 
 	// tx fails simulation with AlreadyProcessed error
 	// txm should continue to confirm tx (in this case it will revert)
 	t.Run("fail_simulation_alreadyProcessed", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 6, key, 0)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(2)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{
 			Err: "AlreadyProcessed",
 		}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
+
+		// handle signature status calls
+		statuses[sig] = func() (out *rpc.SignatureStatusesResult) {
 			wg.Done()
-		}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			Err:                "ERROR",
-			ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
-		}}, nil).Once()
+			return &rpc.SignatureStatusesResult{
+				Err:                "ERROR",
+				ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
+			}
+		}
+
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
@@ -345,23 +410,35 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 	})
 
 	// tx passes sim, never passes processed (timeout should cleanup)
 	t.Run("fail_confirm_processed", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 7, key, 0)
 		sig := getSig()
+		retry0 := getSig()
+		retry1 := getSig()
+		retry2 := getSig()
+		retry3 := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SendTx", mock.Anything, signed(1)).Return(retry0, nil)
+		mc.On("SendTx", mock.Anything, signed(2)).Return(retry1, nil)
+		mc.On("SendTx", mock.Anything, signed(3)).Return(retry2, nil).Maybe()
+		mc.On("SendTx", mock.Anything, signed(4)).Return(retry3, nil).Maybe()
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			ConfirmationStatus: rpc.ConfirmationStatusProcessed,
-		}}, nil)
+
+		// handle signature status calls (initial stays processed, others don't exist)
+		statuses[sig] = func() (out *rpc.SignatureStatusesResult) {
+			return &rpc.SignatureStatusesResult{
+				ConfirmationStatus: rpc.ConfirmationStatusProcessed,
+			}
+		}
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -374,24 +451,42 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 	})
 
 	// tx passes sim, shows processed, moves to nil (timeout should cleanup)
 	t.Run("fail_confirm_processedToNil", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 8, key, 0)
 		sig := getSig()
+		retry0 := getSig()
+		retry1 := getSig()
+		retry2 := getSig()
+		retry3 := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SendTx", mock.Anything, signed(1)).Return(retry0, nil)
+		mc.On("SendTx", mock.Anything, signed(2)).Return(retry1, nil)
+		mc.On("SendTx", mock.Anything, signed(3)).Return(retry2, nil).Maybe()
+		mc.On("SendTx", mock.Anything, signed(4)).Return(retry3, nil).Maybe()
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			ConfirmationStatus: rpc.ConfirmationStatusProcessed,
-		}}, nil).Twice()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{nil}, nil)
+
+		// handle signature status calls (initial stays processed => nil, others don't exist)
+		count := 0
+		statuses[sig] = func() (out *rpc.SignatureStatusesResult) {
+			defer func() { count++ }()
+
+			if count > 2 {
+				return nil
+			}
+
+			return &rpc.SignatureStatusesResult{
+				ConfirmationStatus: rpc.ConfirmationStatusProcessed,
+			}
+		}
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -404,24 +499,28 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
 	})
 
 	// tx passes sim, errors on confirm
 	t.Run("fail_confirm_revert", func(t *testing.T) {
-		tx := getTx(t, pubkey)
+		tx, signed := getTx(t, 9, key, 0)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
-		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return(&rpc.SimulateTransactionResult{}, nil).Once()
-		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
-			ConfirmationStatus: rpc.ConfirmationStatusProcessed,
-			Err:                "ERROR",
-		}}, nil).Once()
+
+		// handle signature status calls
+		statuses[sig] = func() (out *rpc.SignatureStatusesResult) {
+			return &rpc.SignatureStatusesResult{
+				ConfirmationStatus: rpc.ConfirmationStatusProcessed,
+				Err:                "ERROR",
+			}
+		}
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -434,7 +533,50 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
-		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
+	})
+
+	// tx passes sim, first retried TXs get dropped
+	t.Run("success_retryTx", func(t *testing.T) {
+		tx, signed := getTx(t, 10, key, 0)
+		sig := getSig()
+		retry0 := getSig()
+		retry1 := getSig()
+		retry2 := getSig()
+		retry3 := getSig()
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		mc.On("SendTx", mock.Anything, signed(0)).Return(sig, nil)
+		mc.On("SendTx", mock.Anything, signed(1)).Return(retry0, nil)
+		mc.On("SendTx", mock.Anything, signed(2)).Return(retry1, nil)
+		mc.On("SendTx", mock.Anything, signed(3)).Return(retry2, nil).Maybe()
+		mc.On("SendTx", mock.Anything, signed(4)).Return(retry3, nil).Maybe()
+		mc.On("SimulateTx", mock.Anything, signed(0), mock.Anything).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return(&rpc.SimulateTransactionResult{}, nil).Once()
+
+		// handle signature status calls
+		statuses[retry1] = func() (out *rpc.SignatureStatusesResult) {
+			defer wg.Done()
+			return &rpc.SignatureStatusesResult{
+				ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
+			}
+		}
+
+		// send tx
+		assert.NoError(t, txm.Enqueue(t.Name(), tx))
+		wg.Wait()
+
+		// no transactions stored inflight txs list
+		waitFor(empty)
+
+		// panic if sendTx called after context cancelled
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore").Maybe()
+
+		// check prom metric
+		prom.success++
+		prom.assertEqual(t)
 	})
 }
 
@@ -446,13 +588,15 @@ func TestTxm_Enqueue(t *testing.T) {
 
 	// mock solana keystore
 	key, err := solkey.New()
-	pubkey := key.PublicKey()
-
 	require.NoError(t, err)
+	tx, _ := getTx(t, 0, key, 0)
+
 	mkey := keyMocks.NewSolana(t)
 	mkey.On("Get", key.ID()).Return(key, nil)
-	zerokey := solana.PublicKey{}
-	mkey.On("Get", zerokey.String()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: zerokey.String(), KeyType: "Solana"})
+	invalidKey, err := solkey.New()
+	require.NoError(t, err)
+	invalidTx, _ := getTx(t, 0, invalidKey, 0)
+	mkey.On("Get", invalidKey.ID()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: invalidKey.ID(), KeyType: "Solana"})
 
 	txm := NewTxm("enqueue_test", func() (client.ReaderWriter, error) {
 		return mc, nil
@@ -463,8 +607,8 @@ func TestTxm_Enqueue(t *testing.T) {
 		tx   *solana.Transaction
 		fail bool
 	}{
-		{"success", getTx(t, pubkey), false},
-		{"invalid_key", getTx(t, zerokey), true},
+		{"success", tx, false},
+		{"invalid_key", invalidTx, true},
 		{"nil_pointer", nil, true},
 		{"empty_tx", &solana.Transaction{}, true},
 	}

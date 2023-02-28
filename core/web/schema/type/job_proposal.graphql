@@ -1,21 +1,22 @@
 enum JobProposalStatus {
-    PENDING
-    APPROVED
-    REJECTED
-    CANCELLED
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 type JobProposal {
-    id: ID!
-    status: JobProposalStatus!
-    remoteUUID: String!
-    externalJobID: String
-    jobID: String
-    feedsManager: FeedsManager!
-    multiAddrs: [String!]!
-    pendingUpdate: Boolean!
-    specs: [JobProposalSpec!]!
-    latestSpec: JobProposalSpec!
+  id: ID!
+  name: String
+  status: JobProposalStatus!
+  remoteUUID: String!
+  externalJobID: String
+  jobID: String
+  feedsManager: FeedsManager!
+  multiAddrs: [String!]!
+  pendingUpdate: Boolean!
+  specs: [JobProposalSpec!]!
+  latestSpec: JobProposalSpec!
 }
 
 union JobProposalPayload = JobProposal | NotFoundError

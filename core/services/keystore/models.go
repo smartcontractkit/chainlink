@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -54,6 +53,13 @@ func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = rawKeys.LegacyKeys.StoreUnsupported(marshalledRawKeyRingJson, ring)
+	if err != nil {
+		return nil, err
+	}
+	ring.LegacyKeys = rawKeys.LegacyKeys
+
 	return ring, nil
 }
 
@@ -142,11 +148,11 @@ type keyRing struct {
 	OCR2       map[string]ocr2key.KeyBundle
 	P2P        map[string]p2pkey.KeyV2
 	Solana     map[string]solkey.Key
-	Terra      map[string]terrakey.Key
 	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
 	DKGEncrypt map[string]dkgencryptkey.Key
+	LegacyKeys LegacyKeyStorage
 }
 
 func newKeyRing() *keyRing {
@@ -157,7 +163,6 @@ func newKeyRing() *keyRing {
 		OCR2:       make(map[string]ocr2key.KeyBundle),
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Solana:     make(map[string]solkey.Key),
-		Terra:      make(map[string]terrakey.Key),
 		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
@@ -170,6 +175,12 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 	if err != nil {
 		return ekr, err
 	}
+
+	marshalledRawKeyRingJson, err = kr.LegacyKeys.UnloadUnsupported(marshalledRawKeyRingJson)
+	if err != nil {
+		return encryptedKeyRing{}, err
+	}
+
 	cryptoJSON, err := gethkeystore.EncryptDataV3(
 		marshalledRawKeyRingJson,
 		[]byte(adulteratedPassword(password)),
@@ -206,9 +217,6 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	}
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
-	}
-	for _, terrakey := range kr.Terra {
-		rawKeys.Terra = append(rawKeys.Terra, terrakey.Raw())
 	}
 	for _, starkkey := range kr.StarkNet {
 		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
@@ -251,10 +259,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, solanaKey := range kr.Solana {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
-	var terraIDs []string
-	for _, terraKey := range kr.Terra {
-		terraIDs = append(terraIDs, terraKey.ID())
-	}
 	var starknetIDs []string
 	for _, starkkey := range kr.StarkNet {
 		starknetIDs = append(starknetIDs, starkkey.ID())
@@ -289,9 +293,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
 	}
-	if len(terraIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Terra keys", len(terraIDs)), "keys", terraIDs)
-	}
 	if len(starknetIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
 	}
@@ -303,6 +304,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	}
 	if len(dkgEncryptIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d DKGEncrypt keys", len(dkgEncryptIDs)), "keys", dkgEncryptIDs)
+	}
+	if len(kr.LegacyKeys.legacyRawKeys) > 0 {
+		lggr.Infow(fmt.Sprintf("%d keys stored in legacy system", kr.LegacyKeys.legacyRawKeys.len()))
 	}
 }
 
@@ -316,11 +320,11 @@ type rawKeyRing struct {
 	OCR2       []ocr2key.Raw
 	P2P        []p2pkey.Raw
 	Solana     []solkey.Raw
-	Terra      []terrakey.Raw
 	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw
+	LegacyKeys LegacyKeyStorage `json:"-"`
 }
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
@@ -338,8 +342,9 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	for _, rawOCR2Key := range rawKeys.OCR2 {
-		ocr2Key := rawOCR2Key.Key()
-		keyRing.OCR2[ocr2Key.ID()] = ocr2Key
+		if ocr2Key := rawOCR2Key.Key(); ocr2Key != nil {
+			keyRing.OCR2[ocr2Key.ID()] = ocr2Key
+		}
 	}
 	for _, rawP2PKey := range rawKeys.P2P {
 		p2pKey := rawP2PKey.Key()
@@ -348,10 +353,6 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawSolKey := range rawKeys.Solana {
 		solKey := rawSolKey.Key()
 		keyRing.Solana[solKey.ID()] = solKey
-	}
-	for _, rawTerraKey := range rawKeys.Terra {
-		terraKey := rawTerraKey.Key()
-		keyRing.Terra[terraKey.ID()] = terraKey
 	}
 	for _, rawStarkNetKey := range rawKeys.StarkNet {
 		starkKey := rawStarkNetKey.Key()
@@ -369,6 +370,8 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		dkgEncryptKey := rawDKGEncryptKey.Key()
 		keyRing.DKGEncrypt[dkgEncryptKey.ID()] = dkgEncryptKey
 	}
+
+	keyRing.LegacyKeys = rawKeys.LegacyKeys
 	return keyRing, nil
 }
 

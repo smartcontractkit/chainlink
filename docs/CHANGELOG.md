@@ -18,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terra is no longer supported
 
 ...
-<!-- unreleasedstop -->
 
 ## 1.12.1 - UNRELEASED
 

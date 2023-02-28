@@ -366,6 +366,9 @@ func (c *Chainlink) MustReadOCR2Keys() (*OCR2Keys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(ocr2Keys).
 		Get("/v2/keys/ocr2")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return ocr2Keys, err
 }
@@ -807,6 +810,9 @@ func (c *Chainlink) MustReadDKGSignKeys() (*DKGSignKeys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(dkgSignKeys).
 		Get("/v2/keys/dkgsign")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return dkgSignKeys, err
 }
@@ -818,6 +824,9 @@ func (c *Chainlink) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(dkgEncryptKeys).
 		Get("/v2/keys/dkgencrypt")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return dkgEncryptKeys, err
 }
@@ -890,34 +899,6 @@ func (c *Chainlink) DeleteEI(name string) (*http.Response, error) {
 		return nil, err
 	}
 	return resp.RawResponse, err
-}
-
-// CreateTerraChain creates a terra chain
-func (c *Chainlink) CreateTerraChain(chain *TerraChainAttributes) (*TerraChainCreate, *http.Response, error) {
-	response := TerraChainCreate{}
-	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Terra Chain")
-	resp, err := c.APIClient.R().
-		SetBody(chain).
-		SetResult(&response).
-		Post("/v2/chains/terra")
-	if err != nil {
-		return nil, nil, err
-	}
-	return &response, resp.RawResponse, err
-}
-
-// CreateTerraNode creates a terra node
-func (c *Chainlink) CreateTerraNode(node *TerraNodeAttributes) (*TerraNodeCreate, *http.Response, error) {
-	response := TerraNodeCreate{}
-	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating Terra Node")
-	resp, err := c.APIClient.R().
-		SetBody(node).
-		SetResult(&response).
-		Post("/v2/nodes/terra")
-	if err != nil {
-		return nil, nil, err
-	}
-	return &response, resp.RawResponse, err
 }
 
 // CreateSolanaChain creates a solana chain

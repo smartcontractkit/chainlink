@@ -15,18 +15,15 @@ import (
 
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
-	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -69,21 +66,6 @@ func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error)
 				}
 			}
 		}
-
-		if app.Chains.Terra != nil {
-			chains.TerraChains, _, err = app.Chains.Terra.Index(0, -1)
-			if err != nil {
-				return "", err
-			}
-
-			chains.TerraNodes = make(map[string][]terdb.Node)
-			for _, dbChain := range chains.TerraChains {
-				chains.TerraNodes[dbChain.ID], _, err = app.Chains.Terra.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-				if err != nil {
-					return "", errors.Wrapf(err, "failed to get nodes for terra chain %s", dbChain.ID)
-				}
-			}
-		}
 	}
 	return configDump(chains)
 }
@@ -97,9 +79,6 @@ type dbData struct {
 
 	StarknetChains []stktyp.DBChain
 	StarknetNodes  map[string][]stkdb.Node
-
-	TerraChains []tertyp.DBChain
-	TerraNodes  map[string][]terdb.Node
 }
 
 func configDump(data dbData) (string, error) {
@@ -154,18 +133,6 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 			starkChain.Enabled = nil
 		}
 		c.Starknet = append(c.Starknet, &starkChain)
-	}
-
-	for _, dbChain := range dbData.TerraChains {
-		var terChain terra.TerraConfig
-		if err := terChain.SetFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
-			return errors.Wrapf(err, "failed to convert db config for terra chain %s", dbChain.ID)
-		}
-		if *terChain.Enabled {
-			// no need to persist if enabled
-			terChain.Enabled = nil
-		}
-		c.Terra = append(c.Terra, &terChain)
 	}
 
 	return nil
@@ -520,6 +487,8 @@ func (c *Config) loadLegacyCoreEnv() error {
 
 	c.Feature = config.Feature{
 		FeedsManager: envvar.NewBool("FeatureFeedsManager").ParsePtr(),
+		LogPoller:    envvar.NewBool("FeatureLogPoller").ParsePtr(),
+		UICSAKeys:    envvar.NewBool("FeatureUICSAKeys").ParsePtr(),
 	}
 	c.AuditLogger = audit.AuditLoggerConfig{
 		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),

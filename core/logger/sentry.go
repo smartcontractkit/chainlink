@@ -37,6 +37,10 @@ func (s *sentryLogger) Named(name string) Logger {
 	}
 }
 
+func (s *sentryLogger) Name() string {
+	return s.h.Name()
+}
+
 func (s *sentryLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }

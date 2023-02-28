@@ -20,7 +20,6 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -121,14 +120,14 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 			o.chainClient,
 		)
 	} else {
-		o.ocrInstances = actions.DeployOCRContracts(
-			t,
+		o.ocrInstances, err = actions.DeployOCRContracts(
 			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
 			o.chainlinkNodes,
 			o.chainClient,
 		)
+		require.NoError(t, err)
 	}
 
 	err = o.chainClient.WaitForEvents()
@@ -147,11 +146,13 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run(t *testing.T) {
 	// Set initial value and create jobs
-	actions.SetAllAdapterResponsesToTheSameValue(t, o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	require.NoError(t, err, "Error setting adapter responses")
 	if o.OperatorForwarderFlow {
 		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
 	} else {
-		actions.CreateOCRJobs(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		require.NoError(t, err, "Error creating OCR jobs")
 	}
 
 	log.Info().
@@ -161,9 +162,6 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 		Msg("Starting OCR Soak Test")
 
 	testDuration := time.NewTimer(o.Inputs.TestDuration)
-
-	stopTestChannel := make(chan struct{}, 1)
-	testsetups.StartRemoteControlServer("OCR Soak Test", stopTestChannel)
 
 	// *********************
 	// ***** Test Loop *****
@@ -176,10 +174,6 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	testOver := false
 	for {
 		select {
-		case <-stopTestChannel:
-			o.TestReporter.UnexpectedShutdown = true
-			log.Warn().Msg("Received shut down signal. Soak test stopping early")
-			return
 		case <-testDuration.C:
 			testOver = true
 			log.Warn().Msg("Soak Test Duration Reached. Completing Final Round")
@@ -305,7 +299,8 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	for _, report := range o.TestReporter.ContractReports {
 		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
 	}
-	actions.SetAllAdapterResponsesToTheSameValue(t, currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	require.NoError(t, err, "Error setting adapter responses")
 	log.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")

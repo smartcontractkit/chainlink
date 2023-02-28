@@ -92,7 +92,6 @@ interface FunctionsOracleInterface {
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
-    uint256 gasPrice
+    uint32 gasLimit
   ) external returns (bytes32);
 }
