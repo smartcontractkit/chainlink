@@ -10,6 +10,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -44,7 +46,7 @@ var (
 			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 		},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   2 * time.Minute,
+		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
@@ -64,12 +66,15 @@ func CleanupReorgTest(
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 
 func TestDirectRequestReorg(t *testing.T) {
-	testEnvironment := environment.New(&environment.Config{TTL: 1 * time.Hour})
+	testEnvironment := environment.New(&environment.Config{
+		TTL:  1 * time.Hour,
+		Test: t,
+	})
 	err := testEnvironment.
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -90,6 +95,9 @@ func TestDirectRequestReorg(t *testing.T) {
 		})).
 		Run()
 	require.NoError(t, err, "Error deploying test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 	// node must work and reconnect even if network is not working

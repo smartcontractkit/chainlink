@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../dev/functions/FunctionsClient.sol";
+import {FunctionsClient, Functions} from "../dev/functions/FunctionsClient.sol";
 
 contract FunctionsClientTestHelper is FunctionsClient {
   using Functions for Functions.Request;
@@ -20,14 +20,18 @@ contract FunctionsClientTestHelper is FunctionsClient {
   {
     Functions.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    requestId = sendRequest(request, subscriptionId, 20_000, tx.gasprice);
+    requestId = sendRequest(request, subscriptionId, 20_000);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  function estimateJuelCost(string memory sourceCode, uint64 subscriptionId) public view returns (uint96) {
+  function estimateJuelCost(
+    string memory sourceCode,
+    uint64 subscriptionId,
+    uint256 gasCost
+  ) public view returns (uint96) {
     Functions.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    return estimateCost(request, subscriptionId, 20_000, 4_388_265);
+    return estimateCost(request, subscriptionId, 20_000, gasCost);
   }
 
   function fulfillRequest(

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,7 +21,11 @@ import (
 )
 
 // NOTE: Field names need to match what's in the JSON input file (see sample_config.json)
-type InputConfig struct {
+type TopLevelConfigSource struct {
+	OracleConfig OracleConfigSource
+}
+
+type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
 	MaxReportLengthBytes      uint32
@@ -46,6 +50,15 @@ type InputConfig struct {
 	MaxFaultyOracles int
 }
 
+type NodeKeys struct {
+	EthAddress            string
+	P2PPeerID             string // p2p_<key>
+	OCR2BundleID          string // used only in job spec
+	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
+	OCR2OffchainPublicKey string // ocr2off_evm_<key>
+	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
+}
+
 type orc2drOracleConfig struct {
 	Signers               []string `json:"signers"`
 	Transmitters          []string `json:"transmitters"`
@@ -66,54 +79,78 @@ func (g *generateOCR2Config) Name() string {
 	return "generate-ocr2config"
 }
 
-func mustParseJSONConfigFile(fileName string, output *InputConfig) {
+func mustParseJSONConfigFile(fileName string) (output TopLevelConfigSource) {
 	jsonFile, err := os.Open(fileName)
 	if err != nil {
 		panic(err)
 	}
 	defer jsonFile.Close()
-	configBytes, err := ioutil.ReadAll(jsonFile)
+	bytes, err := io.ReadAll(jsonFile)
 	if err != nil {
 		panic(err)
 	}
-	err = json.Unmarshal(configBytes, output)
+	err = json.Unmarshal(bytes, &output)
 	if err != nil {
 		panic(err)
 	}
+	return
+}
+
+func mustParseKeysFile(fileName string) (output []NodeKeys) {
+	jsonFile, err := os.Open(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	bytes, err := io.ReadAll(jsonFile)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(bytes, &output)
+	if err != nil {
+		panic(err)
+	}
+	return
 }
 
 func (g *generateOCR2Config) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	nodesFile := fs.String("nodes", "", "a file containing nodes urls, logins and passwords")
+	keysFile := fs.String("keys", "", "a file containing nodes public keys")
 	configFile := fs.String("config", "", "a file containing JSON config")
 	chainID := fs.Int64("chainid", 80001, "chain id")
 	err := fs.Parse(args)
-	if err != nil || *nodesFile == "" || *configFile == "" || chainID == nil {
+	if err != nil || (*nodesFile == "" && *keysFile == "") || *configFile == "" || chainID == nil {
 		fs.Usage()
 		os.Exit(1)
 	}
 
-	var cfg InputConfig
-	mustParseJSONConfigFile(*configFile, &cfg)
-	nodes := mustReadNodesList(*nodesFile)
-	nca := mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
+	topLevelCfg := mustParseJSONConfigFile(*configFile)
+	cfg := topLevelCfg.OracleConfig
+	var nca []NodeKeys
+	if *keysFile != "" {
+		nca = mustParseKeysFile(*keysFile)
+	} else {
+		nodes := mustReadNodesList(*nodesFile)
+		nca = mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
+	}
 
 	onchainPubKeys := []common.Address{}
 	for _, n := range nca {
-		onchainPubKeys = append(onchainPubKeys, common.HexToAddress(n.ocr2OnchainPublicKey))
+		onchainPubKeys = append(onchainPubKeys, common.HexToAddress(n.OCR2OnchainPublicKey))
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, n := range nca {
-		pkBytes, err := hex.DecodeString(n.ocr2OffchainPublicKey)
+		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
 		if err != nil {
 			panic(err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
-		n := copy(pkBytesFixed[:], pkBytes)
-		if n != ed25519.PublicKeySize {
-			panic("wrong num elements copied")
+		nCopied := copy(pkBytesFixed[:], pkBytes)
+		if nCopied != ed25519.PublicKeySize {
+			panic("wrong num elements copied from ocr2 offchain public key")
 		}
 
 		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
@@ -121,7 +158,7 @@ func (g *generateOCR2Config) Run(args []string) {
 
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
 	for _, n := range nca {
-		pkBytes, err := hex.DecodeString(n.ocr2ConfigPublicKey)
+		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
 		helpers.PanicErr(err)
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
@@ -139,8 +176,8 @@ func (g *generateOCR2Config) Run(args []string) {
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
 				OffchainPublicKey: offchainPubKeysBytes[index],
-				PeerID:            nca[index].p2pPeerID,
-				TransmitAccount:   types.Account(nca[index].ethAddress),
+				PeerID:            nca[index].P2PPeerID,
+				TransmitAccount:   types.Account(nca[index].EthAddress),
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})

@@ -16,6 +16,42 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initJobsSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "list",
+			Usage:  "List all jobs",
+			Action: client.ListJobs,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "page",
+					Usage: "page of results to display",
+				},
+			},
+		},
+		{
+			Name:   "show",
+			Usage:  "Show a job",
+			Action: client.ShowJob,
+		},
+		{
+			Name:   "create",
+			Usage:  "Create a job",
+			Action: client.CreateJob,
+		},
+		{
+			Name:   "delete",
+			Usage:  "Delete a job",
+			Action: client.DeleteJob,
+		},
+		{
+			Name:   "run",
+			Usage:  "Trigger a job run",
+			Action: client.TriggerPipelineRun,
+		},
+	}
+}
+
 // JobRenderer wraps the JSONAPI Job Resource and adds rendering functionality
 type JobPresenter struct {
 	JAID // This is needed to render the id for a JSONAPI Resource as normal JSON

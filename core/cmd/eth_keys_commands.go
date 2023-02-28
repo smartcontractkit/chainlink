@@ -19,6 +19,120 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initEthKeysSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "eth",
+		Usage: "Remote commands for administering the node's Ethereum keys",
+		Subcommands: cli.Commands{
+			{
+				Name:   "create",
+				Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
+				Action: client.CreateETHKey,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "evmChainID",
+						Usage: "Chain ID for the key. If left blank, default chain will be used.",
+					},
+					cli.Uint64Flag{
+						Name:  "maxGasPriceGWei",
+						Usage: "Optional maximum gas price (GWei) for the creating key.",
+					},
+				},
+			},
+			{
+				Name:   "update",
+				Usage:  "Update the existing key's parameters",
+				Action: client.UpdateETHKey,
+				Flags: []cli.Flag{
+					cli.Uint64Flag{
+						Name:  "maxGasPriceGWei",
+						Usage: "Maximum gas price (GWei) for the specified key.",
+					},
+				},
+			},
+			{
+				Name:   "list",
+				Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
+				Action: client.ListETHKeys,
+			},
+			{
+				Name:  "delete",
+				Usage: format(`Delete the ETH key by address (irreversible!)`),
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "yes, y",
+						Usage: "skip the confirmation prompt",
+					},
+				},
+				Action: client.DeleteETHKey,
+			},
+			{
+				Name:  "import",
+				Usage: format(`Import an ETH key from a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "oldpassword, p",
+						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+					},
+					cli.StringFlag{
+						Name:  "evmChainID",
+						Usage: "Chain ID for the key. If left blank, default chain will be used.",
+					},
+				},
+				Action: client.ImportETHKey,
+			},
+			{
+				Name:  "export",
+				Usage: format(`Exports an ETH key to a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "newpassword, p",
+						Usage: "`FILE` containing the password to encrypt the key (required)",
+					},
+					cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Path where the JSON file will be saved (required)",
+					},
+				},
+				Action: client.ExportETHKey,
+			},
+			{
+				Name:   "chain",
+				Usage:  "Update an EVM key for the given chain",
+				Action: client.UpdateChainEVMKey,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:     "address",
+						Usage:    "address of the key",
+						Required: true,
+					},
+					cli.StringFlag{
+						Name:     "evmChainID",
+						Usage:    "chain ID of the key",
+						Required: true,
+					},
+					cli.Uint64Flag{
+						Name:  "setNextNonce",
+						Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
+					},
+					cli.BoolFlag{
+						Name:  "enable",
+						Usage: "enable the key for the given chain",
+					},
+					cli.BoolFlag{
+						Name:  "disable",
+						Usage: "disable the key for the given chain",
+					},
+					cli.BoolFlag{
+						Name:  "abandon",
+						Usage: "if set, will abandon all pending and unconfirmed transactions and mark them as fatally errored. Use with caution, this can result in nonce gaps or 'stuck' transactions",
+					},
+				},
+			},
+		},
+	}
+}
+
 type EthKeyPresenter struct {
 	presenters.ETHKeyResource
 }
@@ -272,7 +386,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
-	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}

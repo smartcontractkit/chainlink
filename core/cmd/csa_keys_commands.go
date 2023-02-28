@@ -16,6 +16,51 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initCSAKeysSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "csa",
+		Usage: "Remote commands for administering the node's CSA keys",
+		Subcommands: cli.Commands{
+			{
+				Name:   "create",
+				Usage:  format(`Create a CSA key, encrypted with password from the password file, and store it in the database.`),
+				Action: client.CreateCSAKey,
+			},
+			{
+				Name:   "list",
+				Usage:  format(`List available CSA keys`),
+				Action: client.ListCSAKeys,
+			},
+			{
+				Name:  "import",
+				Usage: format(`Imports a CSA key from a JSON file.`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "oldpassword, p",
+						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+					},
+				},
+				Action: client.ImportCSAKey,
+			},
+			{
+				Name:  "export",
+				Usage: format(`Exports an existing CSA key by its ID.`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "newpassword, p",
+						Usage: "`FILE` containing the password to encrypt the key (required)",
+					},
+					cli.StringFlag{
+						Name:  "output, o",
+						Usage: "`FILE` where the JSON file will be saved (required)",
+					},
+				},
+				Action: client.ExportCSAKey,
+			},
+		},
+	}
+}
+
 type CSAKeyPresenter struct {
 	JAID
 	presenters.CSAKeyResource
@@ -181,7 +226,7 @@ func (cli *Client) ExportCSAKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
-	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
