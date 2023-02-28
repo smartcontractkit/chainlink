@@ -13,20 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for sending OCR2 job specs to the feeds manager
 - Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 
-### Removed
-
-- Terra is no longer supported
-
-...
-
-## 1.12.1 - UNRELEASED
-
 ### Updated
 
 - TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
 of any values provided via configuration files.
 
-...
+### Removed
+
+- Terra is no longer supported
 
 ## 1.12.0 - 2023-02-15
 
