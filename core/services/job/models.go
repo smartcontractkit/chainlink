@@ -311,6 +311,7 @@ type OCR2OracleSpec struct {
 	ContractID                        string          `toml:"contractID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`

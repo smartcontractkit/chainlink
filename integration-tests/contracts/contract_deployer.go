@@ -74,6 +74,9 @@ type ContractDeployer interface {
 	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 	DeployAtlasFunctions() (AtlasFunctions, error)
+	DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error)
+	DeployVerifier(feedId [32]byte, verifierProxyAddr string) (Verifier, error)
+	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
