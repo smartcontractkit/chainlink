@@ -761,8 +761,8 @@ func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.
 		stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.evm_chain_id = $2 AND ocrspec.id = jobs.ocr_oracle_spec_id
-LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.evm_chain_id = $2 AND fmspec.id = jobs.flux_monitor_spec_id
+LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND (ocrspec.evm_chain_id = $2 OR ocrspec.evm_chain_id IS NULL) AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND (fmspec.evm_chain_id = $2 OR fmspec.evm_chain_id IS NULL) AND fmspec.id = jobs.flux_monitor_spec_id
 WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
 		err = tx.Get(&jobID, stmt, address, evmChainID)

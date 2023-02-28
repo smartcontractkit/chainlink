@@ -319,11 +319,11 @@ func (o *orm) CountJobProposals() (count int64, err error) {
 // CountJobProposals counts the number of job proposal records.
 func (o *orm) CountJobProposalsByStatus() (counts *JobProposalCounts, err error) {
 	stmt := `
-SELECT
-	COUNT(*) filter (where job_proposals.status = 'pending') as pending,
-	COUNT(*) filter (where job_proposals.status = 'approved') as approved,
-	COUNT(*) filter (where job_proposals.status = 'rejected') as rejected,
-	COUNT(*) filter (where job_proposals.status = 'cancelled') as cancelled
+SELECT 
+	COUNT(*) filter (where job_proposals.status = 'pending' OR job_proposals.pending_update = TRUE) as pending,
+	COUNT(*) filter (where job_proposals.status = 'approved' AND job_proposals.pending_update = FALSE) as approved,
+	COUNT(*) filter (where job_proposals.status = 'rejected' AND job_proposals.pending_update = FALSE) as rejected,
+	COUNT(*) filter (where job_proposals.status = 'cancelled' AND job_proposals.pending_update = FALSE) as cancelled
 FROM job_proposals;
 	`
 
