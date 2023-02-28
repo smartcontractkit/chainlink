@@ -14,6 +14,9 @@ import (
 
 type Exchanger interface {
 	Address() string
+	CommitTrade(commitment [32]byte) error
+	ResolveTrade(encodedCommitment []byte) (string, error)
+	ResolveTradeWithReport(chainlinkBlob []byte, encodedCommitment []byte) (*types.Receipt, error)
 }
 
 type EthereumExchanger struct {
@@ -26,9 +29,56 @@ func (v *EthereumExchanger) Address() string {
 	return v.address.Hex()
 }
 
+func (e *EthereumExchanger) CommitTrade(commitment [32]byte) error {
+	txOpts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.exchanger.CommitTrade(txOpts, commitment)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumExchanger) ResolveTrade(encodedCommitment []byte) (string, error) {
+	callOpts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	data, err := e.exchanger.ResolveTrade(callOpts, encodedCommitment)
+	if err != nil {
+		return "", err
+	}
+	return data, nil
+}
+
+func (e *EthereumExchanger) ResolveTradeWithReport(chainlinkBlob []byte, encodedCommitment []byte) (*types.Receipt, error) {
+	txOpts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	txOpts.GasLimit = 1000000
+	tx, err := e.exchanger.ResolveTradeWithReport(txOpts, chainlinkBlob, encodedCommitment)
+	if err != nil {
+		// blockchain.LogRevertReason(err, exchanger.ExchangerABI)
+		return nil, err
+	}
+	err = e.client.ProcessTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	err = e.client.WaitForEvents()
+	if err != nil {
+		return nil, err
+	}
+	return e.client.GetTxReceipt(tx.Hash())
+}
+
 type VerifierProxy interface {
 	Address() string
 	InitializeVerifier(configDigest [32]byte, verifierAddress string) error
+	Verify(signedReport []byte) error
 }
 
 type EthereumVerifierProxy struct {
@@ -47,6 +97,18 @@ func (v *EthereumVerifierProxy) InitializeVerifier(configDigest [32]byte, verifi
 		return err
 	}
 	tx, err := v.verifierProxy.InitializeVerifier(txOpts, configDigest, common.HexToAddress(verifierAddr))
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVerifierProxy) Verify(signedReport []byte) error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.verifierProxy.Verify(txOpts, signedReport)
 	if err != nil {
 		return err
 	}

@@ -217,6 +217,14 @@ func (p *SingletonPeerWrapper) Close() error {
 	})
 }
 
+func (p *SingletonPeerWrapper) Name() string {
+	return p.lggr.Name()
+}
+
+func (p *SingletonPeerWrapper) HealthReport() map[string]error {
+	return map[string]error{p.Name(): p.Healthy()}
+}
+
 func (p *SingletonPeerWrapper) Config() PeerWrapperConfig {
 	return p.config
 }
