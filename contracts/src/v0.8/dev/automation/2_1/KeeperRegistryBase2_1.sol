@@ -77,6 +77,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   PaymentModel internal immutable i_paymentModel;
+  bool internal deprecated = false;
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
@@ -294,6 +295,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   function getFastGasFeedAddress() external view returns (address) {
     return address(i_fastGasFeed);
+  }
+
+  function getDeprecated() external view returns (bool) {
+    return deprecated;
   }
 
   ////////

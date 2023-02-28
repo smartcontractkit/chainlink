@@ -1027,4 +1027,13 @@ contract KeeperRegistry2_1 is
     // Restricted to onlyOwner in logic contract
     _fallback();
   }
+
+  /**
+   * @notice sets the registry to deprecated. This will stop adding funds to this registry and upkeeps.
+   */
+  function setDeprecated(bool deprecated) external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
+  }
 }

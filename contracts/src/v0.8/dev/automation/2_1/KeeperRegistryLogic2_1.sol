@@ -472,4 +472,8 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
     if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
     if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
+
+  function setDeprecated(bool deprecated) external {
+
+  }
 }

@@ -128,6 +128,8 @@ interface AutomationRegistryBaseInterface {
 
   function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external;
 
+  function setDeprecated(bool deprecated) external;
+
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
@@ -153,6 +155,8 @@ interface AutomationRegistryBaseInterface {
       address[] memory transmitters,
       uint8 f
     );
+
+  function getDeprecated() external view returns (bool);
 }
 
 /**
