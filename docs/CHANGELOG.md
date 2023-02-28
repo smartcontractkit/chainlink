@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+...
+
+## 1.13.0 - UNRELEASED
+
 ### Added
 
 - Support for sending OCR2 job specs to the feeds manager
@@ -21,6 +25,8 @@ of any values provided via configuration files.
 ### Removed
 
 - Terra is no longer supported
+
+<!-- unreleasedstop -->
 
 ## 1.12.0 - 2023-02-15
 
