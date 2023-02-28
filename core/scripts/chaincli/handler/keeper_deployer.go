@@ -135,14 +135,13 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
-		30*time.Second,        // deltaStage time.Duration,
 		40*time.Millisecond,   // deltaGrace time.Duration,
+		30*time.Second,        // deltaStage time.Duration,
 		50,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
-			UniqueReports:        false,          // set quorum requirements
 			MinConfirmations:     1,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,

@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../interfaces/FunctionsOracleInterface.sol";
-import "../ocr2/OCR2Base.sol";
-import "./AuthorizedOriginReceiver.sol";
+import {FunctionsOracleInterface, FunctionsBillingRegistryInterface} from "../interfaces/FunctionsOracleInterface.sol";
+import {OCR2BaseUpgradeable} from "../ocr2/OCR2BaseUpgradeable.sol";
+import {AuthorizedOriginReceiverUpgradeable} from "./AuthorizedOriginReceiverUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Oracle contract
  * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOriginReceiver {
+contract FunctionsOracle is
+  Initializable,
+  FunctionsOracleInterface,
+  OCR2BaseUpgradeable,
+  AuthorizedOriginReceiverUpgradeable
+{
   event OracleRequest(
     bytes32 indexed requestId,
     address requestingContract,
@@ -34,7 +40,13 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   FunctionsBillingRegistryInterface private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
 
-  constructor() OCR2Base(true) {}
+  /**
+   * @dev Initializes the contract.
+   */
+  function initialize() public initializer {
+    __OCR2Base_initialize(true);
+    __AuthorizedOriginReceiver_initialize(true);
+  }
 
   /**
    * @notice The type and version of this contract
@@ -83,7 +95,7 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
    */
   function _isTransmitter(address node) internal view returns (bool) {
     address[] memory nodes = this.transmitters();
-    for (uint i = 0; i < nodes.length; i++) {
+    for (uint256 i = 0; i < nodes.length; i++) {
       if (nodes[i] == node) {
         return true;
       }
@@ -119,7 +131,7 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
-    for (uint i = 0; i < nodes.length; i++) {
+    for (uint256 i = 0; i < nodes.length; i++) {
       keys[i] = s_nodePublicKeys[nodes[i]];
     }
     return (nodes, keys);
@@ -152,9 +164,9 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
       gasLimit,
       gasPrice
     );
-    uint96 requiredFee = getRequiredFee(data, billing);
-    uint96 registryFee = getRequiredFee(data, billing);
-    return s_registry.estimateCost(gasLimit, gasPrice, requiredFee, registryFee);
+    uint96 donFee = getRequiredFee(data, billing);
+    uint96 registryFee = s_registry.getRequiredFee(data, billing);
+    return s_registry.estimateCost(gasLimit, gasPrice, donFee, registryFee);
   }
 
   /**
@@ -163,15 +175,14 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
-    uint256 gasPrice
+    uint32 gasLimit
   ) external override registryIsSet validateAuthorizedSender returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
+      FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, tx.gasprice)
     );
     emit OracleRequest(
       requestId,
@@ -251,4 +262,11 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   function _canSetAuthorizedSenders() internal view override returns (bool) {
     return msg.sender == owner();
   }
+
+  /**
+   * @dev This empty reserved space is put in place to allow future versions to add new
+   * variables without shifting down storage in the inheritance chain.
+   * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+   */
+  uint256[49] private __gap;
 }

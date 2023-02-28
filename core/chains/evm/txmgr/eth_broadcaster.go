@@ -90,6 +90,7 @@ type TransmitChecker interface {
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster struct {
 	logger    logger.Logger
+	orm       ORM
 	db        *sqlx.DB
 	q         pg.Q
 	ethClient evmclient.Client
@@ -129,6 +130,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 	logger = logger.Named("EthBroadcaster")
 	return &EthBroadcaster{
 		logger:    logger,
+		orm:       NewORM(db, logger, config),
 		db:        db,
 		q:         pg.NewQ(db, logger, config),
 		ethClient: ethClient,
@@ -181,7 +183,6 @@ func (eb *EthBroadcaster) Close() error {
 
 		close(eb.chStop)
 		eb.wg.Wait()
-
 		return nil
 	})
 }
@@ -420,7 +421,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) (err error, retryable bool) {
-	etx, err := getInProgressEthTx(eb.q, fromAddress)
+	etx, err := eb.getInProgressEthTx(fromAddress)
 	if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed"), true
 	}
@@ -436,15 +437,15 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err error) {
+func (eb *EthBroadcaster) getInProgressEthTx(fromAddress gethCommon.Address) (etx *EthTx, err error) {
 	etx = new(EthTx)
-	err = q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
+	err = eb.q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading eth tx")
 	}
-	if err = loadEthTxAttempts(q, etx); err != nil {
+	if err = eb.orm.LoadEthTxAttempts(etx); err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while loading EthTxAttempts")
 	}
 	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
@@ -555,6 +556,16 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}
 		return errors.Wrap(sendError, "this error type only handled for L2s"), false
+	}
+
+	if sendError.IsNonceTooHighError() {
+		// Nethermind specific error. Nethermind throws a NonceGap error when the tx nonce is
+		// greater than current_nonce + tx_count_in_mempool, instead of keeping the tx in mempool.
+		// This can happen if previous transactions haven't reached the client yet.
+		// The correct thing to do is assume success for now and let the eth_confirmer retry until
+		// the nonce gap gets filled by the previous transactions.
+		lgr.Warnw("Transaction has a nonce gap.", "err", sendError.Error())
+		return sendError, true
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -811,7 +822,7 @@ func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logg
 		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
 	}
 
-	if err = saveReplacementInProgressAttempt(eb.q, attempt, &replacementAttempt); err != nil {
+	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
 	}
 	lgr.Debugw("Bumped legacy gas on initial send", "oldGasPrice", attempt.GasPrice, "newGasPrice", newGasPrice)
@@ -824,7 +835,7 @@ func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, lgr 
 		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
 	}
 
-	if err = saveReplacementInProgressAttempt(eb.q, attempt, &replacementAttempt); err != nil {
+	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
 	}
 	lgr.Debugw("Bumped dynamic fee gas on initial send", "oldFee", attempt.DynamicFee(), "newFee", newDynamicFee)

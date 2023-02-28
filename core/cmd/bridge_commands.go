@@ -4,10 +4,42 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
+
+func initBrideSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "create",
+			Usage:  "Create a new Bridge to an External Adapter",
+			Action: client.CreateBridge,
+		},
+		{
+			Name:   "destroy",
+			Usage:  "Destroys the Bridge for an External Adapter",
+			Action: client.RemoveBridge,
+		},
+		{
+			Name:   "list",
+			Usage:  "List all Bridges to External Adapters",
+			Action: client.IndexBridges,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "page",
+					Usage: "page of results to display",
+				},
+			},
+		},
+		{
+			Name:   "show",
+			Usage:  "Show a Bridge's details",
+			Action: client.ShowBridge,
+		},
+	}
+}
 
 type BridgePresenter struct {
 	presenters.BridgeResource

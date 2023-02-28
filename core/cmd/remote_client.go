@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	stderrs "errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -20,6 +21,7 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -35,7 +37,82 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
+func initRemoteConfigSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "dump",
+			Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
+			Action: client.ConfigDump,
+		},
+		{
+			Name:   "list",
+			Usage:  "Show the node's environment variables [Not supported with TOML]",
+			Action: client.GetConfiguration,
+		},
+		{
+			Name:   "show",
+			Usage:  "Show the application configuration [Only supported with TOML]",
+			Action: client.ConfigV2,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "user-only",
+					Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+				},
+			},
+		},
+		{
+			Name:   "setgasprice",
+			Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
+			Action: client.SetEvmGasPriceDefault,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "gwei",
+					Usage: "Specify amount in gwei",
+				},
+				cli.StringFlag{
+					Name:  "evmChainID",
+					Usage: "(optional) specify the chain ID for which to make the update",
+				},
+			},
+		},
+		{
+			Name:   "loglevel",
+			Usage:  "Set log level",
+			Action: client.SetLogLevel,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "level",
+					Usage: "set log level for node (debug||info||warn||error)",
+				},
+			},
+		},
+		{
+			Name:   "logsql",
+			Usage:  "Enable/disable sql statement logging",
+			Action: client.SetLogSQL,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "enable",
+					Usage: "enable sql logging",
+				},
+				cli.BoolFlag{
+					Name:  "disable",
+					Usage: "disable sql logging",
+				},
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
+			Action: client.ConfigFileValidate,
+		},
+	}
+}
+
+var (
+	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
+	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
+)
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -125,44 +202,6 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 	return err
 }
 
-// ReplayFromBlock replays chain data from the given block number until the most recent
-func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
-	blockNumber := c.Int64("block-number")
-	if blockNumber <= 0 {
-		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
-	}
-
-	forceBroadcast := c.Bool("force")
-
-	buf := bytes.NewBufferString("{}")
-	resp, err := cli.HTTP.Post(
-		fmt.Sprintf(
-			"/v2/replay_from_block/%v?force=%s",
-			blockNumber,
-			strconv.FormatBool(forceBroadcast),
-		), buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		bytes, err2 := cli.parseResponse(resp)
-		if err2 != nil {
-			return errors.Wrap(err2, "parseResponse error")
-		}
-		return cli.errorOut(errors.New(string(bytes)))
-	}
-
-	err = cli.printResponseBody(resp)
-	return err
-}
-
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	lggr := cli.Logger.Named("RemoteLogin")
@@ -239,17 +278,17 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
+
 	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
 		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
 	}
 
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
-	err := os.Mkdir(genDir, 0755)
+	err := os.Mkdir(genDir, 0o755)
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	cli.Logger.Infof("writing pprof to %s", genDir)
 	var wgPprof sync.WaitGroup
 	vitals := []string{
 		"allocs",       // A sampling of all past memory allocations
@@ -263,41 +302,55 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		"trace",        // A trace of execution of the current program.
 	}
 	wgPprof.Add(len(vitals))
-	errs := make(chan error)
+	cli.Logger.Infof("Collecting profiles: %v", vitals)
+	cli.Logger.Infof("writing debug info to %s", genDir)
+
+	errs := make(chan error, len(vitals))
 	for _, vt := range vitals {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			cli.Logger.Infof("Collecting %s ", uri)
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				cli.Logger.Errorf("error collecting vt %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error collecting %s", vt)
+				return
+			}
+			if resp.StatusCode == http.StatusUnauthorized {
+				errs <- errors.Wrapf(errUnauthorized, "error collecting %s", vt)
 				return
 			}
 			defer resp.Body.Close()
-
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
-				cli.Logger.Errorf("error creating file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error creating file for %s", vt)
 				return
 			}
-			defer f.Close()
+			wc := utils.NewDeferableWriteCloser(f)
+			defer wc.Close()
 
-			_, err = io.Copy(f, resp.Body)
+			_, err = io.Copy(wc, resp.Body)
 			if err != nil {
-				cli.Logger.Errorf("error writing to file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error writing to file for %s", vt)
 				return
 			}
-			cli.Logger.Infof("Collected %s", vt)
+			err = wc.Close()
+			if err != nil {
+				errs <- errors.Wrapf(err, "error closing file for %s", vt)
+				return
+			}
 		}(vt)
 	}
 	wgPprof.Wait()
+	close(errs)
+	// Atmost one err is emitted per vital.
+	cli.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
 	if len(errs) > 0 {
-		return cli.errorOut(fmt.Errorf("%d profile collections failed", len(errs)))
+		var merr error
+		for err := range errs {
+			merr = stderrs.Join(merr, err)
+		}
+		return cli.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
 	}
 	return nil
 }
@@ -330,10 +383,12 @@ func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	if errors.Is(err, errUnauthorized) {
 		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
+
+	if errors.Is(err, errForbidden) {
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
+	}
 	if err != nil {
-		jae := models.JSONAPIErrors{}
-		unmarshalErr := json.Unmarshal(b, &jae)
-		return nil, cli.errorOut(multierr.Combine(err, unmarshalErr, &jae))
+		return nil, cli.errorOut(err)
 	}
 	return b, err
 }
@@ -546,7 +601,6 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 
 // SetLogSQL enables or disables the log sql statements
 func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
-
 	// Enforces selection of --enable or --disable
 	if !c.Bool("enable") && !c.Bool("disable") {
 		return cli.errorOut(errors.New("Must set logSql --enabled || --disable"))
@@ -642,9 +696,10 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
+	} else if resp.StatusCode == http.StatusForbidden {
+		return b, errForbidden
 	} else if resp.StatusCode >= http.StatusBadRequest {
 		errorMessage, err := parseErrorResponseBody(b)
-
 		if err != nil {
 			return b, err
 		}
