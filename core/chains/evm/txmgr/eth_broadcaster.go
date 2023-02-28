@@ -430,10 +430,10 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 	return nil, false
 }
 
-// this function is used to pass the queryer from the txmgr to the keystore
-// it is inevitable we have to pass the queryer because we need none increment to happen in atomic transaction
-// but that happens in the keystore orm rather than the txmgr orm
-func (eb *EthBroadcaster) incrementNonceAtomic(tx pg.Queryer, etx EthTx) error {
+// This function is used to pass the queryer from the txmgr to the keystore.
+// It is inevitable we have to pass the queryer because we need the keystate's next nonce to be incremented
+// atomically alongside the transition from `in_progress` to `broadcast` so it is ready for the next transaction
+func (eb *EthBroadcaster) incrementNextNonceAtomic(tx pg.Queryer, etx EthTx) error {
 	if err := eb.incrementNextNonce(etx.FromAddress, *etx.Nonce, pg.WithQueryer(tx)); err != nil {
 		return errors.Wrap(err, "saveUnconfirmed failed")
 	}
@@ -584,7 +584,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// this function we'll be using the same initialBroadcastAt.
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
 		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, EthTxAttemptBroadcast, func(tx pg.Queryer) error {
-			return eb.incrementNonceAtomic(tx, etx)
+			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	}
 
@@ -642,7 +642,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// transaction to have been accepted. In this case, the right thing to
 		// do is assume success and hand off to EthConfirmer
 		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, EthTxAttemptBroadcast, func(tx pg.Queryer) error {
-			return eb.incrementNonceAtomic(tx, etx)
+			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	}
 

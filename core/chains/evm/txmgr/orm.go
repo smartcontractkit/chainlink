@@ -70,7 +70,7 @@ type ORM interface {
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...any) error
+	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
 	UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error
 	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
@@ -110,8 +110,6 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 func (o *orm) Close() {
 	o.ctxCancel()
 }
-
-//
 
 func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	// Preload TxAttempts
@@ -993,20 +991,7 @@ type QueryerFunc func(tx pg.Queryer) error
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...any) error {
-	qopts := []pg.QOpt{}
-	afterSaveCallbacks := []QueryerFunc{}
-	for _, value := range args {
-		switch v := value.(type) {
-		case QueryerFunc:
-			afterSaveCallbacks = append(afterSaveCallbacks, v)
-		case pg.QOpt:
-			qopts = append(qopts, v)
-		default:
-			return fmt.Errorf("unable to accept arg of type %T", value)
-		}
-	}
-
+func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.BroadcastAt == nil {
@@ -1035,11 +1020,6 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 		}
 		if err := tx.Get(&attempt, `UPDATE eth_tx_attempts SET state = $1 WHERE id = $2 RETURNING *`, attempt.State, attempt.ID); err != nil {
 			return errors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx_attempt")
-		}
-		for _, f := range afterSaveCallbacks {
-			if err := f(tx); err != nil {
-				return errors.Wrap(err, "SaveEthTxAttempt failed on afterSaveCallbacks")
-			}
 		}
 		return nil
 	})
@@ -1118,6 +1098,8 @@ func (o *orm) HasInProgressTransaction(account common.Address, chainID big.Int, 
 func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	return qq.Transaction(func(tx pg.Queryer) error {
+		//  We filter by next_nonce here as an optimistic lock to make sure it
+		//  didn't get changed out from under us. Shouldn't happen but can't hurt.
 		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, currentNextNonce, chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")

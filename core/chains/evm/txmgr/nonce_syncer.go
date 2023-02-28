@@ -128,8 +128,6 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	if hasInProgressTransaction {
 		newNextNonce--
 	}
-	//  We pass in next_nonce here as an optimistic lock to make sure it
-	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
 
 	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, uint64(keyNextNonce), address, *s.chainID, pg.WithParentCtx(ctx))
 
