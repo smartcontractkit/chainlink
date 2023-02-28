@@ -258,11 +258,14 @@ func (ec *explorerClient) connectAndWritePump() {
 			ec.setStatus(ConnectionStatusConnected)
 
 			ec.lggr.Infow("Connected to explorer", "url", ec.url)
-			ec.sleeper.Reset()
+			start := time.Now()
 			ec.writePumpDone = make(chan struct{})
 			ec.wg.Add(1)
 			go ec.readPump()
 			ec.writePump()
+			if time.Since(start) > time.Second {
+				ec.sleeper.Reset()
+			}
 
 		case <-ec.chStop:
 			return

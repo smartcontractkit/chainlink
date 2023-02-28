@@ -73,7 +73,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 	h := setupTestHandlers(t)
 
 	h.svc.
-		On("DeleteJob", ctx, &feeds.DeleteJobArgs{
+		On("DeleteProposal", ctx, &feeds.DeleteJobArgs{
 			FeedsManagerID: h.feedsManagerID,
 			RemoteUUID:     jobID,
 		}).
