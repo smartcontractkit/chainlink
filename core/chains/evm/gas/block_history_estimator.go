@@ -74,7 +74,7 @@ const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current bl
 
 var ErrConnectivity = errors.New("transaction propagation issue: transactions are not being mined")
 
-var _ Estimator = &BlockHistoryEstimator{}
+var _ EvmEstimator = &BlockHistoryEstimator{}
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
@@ -107,7 +107,7 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		ethClient: ethClient,

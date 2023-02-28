@@ -43,7 +43,7 @@ func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gas.MockConfig {
 	return cfg
 }
 
-func newBlockHistoryEstimatorWithChainID(t *testing.T, c evmclient.Client, cfg gas.Config, cid big.Int) gas.Estimator {
+func newBlockHistoryEstimatorWithChainID(t *testing.T, c evmclient.Client, cfg gas.Config, cid big.Int) gas.EvmEstimator {
 	return gas.NewBlockHistoryEstimator(logger.TestLogger(t), c, cfg, cid)
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-var _ Estimator = &fixedPriceEstimator{}
+var _ EvmEstimator = &fixedPriceEstimator{}
 
 type fixedPriceEstimator struct {
 	config Config
@@ -19,7 +19,7 @@ type fixedPriceEstimator struct {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) Estimator {
+func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) EvmEstimator {
 	return &fixedPriceEstimator{cfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 

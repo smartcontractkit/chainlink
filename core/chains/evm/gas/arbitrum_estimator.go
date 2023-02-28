@@ -34,7 +34,7 @@ type arbitrumEstimator struct {
 
 	cfg ArbConfig
 
-	Estimator // *l2SuggestedPriceEstimator
+	EvmEstimator // *l2SuggestedPriceEstimator
 
 	client     ethClient
 	pollPeriod time.Duration
@@ -50,11 +50,11 @@ type arbitrumEstimator struct {
 	chDone         chan struct{}
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) Estimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
+		EvmEstimator:   NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -67,7 +67,7 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 
 func (a *arbitrumEstimator) Start(ctx context.Context) error {
 	return a.StartOnce("ArbitrumEstimator", func() error {
-		if err := a.Estimator.Start(ctx); err != nil {
+		if err := a.EvmEstimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "failed to start gas price estimator")
 		}
 		go a.run()
@@ -78,7 +78,7 @@ func (a *arbitrumEstimator) Start(ctx context.Context) error {
 func (a *arbitrumEstimator) Close() error {
 	return a.StopOnce("ArbitrumEstimator", func() (err error) {
 		close(a.chStop)
-		err = errors.Wrap(a.Estimator.Close(), "failed to stop gas price estimator")
+		err = errors.Wrap(a.EvmEstimator.Close(), "failed to stop gas price estimator")
 		<-a.chDone
 		return
 	})
@@ -90,7 +90,7 @@ func (a *arbitrumEstimator) Close() error {
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
 func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	gasPrice, _, err = a.Estimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
+	gasPrice, _, err = a.EvmEstimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
 	}
