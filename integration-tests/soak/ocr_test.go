@@ -82,7 +82,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	}
 
 	baseNetworkConfig := `NoNewHeadsThreshold = '30s'
-ChainType = optimismBedrock
+ChainType = 'optimismBedrock'
 LogPollInterval = '2s'
 FinalityDepth = 200
 MinIncomingConfirmations = 3
