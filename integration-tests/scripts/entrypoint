@@ -16,3 +16,15 @@ cd "$SCRIPT_DIR"/../ || exit 1
 
 # run the tests
 ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+
+# Sleep for the amount of time provided by the POST_RUN_SLEEP env var
+upload_to_slack() {
+    curl -F file=@$1 -F "initial_comment=$2" -F channels=${SLACK_CHANNEL} -H "Authorization: Bearer ${SLACK_API_KEY}" https://slack.com/api/files.upload
+}
+
+if [ -n "${UPLOAD_CPU_PROFILE}" ]; then
+    upload_to_slack profile.out "CPU Profile for ${TEST_NAME}"
+fi
+if [ -n "${UPLOAD_MEM_PROFILE}" ]; then
+    upload_to_slack memprofile.out "MEM Profile for ${TEST_NAME}"
+fi
