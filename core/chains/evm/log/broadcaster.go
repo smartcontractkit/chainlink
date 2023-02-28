@@ -491,7 +491,10 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	if replayReq.forceBroadcast {
 		ctx, cancel := utils.ContextFromChan(b.chStop)
 		defer cancel()
-		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx))
+
+		// Use a longer timeout in the event that a very large amount of logs need to be marked
+		// as consumed.
+		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"error", err, "fromBlock", replayReq.fromBlock)
