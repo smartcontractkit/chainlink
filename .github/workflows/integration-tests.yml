@@ -439,7 +439,7 @@ jobs:
         id: slack
         uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844
         with:
-          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+          channel-id: ${{ secrets.QA_RELEASE_SLACK_CHANNEL }}
           payload: |
             {
               "text": "",
