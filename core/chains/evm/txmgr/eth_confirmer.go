@@ -767,29 +767,28 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	switch previousAttempt.TxType {
-	case 0x0: // Legacy
-		var bumpedFee gas.EvmFee
-		var bumpedGasLimit uint32
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpFee(ctx, gas.EvmFee{Legacy: previousAttempt.GasPrice}, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
-		if err == nil {
-			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+
+	var bumpedFee gas.EvmFee
+	var bumpedFeeLimit uint32
+	bumpedFee, bumpedFeeLimit, err = ec.estimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+
+	if err == nil {
+		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+		switch previousAttempt.TxType {
+		case 0x0: // Legacy
 			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedFee.Legacy.String())...)
-			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedGasLimit)
-		}
-	case 0x2: // EIP1559
-		var bumpedFee gas.EvmFee
-		var bumpedGasLimit uint32
-		original := previousAttempt.DynamicFee()
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpFee(ctx, gas.EvmFee{Dynamic: &original}, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
-		if err == nil {
-			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedFeeLimit)
+		case 0x2: // EIP1559
 			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.Dynamic.TipCap.String(), "bumpedFeeCap", bumpedFee.Dynamic.FeeCap.String())...)
-			return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedGasLimit)
+			if bumpedFee.Dynamic == nil {
+				err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", previousAttempt.ID)
+			} else {
+				return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedFeeLimit)
+			}
+		default:
+			err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
+				"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
 		}
-	default:
-		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
 	}
 
 	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {

@@ -760,49 +760,29 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing ETH_GAS_PRICE_DEFAULT (current value: %s)",
 		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
+
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	bumpedFee, bumpedFeeLimit, err := eb.estimator.BumpFee(ctx, attempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, nil)
+	if err != nil {
+		return errors.Wrap(err, "tryAgainBumpFee failed"), true
+	}
+
 	switch attempt.TxType {
 	case 0x0:
-		return eb.tryAgainBumpingLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt)
+		return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, bumpedFee.Legacy, bumpedFeeLimit)
 	case 0x2:
-		return eb.tryAgainBumpingDynamicFeeGas(ctx, lgr, etx, attempt, initialBroadcastAt)
+		if bumpedFee.Dynamic == nil {
+			err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", attempt.ID)
+			logger.Sugared(eb.logger).AssumptionViolation(err.Error())
+			return err, false
+		}
+		return eb.tryAgainWithNewDynamicFeeGas(ctx, lgr, etx, attempt, initialBroadcastAt, *bumpedFee.Dynamic, bumpedFeeLimit)
 	default:
 		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", attempt.ID, attempt.TxType)
 		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
 		return err, false
 	}
-}
-
-func (eb *EthBroadcaster) tryAgainBumpingLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
-	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpFee(ctx, gas.EvmFee{Legacy: attempt.GasPrice}, etx.GasLimit, keySpecificMaxGasPriceWei, nil)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainBumpingLegacyGas failed"), true
-	}
-
-	// NOTE: commented out - err handling before catches when price bump ceiling is hit
-	// TODO: remove
-	// if bumpedGasPrice.Cmp(attempt.GasPrice) == 0 || bumpedGasPrice.Cmp(eb.config.EvmMaxGasPriceWei()) >= 0 {
-	// 	return errors.Errorf("hit gas price bump ceiling, will not bump further"), true // TODO: Is this terminal or retryable? Is it possible to send unsaved attempts here?
-	// }
-	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, bumpedGasPrice.Legacy, bumpedGasLimit)
-}
-
-func (eb *EthBroadcaster) tryAgainBumpingDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
-	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-
-	prevFee := attempt.DynamicFee() // TODO: make a method for tx to construct
-	bumpedFee, bumpedGasLimit, err := eb.estimator.BumpFee(ctx, gas.EvmFee{Dynamic: &prevFee}, etx.GasLimit, keySpecificMaxGasPriceWei, nil)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainBumpingDynamicFeeGas failed"), true
-	}
-
-	// NOTE: commented out - err handling before catches when price bump ceiling is hit
-	// TODO: remove
-	// if bumpedFee.TipCap.Cmp(attempt.GasTipCap) == 0 || bumpedFee.FeeCap.Cmp(attempt.GasFeeCap) == 0 || bumpedFee.TipCap.Cmp(eb.config.EvmMaxGasPriceWei()) >= 0 || bumpedFee.TipCap.Cmp(eb.config.EvmMaxGasPriceWei()) >= 0 {
-	// 	return errors.Errorf("hit gas price bump ceiling, will not bump further"), true // TODO: Is this terminal or retryable? Is it possible to send unsaved attempts here?
-	// }
-	return eb.tryAgainWithNewDynamicFeeGas(ctx, lgr, etx, attempt, initialBroadcastAt, *bumpedFee.Dynamic, bumpedGasLimit)
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {

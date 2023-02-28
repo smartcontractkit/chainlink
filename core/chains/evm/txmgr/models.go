@@ -311,6 +311,17 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
+func (a EthTxAttempt) Fee() (fee gas.EvmFee) {
+	fee.Legacy = a.GetGasPrice()
+
+	dynamic := a.DynamicFee()
+	// add dynamic struct only if values are not nil
+	if dynamic.FeeCap != nil && dynamic.TipCap != nil {
+		fee.Dynamic = &dynamic
+	}
+	return fee
+}
+
 func (a EthTxAttempt) DynamicFee() gas.DynamicFee {
 	return gas.DynamicFee{
 		FeeCap: a.GasFeeCap,
