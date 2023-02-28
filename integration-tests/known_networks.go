@@ -151,6 +151,17 @@ var (
 		GasEstimationBuffer:       0,
 	}
 
+	BaseGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Base Goerli",
+		ClientImplementation:      blockchain.OptimismClientImplementation,
+		ChainID:                   84531,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
 	// rskTestnet https://www.rsk.co/
 	RSKTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "RSK Testnet",
@@ -197,7 +208,7 @@ var (
 		"KLAYTN_BAOBAB":   KlaytnBaobab,
 		"METIS_STARDUST":  MetisStardust,
 		"ARBITRUM_GOERLI": ArbitrumGoerli,
-		"BASE_GOERLI":     OptimismGoerli,
+		"BASE_GOERLI":     BaseGoerli,
 		"OPTIMISM_GOERLI": OptimismGoerli,
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
