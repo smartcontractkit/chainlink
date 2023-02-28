@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/coreth/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"
+	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -27,19 +29,20 @@ import (
 	"github.com/smartcontractkit/wsrpc/peer"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	pb "github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ pb.MercuryServer = &mercuryServer{}
@@ -117,6 +120,17 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 }
 
 func TestIntegration_Mercury(t *testing.T) {
+	lggr := logger.TestLogger(t)
+
+	// Sample feed
+	feedID := [32]byte(utils.NewHash())
+	reqs := make(chan request)
+	srv := NewMercuryServer(reqs)
+	reportURL := startMercuryServer(t, srv)
+	chainID := testutils.SimulatedChainID
+	f := 1
+	n := 4
+
 	// Setup blockchain
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
@@ -124,14 +138,10 @@ func TestIntegration_Mercury(t *testing.T) {
 	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	t.Cleanup(stopMining)
 
-	// Deploy contracts
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
-	require.NoError(t, err)
-	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
-	require.NoError(t, err)
-	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
-	require.NoError(t, err)
-	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+	// Deploy config contract
+	// TODO: build/import contracts and wrappers
+	configContractAddr := testutils.NewAddress()
+
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil)
@@ -140,8 +150,8 @@ func TestIntegration_Mercury(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	// Set up the minimum 4 oracles all funded
-	for i := int64(0); i < 4; i++ {
+	// Set up n oracles all funded
+	for i := int64(0); i < int64(n); i++ {
 		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
@@ -179,29 +189,108 @@ func TestIntegration_Mercury(t *testing.T) {
 	for i, node := range nodes {
 		node.AddJob(t, fmt.Sprintf(`
 		type = "offchainreporting2"
-		pluginType = "mercury"
-		relay = "evm"
-		name = "mercury-%d"
 		schemaVersion = 1
+		name = "mercury-%d"
+		forwardingAllowed = false
+		maxTaskDuration = "1s"
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
-		transmitterID = "%s"
 		p2pv2Bootstrappers = [
 		  "%s"
 		]
+		relay = "evm"
+		pluginType = "mercury"
+		transmitterID = ""
+		observationSource = """
+			// Block Num + Hash
+			block           [type=ethgetblock];
+			bn_lookup       [type=lookup key="number"];
+			bh_lookup       [type=lookup key="hash"];
 
-		[relayConfig]
-		chainID = 1337
-		fromBlock = 0
+			b1 -> bn_lookup;
+			b1 -> bh_lookup;
+			
+			// Benchmark Price
+			price1          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+			price1_parse    [type=jsonparse path="result"];
+			price1_multiply [type=multiply times=100000000];
+
+			price1 -> price1_parse -> price1_multiply;
+
+			// Bid
+			bid          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+			bid_parse    [type=jsonparse path="result"];
+			bid_multiply [type=multiply times=100000000];
+
+			bid -> bid_parse -> bid_multiply;
+
+			// Ask
+			ask          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+			ask_parse    [type=jsonparse path="result"];
+			ask_multiply [type=multiply times=100000000];
+
+			ask -> ask_parse -> ask_multiply;
+		"""
 
 		[pluginConfig]
-		feedID = %s 
-		url = %s
-		serverPubKey = %s
-		clientPubKey = %s
-		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
+		feedID = "0x%x"
+		url = "%s"
+
+		[relayConfig]
+		chainID = %d
+		fromBlock = %d
+		`, i, configContractAddr, node.KeyBundle.ID(), fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), feedID, reportURL, chainID, 0))
 	}
+
+	// Setup config on contract
+	configType := abi.MustNewType("tuple()")
+	onchainConfig, err := abi.Encode(map[string]interface{}{}, configType)
+	require.NoError(t, err)
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		2*time.Second,        // DeltaProgress
+		20*time.Second,       // DeltaResend
+		100*time.Millisecond, // DeltaRound
+		0,                    // DeltaGrace
+		1*time.Minute,        // DeltaStage
+		100,                  // rMax
+		[]int{len(nodes)},    // S
+		oracles,
+		[]byte{},             // reportingPluginConfig []byte,
+		0,                    // Max duration query
+		250*time.Millisecond, // Max duration observation
+		250*time.Millisecond, // MaxDurationReport
+		250*time.Millisecond, // MaxDurationShouldAcceptFinalizedReport
+		250*time.Millisecond, // MaxDurationShouldTransmitAcceptedReport
+		f,                    // f
+		onchainConfig,
+	)
+	require.NoError(t, err)
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+	lggr.Infow("Setting Config on Oracle Contract",
+		"feedID", feedID,
+		"signerAddresses", signerAddresses,
+		"f", f,
+		"onchainConfig", onchainConfig,
+		"offchainConfigVersion", offchainConfigVersion,
+		"offchainConfig", offchainConfig,
+	)
+	// TODO: need the verifier
+	// _, err = verifier.SetConfig(
+	//     steve,
+	//     feedID,
+	//     signerAddresses,
+	//     f,
+	//     onchainConfig,
+	//     offchainConfigVersion,
+	//     offchainConfig,
+	// )
+	// require.NoError(t, err)
+	// backend.Commit()
+
+	<-reqs
+
+	panic("END")
 }
 
 func setupNode(
@@ -209,13 +298,14 @@ func setupNode(
 	port int64,
 	dbName string,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
+	backend *backends.SimulatedBackend,
 ) (app chainlink.Application, peerID string, clientPubKey *credentials.StaticSizedPublicKey, kb ocr2key.KeyBundle) {
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly()
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(port))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
-		c.MaxSuccessfulRuns = ptr(0)
+		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
 
 		// [Feature]
 		// UICSAKeys=true
@@ -267,3 +357,5 @@ func setupNode(
 
 	return app, p2pKey.PeerID().Raw(), nodeKey.Address, kb
 }
+
+func ptr[T any](t T) *T { return &t }
