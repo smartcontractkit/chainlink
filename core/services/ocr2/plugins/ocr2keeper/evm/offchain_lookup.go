@@ -34,7 +34,7 @@ type OffchainLookupBody struct {
 }
 
 // offchainLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.UpkeepResult) error {
+func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	for i, _ := range upkeepResults {
 		block, upkeepId, err := blockAndIdFromKey(upkeepResults[i].Key)
 		if err != nil {
@@ -101,7 +101,7 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 		upkeepResults[i].State = types.Eligible
 		upkeepResults[i].PerformData = performData
 	}
-	return nil
+	return upkeepResults, nil
 }
 
 func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, err error, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
