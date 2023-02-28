@@ -14,6 +14,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Depado/ginprom"
@@ -50,10 +51,9 @@ import (
 )
 
 var prometheus *ginprom.Prometheus
+var initOnce sync.Once
 
 func initPrometheus(cfg config.GeneralConfig) {
-	// ensure metrics are registered once per instance to avoid registering
-	// metrics multiple times (panic)
 	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
 }
 
@@ -98,8 +98,11 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initPrometheus(cfg)
-	appLggr.Critical("Auth token:", cfg.PrometheusAuthToken())
+	// Avoid double initializations.
+	initOnce.Do(func() {
+		initPrometheus(cfg)
+	})
+
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
