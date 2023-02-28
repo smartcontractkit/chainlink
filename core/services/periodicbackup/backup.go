@@ -98,7 +98,7 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error
 }
 
 // Start starts DatabaseBackup.
-func (backup *databaseBackup) Start(context.Context) error {
+func (backup *databaseBackup) Start(ctx context.Context) error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		ticker := time.NewTicker(backup.frequency)
 		if backup.frequency == 0 {
@@ -108,6 +108,8 @@ func (backup *databaseBackup) Start(context.Context) error {
 		} else if backup.frequencyIsTooSmall() {
 			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s (or set to 0 to disable periodic backups)", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
 		}
+
+		backup.hr.Start(ctx)
 
 		go func() {
 			for {
@@ -134,7 +136,7 @@ func (backup *databaseBackup) Start(context.Context) error {
 func (backup *databaseBackup) Close() error {
 	return backup.StopOnce("DatabaseBackup", func() (err error) {
 		backup.done <- true
-		return nil
+		return backup.hr.Close()
 	})
 }
 

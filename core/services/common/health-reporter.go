@@ -2,9 +2,11 @@ package common
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // HealthError is type to track error for a given system
@@ -21,15 +23,17 @@ func NewHealthError(systemName string, err error) *HealthError {
 	}
 }
 
+// TODO - name, maybe ErrorCache is better...
 // HealthReporter is TTL cache for HealthErrors
 type HealthReporter struct {
 	mu    sync.RWMutex
 	cache map[string][]*HealthError
 
-	//ch chan HealthError
 	wg               sync.WaitGroup
 	quitCh           chan struct{}
 	lookBackDuration time.Duration
+
+	utils.StartStopOnce
 }
 
 // NewHealtherReport creates a HealthReporter with a given lookup back duration
@@ -41,29 +45,28 @@ func NewHealthReporter(lookBack time.Duration) *HealthReporter {
 	}
 }
 
-func (h *HealthReporter) Start(ctx context.Context) error {
-	h.wg.Add(1)
-	go h.enforceTTL(ctx)
-	return nil
+func (h *HealthReporter) Start(ctx context.Context) {
+	h.StartOnce("health-reporter", func() error {
+
+		h.wg.Add(1)
+		go h.enforceTTL(ctx)
+		return nil
+	})
 }
 
 // Report coasceleces multiple errors per system over the lookback duration
 func (h *HealthReporter) Report() map[string]error {
-	h.prune()
-
 	result := make(map[string]error)
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for name, herrs := range h.cache {
-		var merr error
+		errs := make([]error, len(herrs))
+
 		for i, herr := range herrs {
-			if i == 0 {
-				merr = herr.Err
-			} else {
-				merr = fmt.Errorf("%w\n%w", merr, herr.Err)
-			}
+			errs[i] = herr.Err
 		}
-		result[name] = merr
+
+		result[name] = errors.Join(errs...)
 	}
 
 	return result
@@ -125,7 +128,10 @@ func (h *HealthReporter) enforceTTL(ctx context.Context) {
 
 // Close releases all resources and blocks until they are released
 func (h *HealthReporter) Close() error {
-	close(h.quitCh)
-	h.wg.Wait()
-	return nil
+	return h.StopOnce("health-reporter", func() error {
+		close(h.quitCh)
+		h.wg.Wait()
+		return nil
+	})
+
 }
