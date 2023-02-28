@@ -8,10 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -457,8 +459,13 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
+
+		// Parse the Job Spec TOML to extract the name
+		name := extractName(args.Spec)
+
 		// Upsert job proposal
 		id, txerr = s.orm.UpsertJobProposal(&JobProposal{
+			Name:           name,
 			RemoteUUID:     args.RemoteUUID,
 			Status:         JobProposalStatusPending,
 			FeedsManagerID: args.FeedsManagerID,
@@ -594,8 +601,15 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal")
 	}
 
+	logger := s.lggr.With(
+		"job_proposal_id", proposal.ID,
+		"job_proposal_spec_id", id,
+	)
+
 	fmsClient, err := s.connMgr.GetClient(proposal.FeedsManagerID)
 	if err != nil {
+		logger.Errorw("Failed to get FMS Client", "error", err)
+
 		return errors.Wrap(err, "fms rpc client")
 	}
 
@@ -606,7 +620,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	// Check that the bridges exist
 	if err = s.jobORM.AssertBridgesExist(j.Pipeline); err != nil {
-		s.lggr.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
+		logger.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
 
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")
 	}
@@ -639,26 +653,69 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, evmChainID, pg.WithQueryer(tx))
+		var (
+			txerr error
+
+			pgOpts = pg.WithQueryer(tx)
+		)
+
+		// Remove the existing job, continuing if no job is found
+		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, evmChainID, pgOpts)
+		if txerr != nil {
+			// Return an error if the repository errors. If there is a not found
+			// error we want to continue with approving the job.
+			if !errors.Is(txerr, sql.ErrNoRows) {
+				return errors.Wrap(txerr, "FindJobIDByAddress failed")
+			}
+		}
+
+		// Remove the existing job since a job was found
 		if txerr == nil {
-			if force {
-				if txerr = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); txerr != nil {
-					return errors.Wrap(txerr, "DeleteJob failed")
-				}
-			} else {
+			// Do not proceed to remove the running job unless the force flag is true
+			if !force {
 				return ErrJobAlreadyExists
 			}
-		} else if !errors.Is(txerr, sql.ErrNoRows) {
-			return errors.Wrap(txerr, "FindJobIDByAddress failed")
+
+			// Check if the job is managed by FMS
+			approvedSpec, serr := s.orm.GetApprovedSpec(proposal.ID, pgOpts)
+			if serr != nil {
+				if !errors.Is(serr, sql.ErrNoRows) {
+					logger.Errorw("Failed to get approved spec", "error", serr)
+
+					// Return an error for any other errors fetching the
+					// approved spec
+					return errors.Wrap(serr, "GetApprovedSpec failed")
+				}
+			}
+
+			// If a spec is found, cancel the existing job spec
+			if serr == nil {
+				if cerr := s.orm.CancelSpec(approvedSpec.ID, pgOpts); cerr != nil {
+					logger.Errorw("Failed to delete the cancel the spec", "error", cerr)
+
+					return cerr
+				}
+			}
+
+			// Delete the job
+			if serr = s.jobSpawner.DeleteJob(existingJobID, pgOpts); serr != nil {
+				logger.Errorw("Failed to delete the job", "error", serr)
+
+				return errors.Wrap(serr, "DeleteJob failed")
+			}
 		}
 
 		// Create the job
-		if txerr = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); txerr != nil {
+		if txerr = s.jobSpawner.CreateJob(j, pgOpts); txerr != nil {
+			logger.Errorw("Failed to create job", "error", txerr)
+
 			return txerr
 		}
 
 		// Approve the job proposal spec
-		if txerr = s.orm.ApproveSpec(id, j.ExternalJobID, pg.WithQueryer(tx)); txerr != nil {
+		if txerr = s.orm.ApproveSpec(id, j.ExternalJobID, pgOpts); txerr != nil {
+			logger.Errorw("Failed to approve spec", "error", txerr)
+
 			return txerr
 		}
 
@@ -667,6 +724,8 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			Uuid:    proposal.RemoteUUID.String(),
 			Version: int64(spec.Version),
 		}); txerr != nil {
+			logger.Errorw("Failed to approve job to FMS", "error", txerr)
+
 			return txerr
 		}
 
@@ -676,9 +735,11 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "could not approve job proposal")
 	}
 
-	err = s.observeJobProposalCounts()
+	if err = s.observeJobProposalCounts(); err != nil {
+		logger.Errorw("Failed to push metrics for job approval", err)
+	}
 
-	return err
+	return nil
 }
 
 // CancelSpec cancels a spec for a job proposal.
@@ -1073,6 +1134,20 @@ func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error
 	s.connectFeedManager(ctx, mgr, privkey)
 
 	return nil
+}
+
+// extractName extracts the name from the TOML returning an null string if
+// there is an error.
+func extractName(defn string) null.String {
+	spec := struct {
+		Name null.String
+	}{}
+
+	if err := toml.Unmarshal([]byte(defn), spec); err != nil {
+		return null.StringFromPtr(nil)
+	}
+
+	return spec.Name
 }
 
 var _ Service = &NullService{}

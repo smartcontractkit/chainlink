@@ -45,7 +45,7 @@ func TestSessionsController_Create(t *testing.T) {
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 			if test.wantSession {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -94,7 +94,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmailAdmin, cltest.Password)
 	resp, err := http.Post(app.Server.URL+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

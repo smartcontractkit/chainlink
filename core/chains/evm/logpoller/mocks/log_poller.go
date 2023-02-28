@@ -66,6 +66,22 @@ func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	return r0, r1
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *LogPoller) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
 // Healthy provides a mock function with given fields:
 func (_m *LogPoller) Healthy() error {
 	ret := _m.Called()
@@ -405,6 +421,20 @@ func (_m *LogPoller) LogsWithSigs(start int64, end int64, eventSigs []common.Has
 	}
 
 	return r0, r1
+}
+
+// Name provides a mock function with given fields:
+func (_m *LogPoller) Name() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
 }
 
 // Ready provides a mock function with given fields:

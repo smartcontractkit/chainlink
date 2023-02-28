@@ -106,6 +106,7 @@ const (
 )
 
 func TestAutomationChaos(t *testing.T) {
+	t.Parallel()
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -166,7 +167,7 @@ func TestAutomationChaos(t *testing.T) {
 	for n, tst := range testCases {
 		name := n
 		testCase := tst
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
 			network := networks.SelectedNetwork
 
@@ -174,6 +175,7 @@ func TestAutomationChaos(t *testing.T) {
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf("chaos-automation-%s", name),
 					TTL:             time.Hour * 1,
+					Test:            t,
 				}).
 				AddHelm(testCase.networkChart).
 				AddHelm(testCase.clChart).
@@ -184,6 +186,9 @@ func TestAutomationChaos(t *testing.T) {
 				}))
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
+			if testEnvironment.WillUseRemoteRunner() {
+				return
+			}
 
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)

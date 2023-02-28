@@ -1,6 +1,7 @@
 package feeds_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/lib/pq"
@@ -443,6 +444,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	fmID := createFeedsManager(t, orm)
 
 	jp := &feeds.JobProposal{
+		Name:           null.StringFrom("jp1"),
 		RemoteUUID:     uuid.NewV4(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -457,6 +459,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 
 	actual, err := orm.GetJobProposal(id)
 	require.NoError(t, err)
+	require.Equal(t, jp.Name, actual.Name)
 	require.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
 	require.Equal(t, jp.Status, actual.Status)
 	require.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
@@ -473,8 +476,10 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
 	remoteUUID := uuid.NewV4()
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     remoteUUID,
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -485,6 +490,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 	assertJobEquals := func(actual *feeds.JobProposal) {
 		assert.Equal(t, id, actual.ID)
+		assert.Equal(t, name, actual.Name)
 		assert.Equal(t, remoteUUID, actual.RemoteUUID)
 		assert.Equal(t, jp.Status, actual.Status)
 		assert.False(t, actual.ExternalJobID.Valid)
@@ -520,8 +526,10 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
 	uuid := uuid.NewV4()
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     uuid,
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -536,6 +544,7 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 
 	actual := jps[0]
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.False(t, actual.ExternalJobID.Valid)
@@ -576,8 +585,10 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
 	uuid := uuid.NewV4()
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     uuid,
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -592,6 +603,7 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 
 	actual := jps[0]
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.False(t, actual.ExternalJobID.Valid)
@@ -625,8 +637,10 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     uuid.NewV4(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -653,12 +667,14 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 	// Update
 	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
+	jp.Name = null.StringFrom("jp1_updated")
 
 	id, err = orm.UpsertJobProposal(jp)
 	require.NoError(t, err)
 
 	actual, err := orm.GetJobProposal(id)
 	require.NoError(t, err)
+	assert.Equal(t, jp.Name, actual.Name)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.Equal(t, jp.Multiaddrs, actual.Multiaddrs)
 
@@ -786,6 +802,41 @@ func Test_ORM_GetSpec(t *testing.T) {
 	assert.Equal(t, int32(1), actual.Version)
 	assert.Equal(t, feeds.SpecStatusPending, actual.Status)
 	assert.Equal(t, jpID, actual.JobProposalID)
+}
+
+func Test_ORM_GetApprovedSpec(t *testing.T) {
+	t.Parallel()
+
+	var (
+		orm           = setupORM(t)
+		fmID          = createFeedsManager(t, orm)
+		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+		specID        = createJobSpec(t, orm, int64(jpID))
+		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	)
+
+	// Defer the FK requirement of a job proposal so we don't have to setup a
+	// real job.
+	require.NoError(t, utils.JustError(orm.db.Exec(
+		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+	)))
+
+	err := orm.ApproveSpec(specID, externalJobID.UUID)
+	require.NoError(t, err)
+
+	actual, err := orm.GetApprovedSpec(jpID)
+	require.NoError(t, err)
+
+	assert.Equal(t, specID, actual.ID)
+	assert.Equal(t, feeds.SpecStatusApproved, actual.Status)
+
+	err = orm.CancelSpec(specID)
+	require.NoError(t, err)
+
+	_, err = orm.GetApprovedSpec(jpID)
+	require.Error(t, err)
+
+	assert.ErrorIs(t, err, sql.ErrNoRows)
 }
 
 func Test_ORM_GetLatestSpec(t *testing.T) {
@@ -1048,7 +1099,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
-	defer orm.Close()
+	defer func() { assert.NoError(t, orm.Close()) }()
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
