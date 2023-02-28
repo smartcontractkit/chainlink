@@ -473,7 +473,7 @@ func (g *generalConfig) AutoPprofPollInterval() models.Duration {
 func (g *generalConfig) AutoPprofProfileRoot() string {
 	s := *g.c.AutoPprof.ProfileRoot
 	if s == "" {
-		s = g.RootDir()
+		s = filepath.Join(g.RootDir(), "pprof")
 	}
 	return s
 }
