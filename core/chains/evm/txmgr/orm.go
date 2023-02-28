@@ -70,7 +70,7 @@ type ORM interface {
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error
+	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...any) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
 	UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error
 	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
@@ -993,7 +993,7 @@ type QueryerFunc func(tx pg.Queryer) error
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...interface{}) error {
+func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, args ...any) error {
 	qopts := []pg.QOpt{}
 	afterSaveCallbacks := []QueryerFunc{}
 	for _, value := range args {
@@ -1057,7 +1057,6 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
-	errors.As()
 	etx.State = EthTxInProgress
 	return qq.Transaction(func(tx pg.Queryer) error {
 		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
