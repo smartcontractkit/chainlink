@@ -1534,7 +1534,7 @@ describe('KeeperRegistry2_1', () => {
                     return reg
                   }),
                 )
-                const registrationFailingBefore = await await Promise.all(
+                const registrationFailingBefore = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
                     assert.equal(reg.lastPerformBlockNumber.toString(), '0')
@@ -1572,7 +1572,7 @@ describe('KeeperRegistry2_1', () => {
                     return await registry.getUpkeep(BigNumber.from(id))
                   }),
                 )
-                const registrationFailingAfter = await await Promise.all(
+                const registrationFailingAfter = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     return await registry.getUpkeep(BigNumber.from(id))
                   }),
@@ -2459,8 +2459,13 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(registry.getActiveUpkeepIDs(4, 0), 'IndexOutOfRange()')
     })
 
-    it('reverts if startIndex + maxCount is out of bounds', async () => {
-      await evmRevert(registry.getActiveUpkeepIDs(0, 4))
+    it('returns proper upkeep IDs if startIndex is within boundary but startIndex + maxCount is out of bounds', async () => {
+      const upkeepIds = await registry.getActiveUpkeepIDs(1, 4)
+      assert(upkeepIds.length == 1, 'The last upkeep should be returned.')
+      assert(
+        upkeepIds[0].toString() == upkeepId2.toString(),
+        'Correct upkeep ID should be returned',
+      )
     })
 
     it('returns upkeep IDs bounded by maxCount', async () => {
