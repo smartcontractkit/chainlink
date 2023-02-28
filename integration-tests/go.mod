@@ -2,10 +2,6 @@ module github.com/smartcontractkit/chainlink/integration-tests
 
 go 1.20
 
-replace github.com/smartcontractkit/chainlink-env => /Users/lukasz/Documents/smartcontractkit/chainlink-env
-
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/lukasz/Documents/smartcontractkit/chainlink-testing-framework
-
 require (
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-resty/resty/v2 v2.7.0
@@ -96,9 +92,9 @@ require (
 	github.com/go-playground/validator/v10 v10.11.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
-	github.com/gogo/googleapis v1.4.1 // indirect
+	github.com/gogo/googleapis v1.1.0 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
-	github.com/gogo/status v1.1.0 // indirect
+	github.com/gogo/status v1.0.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -277,12 +273,12 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
-	github.com/uber/jaeger-client-go v2.28.0+incompatible // indirect
+	github.com/uber/jaeger-client-go v2.25.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
-	github.com/weaveworks/common v0.0.0-20230208133027-16871410fca4 // indirect
+	github.com/weaveworks/common v0.0.0-20200625145055-4b1847531bc9 // indirect
 	github.com/weaveworks/promrus v1.2.0 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
@@ -310,7 +306,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220616135557-88e70c0c3a90 // indirect
+	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
