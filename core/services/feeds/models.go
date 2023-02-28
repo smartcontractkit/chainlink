@@ -133,6 +133,7 @@ const (
 	JobProposalStatusRejected  JobProposalStatus = "rejected"
 	JobProposalStatusCancelled JobProposalStatus = "cancelled"
 	JobProposalStatusDeleted   JobProposalStatus = "deleted"
+	JobProposalStatusRevoked   JobProposalStatus = "revoked"
 )
 
 // JobProposal represents a proposal which has been sent by a Feeds Manager.

@@ -560,6 +560,7 @@ func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
 UPDATE job_proposals
 SET status = $1,
 	external_job_id = $2,
+	pending_update = TRUE,
 	updated_at = NOW()
 WHERE id = $3;
 `
