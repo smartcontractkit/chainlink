@@ -124,7 +124,6 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes, build-test-image]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
@@ -138,34 +137,45 @@ jobs:
           - name: automation
             nodes: 9
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: cron
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: flux
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: keeper
             nodes: 30
             os: ubuntu20.04-4cores-16GB
+            pyroscope_env: ""
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: ocr
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: runlog
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: vrf
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: vrfv2
             nodes: 1
             os: ubuntu-latest
+            pyroscope_env: ""
           - name: ocr2vrf
             nodes: 2
             os: ubuntu-latest
+            pyroscope_env: ""
     runs-on: ${{ matrix.product.os }}
+    name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
@@ -180,9 +190,12 @@ jobs:
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.${{ github.sha }}
+          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: make gomod
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
@@ -198,7 +211,7 @@ jobs:
         if: needs.changes.outputs.src == 'false'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
         with:
-          test_download_vendor_packages_command: make gomod
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -218,7 +231,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }})
+          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
         continue-on-error: true
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
@@ -365,7 +378,6 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: Live Testnet Smoke Tests Matrix
     needs: [build-chainlink, build-test-image]
     env:
       SELECTED_NETWORKS: ${{ matrix.testnet }}
@@ -390,6 +402,7 @@ jobs:
       fail-fast: false
       matrix:
         testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+    name: Live Testnet Smoke Tests ${{ matrix.testnet }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -404,6 +417,9 @@ jobs:
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.${{ github.sha }}
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/ocr_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod

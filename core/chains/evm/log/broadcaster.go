@@ -215,6 +215,14 @@ func (b *broadcaster) Close() error {
 	})
 }
 
+func (b *broadcaster) Name() string {
+	return b.logger.Name()
+}
+
+func (b *broadcaster) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
+}
+
 func (b *broadcaster) awaitInitialSubscribers() {
 	defer b.wgDone.Done()
 	b.logger.Debug("Starting to await initial subscribers until all dependents are ready...")
@@ -778,11 +786,14 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
+func (n *NullBroadcaster) Name() string { return "" }
+
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
 func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }
+func (n *NullBroadcaster) HealthReport() map[string]error                    { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 func (n *NullBroadcaster) Pause()                                            {}
 func (n *NullBroadcaster) Resume()                                           {}
