@@ -1013,7 +1013,7 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 		return errors.New("unconfirmed transaction must have broadcast_at time")
 	}
 	if etx.InitialBroadcastAt == nil {
-		return errors.New("unconfirmed transaciton must have initial_broadcast_at time")
+		return errors.New("unconfirmed transaction must have initial_broadcast_at time")
 	}
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
@@ -1021,7 +1021,7 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	if !(NewAttemptState == EthTxAttemptBroadcast) {
+	if NewAttemptState != EthTxAttemptBroadcast {
 		return errors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
 	etx.State = EthTxUnconfirmed
@@ -1057,6 +1057,7 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
+	errors.As()
 	etx.State = EthTxInProgress
 	return qq.Transaction(func(tx pg.Queryer) error {
 		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
@@ -1208,10 +1209,9 @@ RETURNING "eth_txes".*
 	return
 }
 
-// todo: invoke with parent contex
 func (o *orm) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
 	qq := o.q.WithOpts(qopts...)
-	qq.Transaction(func(tx pg.Queryer) error {
+	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`
 DELETE FROM eth_txes
 WHERE state = 'unstarted' AND subject = $1 AND
@@ -1227,7 +1227,7 @@ id < (
 		if err != nil {
 			return errors.Wrap(err, "DeleteUnstartedEthTx failed")
 		}
-		n, _ = res.RowsAffected()
+		n, err = res.RowsAffected()
 		return err
 	})
 	return
