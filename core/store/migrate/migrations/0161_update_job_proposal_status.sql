@@ -17,34 +17,34 @@ CREATE TYPE job_proposal_status AS ENUM(
 );
 
 ALTER TABLE job_proposals
-ALTER COLUMN STATUS TYPE job_proposal_status USING STATUS::text::job_proposal_status;
+ALTER COLUMN status TYPE job_proposal_status USING status::text::job_proposal_status;
 
 DROP TYPE job_proposal_status_old;
 
 ALTER TABLE job_proposals
 ADD CONSTRAINT chk_job_proposals_status_fsm CHECK (
 		(
-			STATUS = 'pending'
+			status = 'pending'
 			AND external_job_id IS NULL
 		)
 		OR (
-			STATUS = 'approved'
+			status = 'approved'
 			AND external_job_id IS NOT NULL
 		)
 		OR (
-			STATUS = 'rejected'
+			status = 'rejected'
 			AND external_job_id IS NULL
 		)
 		OR (
-			STATUS = 'cancelled'
+			status = 'cancelled'
 			AND external_job_id IS NULL
 		)
 		OR (
-			STATUS = 'deleted'
+			status = 'deleted'
 			AND external_job_id IS NULL
 		)
 		OR (
-			STATUS = 'revoked'
+			status = 'revoked'
 			AND external_job_id IS NULL
 		)
 	);
@@ -65,7 +65,7 @@ CREATE TYPE job_proposal_status AS ENUM('pending', 'approved', 'rejected', 'canc
 -- This will fail if any records are using the 'deleted' or 'revoked' enum.
 -- Manually update these as we cannot decide what you want to do with them.
 ALTER TABLE job_proposals
-ALTER COLUMN STATUS TYPE job_proposal_status USING STATUS::text::job_proposal_status;
+ALTER COLUMN status TYPE job_proposal_status USING status::text::job_proposal_status;
 
 DROP TYPE job_proposal_status_old;
 
@@ -73,19 +73,19 @@ DROP TYPE job_proposal_status_old;
 ALTER TABLE job_proposals
 ADD CONSTRAINT chk_job_proposals_status_fsm CHECK (
 		(
-			STATUS = 'pending'
+			status = 'pending'
 			AND external_job_id IS NULL
 		)
 		OR (
-			STATUS = 'approved'
+			status = 'approved'
 			AND external_job_id IS NOT NULL
 		)
 		OR (
-			STATUS = 'rejected'
+			status = 'rejected'
 			AND external_job_id IS NULL
 		)
 		OR (
-			STATUS = 'cancelled'
+			status = 'cancelled'
 			AND external_job_id IS NULL
 		)
 	);

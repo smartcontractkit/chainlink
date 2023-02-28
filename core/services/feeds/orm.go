@@ -491,23 +491,18 @@ RETURNING job_proposal_id;
 
 	stmt = `
 UPDATE job_proposals
-SET STATUS = subquery.updateStatus,
+SET status = (
+		CASE
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'cancelled'::job_proposal_status
+		END
+	),
 	pending_update = FALSE,
-	external_job_id = $3,
+	external_job_id = $2,
 	updated_at = NOW()
-FROM (
-		SELECT (
-				CASE
-					WHEN STATUS = 'deleted' THEN 'deleted'::job_proposal_status
-					ELSE 'cancelled'::job_proposal_status
-				END
-			) AS updateStatus
-		FROM job_proposals
-		WHERE id = $1
-	) AS subquery
-WHERE id = $2;
+WHERE id = $1;
 `
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, jpID, nil)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil)
 	if err != nil {
 		return err
 	}
@@ -559,9 +554,14 @@ func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals
 SET status = $1,
-	external_job_id = $2,
-	pending_update = TRUE,
-	updated_at = NOW()
+    external_job_id = $2,
+    pending_update = (
+        CASE
+            WHEN status = 'approved' THEN true
+            ELSE false
+        END
+    ),
+    updated_at = NOW()
 WHERE id = $3;
 `
 
@@ -660,24 +660,19 @@ RETURNING job_proposal_id;
 
 	stmt = `
 UPDATE job_proposals
-SET STATUS = subquery.updateStatus,
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'rejected'::job_proposal_status
+		END
+	),
 	pending_update = FALSE,
 	updated_at = NOW()
-FROM (
-		SELECT (
-				CASE
-					WHEN STATUS = 'approved' THEN 'approved'::job_proposal_status
-					WHEN STATUS = 'deleted' THEN 'deleted'::job_proposal_status
-					ELSE 'rejected'::job_proposal_status
-				END
-			) AS updateStatus
-		FROM job_proposals
-		WHERE id = $1
-	) AS subquery
-WHERE id = $2
+WHERE id = $1
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, jpID)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID)
 	if err != nil {
 		return err
 	}
