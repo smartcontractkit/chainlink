@@ -118,7 +118,6 @@ jobs:
           echo "\`ci.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
 
   eth-smoke-tests-matrix:
-    if: false # TODO: Remove debug
     environment: integration
     permissions:
       checks: write
@@ -299,7 +298,6 @@ jobs:
         continue-on-error: true
 
   solana-smoke-tests:
-    if: false # TODO: Remove debug
     environment: integration
     permissions:
       checks: write
@@ -373,7 +371,7 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix:
-    # if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags # TODO: Remove debug
+    if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags
     environment: integration
     permissions:
       checks: write
