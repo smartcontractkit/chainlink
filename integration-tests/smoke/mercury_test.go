@@ -98,9 +98,8 @@ func TestMercurySmoke(t *testing.T) {
 	const mercuryFeedId = "ETH-USD-Optimism-Goerli-1"
 
 	_, isExistingTestEnv, testNetwork, chainlinkNodes,
-		mercuryServerInternalUrl, mercuryServerRemoteUrl,
-		evmClient, mockServerClient, mercuryServerClient := testsetups.SetupMercuryEnv(t)
-	_ = mercuryServerClient
+		mercuryServerRemoteUrl,
+		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t)
 	_ = isExistingTestEnv
 
 	nodesWithoutBootstrap := chainlinkNodes[1:]
@@ -109,7 +108,7 @@ func TestMercurySmoke(t *testing.T) {
 		mercuryServerRemoteUrl, mercuryFeedId, ocrConfig)
 
 	testsetups.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
-		mercuryFeedId, mercuryServerInternalUrl, testNetwork.ChainID, 0)
+		mercuryFeedId, msRpcPubKey, testNetwork.ChainID, 0)
 
 	verifier.SetConfig(ocrConfig)
 

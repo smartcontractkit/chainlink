@@ -1,6 +1,9 @@
 package testsetups
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -53,7 +56,17 @@ type oracle struct {
 	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
 }
 
-func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) {
+func generateEd25519Keys() (string, string, error) {
+	var (
+		err  error
+		pub  ed25519.PublicKey
+		priv ed25519.PrivateKey
+	)
+	pub, priv, err = ed25519.GenerateKey(rand.Reader)
+	return hex.EncodeToString(priv), hex.EncodeToString(pub), err
+}
+
+func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) string {
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
@@ -65,8 +78,6 @@ func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) {
 		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err)
 		csaKeys, resp, err := chainlinkNode.ReadCSAKeys()
-		_ = csaKeys
-		_ = resp
 		require.NoError(t, err)
 		csaKeyId := csaKeys.Data[0].ID
 		ocr2Keys, resp, err := chainlinkNode.ReadOCR2Keys()
@@ -103,35 +114,28 @@ func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) {
 		}
 		msRpcNodesConf = append(msRpcNodesConf, node)
 	}
-	msRpcNodesJsonConf, _ := json.Marshal(msRpcNodesConf)
+	rpcNodesJsonConf, _ := json.Marshal(msRpcNodesConf)
 	// result := []interface{}{}
 	// err = json.Unmarshal([]byte(msRpcNodesJsonConf), &result)
 	// err = mapstructure.Decode(msRpcNodesConf[0], &result)
 
+	// Generate keys for Mercury RPC server
+	rpcPrivKey, rpcPubKey, err := generateEd25519Keys()
+	require.NoError(t, err)
+
 	testEnv.AddHelm(mercury_server.New(map[string]interface{}{
-		"imageRepo": os.Getenv("MERCURY_SERVER_IMAGE"),
-		"imageTag":  os.Getenv("MERCURY_SERVER_TAG"),
-		// "envVars": mercuryServerEnvVars,
-		"rpcNodesConf": string(msRpcNodesJsonConf),
+		"imageRepo":     os.Getenv("MERCURY_SERVER_IMAGE"),
+		"imageTag":      os.Getenv("MERCURY_SERVER_TAG"),
+		"rpcPrivateKey": rpcPrivKey,
+		"rpcNodesConf":  string(rpcNodesJsonConf),
 	})).Run()
 
-	mercuryServerEnvVars := map[string]any{
-		"PORT":                 "3000",
-		"DATABASE_URL":         "postgresql://postgres:verylongdatabasepassword@localhost:5432/mercury?sslmode=disable",
-		"AUTH_CLIENT_USER":     "client",
-		"AUTH_CLIENT_PASSWORD": "clientpass",
-		"AUTH_NODE_USER":       "node",
-		"AUTH_NODE_PASSWORD":   "nodepass",
-		"RPC_PRIVATE_KEY":      "05617baaf5d051eb7841aba802eb6c51dd9bad9cc048f11dd0dc5ee294262898724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
-		"RPC_PORT":             "1338",
-		"RPC_HEALTHZ_PORT":     "1339",
-	}
-	_ = mercuryServerEnvVars
+	return rpcPubKey
 }
 
 func SetupMercuryEnv(t *testing.T) (
-	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string, string,
-	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer) {
+	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
+	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer, string) {
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -142,10 +146,9 @@ func SetupMercuryEnv(t *testing.T) (
 		})
 	}
 
-	mercuryServerInternalUrl := fmt.Sprintf("http://%s:3000", mercury_server.URLsKey)
 	secretsToml := fmt.Sprintf("%s\n%s\n%s\n%s\n",
 		"[[Mercury.Credentials]]",
-		fmt.Sprintf(`URL = "%s/reports"`, mercuryServerInternalUrl),
+		fmt.Sprintf(`URL = "%s"`, fmt.Sprintf("%s:1338", mercury_server.URLsKey)),
 		`Username = "node"`,
 		`Password = "nodepass"`,
 	)
@@ -168,7 +171,7 @@ func SetupMercuryEnv(t *testing.T) (
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 
-	SetupMercuryServer(t, testEnvironment)
+	msRpcPubKey := SetupMercuryServer(t, testEnvironment)
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -196,7 +199,7 @@ func SetupMercuryEnv(t *testing.T) (
 	})
 
 	return testEnvironment, isExistingTestEnv, testNetwork, chainlinkNodes,
-		mercuryServerInternalUrl, mercuryServerRemoteUrl, evmClient, mockserverClient, mercuryServerClient
+		mercuryServerRemoteUrl, evmClient, mockserverClient, mercuryServerClient, msRpcPubKey
 }
 
 func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId string, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
@@ -232,7 +235,7 @@ func SetupMercuryNodeJobs(
 	mockserverClient *ctfClient.MockserverClient,
 	contractID string,
 	feedID string,
-	mercuryServerUrl string,
+	mercuryServerPubKey string,
 	chainID int64,
 	keyIndex int,
 ) {
@@ -276,6 +279,11 @@ func SetupMercuryNodeJobs(
 		require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
 		require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
+		csaKeys, _, err := chainlinkNodes[nodeIndex].ReadCSAKeys()
+		require.NoError(t, err)
+		csaKeyId := csaKeys.Data[0].ID
+		_ = csaKeyId
+
 		var nodeOCRKeyId []string
 		for _, key := range nodeOCRKeys.Data {
 			if key.Attributes.ChainType == string(chaintype.EVM) {
@@ -309,8 +317,10 @@ func SetupMercuryNodeJobs(
 					"chainID": int(chainID),
 				},
 				RelayConfigMercuryConfig: map[string]interface{}{
-					"feedID": feedIdHex,
-					"url":    fmt.Sprintf("%s/reports", mercuryServerUrl),
+					"clientPrivKeyID": csaKeyId,
+					"serverPubKey":    fmt.Sprintf("0x%s", mercuryServerPubKey),
+					"feedID":          feedIdHex,
+					"url":             fmt.Sprintf("%s:1338", mercury_server.URLsKey),
 				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        contractID,                                        // registryAddr
