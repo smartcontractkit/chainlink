@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -666,7 +666,7 @@ func TestTxm_SignTx(t *testing.T) {
 type fnMock struct{ called atomic.Bool }
 
 func (fm *fnMock) Fn() {
-	swapped := fm.called.CAS(false, true)
+	swapped := fm.called.CompareAndSwap(false, true)
 	if !swapped {
 		panic("func called more than once")
 	}
@@ -729,6 +729,7 @@ func TestTxm_Reset(t *testing.T) {
 	})
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
+	defer func() { assert.NoError(t, txm.Close()) }()
 
 	t.Run("calls function if started", func(t *testing.T) {
 		f := new(fnMock)
@@ -758,4 +759,5 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
+
 }

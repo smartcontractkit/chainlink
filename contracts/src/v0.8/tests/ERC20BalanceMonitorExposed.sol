@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.6;
 
-import "../upkeeps/ERC20BalanceMonitor.sol";
+import "../automation/upkeeps/ERC20BalanceMonitor.sol";
 
 contract ERC20BalanceMonitorExposed is ERC20BalanceMonitor {
   constructor(

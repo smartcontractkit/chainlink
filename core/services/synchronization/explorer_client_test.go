@@ -50,7 +50,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 	url.Scheme = "ws"
 	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", logger.TestLogger(t))
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 
 	cltest.CallbackOrTimeout(t, "receive authentication headers", func() {
 		headers := <-headerChannel
@@ -67,7 +67,7 @@ func TestWebSocketClient_Send_DefaultsToTextMessage(t *testing.T) {
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 
 	expectation := `{"hello": "world"}`
 	explorerClient.Send(testutils.Context(t), []byte(expectation))
@@ -82,7 +82,7 @@ func TestWebSocketClient_Send_TextMessage(t *testing.T) {
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 
 	expectation := `{"hello": "world"}`
 	explorerClient.Send(testutils.Context(t), []byte(expectation), synchronization.ExplorerTextMessage)
@@ -97,7 +97,7 @@ func TestWebSocketClient_Send_Binary(t *testing.T) {
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 
 	address := common.HexToAddress("0xabc123")
 	addressBytes := address.Bytes()
@@ -126,7 +126,7 @@ func TestWebSocketClient_Send_WithAck(t *testing.T) {
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 
 	expectation := `{"hello": "world"}`
 	explorerClient.Send(testutils.Context(t), []byte(expectation))
@@ -149,7 +149,7 @@ func TestWebSocketClient_Send_WithAckTimeout(t *testing.T) {
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 
 	expectation := `{"hello": "world"}`
 	explorerClient.Send(testutils.Context(t), []byte(expectation))
@@ -171,7 +171,7 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	assert.Equal(t, synchronization.ConnectionStatusDisconnected, explorerClient.Status())
 
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
-	defer explorerClient.Close()
+	defer func() { assert.NoError(t, explorerClient.Close()) }()
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	}, testutils.WaitTimeout(t))
@@ -202,7 +202,7 @@ func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 
 	errorExplorerClient := newTestExplorerClient(t, badURL)
 	require.NoError(t, errorExplorerClient.Start(testutils.Context(t)))
-	defer errorExplorerClient.Close()
+	defer func() { assert.NoError(t, errorExplorerClient.Close()) }()
 
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return errorExplorerClient.Status()

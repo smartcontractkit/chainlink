@@ -101,7 +101,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 
 type dkgProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 	pluginConfig        config.PluginConfig
 }
 
@@ -111,7 +111,7 @@ func (c *dkgProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 
 type ocr2vrfProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 }
 
 func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -52,5 +53,5 @@ func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head
 		bl = head.Number
 	}
 
-	send(w.c, types.BlockKey(fmt.Sprintf("%d", bl)))
+	send(w.c, chain.BlockKey(fmt.Sprintf("%d", bl)))
 }

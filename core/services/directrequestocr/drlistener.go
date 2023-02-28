@@ -1,6 +1,7 @@
 package directrequestocr
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -8,6 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
@@ -22,9 +25,79 @@ import (
 var (
 	_ log.Listener   = &DRListener{}
 	_ job.ServiceCtx = &DRListener{}
+
+	sizeBuckets = []float64{
+		1024,
+		1024 * 4,
+		1024 * 8,
+		1024 * 16,
+		1024 * 64,
+		1024 * 256,
+	}
+
+	promOracleEvent = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_oracle_event",
+		Help: "Metric to track received oracle events",
+	}, []string{"oracle", "event"})
+
+	promRequestInternalError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_internal_error",
+		Help: "Metric to track internal errors",
+	}, []string{"oracle"})
+
+	promRequestComputationError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_computation_error",
+		Help: "Metric to track computation errors",
+	}, []string{"oracle"})
+
+	promRequestComputationSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_computation_success",
+		Help: "Metric to track number of computed requests",
+	}, []string{"oracle"})
+
+	promRequestTimeout = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_timeout",
+		Help: "Metric to track number of timed out requests",
+	}, []string{"oracle"})
+
+	promRequestConfirmed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_confirmed",
+		Help: "Metric to track number of confirmed requests",
+	}, []string{"oracle", "responseType"})
+
+	promRequestDataSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_request_data_size",
+		Help:    "Metric to track request data size",
+		Buckets: sizeBuckets,
+	}, []string{"oracle"})
+
+	promComputationResultSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_result_size",
+		Help: "Metric to track computation result size in bytes",
+	}, []string{"oracle"})
+
+	promComputationErrorSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_error_size",
+		Help: "Metric to track computation error size in bytes",
+	}, []string{"oracle"})
+
+	promComputationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "functions_request_computation_duration",
+		Help: "Metric to track computation duration in ms",
+		Buckets: []float64{
+			float64(10 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(time.Second),
+			float64(10 * time.Second),
+			float64(30 * time.Second),
+			float64(60 * time.Second),
+		},
+	}, []string{"oracle"})
 )
 
 const (
+	CBORParseTaskName   string = "decode_cbor"
 	ParseResultTaskName string = "parse_result"
 	ParseErrorTaskName  string = "parse_error"
 )
@@ -32,6 +105,7 @@ const (
 type DRListener struct {
 	utils.StartStopOnce
 	oracle            *ocr2dr_oracle.OCR2DROracle
+	oracleHexAddr     string
 	job               job.Job
 	pipelineRunner    pipeline.Runner
 	jobORM            job.ORM
@@ -54,6 +128,7 @@ func formatRequestId(requestId [32]byte) string {
 func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *DRListener {
 	return &DRListener{
 		oracle:         oracle,
+		oracleHexAddr:  oracle.Address().Hex(),
 		job:            jb,
 		pipelineRunner: runner,
 		jobORM:         jobORM,
@@ -168,15 +243,19 @@ func (l *DRListener) processOracleEvents() {
 
 				switch log := log.(type) {
 				case *ocr2dr_oracle.OCR2DROracleOracleRequest:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleRequest(log, lb)
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
 				default:
@@ -194,12 +273,19 @@ func (l *DRListener) processOracleEvents() {
 //  1. "" (2 characters) -> return empty byte array
 //  2. "0x<val>" where <val> is a non-empty, valid hex -> return hex-decoded <val>
 func ExtractRawBytes(input []byte) ([]byte, error) {
+	if bytes.Equal(input, []byte("null")) {
+		return nil, fmt.Errorf("null value")
+	}
 	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
-		return nil, fmt.Errorf("unable to decode input: %v", input)
+		return nil, fmt.Errorf("unable to decode input (expected quotes): %v", input)
 	}
 	input = input[1 : len(input)-1]
 	if len(input) == 0 {
 		return []byte{}, nil
+	}
+	if bytes.Equal(input, []byte("0x0")) {
+		// special case with odd number of digits
+		return []byte{0}, nil
 	}
 	if len(input) < 4 || len(input)%2 != 0 {
 		return nil, fmt.Errorf("input is not a valid, non-empty hex string of even length: %v", input)
@@ -215,16 +301,26 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
 }
 
+func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
+	if errType == INTERNAL_ERROR {
+		promRequestInternalError.WithLabelValues(l.oracleHexAddr).Inc()
+	} else {
+		promRequestComputationError.WithLabelValues(l.oracleHexAddr).Inc()
+	}
+	readyForProcessing := errType != INTERNAL_ERROR
+	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
+	}
+}
+
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("Oracle request received",
-		"requestId", formatRequestId(request.RequestId),
-		"data", fmt.Sprintf("%0x", request.Data),
-	)
+	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
+
+	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
 	requestData := make(map[string]interface{})
 	requestData["requestId"] = formatRequestId(request.RequestId)
-	requestData["data"] = fmt.Sprintf("0x%x", request.Data)
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = requestData
 
@@ -247,29 +343,49 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			"blockStateRoot":        lb.StateRoot(),
 		},
 	})
+
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime)
+		promComputationDuration.WithLabelValues(l.oracleHexAddr).Observe(float64(duration.Milliseconds()))
+	}()
+
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+
 	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
 	if err != nil {
 		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
-	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
-		l.markLogConsumed(lb, pg.WithQueryer(tx))
-		return nil
-	})
+	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+
+	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
+		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
+		return
+	}
+
+	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
-		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "err", err)
+		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
+		return
+	}
+	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
+
+	_, cborParseErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, CBORParseTaskName, pg.WithParentCtx(ctx))
+	if cborParseErr != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, []byte("CBOR parsing error"))
 		return
 	}
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
-		// Internal problem: Can't find parsed computation results
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errResult.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
-		}
+		// Internal problem: Can't find computation results
+		l.logger.Errorw("internal error: can't retrieve computation results field", "requestID", formatRequestId(request.RequestId))
+		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errResult.Error()))
 		return
 	}
 	computationResult, errResult = ExtractRawBytes(computationResult)
@@ -280,10 +396,9 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 
 	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
 	if errErr != nil {
-		// Internal problem: Can't find parsed computation error
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errErr.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
-		}
+		// Internal problem: Can't find computation errors
+		l.logger.Errorw("internal error: can't retrieve computation error field", "requestID", formatRequestId(request.RequestId))
+		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errErr.Error()))
 		return
 	}
 	computationError, errErr = ExtractRawBytes(computationError)
@@ -293,10 +408,16 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	}
 
 	if len(computationError) != 0 {
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, USER_EXCEPTION, computationError, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
+		if len(computationResult) != 0 {
+			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
 		}
+		l.logger.Debugw("saving computation error", "requestID", formatRequestId(request.RequestId))
+		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
+		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
 	} else {
+		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
+		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
+		l.logger.Debugw("saving computation result", "requestID", formatRequestId(request.RequestId))
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
@@ -312,12 +433,13 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
-	l.markLogConsumed(lb)
+	promRequestConfirmed.WithLabelValues(l.oracleHexAddr, responseType).Inc()
+	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
 func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
-		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
+		l.logger.Errorw("unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }
 
@@ -344,6 +466,7 @@ func (l *DRListener) timeoutRequests() {
 				break
 			}
 			if len(ids) > 0 {
+				promRequestTimeout.WithLabelValues(l.oracleHexAddr).Add(float64(len(ids)))
 				var idStrs []string
 				for _, id := range ids {
 					idStrs = append(idStrs, formatRequestId(id))
