@@ -28,7 +28,7 @@ import (
 )
 
 func TestOCRSoak(t *testing.T) {
-	testEnvironment, network, testInputs := SetupOCREnvVarsSoakEnv(t)
+	testEnvironment, network, testInputs := SetupOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -81,6 +81,31 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 		Test: t,
 	}
 
+	baseNetworkConfig := `NoNewHeadsThreshold = '30s'
+ChainType = optimismBedrock
+LogPollInterval = '2s'
+FinalityDepth = 200
+MinIncomingConfirmations = 3
+
+[EVM.GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'BlockHistory'
+BumpThreshold = 3
+PriceMin = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[EVM.Transactions]
+ResendAfterThreshold = '30s'
+
+[EVM.HeadTracker]
+SamplingInterval = '1s'
+HistoryDepth = 300
+
+[EVM.NodePool]
+SyncThreshold = 10`
+
 	replicas := 6
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
@@ -98,50 +123,9 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			}))
 		} else {
 			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
+				"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, baseNetworkConfig, network),
 			}))
 		}
-	}
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error launching test environment")
-	return testEnvironment, network, testInputs
-}
-
-func SetupOCREnvVarsSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, OcrSoakInputs) {
-	var testInputs OcrSoakInputs
-	err := envconfig.Process("OCR", &testInputs)
-	require.NoError(t, err, "Error reading OCR soak test inputs")
-	testInputs.setForRemoteRunner()
-
-	network := networks.SelectedNetwork // Environment currently being used to soak test on
-	baseEnvironmentConfig := &environment.Config{
-		TTL: time.Hour * 720, // 30 days,
-		NamespacePrefix: fmt.Sprintf(
-			"soak-ocr-%s",
-			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
-		),
-		Test: t,
-	}
-
-	replicas := 6
-	envVars := map[string]any{}
-	if !network.Simulated {
-		envVars["ETH_URL"] = network.URLs[0]
-		envVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-		envVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
-	}
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		}))
-	for i := 0; i < replicas; i++ {
-		testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
-			"env": envVars,
-		}))
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

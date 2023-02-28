@@ -1,6 +1,6 @@
 package config
 
-var (
+const (
 	BaseOCRP2PV1Config = `[OCR]
 Enabled = true
 

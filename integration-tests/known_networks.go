@@ -197,6 +197,7 @@ var (
 		"KLAYTN_BAOBAB":   KlaytnBaobab,
 		"METIS_STARDUST":  MetisStardust,
 		"ARBITRUM_GOERLI": ArbitrumGoerli,
+		"BASE_GOERLI":     OptimismGoerli,
 		"OPTIMISM_GOERLI": OptimismGoerli,
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
