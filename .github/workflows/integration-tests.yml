@@ -435,7 +435,7 @@ jobs:
       - name: Notify Slack
         if: always()
         id: slack
-        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844
+        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844 # v1.23.0
         with:
           channel-id: ${{ secrets.QA_RELEASE_SLACK_CHANNEL }}
           payload: |
