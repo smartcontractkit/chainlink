@@ -69,6 +69,7 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.15
+	github.com/test-go/testify v1.1.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.14.4
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
@@ -86,6 +87,7 @@ require (
 	golang.org/x/text v0.7.0
 	golang.org/x/tools v0.5.0
 	gonum.org/v1/gonum v0.12.0
+	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
