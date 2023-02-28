@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for sending OCR2 job specs to the feeds manager
 - Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 
+### Changed
+
+- The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
+
 ### Removed
 
 - Terra is no longer supported
