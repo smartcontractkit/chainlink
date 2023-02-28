@@ -55,10 +55,10 @@ func (e *EthereumExchanger) ResolveTrade(encodedCommitment []byte) (string, erro
 
 func (e *EthereumExchanger) ResolveTradeWithReport(chainlinkBlob []byte, encodedCommitment []byte) (*types.Receipt, error) {
 	txOpts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	txOpts.GasLimit = 1000000
 	if err != nil {
 		return nil, err
 	}
+	txOpts.GasLimit = 1000000
 	tx, err := e.exchanger.ResolveTradeWithReport(txOpts, chainlinkBlob, encodedCommitment)
 	if err != nil {
 		// blockchain.LogRevertReason(err, exchanger.ExchangerABI)
@@ -72,11 +72,7 @@ func (e *EthereumExchanger) ResolveTradeWithReport(chainlinkBlob []byte, encoded
 	if err != nil {
 		return nil, err
 	}
-	receipt, err := e.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, err
-	}
-	return receipt, nil
+	return e.client.GetTxReceipt(tx.Hash())
 }
 
 type VerifierProxy interface {
