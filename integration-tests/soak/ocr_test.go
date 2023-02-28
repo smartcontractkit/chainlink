@@ -106,6 +106,10 @@ HistoryDepth = 300
 [EVM.NodePool]
 SyncThreshold = 10`
 
+	fmt.Println("Using TOML")
+	fmt.Println("-----------------")
+	fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, baseNetworkConfig, network))
+	fmt.Println("-----------------")
 	replicas := 6
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
