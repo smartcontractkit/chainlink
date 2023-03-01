@@ -6,8 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +33,7 @@ import (
 	"github.com/smartcontractkit/wsrpc/peer"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -79,9 +84,8 @@ func (s *mercuryServer) LatestReport(context.Context, *pb.LatestReportRequest) (
 	return nil, nil
 }
 
-func startMercuryServer(t *testing.T, srv *mercuryServer) (url string) {
+func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (url string, serverPubKey credentials.StaticSizedPublicKey) {
 	privKey := keys.FromHex(keys.ServerPrivKey)
-	pubKeys := []ed25519.PublicKey{}
 
 	// Set up the wsrpc server
 	lis, err := net.Listen("tcp", "[::1]:0")
@@ -128,10 +132,19 @@ func TestIntegration_Mercury(t *testing.T) {
 	feedID := [32]byte(utils.NewHash())
 	reqs := make(chan request)
 	srv := NewMercuryServer(reqs)
-	reportURL := startMercuryServer(t, srv)
-	chainID := testutils.SimulatedChainID
+
 	f := 1
 	n := 4
+	clientCSAKeys := make([]csakey.KeyV2, n+1)
+	clientPubKeys := make([]ed25519.PublicKey, n+1)
+	for i := 0; i < n+1; i++ {
+		k := big.NewInt(int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+	reportURL, serverPubKey := startMercuryServer(t, srv, clientPubKeys)
+	chainID := testutils.SimulatedChainID
 
 	// Setup blockchain
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
@@ -146,7 +159,7 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	var (
 		oracles []confighelper.OracleIdentityExtra
@@ -157,7 +170,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend)
+		}, backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -189,16 +202,35 @@ chainID = 1337
 
 	// Add OCR jobs
 	for i, node := range nodes {
+		// create bridge
+		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			// TODO: Handle different types of query
+			panic("foo")
+			b, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Equal(t, "foo", b)
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"data":10}`))
+		}))
+		t.Cleanup(bridge.Close)
+		u, _ := url.Parse(bridge.URL)
+		bridgeName := fmt.Sprintf("bridge%d", i)
+		require.NoError(t, node.App.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.BridgeName(bridgeName),
+			URL:  models.WebURL(*u),
+		}))
+
+		// create mercury job
 		node.AddJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
-name = "mercury-%d"
+name = "mercury-%[1]d"
 forwardingAllowed = false
 maxTaskDuration = "1s"
-contractID = "%s"
-ocrKeyBundleID = "%s"
+contractID = "%[2]s"
+ocrKeyBundleID = "%[3]s"
 p2pv2Bootstrappers = [
-  "%s"
+  "%[4]s"
 ]
 relay = "evm"
 pluginType = "mercury"
@@ -213,21 +245,21 @@ observationSource = """
 	b1 -> bh_lookup;
 	
 	// Benchmark Price
-	price1          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	price1          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
 	price1_parse    [type=jsonparse path="result"];
 	price1_multiply [type=multiply times=100000000];
 
 	price1 -> price1_parse -> price1_multiply;
 
 	// Bid
-	bid          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	bid          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
 	bid_parse    [type=jsonparse path="result"];
 	bid_multiply [type=multiply times=100000000];
 
 	bid -> bid_parse -> bid_multiply;
 
 	// Ask
-	ask          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	ask          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
 	ask_parse    [type=jsonparse path="result"];
 	ask_multiply [type=multiply times=100000000];
 
@@ -235,13 +267,26 @@ observationSource = """
 """
 
 [pluginConfig]
-feedID = "0x%x"
-url = "%s"
+feedID = "0x%[6]x"
+url = "%[7]s"
+serverPubKey = "%[8]x"
+clientPubKey = "%[9]x"
 
 [relayConfig]
-chainID = %d
-fromBlock = %d
-		`, i, configContractAddr, node.KeyBundle.ID(), fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), feedID, reportURL, chainID, 0))
+chainID = %[10]d
+fromBlock = %[11]d
+		`,
+			i,
+			configContractAddr,
+			node.KeyBundle.ID(),
+			fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
+			bridgeName,
+			feedID,
+			reportURL,
+			serverPubKey,
+			clientPubKeys[i],
+			chainID,
+			0))
 	}
 
 	// Setup config on contract
@@ -290,7 +335,7 @@ fromBlock = %d
 	// require.NoError(t, err)
 	// backend.Commit()
 
-	<-reqs
+	// <-reqs
 
 	panic("END")
 }
@@ -301,10 +346,10 @@ func setupNode(
 	dbName string,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	backend *backends.SimulatedBackend,
+	csaKey csakey.KeyV2,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
 	k := big.NewInt(port) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
-	csaKey := csakey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(port)
 	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
 
@@ -352,7 +397,7 @@ func setupNode(
 		c.OCR2.Enabled = ptr(true)
 	})
 
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey)
+	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey)
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 

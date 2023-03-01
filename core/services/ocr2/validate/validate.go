@@ -189,5 +189,5 @@ func validateOCR2MercurySpec(jsonConfig job.JSONConfig) error {
 	if err != nil {
 		return errors.Wrap(err, "error while unmarshaling plugin config")
 	}
-	return mercuryconfig.ValidatePluginConfig(pluginConfig)
+	return errors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig), "Mercury PluginConfig is invalid")
 }

@@ -184,13 +184,13 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
 				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %x", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
 			if jb.OCROracleSpec.TransmitterAddress != nil {
 				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
 				}
 			}
 
@@ -235,7 +235,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %q", jb.OCR2OracleSpec.OCRKeyBundleID.ValueOrZero())
 				}
 			}
 

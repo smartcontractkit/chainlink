@@ -120,9 +120,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jb)
 	}
-	if !spec.TransmitterID.Valid {
-		return nil, errors.Errorf("expected a transmitterID to be specified")
-	}
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
