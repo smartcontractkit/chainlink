@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
 of any values provided via configuration files.
 
+### Changed
+
+- The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
+
 ### Removed
 
 - Terra is no longer supported
