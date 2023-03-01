@@ -3974,7 +3974,12 @@ describe('KeeperRegistry2_1', () => {
         await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
       })
 
-      it('migrates an upkeep', async () => {
+      it('migrates an upkeep with offchain config', async () => {
+        const offchainBytes = '0x987654abcd'
+        await registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(upkeepId, offchainBytes)
+
         expect((await registry.getUpkeep(upkeepId)).balance).to.equal(
           toWei('100'),
         )
@@ -4003,6 +4008,9 @@ describe('KeeperRegistry2_1', () => {
         )
         expect((await registry2.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
+        )
+        expect((await registry2.getUpkeep(upkeepId)).offchainConfig).to.equal(
+          offchainBytes,
         )
         // migration will delete the upkeep and nullify admin transfer
         await expect(

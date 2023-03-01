@@ -159,9 +159,8 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
     id = uint256(keccak256(abi.encode(blockhash(block.number - 1), address(this), s_storage.nonce)));
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig);
     s_storage.nonce++;
-    s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
     return id;
   }
@@ -370,6 +369,7 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
     bytes[] memory checkDatas = new bytes[](ids.length);
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
+    bytes[] memory offchainConfigs = new bytes[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
@@ -377,16 +377,18 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];
+      offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
+      delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins, offchainConfigs);
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,
@@ -405,8 +407,8 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins) = abi
-      .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[]));
+    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins, bytes[] memory offchainConfigs) = abi
+      .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       _createUpkeep(
         ids[idx],
@@ -415,7 +417,8 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
         upkeepAdmins[idx],
         upkeeps[idx].balance,
         checkDatas[idx],
-        upkeeps[idx].paused
+        upkeeps[idx].paused,
+        offchainConfigs[idx]
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
@@ -429,6 +432,7 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param paused if this upkeep is paused
+   * @param offchainConfig the upkeep's offchain config
    */
   function _createUpkeep(
     uint256 id,
@@ -437,7 +441,8 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
     address admin,
     uint96 balance,
     bytes memory checkData,
-    bool paused
+    bool paused,
+    bytes memory offchainConfig
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!target.isContract()) revert NotAContract();
@@ -456,6 +461,7 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
     s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
+    s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
   }
 
