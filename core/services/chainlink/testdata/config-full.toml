@@ -301,7 +301,7 @@ HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 
 [[Cosmos]]
-ChainID = 'Bombay-12'
+ChainID = 'Malaga-420'
 Enabled = true
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12

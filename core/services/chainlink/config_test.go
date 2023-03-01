@@ -141,7 +141,7 @@ var (
 		},
 		Cosmos: []*cosmos.CosmosConfig{
 			{
-				ChainID: ptr("Columbus-5"),
+				ChainID: ptr("Ibiza-808"),
 				Chain: coscfg.Chain{
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
@@ -149,7 +149,7 @@ var (
 					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://columbus.cosmos.com")},
 				}},
 			{
-				ChainID: ptr("Bombay-12"),
+				ChainID: ptr("Malaga-420"),
 				Chain: coscfg.Chain{
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
@@ -591,7 +591,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Cosmos = []*cosmos.CosmosConfig{
 		{
-			ChainID: ptr("Bombay-12"),
+			ChainID: ptr("Malaga-420"),
 			Enabled: ptr(true),
 			Chain: coscfg.Chain{
 				BlockRate:             relayutils.MustNewDuration(time.Minute),
@@ -922,7 +922,7 @@ HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
 		{"Cosmos", Config{Cosmos: full.Cosmos}, `[[Cosmos]]
-ChainID = 'Bombay-12'
+ChainID = 'Malaga-420'
 Enabled = true
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
@@ -1090,7 +1090,7 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
 	- Cosmos: 5 errors:
-		- 1.ChainID: invalid value (Bombay-12): duplicate - must be unique
+		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
 		- 0.Nodes: 2 errors:
 				- 0.TendermintURL: missing: required for all nodes

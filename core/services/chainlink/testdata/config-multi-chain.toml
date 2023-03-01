@@ -69,7 +69,7 @@ Name = 'primary'
 WSURL = 'wss://web.socket/test'
 
 [[Cosmos]]
-ChainID = 'Columbus-5'
+ChainID = 'Ibiza-808'
 MaxMsgsPerBatch = 13
 
 [[Cosmos.Nodes]]
@@ -77,7 +77,7 @@ Name = 'primary'
 TendermintURL = 'http://columbus.cosmos.com'
 
 [[Cosmos]]
-ChainID = 'Bombay-12'
+ChainID = 'Malaga-420'
 BlocksUntilTxTimeout = 20
 
 [[Cosmos.Nodes]]

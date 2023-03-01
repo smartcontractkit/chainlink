@@ -20,7 +20,7 @@ func TestClient_CosmosInit(t *testing.T) {
 
 	newNode := types.NewNode{
 		Name:          "first",
-		CosmosChainID: "Columbus-5",
+		CosmosChainID: "Ibiza-808",
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}
 	set := flag.NewFlagSet("cli", 0)

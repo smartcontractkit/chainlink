@@ -78,7 +78,7 @@ WSURL = 'ws://dupe.com'
 [[EVM]]
 
 [[Cosmos]]
-ChainID = 'Bombay-12'
+ChainID = 'Malaga-420'
 
 [[Cosmos.Nodes]]
 Name = 'test'
@@ -87,7 +87,7 @@ Name = 'test'
 Name = 'test'
 
 [[Cosmos]]
-ChainID = 'Bombay-12'
+ChainID = 'Malaga-420'
 
 [[Cosmos]]
 

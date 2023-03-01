@@ -435,7 +435,7 @@ Name = 'primary'
 WSURL = 'wss://web.socket/test'
 
 [[Cosmos]]
-ChainID = 'Columbus-5'
+ChainID = 'Ibiza-808'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
@@ -452,7 +452,7 @@ Name = 'primary'
 TendermintURL = 'http://columbus.cosmos.com'
 
 [[Cosmos]]
-ChainID = 'Bombay-12'
+ChainID = 'Malaga-420'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 20
 ConfirmPollPeriod = '1s'

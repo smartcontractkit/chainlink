@@ -1,6 +1,6 @@
 [[Cosmos]]
 # ChainID is the Cosmos chain ID. Mandatory.
-ChainID = 'Bombay-12' # Example
+ChainID = 'Malaga-420' # Example
 # Enabled enables this chain.
 Enabled = true # Default
 # BlockRate is the average time between blocks.
