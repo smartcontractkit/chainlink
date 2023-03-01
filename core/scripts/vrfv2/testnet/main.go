@@ -477,13 +477,6 @@ func main() {
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
 		deployBHS(e)
-	case "nocancel-coordinator-deploy":
-		cmd := flag.NewFlagSet("nocancel-coordinator-deploy", flag.ExitOnError)
-		linkAddress := cmd.String("link-address", "", "link contract address")
-		bhsAddress := cmd.String("bhs-address", "", "bhs contract address")
-		linkEthAddress := cmd.String("link-eth-feed", "", "link eth feed address")
-		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
-		deployNoCancelCoordinator(e, *linkAddress, *bhsAddress, *linkEthAddress)
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
