@@ -78,6 +78,10 @@ type ORM interface {
 	Close()
 }
 
+var ErrZeroRowsAffected = errors.New("orm: Zero Rows Affected")
+
+type QueryerFunc func(tx pg.Queryer) error
+
 type EthReceiptsPlus struct {
 	ID           uuid.UUID        `db:"id"`
 	Receipt      evmtypes.Receipt `db:"receipt"`
@@ -986,8 +990,6 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 	})
 }
 
-type QueryerFunc func(tx pg.Queryer) error
-
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
@@ -1114,8 +1116,6 @@ func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, addre
 		return nil
 	})
 }
-
-var ErrZeroRowsAffected = errors.New("orm: Zero Rows Affected")
 
 func (o *orm) countTransactionsWithState(fromAddress common.Address, state EthTxState, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	qq := o.q.WithOpts(qopts...)
