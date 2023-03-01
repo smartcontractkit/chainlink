@@ -17,11 +17,6 @@ type (
 		OffchainKeyring []byte
 		EVMKeyring      []byte
 	}
-	XXXOldCosmosKeyBundleRawData struct {
-		ChainType       chaintype.ChainType
-		OffchainKeyring []byte
-		CosmosKeyring   []byte
-	}
 	XXXOldSolanaKeyBundleRawData struct {
 		ChainType       chaintype.ChainType
 		OffchainKeyring []byte
@@ -116,38 +111,16 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 	t.Run("Cosmos", func(t *testing.T) {
 		// onchain key
-		onKey, err := newCosmosKeyring(cryptorand.Reader)
+		bundle, err := newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
 		require.NoError(t, err)
-		onBytes, err := onKey.Marshal()
+		bundleBytes, err := bundle.Marshal()
 		require.NoError(t, err)
-
-		// marshal old key format
-		oldKey := XXXOldCosmosKeyBundleRawData{
-			ChainType:       chaintype.Cosmos,
-			OffchainKeyring: offBytes,
-			CosmosKeyring:   onBytes,
-		}
-		bundleBytes, err := json.Marshal(oldKey)
-		require.NoError(t, err)
-
-		// test Unmarshal with old raw bundle
-		bundle := newKeyBundle(&cosmosKeyring{})
-		require.NoError(t, bundle.Unmarshal(bundleBytes))
-		newBundleBytes, err := bundle.Marshal()
-		require.NoError(t, err)
-
-		// new bundle == old bundle (only difference is <chain>Keyring == Keyring)
-		var newRawBundle keyBundleRawData
-		require.NoError(t, json.Unmarshal(newBundleBytes, &newRawBundle))
-		assert.Equal(t, oldKey.ChainType, newRawBundle.ChainType)
-		assert.Equal(t, oldKey.OffchainKeyring, newRawBundle.OffchainKeyring)
-		assert.Equal(t, oldKey.CosmosKeyring, newRawBundle.Keyring)
 
 		// test unmarshalling again to ensure ID has not changed
 		// the underlying bytes have changed, but ID should be preserved
-		newBundle := newKeyBundle(&cosmosKeyring{})
-		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
-		assert.Equal(t, bundle.ID(), newBundle.ID())
+		otherBundle := newKeyBundle(&cosmosKeyring{})
+		require.NoError(t, otherBundle.Unmarshal(bundleBytes))
+		assert.Equal(t, bundle.ID(), otherBundle.ID())
 	})
 
 	t.Run("MissingID", func(t *testing.T) {
