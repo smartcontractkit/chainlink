@@ -13,10 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -31,12 +29,12 @@ type ethClient interface {
 }
 
 // arbitrumEstimator is an Estimator which extends l2SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
-type arbitrumEstimator[T any] struct {
+type arbitrumEstimator struct {
 	utils.StartStopOnce
 
 	cfg ArbConfig
 
-	Estimator[T] // *l2SuggestedPriceEstimator
+	Estimator // *l2SuggestedPriceEstimator
 
 	client     ethClient
 	pollPeriod time.Duration
@@ -52,11 +50,11 @@ type arbitrumEstimator[T any] struct {
 	chDone         chan struct{}
 }
 
-func NewArbitrumEstimator[T any](lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) Estimator[T] {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) Estimator {
 	lggr = lggr.Named("ArbitrumEstimator")
-	return &arbitrumEstimator[T]{
+	return &arbitrumEstimator{
 		cfg:            cfg,
-		Estimator:      NewL2SuggestedPriceEstimator[txmgrtypes.HeadView[*evmtypes.Head]](lggr, rpcClient),
+		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -67,7 +65,7 @@ func NewArbitrumEstimator[T any](lggr logger.Logger, cfg ArbConfig, rpcClient rp
 	}
 }
 
-func (a *arbitrumEstimator[T]) Start(ctx context.Context) error {
+func (a *arbitrumEstimator) Start(ctx context.Context) error {
 	return a.StartOnce("ArbitrumEstimator", func() error {
 		if err := a.Estimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "failed to start gas price estimator")
@@ -77,7 +75,7 @@ func (a *arbitrumEstimator[T]) Start(ctx context.Context) error {
 		return nil
 	})
 }
-func (a *arbitrumEstimator[T]) Close() error {
+func (a *arbitrumEstimator) Close() error {
 	return a.StopOnce("ArbitrumEstimator", func() (err error) {
 		close(a.chStop)
 		err = errors.Wrap(a.Estimator.Close(), "failed to stop gas price estimator")
@@ -91,7 +89,7 @@ func (a *arbitrumEstimator[T]) Close() error {
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
-func (a *arbitrumEstimator[T]) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice, _, err = a.Estimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
@@ -135,14 +133,14 @@ func (a *arbitrumEstimator[T]) GetLegacyGas(ctx context.Context, calldata []byte
 	return
 }
 
-func (a *arbitrumEstimator[T]) getPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32) {
+func (a *arbitrumEstimator) getPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32) {
 	a.getPricesInArbGasMu.RLock()
 	perL2Tx, perL1CalldataUnit = a.perL2Tx, a.perL1CalldataUnit
 	a.getPricesInArbGasMu.RUnlock()
 	return
 }
 
-func (a *arbitrumEstimator[T]) run() {
+func (a *arbitrumEstimator) run() {
 	defer close(a.chDone)
 
 	t := a.refreshPricesInArbGas()
@@ -163,7 +161,7 @@ func (a *arbitrumEstimator[T]) run() {
 }
 
 // refreshPricesInArbGas calls getPricesInArbGas() and caches the refreshed prices.
-func (a *arbitrumEstimator[T]) refreshPricesInArbGas() (t *time.Timer) {
+func (a *arbitrumEstimator) refreshPricesInArbGas() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(a.pollPeriod))
 
 	perL2Tx, perL1CalldataUnit, err := a.callGetPricesInArbGas()
@@ -196,7 +194,7 @@ const (
 // function getPricesInArbGas() external view returns (uint256, uint256, uint256);
 //
 // https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
-func (a *arbitrumEstimator[T]) callGetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
+func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
 	ctx, cancel := evmclient.ContextWithDefaultTimeoutFromChan(a.chStop)
 	defer cancel()
 

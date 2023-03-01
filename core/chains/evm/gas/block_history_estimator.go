@@ -79,7 +79,7 @@ var _ Estimator = &BlockHistoryEstimator{}
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
-	BlockHistoryEstimator[T any] struct {
+	BlockHistoryEstimator struct {
 		utils.StartStopOnce
 		ethClient evmclient.Client
 		chainID   big.Int
@@ -108,9 +108,9 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator[T *evmtypes.Head](lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator[T] {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator {
 	ctx, cancel := context.WithCancel(context.Background())
-	b := &BlockHistoryEstimator[T]{
+	b := &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,
 		config:    cfg,
@@ -129,15 +129,15 @@ func NewBlockHistoryEstimator[T *evmtypes.Head](lggr logger.Logger, ethClient ev
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator[T]) OnNewLongestChain(_ context.Context, head txmgrtypes.HeadView[*evmtypes.Head]) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head txmgrtypes.HeadView) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
-	b.setLatest(head.GetNativeHead())
-	b.mb.Deliver(head.GetNativeHead())
+	b.setLatest(head.GetNativeHead().(*evmtypes.Head))
+	b.mb.Deliver(head.GetNativeHead().(*evmtypes.Head))
 }
 
 // setLatest assumes that head won't be mutated
-func (b *BlockHistoryEstimator[T]) setLatest(head *evmtypes.Head) {
+func (b *BlockHistoryEstimator) setLatest(head *evmtypes.Head) {
 	// Non-eip1559 blocks don't include base fee
 	if baseFee := head.BaseFeePerGas; baseFee != nil {
 		promBlockHistoryEstimatorCurrentBaseFee.WithLabelValues(b.chainID.String()).Set(float64(baseFee.Int64()))

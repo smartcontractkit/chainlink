@@ -32,8 +32,7 @@ type txmWrapper struct {
 }
 
 func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
-	var head = newHeadViewImpl(evmHead)
-	txmWrapper.txm.OnNewLongestChain(ctx, &head)
+	txmWrapper.txm.OnNewLongestChain(ctx, newHeadViewImpl(evmHead))
 }
 
 func (txmWrapper *txmWrapper) Start(ctx context.Context) (err error) {
@@ -61,7 +60,7 @@ func newTxManagerWrapper(
 	opts ChainSetOpts,
 ) txmWrapper {
 	chainID := cfg.ChainID()
-	var txm txmgr.TxManager[*evmtypes.Head]
+	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
@@ -73,15 +72,15 @@ func newTxManagerWrapper(
 	return txmWrapper{txm: txm}
 }
 
-var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}
+var _ txmgrtypes.HeadView = &headViewImpl{}
 
 // Evm implementation for the generic HeadView interface
 type headViewImpl struct {
-	txmgrtypes.HeadView[*evmtypes.Head]
+	txmgrtypes.HeadView
 	evmHead *evmtypes.Head
 }
 
-func newHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView[*evmtypes.Head] {
+func newHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView {
 	return &headViewImpl{evmHead: head}
 }
 
@@ -95,7 +94,7 @@ func (head *headViewImpl) ChainLength() uint32 {
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView[*evmtypes.Head] {
+func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView {
 	return newHeadViewImpl(head.evmHead.EarliestInChain())
 }
 
@@ -103,7 +102,7 @@ func (head *headViewImpl) Hash() common.Hash {
 	return head.evmHead.Hash
 }
 
-func (head *headViewImpl) Parent() txmgrtypes.HeadView[*evmtypes.Head] {
+func (head *headViewImpl) Parent() txmgrtypes.HeadView {
 	return newHeadViewImpl(head.evmHead.Parent)
 }
 
@@ -113,6 +112,6 @@ func (head *headViewImpl) HashAtHeight(blockNum int64) common.Hash {
 	return head.evmHead.Hash
 }
 
-func (head *headViewImpl) GetNativeHead() *evmtypes.Head {
+func (head *headViewImpl) GetNativeHead() interface{} {
 	return head.evmHead
 }
