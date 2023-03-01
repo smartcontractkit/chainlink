@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/coreth/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -101,7 +101,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer) (url string) {
 
 type Node struct {
 	App          chainlink.Application
-	ClientPubKey *credentials.StaticSizedPublicKey
+	ClientPubKey credentials.StaticSizedPublicKey
 	KeyBundle    ocr2key.KeyBundle
 }
 
@@ -144,18 +144,18 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil)
-	bootstrapNode := Node{appBootstrap, nil, bootstrapKb}
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	var (
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	// Set up n oracles all funded
+	// Set up n oracles
 	for i := int64(0); i < int64(n); i++ {
 		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		})
+		}, backend)
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -299,7 +299,7 @@ func setupNode(
 	dbName string,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	backend *backends.SimulatedBackend,
-) (app chainlink.Application, peerID string, clientPubKey *credentials.StaticSizedPublicKey, kb ocr2key.KeyBundle) {
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(port))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -344,8 +344,11 @@ func setupNode(
 		c.OCR2.Enabled = ptr(true)
 	})
 
-	app := cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey)
-	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey)
+	ks := app.GetKeyStore()
+	csaKey, err := ks.CSA().Create()
+	require.NoError(t, err)
+	ocr2kb, err = ks.OCR2().Create(chaintype.EVM)
 	require.NoError(t, err)
 
 	err = app.Start(testutils.Context(t))
@@ -355,7 +358,7 @@ func setupNode(
 		assert.NoError(t, app.Stop())
 	})
 
-	return app, p2pKey.PeerID().Raw(), nodeKey.Address, kb
+	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb
 }
 
 func ptr[T any](t T) *T { return &t }
