@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	easyjson "github.com/mailru/easyjson"
 	"github.com/pkg/errors"
+	"github.com/ugorji/go/codec"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -263,6 +264,14 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsonHead)
 }
 
+type BlockJsonHandlerType int
+
+const (
+	StdLib BlockJsonHandlerType = iota
+	EasyJson
+	GoCodec
+)
+
 // Block represents an ethereum block
 // This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
 type Block struct {
@@ -272,18 +281,20 @@ type Block struct {
 	BaseFeePerGas *assets.Wei
 	Timestamp     time.Time
 	Transactions  []Transaction
-	// marshalFn     func() ([]byte, error)
-	// unmarshalFn   func([]byte)
+	// hack to configure benchmarking while ensuring existing tests work
+	handler BlockJsonHandlerType
+	//marshalFn   func() ([]byte, error)
+	//unmarshalFn func([]byte) error
 }
 
 //easyjson:json
 type blockInternal struct {
-	Number        string
-	Hash          common.Hash
-	ParentHash    common.Hash
-	BaseFeePerGas *hexutil.Big
-	Timestamp     hexutil.Uint64
-	Transactions  []Transaction
+	Number        string         `codec:"number"`
+	Hash          common.Hash    `codec:"hash"`
+	ParentHash    common.Hash    `codec:"parentHash"`
+	BaseFeePerGas *hexutil.Big   `codec:"baseFeePerGas"`
+	Timestamp     hexutil.Uint64 `codec:"timestamp"`
+	Transactions  []Transaction  `codec:"transactions"`
 }
 
 func (bi blockInternal) empty() bool {
@@ -314,6 +325,25 @@ var ErrMissingBlock = errors.New("missing block")
 // UnmarshalJSON unmarshals to a Block
 
 func (b *Block) UnmarshalJSON(data []byte) error {
+	switch b.handler {
+	case StdLib:
+		return b.stdJsonBlockUnmarshalJSON(data)
+	case EasyJson:
+		return b.easyJsonBlockUnmarshalJSON(data)
+	case GoCodec:
+		return b.codecJsonBlockUnmarshalJSON(data)
+	default:
+		return fmt.Errorf("unknown")
+	}
+
+}
+
+func (b *Block) WithJsonCoder(t BlockJsonHandlerType) *Block {
+	b.handler = t
+	return b
+}
+
+func (b *Block) easyJsonBlockUnmarshalJSON(data []byte) error {
 
 	bi := blockInternal{}
 	if err := easyjson.Unmarshal(data, &bi); err != nil {
@@ -335,13 +365,65 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
 		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
 		Transactions:  bi.Transactions,
-		//		marshalFn:     b.marshalFn,
-		//		unmarshalFn:   b.unmarshalFn,
 	}
 	return nil
 }
 
-//func easyJsonBlockUnmarshalJSON(data []byte) error
+func (b *Block) stdJsonBlockUnmarshalJSON(data []byte) error {
+
+	bi := blockInternal{}
+	if err := json.Unmarshal(data, &bi); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
+	}
+
+	if bi.empty() {
+		return errors.WithStack(ErrMissingBlock)
+	}
+
+	n, err := hexutil.DecodeBig(bi.Number)
+	if err != nil {
+		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
+	}
+	*b = Block{
+		Number:        n.Int64(),
+		Hash:          bi.Hash,
+		ParentHash:    bi.ParentHash,
+		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
+		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		Transactions:  bi.Transactions,
+	}
+	return nil
+}
+
+func (b *Block) codecJsonBlockUnmarshalJSON(data []byte) error {
+
+	var h codec.Handle = new(codec.JsonHandle)
+	bi := blockInternal{}
+
+	dec := codec.NewDecoderBytes(data, h)
+	err := dec.Decode(&bi)
+
+	if err != nil {
+		return err
+	}
+	if bi.empty() {
+		return errors.WithStack(ErrMissingBlock)
+	}
+
+	n, err := hexutil.DecodeBig(bi.Number)
+	if err != nil {
+		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
+	}
+	*b = Block{
+		Number:        n.Int64(),
+		Hash:          bi.Hash,
+		ParentHash:    bi.ParentHash,
+		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
+		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		Transactions:  bi.Transactions,
+	}
+	return nil
+}
 
 type TxType uint8
 

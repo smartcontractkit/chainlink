@@ -691,35 +691,40 @@ const paritySampleBlock = `
 `
 
 func TestBlock_UnmarshalJSON(t *testing.T) {
-	t.Run("unmarshals parity block", func(t *testing.T) {
-		b := new(evmtypes.Block)
-		err := b.UnmarshalJSON([]byte(paritySampleBlock))
-		require.NoError(t, err)
+	for i := 0; i < 3; i++ {
+		t.Run("unmarshals parity block", func(t *testing.T) {
+			b := new(evmtypes.Block)
+			b.WithJsonCoder(evmtypes.BlockJsonHandlerType(i))
+			err := b.UnmarshalJSON([]byte(paritySampleBlock))
+			require.NoError(t, err)
 
-		assert.Equal(t, int64(32473599), b.Number)
-		assert.Equal(t, "0x0ec62c2a397e114d84ce932387d841787d7ec5757ceba3708386da87934b7c82", b.Hash.Hex())
-		assert.Equal(t, "0x3aa1c729fb45888bc1ce777d00bad9637c0b5f7cb48b145ebacc16098e0132d4", b.ParentHash.Hex())
-		assert.Equal(t, assets.NewWeiI(7), b.BaseFeePerGas)
-		assert.Equal(t, int64(1656602604), b.Timestamp.Unix())
-		assert.Len(t, b.Transactions, 2)
-	})
-	t.Run("unmarshals geth block", func(t *testing.T) {
-		b := new(evmtypes.Block)
-		err := b.UnmarshalJSON([]byte(gethSampleBlock))
-		assert.NoError(t, err)
+			assert.Equal(t, int64(32473599), b.Number)
+			assert.Equal(t, "0x0ec62c2a397e114d84ce932387d841787d7ec5757ceba3708386da87934b7c82", b.Hash.Hex())
+			assert.Equal(t, "0x3aa1c729fb45888bc1ce777d00bad9637c0b5f7cb48b145ebacc16098e0132d4", b.ParentHash.Hex())
+			assert.Equal(t, assets.NewWeiI(7), b.BaseFeePerGas)
+			assert.Equal(t, int64(1656602604), b.Timestamp.Unix())
+			assert.Len(t, b.Transactions, 2)
+		})
+		t.Run("unmarshals geth block", func(t *testing.T) {
+			b := new(evmtypes.Block)
+			b.WithJsonCoder(evmtypes.BlockJsonHandlerType(i))
+			err := b.UnmarshalJSON([]byte(gethSampleBlock))
+			assert.NoError(t, err)
 
-		assert.Equal(t, int64(15051090), b.Number)
-		assert.Equal(t, "0x45eb0a650b6b0b9fd1ee676b870e43fa7614f1034f7404070327a332faed05c0", b.Hash.Hex())
-		assert.Equal(t, "0x653ea251c180d93296ef79378e64d7dc9a74f565a54df477faeb64d3330977dd", b.ParentHash.Hex())
-		assert.Equal(t, assets.NewWeiI(39678999761), b.BaseFeePerGas)
-		assert.Equal(t, int64(1656603143), b.Timestamp.Unix())
-		assert.Len(t, b.Transactions, 7)
-	})
-	t.Run("handles empty result", func(t *testing.T) {
-		b := new(evmtypes.Block)
-		err := b.UnmarshalJSON([]byte("null"))
-		assert.Error(t, err)
-		assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
-		assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))
-	})
+			assert.Equal(t, int64(15051090), b.Number)
+			assert.Equal(t, "0x45eb0a650b6b0b9fd1ee676b870e43fa7614f1034f7404070327a332faed05c0", b.Hash.Hex())
+			assert.Equal(t, "0x653ea251c180d93296ef79378e64d7dc9a74f565a54df477faeb64d3330977dd", b.ParentHash.Hex())
+			assert.Equal(t, assets.NewWeiI(39678999761), b.BaseFeePerGas)
+			assert.Equal(t, int64(1656603143), b.Timestamp.Unix())
+			assert.Len(t, b.Transactions, 7)
+		})
+		t.Run("handles empty result", func(t *testing.T) {
+			b := new(evmtypes.Block)
+			b.WithJsonCoder(evmtypes.BlockJsonHandlerType(i))
+			err := b.UnmarshalJSON([]byte("null"))
+			assert.Error(t, err)
+			assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
+			assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))
+		})
+	}
 }
