@@ -84,7 +84,7 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
   - https://github.com/ledgerwatch/erigon/discussions/4946
   - https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017
 
-We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
+We  cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
 ## Running a local Chainlink node
 
