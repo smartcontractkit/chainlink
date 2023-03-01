@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Support for sending OCR2 job specs to the feeds manager
+- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
+
+### Changed
+
+- The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
 
 ### Removed
 
@@ -32,15 +37,14 @@ of any values provided via configuration files.
 ### Added
 
 - Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
-- New config variable, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+- New config option, `JobPipeline.MaxSuccessfulRuns` caps the total number of
   saved completed runs per job. This is done in response to the `pipeline_runs`
   table potentially becoming large, which can cause performance degradation.
   The default is set to 10,000. You can set it to 0 to disable run saving
-  entirely.
+  entirely. **NOTE**: This can only be configured via TOML and not with an
+  environment variable.
 - Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 - Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
-- Support for sending OCR2 job specs to the feeds manager
-- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 
 ### Updated
 
@@ -50,9 +54,9 @@ of any values provided via configuration files.
 ### Fixed
 
 - Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
-- The `config dump` subcommand was fixed to dump the correct config data. The P2P.V1.Enabled config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The V1.Enabled default value is actually true already, and is now updated to only set explicit false values.
-
-<!-- unreleasedstop -->
+- The `config dump` subcommand was fixed to dump the correct config data. 
+  - The `P2P.V1.Enabled` config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The `V1.Enabled` default value is actually true already, and is now updated to only set explicit false values.
+  - The `[EVM.Transactions]` config fields `MaxQueued` & `MaxInFlight` will now correctly match `ETH_MAX_QUEUED_TRANSACTIONS` & `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
 
 ## 1.11.0 - 2022-12-12
 
