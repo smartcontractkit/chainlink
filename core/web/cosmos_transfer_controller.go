@@ -44,13 +44,10 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		return
 	}
 	chain, err := cosmosChains.Chain(c.Request.Context(), tr.CosmosChainID)
-	switch err {
-	case cosmos.ErrChainIDInvalid, cosmos.ErrChainIDEmpty:
+	if errors.Is(err, cosmos.ErrChainIDInvalid) || errors.Is(err, cosmos.ErrChainIDEmpty) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
-	case nil:
-		break
-	default:
+	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
