@@ -27,4 +27,34 @@ ListenAddresses = ["0.0.0.0:6690"]`
 LimitDefault = 3_500_000
 PriceMax = 100000000000
 FeeCapDefault = 100000000000`
+
+	BaseMercuryTomlConfig = `[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[JobPipeline]
+MaxSuccessfulRuns = 0
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']`
 )
