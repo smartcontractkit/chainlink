@@ -117,7 +117,7 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      gas.FeeEstimator
+	estimator      gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei]
 	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
@@ -132,7 +132,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.FeeEstimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")

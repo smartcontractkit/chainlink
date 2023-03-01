@@ -24,6 +24,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -95,7 +96,7 @@ type EthBroadcaster struct {
 	q         pg.Q
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      gas.FeeEstimator
+	estimator      gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei]
 	resumeCallback ResumeCallback
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
@@ -123,7 +124,7 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	keyStates []ethkey.State, estimator gas.FeeEstimator, resumeCallback ResumeCallback,
+	keyStates []ethkey.State, estimator gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei], resumeCallback ResumeCallback,
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
