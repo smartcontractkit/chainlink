@@ -26,7 +26,7 @@ ocr2dr: ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Fu
 ocr2dr_client: ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin bee85cefe5304bee7c11beccf34edb78f2ce7d8fefe228bf1e108f6057ad4bd4
 ocr2dr_client_example: ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin 5e9063106cec602520ac811f7517c55c7ee74aa2ccb512097d4ff2ffcf287512
 ocr2dr_oracle: ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.abi ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.bin 4d0a1bba3e5dcb411b0e663b4efea4c5eef46f194e5fa4e36bc3dd220c471947
-ocr2dr_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin 12e13aeb407e6f770dbc7fb2f99054b6280d03f1705452828ca87d1a073a11c2
+ocr2dr_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin ed3162c0c36dd9e02e1a5b6686fb216e6cc5b05086105132c0d200485c1bc864
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 4803feddb5dadea2f228978d81fd30ad1bea3f88d973a8539a91445b0cea60e2
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb
