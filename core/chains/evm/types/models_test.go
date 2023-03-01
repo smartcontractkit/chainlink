@@ -694,7 +694,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 	t.Run("unmarshals parity block", func(t *testing.T) {
 		b := new(evmtypes.Block)
 		err := b.UnmarshalJSON([]byte(paritySampleBlock))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Equal(t, int64(32473599), b.Number)
 		assert.Equal(t, "0x0ec62c2a397e114d84ce932387d841787d7ec5757ceba3708386da87934b7c82", b.Hash.Hex())

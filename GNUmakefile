@@ -108,7 +108,7 @@ codecgen: $(codecgen)
 
 .PHONY: run-codecgen
 run-codecgen: $(run-codecgen)
-	cd core/chains/evm/config/v2 && codecgen -o config_codecgen.go -r "BlockHistory.*" -j true config.go 
+	cd core/chains/evm/types && codecgen -o models_codecgen.go  -j true models.go 
 	
 
 .PHONY: telemetry-protobuf

@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	easyjson "github.com/mailru/easyjson"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -271,8 +272,11 @@ type Block struct {
 	BaseFeePerGas *assets.Wei
 	Timestamp     time.Time
 	Transactions  []Transaction
+	// marshalFn     func() ([]byte, error)
+	// unmarshalFn   func([]byte)
 }
 
+//easyjson:json
 type blockInternal struct {
 	Number        string
 	Hash          common.Hash
@@ -282,9 +286,20 @@ type blockInternal struct {
 	Transactions  []Transaction
 }
 
+func (bi blockInternal) empty() bool {
+	var dflt blockInternal
+
+	return len(bi.Transactions) == 0 &&
+		bi.Hash == dflt.Hash &&
+		bi.ParentHash == dflt.ParentHash &&
+		bi.BaseFeePerGas == dflt.BaseFeePerGas &&
+		bi.Timestamp == dflt.Timestamp
+}
+
 // MarshalJSON implements json marshalling for Block
+
 func (b Block) MarshalJSON() ([]byte, error) {
-	return json.Marshal(blockInternal{
+	return easyjson.Marshal(blockInternal{
 		hexutil.EncodeBig(big.NewInt(b.Number)),
 		b.Hash,
 		b.ParentHash,
@@ -297,33 +312,42 @@ func (b Block) MarshalJSON() ([]byte, error) {
 var ErrMissingBlock = errors.New("missing block")
 
 // UnmarshalJSON unmarshals to a Block
+
 func (b *Block) UnmarshalJSON(data []byte) error {
-	var bi *blockInternal
-	if err := json.Unmarshal(data, &bi); err != nil {
+
+	bi := blockInternal{}
+	if err := easyjson.Unmarshal(data, &bi); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
 	}
-	if bi == nil {
+
+	if bi.empty() {
 		return errors.WithStack(ErrMissingBlock)
 	}
+
 	n, err := hexutil.DecodeBig(bi.Number)
 	if err != nil {
-		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got: '%s'", data)
+		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
 	}
 	*b = Block{
-		n.Int64(),
-		bi.Hash,
-		bi.ParentHash,
-		(*assets.Wei)(bi.BaseFeePerGas),
-		time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		bi.Transactions,
+		Number:        n.Int64(),
+		Hash:          bi.Hash,
+		ParentHash:    bi.ParentHash,
+		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
+		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		Transactions:  bi.Transactions,
+		//		marshalFn:     b.marshalFn,
+		//		unmarshalFn:   b.unmarshalFn,
 	}
 	return nil
 }
+
+//func easyJsonBlockUnmarshalJSON(data []byte) error
 
 type TxType uint8
 
 // NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
 // handle double zeroes e.g. 0x00
+
 func (txt *TxType) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte(`"0x00"`)) {
 		data = []byte(`"0x0"`)
@@ -339,6 +363,7 @@ func (txt *TxType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+//easyjson:json
 type transactionInternal struct {
 	GasPrice             *hexutil.Big    `json:"gasPrice"`
 	Gas                  *hexutil.Uint64 `json:"gas"`
@@ -366,7 +391,7 @@ const LegacyTxType = TxType(0x0)
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
 	ti := transactionInternal{}
-	if err := json.Unmarshal(data, &ti); err != nil {
+	if err := easyjson.Unmarshal(data, &ti); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
 	}
 	if ti.Gas == nil {
@@ -385,6 +410,19 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		ti.Hash,
 	}
 	return nil
+}
+
+func (t *Transaction) MarshalJSON() ([]byte, error) {
+	gas := (hexutil.Uint64)(uint64(t.GasLimit))
+	ti := &transactionInternal{
+		GasPrice:             (*hexutil.Big)(t.GasPrice),
+		Gas:                  &gas,
+		MaxFeePerGas:         (*hexutil.Big)(t.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*hexutil.Big)(t.MaxPriorityFeePerGas),
+		//	Type:                 &t.Type,
+		Hash: t.Hash,
+	}
+	return json.Marshal(ti)
 }
 
 // WeiPerEth is amount of Wei currency units in one Eth.
