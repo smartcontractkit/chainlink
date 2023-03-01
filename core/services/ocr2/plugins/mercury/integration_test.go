@@ -32,9 +32,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
@@ -86,7 +88,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer) (url string) {
 	if err != nil {
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
-	url = lis.Addr().String()
+	url = fmt.Sprintf("http://%s", lis.Addr().String())
 	s := wsrpc.NewServer(wsrpc.Creds(privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
@@ -174,71 +176,71 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// Add the bootstrap job
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
-		type                              = "bootstrap"
-		relay                             = "evm"
-		schemaVersion                     = 1
-		name                              = "boot"
-		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "1s"
+type                              = "bootstrap"
+relay                             = "evm"
+schemaVersion                     = 1
+name                              = "boot"
+contractID                        = "%s"
+contractConfigTrackerPollInterval = "1s"
 
-		[relayConfig]
-		chainID = 1337
+[relayConfig]
+chainID = 1337
 	`, configContractAddr))
 
 	// Add OCR jobs
 	for i, node := range nodes {
 		node.AddJob(t, fmt.Sprintf(`
-		type = "offchainreporting2"
-		schemaVersion = 1
-		name = "mercury-%d"
-		forwardingAllowed = false
-		maxTaskDuration = "1s"
-		contractID = "%s"
-		ocrKeyBundleID = "%s"
-		p2pv2Bootstrappers = [
-		  "%s"
-		]
-		relay = "evm"
-		pluginType = "mercury"
-		transmitterID = ""
-		observationSource = """
-			// Block Num + Hash
-			block           [type=ethgetblock];
-			bn_lookup       [type=lookup key="number"];
-			bh_lookup       [type=lookup key="hash"];
+type = "offchainreporting2"
+schemaVersion = 1
+name = "mercury-%d"
+forwardingAllowed = false
+maxTaskDuration = "1s"
+contractID = "%s"
+ocrKeyBundleID = "%s"
+p2pv2Bootstrappers = [
+  "%s"
+]
+relay = "evm"
+pluginType = "mercury"
+transmitterID = ""
+observationSource = """
+	// Block Num + Hash
+	b1              [type=ethgetblock];
+	bn_lookup       [type=lookup key="number"];
+	bh_lookup       [type=lookup key="hash"];
 
-			b1 -> bn_lookup;
-			b1 -> bh_lookup;
-			
-			// Benchmark Price
-			price1          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-			price1_parse    [type=jsonparse path="result"];
-			price1_multiply [type=multiply times=100000000];
+	b1 -> bn_lookup;
+	b1 -> bh_lookup;
+	
+	// Benchmark Price
+	price1          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	price1_parse    [type=jsonparse path="result"];
+	price1_multiply [type=multiply times=100000000];
 
-			price1 -> price1_parse -> price1_multiply;
+	price1 -> price1_parse -> price1_multiply;
 
-			// Bid
-			bid          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-			bid_parse    [type=jsonparse path="result"];
-			bid_multiply [type=multiply times=100000000];
+	// Bid
+	bid          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	bid_parse    [type=jsonparse path="result"];
+	bid_multiply [type=multiply times=100000000];
 
-			bid -> bid_parse -> bid_multiply;
+	bid -> bid_parse -> bid_multiply;
 
-			// Ask
-			ask          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-			ask_parse    [type=jsonparse path="result"];
-			ask_multiply [type=multiply times=100000000];
+	// Ask
+	ask          [type=bridge name="bridge-cfbenchmarks-test" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	ask_parse    [type=jsonparse path="result"];
+	ask_multiply [type=multiply times=100000000];
 
-			ask -> ask_parse -> ask_multiply;
-		"""
+	ask -> ask_parse -> ask_multiply;
+"""
 
-		[pluginConfig]
-		feedID = "0x%x"
-		url = "%s"
+[pluginConfig]
+feedID = "0x%x"
+url = "%s"
 
-		[relayConfig]
-		chainID = %d
-		fromBlock = %d
+[relayConfig]
+chainID = %d
+fromBlock = %d
 		`, i, configContractAddr, node.KeyBundle.ID(), fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), feedID, reportURL, chainID, 0))
 	}
 
@@ -300,8 +302,14 @@ func setupNode(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	backend *backends.SimulatedBackend,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(port))
+	k := big.NewInt(port) // keys unique to port
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
+	csaKey := csakey.MustNewV2XXXTestingOnly(k)
+	rdr := keystest.NewRandReaderFromSeed(port)
+	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
+
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
+
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
@@ -345,13 +353,7 @@ func setupNode(
 	})
 
 	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey)
-	ks := app.GetKeyStore()
-	csaKey, err := ks.CSA().Create()
-	require.NoError(t, err)
-	ocr2kb, err = ks.OCR2().Create(chaintype.EVM)
-	require.NoError(t, err)
-
-	err = app.Start(testutils.Context(t))
+	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
