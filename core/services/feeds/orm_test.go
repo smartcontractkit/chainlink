@@ -555,24 +555,62 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
+	var (
+		orm  = setupORM(t)
+		fmID = createFeedsManager(t, orm)
 
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid,
+		// Set initial values for job proposal counts
+		wantApproved, wantRejected int64
+		wantPending, wantCancelled = int64(1), int64(1)
+	)
+
+	// Create a pending job proposal.
+	_, err := orm.CreateJobProposal(&feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
-	}
-
-	_, err := orm.CreateJobProposal(jp)
+	})
 	require.NoError(t, err)
 
+	// Create a cancelled job proposal.
+	cancelledUUID := uuid.NewV4()
+	_, err = orm.CreateJobProposal(&feeds.JobProposal{
+		RemoteUUID:     cancelledUUID,
+		Status:         feeds.JobProposalStatusCancelled,
+		FeedsManagerID: fmID,
+	})
+	require.NoError(t, err)
+
+	// Get the initial count and assert against expected values.
 	counts, err := orm.CountJobProposalsByStatus()
 	require.NoError(t, err)
 
-	wantPending := int64(1)
-	var wantApproved, wantRejected, wantCancelled int64
+	assert.Equal(t, wantPending, counts.Pending)
+	assert.Equal(t, wantApproved, counts.Approved)
+	assert.Equal(t, wantRejected, counts.Rejected)
+	assert.Equal(t, wantCancelled, counts.Cancelled)
+
+	// Upsert the cancelled job proposal to rejected
+	// which changes pending_update to TRUE, but leaves status as
+	// cancelled.
+	id, err := orm.UpsertJobProposal(&feeds.JobProposal{
+		RemoteUUID:     cancelledUUID,
+		Status:         feeds.JobProposalStatusRejected,
+		FeedsManagerID: fmID,
+	})
+	require.NoError(t, err)
+
+	// Assert that the upserted job proposal is now pending update.
+	jp, err := orm.GetJobProposal(id)
+	require.NoError(t, err)
+	assert.Equal(t, true, jp.PendingUpdate)
+
+	// Get final counts of job proposals and make assertions.
+	counts, err = orm.CountJobProposalsByStatus()
+	require.NoError(t, err)
+
+	wantPending = 2 // One pending + one pending update
+	wantCancelled = 0
 	assert.Equal(t, wantPending, counts.Pending)
 	assert.Equal(t, wantApproved, counts.Approved)
 	assert.Equal(t, wantRejected, counts.Rejected)
@@ -1122,6 +1160,8 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 }
 
 func createJobProposal(t *testing.T, orm feeds.ORM, status feeds.JobProposalStatus, fmID int64) int64 {
+	t.Helper()
+
 	id, err := orm.CreateJobProposal(&feeds.JobProposal{
 		RemoteUUID:     uuid.NewV4(),
 		Status:         status,

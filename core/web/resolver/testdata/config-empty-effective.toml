@@ -4,7 +4,7 @@ RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
 [Feature]
-FeedsManager = false
+FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 
