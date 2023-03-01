@@ -1139,7 +1139,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					require.NoError(t, err)
 					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 					lggr := logger.TestLogger(t)
-					eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
+					eb = txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
 						[]ethkey.State{keyState}, gas.NewFixedPriceEstimator(evmcfg, lggr), fn, lggr,
 						&testCheckerFactory{}, false)
 

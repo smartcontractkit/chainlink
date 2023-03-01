@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -20,11 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
@@ -1137,7 +1137,8 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 
 		resultEtx := new(txmgr.EthTx)
-		borm.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, *ethClient.ChainID())
+		err := borm.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, *ethClient.ChainID())
+		require.NoError(t, err)
 	})
 }
 
@@ -1183,11 +1184,12 @@ func TestORM_UpdateEthTxAttemptInProgressToBroadcast(t *testing.T) {
 		i := int16(0)
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
-		borm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgr.EthTxAttemptBroadcast, func(_ pg.Queryer) error {
+		err := borm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgr.EthTxAttemptBroadcast, func(_ pg.Queryer) error {
 			// dummy function because tests do not use keystore as source of truth for next nonce number
 			i++
 			return nil
 		})
+		require.NoError(t, err)
 
 		attemptResult, err := borm.FindEthTxAttempt(attempt.Hash)
 		require.NoError(t, err)
@@ -1205,6 +1207,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	t.Run("update successful", func(t *testing.T) {
 		nonce := int64(123)
@@ -1220,6 +1223,20 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
+	})
+
+	t.Run("update fails because tx is removed", func(t *testing.T) {
+		nonce := int64(123)
+		etx := cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+		etx.Nonce = &nonce
+
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+
+		err := q.ExecQ("DELETE FROM eth_txes WHERE id = $1", etx.ID)
+		require.NoError(t, err)
+
+		err = borm.UpdateEthTxUnstartedToInProgress(&etx, &attempt)
+		require.ErrorContains(t, err, "eth_tx removed")
 	})
 }
 

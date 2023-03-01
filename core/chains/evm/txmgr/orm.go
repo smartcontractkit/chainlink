@@ -109,6 +109,12 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	}
 }
 
+const insertIntoEthTxAttemptsQuery = `
+INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
+VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
+RETURNING *;
+`
+
 // TODO: create method to pass in new context to orm (which will also create a new pg.Q)
 
 func (o *orm) Close() {
@@ -1047,11 +1053,10 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 		}
 		err := tx.Get(attempt, query, args...)
 		if err != nil {
-			switch e := err.(type) {
-			case *pgconn.PgError:
-				if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
-					return errEthTxRemoved
-				}
+			var pqErr *pgconn.PgError
+			isPqErr := errors.As(err, &pqErr)
+			if isPqErr && pqErr.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
 			}
 			return errors.Wrap(err, "UpdateEthTxUnstartedToInProgress failed to create eth_tx_attempt")
 		}

@@ -617,12 +617,6 @@ func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint32, gasP
 	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
-const insertIntoEthTxAttemptsQuery = `
-INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
-VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
-RETURNING *;
-`
-
 var _ TxManager = &NullTxManager{}
 
 type NullTxManager struct {
