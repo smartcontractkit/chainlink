@@ -17,8 +17,6 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
@@ -90,8 +88,6 @@ type TransmitChecker interface {
 type EthBroadcaster struct {
 	logger    logger.Logger
 	orm       ORM
-	db        *sqlx.DB
-	q         pg.Q
 	ethClient evmclient.Client
 	ChainKeyStore
 	estimator      gas.Estimator
