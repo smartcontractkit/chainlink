@@ -131,7 +131,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 
 	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, uint64(keyNextNonce), address, *s.chainID, pg.WithParentCtx(ctx))
 
-	if errors.Is(err, ErrZeroRowsAffected) {
+	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())
 	} else if err == nil {
 		s.logger.Infow("Fast-forwarded nonce", "address", address, "newNextNonce", newNextNonce, "oldNextNonce", keyNextNonce)

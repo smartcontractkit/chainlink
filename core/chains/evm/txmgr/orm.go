@@ -78,7 +78,7 @@ type ORM interface {
 	Close()
 }
 
-var ErrZeroRowsAffected = errors.New("orm: Zero Rows Affected")
+var ErrKeyNotUpdated = errors.New("orm: Key not updated")
 
 type QueryerFunc func(tx pg.Queryer) error
 
@@ -1111,7 +1111,7 @@ func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, addre
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to get RowsAffected")
 		}
 		if rowsAffected == 0 {
-			return ErrZeroRowsAffected
+			return ErrKeyNotUpdated
 		}
 		return nil
 	})
