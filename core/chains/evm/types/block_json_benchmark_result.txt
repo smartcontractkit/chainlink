@@ -1,0 +1,42 @@
+cltest random seed: 1677695951291253000
+goos: darwin
+goarch: arm64
+pkg: github.com/smartcontractkit/chainlink/core/chains/evm/types
+BenchmarkBlock_Small_JSONMarshal
+BenchmarkBlock_Small_JSONMarshal-10                16041             74154 ns/op            4638 B/op         44 allocs/op
+BenchmarkBlock_Small_CodecMarshal
+BenchmarkBlock_Small_CodecMarshal-10               17823             67846 ns/op            8548 B/op         80 allocs/op
+BenchmarkBlock_Small_EasyJSONMarshal
+BenchmarkBlock_Small_EasyJSONMarshal-10            25309             47222 ns/op            5204 B/op         42 allocs/op
+BenchmarkBlock_Medium_JSONMarshal
+BenchmarkBlock_Medium_JSONMarshal-10                 728           1645509 ns/op          105557 B/op       1053 allocs/op
+BenchmarkBlock_Medium_CodecMarshal
+BenchmarkBlock_Medium_CodecMarshal-10                883           1355952 ns/op          187928 B/op       1885 allocs/op
+BenchmarkBlock_Medium_EasyJSONMarshal
+BenchmarkBlock_Medium_EasyJSONMarshal-10            1219            926881 ns/op          113969 B/op        977 allocs/op
+BenchmarkBlock_Large_JSONMarshal
+BenchmarkBlock_Large_JSONMarshal-10                   86          13215297 ns/op          822925 B/op       8339 allocs/op
+BenchmarkBlock_Large_CodecMarshal
+BenchmarkBlock_Large_CodecMarshal-10                 100          10620299 ns/op         1496694 B/op      15139 allocs/op
+BenchmarkBlock_Large_EasyJSONMarshal
+BenchmarkBlock_Large_EasyJSONMarshal-10              162           7399739 ns/op          871852 B/op       7703 allocs/op
+BenchmarkBlock_Small_JSONUnmarshal
+BenchmarkBlock_Small_JSONUnmarshal-10               7887            146922 ns/op            2024 B/op         44 allocs/op
+BenchmarkBlock_Small_CodecUnmarshal
+BenchmarkBlock_Small_CodecUnmarshal-10             10000            109536 ns/op            6064 B/op         59 allocs/op
+BenchmarkBlock_Small_EasyJSONUnmarshal
+BenchmarkBlock_Small_EasyJSONUnmarshal-10          12654             94105 ns/op             952 B/op         28 allocs/op
+BenchmarkBlock_Medium_JSONUnmarshal
+BenchmarkBlock_Medium_JSONUnmarshal-10               362           3349564 ns/op           55240 B/op        866 allocs/op
+BenchmarkBlock_Medium_CodecUnmarshal
+BenchmarkBlock_Medium_CodecUnmarshal-10              492           2471972 ns/op          123536 B/op       1240 allocs/op
+BenchmarkBlock_Medium_EasyJSONUnmarshal
+BenchmarkBlock_Medium_EasyJSONUnmarshal-10           496           2500589 ns/op           23401 B/op        559 allocs/op
+BenchmarkBlock_Large_JSONUnmarshal
+BenchmarkBlock_Large_JSONUnmarshal-10                 39          28568172 ns/op          426772 B/op       6700 allocs/op
+BenchmarkBlock_Large_CodecUnmarshal
+BenchmarkBlock_Large_CodecUnmarshal-10                64          17700543 ns/op          986643 B/op       9755 allocs/op
+BenchmarkBlock_Large_EasyJSONUnmarshal
+BenchmarkBlock_Large_EasyJSONUnmarshal-10             67          16848645 ns/op          192984 B/op       4370 allocs/op
+PASS
+ok      github.com/smartcontractkit/chainlink/core/chains/evm/types     28.448s

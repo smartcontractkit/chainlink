@@ -693,7 +693,8 @@ const paritySampleBlock = `
 
 func TestBlock_UnmarshalJSON(t *testing.T) {
 	for i := 0; i < 3; i++ {
-		jsonHandler := evmtypes.BlockJsonHandlerType(i).String()
+		expectedHandler := evmtypes.BlockJsonHandlerType(i)
+		jsonHandler := expectedHandler.String()
 		os.Setenv(evmtypes.EnvHack, jsonHandler)
 		t.Logf("RUNNING for %s", jsonHandler)
 
@@ -701,7 +702,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 			b := new(evmtypes.Block)
 			err := b.UnmarshalJSON([]byte(paritySampleBlock))
 			require.NoError(t, err)
-
+			require.Equal(t, expectedHandler, b.Handler)
 			assert.Equal(t, int64(32473599), b.Number)
 			assert.Equal(t, "0x0ec62c2a397e114d84ce932387d841787d7ec5757ceba3708386da87934b7c82", b.Hash.Hex())
 			assert.Equal(t, "0x3aa1c729fb45888bc1ce777d00bad9637c0b5f7cb48b145ebacc16098e0132d4", b.ParentHash.Hex())
@@ -713,6 +714,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 			b := new(evmtypes.Block)
 			err := b.UnmarshalJSON([]byte(gethSampleBlock))
 			assert.NoError(t, err)
+			require.Equal(t, expectedHandler, b.Handler)
 
 			assert.Equal(t, int64(15051090), b.Number)
 			assert.Equal(t, "0x45eb0a650b6b0b9fd1ee676b870e43fa7614f1034f7404070327a332faed05c0", b.Hash.Hex())
@@ -724,6 +726,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		t.Run("handles empty result", func(t *testing.T) {
 			b := new(evmtypes.Block)
 			err := b.UnmarshalJSON([]byte("null"))
+			require.Equal(t, expectedHandler, b.Handler)
 			assert.Error(t, err)
 			assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
 			assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))

@@ -309,7 +309,7 @@ type Block struct {
 	Timestamp     time.Time
 	Transactions  []Transaction
 	// hack to configure benchmarking while ensuring existing tests work
-	//handler BlockJsonHandlerType
+	Handler BlockJsonHandlerType
 }
 
 //easyjson:json
@@ -348,6 +348,7 @@ func (b Block) MarshalJSON() ([]byte, error) {
 	case EasyJson:
 		return easyjson.Marshal(bi)
 	case GoCodec:
+
 		buf := new(bytes.Buffer)
 		enc := codec.NewEncoder(buf, &codec.JsonHandle{})
 		err := enc.Encode(bi)
@@ -356,6 +357,7 @@ func (b Block) MarshalJSON() ([]byte, error) {
 		}
 		return buf.Bytes(), nil
 	case StdLib:
+
 		return json.Marshal(bi)
 	default:
 		panic(fmt.Sprintf("marshal json unknown hack %s", os.Getenv(EnvHack)))
@@ -370,10 +372,13 @@ var ErrMissingBlock = errors.New("missing block")
 func (b *Block) UnmarshalJSON(data []byte) error {
 	switch jsonHandlerFromString(os.Getenv(EnvHack)) {
 	case StdLib:
+		b.Handler = StdLib
 		return b.stdJsonBlockUnmarshalJSON(data)
 	case EasyJson:
+		b.Handler = EasyJson
 		return b.easyJsonBlockUnmarshalJSON(data)
 	case GoCodec:
+		b.Handler = GoCodec
 		return b.codecJsonBlockUnmarshalJSON(data)
 	default:
 		return fmt.Errorf("unknown")
@@ -381,15 +386,6 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 
 }
 
-/*
-	func (b *Block) WithJSONCoder(t BlockJsonHandlerType) *Block {
-		b.handler = t
-		for i := range b.Transactions {
-			b.Transactions[i].handler = t
-		}
-		return b
-	}
-*/
 func (b *Block) easyJsonBlockUnmarshalJSON(data []byte) error {
 
 	bi := blockInternal{}
@@ -412,6 +408,7 @@ func (b *Block) easyJsonBlockUnmarshalJSON(data []byte) error {
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
 		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
 		Transactions:  bi.Transactions,
+		Handler:       b.Handler,
 	}
 	return nil
 }
@@ -438,6 +435,7 @@ func (b *Block) stdJsonBlockUnmarshalJSON(data []byte) error {
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
 		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
 		Transactions:  bi.Transactions,
+		Handler:       b.Handler,
 	}
 	return nil
 }
@@ -468,6 +466,7 @@ func (b *Block) codecJsonBlockUnmarshalJSON(data []byte) error {
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
 		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
 		Transactions:  bi.Transactions,
+		Handler:       b.Handler,
 	}
 	return nil
 }
@@ -502,27 +501,6 @@ type transactionInternal struct {
 	Hash                 common.Hash     `json:"hash"`
 }
 
-/*
-func (ti *transactionInternal) MarshalJSON() ([]byte, error) {
-	switch jsonHandlerFromString(os.Getenv(EnvHack)) {
-	case StdLib:
-		return json.Marshal(ti)
-	case EasyJson:
-		return easyjson.Marshal(ti)
-	case GoCodec:
-		buf := new(bytes.Buffer)
-		enc := codec.NewEncoder(buf, &codec.JsonHandle{})
-		//enc = codec.NewEncoderBytes(&b, h)
-		err := enc.Encode(ti)
-		if err != nil {
-			return nil, err
-		}
-		return buf.Bytes(), nil
-	default:
-		panic(fmt.Sprintf("env hack %s", os.Getenv(EnvHack)))
-	}
-}
-*/
 // Transaction represents an ethereum transaction
 // Use our own type because geth's type has validation failures on e.g. zero
 // gas used, which can occur on other chains.
@@ -654,7 +632,8 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		return easyjson.Marshal(ti)
 	case GoCodec:
 		//buf := new(bytes.Buffer)
-		x := unsafe.Sizeof(*ti)
+		x := unsafe.Sizeof(transactionInternal{})
+
 		buf := make([]byte, x)
 		//enc := codec.NewEncoder(buf, &codec.JsonHandle{})
 		enc := codec.NewEncoderBytes(&buf, &codec.JsonHandle{})
