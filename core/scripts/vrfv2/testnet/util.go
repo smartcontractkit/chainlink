@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/nocancel_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
@@ -49,23 +48,6 @@ func deployCoordinator(
 		common.HexToAddress(linkEthAddress))
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func deployNoCancelCoordinator(
-	e helpers.Environment,
-	linkAddress string,
-	bhsAddress string,
-	linkEthAddress string,
-) (coordinatorAddress common.Address) {
-	addr, _, _, err := nocancel_vrf_coordinator_v2.DeployNoCancelVRFCoordinatorV2(
-		e.Owner,
-		e.Ec,
-		common.HexToAddress(linkAddress),
-		common.HexToAddress(bhsAddress),
-		common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmCodeAt(context.Background(), e.Ec, addr, e.ChainID)
-	return addr
 }
 
 func deployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.Address) (batchCoordinatorAddress common.Address) {
