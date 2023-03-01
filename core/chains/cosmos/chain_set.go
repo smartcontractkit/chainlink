@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
@@ -87,7 +87,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (cosmos.Chain, error) {
 	return c, nil
 }
 
-//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/cosmos --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos --output ./mocks/ --case=underscore
 
 // ChainSet extends cosmos.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {

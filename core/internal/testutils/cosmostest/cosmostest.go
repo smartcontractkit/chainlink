@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 )
 
 // MustInsertChain inserts chain in to db, or fails the test.

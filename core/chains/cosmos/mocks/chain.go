@@ -5,11 +5,11 @@ package mocks
 import (
 	context "context"
 
-	client "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client"
+	client "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 
-	cosmos "github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
+	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 
-	db "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	db "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	mock "github.com/stretchr/testify/mock"
 )

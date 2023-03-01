@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
-	. "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	. "github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
 )

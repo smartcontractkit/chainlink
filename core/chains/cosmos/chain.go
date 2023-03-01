@@ -14,9 +14,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	cosmos "github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
-	cosmosclient "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client"
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
@@ -34,9 +34,9 @@ import (
 // So we set a fairly high timeout here.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/cosmos --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/cosmos --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos --output ./mocks/ --case=underscore
 var _ cosmos.Chain = (*chain)(nil)
 
 type chain struct {

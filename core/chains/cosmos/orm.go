@@ -3,7 +3,7 @@ package cosmos
 import (
 	"github.com/smartcontractkit/sqlx"
 
-	cosmosdb "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"

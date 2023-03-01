@@ -11,9 +11,9 @@ import (
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
-	coscfg "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )

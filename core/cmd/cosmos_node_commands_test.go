@@ -11,9 +11,9 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	coscfg "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 

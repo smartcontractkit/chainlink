@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cosmosdb "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos"

@@ -10,8 +10,8 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 

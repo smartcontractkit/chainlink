@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	cosmosclient "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client"
-	cosmosdb "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/denom"

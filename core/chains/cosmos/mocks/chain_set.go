@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	cosmos "github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
+	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	mock "github.com/stretchr/testify/mock"
 )
 

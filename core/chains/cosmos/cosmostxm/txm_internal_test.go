@@ -26,10 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
-	cosmosclient "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client"
-	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client/mocks"
-	. "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	tcmocks "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client/mocks"
+	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {

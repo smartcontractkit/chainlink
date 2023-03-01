@@ -18,9 +18,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	pkgcosmos "github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 

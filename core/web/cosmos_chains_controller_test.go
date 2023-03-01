@@ -17,9 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	coscfg "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"

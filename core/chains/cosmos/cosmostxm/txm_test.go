@@ -17,8 +17,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	cosmosclient "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/client"
-	coscfg "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/config"
+	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	. "github.com/smartcontractkit/chainlink-terra/pkg/cosmos/db"
+	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 )
 
 func TestTxm_Integration(t *testing.T) {
@@ -74,7 +74,7 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	// TODO: find a way to pull this test artifact from
-	// the chainlink-terra repo instead of copying it to cores testdata
+	// the chainlink-cosmos repo instead of copying it to cores testdata
 	contractID := cosmosclient.DeployTestContract(t, tendermintURL, accounts[0], cosmosclient.Account{
 		Name:       "transmitter",
 		PrivateKey: cosmostxm.NewKeyWrapper(transmitterKey),

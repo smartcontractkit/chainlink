@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	cosmos "github.com/smartcontractkit/chainlink-terra/pkg/cosmos"
+	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/cosmos/cosmos-sdk/types"
