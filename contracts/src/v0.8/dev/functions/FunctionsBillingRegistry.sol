@@ -479,9 +479,7 @@ contract FunctionsBillingRegistry is
     s_subscriptions[commitment.subscriptionId].balance -= bill.totalCost;
     // Pay out signers their portion of the DON fee
     for (uint256 i = 0; i < signerCount; i++) {
-      if (signers[i] != transmitter) {
-        s_withdrawableTokens[signers[i]] += bill.signerPayment;
-      }
+      s_withdrawableTokens[signers[i]] += bill.signerPayment;
     }
     // Pay out the registry fee
     s_withdrawableTokens[owner()] += commitment.registryFee;
@@ -524,7 +522,7 @@ contract FunctionsBillingRegistry is
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     uint96 signerPayment = donFee / uint96(signerCount);
-    uint96 transmitterPayment = uint96(paymentNoFee) + signerPayment;
+    uint96 transmitterPayment = uint96(paymentNoFee);
     uint96 totalCost = SafeCast.toUint96(paymentNoFee + fee);
     return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
@@ -543,6 +541,7 @@ contract FunctionsBillingRegistry is
   /*
    * @notice Oracle withdraw LINK earned through fulfilling requests
    * @notice If amount is 0 the full balance will be withdrawn
+   * @notice Both signing and transmitting wallets will have a balance to withdraw
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
