@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -448,10 +449,6 @@ fromBlock           = %d
 
 	t.Log("Creating OCR2VRF jobs")
 	for i := 0; i < numNodes; i++ {
-		var sendingKeysString = fmt.Sprintf(`"%s"`, sendingKeys[i][0])
-		for x := 1; x < len(sendingKeys[i]); x++ {
-			sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, sendingKeys[i][x])
-		}
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -485,7 +482,7 @@ linkEthFeedAddress     	= "%s"
 			transmitters[i],
 			useForwarders,
 			blockBeforeConfig.Number().Int64(),
-			sendingKeysString,
+			strings.Join(sendingKeys[i], ","),
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),
