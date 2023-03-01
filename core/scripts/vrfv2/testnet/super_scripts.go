@@ -56,7 +56,7 @@ simulate     [type=ethcall
               contract="%s"
               data="$(vrf.output)"]
 decode_log->vrf->estimate_gas->simulate
-""" 
+"""
 `
 
 func deployUniverse(e helpers.Environment) {
@@ -85,7 +85,6 @@ func deployUniverse(e helpers.Environment) {
 	reqsForTier3 := deployCmd.Int64("reqs-for-tier-3", 0, "requests for tier 3")
 	reqsForTier4 := deployCmd.Int64("reqs-for-tier-4", 0, "requests for tier 4")
 	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
-	noCancelEnabled := deployCmd.Bool("no-cancel-enabled", false, "whether to deploy the no-cancel coordinator")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -136,13 +135,8 @@ func deployUniverse(e helpers.Environment) {
 	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
 
 	var coordinatorAddress common.Address
-	if *noCancelEnabled {
-		fmt.Println("\nDeploying NoCancelCoordinator...")
-		coordinatorAddress = deployNoCancelCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
-	} else {
-		fmt.Println("\nDeploying Coordinator...")
-		coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
-	}
+	fmt.Println("\nDeploying Coordinator...")
+	coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
 
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
