@@ -19,15 +19,21 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+var _ httypes.HeadTrackable = &txmWrapper{}
+
+// EVM specific wrapper to hold the core TxMgr object underneath
 type txmWrapper struct {
 	httypes.HeadTrackable
 	services.ServiceCtx
 	utils.StartStopOnce
+
+	// core txm object being wrapped
 	txm txmgr.TxManager
 }
 
-func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	txmWrapper.txm.OnNewLongestChain(ctx, newHeadViewImpl(head))
+func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
+	var head = newHeadViewImpl(evmHead)
+	txmWrapper.txm.OnNewLongestChain(ctx, &head)
 }
 
 func (txmWrapper *txmWrapper) Start(ctx context.Context) (err error) {
@@ -52,9 +58,10 @@ func newTxManagerWrapper(
 	client evmclient.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
-	opts ChainSetOpts) txmWrapper {
+	opts ChainSetOpts,
+) txmWrapper {
 	chainID := cfg.ChainID()
-	var txm txmgr.TxManager
+	var txm txmgr.TxManager[*evmtypes.Head]
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
@@ -66,12 +73,15 @@ func newTxManagerWrapper(
 	return txmWrapper{txm: txm}
 }
 
+var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}
+
+// Evm implementation for the generic HeadView interface
 type headViewImpl struct {
-	txmgrtypes.HeadView
+	txmgrtypes.HeadView[*evmtypes.Head]
 	evmHead *evmtypes.Head
 }
 
-func newHeadViewImpl(head *evmtypes.Head) *txmgrtypes.HeadView {
+func newHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView[*evmtypes.Head] {
 	return &headViewImpl{evmHead: head}
 }
 
@@ -85,7 +95,7 @@ func (head *headViewImpl) ChainLength() uint32 {
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (head *headViewImpl) EarliestInChain() *txmgrtypes.HeadView {
+func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView[*evmtypes.Head] {
 	return newHeadViewImpl(head.evmHead.EarliestInChain())
 }
 
@@ -93,7 +103,7 @@ func (head *headViewImpl) Hash() common.Hash {
 	return head.evmHead.Hash
 }
 
-func (head *headViewImpl) Parent() *txmgrtypes.HeadView {
+func (head *headViewImpl) Parent() txmgrtypes.HeadView[*evmtypes.Head] {
 	return newHeadViewImpl(head.evmHead.Parent)
 }
 
@@ -101,4 +111,8 @@ func (head *headViewImpl) Parent() *txmgrtypes.HeadView {
 // If not in chain, returns the zero hash
 func (head *headViewImpl) HashAtHeight(blockNum int64) common.Hash {
 	return head.evmHead.Hash
+}
+
+func (head *headViewImpl) GetNativeHead() *evmtypes.Head {
+	return head.evmHead
 }

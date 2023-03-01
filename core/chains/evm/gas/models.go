@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
@@ -28,7 +29,7 @@ func IsBumpErr(err error) bool {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Estimator {
+func NewEstimator[T any](lggr logger.Logger, ethClient evmclient.Client, cfg Config) Estimator[T] {
 	s := cfg.GasEstimatorMode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
 		"estimatorMode", s,
@@ -51,16 +52,16 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 	)
 	switch s {
 	case "Arbitrum":
-		return NewArbitrumEstimator(lggr, cfg, ethClient, ethClient)
+		return NewArbitrumEstimator[T](lggr, cfg, ethClient, ethClient)
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
+		return NewBlockHistoryEstimator[*evmtypes.Head](lggr, ethClient, cfg, *ethClient.ChainID())
 	case "FixedPrice":
-		return NewFixedPriceEstimator(cfg, lggr)
+		return NewFixedPriceEstimator[](cfg, lggr)
 	case "Optimism2", "L2Suggested":
-		return NewL2SuggestedPriceEstimator(lggr, ethClient)
+		return NewL2SuggestedPriceEstimator[T](lggr, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewFixedPriceEstimator(cfg, lggr)
+		return NewFixedPriceEstimator[T](cfg, lggr)
 	}
 }
 
@@ -82,8 +83,8 @@ type PriorAttempt interface {
 // Estimator provides an interface for estimating gas price and limit
 //
 //go:generate mockery --quiet --name Estimator --output ./mocks/ --case=underscore
-type Estimator interface {
-	OnNewLongestChain(context.Context, *evmtypes.Head)
+type Estimator[T any] interface {
+	OnNewLongestChain(context.Context, txmgrtypes.HeadView[T])
 	Start(context.Context) error
 	Close() error
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction

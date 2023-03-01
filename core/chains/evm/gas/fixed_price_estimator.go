@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,8 +33,9 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 	}
 	return nil
 }
-func (f *fixedPriceEstimator) Close() error                                          { return nil }
-func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
+func (f *fixedPriceEstimator) Close() error { return nil }
+func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ txmgrtypes.HeadView[*evmtypes.Head]) {
+}
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()

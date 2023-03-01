@@ -6,7 +6,7 @@ import "time"
 
 // Config represents a subset of options needed by head tracker
 type Config interface {
-	BlockEmissionIdleWarningThreshold() time.Durationbridge_types
+	BlockEmissionIdleWarningThreshold() time.Duration
 	EvmFinalityDepth() uint32
 	EvmHeadTrackerHistoryDepth() uint32
 	EvmHeadTrackerMaxBufferSize() uint32

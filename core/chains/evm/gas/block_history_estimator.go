@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -78,7 +79,7 @@ var _ Estimator = &BlockHistoryEstimator{}
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
-	BlockHistoryEstimator struct {
+	BlockHistoryEstimator[T any] struct {
 		utils.StartStopOnce
 		ethClient evmclient.Client
 		chainID   big.Int
@@ -107,9 +108,9 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator {
+func NewBlockHistoryEstimator[T *evmtypes.Head](lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator[T] {
 	ctx, cancel := context.WithCancel(context.Background())
-	b := &BlockHistoryEstimator{
+	b := &BlockHistoryEstimator[T]{
 		ethClient: ethClient,
 		chainID:   chainID,
 		config:    cfg,
@@ -128,15 +129,15 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
+func (b *BlockHistoryEstimator[T]) OnNewLongestChain(_ context.Context, head txmgrtypes.HeadView[*evmtypes.Head]) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
-	b.setLatest(head)
-	b.mb.Deliver(head)
+	b.setLatest(head.GetNativeHead())
+	b.mb.Deliver(head.GetNativeHead())
 }
 
 // setLatest assumes that head won't be mutated
-func (b *BlockHistoryEstimator) setLatest(head *evmtypes.Head) {
+func (b *BlockHistoryEstimator[T]) setLatest(head *evmtypes.Head) {
 	// Non-eip1559 blocks don't include base fee
 	if baseFee := head.BaseFeePerGas; baseFee != nil {
 		promBlockHistoryEstimatorCurrentBaseFee.WithLabelValues(b.chainID.String()).Set(float64(baseFee.Int64()))
