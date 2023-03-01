@@ -4532,6 +4532,116 @@ GasLimit = 5300000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
+## Cosmos
+```toml
+[[Cosmos]]
+ChainID = 'Malaga-420' # Example
+Enabled = true # Default
+BlockRate = '6s' # Default
+BlocksUntilTxTimeout = 30 # Default
+ConfirmPollPeriod = '1s' # Default
+FallbackGasPriceUAtom = '0.015' # Default
+FCDURL = 'http://cosmos.com' # Example
+GasLimitMultiplier = '1.5' # Default
+MaxMsgsPerBatch = 100 # Default
+OCR2CachePollPeriod = '4s' # Default
+OCR2CacheTTL = '1m' # Default
+TxMsgTimeout = '10m' # Default
+```
+
+
+### ChainID
+```toml
+ChainID = 'Malaga-420' # Example
+```
+ChainID is the Cosmos chain ID. Mandatory.
+
+### Enabled
+```toml
+Enabled = true # Default
+```
+Enabled enables this chain.
+
+### BlockRate
+```toml
+BlockRate = '6s' # Default
+```
+BlockRate is the average time between blocks.
+
+### BlocksUntilTxTimeout
+```toml
+BlocksUntilTxTimeout = 30 # Default
+```
+BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
+
+### ConfirmPollPeriod
+```toml
+ConfirmPollPeriod = '1s' # Default
+```
+ConfirmPollPeriod sets how often check for tx confirmation.
+
+### FallbackGasPriceUAtom
+```toml
+FallbackGasPriceUAtom = '0.015' # Default
+```
+FallbackGasPriceUAtom sets a fallback gas price to use when the estimator is not available.
+
+### FCDURL
+```toml
+FCDURL = 'http://cosmos.com' # Example
+```
+FCDURL sets the FCD URL.
+
+### GasLimitMultiplier
+```toml
+GasLimitMultiplier = '1.5' # Default
+```
+GasLimitMultiplier scales the estimated gas limit.
+
+### MaxMsgsPerBatch
+```toml
+MaxMsgsPerBatch = 100 # Default
+```
+MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+
+### OCR2CachePollPeriod
+```toml
+OCR2CachePollPeriod = '4s' # Default
+```
+OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
+
+### OCR2CacheTTL
+```toml
+OCR2CacheTTL = '1m' # Default
+```
+OCR2CacheTTL is the stale OCR2 cache deadline.
+
+### TxMsgTimeout
+```toml
+TxMsgTimeout = '10m' # Default
+```
+TxMsgTimeout is the maximum age for resending transaction before they expire.
+
+## Cosmos.Nodes
+```toml
+[[Cosmos.Nodes]]
+Name = 'primary' # Example
+TendermintURL = 'http://tender.mint' # Example
+```
+
+
+### Name
+```toml
+Name = 'primary' # Example
+```
+Name is a unique (per-chain) identifier for this node.
+
+### TendermintURL
+```toml
+TendermintURL = 'http://tender.mint' # Example
+```
+TendermintURL is the HTTP(S) tendermint endpoint for this node.
+
 ## Solana
 ```toml
 [[Solana]]
