@@ -99,15 +99,15 @@ func (_m *TxManager) GetForwarderForEOA(eoa common.Address) (common.Address, err
 }
 
 // GetGasEstimator provides a mock function with given fields:
-func (_m *TxManager) GetGasEstimator() gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei] {
+func (_m *TxManager) GetGasEstimator() gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	ret := _m.Called()
 
-	var r0 gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei]
-	if rf, ok := ret.Get(0).(func() gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei]); ok {
+	var r0 gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	if rf, ok := ret.Get(0).(func() gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei])
+			r0 = ret.Get(0).(gas.FeeEstimator[*types.Head, gas.EvmFee, *assets.Wei, common.Hash])
 		}
 	}
 

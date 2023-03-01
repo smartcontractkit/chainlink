@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -117,7 +118,7 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei]
+	estimator      gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
@@ -132,7 +133,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator gas.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -758,7 +759,7 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 }
 
 func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
-	priorAttempts := make([]gas.PriorAttempt, len(previousAttempts))
+	priorAttempts := make([]gas.PriorAttempt[gas.EvmFee, common.Hash], len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
 	// way to cast an array of structs to an array of interfaces
 	for i, attempt := range previousAttempts {

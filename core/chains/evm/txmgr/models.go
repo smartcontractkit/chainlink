@@ -279,7 +279,7 @@ func (e EthTx) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ gas.PriorAttempt = EthTxAttempt{}
+var _ gas.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt{}
 
 type EthTxAttempt struct {
 	ID      int64
@@ -312,9 +312,9 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 }
 
 func (a EthTxAttempt) Fee() (fee gas.EvmFee) {
-	fee.Legacy = a.GetGasPrice()
+	fee.Legacy = a.getGasPrice()
 
-	dynamic := a.DynamicFee()
+	dynamic := a.dynamicFee()
 	// add dynamic struct only if values are not nil
 	if dynamic.FeeCap != nil && dynamic.TipCap != nil {
 		fee.Dynamic = &dynamic
@@ -322,7 +322,7 @@ func (a EthTxAttempt) Fee() (fee gas.EvmFee) {
 	return fee
 }
 
-func (a EthTxAttempt) DynamicFee() gas.DynamicFee {
+func (a EthTxAttempt) dynamicFee() gas.DynamicFee {
 	return gas.DynamicFee{
 		FeeCap: a.GasFeeCap,
 		TipCap: a.GasTipCap,
@@ -337,7 +337,7 @@ func (a EthTxAttempt) GetChainSpecificGasLimit() uint32 {
 	return a.ChainSpecificGasLimit
 }
 
-func (a EthTxAttempt) GetGasPrice() *assets.Wei {
+func (a EthTxAttempt) getGasPrice() *assets.Wei {
 	return a.GasPrice
 }
 

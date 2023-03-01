@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -16,8 +17,8 @@ func init() {
 	MaxStartTime = 1 * time.Second
 }
 
-func (b *BlockHistoryEstimator) CheckConnectivity(attempts []PriorAttempt) error {
-	return b.checkConnectivity(attempts)
+func (b *BlockHistoryEstimator) CheckConnectivity(attempts []PriorAttempt[EvmFee, common.Hash]) error {
+	return b.checkConnectivity(MakeEvmPriorAttempts(attempts))
 }
 
 func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator {

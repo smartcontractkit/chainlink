@@ -20,28 +20,28 @@ type EvmEstimator struct {
 }
 
 // BumpDynamicFee provides a mock function with given fields: ctx, original, gasLimit, maxGasPriceWei, attempts
-func (_m *EvmEstimator) BumpDynamicFee(ctx context.Context, original gas.DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []gas.PriorAttempt) (gas.DynamicFee, uint32, error) {
+func (_m *EvmEstimator) BumpDynamicFee(ctx context.Context, original gas.DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []gas.EvmPriorAttempt) (gas.DynamicFee, uint32, error) {
 	ret := _m.Called(ctx, original, gasLimit, maxGasPriceWei, attempts)
 
 	var r0 gas.DynamicFee
 	var r1 uint32
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.PriorAttempt) (gas.DynamicFee, uint32, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.EvmPriorAttempt) (gas.DynamicFee, uint32, error)); ok {
 		return rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.PriorAttempt) gas.DynamicFee); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.EvmPriorAttempt) gas.DynamicFee); ok {
 		r0 = rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
 	} else {
 		r0 = ret.Get(0).(gas.DynamicFee)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.PriorAttempt) uint32); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.EvmPriorAttempt) uint32); ok {
 		r1 = rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
 	} else {
 		r1 = ret.Get(1).(uint32)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.PriorAttempt) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, gas.DynamicFee, uint32, *assets.Wei, []gas.EvmPriorAttempt) error); ok {
 		r2 = rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
 	} else {
 		r2 = ret.Error(2)
@@ -51,16 +51,16 @@ func (_m *EvmEstimator) BumpDynamicFee(ctx context.Context, original gas.Dynamic
 }
 
 // BumpLegacyGas provides a mock function with given fields: ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts
-func (_m *EvmEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []gas.PriorAttempt) (*assets.Wei, uint32, error) {
+func (_m *EvmEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []gas.EvmPriorAttempt) (*assets.Wei, uint32, error) {
 	ret := _m.Called(ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts)
 
 	var r0 *assets.Wei
 	var r1 uint32
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.PriorAttempt) (*assets.Wei, uint32, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.EvmPriorAttempt) (*assets.Wei, uint32, error)); ok {
 		return rf(ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.PriorAttempt) *assets.Wei); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.EvmPriorAttempt) *assets.Wei); ok {
 		r0 = rf(ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts)
 	} else {
 		if ret.Get(0) != nil {
@@ -68,13 +68,13 @@ func (_m *EvmEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice *ass
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.PriorAttempt) uint32); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.EvmPriorAttempt) uint32); ok {
 		r1 = rf(ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts)
 	} else {
 		r1 = ret.Get(1).(uint32)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.PriorAttempt) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, *assets.Wei, uint32, *assets.Wei, []gas.EvmPriorAttempt) error); ok {
 		r2 = rf(ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts)
 	} else {
 		r2 = ret.Error(2)
