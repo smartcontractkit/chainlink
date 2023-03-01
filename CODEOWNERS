@@ -13,7 +13,7 @@
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
-/core/chains/cosmos @connorwstein @jmank88
+/core/chains/cosmos @archseer @cfal
 
 # Services
 /core/services/cron @samsondav
