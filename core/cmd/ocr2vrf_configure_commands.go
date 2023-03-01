@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -428,6 +427,10 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
+	var sendingKeysString = fmt.Sprintf(`"%s"`, args.sendingKeys[0])
+	for x := 1; x < len(args.sendingKeys); x++ {
+		sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, args.sendingKeys[x])
+	}
 	sp := fmt.Sprintf(OCR2VRFTemplate,
 		args.chainID,
 		args.vrfBeaconAddress,
@@ -436,7 +439,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.useForwarder,
 		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
-		strings.Join(args.sendingKeys, ","),
+		sendingKeysString,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
 		args.keyID,
