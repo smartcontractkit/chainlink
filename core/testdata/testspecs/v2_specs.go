@@ -130,11 +130,11 @@ chainID = "Chainlink-99"`
 	OCR2CosmosSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
-contractID = "cosmos1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+contractID = "wasm1ysjdehnf3a3kpndx74yyg6ry90258y4z5vawjz"
 isBootstrapPeer = false
 p2pv2Bootstrappers = []
 relay = "cosmos"
-transmitterID = "cosmos1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+transmitterID = "wasm1ysjdehnf3a3kpndx74yyg6ry90258y4z5vawjz"
 observationSource = """
 """
 juelsPerFeeCoinSource = """
