@@ -28,7 +28,7 @@ import (
 )
 
 func TestClient_SendCosmosCoins(t *testing.T) {
-	t.Skip("requires cosmosd")
+	t.Skip("requires wasmd")
 	chainID := cosmostest.RandomChainID()
 	accounts, _, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID)
 	require.Greater(t, len(accounts), 1)

@@ -35,7 +35,7 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	t.Skip("requires cosmosd")
+	t.Skip("requires wasmd")
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	chain := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: coscfg.Chain{
