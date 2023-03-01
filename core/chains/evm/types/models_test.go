@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -692,9 +693,18 @@ const paritySampleBlock = `
 
 func TestBlock_UnmarshalJSON(t *testing.T) {
 	for i := 0; i < 3; i++ {
+		if i == int(evmtypes.StdLib) {
+			os.Setenv(evmtypes.EnvHack, "std")
+		} else if i == int(evmtypes.EasyJson) {
+			os.Setenv(evmtypes.EnvHack, "easy")
+		} else if i == int(evmtypes.GoCodec) {
+			os.Setenv(evmtypes.EnvHack, "codec")
+		} else {
+			panic("explode")
+		}
 		t.Run("unmarshals parity block", func(t *testing.T) {
 			b := new(evmtypes.Block)
-			b.WithJsonCoder(evmtypes.BlockJsonHandlerType(i))
+			b.WithJSONCoder(evmtypes.BlockJsonHandlerType(i))
 			err := b.UnmarshalJSON([]byte(paritySampleBlock))
 			require.NoError(t, err)
 
@@ -707,7 +717,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		})
 		t.Run("unmarshals geth block", func(t *testing.T) {
 			b := new(evmtypes.Block)
-			b.WithJsonCoder(evmtypes.BlockJsonHandlerType(i))
+			b.WithJSONCoder(evmtypes.BlockJsonHandlerType(i))
 			err := b.UnmarshalJSON([]byte(gethSampleBlock))
 			assert.NoError(t, err)
 
@@ -720,7 +730,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		})
 		t.Run("handles empty result", func(t *testing.T) {
 			b := new(evmtypes.Block)
-			b.WithJsonCoder(evmtypes.BlockJsonHandlerType(i))
+			b.WithJSONCoder(evmtypes.BlockJsonHandlerType(i))
 			err := b.UnmarshalJSON([]byte("null"))
 			assert.Error(t, err)
 			assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)

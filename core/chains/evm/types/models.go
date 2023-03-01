@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -283,18 +284,16 @@ type Block struct {
 	Transactions  []Transaction
 	// hack to configure benchmarking while ensuring existing tests work
 	handler BlockJsonHandlerType
-	//marshalFn   func() ([]byte, error)
-	//unmarshalFn func([]byte) error
 }
 
 //easyjson:json
 type blockInternal struct {
-	Number        string         `codec:"number"`
-	Hash          common.Hash    `codec:"hash"`
-	ParentHash    common.Hash    `codec:"parentHash"`
-	BaseFeePerGas *hexutil.Big   `codec:"baseFeePerGas"`
-	Timestamp     hexutil.Uint64 `codec:"timestamp"`
-	Transactions  []Transaction  `codec:"transactions"`
+	Number        string         `codec:"number" json:"number"`
+	Hash          common.Hash    `codec:"hash" json:"hash"`
+	ParentHash    common.Hash    `codec:"parentHash" json:"parentHash"`
+	BaseFeePerGas *hexutil.Big   `codec:"baseFeePerGas" json:"baseFeePerGas"`
+	Timestamp     hexutil.Uint64 `codec:"timestamp" json:"timestamp"`
+	Transactions  []Transaction  `codec:"transactions" json:"transactions"`
 }
 
 func (bi blockInternal) empty() bool {
@@ -310,14 +309,28 @@ func (bi blockInternal) empty() bool {
 // MarshalJSON implements json marshalling for Block
 
 func (b Block) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(blockInternal{
-		hexutil.EncodeBig(big.NewInt(b.Number)),
-		b.Hash,
-		b.ParentHash,
-		(*hexutil.Big)(b.BaseFeePerGas),
-		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
-		b.Transactions,
-	})
+	switch b.handler {
+
+	case EasyJson:
+		return easyjson.Marshal(blockInternal{
+			hexutil.EncodeBig(big.NewInt(b.Number)),
+			b.Hash,
+			b.ParentHash,
+			(*hexutil.Big)(b.BaseFeePerGas),
+			(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
+			b.Transactions,
+		})
+	default:
+		return json.Marshal(blockInternal{
+			hexutil.EncodeBig(big.NewInt(b.Number)),
+			b.Hash,
+			b.ParentHash,
+			(*hexutil.Big)(b.BaseFeePerGas),
+			(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
+			b.Transactions,
+		})
+	}
+
 }
 
 var ErrMissingBlock = errors.New("missing block")
@@ -338,8 +351,11 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 
 }
 
-func (b *Block) WithJsonCoder(t BlockJsonHandlerType) *Block {
+func (b *Block) WithJSONCoder(t BlockJsonHandlerType) *Block {
 	b.handler = t
+	for i := range b.Transactions {
+		b.Transactions[i].handler = t
+	}
 	return b
 }
 
@@ -466,12 +482,60 @@ type Transaction struct {
 	MaxPriorityFeePerGas *assets.Wei
 	Type                 TxType
 	Hash                 common.Hash
+	handler              BlockJsonHandlerType
 }
 
 const LegacyTxType = TxType(0x0)
+const EnvHack = "txUnmarshal"
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
+	hack := os.Getenv(EnvHack)
+	if hack == "easy" {
+		t.handler = EasyJson
+	} else if hack == "codec" {
+		t.handler = GoCodec
+	} else {
+		t.handler = StdLib
+	}
+	switch t.handler {
+	case StdLib:
+		return t.stdJsonUnmarshalJSON(data)
+	case EasyJson:
+		return t.easyJsonUnmarshalJSON(data)
+	case GoCodec:
+		return t.codecJsonUnmarshalJSON(data)
+	default:
+		return fmt.Errorf("unknown")
+	}
+
+}
+
+func (t *Transaction) stdJsonUnmarshalJSON(data []byte) error {
+	ti := transactionInternal{}
+	if err := json.Unmarshal(data, &ti); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
+	}
+	if ti.Gas == nil {
+		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
+	}
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
+	*t = Transaction{
+		GasPrice:             (*assets.Wei)(ti.GasPrice),
+		GasLimit:             uint32(*ti.Gas),
+		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
+		Type:                 *ti.Type,
+		Hash:                 ti.Hash,
+		handler:              t.handler,
+	}
+	return nil
+}
+
+func (t *Transaction) easyJsonUnmarshalJSON(data []byte) error {
 	ti := transactionInternal{}
 	if err := easyjson.Unmarshal(data, &ti); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
@@ -484,12 +548,44 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		ti.Type = &tpe
 	}
 	*t = Transaction{
-		(*assets.Wei)(ti.GasPrice),
-		uint32(*ti.Gas),
-		(*assets.Wei)(ti.MaxFeePerGas),
-		(*assets.Wei)(ti.MaxPriorityFeePerGas),
-		*ti.Type,
-		ti.Hash,
+		GasPrice:             (*assets.Wei)(ti.GasPrice),
+		GasLimit:             uint32(*ti.Gas),
+		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
+		Type:                 *ti.Type,
+		Hash:                 ti.Hash,
+		handler:              t.handler,
+	}
+	return nil
+}
+
+func (t *Transaction) codecJsonUnmarshalJSON(data []byte) error {
+
+	var h codec.Handle = new(codec.JsonHandle)
+	ti := transactionInternal{}
+
+	dec := codec.NewDecoderBytes(data, h)
+	err := dec.Decode(&ti)
+
+	if err != nil {
+		return err
+	}
+
+	if ti.Gas == nil {
+		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
+	}
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
+	*t = Transaction{
+		GasPrice:             (*assets.Wei)(ti.GasPrice),
+		GasLimit:             uint32(*ti.Gas),
+		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
+		Type:                 *ti.Type,
+		Hash:                 ti.Hash,
+		handler:              t.handler,
 	}
 	return nil
 }
