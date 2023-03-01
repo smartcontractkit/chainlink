@@ -546,6 +546,13 @@ contract KeeperRegistry2_1 is
   }
 
   /**
+   * @notice returns if this registry is deprecated
+   */
+  function getDeprecated() external override view returns (bool) {
+    return registryDeprecated;
+  }
+
+  /**
    * @inheritdoc OCR2Abstract
    */
   function latestConfigDetails()
@@ -1031,7 +1038,7 @@ contract KeeperRegistry2_1 is
   /**
    * @notice sets the registry to deprecated. This will stop adding funds to this registry and upkeeps.
    */
-  function setDeprecated(bool deprecated) external {
+  function setDeprecated(bool deprecated) external override {
     // Executed through logic contract
     // Restricted to onlyOwner in logic contract
     _fallback();

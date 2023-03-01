@@ -203,6 +203,7 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
    * @dev Called through KeeperRegistry main contract
    */
   function addFunds(uint256 id, uint96 amount) external {
+    if (registryDeprecated) revert RegistryDeprecated();
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
@@ -425,6 +426,13 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
+   * @notice sets the registry to deprecated. This will stop adding funds to this registry and upkeeps.
+   */
+  function setDeprecated(bool deprecated) external onlyOwner {
+    registryDeprecated = deprecated;
+  }
+
+  /**
    * @notice creates a new upkeep with the given fields
    * @param target address to perform upkeep on
    * @param gasLimit amount of gas to provide the target contract when
@@ -471,9 +479,5 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
   function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
     if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
     if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-  }
-
-  function setDeprecated(bool deprecated) external {
-
   }
 }
