@@ -354,9 +354,6 @@ replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-	// fixes deprecation warnings and keychain undefined bugs on macOS
-	// See https://github.com/99designs/keyring/issues/94
-	github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 	github.com/prometheus/common => github.com/prometheus/common v0.10.0
 
 	// Some dependency keeps trying to update this to an unstable version
