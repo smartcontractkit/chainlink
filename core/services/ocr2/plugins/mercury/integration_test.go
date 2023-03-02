@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/tendermint/tendermint/test/e2e/app"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"
 	"github.com/umbracle/ethgo/abi"
@@ -140,8 +139,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	srv := NewMercuryServer(reqs)
 
 	f := uint8(1)
-	n := 1
-	// n := 4
+	n := 4
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -157,7 +155,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 100*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	t.Cleanup(stopMining)
 
 	// Deploy config contract
@@ -165,6 +163,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	require.NoError(t, err)
 	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr)
 	require.NoError(t, err)
+	backend.Commit()
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
@@ -342,13 +341,16 @@ fromBlock = %[11]d
 		offchainConfig,
 	)
 	require.NoError(t, err)
+	backend.Commit()
 
 	// Bury it with finality depth
-	for i := 0; i < app.Config(); i++ {
-		b.Commit()
+	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EvmFinalityDepth()
+	fmt.Println("BALLS finalityDepth", finalityDepth)
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
 	}
-
-	time.Sleep(5 * time.Second) // FIXME: remove
 
 	fmt.Println("BALLS verifier address", verifierAddress)
 	deets, err := verifier.LatestConfigDetails(&bind.CallOpts{}, feedID)
@@ -361,7 +363,7 @@ fromBlock = %[11]d
 	// cd := getConfigDigestFromLogs(t, backend)
 
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(20 * time.Second)
 		panic("TIME")
 	}()
 	for req := range reqs {
