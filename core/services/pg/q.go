@@ -127,20 +127,12 @@ func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q
 	for _, opt := range qopts {
 		opt(&q)
 	}
-
-	q.db = db
-	q.logger = logger.Helper(2)
-	q.config = config
-
 	if q.Queryer == nil {
 		q.Queryer = db
 	}
-	if q.ParentCtx == nil {
-		q.ParentCtx = context.Background()
-	}
-	if q.QueryTimeout <= 0 {
-		q.QueryTimeout = q.config.DatabaseDefaultQueryTimeout()
-	}
+	q.db = db
+	q.logger = logger.Helper(2)
+	q.config = config
 	return
 }
 
@@ -161,7 +153,15 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
+	ctx := q.ParentCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	timeout := q.QueryTimeout
+	if q.QueryTimeout <= 0 {
+		timeout = q.config.DatabaseDefaultQueryTimeout()
+	}
+	return context.WithTimeout(ctx, timeout)
 }
 
 func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {

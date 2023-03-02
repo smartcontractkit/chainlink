@@ -21,7 +21,7 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
-	n, err := s.PruneQueue(nil, nil)
+	n, err := s.PruneQueue(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), n)
 }
@@ -69,7 +69,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := txmgr.NewDropOldestStrategy(subj1, 2, pg.DefaultQueryTimeout)
 
-		n, err := s.PruneQueue(borm, db)
+		n, err := s.PruneQueue(db)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 

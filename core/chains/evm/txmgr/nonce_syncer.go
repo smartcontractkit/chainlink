@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -51,7 +53,7 @@ type (
 	// This gives us re-org protection up to ETH_FINALITY_DEPTH deep in the
 	// worst case, which is in line with our other guarantees.
 	NonceSyncer struct {
-		orm       ORM
+		q         pg.Q
 		ethClient evmclient.Client
 		chainID   *big.Int
 		logger    logger.Logger
@@ -65,10 +67,11 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(orm ORM, lggr logger.Logger, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
+	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{
-		orm,
+		q,
 		ethClient,
 		ethClient.ChainID(),
 		lggr,
@@ -102,12 +105,14 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return err
 	}
 
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+
 	localNonce := keyNextNonce
-	hasInProgressTransaction, err := s.orm.HasInProgressTransaction(address, *s.chainID, pg.WithParentCtx(ctx))
+	hasInProgressTransaction, err := s.hasInProgressTransaction(q, address)
 	if err != nil {
 		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.Hex())
 	} else if hasInProgressTransaction {
-		// If we have an 'in_progress' transaction, our keys.next_nonce will be
+		// If we have an 'in_progress' transacion, our keys.next_nonce will be
 		// one lower than it should because we must have crashed mid-execution.
 		// The EthBroadcaster will automatically take care of this and
 		// increment it by one later, for now we just increment by one here.
@@ -128,12 +133,23 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	if hasInProgressTransaction {
 		newNextNonce--
 	}
-
-	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, uint64(keyNextNonce), address, *s.chainID, pg.WithParentCtx(ctx))
-
-	if errors.Is(err, ErrKeyNotUpdated) {
-		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())
-	} else if err == nil {
+	//  We pass in next_nonce here as an optimistic lock to make sure it
+	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
+	err = q.Transaction(func(tx pg.Queryer) error {
+		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
+		if err != nil {
+			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to get RowsAffected")
+		}
+		if rowsAffected == 0 {
+			return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())
+		}
+		return nil
+	})
+	if err == nil {
 		s.logger.Infow("Fast-forwarded nonce", "address", address, "newNextNonce", newNextNonce, "oldNextNonce", keyNextNonce)
 	}
 	return err
@@ -142,4 +158,9 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
 	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
+}
+
+func (s NonceSyncer) hasInProgressTransaction(q pg.Queryer, account common.Address) (exists bool, err error) {
+	err = q.Get(&exists, `SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, s.chainID.String())
+	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
 }
