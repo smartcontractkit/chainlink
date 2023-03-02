@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -155,6 +153,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	backend.Commit()                                  // ensure starting block number at least 1
 	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	t.Cleanup(stopMining)
 
@@ -175,7 +174,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	)
 	// Set up n oracles
 	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, backend, clientCSAKeys[i])
@@ -196,6 +195,11 @@ func TestIntegration_Mercury(t *testing.T) {
 	}
 
 	// Add the bootstrap job
+	// FIXME: If feedID is missing here, it boots and runs but does this:
+	//
+	//    logger.go:130: 2023-03-02T17:47:52.013-0500	INFO	bootstrap_mercury.EVM.Relayer	evm/config_poller.go:263	BALLS feed ID	{"feedID": "0x0000000000000000000000000000000000000000000000000000000000000000"}
+	//
+	// Why doesn't it error?
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
 type                              = "bootstrap"
 relay                             = "evm"
@@ -206,7 +210,8 @@ contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 chainID = 1337
-	`, verifierAddress))
+feedID = "0x%x"
+	`, verifierAddress, feedID))
 
 	// Add OCR jobs
 	for i, node := range nodes {
@@ -294,7 +299,7 @@ fromBlock = %[11]d
 			serverPubKey,
 			clientPubKeys[i],
 			chainID,
-			0))
+			1))
 	}
 
 	// Setup config on contract
@@ -347,18 +352,18 @@ fromBlock = %[11]d
 	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EvmFinalityDepth()
-	fmt.Println("BALLS finalityDepth", finalityDepth)
+	// fmt.Println("BALLS finalityDepth", finalityDepth)
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
 
-	fmt.Println("BALLS verifier address", verifierAddress)
-	deets, err := verifier.LatestConfigDetails(&bind.CallOpts{}, feedID)
-	require.NoError(t, err)
-	fmt.Printf("BALLS deets %#v\n", deets)
-	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{})
-	require.NoError(t, err)
-	fmt.Printf("BALLS all logs %#v\n", logs)
+	// fmt.Println("BALLS verifier address", verifierAddress)
+	// deets, err := verifier.LatestConfigDetails(&bind.CallOpts{}, feedID)
+	// require.NoError(t, err)
+	// fmt.Printf("BALLS deets %#v\n", deets)
+	// logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{})
+	// require.NoError(t, err)
+	// fmt.Printf("BALLS all logs %#v\n", logs)
 
 	// cd := getConfigDigestFromLogs(t, backend)
 
@@ -437,7 +442,7 @@ func setupNode(
 		c.OCR2.Enabled = ptr(true)
 	})
 
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey)
+	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, logger.TestLogger(t).Named(dbName))
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 

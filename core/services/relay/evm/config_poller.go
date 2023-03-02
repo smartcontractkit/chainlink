@@ -260,6 +260,8 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		opt(cp)
 	}
 
+	lggr.Infow("BALLS feed ID", "feedID", cp.feedID)
+
 	return cp, nil
 }
 
@@ -281,7 +283,9 @@ func (lp *ConfigPoller) Notify() <-chan struct{} {
 
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	var latestConfigSet FullConfigFromLog
+	lp.lggr.Infof("BALLS LatestConfigDetails query config set event id 0x%x, addr 0x%x\n", lp.ConfigSetEventID(), lp.addr)
 	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(lp.ConfigSetEventID(), lp.addr, 1, pg.WithParentCtx(ctx))
+	lp.lggr.Infow("BALLS LatestConfigDetails", "latest", latest, "err", err)
 	if err == nil {
 		latestConfigSet, err = ConfigFromLogWithFeedID(latest.Data)
 	} else if errors.Is(err, sql.ErrNoRows) {
