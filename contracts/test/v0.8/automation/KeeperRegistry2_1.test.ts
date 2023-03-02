@@ -3470,6 +3470,20 @@ describe('KeeperRegistry2_1', () => {
         }
       }
     })
+
+    it('returns the upkeep ID and the new forwarder address', async () => {
+      const [upkeepID, forwarder] = await registry
+        .connect(owner)
+        .callStatic.registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          emptyBytes,
+        )
+      expect(upkeepID).to.not.equal(0)
+      expect(forwarder).to.not.equal(ethers.constants.AddressZero)
+    })
   })
 
   describe('#pauseUpkeep', () => {
