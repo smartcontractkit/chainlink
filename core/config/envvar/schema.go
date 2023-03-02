@@ -315,6 +315,9 @@ type ConfigSchema struct {
 	PyroscopeAuthToken     string `env:"PYROSCOPE_AUTH_TOKEN"`                    //nodoc
 	PyroscopeServerAddress string `env:"PYROSCOPE_SERVER_ADDRESS"`                //nodoc
 	PyroscopeEnvironment   string `env:"PYROSCOPE_ENVIRONMENT" default:"mainnet"` //nodoc
+
+	// Prometheus
+	PrometheusAuthToken string `env:"PROMETHEUS_AUTH_TOKEN"` //nodoc
 }
 
 // Name gets the environment variable Name for a config schema field
