@@ -56,7 +56,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
 
-	eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory, false)
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory, false)
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	timeNow := time.Now()
@@ -263,7 +263,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(rnd + 2)
 	})
 	evmcfg = evmtest.NewChainScopedConfig(t, cfg)
-	eb = cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory, false)
+	eb = cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory, false)
 
 	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
 		eipTxWithoutAl := txmgr.EthTx{
@@ -460,7 +460,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	checkerFactory := &testCheckerFactory{}
 
-	eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory, false)
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory, false)
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	gasLimit := uint32(242)
@@ -583,7 +583,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	})
 
 	eb := txmgr.NewEthBroadcaster(
-		borm,
+		db,
 		ethClient,
 		evmcfg,
 		ethKeyStore,
@@ -643,7 +643,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 		assert.Equal(t, int(1600), int(tx.Gas()))
@@ -724,7 +724,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so evm_key_states.next_nonce has not been
@@ -762,7 +762,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -800,7 +800,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -837,7 +837,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -876,7 +876,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -919,7 +919,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -985,7 +985,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)))
 
@@ -1139,7 +1139,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					require.NoError(t, err)
 					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 					lggr := logger.TestLogger(t)
-					eb = txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
+					eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
 						[]ethkey.State{keyState}, gas.NewFixedPriceEstimator(evmcfg, lggr), fn, lggr,
 						&testCheckerFactory{}, false)
 
@@ -1529,7 +1529,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
 			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
 		}))
-		eb2 := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		etx := txmgr.EthTx{
 			FromAddress:    fromAddress,
@@ -1646,7 +1646,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
 			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
 		}))
-		eb2 := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		etx := txmgr.EthTx{
 			FromAddress:    fromAddress,
@@ -1695,7 +1695,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(0)
 		}))
-		eb2 := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 		err, retryable := eb2.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
@@ -1708,7 +1708,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.EVM[0].GasEstimator.TipCapDefault = gasTipCapDefault
 		}))
-		eb2 = cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+		eb2 = cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 		// Second was underpriced but above minimum
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(gasTipCapDefault.ToInt()) == 0
@@ -1750,7 +1750,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	kst := ksmocks.NewEth(t)
-	eb := cltest.NewEthBroadcaster(t, borm, ethClient, kst, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, kst, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
 	t.Run("tx signing fails", func(t *testing.T) {
 		etx := txmgr.EthTx{
@@ -1833,10 +1833,9 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	eb := cltest.NewEthBroadcaster(t, borm, evmtest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{}, false)
+	eb := cltest.NewEthBroadcaster(t, db, evmtest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{}, false)
 
 	eb.Trigger(testutils.NewAddress())
 	eb.Trigger(testutils.NewAddress())
@@ -1875,7 +1874,6 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(true)
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	borm := cltest.NewTxmORM(t, db, cfg)
 
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	k1, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
@@ -1895,7 +1893,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	t.Run("does nothing if nonce sync is disabled", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, false)
+		eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, false)
 
 		require.NoError(t, eb.Start(ctx))
 		defer func() { assert.NoError(t, eb.Close()) }()
@@ -1906,7 +1904,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	t.Run("when eth node returns nonce, successfully sets nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, true)
+		eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
@@ -1935,7 +1933,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	t.Run("when eth node returns error, retries and successfully sets nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, true)
+		eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
