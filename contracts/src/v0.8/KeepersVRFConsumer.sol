@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import "./automation/KeeperCompatible.sol";
-import "./VRFConsumerBaseV2.sol";
+import "./vrf/VRFConsumerBaseV2.sol";
 import "./interfaces/VRFCoordinatorV2Interface.sol";
 
 /**
