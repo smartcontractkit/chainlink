@@ -240,7 +240,6 @@ type ConfigPoller struct {
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedID             common.Hash
-	eventSig           common.Hash
 }
 
 type ConfigPollerOption func(cp *ConfigPoller)
@@ -267,13 +266,9 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		opt(cp)
 	}
 
-	cp.eventSig = ConfigSet
-	if cp.WithFeedID() {
-		cp.eventSig = FeedScopedConfigSet
-	}
 	fmt.Println("BALLS listen on address", addr.Hex())
 	fmt.Printf("BALLS listen to event sigs %#v %#v\n", ConfigSet, FeedScopedConfigSet)
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{cp.eventSig}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{cp.ConfigSetEventID()}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +295,7 @@ func (lp *ConfigPoller) Notify() <-chan struct{} {
 }
 
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(lp.eventSig, lp.addr, 1, pg.WithParentCtx(ctx))
+	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(lp.ConfigSetEventID(), lp.addr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
@@ -321,7 +316,7 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 }
 
 func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), lp.eventSig, lp.addr, pg.WithParentCtx(ctx))
+	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), lp.ConfigSetEventID(), lp.addr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
