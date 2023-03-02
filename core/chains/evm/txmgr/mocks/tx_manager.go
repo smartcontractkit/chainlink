@@ -224,3 +224,23 @@ func (_m *TxManager) Start(_a0 context.Context) error {
 
 	return r0
 }
+
+// Trigger provides a mock function with given fields: addr
+func (_m *TxManager) Trigger(addr common.Address) {
+	_m.Called(addr)
+}
+
+type mockConstructorTestingTNewTxManager interface {
+	mock.TestingT
+	Cleanup(func())
+}
+
+// NewTxManager creates a new instance of TxManager. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+func NewTxManager(t mockConstructorTestingTNewTxManager) *TxManager {
+	mock := &TxManager{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
