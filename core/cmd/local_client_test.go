@@ -413,17 +413,8 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := mocks.NewApplication(t)
-	appStarted := false
 	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("Start").Run(func(args mock.Arguments) {
-		appStarted = true
-	}).Return(nil)
-	app.On("Stop").Run(func(args mock.Arguments) {
-		if !appStarted {
-			panic("application is already stopped")
-		}
-	}).Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
