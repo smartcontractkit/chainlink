@@ -91,25 +91,26 @@ func (r *Relayer) HealthReport() map[string]error {
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
 	// TODO: mercury needs filtering
 	// See: https://smartcontract-it.atlassian.net/browse/MERC-81?atlOrigin=eyJpIjoiZjFhZGUxMDE5MDJlNDI3ZDk2YWFjZDBiZDE4NmRiODIiLCJwIjoiamlyYS1zbGFjay1pbnQifQ
+	var relayConfig types.RelayConfig
+	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var mercuryConfig mercuryconfig.PluginConfig
+	if err := json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if relayConfig.FeedID == nil {
+		return nil, errors.New("FeedID must be specified")
+	}
+
 	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	var relayConfig types.RelayConfig
-	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	var mercuryConfig mercuryconfig.PluginConfig
-	if err = json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	if mercuryConfig.FeedID == (common.Hash{}) {
-		return nil, errors.New("FeedID must be specified")
-	}
-	reportCodec := reportcodec.NewEVMReportCodec(mercuryConfig.FeedID, r.lggr.Named("ReportCodec"))
+	reportCodec := reportcodec.NewEVMReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodec"))
 
 	privKey, err := r.ks.CSA().Get(mercuryConfig.ClientPubKey.String())
 	if err != nil {
@@ -121,7 +122,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("Mercury URL must be specified")
 	}
 	client := wsrpc.NewClient(privKey, mercuryConfig.ServerPubKey, reportURL.URL())
-	transmitter := mercury.NewTransmitter(r.lggr, client, reportURL.String(), privKey.PublicKey, mercuryConfig.FeedID)
+	transmitter := mercury.NewTransmitter(r.lggr, client, reportURL.String(), privKey.PublicKey, *relayConfig.FeedID)
 
 	return &mercuryProvider{configWatcher, transmitter, reportCodec, services.MultiStart{}}, nil
 }
@@ -240,19 +241,11 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	var configPoller *ConfigPoller
-	if relayConfig.MercuryConfig != nil && relayConfig.MercuryConfig.FeedID != (common.Hash{}) {
-		configPoller, err = NewConfigPoller(lggr,
-			chain.LogPoller(),
-			contractAddress,
-			WithFeedId(relayConfig.MercuryConfig.FeedID),
-		)
-	} else {
-		configPoller, err = NewConfigPoller(lggr,
-			chain.LogPoller(),
-			contractAddress,
-		)
-	}
+	configPoller, err := NewConfigPoller(lggr,
+		chain.LogPoller(),
+		contractAddress,
+		WithFeedId(relayConfig.FeedID),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@
 package config
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -12,7 +11,6 @@ import (
 )
 
 type PluginConfig struct {
-	FeedID       common.Hash         `json:"feedID"`
 	URL          *models.URL         `json:"url"`
 	ServerPubKey utils.PlainHexBytes `json:"serverPubKey"`
 	ClientPubKey utils.PlainHexBytes `json:"clientPubKey"`
@@ -22,9 +20,10 @@ func ValidatePluginConfig(config PluginConfig) error {
 	if config.URL == nil {
 		return errors.New("Mercury URL must be specified")
 	}
-	if (config.FeedID == common.Hash{}) {
-		return errors.New("FeedID must be specified and non-zero")
-	}
+	// TODO: Where to validate that mercury definitely has a FeedID (and non-mercury has transmitter ID?)
+	// if (config.FeedID == common.Hash{}) {
+	//     return errors.New("FeedID must be specified and non-zero")
+	// }
 	if len(config.ServerPubKey) != 32 {
 		return errors.New("ServerPubKey is required and must be a 32-byte hex string")
 	}

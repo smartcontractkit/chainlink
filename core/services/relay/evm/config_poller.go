@@ -91,7 +91,7 @@ func makeConfigSetMsgArgs(withFeedId bool) abi.Arguments {
 
 type FullConfigFromLog struct {
 	ocrtypes.ContractConfig
-	FeedId [32]byte
+	feedID [32]byte
 }
 
 func NewContractConfigFromLog(unpacked []interface{}, fromIndex int) (ocrtypes.ContractConfig, error) {
@@ -170,7 +170,7 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 		return FullConfigFromLog{}, err
 	}
 	return FullConfigFromLog{
-		FeedId:         [32]byte{},
+		feedID:         [32]byte{},
 		ContractConfig: contractConfig,
 	}, nil
 }
@@ -180,7 +180,7 @@ func ConfigFromLogWithFeedId(logData []byte) (FullConfigFromLog, error) {
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
-	feedId, ok := unpacked[0].([32]byte)
+	feedID, ok := unpacked[0].([32]byte)
 	if !ok {
 		return FullConfigFromLog{}, errors.Errorf("invalid feed ID, got %T", unpacked[0])
 	}
@@ -190,7 +190,7 @@ func ConfigFromLogWithFeedId(logData []byte) (FullConfigFromLog, error) {
 	}
 
 	return FullConfigFromLog{
-		FeedId:         feedId,
+		feedID:         feedID,
 		ContractConfig: contractConfig,
 	}, nil
 }
@@ -200,14 +200,16 @@ type ConfigPoller struct {
 	filterName         string
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
-	feedId             common.Hash
+	feedID             common.Hash
 }
 
 type ConfigPollerOption func(cp *ConfigPoller)
 
-func WithFeedId(feedId common.Hash) ConfigPollerOption {
+func WithFeedId(feedID *common.Hash) ConfigPollerOption {
 	return func(cp *ConfigPoller) {
-		cp.feedId = feedId
+		if feedID != nil {
+			cp.feedID = *feedID
+		}
 	}
 }
 
@@ -233,7 +235,7 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 }
 
 func (lp *ConfigPoller) WithFeedId() bool {
-	return lp.feedId != (common.Hash{})
+	return lp.feedID != (common.Hash{})
 }
 
 func (lp *ConfigPoller) Notify() <-chan struct{} {
