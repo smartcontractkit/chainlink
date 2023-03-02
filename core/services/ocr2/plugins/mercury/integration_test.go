@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -272,12 +274,12 @@ observationSource = """
 """
 
 [pluginConfig]
-feedID = "0x%[6]x"
 url = "%[7]s"
 serverPubKey = "%[8]x"
 clientPubKey = "%[9]x"
 
 [relayConfig]
+feedID = "0x%[6]x"
 chainID = %[10]d
 fromBlock = %[11]d
 		`,
@@ -340,10 +342,35 @@ fromBlock = %[11]d
 	require.NoError(t, err)
 	backend.Commit()
 
-	// <-reqs
+	time.Sleep(5 * time.Second) // FIXME: remove
+
+	fmt.Println("BALLS verifier address", verifierAddress)
+	deets, err := verifier.LatestConfigDetails(&bind.CallOpts{}, feedID)
+	require.NoError(t, err)
+	fmt.Printf("BALLS deets %#v\n", deets)
+	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{})
+	require.NoError(t, err)
+	fmt.Printf("BALLS all logs %#v\n", logs)
+
+	// cd := getConfigDigestFromLogs(t, backend)
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		panic("TIME")
+	}()
+	for req := range reqs {
+		fmt.Println("BALLS", req)
+	}
+
+	// TODO: test validation of reports
 
 	panic("END")
 }
+
+// func getConfigDigestFromLogs(t *testing.T, backend *backends.SimulatedBackend) {
+//     logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{})
+//     require.NoError(t, err)
+// }
 
 func setupNode(
 	t *testing.T,

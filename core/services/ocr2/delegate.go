@@ -132,13 +132,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	))
 
 	if spec.Relay == relay.EVM {
+		feedID, err2 := spec.RelayConfig.FeedID()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ServicesForSpec failed to get feedID")
+		}
+		if spec.TransmitterID.Valid && feedID != (common.Hash{}) {
+			return nil, errors.Errorf("expected either a transmitterID or feedID to be specified, not both")
+		} else if !spec.TransmitterID.Valid && feedID == (common.Hash{}) {
+			return nil, errors.Errorf("expected either a transmitterID or feedID to be specified")
+		}
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {
-			return nil, err2
+			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
 		}
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "get chainset")
+			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
 		}
 
 		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
@@ -155,6 +164,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 		}
 		spec.RelayConfig["effectiveTransmitterAddress"] = effectiveTransmitterAddress
+	} else if !spec.TransmitterID.Valid {
+		return nil, errors.Errorf("expected a transmitterID to be specified")
 	}
 
 	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg)

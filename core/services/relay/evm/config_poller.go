@@ -3,22 +3,47 @@ package evm
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/OCR2Abstract.sol#L23
+// Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
+// event ConfigSet(
+//
+//	bytes32 feedId,
+//	uint32 previousConfigBlockNumber,
+//	bytes32 configDigest,
+//	uint64 configCount,
+//	address[] signers,
+//	uint8 f,
+//	bytes onchainConfig,
+//	uint64 offchainConfigVersion,
+//	bytes offchainConfig
+//
+// );
 var ConfigSet = common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
+
+// ConfigSet with FeedID for use with mercury (and multi-config DON)
+var FeedScopedConfigSet common.Hash
+
+func init() {
+	abi, err := abi.JSON(strings.NewReader(mercury_verifier.MercuryVerifierABI))
+	if err != nil {
+		panic(err)
+	}
+	FeedScopedConfigSet = abi.Events["ConfigSet"].ID
+}
 
 const (
 	firstIndexWithoutFeedId = 1
@@ -215,7 +240,7 @@ func WithFeedId(feedID *common.Hash) ConfigPollerOption {
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, opts ...ConfigPollerOption) (*ConfigPoller, error) {
 	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet, FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
@@ -244,6 +269,7 @@ func (lp *ConfigPoller) Notify() <-chan struct{} {
 
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
+	fmt.Println("BALLS LatestLogByEventSigWithConfs", changedInBlock, configDigest, latest, err)
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
