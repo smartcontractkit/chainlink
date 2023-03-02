@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -43,7 +42,6 @@ func init() {
 		panic(err)
 	}
 	FeedScopedConfigSet = abi.Events["ConfigSet"].ID
-	fmt.Printf("BALLS FeedScopedConfigSet: 0x%x\n", FeedScopedConfigSet)
 }
 
 const (
@@ -266,14 +264,10 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		opt(cp)
 	}
 
-	fmt.Println("BALLS listen on address", addr.Hex())
-	fmt.Printf("BALLS listen to event sigs %#v %#v\n", ConfigSet, FeedScopedConfigSet)
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{cp.ConfigSetEventID()}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
-
-	lggr.Infow("BALLS feed ID", "feedID", cp.feedID)
 
 	return cp, nil
 }
