@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	cl_env_config "github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -56,6 +58,50 @@ type oracle struct {
 	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
 }
 
+func ValidateReport(r map[string]interface{}) error {
+	feedIdInterface, ok := r["feedId"]
+	if !ok {
+		return errors.Errorf("unpacked report has no 'feedId'")
+	}
+	feedID, ok := feedIdInterface.([32]byte)
+	if !ok {
+		return errors.Errorf("cannot cast feedId to [32]byte, type is %T", feedID)
+	}
+	log.Trace().Str("FeedID", string(feedID[:])).Msg("Feed ID")
+
+	priceInterface, ok := r["median"]
+	if !ok {
+		return errors.Errorf("unpacked report has no 'median'")
+	}
+	medianPrice, ok := priceInterface.(*big.Int)
+	if !ok {
+		return errors.Errorf("cannot cast median to *big.Int, type is %T", medianPrice)
+	}
+	log.Trace().Int64("Price", medianPrice.Int64()).Msg("Median price")
+
+	observationsBlockNumberInterface, ok := r["observationsBlocknumber"]
+	if !ok {
+		return errors.Errorf("unpacked report has no 'observationsBlocknumber'")
+	}
+	observationsBlockNumber, ok := observationsBlockNumberInterface.(uint64)
+	if !ok {
+		return errors.Errorf("cannot cast observationsBlocknumber to uint64, type is %T", observationsBlockNumber)
+	}
+	log.Trace().Uint64("Block", observationsBlockNumber).Msg("Observation block number")
+
+	observationsTimestampInterface, ok := r["observationsTimestamp"]
+	if !ok {
+		return errors.Errorf("unpacked report has no 'observationsTimestamp'")
+	}
+	observationsTimestamp, ok := observationsTimestampInterface.(uint32)
+	if !ok {
+		return errors.Errorf("cannot cast observationsTimestamp to uint32, type is %T", observationsTimestamp)
+	}
+	log.Trace().Uint32("Timestamp", observationsTimestamp).Msg("Observation timestamp")
+
+	return nil
+}
+
 func generateEd25519Keys() (string, string, error) {
 	var (
 		err  error
@@ -66,7 +112,12 @@ func generateEd25519Keys() (string, string, error) {
 	return hex.EncodeToString(priv), hex.EncodeToString(pub), err
 }
 
-func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) string {
+func SetupMercuryServer(
+	t *testing.T,
+	testEnv *environment.Environment,
+	dbSettings map[string]interface{},
+	serverSettings map[string]interface{},
+) string {
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
@@ -123,17 +174,27 @@ func SetupMercuryServer(t *testing.T, testEnv *environment.Environment) string {
 	rpcPrivKey, rpcPubKey, err := generateEd25519Keys()
 	require.NoError(t, err)
 
-	testEnv.AddHelm(mercury_server.New(map[string]interface{}{
+	settings := map[string]interface{}{
 		"imageRepo":     os.Getenv("MERCURY_SERVER_IMAGE"),
 		"imageTag":      os.Getenv("MERCURY_SERVER_TAG"),
 		"rpcPrivateKey": rpcPrivKey,
 		"rpcNodesConf":  string(rpcNodesJsonConf),
-	})).Run()
+		"prometheus":    "true",
+	}
+
+	if dbSettings != nil {
+		settings["db"] = dbSettings
+	}
+	if serverSettings != nil {
+		settings["resources"] = serverSettings
+	}
+
+	testEnv.AddHelm(mercury_server.New(settings)).Run()
 
 	return rpcPubKey
 }
 
-func SetupMercuryEnv(t *testing.T) (
+func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) (
 	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
 	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer, string) {
 	testNetwork := networks.SelectedNetwork
@@ -154,7 +215,7 @@ func SetupMercuryEnv(t *testing.T) (
 	)
 
 	testEnvironment := environment.New(&environment.Config{
-		// TTL:             2 * time.Hour,
+		TTL:             12 * time.Hour,
 		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
@@ -167,11 +228,12 @@ func SetupMercuryEnv(t *testing.T) (
 				config.BaseMercuryTomlConfig,
 				testNetwork),
 			"secretsToml": secretsToml,
+			"prometheus":  "true",
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 
-	msRpcPubKey := SetupMercuryServer(t, testEnvironment)
+	msRpcPubKey := SetupMercuryServer(t, testEnvironment, dbSettings, serverResources)
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
