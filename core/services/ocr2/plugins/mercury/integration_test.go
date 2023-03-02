@@ -34,6 +34,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -322,18 +323,18 @@ fromBlock = %[11]d
 		"offchainConfigVersion", offchainConfigVersion,
 		"offchainConfig", offchainConfig,
 	)
-	// TODO: need the verifier
-	// _, err = verifier.SetConfig(
-	//     steve,
-	//     feedID,
-	//     signerAddresses,
-	//     f,
-	//     onchainConfig,
-	//     offchainConfigVersion,
-	//     offchainConfig,
-	// )
-	// require.NoError(t, err)
-	// backend.Commit()
+
+	_, err = mercury_verifier.SetConfig(
+		steve,
+		feedID,
+		signerAddresses,
+		f,
+		onchainConfig,
+		offchainConfigVersion,
+		offchainConfig,
+	)
+	require.NoError(t, err)
+	backend.Commit()
 
 	// <-reqs
 
