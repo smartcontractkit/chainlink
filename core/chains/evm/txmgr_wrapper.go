@@ -109,7 +109,7 @@ func (head *headViewImpl) Parent() txmgrtypes.HeadView {
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 // If not in chain, returns the zero hash
 func (head *headViewImpl) HashAtHeight(blockNum int64) common.Hash {
-	return head.evmHead.Hash
+	return head.evmHead.HashAtHeight(blockNum)
 }
 
 func (head *headViewImpl) GetNativeHead() interface{} {
