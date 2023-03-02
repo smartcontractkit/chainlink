@@ -1,19 +1,26 @@
 package actions
 
 import (
+	"crypto/ed25519"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -414,4 +421,129 @@ func BuildNodeContractPairID(node *client.Chainlink, ocrInstance contracts.Offch
 	shortNodeAddr := nodeAddress[2:12]
 	shortOCRAddr := ocrInstance.Address()[2:12]
 	return strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr)), nil
+}
+
+func BuildGeneralOCR2Config(
+	t *testing.T,
+	chainlinkNodes []*client.Chainlink,
+	deltaProgress time.Duration,
+	deltaResend time.Duration,
+	deltaRound time.Duration,
+	deltaGrace time.Duration,
+	deltaStage time.Duration,
+	rMax uint8,
+	s []int,
+	reportingPluginConfig []byte,
+	maxDurationQuery time.Duration,
+	maxDurationObservation time.Duration,
+	maxDurationReport time.Duration,
+	maxDurationShouldAcceptFinalizedReport time.Duration,
+	maxDurationShouldTransmitAcceptedReport time.Duration,
+	f int,
+	onchainConfig []byte,
+) contracts.OCRConfig {
+	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+
+	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		deltaProgress,
+		deltaResend,
+		deltaRound,
+		deltaGrace,
+		deltaStage,
+		rMax,
+		s,
+		oracleIdentities,
+		reportingPluginConfig,
+		maxDurationQuery,
+		maxDurationObservation,
+		maxDurationReport,
+		maxDurationShouldAcceptFinalizedReport,
+		maxDurationShouldTransmitAcceptedReport,
+		f,
+		onchainConfig,
+	)
+	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
+
+	var signers []common.Address
+	for _, signer := range signerOnchainPublicKeys {
+		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
+		signers = append(signers, common.BytesToAddress(signer))
+	}
+
+	var transmitters []common.Address
+	for _, transmitter := range transmitterAccounts {
+		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
+		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
+	}
+
+	log.Info().Msg("Done building OCR2 config")
+	return contracts.OCRConfig{
+		Signers:               signers,
+		Transmitters:          transmitters,
+		F:                     f_,
+		OnchainConfig:         onchainConfig_,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
+	}
+}
+
+func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
+	S := make([]int, len(chainlinkNodes))
+	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
+	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
+	var wg sync.WaitGroup
+	for i, cl := range chainlinkNodes {
+		wg.Add(1)
+		go func(i int, cl *client.Chainlink) {
+			defer wg.Done()
+
+			address, err := cl.PrimaryEthAddress()
+			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
+			ocr2Keys, err := cl.MustReadOCR2Keys()
+			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
+			var ocr2Config client.OCR2KeyAttributes
+			for _, key := range ocr2Keys.Data {
+				if key.Attributes.ChainType == string(chaintype.EVM) {
+					ocr2Config = key.Attributes
+					break
+				}
+			}
+
+			keys, err := cl.MustReadP2PKeys()
+			require.NoError(t, err, "Shouldn't fail reading P2P keys from node")
+			p2pKeyID := keys.Data[0].Attributes.PeerID
+
+			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
+			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
+
+			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
+			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
+			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+
+			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
+			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
+
+			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
+			n = copy(configPkBytesFixed[:], configPkBytes)
+			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+
+			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
+			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
+
+			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
+			oracleIdentities[i] = confighelper.OracleIdentityExtra{
+				OracleIdentity: confighelper.OracleIdentity{
+					OnchainPublicKey:  onchainPkBytes,
+					OffchainPublicKey: offchainPkBytesFixed,
+					PeerID:            p2pKeyID,
+					TransmitAccount:   types.Account(address),
+				},
+				ConfigEncryptionPublicKey: configPkBytesFixed,
+			}
+			S[i] = 1
+		}(i, cl)
+	}
+	wg.Wait()
+	log.Info().Msg("Done fetching oracle identities")
+	return S, oracleIdentities
 }

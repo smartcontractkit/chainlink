@@ -7,9 +7,11 @@ on:
       - 'v*'
     branches:
       - master
+      - 'release/**'
 
 jobs:
   build-sign-publish-chainlink:
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
     runs-on: ubuntu-20.04
     environment: build-publish
     permissions:

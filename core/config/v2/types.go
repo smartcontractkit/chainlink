@@ -109,11 +109,12 @@ func (c *Core) SetFrom(f *Core) {
 }
 
 type Secrets struct {
-	Database  DatabaseSecrets  `toml:",omitempty"`
-	Explorer  ExplorerSecrets  `toml:",omitempty"`
-	Password  Passwords        `toml:",omitempty"`
-	Pyroscope PyroscopeSecrets `toml:",omitempty"`
-	Mercury   MercurySecrets   `toml:",omitempty"`
+	Database   DatabaseSecrets   `toml:",omitempty"`
+	Explorer   ExplorerSecrets   `toml:",omitempty"`
+	Password   Passwords         `toml:",omitempty"`
+	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
+	Prometheus PrometheusSecrets `toml:",omitempty"`
+	Mercury    MercurySecrets    `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -160,6 +161,10 @@ func (p *Passwords) ValidateConfig() (err error) {
 }
 
 type PyroscopeSecrets struct {
+	AuthToken *models.Secret
+}
+
+type PrometheusSecrets struct {
 	AuthToken *models.Secret
 }
 
