@@ -62,11 +62,11 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // These are the gas overheads that off chain systems should provide to check upkeep / transmit
 // These overheads are not actually charged for
-const transmitGasOverhead = BigNumber.from(800000)
-const checkGasOverhead = BigNumber.from(400000)
+const transmitGasOverhead = BigNumber.from(850_000)
+const checkGasOverhead = BigNumber.from(400_000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(70_000)
+const registryGasOverhead = BigNumber.from(75_000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
 const registryPerPerformByteGasOverhead = BigNumber.from(20)
 const cancellationDelay = 50
@@ -938,7 +938,6 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('reverts if not enough gas supplied', async () => {
-        mock.setPerformGasToBurn(executeGas)
         await evmRevert(
           getTransmitTx(registry, keeper1, [upkeepId.toString()], f + 1, {
             gasLimit: executeGas,

@@ -28,9 +28,8 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @notice forward is called by the registry and forwards the call to the target
    * @param gasAmount is the amount of gas to use in the call
    * @param data is the 4 bytes function selector + arbitrary function data
-   * @dev the forward function reverts with the same revert data as the target call
+   * @return success indicating whether the target call succeeded or failed
    */
-
   function forward(uint256 gasAmount, bytes memory data) external returns (bool success) {
     if (msg.sender != address(s_registry)) revert NotAuthorized();
     address target = i_target;
@@ -59,7 +58,6 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @notice updateRegistry is called by the registry during migrations
    * @param newRegistry is the registry that this forwarder is being migrated to
    */
-
   function updateRegistry(IRegistry newRegistry) external {
     if (msg.sender != address(s_registry)) revert NotAuthorized();
     s_registry = newRegistry;
