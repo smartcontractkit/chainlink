@@ -99,7 +99,7 @@ func TestMercurySmoke(t *testing.T) {
 
 	_, isExistingTestEnv, testNetwork, chainlinkNodes,
 		mercuryServerRemoteUrl,
-		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t)
+		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t, nil, nil)
 	_ = isExistingTestEnv
 
 	nodesWithoutBootstrap := chainlinkNodes[1:]
