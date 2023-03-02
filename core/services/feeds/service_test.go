@@ -685,6 +685,14 @@ func Test_Service_DeleteJob(t *testing.T) {
 		{
 			name: "Delete proposal error",
 			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(nil, errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID failed",
+		},
+		{
+			name: "Delete proposal error",
+			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
 				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(errors.New("orm error"))
 			},

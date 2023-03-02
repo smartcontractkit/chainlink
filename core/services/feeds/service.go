@@ -419,7 +419,7 @@ func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int6
 	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			return 0, errors.Wrap(err, "failed to check existence of job proposal")
+			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
 		}
 	}
 
@@ -433,14 +433,10 @@ func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int6
 	}
 
 	pctx := pg.WithParentCtx(ctx)
-	if txerr := s.orm.DeleteProposal(proposal.ID, pctx); txerr != nil {
-		s.lggr.Errorw("Failed to delete the proposal", "error", txerr)
+	if err = s.orm.DeleteProposal(proposal.ID, pctx); err != nil {
+		s.lggr.Errorw("Failed to delete the proposal", "error", err)
 
-		return 0, errors.Wrap(txerr, "DeleteProposal failed")
-	}
-
-	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "DeleteProposal failed")
 	}
 
 	return proposal.ID, nil
