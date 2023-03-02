@@ -76,6 +76,7 @@ type Service interface {
 	UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 
 	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
+	DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error)
 	SyncNodeInfo(ctx context.Context, id int64) error
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
 
@@ -406,6 +407,41 @@ func (s *service) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, err
 	return s.orm.ListJobProposalsByManagersIDs(ids)
 }
 
+// DeleteJobArgs are the arguments to provide to the DeleteJob method.
+type DeleteJobArgs struct {
+	FeedsManagerID int64
+	RemoteUUID     uuid.UUID
+}
+
+// DeleteProposal deletes a job proposal if it exist. The feeds manager id check
+// ensures that only the intended feed manager can make this request.
+func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
+		}
+	}
+
+	// Validation for existing job proposals
+	if err == nil {
+		// Ensure that if the job proposal exists, that it belongs to the feeds
+		// manager which previously proposed a job using the remote UUID.
+		if args.FeedsManagerID != proposal.FeedsManagerID {
+			return 0, errors.New("cannot delete a job proposal belonging to another feeds manager")
+		}
+	}
+
+	pctx := pg.WithParentCtx(ctx)
+	if err = s.orm.DeleteProposal(proposal.ID, pctx); err != nil {
+		s.lggr.Errorw("Failed to delete the proposal", "error", err)
+
+		return 0, errors.Wrap(err, "DeleteProposal failed")
+	}
+
+	return proposal.ID, nil
+}
+
 // ProposeJobArgs are the arguments to provide to the ProposeJob method.
 type ProposeJobArgs struct {
 	FeedsManagerID int64
@@ -601,6 +637,10 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal")
 	}
 
+	if proposal.Status == JobProposalStatusDeleted {
+		return errors.New("cannot approve spec for a deleted job proposal")
+	}
+
 	logger := s.lggr.With(
 		"job_proposal_id", proposal.ID,
 		"job_proposal_spec_id", id,
@@ -625,30 +665,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")
 	}
 
-	var address ethkey.EIP55Address
-	var evmChainID *utils.Big
-	switch j.Type {
-	case job.OffchainReporting:
-		address = j.OCROracleSpec.ContractAddress
-		evmChainID = j.OCROracleSpec.EVMChainID
-	case job.OffchainReporting2:
-		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
-		if err != nil {
-			return errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
-		}
-
-		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
-		if chainErr != nil {
-			return errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
-		}
-
-		evmChainID = utils.NewBig(evmChain.ID())
-		address = eipAddress
-	case job.FluxMonitor:
-		address = j.FluxMonitorSpec.ContractAddress
-		evmChainID = j.FluxMonitorSpec.EVMChainID
-	default:
-		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	address, evmChainID, err := s.getAddressAndEVMChainIDFromJob(j)
+	if err != nil {
+		return err
 	}
 
 	q := s.q.WithOpts(pctx)
@@ -939,6 +958,38 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
+// getAddressAndChainIDFromJob extracts the address and evmChainID from a job
+func (s *service) getAddressAndEVMChainIDFromJob(j *job.Job) (ethkey.EIP55Address, *utils.Big, error) {
+	var address ethkey.EIP55Address
+	var evmChainID *utils.Big
+
+	switch j.Type {
+	case job.OffchainReporting:
+		address = j.OCROracleSpec.ContractAddress
+		evmChainID = j.OCROracleSpec.EVMChainID
+	case job.OffchainReporting2:
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
+		if addrErr != nil {
+			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
+		}
+
+		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
+		if chainErr != nil {
+			return eipAddress, nil, errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
+		}
+
+		evmChainID = utils.NewBig(evmChain.ID())
+		address = eipAddress
+	case job.FluxMonitor:
+		address = j.FluxMonitorSpec.ContractAddress
+		evmChainID = j.FluxMonitorSpec.EVMChainID
+	default:
+		return address, nil, errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	}
+
+	return address, evmChainID, nil
+}
+
 // generateJob validates and generates a job from a spec.
 func (s *service) generateJob(spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
@@ -1211,6 +1262,9 @@ func (ns NullService) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal,
 	return nil, ErrFeedsManagerDisabled
 }
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
+	return 0, ErrFeedsManagerDisabled
+}
+func (ns NullService) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {

@@ -668,6 +668,63 @@ func (_c *ORM_DeleteChainConfig_Call) RunAndReturn(run func(int64) (int64, error
 	return _c
 }
 
+// DeleteProposal provides a mock function with given fields: id, qopts
+func (_m *ORM) DeleteProposal(id int64, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) error); ok {
+		r0 = rf(id, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ORM_DeleteProposal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteProposal'
+type ORM_DeleteProposal_Call struct {
+	*mock.Call
+}
+
+// DeleteProposal is a helper method to define mock.On call
+//   - id int64
+//   - qopts ...pg.QOpt
+func (_e *ORM_Expecter) DeleteProposal(id interface{}, qopts ...interface{}) *ORM_DeleteProposal_Call {
+	return &ORM_DeleteProposal_Call{Call: _e.mock.On("DeleteProposal",
+		append([]interface{}{id}, qopts...)...)}
+}
+
+func (_c *ORM_DeleteProposal_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_DeleteProposal_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]pg.QOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(pg.QOpt)
+			}
+		}
+		run(args[0].(int64), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *ORM_DeleteProposal_Call) Return(_a0 error) *ORM_DeleteProposal_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_DeleteProposal_Call) RunAndReturn(run func(int64, ...pg.QOpt) error) *ORM_DeleteProposal_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ExistsSpecByJobProposalIDAndVersion provides a mock function with given fields: jpID, version, qopts
 func (_m *ORM) ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (bool, error) {
 	_va := make([]interface{}, len(qopts))
