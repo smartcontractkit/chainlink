@@ -127,14 +127,18 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
-		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver)
+		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
-	if opts.GenLogPoller != nil {
-		logPoller = opts.GenLogPoller(chainID)
+	logPoller := logpoller.LogPollerDisabled
+	if cfg.FeatureLogPoller() {
+		if opts.GenLogPoller != nil {
+			logPoller = opts.GenLogPoller(chainID)
+		} else {
+			logPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
+		}
 	}
 
 	var txm txmgr.TxManager
@@ -166,7 +170,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(db, l, cfg, *chainID)
-		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead)
+		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}
@@ -201,6 +205,10 @@ func (c *chain) Start(ctx context.Context) error {
 		if err := c.client.Dial(ctx); err != nil {
 			return errors.Wrap(err, "failed to dial ethclient")
 		}
+		// Services should be able to handle a non-functional eth client and
+		// not block start in this case, instead retrying in a background loop
+		// until it becomes available.
+		//
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		var ms services.MultiStart

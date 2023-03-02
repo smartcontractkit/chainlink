@@ -1,6 +1,8 @@
 package directrequestocr_test
 
 import (
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type DRListenerUniverse struct {
@@ -39,7 +43,7 @@ type DRListenerUniverse struct {
 
 func ptr[T any](t T) *T { return &t }
 
-func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
+func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
@@ -47,23 +51,31 @@ func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
 	broadcaster := log_mocks.NewBroadcaster(t)
 	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon})
 	chain := cc.Chains()[0]
 	lggr := logger.TestLogger(t)
 
 	jobORM := job_mocks.NewORM(t)
 	pluginORM := drocr_mocks.NewORM(t)
 	jb := &job.Job{
-		Type:           job.OffchainReporting2,
-		SchemaVersion:  1,
-		ExternalJobID:  uuid.NewV4(),
-		PipelineSpec:   &pipeline.Spec{},
-		OCR2OracleSpec: &job.OCR2OracleSpec{},
+		Type:          job.OffchainReporting2,
+		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
+		PipelineSpec:  &pipeline.Spec{},
+		OCR2OracleSpec: &job.OCR2OracleSpec{
+			PluginConfig: job.JSONConfig{
+				"requestTimeoutSec":               timeoutSec,
+				"requestTimeoutCheckFrequencySec": 1,
+				"requestTimeoutBatchLookupSize":   1,
+				"listenerEventHandlerTimeoutSec":  1,
+			},
+		},
 	}
 
-	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil)
+	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
 	require.NoError(t, err)
 
 	serviceArray, err := oracle.GetServices()
@@ -80,8 +92,8 @@ func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
 	}
 }
 
-func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
-	uni := NewDRListenerUniverse(t)
+func PrepareAndStartDRListener(t *testing.T, expectPipelineRun bool) (*DRListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
+	uni := NewDRListenerUniverse(t, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	err := uni.service.Start(testutils.Context(t))
@@ -94,13 +106,21 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 
 	uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
-		RequestId: RequestID,
-		Data:      []byte("data"),
+		RequestId:          RequestID,
+		RequestingContract: common.Address{},
+		RequestInitiator:   common.Address{},
+		SubscriptionId:     0,
+		SubscriptionOwner:  common.Address{},
+		Data:               []byte("data"),
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
 	log.On("String").Return("")
-	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
+	if !expectPipelineRun {
+		return uni, log, nil
+	}
+
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	runBeganAwaiter := cltest.NewAwaiter()
 	uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
 		Return(false, nil).
@@ -113,7 +133,7 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 	return uni, log, runBeganAwaiter
 }
 
-var RequestID drocr_service.RequestID = reqID(123)
+var RequestID drocr_service.RequestID = newRequestID()
 
 const (
 	ParseResultTaskName string = "parse_result"
@@ -127,12 +147,12 @@ func TestDRListener_HandleOracleRequestLogSuccess(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
+	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(CorrectResultData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(EmptyData), nil)
-	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -144,16 +164,55 @@ func TestDRListener_HandleOracleRequestLogError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
+	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(EmptyData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(CorrectErrorData), nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, []byte("BAD"), mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, []byte("BAD"), mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
 	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	uni.service.Close()
+}
+
+func TestDRListener_RequestTimeout(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	reqId := newRequestID()
+	done := make(chan bool)
+	uni := NewDRListenerUniverse(t, 1)
+	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]drocr_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
+		done <- true
+	})
+
+	err := uni.service.Start(testutils.Context(t))
+	require.NoError(t, err)
+	<-done
+
+	uni.service.Close()
+}
+
+func TestDRListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	var ormCallExited sync.WaitGroup
+	ormCallExited.Add(1)
+	uni, log, _ := PrepareAndStartDRListener(t, false)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		var queryerWrapper pg.Q
+		args.Get(3).(pg.QOpt)(&queryerWrapper)
+		<-queryerWrapper.ParentCtx.Done()
+		ormCallExited.Done()
+	}).Return(errors.New("timeout!"))
+
+	uni.service.HandleLog(log)
+
+	ormCallExited.Wait() // should not freeze
 	uni.service.Close()
 }
 

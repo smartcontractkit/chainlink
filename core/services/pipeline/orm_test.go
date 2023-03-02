@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -18,11 +19,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+type ormconfig struct {
+	pg.QConfig
+}
+
+func (ormconfig) JobPipelineMaxSuccessfulRuns() uint64 { return 123456 }
 
 func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
@@ -32,7 +41,8 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
-	orm = pipeline.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	cfg := ormconfig{pgtest.NewQConfig(true)}
+	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg)
 
 	return
 }
@@ -135,16 +145,19 @@ func TestInsertFinishedRuns(t *testing.T) {
 	_, err := db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 	require.NoError(t, err)
 
+	ps := cltest.MustInsertPipelineSpec(t, db)
+
 	var runs []*pipeline.Run
 	for i := 0; i < 3; i++ {
 		now := time.Now()
 		r := pipeline.Run{
-			State:       pipeline.RunStatusRunning,
-			AllErrors:   pipeline.RunErrors{},
-			FatalErrors: pipeline.RunErrors{},
-			CreatedAt:   now,
-			FinishedAt:  null.Time{},
-			Outputs:     pipeline.JSONSerializable{},
+			PipelineSpecID: ps.ID,
+			State:          pipeline.RunStatusRunning,
+			AllErrors:      pipeline.RunErrors{},
+			FatalErrors:    pipeline.RunErrors{},
+			CreatedAt:      now,
+			FinishedAt:     null.Time{},
+			Outputs:        pipeline.JSONSerializable{},
 		}
 
 		require.NoError(t, orm.InsertRun(&r))
@@ -686,4 +699,66 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, counter)
+}
+
+func Test_Prune(t *testing.T) {
+	t.Parallel()
+
+	n := uint64(2)
+
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.MaxSuccessfulRuns = &n
+	})
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	db := pgtest.NewSqlxDB(t)
+	porm := pipeline.NewORM(db, lggr, cfg)
+
+	ps1 := cltest.MustInsertPipelineSpec(t, db)
+
+	t.Run("when there are no runs to prune, does nothing", func(t *testing.T) {
+		porm.Prune(db, ps1.ID)
+
+		// no error logs; it did nothing
+		assert.Empty(t, observed.All())
+	})
+
+	// ps1 has:
+	// - 20 completed runs
+	for i := 0; i < 20; i++ {
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted)
+	}
+
+	ps2 := cltest.MustInsertPipelineSpec(t, db)
+
+	// ps2 has:
+	// - 12 completed runs
+	// - 3 errored runs
+	// - 3 running run
+	// - 3 suspended run
+	for i := 0; i < 12; i++ {
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted)
+	}
+	for i := 0; i < 3; i++ {
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored)
+	}
+	for i := 0; i < 3; i++ {
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning)
+	}
+	for i := 0; i < 3; i++ {
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended)
+	}
+
+	porm.Prune(db, ps2.ID)
+
+	cnt := pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps1.ID, pipeline.RunStatusCompleted)
+	assert.Equal(t, cnt, 20)
+
+	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusCompleted)
+	assert.Equal(t, 2, cnt)
+	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusErrored)
+	assert.Equal(t, 3, cnt)
+	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusRunning)
+	assert.Equal(t, 3, cnt)
+	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusSuspended)
+	assert.Equal(t, 3, cnt)
 }

@@ -88,6 +88,7 @@ KeyPath = 'tls/key'
 [JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1m0s'
+MaxSuccessfulRuns = 54321
 ReaperInterval = '5m0s'
 ReaperThreshold = '1h0m0s'
 ResultWriteQueueDepth = 20
@@ -128,7 +129,6 @@ PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 TraceLogging = true
 
 [P2P.V1]
-Enabled = true
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 57
 BootstrapCheckInterval = '1h0m0s'
@@ -155,8 +155,6 @@ GasTipCapBufferPercent = 12
 BaseFeeBufferPercent = 7
 MaxGracePeriod = 42
 TurnLookBack = 67
-TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
 CheckGasOverhead = 6
@@ -210,7 +208,8 @@ RPCBlockQueryDelay = 6
 
 [EVM.Transactions]
 ForwardersEnabled = true
-MaxInFlight = 1500
+MaxInFlight = 1000
+MaxQueued = 1500
 ReaperInterval = '10h0m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '5m0s'

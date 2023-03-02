@@ -336,6 +336,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		eip1559 bool
@@ -486,6 +487,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
+	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
 
@@ -810,7 +812,7 @@ func setupForwarderEnabledNode(
 	require.NoError(t, err)
 
 	// deploy a forwarder
-	forwarder, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
+	forwarder, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
 	require.NoError(t, err)
 
 	// set EOA as an authorized sender for the forwarder
@@ -829,6 +831,7 @@ func setupForwarderEnabledNode(
 
 func TestIntegration_OCR(t *testing.T) {
 	testutils.SkipShort(t, "long test")
+	t.Parallel()
 	tests := []struct {
 		id        int
 		portStart int // Test need to run in parallel, all need distinct port ranges.
@@ -1063,6 +1066,7 @@ observationSource = """
 
 func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	testutils.SkipShort(t, "long test")
+	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {
 		bootstrapNodePortV1 := 20000
@@ -1086,6 +1090,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			portV1 := bootstrapNodePortV1 + i + 1
 			portV2 := bootstrapNodePortV2 + i + 1
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, 1), b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 				c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
@@ -1127,6 +1132,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			1000000000/100, // threshold PPB
 		)
 		require.NoError(t, err)
+		require.Equal(t, effectiveTransmitters, forwardersContracts)
 		_, err = ocrContract.SetConfig(owner,
 			signers,
 			effectiveTransmitters, // forwarder Addresses

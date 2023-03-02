@@ -186,3 +186,22 @@ func (s *JobProposalSpec) CanEditDefinition() bool {
 	return s.Status == SpecStatusPending ||
 		s.Status == SpecStatusCancelled
 }
+
+// JobProposalCounts defines the counts for job proposals of each status.
+type JobProposalCounts struct {
+	Pending   int64
+	Cancelled int64
+	Approved  int64
+	Rejected  int64
+}
+
+// toMetrics transforms JobProposalCounts into a map with float64 values for setting metrics
+// in prometheus.
+func (jpc *JobProposalCounts) toMetrics() map[JobProposalStatus]float64 {
+	metrics := make(map[JobProposalStatus]float64, 4)
+	metrics[JobProposalStatusPending] = float64(jpc.Pending)
+	metrics[JobProposalStatusApproved] = float64(jpc.Approved)
+	metrics[JobProposalStatusCancelled] = float64(jpc.Cancelled)
+	metrics[JobProposalStatusRejected] = float64(jpc.Rejected)
+	return metrics
+}

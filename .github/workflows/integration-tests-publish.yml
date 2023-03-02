@@ -1,0 +1,43 @@
+name: Integration Tests Publish
+# Publish the compiled integration tests
+
+on:
+  push:
+    branches:
+      - develop
+
+env:
+  ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop
+
+jobs:
+  publish-integration-test-image:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Publish Integration Test Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Publish Integration Test Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: build test runner
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          tags: ${{ env.ECR_TAG }}
+          file: ./integration-tests/test.Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
+            IMAGE_VERSION=v0.3.0
+            SUITES="chaos migration performance reorg smoke soak benchmark"
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

@@ -87,6 +87,7 @@ func newListenerV2(
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
+	mailMon *utils.MailboxMonitor,
 	reqLogs *utils.Mailbox[log.Broadcast],
 	reqAdded func(),
 	respCount map[string]uint64,
@@ -95,11 +96,12 @@ func newListenerV2(
 ) *listenerV2 {
 	return &listenerV2{
 		cfg:                cfg,
-		l:                  l,
+		l:                  logger.Sugared(l),
 		ethClient:          ethClient,
 		chainID:            chainID,
 		logBroadcaster:     logBroadcaster,
 		txm:                txm,
+		mailMon:            mailMon,
 		coordinator:        coordinator,
 		batchCoordinator:   batchCoordinator,
 		pipelineRunner:     pipelineRunner,
@@ -145,11 +147,12 @@ type vrfPipelineResult struct {
 type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
-	l              logger.Logger
+	l              logger.SugaredLogger
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
+	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
@@ -247,6 +250,8 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		go func() {
 			lsn.runRequestHandler(spec.PollPeriod, lsn.wg)
 		}()
+
+		lsn.mailMon.Monitor(lsn.reqLogs, "VRFListenerV2", "RequestLogs", fmt.Sprint(lsn.job.ID))
 		return nil
 	})
 }
@@ -611,6 +616,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 					ll.Criticalw("Pipeline error", "err", p.err)
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
+					// Ensure consumer is valid, otherwise drop the request.
+					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
+						lsn.l.Infow(
+							"Dropping request that was made by an invalid consumer.",
+							"consumerAddress", p.req.req.Sender,
+							"reqID", p.req.req.RequestId,
+							"blockNumber", p.req.req.Raw.BlockNumber,
+							"blockHash", p.req.req.Raw.BlockHash,
+						)
+						lsn.markLogAsConsumed(p.req.lb)
+					}
 				}
 				continue
 			}
@@ -649,6 +665,25 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}
 
 	return processed
+}
+
+// For an errored pipeline run, wait until the finality depth of the chain to have elapsed,
+// then check if the failing request is being called by an invalid sender. Return false if this is the case,
+// otherwise true.
+func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
+	latestHead := lsn.getLatestHead()
+	if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
+		code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender, big.NewInt(int64(latestHead)))
+		if err != nil {
+			lsn.l.Warnw("Failed to fetch contract code", "err", err)
+			return true // error fetching code, give the benefit of doubt to the consumer
+		}
+		if len(code) == 0 {
+			return false // invalid consumer
+		}
+	}
+
+	return true // valid consumer, or finality depth has not elapsed
 }
 
 func (lsn *listenerV2) processRequestsPerSub(
@@ -752,6 +787,18 @@ func (lsn *listenerV2) processRequestsPerSub(
 					ll.Criticalw("Pipeline error", "err", p.err)
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
+
+					// Ensure consumer is valid, otherwise drop the request.
+					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
+						lsn.l.Infow(
+							"Dropping request that was made by an invalid consumer.",
+							"consumerAddress", p.req.req.Sender,
+							"reqID", p.req.req.RequestId,
+							"blockNumber", p.req.req.Raw.BlockNumber,
+							"blockHash", p.req.req.Raw.BlockHash,
+						)
+						lsn.markLogAsConsumed(p.req.lb)
+					}
 				}
 				continue
 			}
@@ -1155,7 +1202,7 @@ func (lsn *listenerV2) Close() error {
 		close(lsn.chStop)
 		// wait on the request handler, log listener, and head listener to stop
 		lsn.wg.Wait()
-		return nil
+		return lsn.reqLogs.Close()
 	})
 }
 

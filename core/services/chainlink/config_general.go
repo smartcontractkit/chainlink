@@ -1,11 +1,11 @@
 package chainlink
 
 import (
-	"crypto/rand"
 	_ "embed"
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -23,6 +23,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -376,10 +377,6 @@ func (g *generalConfig) EthereumURL() string {
 	return ""
 }
 
-func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return *g.c.Keeper.UpkeepCheckGasPriceEnabled
-}
-
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled
@@ -614,6 +611,10 @@ func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
 	return g.c.JobPipeline.MaxRunDuration.Duration()
 }
 
+func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return *g.c.JobPipeline.MaxSuccessfulRuns
+}
+
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
@@ -668,10 +669,6 @@ func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 
 func (g *generalConfig) KeeperTurnLookBack() int64 {
 	return *g.c.Keeper.TurnLookBack
-}
-
-func (g *generalConfig) KeeperTurnFlagEnabled() bool {
-	return *g.c.Keeper.TurnFlagEnabled
 }
 
 func (g *generalConfig) KeyFile() string {
@@ -848,11 +845,16 @@ func (g *generalConfig) P2PListenPort() uint16 {
 	p := *v1.ListenPort
 	if p == 0 && *v1.Enabled {
 		g.randomP2PPortOnce.Do(func() {
-			r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+			addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 			if err != nil {
-				panic(fmt.Errorf("unexpected error generating random P2PListenPort: %w", err))
+				panic(fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err))
 			}
-			g.randomP2PPort = uint16(r.Int64() + 1024)
+			l, err := net.ListenTCP("tcp", addr)
+			if err != nil {
+				panic(fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err))
+			}
+			defer l.Close()
+			g.randomP2PPort = uint16(l.Addr().(*net.TCPAddr).Port)
 			g.lggr.Warnw(fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", g.randomP2PPort), "p2pPort", g.randomP2PPort)
 		})
 		return g.randomP2PPort
@@ -976,6 +978,7 @@ func (g *generalConfig) SessionOptions() sessions.Options {
 		Secure:   g.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 

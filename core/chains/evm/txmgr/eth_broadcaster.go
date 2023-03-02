@@ -97,6 +97,10 @@ type EthBroadcaster struct {
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
 
+	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
+	// when Start is called
+	autoSyncNonce bool
+
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
@@ -119,7 +123,7 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
-	logger logger.Logger, checkerFactory TransmitCheckerFactory) *EthBroadcaster {
+	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
@@ -141,6 +145,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 		triggers:         triggers,
 		chStop:           make(chan struct{}),
 		wg:               sync.WaitGroup{},
+		autoSyncNonce:    autoSyncNonce,
 	}
 }
 
@@ -219,6 +224,14 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	}
 }
 
+func (eb *EthBroadcaster) newNonceSyncBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    100 * time.Millisecond,
+		Max:    5 * time.Second,
+		Jitter: true,
+	}
+}
+
 func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
 	return backoff.Backoff{
 		Min:    1 * time.Second,
@@ -228,15 +241,26 @@ func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
 }
 
 func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{}) {
+	defer eb.wg.Done()
+
 	ctx, cancel := utils.ContextFromChan(eb.chStop)
 	defer cancel()
+
+	if eb.autoSyncNonce {
+		eb.logger.Debugw("Auto-syncing nonce", "address", k.Address)
+		eb.SyncNonce(ctx, k)
+		if ctx.Err() != nil {
+			return
+		}
+	} else {
+		eb.logger.Debugw("Skipping nonce auto-sync", "address", k.Address)
+	}
 
 	// errorRetryCh allows retry on exponential backoff in case of timeout or
 	// other unknown error
 	var errorRetryCh <-chan time.Time
 	bf := eb.newResendBackoff()
 
-	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
@@ -273,6 +297,39 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 		case <-errorRetryCh:
 			// Error backoff period reached
 			continue
+		}
+	}
+}
+
+// syncNonce tries to sync the key nonce, retrying indefinitely until success
+func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
+	if k.Disabled {
+		eb.logger.Infow("Skipping nonce sync for disabled key", "address", k.Address)
+		return
+	}
+	syncer := NewNonceSyncer(eb.db, eb.logger, eb.config, eb.ethClient, eb.ChainKeyStore.keystore)
+	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
+	if err := syncer.Sync(ctx, k); err != nil {
+		// Enter retry loop with backoff
+		var attempt int
+		eb.logger.Errorw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+		for {
+			select {
+			case <-eb.chStop:
+				return
+			case <-time.After(nonceSyncRetryBackoff.Duration()):
+				attempt++
+
+				if err := syncer.Sync(ctx, k); err != nil {
+					if attempt > 5 {
+						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+					} else {
+						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+					}
+					continue
+				}
+				return
+			}
 		}
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -153,9 +153,7 @@ KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 300000
 KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE: 5000
 KEEPER_REGISTRY_SYNC_INTERVAL: 30m0s
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 10
-KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
 KEEPER_TURN_LOOK_BACK: 1000
-KEEPER_TURN_FLAG_ENABLED: false
 LEASE_LOCK_DURATION: 10s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
@@ -260,7 +258,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			set.String("password", test.pwdfile, "")
+			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+
+			require.NoError(t, set.Set("password", test.pwdfile))
+
 			c := cli.NewContext(nil, set, nil)
 
 			run := func() error {
@@ -345,8 +346,10 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			set.String("api", test.apiFile, "")
-			set.Bool("bypass-version-check", true, "")
+			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
+
+			require.NoError(t, set.Set("api", test.apiFile))
+
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
@@ -387,13 +390,12 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
 			lggr, close := cfg.New()
-			defer close()
+			t.Cleanup(func() { assert.NoError(t, close()) })
 
 			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
 			lggr.Debug("Trying to create a log file by logging.")
 
-			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
-			_, err := os.Stat(filepath)
+			_, err := os.Stat(cfg.LogsFile())
 			require.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}
@@ -406,20 +408,6 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", nil)
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
-
-	beginningNonce := uint(7)
-	endingNonce := uint(10)
-	gasPrice := big.NewInt(100000000000)
-	gasLimit := uint64(3000000)
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.Uint("beginningNonce", beginningNonce, "")
-	set.Uint("endingNonce", endingNonce, "")
-	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", fromAddress.Hex(), "")
-	set.String("password", "../internal/fixtures/correct_password.txt", "")
-	c := cli.NewContext(nil, set, nil)
 
 	borm := cltest.NewTxmORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
@@ -443,10 +431,24 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 		Logger:                 lggr,
 	}
 
+	beginningNonce := uint64(7)
+	endingNonce := uint64(10)
+	set := flag.NewFlagSet("test", 0)
+	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+
+	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
+	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(endingNonce, 10)))
+	require.NoError(t, set.Set("gasPriceWei", "100000000000"))
+	require.NoError(t, set.Set("gasLimit", "3000000"))
+	require.NoError(t, set.Set("address", fromAddress.Hex()))
+	require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
+
+	c := cli.NewContext(nil, set, nil)
+
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return uint(tx.Nonce()) == n
+			return tx.Nonce() == n
 		})).Once().Return(nil)
 	}
 
@@ -480,16 +482,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-			set := flag.NewFlagSet("test", 0)
-			set.Bool("debug", true, "")
-			set.Uint("beginningNonce", beginningNonce, "")
-			set.Uint("endingNonce", endingNonce, "")
-			set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-			set.Uint64("gasLimit", gasLimit, "")
-			set.String("address", fromAddress.Hex(), "")
-			set.String("password", "../internal/fixtures/correct_password.txt", "")
-			c := cli.NewContext(nil, set, nil)
-
 			borm := cltest.NewTxmORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
@@ -511,6 +503,17 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 				Logger:                 lggr,
 			}
+
+			set := flag.NewFlagSet("test", 0)
+			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+
+			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
+			require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
+			require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
+			require.NoError(t, set.Set("gasLimit", strconv.FormatUint(gasLimit, 10)))
+			require.NoError(t, set.Set("address", fromAddress.Hex()))
+			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
+			c := cli.NewContext(nil, set, nil)
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i

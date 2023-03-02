@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -68,9 +69,11 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs)
-	require.NoError(t, hb.Start(testutils.Context(t)))
-	require.NoError(t, ht.Start(testutils.Context(t)))
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs, mailMon)
+	var ms services.MultiStart
+	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
+	t.Cleanup(func() { require.NoError(t, services.MultiClose{mailMon, hb, ht}.Close()) })
 
 	latest1, unsubscribe1 := hb.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet
@@ -90,9 +93,6 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	g.Eventually(checker2.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
-
-	require.NoError(t, ht.Close())
-	require.NoError(t, hb.Close())
 }
 
 func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {

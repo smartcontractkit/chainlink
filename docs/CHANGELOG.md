@@ -7,11 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 <!-- unreleased -->
-## [Unreleased]
+## [dev]
 
 ...
-
 <!-- unreleasedstop -->
+
+## 1.12.0 - 2023-02-14
+
+### Added
+
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+- New config option, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+  saved completed runs per job. This is done in response to the `pipeline_runs`
+  table potentially becoming large, which can cause performance degradation.
+  The default is set to 10,000. You can set it to 0 to disable run saving
+  entirely. **NOTE**: This can only be configured via TOML and not with an
+  environment variable.
+- Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
+- Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
+
+### Updated
+
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+- Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
+
+### Fixed
+
+- Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
+- The `config dump` subcommand was fixed to dump the correct config data. 
+  - The `P2P.V1.Enabled` config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The `V1.Enabled` default value is actually true already, and is now updated to only set explicit false values.
+  - The `[EVM.Transactions]` config fields `MaxQueued` & `MaxInFlight` will now correctly match `ETH_MAX_QUEUED_TRANSACTIONS` & `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
+
 ## 1.11.0 - 2022-12-12
 
 ### Added
@@ -23,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `bridge_cache_hits_total`
     - `bridge_cache_errors_total`
 - `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+
 > ```toml
 > SyncThreshold = 5 # Default
 > ```
@@ -518,7 +545,7 @@ If you are using FixedPriceEstimator:
 
 If you are using BlockHistoryEstimator (default for most chains):
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap = ( current block base fee * (1.125 ^ N) + tipcap )` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
 

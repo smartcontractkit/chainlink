@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -48,6 +49,7 @@ const ownerPermsMask = os.FileMode(0700)
 // PristineDBName is a clean copy of test DB with migrations.
 // Used by heavyweight.FullTestDB* functions.
 const PristineDBName = "chainlink_test_pristine"
+const TestDBNamePrefix = "chainlink_test_"
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -58,7 +60,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) runNode(c *clipkg.Context) error {
-	lggr := cli.Logger.Named("RunNode")
+	lggr := logger.Sugared(cli.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
 	if passwordFile := c.String("password"); passwordFile != "" {
@@ -134,7 +136,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		// If not successful, we know neither locks nor connection remains opened
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
-	defer lggr.ErrorIfClosing(ldb, "db")
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
@@ -355,12 +357,12 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}
 
-	lggr := cli.Logger.Named("RebroadcastTransactions")
+	lggr := logger.Sugared(cli.Logger.Named("RebroadcastTransactions"))
 	db, err := pg.OpenUnlockedDB(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
-	defer lggr.ErrorIfClosing(db, "db")
+	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
 	app, err := cli.AppFactory.NewApplication(context.TODO(), cli.Config, lggr, db)
 	if err != nil {
@@ -508,7 +510,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.DatabaseURL()
-	db, err := sql.Open(string(dialects.Postgres), dbUrl.String())
+	db, err := sqlx.Open(string(dialects.Postgres), dbUrl.String())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -527,7 +529,44 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	return nil
+	return cli.errorOut(dropDanglingTestDBs(cli.Logger, db))
+}
+
+func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
+	// Drop all old dangling databases
+	var dbs []string
+	if err = db.Select(&dbs, `SELECT datname FROM pg_database WHERE datistemplate = false;`); err != nil {
+		return err
+	}
+
+	// dropping database is very slow in postgres so we parallelise it here
+	nWorkers := 25
+	ch := make(chan string)
+	var wg sync.WaitGroup
+	wg.Add(nWorkers)
+	errCh := make(chan error, len(dbs))
+	for i := 0; i < nWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			for dbname := range ch {
+				lggr.Infof("Dropping old, dangling test database: %q", dbname)
+				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
+				errCh <- gerr
+			}
+		}()
+	}
+	for _, dbname := range dbs {
+		if strings.HasPrefix(dbname, TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
+			ch <- dbname
+		}
+	}
+	close(ch)
+	wg.Wait()
+	close(errCh)
+	for gerr := range errCh {
+		err = multierr.Append(err, gerr)
+	}
+	return
 }
 
 // PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
@@ -672,7 +711,7 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func dropAndCreatePristineDB(db *sql.DB, template string) (err error) {
+func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)

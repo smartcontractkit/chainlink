@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"net"
 	"os"
@@ -497,7 +496,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint32("EvmMaxQueuedTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].Transactions.MaxInFlight = e
+			c.EVM[i].Transactions.MaxQueued = e
 		}
 	}
 	if e := envvar.NewBool("EvmNonceAutoSync").ParsePtr(); e != nil {
@@ -625,6 +624,7 @@ func (c *Config) loadLegacyCoreEnv() error {
 	c.JobPipeline = config.JobPipeline{
 		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
+		MaxSuccessfulRuns:         envvar.NewUint64("JobPipelineMaxSuccessfulRuns").ParsePtr(),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
@@ -692,14 +692,13 @@ func (c *Config) loadLegacyCoreEnv() error {
 		NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
 		PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 	}
-	if (ns == v1 || ns == v1v2) && c.P2P.V1 != (config.P2PV1{}) {
-		c.P2P.V1.Enabled = ptr(true)
+	if ns == v2 {
+		c.P2P.V1.Enabled = ptr(false)
 	}
 
 	c.P2P.V2 = config.P2PV2{
 		AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
 		DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
-			fmt.Println("TEST", string(b))
 			return v.UnmarshalText(b)
 		}),
 		DeltaDial:       envDuration("P2PV2DeltaDial"),
@@ -717,8 +716,6 @@ func (c *Config) loadLegacyCoreEnv() error {
 		BaseFeeBufferPercent:         envvar.NewUint16("KeeperBaseFeeBufferPercent").ParsePtr(),
 		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
-		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
-		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
 			PerformGasOverhead:  envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
@@ -808,20 +805,15 @@ func envIP(s string) *net.IP {
 
 func envStringSlice(s string) *[]string {
 	return envvar.New(s, func(s string) ([]string, error) {
-		// matching viper stringSlice logic
-		t := strings.TrimSuffix(strings.TrimPrefix(s, "["), "]")
-		return csv.NewReader(strings.NewReader(t)).Read()
+		// matching viper cast.ToStringSliceE logic
+		return strings.Fields(s), nil
 	}).ParsePtr()
 }
 
 func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
 	return envvar.New(s, func(v string) ([]T, error) {
-		// matching viper stringSlice logic
-		v = strings.TrimSuffix(strings.TrimPrefix(v, "["), "]")
-		ss, err := csv.NewReader(strings.NewReader(v)).Read()
-		if err != nil {
-			return nil, err
-		}
+		// matching viper cast.ToStringSliceE logic
+		ss := strings.Fields(v)
 		var ts []T
 		for _, s := range ss {
 			var t T

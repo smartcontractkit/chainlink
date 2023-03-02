@@ -71,5 +71,6 @@ export default {
   },
   mocha: {
     timeout: 100000,
+    forbidOnly: Boolean(process.env.CI),
   },
 }

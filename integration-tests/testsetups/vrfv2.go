@@ -4,11 +4,11 @@ package testsetups
 import (
 	"context"
 	"math/big"
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -61,43 +61,42 @@ func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs) *VRFV2SoakTest {
 }
 
 // Setup sets up the test environment
-func (t *VRFV2SoakTest) Setup(env *environment.Environment, isLocal bool) {
-	t.ensureInputValues()
-	t.testEnvironment = env
+func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment, isLocal bool) {
+	v.ensureInputValues(t)
+	v.testEnvironment = env
 	var err error
 
 	// Make connections to soak test resources
-	t.ChainlinkNodes, err = client.ConnectChainlinkNodes(env)
-	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-	t.mockServer, err = ctfClient.ConnectMockServer(env)
-	Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
+	v.ChainlinkNodes, err = client.ConnectChainlinkNodes(env)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+	v.mockServer, err = ctfClient.ConnectMockServer(env)
+	require.NoError(t, err, "Error connecting to mockserver")
 
-	t.chainClient.ParallelTransactions(true)
-	Expect(err).ShouldNot(HaveOccurred())
+	v.chainClient.ParallelTransactions(true)
 }
 
 // Run starts the VRFV2 soak test
-func (t *VRFV2SoakTest) Run() {
+func (v *VRFV2SoakTest) Run(t *testing.T) {
 	log.Info().
-		Str("Test Duration", t.Inputs.TestDuration.Truncate(time.Second).String()).
-		Int("Max number of requests per minute wanted", t.Inputs.RequestsPerMinute).
+		Str("Test Duration", v.Inputs.TestDuration.Truncate(time.Second).String()).
+		Int("Max number of requests per minute wanted", v.Inputs.RequestsPerMinute).
 		Msg("Starting VRFV2 Soak Test")
 
 	// set the requests to only run for a certain amount of time
-	testContext, testCancel := context.WithTimeout(context.Background(), t.Inputs.TestDuration)
+	testContext, testCancel := context.WithTimeout(context.Background(), v.Inputs.TestDuration)
 	defer testCancel()
 
-	t.NumberOfRequests = 0
+	v.NumberOfRequests = 0
 
 	// variables dealing with how often to tick and how to stop the ticker
 	stop := false
 	startTime := time.Now()
-	ticker := time.NewTicker(time.Minute / time.Duration(t.Inputs.RequestsPerMinute))
+	ticker := time.NewTicker(time.Minute / time.Duration(v.Inputs.RequestsPerMinute))
 
 	for {
 		// start the loop by checking to see if any of the TestFunc responses have returned an error
-		if t.Inputs.StopTestOnError {
-			Expect(t.ErrorOccurred).ShouldNot(HaveOccurred())
+		if v.Inputs.StopTestOnError {
+			require.NoError(t, v.ErrorOccurred, "Found error")
 		}
 
 		select {
@@ -108,24 +107,20 @@ func (t *VRFV2SoakTest) Run() {
 			break // breaks the select block
 		case <-ticker.C:
 			// make the next request
-			t.NumberOfRequests++
-			go requestAndValidate(t, t.NumberOfRequests)
+			v.NumberOfRequests++
+			go requestAndValidate(v, v.NumberOfRequests)
 		}
 
 		if stop {
 			break // breaks the for loop and stops the test
 		}
 	}
-	log.Info().Int("Requests", t.NumberOfRequests).Msg("Total Completed Requests")
+	log.Info().Int("Requests", v.NumberOfRequests).Msg("Total Completed Requests")
 	log.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
-	Expect(t.ErrorCount).To(BeNumerically("==", 0), "We had a number of errors")
+	require.Equal(t, 0, v.ErrorCount, "Expected 0 errors")
 }
 
 func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
-	defer GinkgoRecover()
-	// Errors in goroutines cause some weird behavior with how ginkgo returns the error
-	// We are having the TestFunc return any errors it sees so we can then propagate them in
-	//  the main thread and get proper ginkgo behavior on test failures
 	log.Info().Int("Request Number", requestNumber).Msg("Making a Request")
 	err := t.Inputs.TestFunc(t, requestNumber)
 	// only set the error to be checked if err is not nil so we avoid race conditions with passing requests
@@ -142,12 +137,13 @@ func (t *VRFV2SoakTest) TearDownVals() (*environment.Environment, []*client.Chai
 }
 
 // ensureValues ensures that all values needed to run the test are present
-func (t *VRFV2SoakTest) ensureInputValues() {
-	inputs := t.Inputs
-	Expect(inputs.BlockchainClient).ShouldNot(BeNil(), "Need a valid blockchain client to use for the test")
-	t.chainClient = inputs.BlockchainClient
-	Expect(inputs.RequestsPerMinute).Should(BeNumerically(">=", 1), "Expecting at least 1 request per minute")
-	Expect(inputs.ChainlinkNodeFunding.Float64()).Should(BeNumerically(">", 0), "Expecting non-zero chainlink node funding amount")
-	Expect(inputs.TestDuration).Should(BeNumerically(">=", time.Minute*1), "Expected test duration to be more than a minute")
-	Expect(inputs.TestFunc).ShouldNot(BeNil(), "Expected to have a test to run")
+func (v *VRFV2SoakTest) ensureInputValues(t *testing.T) {
+	inputs := v.Inputs
+	require.NotNil(t, inputs.BlockchainClient, "Need a valid blockchain client for the test")
+	v.chainClient = inputs.BlockchainClient
+	require.GreaterOrEqual(t, inputs.RequestsPerMinute, 1, "Expecting at least 1 request per minute")
+	funding, _ := inputs.ChainlinkNodeFunding.Float64()
+	require.Greater(t, funding, 0, "Need some amount of funding for Chainlink nodes")
+	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute, "Test duration should be longer than 1 minute")
+	require.NotNil(t, inputs.TestFunc, "Expected there to be test to run")
 }
