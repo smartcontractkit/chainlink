@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -35,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -134,7 +136,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	reqs := make(chan request)
 	srv := NewMercuryServer(reqs)
 
-	f := 1
+	f := uint8(1)
 	n := 4
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
@@ -155,8 +157,10 @@ func TestIntegration_Mercury(t *testing.T) {
 	t.Cleanup(stopMining)
 
 	// Deploy config contract
-	// TODO: build/import contracts and wrappers
-	configContractAddr := testutils.NewAddress()
+	verifierProxyAddr, _, _, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	require.NoError(t, err)
+	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr)
+	require.NoError(t, err)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
@@ -199,7 +203,7 @@ contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 chainID = 1337
-	`, configContractAddr))
+	`, verifierAddress))
 
 	// Add OCR jobs
 	for i, node := range nodes {
@@ -278,7 +282,7 @@ chainID = %[10]d
 fromBlock = %[11]d
 		`,
 			i,
-			configContractAddr,
+			verifierAddress,
 			node.KeyBundle.ID(),
 			fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
 			bridgeName,
@@ -309,7 +313,7 @@ fromBlock = %[11]d
 		250*time.Millisecond, // MaxDurationReport
 		250*time.Millisecond, // MaxDurationShouldAcceptFinalizedReport
 		250*time.Millisecond, // MaxDurationShouldTransmitAcceptedReport
-		f,                    // f
+		int(f),               // f
 		onchainConfig,
 	)
 	require.NoError(t, err)
@@ -324,7 +328,7 @@ fromBlock = %[11]d
 		"offchainConfig", offchainConfig,
 	)
 
-	_, err = mercury_verifier.SetConfig(
+	_, err = verifier.SetConfig(
 		steve,
 		feedID,
 		signerAddresses,
