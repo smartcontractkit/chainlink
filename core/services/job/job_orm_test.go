@@ -761,10 +761,31 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Create a job with the legacy null evm chain id.
+	jobWithNullChain, err := ocr.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              uuid.NewV4().String(),
+			ContractAddress:    "0xB47f9a6D281B2A82F8692F8dE058E4249363A6fc",
+			TransmitterAddress: address.Hex(),
+			Name:               "ocr legacy null chain id",
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
 	err = orm.CreateJob(&job)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jobSameAddress)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jobWithNullChain)
+	require.NoError(t, err)
+
+	// Set the ChainID to null manually since we can't do this in the test helper
+	_, err = db.ExecContext(testutils.Context(t),
+		"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jobWithNullChain.ID)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -804,6 +825,24 @@ func Test_FindJob(t *testing.T) {
 		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
+	})
+
+	t.Run("by address with legacy null evm chain id", func(t *testing.T) {
+		jbID, err := orm.FindJobIDByAddress(
+			jobWithNullChain.OCROracleSpec.ContractAddress,
+			jobWithNullChain.OCROracleSpec.EVMChainID,
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobWithNullChain.ID, jbID)
+
+		jbID, err = orm.FindJobIDByAddress(
+			jobWithNullChain.OCROracleSpec.ContractAddress,
+			utils.NewBig(nil),
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobWithNullChain.ID, jbID)
 	})
 
 	t.Run("by address yet chain scoped", func(t *testing.T) {

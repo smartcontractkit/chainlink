@@ -120,8 +120,11 @@ jobs:
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
-          TEST_ARGS: -test.timeout 900h
+          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
           ENV_JOB_IMAGE: ${{ steps.push.outputs.tag }}
+          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
+          TEST_UPLOAD_CPU_PROFILE: true
+          TEST_UPLOAD_MEM_PROFILE: true
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
           test_download_vendor_packages_command: make gomod

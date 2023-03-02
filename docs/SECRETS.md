@@ -114,6 +114,21 @@ AuthToken is the API key for the Pyroscope server.
 
 Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 
+## Prometheus
+```toml
+[Prometheus]
+AuthToken = "prometheus-token" # Example
+```
+
+
+### AuthToken
+```toml
+AuthToken = "prometheus-token" # Example
+```
+AuthToken is the authorization key for the Prometheus metrics endpoint.
+
+Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
+
 ## Mercury
 ```toml
 [Mercury]
