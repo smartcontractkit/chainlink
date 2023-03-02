@@ -43,11 +43,12 @@ func init() {
 		panic(err)
 	}
 	FeedScopedConfigSet = abi.Events["ConfigSet"].ID
+	fmt.Printf("BALLS FeedScopedConfigSet: 0x%x\n", FeedScopedConfigSet)
 }
 
 const (
-	firstIndexWithoutFeedId = 1
-	firstIndexWithFeedId    = 2
+	firstIndexWithoutFeedID = 1
+	firstIndexWithFeedID    = 2
 )
 
 type OCR2AbstractConfigSet struct {
@@ -67,7 +68,7 @@ var configSetFeedIDArg = abi.Argument{
 	Type: utils.MustAbiType("bytes32", nil),
 }
 
-func makeConfigSetMsgArgs(withFeedId bool) abi.Arguments {
+func makeConfigSetMsgArgs(withFeedID bool) abi.Arguments {
 	args := []abi.Argument{
 		{
 			Name: "previousConfigBlockNumber",
@@ -107,7 +108,7 @@ func makeConfigSetMsgArgs(withFeedId bool) abi.Arguments {
 		},
 	}
 
-	if withFeedId {
+	if withFeedID {
 		args = append([]abi.Argument{configSetFeedIDArg}, args...)
 	}
 
@@ -173,8 +174,8 @@ func NewContractConfigFromLog(unpacked []interface{}, fromIndex int) (ocrtypes.C
 	}, nil
 }
 
-func unpackLogData(d []byte, withFeedId bool) ([]interface{}, error) {
-	args := makeConfigSetMsgArgs(withFeedId)
+func unpackLogData(d []byte, withFeedID bool) ([]interface{}, error) {
+	args := makeConfigSetMsgArgs(withFeedID)
 	unpacked, err := args.Unpack(d)
 	if err != nil {
 		return nil, err
@@ -190,7 +191,7 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
-	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithoutFeedId)
+	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithoutFeedID)
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
@@ -200,7 +201,7 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	}, nil
 }
 
-func ConfigFromLogWithFeedId(logData []byte) (FullConfigFromLog, error) {
+func ConfigFromLogWithFeedID(logData []byte) (FullConfigFromLog, error) {
 	unpacked, err := unpackLogData(logData, true)
 	if err != nil {
 		return FullConfigFromLog{}, err
@@ -209,7 +210,7 @@ func ConfigFromLogWithFeedId(logData []byte) (FullConfigFromLog, error) {
 	if !ok {
 		return FullConfigFromLog{}, errors.Errorf("invalid feed ID, got %T", unpacked[0])
 	}
-	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithFeedId)
+	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithFeedID)
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
@@ -230,7 +231,7 @@ type ConfigPoller struct {
 
 type ConfigPollerOption func(cp *ConfigPoller)
 
-func WithFeedId(feedID *common.Hash) ConfigPollerOption {
+func WithFeedID(feedID *common.Hash) ConfigPollerOption {
 	return func(cp *ConfigPoller) {
 		if feedID != nil {
 			cp.feedID = *feedID
@@ -240,7 +241,10 @@ func WithFeedId(feedID *common.Hash) ConfigPollerOption {
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, opts ...ConfigPollerOption) (*ConfigPoller, error) {
 	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet, FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+	fmt.Println("BALLS listen on address", addr.Hex())
+	fmt.Printf("BALLS listen to event sigs %#v %#v\n", ConfigSet, FeedScopedConfigSet)
+	// err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet, FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
@@ -259,8 +263,16 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 	return cp, nil
 }
 
-func (lp *ConfigPoller) WithFeedId() bool {
+func (lp *ConfigPoller) WithFeedID() bool {
 	return lp.feedID != (common.Hash{})
+}
+
+func (lp *ConfigPoller) ConfigSetEventID() common.Hash {
+	if lp.WithFeedID() {
+		return FeedScopedConfigSet
+	} else {
+		return ConfigSet
+	}
 }
 
 func (lp *ConfigPoller) Notify() <-chan struct{} {
@@ -268,35 +280,27 @@ func (lp *ConfigPoller) Notify() <-chan struct{} {
 }
 
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
-	fmt.Println("BALLS LatestLogByEventSigWithConfs", changedInBlock, configDigest, latest, err)
-	if err != nil {
-		// If contract is not configured, we will not have the log.
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, ocrtypes.ConfigDigest{}, nil
-		}
-		return 0, ocrtypes.ConfigDigest{}, err
-	}
 	var latestConfigSet FullConfigFromLog
-	if lp.WithFeedId() {
-		latestConfigSet, err = ConfigFromLogWithFeedId(latest.Data)
+	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(lp.ConfigSetEventID(), lp.addr, 1, pg.WithParentCtx(ctx))
+	if err == nil {
+		latestConfigSet, err = ConfigFromLogWithFeedID(latest.Data)
+	} else if errors.Is(err, sql.ErrNoRows) {
+		return 0, ocrtypes.ConfigDigest{}, nil
 	} else {
-		latestConfigSet, err = ConfigFromLog(latest.Data)
-	}
-	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
+
 	}
 	return uint64(latest.BlockNumber), latestConfigSet.ConfigDigest, nil
 }
 
 func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, lp.addr, pg.WithParentCtx(ctx))
+	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), lp.ConfigSetEventID(), lp.addr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
 	var latestConfigSet FullConfigFromLog
-	if lp.WithFeedId() {
-		latestConfigSet, err = ConfigFromLogWithFeedId(lgs[len(lgs)-1].Data)
+	if lp.WithFeedID() {
+		latestConfigSet, err = ConfigFromLogWithFeedID(lgs[len(lgs)-1].Data)
 	} else {
 		latestConfigSet, err = ConfigFromLog(lgs[len(lgs)-1].Data)
 	}

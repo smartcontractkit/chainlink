@@ -244,7 +244,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	configPoller, err := NewConfigPoller(lggr,
 		chain.LogPoller(),
 		contractAddress,
-		WithFeedId(relayConfig.FeedID),
+		WithFeedID(relayConfig.FeedID),
 	)
 	if err != nil {
 		return nil, err
