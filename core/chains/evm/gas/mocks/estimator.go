@@ -174,3 +174,18 @@ func (_m *Estimator) Start(_a0 context.Context) error {
 
 	return r0
 }
+
+type mockConstructorTestingTNewEstimator interface {
+	mock.TestingT
+	Cleanup(func())
+}
+
+// NewEstimator creates a new instance of Estimator. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+func NewEstimator(t mockConstructorTestingTNewEstimator) *Estimator {
+	mock := &Estimator{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}

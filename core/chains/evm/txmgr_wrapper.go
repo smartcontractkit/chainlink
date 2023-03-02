@@ -32,7 +32,7 @@ type txmWrapper struct {
 }
 
 func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
-	txmWrapper.txm.OnNewLongestChain(ctx, newHeadViewImpl(evmHead))
+	txmWrapper.txm.OnNewLongestChain(ctx, NewHeadViewImpl(evmHead))
 }
 
 func (txmWrapper *txmWrapper) Start(ctx context.Context) (err error) {
@@ -80,7 +80,7 @@ type headViewImpl struct {
 	evmHead *evmtypes.Head
 }
 
-func newHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView {
+func NewHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView {
 	return &headViewImpl{evmHead: head}
 }
 
@@ -95,7 +95,7 @@ func (head *headViewImpl) ChainLength() uint32 {
 
 // EarliestInChain recurses through parents until it finds the earliest one
 func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView {
-	return newHeadViewImpl(head.evmHead.EarliestInChain())
+	return NewHeadViewImpl(head.evmHead.EarliestInChain())
 }
 
 func (head *headViewImpl) Hash() common.Hash {
@@ -103,7 +103,7 @@ func (head *headViewImpl) Hash() common.Hash {
 }
 
 func (head *headViewImpl) Parent() txmgrtypes.HeadView {
-	return newHeadViewImpl(head.evmHead.Parent)
+	return NewHeadViewImpl(head.evmHead.Parent)
 }
 
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.

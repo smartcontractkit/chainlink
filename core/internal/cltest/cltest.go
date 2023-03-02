@@ -43,6 +43,7 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -1033,6 +1034,10 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.E
 		return txas
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txas
+}
+
+func HeadView(val interface{}) txmgrtypes.HeadView {
+	return evm.NewHeadViewImpl(Head(val))
 }
 
 // Head given the value convert it into an Head

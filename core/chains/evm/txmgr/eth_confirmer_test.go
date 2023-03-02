@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -2450,14 +2451,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	}
 
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 	})
 
 	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2470,7 +2471,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, borm, head.Number, head.Hash, attempt.Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2484,7 +2485,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, borm, head.Parent.Parent.Number-1, utils.NewHash(), attempt.Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2505,7 +2506,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2526,7 +2527,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2561,7 +2562,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2581,7 +2582,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Add receipt that is higher than head
 		cltest.MustInsertEthReceipt(t, borm, head.Number+1, utils.NewHash(), attempt.Hash)
 
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), evm.NewHeadViewImpl(&head)))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2741,7 +2742,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, borm, head.Number-minConfirmations, head.Hash, attempt.Hash)
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(testutils.Context(t), evm.NewHeadViewImpl(&head))
 		require.NoError(t, err)
 
 	})
@@ -2761,7 +2762,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(testutils.Context(t), evm.NewHeadViewImpl(&head))
 		require.NoError(t, err)
 
 	})
@@ -2787,7 +2788,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
-			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), evm.NewHeadViewImpl(&head))
 			require.NoError(t, err2)
 		}()
 
@@ -2829,7 +2830,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
-			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), evm.NewHeadViewImpl(&head))
 			require.NoError(t, err2)
 		}()
 
