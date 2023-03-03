@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/BurntSushi/toml"
+	"github.com/pelletier/go-toml"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/test-go/testify/require"
-	"gotest.tools/assert"
 )
 
 // ChainID   *utils.Big `json:"chainID"`

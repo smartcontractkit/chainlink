@@ -3,7 +3,6 @@ module github.com/smartcontractkit/chainlink
 go 1.20
 
 require (
-	github.com/BurntSushi/toml v1.2.0
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/ava-labs/coreth v0.11.0-rc.4
@@ -70,7 +69,6 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.15
-	github.com/test-go/testify v1.1.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.14.4
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
@@ -92,7 +90,6 @@ require (
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	gotest.tools v2.2.0+incompatible
 )
 
 require (
