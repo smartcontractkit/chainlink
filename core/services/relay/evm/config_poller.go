@@ -15,10 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
+// ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
 // event ConfigSet(
 //
 //	bytes32 feedId,
@@ -32,7 +31,7 @@ import (
 //	bytes offchainConfig
 //
 // );
-var ConfigSet = common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
+var ConfigSet common.Hash
 
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
 var FeedScopedConfigSet common.Hash
@@ -53,13 +52,9 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	ConfigSet = defaultABI.Events[configSetEventName].ID
 	FeedScopedConfigSet = verifierABI.Events[configSetEventName].ID
 }
-
-const (
-	firstIndexWithoutFeedID = 1
-	firstIndexWithFeedID    = 2
-)
 
 type OCR2AbstractConfigSet struct {
 	PreviousConfigBlockNumber uint32
@@ -71,64 +66,6 @@ type OCR2AbstractConfigSet struct {
 	OnchainConfig             []byte
 	OffchainConfigVersion     uint64
 	OffchainConfig            []byte
-}
-
-var configSetFeedIDArg = abi.Argument{
-	Name: "feedId",
-	Type: utils.MustAbiType("bytes32", nil),
-}
-
-func makeConfigSetMsgArgs(withFeedID bool) abi.Arguments {
-	args := []abi.Argument{
-		{
-			Name: "previousConfigBlockNumber",
-			Type: utils.MustAbiType("uint32", nil),
-		},
-		{
-			Name: "configDigest",
-			Type: utils.MustAbiType("bytes32", nil),
-		},
-		{
-			Name: "configCount",
-			Type: utils.MustAbiType("uint64", nil),
-		},
-		{
-			Name: "signers",
-			Type: utils.MustAbiType("address[]", nil),
-		},
-	}
-
-	if withFeedID {
-		args = append([]abi.Argument{configSetFeedIDArg}, args...)
-	} else {
-		// We only support `transmitters` when not using feedId
-		transmittersArg := abi.Argument{
-			Name: "transmitters",
-			Type: utils.MustAbiType("address[]", nil),
-		}
-		args = append(args, transmittersArg)
-	}
-
-	lastArgs := []abi.Argument{
-		{
-			Name: "f",
-			Type: utils.MustAbiType("uint8", nil),
-		},
-		{
-			Name: "onchainConfig",
-			Type: utils.MustAbiType("bytes", nil),
-		},
-		{
-			Name: "offchainConfigVersion",
-			Type: utils.MustAbiType("uint64", nil),
-		},
-		{
-			Name: "offchainConfig",
-			Type: utils.MustAbiType("bytes", nil),
-		},
-	}
-
-	return append(args, lastArgs...)
 }
 
 type FullConfigFromLog struct {
@@ -194,8 +131,6 @@ func NewContractConfigFromLog(unpacked map[string]interface{}, withTransmitters 
 }
 
 func unpackLogData(d []byte, withFeedID bool) (map[string]interface{}, error) {
-	//args := makeConfigSetMsgArgs(withFeedID)
-	//unpacked, err := args.Unpack(d)
 	var err error
 	unpacked := map[string]interface{}{}
 	if withFeedID {
@@ -206,10 +141,6 @@ func unpackLogData(d []byte, withFeedID bool) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unpack log data")
 	}
-	//
-	//if len(unpacked) != len(args) {
-	//	return nil, errors.Errorf("invalid number of fields, got %v", len(unpacked))
-	//}
 	return unpacked, nil
 }
 
