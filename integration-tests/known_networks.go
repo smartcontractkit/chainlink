@@ -106,7 +106,7 @@ var (
 	// https://era.zksync.io/docs/dev/troubleshooting/important-links.html
 	ZKSyncGoerliTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "ZKSync Goerli Testnet",
-		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ClientImplementation:      blockchain.ZKSyncClientImplementation,
 		ChainID:                   280,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,

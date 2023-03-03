@@ -2,8 +2,11 @@ package zksync
 
 import (
 	"fmt"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
+	"math/big"
 	"strings"
 )
 
@@ -54,7 +57,8 @@ func (z *ZKSyncClient) DeployAccessController() error {
 	return nil
 }
 
-func (z *ZKSyncClient) DeployOCR(maxGasPrice string,
+func (z *ZKSyncClient) DeployOCR(
+	maxGasPrice string,
 	reasonableGasPrice string,
 	microLinkPerEth string,
 	linkGweiPerObservation string,
@@ -153,5 +157,77 @@ func (z *ZKSyncClient) SetConfig(
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (z *ZKSyncClient) FundNodes(chainlinkClient blockchain.EVMClient) error {
+	for _, key := range z.NKeys {
+		log.Info().Str("ZKSync=", fmt.Sprintf("Funding %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
+		amount := big.NewFloat(100000000000000000)
+		err := chainlinkClient.Fund(key.TXKey.Data.ID, amount)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (z *ZKSyncClient) DeployContracts(
+	chainlinkClient blockchain.EVMClient,
+	maxGasPrice string,
+	reasonableGasPrice string,
+	microLinkPerEth string,
+	linkGweiPerObservation string,
+	linkGweiPerTransmission string,
+	minAnswer string,
+	maxAnswer string,
+	decimals string,
+	description string,
+	threshold string,
+	badEpochTimeout string,
+	resendInterval string,
+	roundInterval string,
+	observationGracePeriod string,
+	maxContractValueAge string,
+	relativeDeviationThresholdPPB string,
+	transmissionStageTimeout string,
+	maxRoundCount string,
+	transmissionStages string,
+) error {
+	err := z.DeployLinkToken()
+	if err != nil {
+		return err
+	}
+
+	err = z.DeployAccessController()
+	if err != nil {
+		return err
+	}
+
+	err = z.DeployOCR(maxGasPrice, reasonableGasPrice, microLinkPerEth, linkGweiPerObservation, linkGweiPerTransmission, minAnswer, maxAnswer, decimals, description)
+	if err != nil {
+		return err
+	}
+
+	err = z.AddAccess(z.OCRAddr)
+	if err != nil {
+		return err
+	}
+
+	err = z.SetPayees(z.OCRAddr, z.Payees, z.Transmitters)
+	if err != nil {
+		return err
+	}
+
+	err = z.SetConfig(z.OCRAddr, threshold, badEpochTimeout, resendInterval, roundInterval, observationGracePeriod, maxContractValueAge, relativeDeviationThresholdPPB, transmissionStageTimeout, maxRoundCount, transmissionStages)
+	if err != nil {
+		return err
+	}
+
+	err = z.FundNodes(chainlinkClient)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
