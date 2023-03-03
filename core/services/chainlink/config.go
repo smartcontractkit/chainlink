@@ -137,5 +137,8 @@ func (s *Secrets) setEnv() error {
 	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
 		s.Pyroscope.AuthToken = &pyroscopeAuthToken
 	}
+	if prometheusAuthToken := config.EnvPrometheusAuthToken.Get(); prometheusAuthToken != "" {
+		s.Prometheus.AuthToken = &prometheusAuthToken
+	}
 	return nil
 }

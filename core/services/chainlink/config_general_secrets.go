@@ -39,6 +39,13 @@ func (g *generalConfig) PyroscopeAuthToken() string {
 	return string(*g.secrets.Pyroscope.AuthToken)
 }
 
+func (g *generalConfig) PrometheusAuthToken() string {
+	if g.secrets.Prometheus.AuthToken == nil {
+		return ""
+	}
+	return string(*g.secrets.Prometheus.AuthToken)
+}
+
 func (g *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
 	if g.secrets.Mercury.Credentials == nil {
 		return "", "", errors.New("no Mercury credentials were specified in the config")
