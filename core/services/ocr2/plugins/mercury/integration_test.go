@@ -207,6 +207,7 @@ schemaVersion                     = 1
 name                              = "boot"
 contractID                        = "%s"
 contractConfigTrackerPollInterval = "1s"
+pluginType 						  = "mercury"
 
 [relayConfig]
 chainID = 1337
@@ -352,7 +353,6 @@ fromBlock = %[11]d
 	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EvmFinalityDepth()
-	// fmt.Println("BALLS finalityDepth", finalityDepth)
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
@@ -408,8 +408,10 @@ func setupNode(
 		// [Feature]
 		// UICSAKeys=true
 		// LogPoller = true
+		// FeedsManager = false
 		c.Feature.UICSAKeys = ptr(true)
 		c.Feature.LogPoller = ptr(true)
+		c.Feature.FeedsManager = ptr(false)
 
 		// [OCR]
 		// Enabled = false

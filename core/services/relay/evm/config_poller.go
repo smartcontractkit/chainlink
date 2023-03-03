@@ -323,7 +323,7 @@ func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	lp.lggr.Infof("LatestConfig %+v\n", latestConfigSet)
+	lp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
 	return latestConfigSet.ContractConfig, nil
 }
 
