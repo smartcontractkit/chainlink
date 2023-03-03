@@ -36,5 +36,5 @@ func Test_FeaturesController_List(t *testing.T) {
 	assert.True(t, resources[0].Enabled)
 
 	assert.Equal(t, "feeds_manager", resources[1].ID)
-	assert.False(t, resources[1].Enabled)
+	assert.True(t, resources[1].Enabled)
 }
