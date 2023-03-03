@@ -98,9 +98,9 @@ func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.Chainlink) error {
 	for _, key := range z.NKeys[1:] {
 		z.PeerIds = append(z.PeerIds, key.PeerID)
 		z.OcrConfigPubKeys = append(z.OcrConfigPubKeys, strings.Replace(key.OCRKey.Data.Attributes.ConfigPublicKey, "ocrcfg_", "", 1))
-		z.Transmitters = append(z.Transmitters, key.EthAddress)
-		z.Signers = append(z.Signers, strings.Replace(key.OCRKey.Data.Attributes.OnChainSigningAddress, "ocrsad_", "", 1))
-		z.Payees = append(z.Payees, z.Client.GetDefaultWallet().Address())
+		z.Transmitters = append(z.Transmitters, strings.Replace(key.EthAddress, "0x", "", 1))
+		z.Signers = append(z.Signers, strings.Replace(key.OCRKey.Data.Attributes.OnChainSigningAddress, "ocrsad_0x", "", 1))
+		z.Payees = append(z.Payees, strings.Replace(z.Client.GetDefaultWallet().Address(), "0x", "", 1))
 	}
 
 	return nil
