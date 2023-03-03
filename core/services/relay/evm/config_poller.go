@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -36,12 +37,23 @@ var ConfigSet = common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc52
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
 var FeedScopedConfigSet common.Hash
 
+var defaultABI abi.ABI
+var verifierABI abi.ABI
+
+const configSetEventName = "ConfigSet"
+
 func init() {
-	abi, err := abi.JSON(strings.NewReader(mercury_verifier.MercuryVerifierABI))
+	var err error
+	abiPointer, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
 	if err != nil {
 		panic(err)
 	}
-	FeedScopedConfigSet = abi.Events["ConfigSet"].ID
+	defaultABI = *abiPointer
+	verifierABI, err = abi.JSON(strings.NewReader(mercury_verifier.MercuryVerifierABI))
+	if err != nil {
+		panic(err)
+	}
+	FeedScopedConfigSet = verifierABI.Events[configSetEventName].ID
 }
 
 const (
@@ -124,45 +136,41 @@ type FullConfigFromLog struct {
 	feedID [32]byte
 }
 
-func NewContractConfigFromLog(unpacked []interface{}, fromIndex int) (ocrtypes.ContractConfig, error) {
-	configDigest, ok := unpacked[fromIndex].([32]byte)
+func NewContractConfigFromLog(unpacked map[string]interface{}, withTransmitters bool) (ocrtypes.ContractConfig, error) {
+	configDigest, ok := unpacked["configDigest"].([32]byte)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[fromIndex])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked["configDigest"])
 	}
-	configCount, ok := unpacked[fromIndex+1].(uint64)
+	configCount, ok := unpacked["configCount"].(uint64)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config count, got %T", unpacked[fromIndex+1])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config count, got %T", unpacked["configCount"])
 	}
-	signersAddresses, ok := unpacked[fromIndex+2].([]common.Address)
+	signersAddresses, ok := unpacked["signers"].([]common.Address)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid signers, got %T", unpacked[fromIndex+2])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid signers, got %T", unpacked["signers"])
 	}
 	var transmitters []common.Address
-	// Mercury does not support transmitters
-	if fromIndex == firstIndexWithoutFeedID {
-		transmitters, ok = unpacked[fromIndex+3].([]common.Address)
+	if withTransmitters {
+		transmitters, ok = unpacked["transmitters"].([]common.Address)
 		if !ok {
-			return ocrtypes.ContractConfig{}, errors.Errorf("invalid transmitters, got %T", unpacked[fromIndex+3])
+			return ocrtypes.ContractConfig{}, errors.Errorf("invalid transmitters, got %T", unpacked["transmitters"])
 		}
-	} else {
-		// We decrease the `fromIndex` by one since we don't have `transmitters` to unpack
-		fromIndex -= 1
 	}
-	f, ok := unpacked[fromIndex+4].(uint8)
+	f, ok := unpacked["f"].(uint8)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid f, got %T", unpacked[fromIndex+4])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid f, got %T", unpacked["f"])
 	}
-	onchainConfig, ok := unpacked[fromIndex+5].([]byte)
+	onchainConfig, ok := unpacked["onchainConfig"].([]byte)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid onchain config, got %T", unpacked[fromIndex+5])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid onchain config, got %T", unpacked["onchainConfig"])
 	}
-	offchainConfigVersion, ok := unpacked[fromIndex+6].(uint64)
+	offchainConfigVersion, ok := unpacked["offchainConfigVersion"].(uint64)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[fromIndex+6])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked["offchainConfigVersion"])
 	}
-	offchainConfig, ok := unpacked[fromIndex+7].([]byte)
+	offchainConfig, ok := unpacked["offchainConfig"].([]byte)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid offchainConfig, got %T", unpacked[fromIndex+7])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid offchainConfig, got %T", unpacked["offchainConfig"])
 	}
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range transmitters {
@@ -185,15 +193,23 @@ func NewContractConfigFromLog(unpacked []interface{}, fromIndex int) (ocrtypes.C
 	}, nil
 }
 
-func unpackLogData(d []byte, withFeedID bool) ([]interface{}, error) {
-	args := makeConfigSetMsgArgs(withFeedID)
-	unpacked, err := args.Unpack(d)
+func unpackLogData(d []byte, withFeedID bool) (map[string]interface{}, error) {
+	//args := makeConfigSetMsgArgs(withFeedID)
+	//unpacked, err := args.Unpack(d)
+	var err error
+	unpacked := map[string]interface{}{}
+	if withFeedID {
+		err = verifierABI.UnpackIntoMap(unpacked, configSetEventName, d)
+	} else {
+		err = defaultABI.UnpackIntoMap(unpacked, configSetEventName, d)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unpack log data")
 	}
-	if len(unpacked) != len(args) {
-		return nil, errors.Errorf("invalid number of fields, got %v", len(unpacked))
-	}
+	//
+	//if len(unpacked) != len(args) {
+	//	return nil, errors.Errorf("invalid number of fields, got %v", len(unpacked))
+	//}
 	return unpacked, nil
 }
 
@@ -202,7 +218,7 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
-	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithoutFeedID)
+	contractConfig, err := NewContractConfigFromLog(unpacked, true)
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
@@ -217,11 +233,11 @@ func ConfigFromLogWithFeedID(logData []byte) (FullConfigFromLog, error) {
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
-	feedID, ok := unpacked[0].([32]byte)
+	feedID, ok := unpacked["feedId"].([32]byte)
 	if !ok {
-		return FullConfigFromLog{}, errors.Errorf("invalid feed ID, got %T", unpacked[0])
+		return FullConfigFromLog{}, errors.Errorf("invalid feed ID, got %T", unpacked["feedId"])
 	}
-	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithFeedID)
+	contractConfig, err := NewContractConfigFromLog(unpacked, false)
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}

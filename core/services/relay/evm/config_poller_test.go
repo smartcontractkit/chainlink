@@ -206,8 +206,6 @@ func TestConfigPoller_WithFeedID(t *testing.T) {
 	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
-	fmt.Println(newConfig)
-	fmt.Printf("%v\n", newConfig)
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
 	assert.Equal(t, signers, newConfig.Signers)
 	assert.Equal(t, threshold, newConfig.F)
