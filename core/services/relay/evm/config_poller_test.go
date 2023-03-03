@@ -3,6 +3,7 @@ package evm
 import (
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,13 +99,19 @@ func TestConfigPoller(t *testing.T) {
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
+	transmitters := make([]ocrtypes2.Account, len(contractConfig.Transmitters))
+	for i, t := range contractConfig.Transmitters {
+		tt := strings.ToLower(string(t))
+		transmitters[i] = ocrtypes2.Account(tt)
+	}
+
 	// Assert the config returned is the one we configured.
 	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
 	assert.Equal(t, contractConfig.Signers, newConfig.Signers)
-	assert.Equal(t, contractConfig.Transmitters, newConfig.Transmitters)
+	assert.Equal(t, transmitters, newConfig.Transmitters)
 	assert.Equal(t, contractConfig.F, newConfig.F)
 	assert.Equal(t, contractConfig.OffchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
@@ -145,8 +152,9 @@ func TestConfigPoller_WithFeedID(t *testing.T) {
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
 
 	// Create minimum number of nodes.
+	n := 4
 	var oracles []confighelper2.OracleIdentityExtra
-	for i := 0; i < 4; i++ {
+	for i := 0; i < n; i++ {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  utils.RandomAddress().Bytes(),
@@ -183,7 +191,13 @@ func TestConfigPoller_WithFeedID(t *testing.T) {
 	require.NoError(t, err)
 	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	_, err = verifierContract.SetConfig(user, feedIDBytes, signerAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	offchainTransmitters := make([][32]byte, n)
+	encodedTransmitter := make([]ocrtypes2.Account, n)
+	for i := 0; i < n; i++ {
+		offchainTransmitters[i] = oracles[i].OffchainPublicKey
+		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
+	}
+	_, err = verifierContract.SetConfig(user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err, "failed to setConfig with feed ID")
 	b.Commit()
 
@@ -209,6 +223,7 @@ func TestConfigPoller_WithFeedID(t *testing.T) {
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
 	assert.Equal(t, signers, newConfig.Signers)
 	assert.Equal(t, threshold, newConfig.F)
+	assert.Equal(t, encodedTransmitter, newConfig.Transmitters)
 	assert.Equal(t, offchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, offchainConfig, newConfig.OffchainConfig)
 }

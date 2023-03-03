@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -73,7 +74,7 @@ type FullConfigFromLog struct {
 	feedID [32]byte
 }
 
-func NewContractConfigFromLog(unpacked map[string]interface{}, withTransmitters bool) (ocrtypes.ContractConfig, error) {
+func NewContractConfigFromLog(unpacked map[string]interface{}, withOffchainTransmitters bool) (ocrtypes.ContractConfig, error) {
 	configDigest, ok := unpacked["configDigest"].([32]byte)
 	if !ok {
 		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked["configDigest"])
@@ -86,11 +87,24 @@ func NewContractConfigFromLog(unpacked map[string]interface{}, withTransmitters 
 	if !ok {
 		return ocrtypes.ContractConfig{}, errors.Errorf("invalid signers, got %T", unpacked["signers"])
 	}
-	var transmitters []common.Address
-	if withTransmitters {
-		transmitters, ok = unpacked["transmitters"].([]common.Address)
+	var transmitters [][]byte
+	if withOffchainTransmitters {
+		offchainTransmitters, ok := unpacked["offchainTransmitters"].([][32]byte)
+		if !ok {
+			return ocrtypes.ContractConfig{}, errors.Errorf("invalid offchain transmitters, got %T", unpacked["offchainTransmitters"])
+		}
+		for _, d := range offchainTransmitters {
+			c := d
+			transmitters = append(transmitters, c[:])
+		}
+	} else {
+		t, ok := unpacked["transmitters"].([]common.Address)
 		if !ok {
 			return ocrtypes.ContractConfig{}, errors.Errorf("invalid transmitters, got %T", unpacked["transmitters"])
+		}
+		for _, d := range t {
+			c := d
+			transmitters = append(transmitters, c[:])
 		}
 	}
 	f, ok := unpacked["f"].(uint8)
@@ -111,7 +125,11 @@ func NewContractConfigFromLog(unpacked map[string]interface{}, withTransmitters 
 	}
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
+		if withOffchainTransmitters {
+			transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("%x", addr)))
+		} else {
+			transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("0x%x", addr)))
+		}
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range signersAddresses {
@@ -149,7 +167,7 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
-	contractConfig, err := NewContractConfigFromLog(unpacked, true)
+	contractConfig, err := NewContractConfigFromLog(unpacked, false)
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
@@ -168,7 +186,7 @@ func ConfigFromLogWithFeedID(logData []byte) (FullConfigFromLog, error) {
 	if !ok {
 		return FullConfigFromLog{}, errors.Errorf("invalid feed ID, got %T", unpacked["feedId"])
 	}
-	contractConfig, err := NewContractConfigFromLog(unpacked, false)
+	contractConfig, err := NewContractConfigFromLog(unpacked, true)
 	if err != nil {
 		return FullConfigFromLog{}, err
 	}
