@@ -23,6 +23,7 @@ interface IVerifier is IERC165 {
      * @notice sets offchain reporting protocol configuration incl. participating oracles
      * @param feedId Feed ID to set config for
      * @param signers addresses with which oracles sign the reports
+     * @param offchainTransmitters CSA key for the ith Oracle
      * @param f number of faulty oracles the system can tolerate
      * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
      * @param offchainConfigVersion version number for offchainEncoding schema
@@ -31,6 +32,7 @@ interface IVerifier is IERC165 {
     function setConfig(
         bytes32 feedId,
         address[] memory signers,
+        bytes32[] memory offchainTransmitters,
         uint8 f,
         bytes memory onchainConfig,
         uint64 offchainConfigVersion,

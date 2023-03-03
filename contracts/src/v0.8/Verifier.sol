@@ -72,6 +72,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
         bytes32 configDigest,
         uint64 configCount,
         address[] signers,
+        bytes32[] offchainTransmitters,
         uint8 f,
         bytes onchainConfig,
         uint64 offchainConfigVersion,
@@ -309,6 +310,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
      * @notice Generates the config digest from config data
      * @param configCount ordinal number of this config setting among all config settings over the life of this contract
      * @param signers ith element is address ith oracle uses to sign a report
+     * @param offchainTransmitters ith element is address ith oracle used to transmit reports (in this case used for flexible additional field, such as CSA pub keys)
      * @param f maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
      * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
      * @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
@@ -318,15 +320,12 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     function _configDigestFromConfigData(
         uint64 configCount,
         address[] memory signers,
+        bytes32[] memory offchainTransmitters,
         uint8 f,
         bytes memory onchainConfig,
         uint64 offchainConfigVersion,
         bytes memory offchainConfig
     ) internal view returns (bytes32) {
-        // `transmitters` specifies the oracles that can transmit data on-chain, but for
-        // off-chain feeds the oracles do not push data on-chain.
-        address[] memory transmitters;
-
         uint256 h = uint256(
             keccak256(
                 abi.encode(
@@ -334,7 +333,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
                     address(this), // contractAddress
                     configCount,
                     signers,
-                    transmitters,
+                    offchainTransmitters,
                     f,
                     onchainConfig,
                     offchainConfigVersion,
@@ -400,6 +399,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     function setConfig(
         bytes32 feedId,
         address[] memory signers,
+        bytes32[] memory offchainTransmitters,
         uint8 f,
         bytes memory onchainConfig,
         uint64 offchainConfigVersion,
@@ -413,6 +413,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
         bytes32 configDigest = _configDigestFromConfigData(
             feedVerifierState.configCount,
             signers,
+            offchainTransmitters,
             f,
             onchainConfig,
             offchainConfigVersion,
@@ -452,6 +453,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
             configDigest,
             feedVerifierState.configCount,
             signers,
+            offchainTransmitters,
             f,
             onchainConfig,
             offchainConfigVersion,
