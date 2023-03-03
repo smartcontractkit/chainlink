@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -48,6 +49,33 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "getlogs":
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(""), e.Ec)
+		helpers.PanicErr(err)
+
+		c := make(chan types.Log)
+		sub, err := e.Ec.SubscribeFilterLogs(context.Background(), ethereum.FilterQuery{
+			Addresses: []common.Address{common.HexToAddress("")},
+			Topics:    [][]common.Hash{{common.HexToHash("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772")}},
+		}, c)
+		helpers.PanicErr(err)
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case lg := <-c:
+				fmt.Println("blocknumber:", lg.BlockNumber, ", blockhash from SubscribeFilterLogs:", lg.BlockHash.String())
+				rwr, err := coordinator.ParseRandomWordsRequested(lg)
+				helpers.PanicErr(err)
+				fmt.Println("blocknumber:", rwr.Raw.BlockNumber, "blockhash from rwr:", rwr.Raw.BlockHash.String())
+				header, err := e.Ec.HeaderByNumber(context.Background(), big.NewInt(int64(lg.BlockNumber)))
+				helpers.PanicErr(err)
+				if header.Hash() != lg.BlockHash {
+					fmt.Println("block hashes not equal for block number", lg.BlockNumber, "log bh:", lg.BlockHash.String(), "header bh:", header.Hash())
+				}
+			case <-time.After(5 * time.Second):
+				fmt.Println("waiting")
+			}
+		}
 	case "manual-fulfill":
 		cmd := flag.NewFlagSet("manual-fulfill", flag.ExitOnError)
 		// In order to get the tx data for a fulfillment transaction, you can grep the
