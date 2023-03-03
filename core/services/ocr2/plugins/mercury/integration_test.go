@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -173,6 +172,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		nodes   []Node
 	)
 	// Set up n oracles
+
 	for i := int64(0); i < int64(n); i++ {
 		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
@@ -220,11 +220,11 @@ feedID = "0x%x"
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			// TODO: Handle different types of query
 			panic("foo")
-			b, err := io.ReadAll(req.Body)
-			require.NoError(t, err)
-			require.Equal(t, "foo", b)
-			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			// b, err := io.ReadAll(req.Body)
+			// require.NoError(t, err)
+			// require.Equal(t, "foo", b)
+			// res.WriteHeader(http.StatusOK)
+			// res.Write([]byte(`{"data":10}`))
 		}))
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
@@ -328,9 +328,16 @@ fromBlock = %[11]d
 	require.NoError(t, err)
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
+
+	offchainTransmitters := make([][32]byte, n)
+	for i := 0; i < n; i++ {
+		offchainTransmitters[i] = nodes[i].ClientPubKey
+	}
+
 	lggr.Infow("Setting Config on Oracle Contract",
 		"feedID", feedID,
 		"signerAddresses", signerAddresses,
+		"offchainTransmitters", offchainTransmitters,
 		"f", f,
 		"onchainConfig", onchainConfig,
 		"offchainConfigVersion", offchainConfigVersion,
@@ -341,6 +348,7 @@ fromBlock = %[11]d
 		steve,
 		feedID,
 		signerAddresses,
+		offchainTransmitters,
 		f,
 		onchainConfig,
 		offchainConfigVersion,
