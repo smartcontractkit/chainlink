@@ -13,12 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/stretchr/testify/require"
 )
 
 func StringToByte32(str string) [32]byte {
@@ -95,6 +96,7 @@ func createEncodedCommitment(order Order) ([]byte, error) {
 }
 
 func TestMercurySmoke(t *testing.T) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	const mercuryFeedId = "ETH-USD-Optimism-Goerli-1"
 
 	_, isExistingTestEnv, testNetwork, chainlinkNodes,
@@ -115,7 +117,7 @@ func TestMercurySmoke(t *testing.T) {
 
 	// Wait for the DON to start generating reports
 	d := 160 * time.Second
-	log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
+	l.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
 	time.Sleep(d)
 
 	mercuryLookupUrl := fmt.Sprintf("%s/client", mercuryServerRemoteUrl)
@@ -160,7 +162,7 @@ func TestMercurySmoke(t *testing.T) {
 		// Get report from Mercury server
 		report := &client.GetReportsResult{}
 		resp, err := resty.New().R().SetResult(&report).Get(mercuryUrl)
-		log.Info().Msgf("Got response from Mercury server: %s", resp)
+		l.Info().Msgf("Got response from Mercury server: %s", resp)
 		require.NoError(t, err, "Error getting report from Mercury Server")
 		require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 
@@ -176,6 +178,6 @@ func TestMercurySmoke(t *testing.T) {
 		tradeExecuted := map[string]interface{}{}
 		err = exchangerABI.UnpackIntoMap(tradeExecuted, "TradeExecuted", receipt.Logs[1].Data)
 		require.NoError(t, err)
-		log.Info().Interface("TradeExecuted", tradeExecuted).Msg("ResolveTradeWithReport logs")
+		l.Info().Interface("TradeExecuted", tradeExecuted).Msg("ResolveTradeWithReport logs")
 	})
 }
