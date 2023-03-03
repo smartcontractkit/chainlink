@@ -8,6 +8,7 @@
 - Make Functions Billing Registry and Functions Oracle upgradable using the transparent proxy pattern (#8371)
 - Update dependency hardhat from version 2.10.1 to 2.12.7 (#8464)
 - Fix Functions cost estimation not correctly using registry fee
+- Fix Functions transmitter NOP fee payment (#8557)
 
 ## 0.6.1 - 2023-02-06
 
