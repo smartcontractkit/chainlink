@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -28,6 +28,7 @@ import (
 )
 
 func TestOCRSoak(t *testing.T) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	testEnvironment, network, testInputs := SetupOCREnvVarsSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -48,11 +49,11 @@ func TestOCRSoak(t *testing.T) {
 	})
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
-			log.Error().Err(err).Msg("Error tearing down environment")
+			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
 	ocrSoakTest.Setup(t, testEnvironment)
-	log.Info().Msg("Set up soak test")
+	l.Info().Msg("Set up soak test")
 	ocrSoakTest.Run(t)
 }
 
