@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	cl_env_config "github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -19,6 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -27,15 +32,12 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 )
 
 func SetupMercuryEnv(t *testing.T) (
 	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string, string,
 	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -94,7 +96,7 @@ func SetupMercuryEnv(t *testing.T) (
 
 	t.Cleanup(func() {
 		if isExistingTestEnv {
-			log.Info().Msg("Do not tear down existing environment")
+			l.Info().Msg("Do not tear down existing environment")
 		} else {
 			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
 			require.NoError(t, err, "Error tearing down environment")
@@ -106,6 +108,7 @@ func SetupMercuryEnv(t *testing.T) (
 }
 
 func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId string, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
@@ -124,8 +127,8 @@ func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercury
 	verifier.SetConfig(ocrConfig)
 	latestConfigDetails, err := verifier.LatestConfigDetails()
 	require.NoError(t, err, "Error getting Verifier.LatestConfigDetails()")
-	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
-	log.Info().Msgf("Latest config details: %v", latestConfigDetails)
+	l.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
+	l.Info().Msgf("Latest config details: %v", latestConfigDetails)
 
 	verifierProxy.InitializeVerifier(latestConfigDetails.ConfigDigest, verifier.Address())
 
@@ -142,6 +145,7 @@ func SetupMercuryNodeJobs(
 	chainID int64,
 	keyIndex int,
 ) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	err := mockserverClient.SetRandomValuePath("/variable")
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
@@ -195,7 +199,7 @@ func SetupMercuryNodeJobs(
 		var feedIdBytes [32]byte
 		copy(feedIdBytes[:], feedID)
 		feedIdHex := fmt.Sprintf("0x%x", feedIdBytes)
-		log.Info().Msgf("Setup feedID, string: %s, hex: %s", feedID, feedIdHex)
+		l.Info().Msgf("Setup feedID, string: %s, hex: %s", feedID, feedIdHex)
 
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
 			Name:            "ocr2",
@@ -230,7 +234,7 @@ func SetupMercuryNodeJobs(
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
-	log.Info().Msg("Done creating OCR automation jobs")
+	l.Info().Msg("Done creating OCR automation jobs")
 }
 
 func BuildMercuryOCR2Config(
