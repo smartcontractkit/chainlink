@@ -50,12 +50,12 @@ func main() {
 
 	switch os.Args[1] {
 	case "getlogs":
-		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(""), e.Ec)
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress("0x4b2b59a682C3cB62Ee344a709713a0221ef72d25"), e.Ec)
 		helpers.PanicErr(err)
 
 		c := make(chan types.Log)
 		sub, err := e.Ec.SubscribeFilterLogs(context.Background(), ethereum.FilterQuery{
-			Addresses: []common.Address{common.HexToAddress("")},
+			Addresses: []common.Address{common.HexToAddress("0x4b2b59a682C3cB62Ee344a709713a0221ef72d25")},
 			Topics:    [][]common.Hash{{common.HexToHash("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772")}},
 		}, c)
 		helpers.PanicErr(err)
