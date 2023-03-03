@@ -145,7 +145,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
 
-		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
+		if spec.RelayConfig["sendingKeys"] == nil {
+			spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
+		}
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
@@ -294,17 +296,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-
-		// Automatically provide the node's local sending keys to the job spec for OCR2VRF.
-		var sendingKeys []string
-		ethSendingKeys, err2 := d.ethKs.EnabledKeysForChain(big.NewInt(chainID))
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "get eth sending keys")
-		}
-		for _, s := range ethSendingKeys {
-			sendingKeys = append(sendingKeys, s.Address.String())
-		}
-		spec.RelayConfig["sendingKeys"] = sendingKeys
 
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
