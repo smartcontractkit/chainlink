@@ -27,9 +27,10 @@ type ZKSyncClient struct {
 	Signers              []string
 	PeerIds              []string
 	OcrConfigPubKeys     []string
+	Client               blockchain.EVMClient
 }
 
-func Setup(L2RPC string, privateKey string) (*ZKSyncClient, error) {
+func Setup(L2RPC string, privateKey string, client blockchain.EVMClient) (*ZKSyncClient, error) {
 	g, err := gauntlet.Setup(L2RPC, privateKey)
 	if err != nil {
 		return nil, err
@@ -40,6 +41,7 @@ func Setup(L2RPC string, privateKey string) (*ZKSyncClient, error) {
 		LinkAddr: "",
 		OCRAddr:  "",
 		L2RPC:    L2RPC,
+		Client:   client,
 	}, nil
 
 }
@@ -93,12 +95,16 @@ func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.Chainlink) error {
 	if err != nil {
 		return err
 	}
-	for _, key := range z.NKeys {
+	for index, key := range z.NKeys {
+		if index == 0 {
+			// Skipping bootstrap
+			z.PeerIds = append(z.PeerIds, key.PeerID)
+			continue
+		}
 		z.OcrConfigPubKeys = append(z.OcrConfigPubKeys, strings.Replace(key.OCRKey.Data.Attributes.ConfigPublicKey, "ocrcfg_", "", 1))
-		z.PeerIds = append(z.PeerIds, key.PeerID)
-		z.Transmitters = append(z.Transmitters, key.TXKey.Data.ID)
+		z.Transmitters = append(z.Transmitters, key.EthAddress)
 		z.Signers = append(z.Signers, strings.Replace(key.OCRKey.Data.Attributes.OnChainSigningAddress, "ocrsad_", "", 1))
-		z.Payees = append(z.Payees, key.EthAddress)
+		z.Payees = append(z.Payees, z.Client.GetDefaultWallet().Address())
 	}
 
 	return nil
