@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	stderrs "errors"
+
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"golang.org/x/exp/constraints"
 
@@ -1111,4 +1113,48 @@ func MinKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
 	}
 
 	return min
+}
+
+// ErrorBuffer uses joinedErrors interface to join multiple errors into a single error.
+// This is useful to track the most recent N errors in a service and flush them as a single error.
+
+type ErrorBuffer struct {
+	// buffer is a slice of errors
+	buffer []error
+	// Cap is the maximum number of errors that the buffer can hold.
+	// Exceeding the cap results in discarding the oldest error
+	Cap int
+
+	sync.RWMutex
+}
+
+func (eb *ErrorBuffer) Flush() (err error) {
+	eb.RLock()
+	defer eb.RUnlock()
+	err = stderrs.Join(eb.buffer...)
+	eb.buffer = nil
+	return
+}
+
+func (eb *ErrorBuffer) Append(incoming error) {
+	eb.Lock()
+	defer eb.Unlock()
+	// if at capacity, drop first element
+	if len(eb.buffer) == eb.Cap && eb.Cap != 0 {
+		eb.buffer = append(eb.buffer[1:], incoming)
+		return
+	}
+	eb.buffer = append(eb.buffer, incoming)
+}
+
+type joinedError interface {
+	Unwrap() []error
+}
+
+func UnwrapError(err error) []error {
+	joined, ok := err.(joinedError)
+	if !ok {
+		return []error{err}
+	}
+	return joined.Unwrap()
 }
