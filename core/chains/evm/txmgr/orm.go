@@ -1070,12 +1070,13 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
 func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error) {
-	qq := o.q.WithOpts()
+	qq := o.q.WithOpts(qopts...)
 	etx = new(EthTx)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		err = qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
 		if errors.Is(err, sql.ErrNoRows) {
-			return err
+			etx = nil
+			return nil
 		} else if err != nil {
 			return errors.Wrap(err, "GetEthTxInProgress failed while loading eth tx")
 		}
@@ -1088,10 +1089,6 @@ func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (
 		}
 		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
 
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
