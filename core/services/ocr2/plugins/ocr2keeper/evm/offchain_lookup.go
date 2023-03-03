@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -54,7 +53,7 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 		}
 
 		var offchainLookup OffchainLookup
-		offchainLookup, err = decodeOffchainLookup(upkeepResults[i].PerformData)
+		offchainLookup, err = r.decodeOffchainLookup(upkeepResults[i].PerformData)
 		if err != nil {
 			r.lggr.Error("[OffchainLookup] decodeOffchainLookup=", err)
 			continue
@@ -122,17 +121,12 @@ func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, err error, opts *bind.Cal
 }
 
 // decodeOffchainLookup decodes the revert error ChainlinkAPIFetch(string url, bytes extraData, string[] jsonFields, bytes4 callbackSelector)
-func decodeOffchainLookup(data []byte) (OffchainLookup, error) {
-	// TODO move this to registry struct for one time load
-	abiUpkeepAPIFetch, err := abi.JSON(strings.NewReader("[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_testRange\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_interval\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"url\",\"type\":\"string\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"},{\"internalType\":\"string[]\",\"name\":\"jsonFields\",\"type\":\"string[]\"},{\"internalType\":\"bytes4\",\"name\":\"callbackSelector\",\"type\":\"bytes4\"}],\"name\":\"ChainlinkAPIFetch\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"initialBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"lastBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"previousBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"counter\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"fact\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"PerformingUpkeep\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"},{\"internalType\":\"string[]\",\"name\":\"values\",\"type\":\"string[]\"},{\"internalType\":\"uint256\",\"name\":\"statusCode\",\"type\":\"uint256\"}],\"name\":\"callback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"counter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"eligible\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"fields\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"initialBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"interval\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"performUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"previousPerformBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_testRange\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_interval\",\"type\":\"uint256\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"input\",\"type\":\"string\"}],\"name\":\"setURLs\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"s\",\"type\":\"string\"}],\"name\":\"stringToUint\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"testRange\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"url\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"))
-	if err != nil {
-		return OffchainLookup{}, err
-	}
+func (r *EvmRegistry) decodeOffchainLookup(data []byte) (OffchainLookup, error) {
 	offchainLookup := OffchainLookup{}
-	e := abiUpkeepAPIFetch.Errors["ChainlinkAPIFetch"]
+	e := r.apiFetchABI.Errors["ChainlinkAPIFetch"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
-		return OffchainLookup{}, errors.Wrapf(err, "unpack error:")
+		return OffchainLookup{}, errors.Wrapf(err, "unpack error")
 	}
 	errorParameters := unpack.([]interface{})
 
@@ -143,8 +137,8 @@ func decodeOffchainLookup(data []byte) (OffchainLookup, error) {
 	return offchainLookup, nil
 }
 
-// offchainLookupCallback calls the callback(bytes calldata extraData, string[] calldata values, uint256 statusCode)
-// the return will match check telling us if the upkeep is needed and what the perform data is
+// offchainLookupCallback calls the callback(bytes calldata extraData, string[] calldata values, uint256 statusCode) specified by the
+// 4-byte selector from the revert. the return will match check telling us if the upkeep is needed and what the perform data is
 func (r *EvmRegistry) offchainLookupCallback(ctx context.Context, offchainLookup OffchainLookup, values []string, statusCode int, upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo, opts *bind.CallOpts) (bool, []byte, error) {
 	// call to the contract function specified by the 4-byte selector callbackFunction
 	typBytes, err := abi.NewType("bytes", "", nil)

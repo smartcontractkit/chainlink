@@ -21,9 +21,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_apifetch_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+const (
+	DefaultUpkeepExpiration   = 10 * time.Minute
+	DefaultCooldownExpiration = 5 * time.Second
+	DefaultApiErrExpiration   = 10 * time.Minute
+	CleanupInterval           = 15 * time.Minute
 )
 
 var (
@@ -47,7 +55,11 @@ type LatestBlockGetter interface {
 }
 
 func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
-	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
+	apiFetchABI, err := abi.JSON(strings.NewReader(upkeep_apifetch_wrapper.UpkeepAPIFetchABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -57,19 +69,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
-	defaultUpkeepExpiration := 10 * time.Minute
-	cleanupInterval := 15 * time.Minute
-	// cache that stores UpkeepInfo for callback during OffchainLookup
-	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
-
-	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
-	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
-	defaultCooldownExpiration := 5 * time.Second
-	// cache for Offchainlookup Upkeeps that are on ice due to errors
-	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
-	defaultApiErrExpiration := 10 * time.Minute
-	// cache for tracking errors for an Upkeep during OffchainLookup
-	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
+	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
@@ -83,9 +83,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		client:        client.Client(),
 		txHashes:      make(map[string]bool),
 		registry:      registry,
-		abi:           abi,
+		abi:           keeperRegistryABI,
+		apiFetchABI:   apiFetchABI,
 		active:        make(map[string]activeUpkeep),
-		packer:        &evmRegistryPackerV2_0{abi: abi},
+		packer:        &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc:      func(types.BlockKey) {},
 		chLog:         make(chan logpoller.Log, 1000),
 		upkeepCache:   upkeepInfoCache,
@@ -98,6 +99,20 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 	}
 
 	return r, nil
+}
+
+func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
+	// cache that stores UpkeepInfo for callback during OffchainLookup
+	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
+
+	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
+	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
+	// cache for Offchainlookup Upkeeps that are on ice due to errors
+	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
+
+	// cache for tracking errors for an Upkeep during OffchainLookup
+	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
+	return upkeepInfoCache, cooldownCache, apiErrCache
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -132,8 +147,9 @@ type EvmRegistry struct {
 	poller        logpoller.LogPoller
 	addr          common.Address
 	client        client.Client
-	registry      *keeper_registry_wrapper2_0.KeeperRegistry
+	registry      KeeperRegistryInterface
 	abi           abi.ABI
+	apiFetchABI   abi.ABI
 	packer        *evmRegistryPackerV2_0
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
@@ -475,7 +491,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 		return nil, err
 	}
 
-	state, err := r.registry.KeeperRegistryCaller.GetState(opts)
+	state, err := r.registry.GetState(opts)
 	if err != nil {
 		n := "latest"
 		if opts.BlockNumber != nil {
@@ -498,7 +514,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 			maxCount = ActiveUpkeepIDBatchSize
 		}
 
-		batchIDs, err := r.registry.KeeperRegistryCaller.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
+		batchIDs, err := r.registry.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to get active upkeep IDs from index %d to %d (both inclusive)", err, startIndex, startIndex+maxCount-1)
 		}
