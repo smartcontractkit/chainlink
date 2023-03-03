@@ -101,6 +101,7 @@ func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.Chainlink) error {
 			z.PeerIds = append(z.PeerIds, key.PeerID)
 			continue
 		}
+		z.PeerIds = append(z.PeerIds, key.PeerID)
 		z.OcrConfigPubKeys = append(z.OcrConfigPubKeys, strings.Replace(key.OCRKey.Data.Attributes.ConfigPublicKey, "ocrcfg_", "", 1))
 		z.Transmitters = append(z.Transmitters, key.EthAddress)
 		z.Signers = append(z.Signers, strings.Replace(key.OCRKey.Data.Attributes.OnChainSigningAddress, "ocrsad_", "", 1))
