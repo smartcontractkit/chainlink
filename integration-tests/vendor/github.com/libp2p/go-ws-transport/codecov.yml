@@ -1,0 +1,5 @@
+coverage:
+  range: "50...100"
+comment: off
+ignore:
+  - "*_browser.go" # Can't get coverage reports.

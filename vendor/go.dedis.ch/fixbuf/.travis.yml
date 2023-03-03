@@ -1,0 +1,16 @@
+language: go
+go:
+  - "1.11.x"
+
+go_import_path: go.dedis.ch/fixbuf
+
+install:
+  - go get -t ./...
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
+
+script:
+  - $HOME/gopath/bin/goveralls -service=travis-ci
+
+notifications:
+      email: false

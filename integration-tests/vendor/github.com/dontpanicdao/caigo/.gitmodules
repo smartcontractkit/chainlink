@@ -1,0 +1,6 @@
+[submodule "contracts/cairo-contracts"]
+	path = contracts/cairo-contracts
+	url = git@github.com:OpenZeppelin/cairo-contracts.git
+[submodule "contracts/starknet-plugin-account"]
+	path = contracts/starknet-plugin-account
+	url = git@github.com:argentlabs/starknet-plugin-account.git

@@ -1,0 +1,14 @@
+ChainID = '4002'
+LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
+LogPollInterval = '1s'
+MinIncomingConfirmations = 3
+# Fantom testnet only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
+RPCBlockQueryDelay = 2
+
+[GasEstimator]
+PriceDefault = '15 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+
+[OCR2.Automation]
+GasLimit = 3800000

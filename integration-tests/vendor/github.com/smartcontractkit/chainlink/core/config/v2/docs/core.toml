@@ -1,0 +1,485 @@
+# ExplorerURL is the websocket URL for the node to push stats to.
+ExplorerURL = 'ws://explorer.url' # Example
+# **ADVANCED**
+# InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
+InsecureFastScrypt = false # Default
+# RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
+RootDir = '~/.chainlink' # Default
+# ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
+ShutdownGracePeriod = '5s' # Default
+
+[Feature]
+# FeedsManager enables the feeds manager service.
+FeedsManager = true # Default
+# LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
+LogPoller = false # Default
+# UICSAKeys enables CSA Keys in the UI.
+UICSAKeys = false # Default
+
+[Database]
+# DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
+DefaultIdleInTxSessionTimeout = '1h' # Default
+# DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take a lock before timing out.
+DefaultLockTimeout = '15s' # Default
+# DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
+DefaultQueryTimeout = '10s' # Default
+# LogQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
+LogQueries = false # Default
+# MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
+#
+# Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+MaxIdleConns = 10 # Default
+# MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
+#
+# Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+MaxOpenConns = 20 # Default
+# MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
+MigrateOnStartup = true # Default
+
+# As a best practice, take regular database backups in case of accidental data loss. This best practice is especially important when you upgrade your Chainlink node to a new version. Chainlink nodes support automated database backups to make this process easier.
+#
+# NOTE: Dumps can cause high load and massive database latencies, which will negatively impact the normal functioning of the Chainlink node. For this reason, it is recommended to set a `URL` and point it to a read replica if you enable automatic backups.
+[Database.Backup]
+# Mode sets the type of automatic database backup, which can be one of _none_, `lite`, or `full`. If enabled, the Chainlink node will always dump a backup on every boot before running migrations. Additionally, it will automatically take database backups that overwrite the backup file for the given version at regular intervals if `Frequency` is set to a non-zero interval.
+#
+# _none_ - Disables backups.
+# `lite` - Dumps small tables including configuration and keys that are essential for the node to function, which excludes historical data like job runs, transaction history, etc.
+# `full` - Dumps the entire database.
+#
+# It will write to a file like `$ROOT/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
+Mode = 'none' # Default
+# Dir sets the directory to use for saving the backup file. Use this if you want to save the backup file in a directory other than the default ROOT directory.
+Dir = 'test/backup/dir' # Example
+# OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
+OnVersionUpgrade = true # Default
+# Frequency sets the interval for database dumps, if set to a positive duration and `Mode` is not _none_.
+#
+# Set to `0` to disable periodic backups.
+Frequency = '1h' # Default
+
+# **ADVANCED**
+# These settings control the postgres event listener.
+[Database.Listener]
+# MaxReconnectDuration is the maximum duration to wait between reconnect attempts.
+MaxReconnectDuration = '10m' # Default
+# MinReconnectInterval controls the duration to wait before trying to re-establish the database connection after connection loss. After each consecutive failure this interval is doubled, until MaxReconnectInterval is reached.  Successfully completing the connection establishment procedure resets the interval back to MinReconnectInterval.
+MinReconnectInterval = '1m' # Default
+# FallbackPollInterval controls how often clients should manually poll as a fallback in case the postgres event was missed/dropped.
+FallbackPollInterval = '30s' # Default
+
+# **ADVANCED**
+# Ideally, you should use a container orchestration system like [Kubernetes](https://kubernetes.io/) to ensure that only one Chainlink node instance can ever use a specific Postgres database. However, some node operators do not have the technical capacity to do this. Common use cases run multiple Chainlink node instances in failover mode as recommended by our official documentation. The first instance takes a lock on the database and subsequent instances will wait trying to take this lock in case the first instance fails.
+#
+# - If your nodes or applications hold locks open for several hours or days, Postgres is unable to complete internal cleanup tasks. The Postgres maintainers explicitly discourage holding locks open for long periods of time.
+#
+# Because of the complications with advisory locks, Chainlink nodes with v2.0 and later only support `lease` locking mode. The `lease` locking mode works using the following process:
+#
+# - Node A creates one row in the database with the client ID and updates it once per second.
+# - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
+# - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
+[Database.Lock]
+# Enabled enables the database lock.
+Enabled = true # Default
+# LeaseDuration is how long the lease lock will last before expiring.
+LeaseDuration = '10s' # Default
+# LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
+LeaseRefreshInterval = '1s' # Default
+
+[TelemetryIngress]
+# UniConn toggles which ws connection style is used.
+UniConn = true # Default
+# Logging toggles verbose logging of the raw telemetry messages being sent.
+Logging = false # Default
+# ServerPubKey is the public key of the telemetry server.
+ServerPubKey = 'test-pub-key' # Example
+# URL is where to send telemetry.
+URL = 'https://prom.test' # Example
+# BufferSize is the number of telemetry messages to buffer before dropping new ones.
+BufferSize = 100 # Default
+# MaxBatchSize is the maximum number of messages to batch into one telemetry request.
+MaxBatchSize = 50 # Default
+# SendInterval determines how often batched telemetry is sent to the ingress server.
+SendInterval = '500ms' # Default
+# SendTimeout is the max duration to wait for the request to complete when sending batch telemetry.
+SendTimeout = '10s' # Default
+# UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+UseBatchSend = true # Default
+
+[AuditLogger]
+# Enabled determines if this logger should be configured at all
+Enabled = false # Default
+# ForwardToUrl is where you want to forward logs to
+ForwardToUrl = 'http://localhost:9898' # Example
+# JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+JsonWrapperKey = 'event' # Example
+# Headers is the set of headers you wish to pass along with each request
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
+
+[Log]
+# Level determines both what is printed on the screen and what is written to the log file.
+#
+# The available levels are:
+#  - "debug": Useful for forensic debugging of issues.
+#  - "info": High-level informational messages. (default)
+#  - "warn": A mild error occurred that might require non-urgent action. Check these warnings semi-regularly to see if any of them require attention. These warnings usually happen due to factors outside of the control of the node operator. Examples: Unexpected responses from a remote API or misleading networking errors.
+#  - "error": An unexpected error occurred during the regular operation of a well-maintained node. Node operators might need to take action to remedy this error. Check these regularly to see if any of them require attention. Examples: Use of deprecated configuration options or incorrectly configured settings that cause a job to fail.
+#  - "crit": A critical error occurred. The node might be unable to function. Node operators should take immediate action to fix these errors. Examples: The node could not boot because a network socket could not be opened or the database became inaccessible.
+#  - "panic": An exceptional error occurred that could not be handled. If the node is unresponsive, node operators should try to restart their nodes and notify the Chainlink team of a potential bug.
+#  - "fatal": The node encountered an unrecoverable problem and had to exit.
+Level = 'info' # Default
+# JSONConsole enables JSON logging. Otherwise, the log is saved in a human-friendly console format.
+JSONConsole = false # Default
+# UnixTS enables legacy unix timestamps.
+#
+# Previous versions of Chainlink nodes wrote JSON logs with a unix timestamp. As of v1.1.0 and up, the default has changed to use ISO8601 timestamps for better readability.
+UnixTS = false # Default
+
+[Log.File]
+# Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT/log.jsonl`.
+Dir = '/my/log/directory' # Example
+# MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+#
+# Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
+#
+# - b (bytes)
+# - kb (kilobytes)
+# - mb (megabytes)
+# - gb (gigabytes)
+# - tb (terabytes)
+MaxSize = '5120mb' # Default
+# MaxAgeDays determines the log file's max age in days before file rotation. Keeping this config with the default value will not remove log files based on age.
+MaxAgeDays = 0 # Default
+# MaxBackups determines the maximum number of old log files to retain. Keeping this config with the default value retains all old log files. The `MaxAgeDays` variable can still cause them to get deleted.
+MaxBackups = 1 # Default
+
+[WebServer]
+# AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` header of its API responses. The setting can be a comma-separated list with no spaces. You might experience CORS issues if this is not set correctly.
+#
+# You should set this to the external URL that you use to access the Chainlink UI.
+#
+# You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
+AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
+# BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
+BridgeCacheTTL = '0s' # Default
+# BridgeResponseURL defines the URL for bridges to send a response to. This _must_ be set when using async external adapters.
+#
+# Usually this will be the same as the URL/IP and port you use to connect to the Chainlink UI.
+BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
+# **ADVANCED**
+# HTTPWriteTimeout controls how long the Chainlink node's API server can hold a socket open for writing a response to an HTTP request. Sometimes, this must be increased for pprof.
+HTTPWriteTimeout = '10s' # Default
+# HTTPPort is the port used for the Chainlink Node API, [CLI](/docs/configuration-variables/#cli-client), and GUI.
+HTTPPort = 6688 # Default
+# SecureCookies requires the use of secure cookies for authentication. Set to false to enable standard HTTP requests along with `TLSPort = 0`.
+SecureCookies = true # Default
+# SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+SessionTimeout = '15m' # Default
+# SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
+SessionReaperExpiration = '240h' # Default
+
+[WebServer.RateLimit]
+# Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.
+Authenticated = 1000 # Default
+# AuthenticatedPeriod defines the period to which authenticated requests get limited.
+AuthenticatedPeriod = '1m' # Default
+# Unauthenticated defines the threshold to which authenticated requests get limited. More than this many unauthenticated requests per `UnAuthenticatedRateLimitPeriod` will be rejected.
+Unauthenticated = 5 # Default
+# UnauthenticatedPeriod defines the period to which unauthenticated requests get limited.
+UnauthenticatedPeriod = '20s' # Default
+
+# The Operator UI frontend supports enabling Multi Factor Authentication via Webauthn per account. When enabled, logging in will require the account password and a hardware or OS security key such as Yubikey. To enroll, log in to the operator UI and click the circle purple profile button at the top right and then click **Register MFA Token**. Tap your hardware security key or use the OS public key management feature to enroll a key. Next time you log in, this key will be required to authenticate.
+[WebServer.MFA]
+# RPID is the FQDN of where the Operator UI is served. When serving locally, the value should be `localhost`.
+RPID = 'localhost' # Example
+# RPOrigin is the origin URL where WebAuthn requests initiate, including scheme and port. When serving locally, the value should be `http://localhost:6688/`.
+RPOrigin = 'http://localhost:6688/' # Example
+
+# The TLS settings apply only if you want to enable TLS security on your Chainlink node.
+[WebServer.TLS]
+# CertPath is the location of the TLS certificate file.
+CertPath = '~/.cl/certs' # Example
+# Host is the hostname configured for TLS to be used by the Chainlink node. This is useful if you configured a domain name specific for your Chainlink node.
+Host = 'tls-host' # Example
+# KeyPath is the location of the TLS private key file.
+KeyPath = '/home/$USER/.chainlink/tls/server.key' # Example
+# HTTPSPort is the port used for HTTPS connections. Set this to `0` to disable HTTPS. Disabling HTTPS also relieves Chainlink nodes of the requirement for a TLS certificate.
+HTTPSPort = 6689 # Default
+# ForceRedirect forces TLS redirect for unencrypted connections.
+ForceRedirect = false # Default
+
+[JobPipeline]
+# ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
+ExternalInitiatorsEnabled = false # Default
+# MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
+MaxRunDuration = '10m' # Default
+# MaxSuccessfulRuns caps the number of completed successful runs per pipeline
+# spec in the database. You can set it to zero as a performance optimisation;
+# this will avoid saving any successful run.
+#
+# Note this is not a hard cap, it can drift slightly larger than this but not
+# by more than 5% or so.
+MaxSuccessfulRuns = 10000 # Default
+# ReaperInterval controls how often the job pipeline reaper will run to delete completed jobs older than ReaperThreshold, in order to keep database size manageable.
+#
+# Set to `0` to disable the periodic reaper.
+ReaperInterval = '1h' # Default
+# ReaperThreshold determines the age limit for job runs. Completed job runs older than this will be automatically purged from the database.
+ReaperThreshold = '24h' # Default
+# **ADVANCED**
+# ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
+ResultWriteQueueDepth = 100 # Default
+
+[JobPipeline.HTTPRequest]
+# DefaultTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
+DefaultTimeout = '15s' # Default
+# MaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
+MaxSize = '32768' # Default
+
+[FluxMonitor]
+# **ADVANCED**
+# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Flux Monitor. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth = 1 # Default
+# SimulateTransactions enables transaction simulation for Flux Monitor.
+SimulateTransactions = false # Default
+
+[OCR2]
+# Enabled enables OCR2 jobs.
+Enabled = false # Default
+# ContractConfirmations is the number of block confirmations to wait for before enacting an on-chain
+# configuration change. This value doesn't need to be very high (in
+# particular, it does not need to protect against malicious re-orgs).
+# Since configuration changes create some overhead, and mini-reorgs
+# are fairly common, recommended values are between two and ten.
+#
+# Malicious re-orgs are not any more of concern here than they are in
+# blockchain applications in general: Since nodes check the contract for the
+# latest config every ContractConfigTrackerPollInterval.Seconds(), they will
+# come to a common view of the current config within any interval longer than
+# that, as long as the latest setConfig transaction in the longest chain is
+# stable. They will thus be able to continue reporting after the poll
+# interval, unless an adversary is able to repeatedly re-org the transaction
+# out during every poll interval, which would amount to the capability to
+# censor any transaction.
+#
+# Note that 1 confirmation implies that the transaction/event has been mined in one block.
+# 0 confirmations would imply that the event would be recognised before it has even been mined, which is not currently supported.
+# e.g.
+# Current block height: 42
+# Changed in block height: 43
+# Contract config confirmations: 1
+# STILL PENDING
+#
+# Current block height: 43
+# Changed in block height: 43
+# Contract config confirmations: 1
+# CONFIRMED
+ContractConfirmations = 3 # Default
+# BlockchainTimeout is the timeout for blockchain queries (mediated through
+# ContractConfigTracker and ContractTransmitter).
+# (This is necessary because an oracle's operations are serialized, so
+# blocking forever on a chain interaction would break the oracle.)
+BlockchainTimeout = '20s' # Default
+# ContractPollInterval is the polling interval at which ContractConfigTracker is queried for# updated on-chain configurations. Recommended values are between
+# fifteen seconds and two minutes.
+ContractPollInterval = '1m' # Default
+# ContractSubscribeInterval is the interval at which we try to establish a subscription on ContractConfigTracker
+# if one doesn't exist. Recommended values are between two and five minutes.
+ContractSubscribeInterval = '2m' # Default
+# ContractTransmitterTransmitTimeout is the timeout for ContractTransmitter.Transmit calls.
+ContractTransmitterTransmitTimeout = '10s' # Default
+# DatabaseTimeout is the timeout for database interactions.
+# (This is necessary because an oracle's operations are serialized, so
+# blocking forever on an observation would break the oracle.)
+DatabaseTimeout = '10s' # Default
+# KeyBundleID is a sha256 hexadecimal hash identifier.
+KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
+
+# This section applies only if you are running off-chain reporting jobs.
+[OCR]
+# Enabled enables OCR jobs.
+Enabled = false # Default
+# ObservationTimeout is the timeout for making observations using the DataSource.Observe method.
+# (This is necessary because an oracle's operations are serialized, so
+# blocking forever on an observation would break the oracle.)
+ObservationTimeout = '5s' # Default
+# BlockchainTimeout is the timeout for blockchain queries (mediated through
+# ContractConfigTracker and ContractTransmitter).
+# (This is necessary because an oracle's operations are serialized, so
+# blocking forever on a chain interaction would break the oracle.)
+BlockchainTimeout = '20s' # Default
+# ContractPollInterval is the polling interval at which ContractConfigTracker is queried for
+# updated on-chain configurations. Recommended values are between
+# fifteen seconds and two minutes.
+ContractPollInterval = '1m' # Default
+# ContractSubscribeInterval is the interval at which we try to establish a subscription on ContractConfigTracker
+# if one doesn't exist. Recommended values are between two and five minutes.
+ContractSubscribeInterval = '2m' # Default
+# **ADVANCED**
+# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth = 1 # Default
+# KeyBundleID is the default key bundle ID to use for OCR jobs. If you have an OCR job that does not explicitly specify a key bundle ID, it will fall back to this value.
+KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
+# SimulateTransactions enables transaction simulation for OCR.
+SimulateTransactions = false # Default
+# TransmitterAddress is the default sending address to use for OCR. If you have an OCR job that does not explicitly specify a transmitter address, it will fall back to this value.
+TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
+
+# P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
+# If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will
+# automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
+# for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
+#
+# All nodes in the OCR network should share the same networking stack.
+[P2P]
+# IncomingMessageBufferSize is the per-remote number of incoming
+# messages to buffer. Any additional messages received on top of those
+# already in the queue will be dropped.
+IncomingMessageBufferSize = 10 # Default
+# OutgoingMessageBufferSize is the per-remote number of outgoing
+# messages to buffer. Any additional messages send on top of those
+# already in the queue will displace the oldest.
+# NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
+# IncomingMessageBufferSize to give the remote enough space to process
+# them all in case we regained connection and now send a bunch at once
+OutgoingMessageBufferSize = 10 # Default
+# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
+# TraceLogging enables trace level logging.
+TraceLogging = false # Default
+
+[P2P.V1]
+# Enabled enables P2P V1.
+Enabled = true # Default
+# AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
+AnnounceIP = '1.2.3.4' # Example
+# AnnouncePort should be set as the externally reachable port of the Chainlink node.
+AnnouncePort = 1337 # Example
+# BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
+# Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
+# more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
+# cheap. We set this to 1 minute during our test.
+BootstrapCheckInterval = '20s' # Default
+# DefaultBootstrapPeers is the default set of bootstrap peers.
+DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
+# DHTAnnouncementCounterUserPrefix can be used to restore the node's
+# ability to announce its IP/port on the P2P network after a database
+# rollback. Make sure to only increase this value, and *never* decrease it.
+# Don't use this variable unless you really know what you're doing, since you
+# could semi-permanently exclude your node from the P2P network by
+# misconfiguring it.
+DHTAnnouncementCounterUserPrefix = 0 # Default
+# **ADVANCED**
+# DHTLookupInterval is the interval between which we do the expensive peer
+# lookup using DHT.
+#
+# Every DHTLookupInterval failures to open a stream to a peer, we will
+# attempt to lookup its IP from DHT
+DHTLookupInterval = 10 # Default
+# ListenIP is the default IP address to bind to.
+ListenIP = '0.0.0.0' # Default
+# ListenPort is the port to listen on. If left blank, the node randomly selects a different port each time it boots. It is highly recommended to set this to a static value to avoid network instability.
+ListenPort = 1337 # Example
+# **ADVANCED**
+# NewStreamTimeout is the maximum length of time to wait to open a
+# stream before we give up.
+# We shouldn't hit this in practice since libp2p will give up fast if
+# it can't get a connection, but it is here anyway as a failsafe.
+# Set to 0 to disable any timeout on top of what libp2p gives us by default.
+NewStreamTimeout = '10s' # Default
+# **ADVANCED**
+# PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
+PeerstoreWriteInterval = '5m' # Default
+
+[P2P.V2]
+# Enabled enables P2P V2.
+# Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
+Enabled = false # Default
+# AnnounceAddresses is the addresses the peer will advertise on the network in host:port form as accepted by net.Dial. The addresses should be reachable by peers of interest.
+AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+# DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
+DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+# DeltaDial controls how far apart Dial attempts are
+DeltaDial = '15s' # Default
+# DeltaReconcile controls how often a Reconcile message is sent to every peer.
+DeltaReconcile = '1m' # Default
+# ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+
+[Keeper]
+# **ADVANCED**
+# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth = 1 # Default
+# GasPriceBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in legacy mode (EIP-1559 off).
+GasPriceBufferPercent = 20 # Default
+# GasTipCapBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+GasTipCapBufferPercent = 20 # Default
+# BaseFeeBufferPercent specifies the percentage to add to the base fee used for checking whether to perform an upkeep. Applies only in EIP-1559 mode.
+BaseFeeBufferPercent = 20 # Default
+# **ADVANCED**
+# MaxGracePeriod is the maximum number of blocks that a keeper will wait after performing an upkeep before it resumes checking that upkeep
+MaxGracePeriod = 100 # Default
+# TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
+TurnLookBack = 1_000 # Default
+
+[Keeper.Registry]
+# **ADVANCED**
+# CheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
+CheckGasOverhead = 200_000 # Default
+# **ADVANCED**
+# PerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
+PerformGasOverhead = 300_000 # Default
+# **ADVANCED**
+# SyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
+SyncInterval = '30m' # Default
+# **ADVANCED**
+# MaxPerformDataSize is the max size of perform data.
+MaxPerformDataSize = 5_000 # Default
+# **ADVANCED**
+# SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
+SyncUpkeepQueueSize = 10 # Default
+
+# The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
+#
+# To learn more about these profiles, read the [Profiling Go programs with pprof](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) guide.
+[AutoPprof]
+# Enabled enables the automatic profiling service.
+Enabled = false # Default
+# ProfileRoot sets the location on disk where pprof profiles will be stored. Defaults to `RootDir`.
+ProfileRoot = 'prof/root' # Example
+# PollInterval is the interval at which the node's resources are checked.
+PollInterval = '10s' # Default
+# GatherDuration is the duration for which profiles are gathered when profiling starts.
+GatherDuration = '10s' # Default
+# GatherTraceDuration is the duration for which traces are gathered when profiling is kicked off. This is separately configurable because traces are significantly larger than other types of profiles.
+GatherTraceDuration = '5s' # Default
+# MaxProfileSize is the maximum amount of disk space that profiles may consume before profiling is disabled.
+MaxProfileSize = '100mb' # Default
+# CPUProfileRate sets the rate for CPU profiling. See https://pkg.go.dev/runtime#SetCPUProfileRate.
+CPUProfileRate = 1 # Default
+# MemProfileRate sets the rate for memory profiling. See https://pkg.go.dev/runtime#pkg-variables.
+MemProfileRate = 1 # Default
+# BlockProfileRate sets the fraction of blocking events for goroutine profiling. See https://pkg.go.dev/runtime#SetBlockProfileRate.
+BlockProfileRate = 1 # Default
+# MutexProfileFraction sets the fraction of contention events for mutex profiling. See https://pkg.go.dev/runtime#SetMutexProfileFraction.
+MutexProfileFraction = 1 # Default
+# MemThreshold sets the maximum amount of memory the node can actively consume before profiling begins.
+MemThreshold = '4gb' # Default
+# GoroutineThreshold is the maximum number of actively-running goroutines the node can spawn before profiling begins.
+GoroutineThreshold = 5000 # Default
+
+[Pyroscope]
+# ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
+ServerAddress = 'http://localhost:4040' # Example
+# Environment sets the target environment tag in which profiles will be added to.
+Environment = 'mainnet' # Default
+
+[Sentry]
+# **ADVANCED**
+# Debug enables printing of Sentry SDK debug messages.
+Debug = false # Default
+# DSN is the data source name where events will be sent. Sentry is completely disabled if this is left blank.
+DSN = 'sentry-dsn' # Example
+# Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
+Environment = 'my-custom-env' # Example
+# Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
+Release = 'v1.2.3' # Example

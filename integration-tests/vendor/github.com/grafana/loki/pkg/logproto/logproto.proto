@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package logproto;
+
+option go_package = "github.com/grafana/loki/pkg/logproto";
+
+import "google/protobuf/timestamp.proto";
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+service Pusher {
+  rpc Push(PushRequest) returns (PushResponse) {};
+}
+
+service Querier {
+  rpc Query(QueryRequest) returns (stream QueryResponse) {};
+  rpc QuerySample(SampleQueryRequest) returns (stream SampleQueryResponse) {};
+  rpc Label(LabelRequest) returns (LabelResponse) {};
+  rpc Tail(TailRequest) returns (stream TailResponse) {};
+  rpc Series(SeriesRequest) returns (SeriesResponse) {};
+  rpc TailersCount(TailersCountRequest) returns (TailersCountResponse) {};
+}
+
+service Ingester {
+  rpc TransferChunks(stream TimeSeriesChunk) returns (TransferChunksResponse) {};
+}
+
+message PushRequest {
+  repeated StreamAdapter streams = 1 [(gogoproto.jsontag) = "streams", (gogoproto.customtype) = "Stream"];
+}
+
+message PushResponse {
+}
+
+message QueryRequest {
+  string selector = 1;
+  uint32 limit = 2;
+  google.protobuf.Timestamp start = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp end = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  Direction direction = 5;
+  reserved 6;
+  repeated string shards = 7 [(gogoproto.jsontag) = "shards,omitempty"];
+}
+
+message SampleQueryRequest {
+  string selector = 1;
+  google.protobuf.Timestamp start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp end = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  repeated string shards = 4 [(gogoproto.jsontag) = "shards,omitempty"];
+}
+
+message SampleQueryResponse {
+  repeated Series series = 1 [(gogoproto.customtype) = "Series", (gogoproto.nullable) = true];
+}
+
+enum Direction {
+  FORWARD = 0;
+  BACKWARD = 1;
+}
+
+message QueryResponse {
+  repeated StreamAdapter streams = 1 [(gogoproto.customtype) = "Stream", (gogoproto.nullable) = true];
+}
+
+message LabelRequest {
+  string name = 1;
+  bool values = 2; // True to fetch label values, false for fetch labels names.
+  google.protobuf.Timestamp start = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp end = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+}
+
+message LabelResponse {
+  repeated string values = 1;
+}
+
+message StreamAdapter {
+  string labels = 1 [(gogoproto.jsontag) = "labels"];
+  repeated EntryAdapter entries = 2 [(gogoproto.nullable) = false, (gogoproto.jsontag) = "entries"];
+}
+
+message EntryAdapter {
+  google.protobuf.Timestamp timestamp = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false, (gogoproto.jsontag) = "ts"];
+  string line = 2 [(gogoproto.jsontag) = "line"];
+}
+
+message Sample {
+  int64 timestamp = 1 [(gogoproto.jsontag) = "ts"];
+  double value = 2 [(gogoproto.jsontag) = "value"];
+  uint64 hash = 3 [(gogoproto.jsontag) = "hash"];
+}
+
+message Series {
+  string labels = 1 [(gogoproto.jsontag) = "labels"];
+  repeated Sample samples = 2 [(gogoproto.nullable) = false, (gogoproto.jsontag) = "samples"];
+}
+
+message TailRequest {
+  string query = 1;
+  reserved 2;
+  uint32 delayFor = 3;
+  uint32 limit = 4;
+  google.protobuf.Timestamp start = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message TailResponse {
+  StreamAdapter stream = 1 [(gogoproto.customtype) = "Stream"];
+  repeated DroppedStream droppedStreams = 2;
+}
+
+message SeriesRequest {
+  google.protobuf.Timestamp start = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp end = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  repeated string groups = 3;
+}
+
+message SeriesResponse {
+  repeated SeriesIdentifier series = 1 [(gogoproto.nullable) = false];
+}
+
+message SeriesIdentifier {
+  map<string,string> labels = 1;
+}
+
+message DroppedStream {
+  google.protobuf.Timestamp from = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  string labels = 3;
+}
+
+message TimeSeriesChunk {
+  string from_ingester_id = 1;
+  string user_id = 2;
+  repeated LabelPair labels = 3;
+  repeated Chunk chunks = 4;
+}
+
+message LabelPair {
+  string name = 1;
+  string value = 2;
+}
+
+message Chunk {
+  bytes data = 1;
+}
+
+message TransferChunksResponse {
+
+}
+
+message TailersCountRequest {
+
+}
+
+message TailersCountResponse {
+  uint32 count = 1;
+}

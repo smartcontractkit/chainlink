@@ -1,0 +1,34 @@
+language: go
+
+os:
+ - linux
+
+# This project contains references to the absolute GitHub path,
+# e.g. github.com/theodesp/go-heaps/leftist.
+# That means, by default, if someone forks the repo and makes changes, Travis
+# won't pass for the branch on their own repo. To fix that, we move the
+# directory.
+# From: https://github.com/cloudflare/cfssl/blob/c71f2083af21ebe304311b33831fbbecf42c2738/.travis.yml#L22-L29
+before_install:
+ - make debs
+ - mkdir -p $TRAVIS_BUILD_DIR $GOPATH/src/github.com/theodesp
+ - test ! -d $GOPATH/src/github.com/theodesp/go-heaps && mv $TRAVIS_BUILD_DIR $GOPATH/src/github.com/theodesp/go-heaps || true
+
+# test on the two most recent releases and tip
+go:
+ - "1.10.x"
+ - "1.11.x"
+ - "tip"
+
+matrix:
+ allow_failures:
+  - go: tip
+
+script:
+ - make test
+
+after_success:
+ - bash <(curl -s https://codecov.io/bash)
+
+notifications:
+ email: false

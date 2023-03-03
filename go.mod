@@ -320,3 +320,5 @@ exclude (
 	github.com/nats-io/nats-server/v2 v2.1.2
 	github.com/nats-io/nats-server/v2 v2.5.0
 )
+
+replace github.com/smartcontractkit/libocr => ../libocr

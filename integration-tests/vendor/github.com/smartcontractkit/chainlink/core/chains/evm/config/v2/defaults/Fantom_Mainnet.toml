@@ -1,0 +1,16 @@
+ChainID = '250'
+LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
+LogPollInterval = '1s'
+MinIncomingConfirmations = 3
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 2
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+PriceDefault = '15 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+
+[OCR2.Automation]
+GasLimit = 3800000

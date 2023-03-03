@@ -1,0 +1,35 @@
+# Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
+ChainID = '10'
+ChainType = 'optimism'
+# Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
+FinalityDepth = 1
+LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
+MinIncomingConfirmations = 1
+# Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+Transactions.ResendAfterThreshold = '15s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'L2Suggested'
+# Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
+PriceMin = '0'
+# Never bump gas on optimism
+BumpThreshold = 0
+
+[GasEstimator.BlockHistory]
+# Force an error if someone enables the estimator by accident; we never want to run the block history estimator on optimism
+BlockHistorySize = 0
+
+[HeadTracker]
+HistoryDepth = 10
+SamplingInterval = '1s'
+
+[OCR2.Automation]
+GasLimit = 6500000
+
+[NodePool]
+SyncThreshold = 10

@@ -1,0 +1,53 @@
+---
+kind: pipeline
+name: default
+
+steps:
+- name: fetch
+  image: docker:git
+  commands:
+  - git fetch --tags
+
+- name: test
+  image: golang:1.14
+  volumes:
+  - name: deps
+    path: /go
+  commands:
+  - go test -race -coverprofile=coverage.txt -covermode=atomic
+
+- name: linter
+  image: golang:1.14
+  volumes:
+  - name: deps
+    path: /go
+  commands:
+    - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s v1.23.8
+    - ./bin/golangci-lint run
+
+- name: coverage
+  image: plugins/codecov
+  settings:
+    token:
+      from_secret: codecov_token
+    files:
+     - coverage.txt
+
+- name: telegram
+  image: appleboy/drone-telegram
+  settings:
+    to: 790376882
+    format: markdown
+    token:
+      from_secret: telegram_token
+    message: >
+      *{{repo.name}}*  
+
+      [Build {{build.number}}]({{build.link}}) by {{commit.author}} {{#success build.status}}succeeded{{else}}failed{{/success}} in {{buildtime build.started}}  
+
+      `{{truncate commit.sha 8}}`: "{{commit.message}}"
+
+volumes:
+- name: deps
+  host:
+    path: /var/lib/cache/godeps/
