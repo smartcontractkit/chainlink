@@ -95,12 +95,7 @@ func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.Chainlink) error {
 	if err != nil {
 		return err
 	}
-	for index, key := range z.NKeys {
-		if index == 0 {
-			// Skipping bootstrap
-			z.PeerIds = append(z.PeerIds, key.PeerID)
-			continue
-		}
+	for _, key := range z.NKeys[1:] {
 		z.PeerIds = append(z.PeerIds, key.PeerID)
 		z.OcrConfigPubKeys = append(z.OcrConfigPubKeys, strings.Replace(key.OCRKey.Data.Attributes.ConfigPublicKey, "ocrcfg_", "", 1))
 		z.Transmitters = append(z.Transmitters, key.EthAddress)
