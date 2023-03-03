@@ -3,10 +3,8 @@ package load
 import (
 	"fmt"
 	"sync/atomic"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -52,7 +50,6 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn 
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
-	tn := time.Now()
 	answer, res, err := m.client.GetReports(m.feedID, m.bn.Load())
 	if err != nil {
 		return loadgen.CallResult{Error: "connection error"}
@@ -60,7 +57,6 @@ func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	if res.Status != "200 OK" {
 		return loadgen.CallResult{Error: "not 200"}
 	}
-	log.Info().Dur("Elapsed", time.Since(tn)).Send()
 	reportElements := map[string]interface{}{}
 	if err = ReportTypes.UnpackIntoMap(reportElements, []byte(answer.ChainlinkBlob)); err != nil {
 		return loadgen.CallResult{Error: "blob unpacking error"}
