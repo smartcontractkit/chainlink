@@ -21,6 +21,7 @@ require (
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-contrib/size v0.0.0-20220707104239-f5a650759656
 	github.com/gin-gonic/gin v1.8.1
+	github.com/gobuffalo/packr v1.30.0
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -68,6 +69,7 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.1
+	github.com/swaggo/swag v1.8.10
 	github.com/tendermint/tendermint v0.34.15
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.14.4
@@ -95,8 +97,11 @@ require (
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
+	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
+	github.com/PuerkitoBio/purell v1.1.1 // indirect
+	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/ava-labs/avalanchego v1.9.0 // indirect
@@ -130,10 +135,16 @@ require (
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-openapi/jsonpointer v0.19.5 // indirect
+	github.com/go-openapi/jsonreference v0.19.6 // indirect
+	github.com/go-openapi/spec v0.20.4 // indirect
+	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.11.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
+	github.com/gobuffalo/envy v1.7.0 // indirect
+	github.com/gobuffalo/packd v0.2.0 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
@@ -171,6 +182,8 @@ require (
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/joho/godotenv v1.4.0 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect
@@ -213,6 +226,7 @@ require (
 	github.com/libp2p/go-yamux/v2 v2.0.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
@@ -246,6 +260,7 @@ require (
 	github.com/prometheus/tsdb v0.10.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rjeczalik/notify v0.9.3 // indirect
+	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/rs/cors v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
@@ -315,6 +330,7 @@ replace (
 )
 
 exclude (
+	github.com/gobuffalo/packr v1.30.1
 	github.com/influxdata/influxdb v1.8.3
 	github.com/labstack/echo/v4 v4.5.0
 	github.com/nats-io/nats-server/v2 v2.1.2
