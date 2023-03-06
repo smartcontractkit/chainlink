@@ -27,9 +27,9 @@ message TelemResponse {
     string body = 1;
 }
 
-message TelemEnhancedEA {
+message TelemEA {
     string data_source=1;
-    string value=2;
+    int64 value=2;
     int64 bridge_task_run_started_timestamp=3;
     int64 bridge_task_run_ended_timestamp=4;
     string provider_requested_protocol=5;
@@ -40,7 +40,7 @@ message TelemEnhancedEA {
     int64 provider_indicated_time=10;
     string feed=11;
     string chain_id=12;
-    string observation=13;
+    int64 observation=13;
     int64 round=14;
     int64 epoch=15;
 }

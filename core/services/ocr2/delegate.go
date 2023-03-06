@@ -235,7 +235,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg)
+		eaMonitoringEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EA)
+		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg, eaMonitoringEndpoint)
 	case job.DKG:
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {

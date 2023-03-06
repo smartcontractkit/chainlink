@@ -33,7 +33,7 @@ func promSetBridgeParseMetrics(ds *inMemoryDataSource, trrs *pipeline.TaskRunRes
 
 	for _, trr := range *trrs {
 		if trr.Task.Type() == pipeline.TaskTypeBridge {
-			nextTask := trrs.GetNextTaskOf(trr)
+			nextTask := trrs.GetNextTaskOf(&trr)
 
 			if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 				fetchedValue := cast.ToFloat64(nextTask.Result.Value)

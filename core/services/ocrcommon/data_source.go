@@ -48,26 +48,28 @@ func (ds *dataSourceV2) Observe(ctx context.Context) (*big.Int, error) {
 	return ds.dataSource.Observe(ctx)
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run) ocrtypes.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) ocrtypes.DataSource {
 	return &dataSource{
 		inMemoryDataSource: inMemoryDataSource{
-			pipelineRunner: pr,
-			jb:             jb,
-			spec:           spec,
-			lggr:           lggr,
+			pipelineRunner:     pr,
+			jb:                 jb,
+			spec:               spec,
+			lggr:               lggr,
+			monitoringEndpoint: endpoint,
 		},
 		runResults: runResults,
 	}
 }
 
-func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run) median.DataSource {
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) median.DataSource {
 	return &dataSourceV2{
 		dataSource: dataSource{
 			inMemoryDataSource: inMemoryDataSource{
-				pipelineRunner: pr,
-				jb:             jb,
-				spec:           spec,
-				lggr:           lggr,
+				pipelineRunner:     pr,
+				jb:                 jb,
+				spec:               spec,
+				lggr:               lggr,
+				monitoringEndpoint: endpoint,
 			},
 			runResults: runResults,
 		},
@@ -124,9 +126,9 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pip
 		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	finalResult := trrs.FinalResult(ds.lggr)
-
 	promSetBridgeParseMetrics(ds, &trrs)
 	promSetFinalResultMetrics(ds, &finalResult)
+	sendEATelemetry(ds, &trrs, &finalResult)
 
 	return run, finalResult, err
 }

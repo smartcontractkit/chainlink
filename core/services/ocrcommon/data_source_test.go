@@ -44,8 +44,6 @@ func Test_InMemoryDataSource(t *testing.T) {
 func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
 
-	var ()
-
 	jsonParseTask := pipeline.JSONParseTask{
 		BaseTask: pipeline.BaseTask{},
 	}
@@ -106,7 +104,7 @@ func Test_NewDataSourceV2(t *testing.T) {
 		}, nil)
 
 	resChan := make(chan pipeline.Run, 100)
-	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan)
+	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan, nil)
 	val, err := ds.Observe(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String())   // returns expected value after pipeline run

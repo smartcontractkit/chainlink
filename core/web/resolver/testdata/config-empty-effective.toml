@@ -113,6 +113,7 @@ ContractSubscribeInterval = '2m0s'
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
 
 [OCR]
 Enabled = false
@@ -124,6 +125,7 @@ DefaultTransactionQueueDepth = 1
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
+CaptureEATelemetry = false
 
 [P2P]
 IncomingMessageBufferSize = 10
