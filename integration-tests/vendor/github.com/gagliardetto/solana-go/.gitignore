@@ -1,7 +1,0 @@
-.idea
-dist/
-rpc/debug-utils.go
-
-.DS_Store
-
-solana-vault.json

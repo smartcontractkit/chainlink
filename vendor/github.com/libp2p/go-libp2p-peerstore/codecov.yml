@@ -1,5 +1,0 @@
-coverage:
-  range: "50...100"
-comment: off
-ignore:
-  - "pb/*.pb.go"
