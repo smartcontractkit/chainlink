@@ -242,6 +242,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, th.EmitterAddress1, lgs[0].Address)
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
+	assert.Equal(t, latest.BlockTimestamp, lgs[0].BlockTimestamp)
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
 		lgs[0].Data)

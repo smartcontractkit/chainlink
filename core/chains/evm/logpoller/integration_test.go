@@ -83,7 +83,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}()
 
 	// Confirm all the logs.
-	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000))
+	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now()))
 	func() {
 		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
