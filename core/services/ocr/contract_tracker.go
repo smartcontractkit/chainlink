@@ -351,10 +351,10 @@ func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedIn
 
 // ConfigFromLogs queries the eth node for logs for this contract
 func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
-	fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(ctx, changedInBlock)
+	// fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(ctx, changedInBlock)
 	q := ethereum.FilterQuery{
-		FromBlock: fromBlock,
-		ToBlock:   toBlock,
+		// FromBlock: fromBlock,
+		// ToBlock:   toBlock,
 		Addresses: []gethCommon.Address{t.contract.Address()},
 		Topics: [][]gethCommon.Hash{
 			{OCRContractConfigSet},
