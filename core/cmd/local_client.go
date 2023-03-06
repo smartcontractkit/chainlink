@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -911,12 +910,13 @@ func dumpSchema(dbURL url.URL) (string, error) {
 		"pg_dump", args...,
 	)
 
-	stderr := &bytes.Buffer{}
-	cmd.Stderr = stderr
-
 	schema, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to dump schema: %v\n%s", err, stderr)
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
+		}
+		return "", fmt.Errorf("failed to dump schema: %v", err)
 	}
 	return string(schema), nil
 }
