@@ -9,8 +9,8 @@ RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 
 [Feature]
-# FeedsManager enables the experimental feeds manager service.
-FeedsManager = false # Default
+# FeedsManager enables the feeds manager service.
+FeedsManager = true # Default
 # LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.

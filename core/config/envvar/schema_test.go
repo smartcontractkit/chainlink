@@ -252,6 +252,9 @@ func TestConfigSchema(t *testing.T) {
 		"PyroscopeServerAddress": "PYROSCOPE_SERVER_ADDRESS",
 		"PyroscopeEnvironment":   "PYROSCOPE_ENVIRONMENT",
 
+		// Prometheus
+		"PrometheusAuthToken": "PROMETHEUS_AUTH_TOKEN",
+
 		// P2P deprecated
 		"OCRNewStreamTimeout":          "OCR_NEW_STREAM_TIMEOUT",
 		"OCRBootstrapCheckInterval":    "OCR_BOOTSTRAP_CHECK_INTERVAL",
