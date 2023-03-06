@@ -487,7 +487,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("Stop").Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
