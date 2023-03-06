@@ -77,7 +77,7 @@ func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
 // the response as a *big.Int
 func getJsonParsedValue(trr *pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *big.Int {
-	nextTask := trrs.GetNextTaskOf(trr)
+	nextTask := trrs.GetNextTaskOf(*trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
