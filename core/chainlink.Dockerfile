@@ -6,7 +6,7 @@ WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
-ADD go.mod go.sum libocr ./
+ADD go.mod go.sum ./
 RUN go mod download
 
 # Env vars needed for chainlink build
