@@ -1,11 +1,11 @@
 package networking
 
 import (
- 	"fmt"
- 	"io"
- 	"math/rand"
- 	"sync"
- 	"time"
+	"fmt"
+	"io"
+	"math/rand"
+	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 
@@ -292,10 +292,10 @@ func (o *ocrEndpointV2) SendTo(payload []byte, to commontypes.OracleID) {
 		return
 	}
 
- 	delay := rand.Intn(500)
- 	o.logger.Info("Sleeping before send", commontypes.LogFields{"delay ms": delay})
- 	time.Sleep(time.Duration(delay) * time.Millisecond)
- 
+	delay := rand.Intn(500)
+	o.logger.Info("Sleeping before send", commontypes.LogFields{"delay ms": delay})
+	time.Sleep(time.Duration(delay) * time.Millisecond)
+
 	o.streams[to].SendMessage(payload)
 }
 

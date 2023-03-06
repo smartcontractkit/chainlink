@@ -368,3 +368,5 @@ replace (
 )
 
 exclude k8s.io/client-go v12.0.0+incompatible
+
+replace github.com/smartcontractkit/libocr => ../libocr
