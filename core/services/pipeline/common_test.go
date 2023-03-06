@@ -395,16 +395,16 @@ func TestGetNextTaskOf(t *testing.T) {
 	}
 
 	firstTask := trrs[0]
-	nextTask := trrs.GetNextTaskOf(&firstTask)
+	nextTask := trrs.GetNextTaskOf(firstTask)
 	assert.Equal(t, nextTask.Task.ID(), 2)
 
-	nextTask = trrs.GetNextTaskOf(nextTask)
+	nextTask = trrs.GetNextTaskOf(*nextTask)
 	assert.Equal(t, nextTask.Task.ID(), 3)
 
-	nextTask = trrs.GetNextTaskOf(nextTask)
+	nextTask = trrs.GetNextTaskOf(*nextTask)
 	assert.Equal(t, nextTask.Task.ID(), 4)
 
-	nextTask = trrs.GetNextTaskOf(nextTask)
+	nextTask = trrs.GetNextTaskOf(*nextTask)
 	assert.Empty(t, nextTask)
 
 }

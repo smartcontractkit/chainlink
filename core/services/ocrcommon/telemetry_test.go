@@ -183,7 +183,7 @@ func TestSendEATelemetry(t *testing.T) {
 		FatalErrors: []error{nil},
 	}
 
-	sendEATelemetry(&ds, &trrs, &fr)
+	collectEATelemetry(&ds, &trrs, &fr)
 
 	expectedTelemetry := telem.TelemEA{
 		DataSource:                    "data_source_test",

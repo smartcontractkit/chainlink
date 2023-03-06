@@ -88,8 +88,8 @@ func getJsonParsedValue(trr *pipeline.TaskRunResult, trrs *pipeline.TaskRunResul
 	return nil
 }
 
-// sendEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
-func sendEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+// collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
+func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
 	if !shouldCollectTelemetry(&ds.jb) {
 		return
 	}
@@ -106,7 +106,7 @@ func sendEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, fina
 
 		finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
 		if err != nil {
-			ds.lggr.Warnf("cannot parse singular result from bridge task, job %d, id %d", ds.jb.ID)
+			ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
 		}
 		observation = finalResultDecimal.BigInt().Int64()
 	}
