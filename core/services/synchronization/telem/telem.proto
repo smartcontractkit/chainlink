@@ -27,7 +27,7 @@ message TelemResponse {
     string body = 1;
 }
 
-message TelemEA {
+message TelemEnhancedEA {
     string data_source=1;
     int64 value=2;
     int64 bridge_task_run_started_timestamp=3;

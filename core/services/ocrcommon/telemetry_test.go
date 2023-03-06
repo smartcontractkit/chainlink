@@ -138,7 +138,7 @@ func TestGetJsonParsedValue(t *testing.T) {
 func TestSendEATelemetry(t *testing.T) {
 	ingressClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EA)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
 
 	var sentMessage []byte
 	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
@@ -185,7 +185,7 @@ func TestSendEATelemetry(t *testing.T) {
 
 	collectEATelemetry(&ds, &trrs, &fr)
 
-	expectedTelemetry := telem.TelemEA{
+	expectedTelemetry := telem.TelemEnhancedEA{
 		DataSource:                    "data_source_test",
 		Value:                         1234567890,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),

@@ -131,7 +131,7 @@ func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, f
 		}
 		value := parsedValue.Int64()
 
-		t := &telem.TelemEA{
+		t := &telem.TelemEnhancedEA{
 			DataSource:                    eaTelemetry.DataSource,
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
