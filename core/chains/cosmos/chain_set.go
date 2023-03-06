@@ -1,8 +1,6 @@
 package cosmos
 
 import (
-	"context"
-
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -92,16 +90,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (cosmos.Chain, error) {
 // ChainSet extends cosmos.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {
 	cosmos.ChainSet
-
-	Add(context.Context, string, *db.ChainCfg) (types.DBChain, error)
-	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (types.DBChain, error)
-	Show(id string) (types.DBChain, error)
-	Index(offset, limit int) ([]types.DBChain, int, error)
-	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
-	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
-	DeleteNode(ctx context.Context, id int32) error
+	chains.DBNodeSet[string, db.Node]
+	chains.DBChainSet[string, *db.ChainCfg]
 }
 
 // NewChainSet returns a new chain set for opts.
