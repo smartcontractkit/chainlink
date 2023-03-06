@@ -966,7 +966,7 @@ github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/ocr2
 github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/ocr2/medianreport
 github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm
 github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet
-# github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407 => ../libocr
+# github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 ## explicit; go 1.18
 github.com/smartcontractkit/libocr/bigbigendian
 github.com/smartcontractkit/libocr/commontypes
@@ -1451,4 +1451,3 @@ gopkg.in/yaml.v3
 # github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 # github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 # golang/golang.org/x/net => golang/golang.org/x/net v0.4.0
-# github.com/smartcontractkit/libocr => ../libocr

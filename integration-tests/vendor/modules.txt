@@ -1118,7 +1118,7 @@ github.com/smartcontractkit/chainlink-testing-framework/logging
 github.com/smartcontractkit/chainlink-testing-framework/testreporters
 github.com/smartcontractkit/chainlink-testing-framework/testsetups
 github.com/smartcontractkit/chainlink-testing-framework/utils
-# github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407 => ../../libocr
+# github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 ## explicit; go 1.18
 github.com/smartcontractkit/libocr/bigbigendian
 github.com/smartcontractkit/libocr/commontypes
@@ -2177,4 +2177,3 @@ sigs.k8s.io/yaml
 # google.golang.org/grpc => google.golang.org/grpc v1.29.1
 # k8s.io/api => k8s.io/api v0.25.4
 # k8s.io/client-go => k8s.io/client-go v0.25.4
-# github.com/smartcontractkit/libocr => ../../libocr
