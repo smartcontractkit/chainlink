@@ -123,6 +123,22 @@ func TestOCRZKSync(t *testing.T) {
 	ocrInstance := []contracts.OffchainAggregator{
 		zkClient.OCRContract,
 	}
+
+	// Set Config
+	transmitterAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes[1:])
+	if err != nil {
+		require.NoError(t, err, "Error getting transmitters")
+	}
+
+	// Exclude the first node, which will be used as a bootstrapper
+	err = ocrInstance[0].SetConfig(
+		chainlinkNodes[1:],
+		contracts.DefaultOffChainAggregatorConfig(len(chainlinkNodes[1:])),
+		transmitterAddresses,
+	)
+	if err != nil {
+		require.NoError(t, err, "Error setting config")
+	}
 	err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstance, chainlinkNodes, mockServer)
 	require.NoError(t, err)
 

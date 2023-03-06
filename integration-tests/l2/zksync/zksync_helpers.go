@@ -185,14 +185,14 @@ func (z *ZKSyncClient) DeployContracts(chainlinkClient blockchain.EVMClient, ocr
 		return err
 	}
 
-	ocrJsonConfig, err := ocrConfigValues.MarshalOCRConfig()
-	if err != nil {
-		return err
-	}
-	err = z.SetConfig(z.OCRAddr, ocrJsonConfig)
-	if err != nil {
-		return err
-	}
+	//ocrJsonConfig, err := ocrConfigValues.MarshalOCRConfig()
+	//if err != nil {
+	//	return err
+	//}
+	//err = z.SetConfig(z.OCRAddr, ocrJsonConfig)
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
