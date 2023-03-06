@@ -791,7 +791,7 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 ```toml
 CaptureEATelemetry = false # Default
 ```
-CaptureEATelemetry toggles collecting extra information from bridges
+CaptureEATelemetry toggles collecting extra information from External Adaptares
 
 ## OCR
 ```toml
@@ -876,7 +876,7 @@ TransmitterAddress is the default sending address to use for OCR. If you have an
 ```toml
 CaptureEATelemetry = false # Default
 ```
-CaptureEATelemetry toggles collecting extra information from bridges
+CaptureEATelemetry toggles collecting extra information from External Adaptares
 
 ## P2P
 ```toml
