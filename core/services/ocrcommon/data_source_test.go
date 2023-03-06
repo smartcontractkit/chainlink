@@ -1,6 +1,7 @@
 package ocrcommon_test
 
 import (
+	"math/big"
 	"testing"
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
@@ -109,4 +110,25 @@ func Test_NewDataSourceV2(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String())   // returns expected value after pipeline run
 	assert.Equal(t, pipeline.Run{}, <-resChan) // expected data properly passed to channel
+}
+
+func Test_NewDataSourceV1(t *testing.T) {
+	runner := new(pipelinemocks.Runner)
+	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
+		Return(pipeline.Run{}, pipeline.TaskRunResults{
+			{
+				Result: pipeline.Result{
+					Value: mockValue,
+					Error: nil,
+				},
+				Task: &pipeline.HTTPTask{},
+			},
+		}, nil)
+
+	resChan := make(chan pipeline.Run, 100)
+	ds := ocrcommon.NewDataSourceV1(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan, nil)
+	val, err := ds.Observe(testutils.Context(t))
+	require.NoError(t, err)
+	assert.Equal(t, mockValue, new(big.Int).Set(val).String()) // returns expected value after pipeline run
+	assert.Equal(t, pipeline.Run{}, <-resChan)                 // expected data properly passed to channel
 }

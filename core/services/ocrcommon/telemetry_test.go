@@ -123,14 +123,14 @@ func TestGetJsonParsedValue(t *testing.T) {
 		},
 	}
 
-	resp := getJsonParsedValue(&trrs[0], &trrs)
+	resp := getJsonParsedValue(trrs[0], &trrs)
 	assert.Equal(t, "1234567890", resp.String())
 
 	trrs[1].Result.Value = nil
-	resp = getJsonParsedValue(&trrs[0], &trrs)
+	resp = getJsonParsedValue(trrs[0], &trrs)
 	assert.Nil(t, resp)
 
-	resp = getJsonParsedValue(&trrs[1], &trrs)
+	resp = getJsonParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
 
 }

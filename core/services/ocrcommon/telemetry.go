@@ -76,8 +76,8 @@ func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
 // the response as a *big.Int
-func getJsonParsedValue(trr *pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *big.Int {
-	nextTask := trrs.GetNextTaskOf(*trr)
+func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *big.Int {
+	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
@@ -125,7 +125,7 @@ func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, f
 		if err != nil {
 			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %d", ds.jb.ID, trr.Task.DotID())
 		}
-		parsedValue := getJsonParsedValue(&trr, trrs)
+		parsedValue := getJsonParsedValue(trr, trrs)
 		if parsedValue == nil {
 			ds.lggr.Warnf("cannot get json parse value, job %d, id %d", ds.jb.ID, trr.Task.DotID())
 		}
