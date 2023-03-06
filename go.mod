@@ -321,4 +321,4 @@ exclude (
 	github.com/nats-io/nats-server/v2 v2.5.0
 )
 
-replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr 098f197f40bbbe06d8af664a9f3c539882045fe2
+replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230306221715-098f197f40bb
