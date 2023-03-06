@@ -175,11 +175,19 @@ func SetupMercuryServer(
 	require.NoError(t, err)
 
 	settings := map[string]interface{}{
-		"imageRepo":     os.Getenv("MERCURY_SERVER_IMAGE"),
-		"imageTag":      os.Getenv("MERCURY_SERVER_TAG"),
-		"rpcPrivateKey": rpcPrivKey,
-		"rpcNodesConf":  string(rpcNodesJsonConf),
-		"prometheus":    "true",
+		"image": map[string]interface{}{
+			"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
+			"tag":        os.Getenv("MERCURY_SERVER_TAG"),
+		},
+		"postgresql": map[string]interface{}{
+			"enabled": true,
+		},
+		"qa": map[string]interface{}{
+			"rpcPrivateKey": rpcPrivKey,
+			"enabled":       true,
+		},
+		"rpcNodesConf": string(rpcNodesJsonConf),
+		"prometheus":   "true",
 	}
 
 	if dbSettings != nil {
