@@ -17,7 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	stderrs "errors"
+	"errors"
 
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"golang.org/x/exp/constraints"
@@ -26,7 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jpillora/backoff"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -120,7 +120,7 @@ func NewSecret(n int) string {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
-		panic(errors.Wrap(err, "generating secret failed"))
+		panic(pkgerrors.Wrap(err, "generating secret failed"))
 	}
 	return base64.StdEncoding.EncodeToString(b)
 }
@@ -298,7 +298,7 @@ func Sha256(in string) (string, error) {
 	hasher := sha3.New256()
 	_, err := hasher.Write([]byte(in))
 	if err != nil {
-		return "", errors.Wrap(err, "sha256 write error")
+		return "", pkgerrors.Wrap(err, "sha256 write error")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
@@ -376,7 +376,7 @@ func CheckUint256(n *big.Int) error {
 func HexToUint256(s string) (*big.Int, error) {
 	rawNum, err := hexutil.Decode(s)
 	if err != nil {
-		return nil, errors.Wrapf(err, "while parsing %s as hex: ", s)
+		return nil, pkgerrors.Wrapf(err, "while parsing %s as hex: ", s)
 	}
 	rv := big.NewInt(0).SetBytes(rawNum) // can't be negative number
 	if err := CheckUint256(rv); err != nil {
@@ -627,7 +627,7 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 //	}
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
-		*err = errors.Wrap(*err, msg)
+		*err = pkgerrors.Wrap(*err, msg)
 	}
 }
 
@@ -746,7 +746,7 @@ func ValidateCronSchedule(schedule string) error {
 	}
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	_, err := parser.Parse(schedule)
-	return errors.Wrapf(err, "invalid cron schedule '%v'", schedule)
+	return pkgerrors.Wrapf(err, "invalid cron schedule '%v'", schedule)
 }
 
 // ResettableTimer stores a timer
@@ -864,7 +864,7 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	success := once.state.CompareAndSwap(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
-		return errors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
+		return pkgerrors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
 	}
 
 	once.Lock()
@@ -901,11 +901,11 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 		state := once.state.Load()
 		switch state {
 		case int32(StartStopOnce_Stopped):
-			return errors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
+			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
 		case int32(StartStopOnce_Unstarted):
-			return errors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
+			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
 		default:
-			return errors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
+			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
 		}
 	}
 
@@ -1131,7 +1131,7 @@ type ErrorBuffer struct {
 func (eb *ErrorBuffer) Flush() (err error) {
 	eb.RLock()
 	defer eb.RUnlock()
-	err = stderrs.Join(eb.buffer...)
+	err = errors.Join(eb.buffer...)
 	eb.buffer = nil
 	return
 }
@@ -1151,6 +1151,9 @@ type joinedError interface {
 	Unwrap() []error
 }
 
+// UnwrapError returns a list of underlying errors if passed error implements joinedError or return the err in a single-element list otherwise.
+//
+//nolint:errorlint // error type checks will fail on wrapped errors. Disabled since we are not doing checks on error types.
 func UnwrapError(err error) []error {
 	joined, ok := err.(joinedError)
 	if !ok {
