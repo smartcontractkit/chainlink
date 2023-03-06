@@ -281,6 +281,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
+    if (forwarderFactory == address(0)) {
+      forwarderFactory = address(new AutomationForwarderFactory());
+    }
     i_forwarderFactory = AutomationForwarderFactory(forwarderFactory);
   }
 
