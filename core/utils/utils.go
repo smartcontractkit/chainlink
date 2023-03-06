@@ -1147,15 +1147,11 @@ func (eb *ErrorBuffer) Append(incoming error) {
 	eb.buffer = append(eb.buffer, incoming)
 }
 
-type joinedError interface {
-	Unwrap() []error
-}
-
 // UnwrapError returns a list of underlying errors if passed error implements joinedError or return the err in a single-element list otherwise.
 //
 //nolint:errorlint // error type checks will fail on wrapped errors. Disabled since we are not doing checks on error types.
 func UnwrapError(err error) []error {
-	joined, ok := err.(joinedError)
+	joined, ok := err.(interface{ Unwrap() []error })
 	if !ok {
 		return []error{err}
 	}
