@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
@@ -442,6 +442,7 @@ func BuildGeneralOCR2Config(
 	f int,
 	onchainConfig []byte,
 ) contracts.OCRConfig {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -476,7 +477,7 @@ func BuildGeneralOCR2Config(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	log.Info().Msg("Done building OCR2 config")
+	l.Info().Msg("Done building OCR2 config")
 	return contracts.OCRConfig{
 		Signers:               signers,
 		Transmitters:          transmitters,
@@ -488,6 +489,7 @@ func BuildGeneralOCR2Config(
 }
 
 func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
@@ -544,6 +546,6 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 		}(i, cl)
 	}
 	wg.Wait()
-	log.Info().Msg("Done fetching oracle identities")
+	l.Info().Msg("Done fetching oracle identities")
 	return S, oracleIdentities
 }
