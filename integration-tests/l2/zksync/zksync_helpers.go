@@ -95,11 +95,11 @@ func (z *ZKSyncClient) CreateKeys(chainlinkNodes []*client.Chainlink) error {
 	if err != nil {
 		return err
 	}
-	for _, key := range z.NKeys[1:] {
+	for _, key := range z.NKeys {
 		z.PeerIds = append(z.PeerIds, key.PeerID)
-		z.OcrConfigPubKeys = append(z.OcrConfigPubKeys, strings.Replace(key.OCRKey.Data.Attributes.ConfigPublicKey, "ocrcfg_", "", 1))
+		z.OcrConfigPubKeys = append(z.OcrConfigPubKeys, strings.Replace(key.OCRKeys.Data[0].Attributes.OffChainPublicKey, "ocroff_", "", 1))
 		z.Transmitters = append(z.Transmitters, strings.Replace(key.EthAddress, "0x", "", 1))
-		z.Signers = append(z.Signers, strings.Replace(key.OCRKey.Data.Attributes.OnChainSigningAddress, "ocrsad_0x", "", 1))
+		z.Signers = append(z.Signers, strings.Replace(key.OCRKeys.Data[0].Attributes.OnChainSigningAddress, "ocrsad_", "", 1))
 		z.Payees = append(z.Payees, strings.Replace(z.Client.GetDefaultWallet().Address(), "0x", "", 1))
 	}
 
@@ -124,8 +124,7 @@ func (z *ZKSyncClient) FundNodes(chainlinkClient blockchain.EVMClient) error {
 		}
 
 		//TO-DO Link funding seems to hang but tx is present on chain
-		//log.Info().Str("ZKSync", fmt.Sprintf("Funding LINK to: %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
-		//err = z.LinkContract.Transfer(key.TXKey.Data.ID, big.NewInt(100))
+		//err = z.LinkContract.Transfer(key.TXKey.Data.ID, big.NewInt(100000000))
 		//if err != nil {
 		//	return err
 		//}

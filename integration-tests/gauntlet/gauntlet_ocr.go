@@ -63,7 +63,7 @@ func DefaultOcrConfig() *OCRConfig {
 		TransmissionStageTimeout:      "60s",
 		MaxRoundCount:                 6,
 		TransmissionStages:            []int{1, 2, 2, 2},
-		Secret:                        "test123",
+		Secret:                        "awe accuse polygon tonic depart acuity onyx inform bound gilbert expire",
 	}
 }
 
