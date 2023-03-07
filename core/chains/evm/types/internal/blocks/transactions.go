@@ -33,6 +33,8 @@ func (txt *TxType) MarshalText() ([]byte, error) {
 	return hx.MarshalText()
 }
 
+// TransactionInternal is JSON-serialization optimized intermediate representation between EVM blocks
+// and our public representation
 type TransactionInternal struct {
 	GasPrice             *hexutil.Big    `json:"gasPrice"`
 	Gas                  *hexutil.Uint64 `json:"gas"`

@@ -5,6 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+// BlockInternal is JSON-serialization optimized intermediate representation between EVM blocks
+// and our public representation
 type BlockInternal struct {
 	Number        string                `json:"number"`
 	Hash          common.Hash           `json:"hash"`

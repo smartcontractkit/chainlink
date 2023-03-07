@@ -274,47 +274,6 @@ type Block struct {
 	Transactions  []Transaction
 }
 
-/*
-type blockInternal struct {
-	Number        string         `json:"number"`
-	Hash          common.Hash    `json:"hash"`
-	ParentHash    common.Hash    `json:"parentHash"`
-	BaseFeePerGas *hexutil.Big   `json:"baseFeePerGas"`
-	Timestamp     hexutil.Uint64 `json:"timestamp"`
-	Transactions  []Transaction  `json:"transactions"`
-}
-
-func (bi blockInternal) empty() bool {
-	var dflt blockInternal
-
-	return len(bi.Transactions) == 0 &&
-		bi.Hash == dflt.Hash &&
-		bi.ParentHash == dflt.ParentHash &&
-		bi.BaseFeePerGas == dflt.BaseFeePerGas &&
-		bi.Timestamp == dflt.Timestamp
-}
-*/
-
-func toInternal(txn Transaction) blocks.TransactionInternal {
-	gas := (hexutil.Uint64)(uint64(txn.GasLimit))
-	itype := blocks.TxType(txn.Type)
-	return blocks.TransactionInternal{
-		GasPrice:             (*hexutil.Big)(txn.GasPrice),
-		Gas:                  &gas,
-		MaxFeePerGas:         (*hexutil.Big)(txn.MaxFeePerGas),
-		MaxPriorityFeePerGas: (*hexutil.Big)(txn.MaxPriorityFeePerGas),
-		Type:                 &itype,
-		Hash:                 txn.Hash,
-	}
-}
-func toInternalSlice(txns []Transaction) []blocks.TransactionInternal {
-	out := make([]blocks.TransactionInternal, len(txns))
-	for i, txn := range txns {
-		out[i] = toInternal(txn)
-	}
-	return out
-}
-
 // MarshalJSON implements json marshalling for Block
 func (b Block) MarshalJSON() ([]byte, error) {
 	bi := &blocks.BlockInternal{
@@ -323,7 +282,7 @@ func (b Block) MarshalJSON() ([]byte, error) {
 		ParentHash:    b.ParentHash,
 		BaseFeePerGas: (*hexutil.Big)(b.BaseFeePerGas),
 		Timestamp:     (hexutil.Uint64)(uint64(b.Timestamp.Unix())),
-		Transactions:  toInternalSlice(b.Transactions),
+		Transactions:  toInternalTxnSlice(b.Transactions),
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
@@ -363,46 +322,15 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		ParentHash:    bi.ParentHash,
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
 		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		Transactions:  fromInternalSlice(bi.Transactions),
+		Transactions:  fromInternalTxnSlice(bi.Transactions),
 	}
 	return nil
 }
 
+// thin public wrapper for internal type of the same name
+// and which has to be internal for JSON un/marshal'ing code gen consistency
 type TxType uint8
 
-/*
-// NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
-// handle double zeroes e.g. 0x00
-func (txt *TxType) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(data, []byte(`"0x00"`)) {
-		data = []byte(`"0x0"`)
-	}
-	var hx hexutil.Uint64
-	if err := (&hx).UnmarshalJSON(data); err != nil {
-		return err
-	}
-	if hx > math.MaxUint8 {
-		return errors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
-	}
-	*txt = TxType(hx)
-	return nil
-}
-
-func (txt *TxType) MarshalText() ([]byte, error) {
-	hx := (hexutil.Uint64)(*txt)
-	return hx.MarshalText()
-}
-*/
-/*
-type transactionInternal struct {
-	GasPrice             *hexutil.Big    `json:"gasPrice"`
-	Gas                  *hexutil.Uint64 `json:"gas"`
-	MaxFeePerGas         *hexutil.Big    `json:"maxFeePerGas"`
-	MaxPriorityFeePerGas *hexutil.Big    `json:"maxPriorityFeePerGas"`
-	Type                 *TxType         `json:"type"`
-	Hash                 common.Hash     `json:"hash"`
-}
-*/
 // Transaction represents an ethereum transaction
 // Use our own type because geth's type has validation failures on e.g. zero
 // gas used, which can occur on other chains.
@@ -438,57 +366,14 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		tpe := LegacyTxType
 		ti.Type = &tpe
 	}
-	*t = fromInternal(ti)
-	/*
-		Transaction{
-			GasPrice:             (*assets.Wei)(ti.GasPrice),
-			GasLimit:             uint32(*ti.Gas),
-			MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
-			MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
-			Type:                 *ti.Type,
-			Hash:                 ti.Hash,
-		}
-	*/
+	*t = fromInternalTxn(ti)
+
 	return nil
-}
-
-func fromInternal(ti blocks.TransactionInternal) Transaction {
-	if ti.Type == nil {
-		tpe := LegacyTxType
-		ti.Type = &tpe
-	}
-	return Transaction{
-		GasPrice:             (*assets.Wei)(ti.GasPrice),
-		GasLimit:             uint32(*ti.Gas),
-		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
-		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
-		Type:                 TxType(*ti.Type),
-		Hash:                 ti.Hash,
-	}
-}
-
-func fromInternalSlice(tis []blocks.TransactionInternal) []Transaction {
-	out := make([]Transaction, len(tis))
-	for i, ti := range tis {
-		out[i] = fromInternal(ti)
-	}
-	return out
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 
-	ti := toInternal(*t)
-	/*
-		gas := (hexutil.Uint64)(uint64(t.GasLimit))
-		ti := &blocks.TransactionInternal{
-			GasPrice:             (*hexutil.Big)(t.GasPrice),
-			Gas:                  &gas,
-			MaxFeePerGas:         (*hexutil.Big)(t.MaxFeePerGas),
-			MaxPriorityFeePerGas: (*hexutil.Big)(t.MaxPriorityFeePerGas),
-			Type:                 &t.Type,
-			Hash:                 t.Hash,
-		}
-	*/
+	ti := toInternalTxn(*t)
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))
 	enc := codec.NewEncoder(buf, &codec.JsonHandle{})
@@ -616,4 +501,52 @@ func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 		return empty, errors.New("out of bounds slice access")
 	}
 	return ary[start:end], nil
+}
+
+// toInternalTxn converts a Transaction into the internal intermediate represenation
+func toInternalTxn(txn Transaction) blocks.TransactionInternal {
+	gas := (hexutil.Uint64)(uint64(txn.GasLimit))
+	itype := blocks.TxType(txn.Type)
+	return blocks.TransactionInternal{
+		GasPrice:             (*hexutil.Big)(txn.GasPrice),
+		Gas:                  &gas,
+		MaxFeePerGas:         (*hexutil.Big)(txn.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*hexutil.Big)(txn.MaxPriorityFeePerGas),
+		Type:                 &itype,
+		Hash:                 txn.Hash,
+	}
+}
+
+// toInternalTxn converts a []Transaction into the internal intermediate represenation
+func toInternalTxnSlice(txns []Transaction) []blocks.TransactionInternal {
+	out := make([]blocks.TransactionInternal, len(txns))
+	for i, txn := range txns {
+		out[i] = toInternalTxn(txn)
+	}
+	return out
+}
+
+// fromInternalTxn converts an internal intermediate represenation into a Transaction
+func fromInternalTxn(ti blocks.TransactionInternal) Transaction {
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
+	return Transaction{
+		GasPrice:             (*assets.Wei)(ti.GasPrice),
+		GasLimit:             uint32(*ti.Gas),
+		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
+		Type:                 TxType(*ti.Type),
+		Hash:                 ti.Hash,
+	}
+}
+
+// fromInternalTxnSlice converts a slice of internal intermediate represenation into a []Transaction
+func fromInternalTxnSlice(tis []blocks.TransactionInternal) []Transaction {
+	out := make([]Transaction, len(tis))
+	for i, ti := range tis {
+		out[i] = fromInternalTxn(ti)
+	}
+	return out
 }
