@@ -102,6 +102,15 @@ presubmit: ## Format go files and imports.
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.20.0
 
+.PHONY: codecgen
+codecgen: $(codecgen)
+	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
+.PHONY: run-codecgen
+run-codecgen: $(run-codecgen)
+	cd core/chains/evm/types && codecgen -o models_codecgen.go  -j true models.go 
+	
+
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
 	protoc \

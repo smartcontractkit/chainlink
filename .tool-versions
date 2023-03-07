@@ -6,3 +6,4 @@ helm 3.10.3
 zig 0.10.1
 golangci-lint 1.51.1
 shellspec 0.28.1
+codecgen 1.2.10
