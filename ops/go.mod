@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink-relay/ops
 
-go 1.18
+go 1.20
 
 require (
 	github.com/lib/pq v1.10.4

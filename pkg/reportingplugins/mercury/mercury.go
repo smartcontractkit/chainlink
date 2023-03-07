@@ -302,7 +302,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	maxFinalizedBlockNumber := rp.maxFinalizedBlockNumber.Load()
 	if maxFinalizedBlockNumber == unfetchedInitialMaxFinalizedBlockNumber {
 		return nil, errors.New("initial maxFinalizedBlockNumber has not yet been fetched")
-	} else if obs.CurrentBlockNum <= maxFinalizedBlockNumber {
+	} else if obs.CurrentBlockNum < maxFinalizedBlockNumber {
 		rp.logger.Debugw("curent block number < max finalized block number; ignoring observation for out-of-date RPC", "currentBlockNum", obs.CurrentBlockNum, "maxFinalizedBlockNumber", maxFinalizedBlockNumber)
 		return nil, nil
 	} else if obs.CurrentBlockNum == maxFinalizedBlockNumber {
@@ -430,29 +430,6 @@ func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportT
 		return false, errors.Errorf("cannot handle empty attributed observations")
 	}
 
-	var resultTransmissionDetails struct {
-		configDigest    types.ConfigDigest
-		epoch           uint32
-		round           uint8
-		latestAnswer    *big.Int
-		latestTimestamp time.Time
-		err             error
-	}
-	var resultRoundRequested struct {
-		configDigest types.ConfigDigest
-		epoch        uint32
-		round        uint8
-		err          error
-	}
-
-	if err := multierr.Combine(resultTransmissionDetails.err, resultRoundRequested.err); err != nil {
-		return false, errors.Errorf("error during LatestTransmissionDetails/LatestRoundRequested: %s", err)
-	}
-
-	if resultTransmissionDetails.latestAnswer == nil {
-		return false, errors.Errorf("nil latestAnswer was returned by LatestTransmissionDetails. This should never happen")
-	}
-
 	if err := multierr.Combine(
 		rp.checkBenchmarkPrice(paos),
 		rp.checkBid(paos),
@@ -463,22 +440,12 @@ func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportT
 		return false, nil
 	}
 
-	initialRound := // Is this the first round for this configuration?
-		resultTransmissionDetails.configDigest == repts.ConfigDigest &&
-			resultTransmissionDetails.epoch == 0 &&
-			resultTransmissionDetails.round == 0
-
 	rp.logger.Infow("shouldReport: yes",
 		"timestamp", repts,
-		"initialRound", initialRound,
-		"lastTransmissionTimestamp", resultTransmissionDetails.latestTimestamp,
 	)
 	return true, nil
 }
 
-// NOTE: Questions blocked waiting on research:
-// TODO: Does bid always need to be greater than ask?
-// TODO: And, does bid always need to be lower than benchmark price, and ask be higher than it?
 func (rp *reportingPlugin) checkBenchmarkPrice(paos []ParsedAttributedObservation) error {
 	return ValidateBenchmarkPrice(paos, rp.onchainConfig.Min, rp.onchainConfig.Max)
 }
@@ -498,7 +465,7 @@ func (rp *reportingPlugin) checkBlockValues(paos []ParsedAttributedObservation) 
 func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, repts types.ReportTimestamp, report types.Report) (bool, error) {
 	reportEpochRound := epochRound{repts.Epoch, repts.Round}
 	if !rp.latestAcceptedEpochRound.Less(reportEpochRound) {
-		rp.logger.Debug("ShouldAcceptFinalizedReport() = false, report is stale",
+		rp.logger.Debugw("ShouldAcceptFinalizedReport() = false, report is stale",
 			"latestAcceptedEpochRound", rp.latestAcceptedEpochRound,
 			"reportEpochRound", reportEpochRound,
 		)
@@ -519,7 +486,7 @@ func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, rept
 		return false, errors.Wrap(err, "error during CurrentBlockNumFromReport")
 	}
 
-	rp.logger.Debug("ShouldAcceptFinalizedReport() = true",
+	rp.logger.Debugw("ShouldAcceptFinalizedReport() = true",
 		"reportEpochRound", reportEpochRound,
 		"latestAcceptedEpochRound", rp.latestAcceptedEpochRound,
 	)
