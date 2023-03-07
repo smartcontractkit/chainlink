@@ -39,8 +39,8 @@ const (
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
 
-	// DefaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
-	DefaultErrorBufferCap = 50
+	// defaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
+	defaultErrorBufferCap = 50
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
@@ -822,8 +822,14 @@ var (
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state        atomic.Int32
-	sync.RWMutex             // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
-	Errbuffer    ErrorBuffer // errorbuffer tracks latest N crits in the service.
+	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
+
+	// SvcErrBuffer is an ErrorBuffer that let service owners track critical errors happening in the service.
+	//
+	// SvcErrBuffer.SetCap(int) Overrides buffer limit from defaultErrorBufferCap
+	// SvcErrBuffer.Append(error) Appends an error to the buffer
+	// SvcErrBuffer.Flush() error returns all tracked errors as a single joined error
+	SvcErrBuffer ErrorBuffer
 }
 
 // StartStopOnceState holds the state for StartStopOnce
@@ -874,8 +880,8 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
 
-	// setting cap before calling startup fn incase of crits in startup
-	once.Errbuffer.SetCap(DefaultErrorBufferCap)
+	// Setting cap before calling startup fn in case of crits in startup
+	once.SvcErrBuffer.SetCap(defaultErrorBufferCap)
 	err := fn()
 
 	if err == nil {
