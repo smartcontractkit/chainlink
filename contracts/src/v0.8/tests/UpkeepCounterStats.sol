@@ -17,15 +17,8 @@ contract UpkeepCounterStats {
   mapping(uint256 => uint256) public upkeepIdsToPerformGasToBurn;
   mapping(uint256 => uint256) public upkeepIdsToCheckGasToBurn;
   mapping(uint256 => uint256) public upkeepIdsToPerformDataSize;
-  uint256 public interval;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
-
   mapping(uint256 => uint256[]) private upkeepIdsToDelay;
-  uint256[] private delays;
-
-  constructor(uint256 _interval) {
-    interval = _interval;
-  }
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
     uint256 startGas = gasleft();
@@ -67,7 +60,6 @@ contract UpkeepCounterStats {
       // Calculate and append delay
       uint256 delay = block.number - upkeepIdsToPreviousPerformBlock[upkeepId] - interval;
       upkeepIdsToDelay[upkeepId].push(delay);
-      upkeepIdsToDelay[upkeepId] = delays;
     }
 
     upkeepIdsToLastBlock[upkeepId] = blockNum;
