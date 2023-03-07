@@ -61,6 +61,9 @@ type Config struct {
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
 
+	// Node config verification
+	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
+
 	// Feeds config
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
 	FeedQuoteAddr string `mapstructure:"FEED_QUOTE_ADDR"`
