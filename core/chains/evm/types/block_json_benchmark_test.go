@@ -54,45 +54,8 @@ var (
 	xlBlock     = makeTestBlock(4 * 1024)
 )
 
-func BenchmarkBlock_Small_JSONUnmarshal(b *testing.B) {
-
-	b.StopTimer()
-	jsonBytes, err := json.Marshal(&smallBlock)
-	if err != nil {
-		b.Fatalf("failed to create test json %+v", err)
-	}
-	b.StartTimer()
-
-	var temp Block
-	for i := 0; i < b.N; i++ {
-		err := json.Unmarshal(jsonBytes, &temp)
-		if err != nil {
-			b.Fatalf("err %+v", err)
-		}
-	}
-}
-
-func BenchmarkBlock_Medium_JSONUnmarshal(b *testing.B) {
-
-	b.StopTimer()
-	jsonBytes, err := json.Marshal(&mediumBlock)
-	if err != nil {
-		b.Fatalf("failed to create test json %+v", err)
-	}
-	b.StartTimer()
-
-	var temp Block
-	for i := 0; i < b.N; i++ {
-		err := json.Unmarshal(jsonBytes, &temp)
-		if err != nil {
-			b.Fatalf("err %+v", err)
-		}
-	}
-}
-
-func BenchmarkBlock_Large_JSONUnmarshal(b *testing.B) {
-
-	jsonBytes, err := json.Marshal(&largeBlock)
+func unmarshal_block(b *testing.B, block *Block) {
+	jsonBytes, err := json.Marshal(&block)
 	if err != nil {
 		b.Fatalf("failed to create test json %+v", err)
 	}
@@ -107,20 +70,19 @@ func BenchmarkBlock_Large_JSONUnmarshal(b *testing.B) {
 	}
 }
 
+func BenchmarkBlock_Small_JSONUnmarshal(b *testing.B) {
+	unmarshal_block(b, smallBlock)
+
+}
+
+func BenchmarkBlock_Medium_JSONUnmarshal(b *testing.B) {
+	unmarshal_block(b, mediumBlock)
+}
+
+func BenchmarkBlock_Large_JSONUnmarshal(b *testing.B) {
+	unmarshal_block(b, largeBlock)
+}
+
 func BenchmarkBlock_XL_JSONUnmarshal(b *testing.B) {
-
-	b.StopTimer()
-	jsonBytes, err := json.Marshal(&xlBlock)
-	if err != nil {
-		b.Fatalf("failed to create test json %+v", err)
-	}
-	b.StartTimer()
-
-	var temp Block
-	for i := 0; i < b.N; i++ {
-		err := json.Unmarshal(jsonBytes, &temp)
-		if err != nil {
-			b.Fatalf("err %+v", err)
-		}
-	}
+	unmarshal_block(b, xlBlock)
 }
