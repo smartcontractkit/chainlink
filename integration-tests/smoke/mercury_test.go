@@ -13,9 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
@@ -96,7 +96,7 @@ func createEncodedCommitment(order Order) ([]byte, error) {
 }
 
 func TestMercurySmoke(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	const mercuryFeedId = "ETH-USD-Optimism-Goerli-1"
 
 	_, isExistingTestEnv, testNetwork, chainlinkNodes,

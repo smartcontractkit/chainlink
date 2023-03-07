@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	env_client "github.com/smartcontractkit/chainlink-env/client"
@@ -158,7 +157,7 @@ type BenchmarkTestEntry struct {
 }
 
 func TestAutomationBenchmark(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment, benchmarkNetwork, registryToTest := SetupAutomationBenchmarkEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -348,7 +347,7 @@ func getEnv(key, fallback string) string {
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, string) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"

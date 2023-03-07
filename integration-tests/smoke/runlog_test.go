@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -30,7 +29,7 @@ import (
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment, testNetwork := setupRunLogTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
