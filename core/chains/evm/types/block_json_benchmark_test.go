@@ -92,12 +92,11 @@ func BenchmarkBlock_Medium_JSONUnmarshal(b *testing.B) {
 
 func BenchmarkBlock_Large_JSONUnmarshal(b *testing.B) {
 
-	b.StopTimer()
 	jsonBytes, err := json.Marshal(&largeBlock)
 	if err != nil {
 		b.Fatalf("failed to create test json %+v", err)
 	}
-	b.StartTimer()
+	b.ResetTimer()
 
 	var temp Block
 	for i := 0; i < b.N; i++ {
