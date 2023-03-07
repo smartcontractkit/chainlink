@@ -5,7 +5,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 	"regexp"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/ugorji/go/codec"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -274,6 +274,7 @@ type Block struct {
 	Transactions  []Transaction
 }
 
+/*
 type blockInternal struct {
 	Number        string         `json:"number"`
 	Hash          common.Hash    `json:"hash"`
@@ -292,16 +293,37 @@ func (bi blockInternal) empty() bool {
 		bi.BaseFeePerGas == dflt.BaseFeePerGas &&
 		bi.Timestamp == dflt.Timestamp
 }
+*/
+
+func toInternal(txn Transaction) blocks.TransactionInternal {
+	gas := (hexutil.Uint64)(uint64(txn.GasLimit))
+	itype := blocks.TxType(txn.Type)
+	return blocks.TransactionInternal{
+		GasPrice:             (*hexutil.Big)(txn.GasPrice),
+		Gas:                  &gas,
+		MaxFeePerGas:         (*hexutil.Big)(txn.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*hexutil.Big)(txn.MaxPriorityFeePerGas),
+		Type:                 &itype,
+		Hash:                 txn.Hash,
+	}
+}
+func toInternalSlice(txns []Transaction) []blocks.TransactionInternal {
+	out := make([]blocks.TransactionInternal, len(txns))
+	for i, txn := range txns {
+		out[i] = toInternal(txn)
+	}
+	return out
+}
 
 // MarshalJSON implements json marshalling for Block
 func (b Block) MarshalJSON() ([]byte, error) {
-	bi := &blockInternal{
-		hexutil.EncodeBig(big.NewInt(b.Number)),
-		b.Hash,
-		b.ParentHash,
-		(*hexutil.Big)(b.BaseFeePerGas),
-		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
-		b.Transactions,
+	bi := &blocks.BlockInternal{
+		Number:        hexutil.EncodeBig(big.NewInt(b.Number)),
+		Hash:          b.Hash,
+		ParentHash:    b.ParentHash,
+		BaseFeePerGas: (*hexutil.Big)(b.BaseFeePerGas),
+		Timestamp:     (hexutil.Uint64)(uint64(b.Timestamp.Unix())),
+		Transactions:  toInternalSlice(b.Transactions),
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
@@ -319,7 +341,7 @@ var ErrMissingBlock = errors.New("missing block")
 func (b *Block) UnmarshalJSON(data []byte) error {
 
 	var h codec.Handle = new(codec.JsonHandle)
-	bi := blockInternal{}
+	bi := blocks.BlockInternal{}
 
 	dec := codec.NewDecoderBytes(data, h)
 	err := dec.Decode(&bi)
@@ -327,7 +349,7 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if bi.empty() {
+	if bi.Empty() {
 		return errors.WithStack(ErrMissingBlock)
 	}
 
@@ -341,13 +363,14 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		ParentHash:    bi.ParentHash,
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
 		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		Transactions:  bi.Transactions,
+		Transactions:  fromInternalSlice(bi.Transactions),
 	}
 	return nil
 }
 
 type TxType uint8
 
+/*
 // NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
 // handle double zeroes e.g. 0x00
 func (txt *TxType) UnmarshalJSON(data []byte) error {
@@ -369,7 +392,8 @@ func (txt *TxType) MarshalText() ([]byte, error) {
 	hx := (hexutil.Uint64)(*txt)
 	return hx.MarshalText()
 }
-
+*/
+/*
 type transactionInternal struct {
 	GasPrice             *hexutil.Big    `json:"gasPrice"`
 	Gas                  *hexutil.Uint64 `json:"gas"`
@@ -378,7 +402,7 @@ type transactionInternal struct {
 	Type                 *TxType         `json:"type"`
 	Hash                 common.Hash     `json:"hash"`
 }
-
+*/
 // Transaction represents an ethereum transaction
 // Use our own type because geth's type has validation failures on e.g. zero
 // gas used, which can occur on other chains.
@@ -392,13 +416,13 @@ type Transaction struct {
 	Hash                 common.Hash `json:"hash"`
 }
 
-const LegacyTxType = TxType(0x0)
+const LegacyTxType = blocks.TxType(0x0)
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
 
 	var h codec.Handle = new(codec.JsonHandle)
-	ti := transactionInternal{}
+	ti := blocks.TransactionInternal{}
 
 	dec := codec.NewDecoderBytes(data, h)
 	err := dec.Decode(&ti)
@@ -414,28 +438,57 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		tpe := LegacyTxType
 		ti.Type = &tpe
 	}
-	*t = Transaction{
+	*t = fromInternal(ti)
+	/*
+		Transaction{
+			GasPrice:             (*assets.Wei)(ti.GasPrice),
+			GasLimit:             uint32(*ti.Gas),
+			MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
+			MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
+			Type:                 *ti.Type,
+			Hash:                 ti.Hash,
+		}
+	*/
+	return nil
+}
+
+func fromInternal(ti blocks.TransactionInternal) Transaction {
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
+	return Transaction{
 		GasPrice:             (*assets.Wei)(ti.GasPrice),
 		GasLimit:             uint32(*ti.Gas),
 		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
 		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
-		Type:                 *ti.Type,
+		Type:                 TxType(*ti.Type),
 		Hash:                 ti.Hash,
 	}
-	return nil
+}
+
+func fromInternalSlice(tis []blocks.TransactionInternal) []Transaction {
+	out := make([]Transaction, len(tis))
+	for i, ti := range tis {
+		out[i] = fromInternal(ti)
+	}
+	return out
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 
-	gas := (hexutil.Uint64)(uint64(t.GasLimit))
-	ti := &transactionInternal{
-		GasPrice:             (*hexutil.Big)(t.GasPrice),
-		Gas:                  &gas,
-		MaxFeePerGas:         (*hexutil.Big)(t.MaxFeePerGas),
-		MaxPriorityFeePerGas: (*hexutil.Big)(t.MaxPriorityFeePerGas),
-		Type:                 &t.Type,
-		Hash:                 t.Hash,
-	}
+	ti := toInternal(*t)
+	/*
+		gas := (hexutil.Uint64)(uint64(t.GasLimit))
+		ti := &blocks.TransactionInternal{
+			GasPrice:             (*hexutil.Big)(t.GasPrice),
+			Gas:                  &gas,
+			MaxFeePerGas:         (*hexutil.Big)(t.MaxFeePerGas),
+			MaxPriorityFeePerGas: (*hexutil.Big)(t.MaxPriorityFeePerGas),
+			Type:                 &t.Type,
+			Hash:                 t.Hash,
+		}
+	*/
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))
 	enc := codec.NewEncoder(buf, &codec.JsonHandle{})

@@ -108,7 +108,7 @@ codecgen: $(codecgen)
 
 .PHONY: run-codecgen
 run-codecgen: $(run-codecgen)
-	cd core/chains/evm/types && codecgen -o models_codecgen.go  -j true models.go 
+	cd core/chains/evm/types/internal/blocks && codecgen -o block_codecgen.go  -j true block.go && codecgen -o transactions_codecgen.go  -j true transactions.go 
 	
 
 .PHONY: telemetry-protobuf
