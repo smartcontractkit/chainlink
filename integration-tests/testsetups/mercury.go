@@ -285,11 +285,11 @@ func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercury
 
 	var feedIdBytes [32]byte
 	copy(feedIdBytes[:], feedId)
-	verifier, err := contractDeployer.DeployVerifier(feedIdBytes, verifierProxy.Address())
+	verifier, err := contractDeployer.DeployVerifier(verifierProxy.Address())
 	require.NoError(t, err, "Error deploying Verifier contract")
 
-	verifier.SetConfig(ocrConfig)
-	latestConfigDetails, err := verifier.LatestConfigDetails()
+	verifier.SetConfig(feedIdBytes, ocrConfig)
+	latestConfigDetails, err := verifier.LatestConfigDetails(feedIdBytes)
 	require.NoError(t, err, "Error getting Verifier.LatestConfigDetails()")
 	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
 	log.Info().Msgf("Latest config details: %v", latestConfigDetails)

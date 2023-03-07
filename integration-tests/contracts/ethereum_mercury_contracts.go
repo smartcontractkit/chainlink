@@ -117,8 +117,8 @@ func (v *EthereumVerifierProxy) Verify(signedReport []byte) error {
 
 type Verifier interface {
 	Address() string
-	SetConfig(OCRConfig) error
-	LatestConfigDetails() (struct {
+	SetConfig([32]byte, OCRConfig) error
+	LatestConfigDetails(feedId [32]byte) (struct {
 		ConfigCount  uint32
 		BlockNumber  uint32
 		ConfigDigest [32]byte
@@ -135,15 +135,20 @@ func (v *EthereumVerifier) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVerifier) SetConfig(ocrConfig OCRConfig) error {
+func (v *EthereumVerifier) SetConfig(feedId [32]byte, ocrConfig OCRConfig) error {
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
+	offchainTransmitters := make([][32]byte, len(ocrConfig.Transmitters))
+	for i := 0; i < len(ocrConfig.Transmitters); i++ {
+		offchainTransmitters[i] = [32]byte(ocrConfig.Transmitters[i].Bytes())
+	}
 	tx, err := v.verifier.SetConfig(
 		txOpts,
+		feedId,
 		ocrConfig.Signers,
-		ocrConfig.Transmitters,
+		offchainTransmitters,
 		ocrConfig.F,
 		ocrConfig.OnchainConfig,
 		ocrConfig.OffchainConfigVersion,
@@ -155,7 +160,7 @@ func (v *EthereumVerifier) SetConfig(ocrConfig OCRConfig) error {
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVerifier) LatestConfigDetails() (struct {
+func (v *EthereumVerifier) LatestConfigDetails(feedId [32]byte) (struct {
 	ConfigCount  uint32
 	BlockNumber  uint32
 	ConfigDigest [32]byte
@@ -164,15 +169,15 @@ func (v *EthereumVerifier) LatestConfigDetails() (struct {
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
 	}
-	return v.verifier.LatestConfigDetails(opts)
+	return v.verifier.LatestConfigDetails(opts, feedId)
 }
 
-func (e *EthereumContractDeployer) DeployVerifier(feedId [32]byte, verifierProxyAddr string) (Verifier, error) {
+func (e *EthereumContractDeployer) DeployVerifier(verifierProxyAddr string) (Verifier, error) {
 	address, _, instance, err := e.client.DeployContract("Verifier", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return verifier.DeployVerifier(auth, backend, feedId, common.HexToAddress(verifierProxyAddr))
+		return verifier.DeployVerifier(auth, backend, common.HexToAddress(verifierProxyAddr))
 	})
 	if err != nil {
 		return nil, err
