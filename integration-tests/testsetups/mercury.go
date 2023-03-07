@@ -195,8 +195,16 @@ func SetupMercuryServer(
 }
 
 func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) (
-	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
-	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer, string) {
+	*environment.Environment,
+	bool,
+	blockchain.EVMNetwork,
+	[]*client.Chainlink,
+	string,
+	blockchain.EVMClient,
+	*ctfClient.MockserverClient,
+	*client.MercuryServer,
+	string,
+) {
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -232,6 +240,9 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		return testEnvironment, false, testNetwork, nil, "", nil, nil, nil, ""
+	}
 
 	msRpcPubKey := SetupMercuryServer(t, testEnvironment, dbSettings, serverResources)
 

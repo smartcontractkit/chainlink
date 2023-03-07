@@ -99,10 +99,13 @@ func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
 	const mercuryFeedId = "ETH-USD-Optimism-Goerli-1"
 
-	_, isExistingTestEnv, testNetwork, chainlinkNodes,
+	env, isExistingTestEnv, testNetwork, chainlinkNodes,
 		mercuryServerRemoteUrl,
 		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t, nil, nil)
 	_ = isExistingTestEnv
+	if env.WillUseRemoteRunner() {
+		return
+	}
 
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 	ocrConfig := testsetups.BuildMercuryOCR2Config(t, nodesWithoutBootstrap)

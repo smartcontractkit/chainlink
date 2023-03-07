@@ -51,6 +51,9 @@ func setupMercuryLoadEnv(
 		mercuryServerRemoteUrl,
 		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t, dbSettings, serverResources)
 	_ = isExistingTestEnv
+	if env.WillUseRemoteRunner() {
+		return env, nil, nil, 0
+	}
 
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 	ocrConfig := testsetups.BuildMercuryOCR2Config(t, nodesWithoutBootstrap)
@@ -78,6 +81,9 @@ func setupMercuryLoadEnv(
 
 func TestMercuryHTTPLoad(t *testing.T) {
 	env, msClient, evmClient, latestBlockNumber := setupMercuryLoadEnv(t, mercuryFeedID, dbSettings, serverResources)
+	if env.WillUseRemoteRunner() {
+		return
+	}
 
 	gun := NewHTTPGun(env.URLs[mercuryserver.URLsKey][1], msClient, mercuryFeedID, latestBlockNumber)
 	go func() {
@@ -117,6 +123,9 @@ func TestMercuryHTTPLoad(t *testing.T) {
 
 func TestMercuryWSLoad(t *testing.T) {
 	env, msClient, _, _ := setupMercuryLoadEnv(t, mercuryFeedID, dbSettings, serverResources)
+	if env.WillUseRemoteRunner() {
+		return
+	}
 
 	gen, err := loadgen.NewLoadGenerator(&loadgen.LoadGeneratorConfig{
 		T: t,
