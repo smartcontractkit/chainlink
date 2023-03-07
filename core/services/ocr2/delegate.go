@@ -17,6 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
@@ -145,7 +145,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
 
-		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
+		if spec.RelayConfig["sendingKeys"] == nil {
+			spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
+		}
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
@@ -295,17 +297,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
-		// Automatically provide the node's local sending keys to the job spec for OCR2VRF.
-		var sendingKeys []string
-		ethSendingKeys, err2 := d.ethKs.EnabledKeysForChain(big.NewInt(chainID))
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "get eth sending keys")
-		}
-		for _, s := range ethSendingKeys {
-			sendingKeys = append(sendingKeys, s.Address.String())
-		}
-		spec.RelayConfig["sendingKeys"] = sendingKeys
-
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
@@ -440,7 +431,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			DKGLocalConfig:               lc,
 			// Telemetry ingress for DKG is currently not supported so a noop monitoring endpoint is being used
 			DKGMonitoringEndpoint:              &noopMonitoringEndpoint,
-			Blockhashes:                        blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), lggr, 256),
 			Serializer:                         reportserializer.NewReportSerializer(&altbn_128.G1{}),
 			JuelsPerFeeCoin:                    juelsPerFeeCoin,
 			ReasonableGasPrice:                 reasonableGasPrice,
@@ -530,6 +520,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			runResultSaver,
 			keeperProvider,
 			rgstry,
+			logProvider,
 			pluginService,
 		}, nil
 	case job.OCR2Functions:

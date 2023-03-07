@@ -1,12 +1,11 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 var (

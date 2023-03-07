@@ -89,7 +89,7 @@ func TestAggregate_Successful(t *testing.T) {
 				req(21, []byte{5, 100}, []byte{}),
 				req(21, []byte{12, 2}, []byte{}),
 			},
-			req(21, []byte{10, 134}, []byte{}),
+			req(21, []byte{9, 11}, []byte{}),
 		},
 		{
 			"Median Even Aligned",
@@ -100,7 +100,7 @@ func TestAggregate_Successful(t *testing.T) {
 				req(21, []byte{0, 0, 5, 100}, []byte{}),
 				req(21, []byte{0, 0, 12, 2}, []byte{}),
 			},
-			req(21, []byte{0, 0, 10, 134}, []byte{}),
+			req(21, []byte{0, 0, 9, 11}, []byte{}),
 		},
 	}
 

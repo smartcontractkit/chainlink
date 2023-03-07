@@ -200,14 +200,14 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
-	return txmgr.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
+	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
 		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr,
 		checkerFactory, nonceAutoSync)
 }
@@ -217,10 +217,10 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
+func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	ec := txmgr.NewEthConfirmer(db, ethClient, config, ks, keyStates,
+	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates,
 		gas.NewFixedPriceEstimator(config, lggr), fn, lggr)
 	return ec
 }

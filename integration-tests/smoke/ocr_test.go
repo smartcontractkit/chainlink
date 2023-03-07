@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -18,6 +18,7 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -44,7 +45,7 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)
@@ -87,6 +88,7 @@ func setupOCRTest(t *testing.T) (
 	testEnvironment *environment.Environment,
 	testNetwork blockchain.EVMNetwork,
 ) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
@@ -111,7 +113,7 @@ func setupOCRTest(t *testing.T) (
 			"replicas": 6,
 			"env":      ocrEnvVars,
 		})
-		log.Debug().Interface("Env", ocrEnvVars).Msg("Using Environment Variable Config")
+		l.Debug().Interface("Env", ocrEnvVars).Msg("Using Environment Variable Config")
 	}
 
 	testEnvironment = environment.New(&environment.Config{

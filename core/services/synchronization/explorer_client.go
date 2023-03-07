@@ -58,6 +58,9 @@ type ExplorerClient interface {
 
 type NoopExplorerClient struct{}
 
+func (NoopExplorerClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopExplorerClient) Name() string                   { return "" }
+
 // Url always returns underlying url.
 func (NoopExplorerClient) Url() url.URL { return url.URL{} }
 
@@ -140,6 +143,14 @@ func (ec *explorerClient) Start(context.Context) error {
 		go ec.connectAndWritePump()
 		return nil
 	})
+}
+
+func (ec *explorerClient) Name() string {
+	return ec.lggr.Name()
+}
+
+func (ec *explorerClient) HealthReport() map[string]error {
+	return map[string]error{ec.Name(): ec.Healthy()}
 }
 
 // Send sends data asynchronously across the websocket if it's open, or
@@ -247,11 +258,14 @@ func (ec *explorerClient) connectAndWritePump() {
 			ec.setStatus(ConnectionStatusConnected)
 
 			ec.lggr.Infow("Connected to explorer", "url", ec.url)
-			ec.sleeper.Reset()
+			start := time.Now()
 			ec.writePumpDone = make(chan struct{})
 			ec.wg.Add(1)
 			go ec.readPump()
 			ec.writePump()
+			if time.Since(start) > time.Second {
+				ec.sleeper.Reset()
+			}
 
 		case <-ec.chStop:
 			return

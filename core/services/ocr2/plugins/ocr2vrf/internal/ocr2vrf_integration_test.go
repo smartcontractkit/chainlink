@@ -28,6 +28,7 @@ import (
 	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
@@ -94,6 +95,7 @@ type ocr2Node struct {
 	effectiveTransmitter common.Address
 	keybundle            ocr2key.KeyBundle
 	config               config.GeneralConfig
+	sendingKeys          []string
 }
 
 func setupOCR2VRFContracts(
@@ -292,7 +294,9 @@ func setupNodeOCR2(
 	}
 
 	// Fund the sending keys with some ETH.
+	var sendingKeyStrings []string
 	for _, k := range sendingKeys {
+		sendingKeyStrings = append(sendingKeyStrings, k.Address.String())
 		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 		require.NoError(t, err)
 
@@ -319,6 +323,7 @@ func setupNodeOCR2(
 		effectiveTransmitter: effectiveTransmitter,
 		keybundle:            kb,
 		config:               config,
+		sendingKeys:          sendingKeyStrings,
 	}
 }
 
@@ -356,6 +361,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		apps                  []*cltest.TestApplication
 		dkgEncrypters         []dkgencryptkey.Key
 		dkgSigners            []dkgsignkey.Key
+		sendingKeys           [][]string
 	)
 	for i := 0; i < numNodes; i++ {
 		// Supply the bootstrap IP and port as a V2 peer address
@@ -365,6 +371,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 			}},
 		}
 		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
+		sendingKeys = append(sendingKeys, node.sendingKeys)
 
 		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
 		require.NoError(t, err)
@@ -441,6 +448,10 @@ fromBlock           = %d
 
 	t.Log("Creating OCR2VRF jobs")
 	for i := 0; i < numNodes; i++ {
+		var sendingKeysString = fmt.Sprintf(`"%s"`, sendingKeys[i][0])
+		for x := 1; x < len(sendingKeys[i]); x++ {
+			sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, sendingKeys[i][x])
+		}
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -459,6 +470,7 @@ forwardingAllowed       = %t
 [relayConfig]
 chainID              	= 1337
 fromBlock               = %d
+sendingKeys             = [%s]
 
 [pluginConfig]
 dkgEncryptionPublicKey 	= "%s"
@@ -473,6 +485,7 @@ linkEthFeedAddress     	= "%s"
 			transmitters[i],
 			useForwarders,
 			blockBeforeConfig.Number().Int64(),
+			sendingKeysString,
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),
@@ -768,7 +781,7 @@ func getFreePort(t *testing.T) uint16 {
 
 	l, err := net.ListenTCP("tcp", addr)
 	require.NoError(t, err)
-	defer l.Close()
+	defer func() { assert.NoError(t, l.Close()) }()
 
 	return uint16(l.Addr().(*net.TCPAddr).Port)
 }

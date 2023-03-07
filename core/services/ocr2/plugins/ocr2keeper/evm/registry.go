@@ -75,7 +75,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		chLog:    make(chan logpoller.Log, 1000),
 	}
 
-	if err := r.registerEvents(addr); err != nil {
+	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
@@ -91,6 +91,9 @@ var upkeepStateEvents = []common.Hash{
 
 var upkeepActiveEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryStaleUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {
@@ -118,7 +121,7 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterID      int
+	filterName    string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -130,19 +133,16 @@ type EvmRegistry struct {
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
-func (r *EvmRegistry) GetActiveUpkeepKeys(context.Context, types.BlockKey) ([]types.UpkeepKey, error) {
-	if r.LatestBlock() == 0 {
-		return nil, fmt.Errorf("%w: service probably not yet started", ErrHeadNotAvailable)
-	}
-
+func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentifier, error) {
 	r.mu.RLock()
-	keys := make([]types.UpkeepKey, len(r.active))
+	defer r.mu.RUnlock()
+
+	keys := make([]types.UpkeepIdentifier, len(r.active))
 	var i int
 	for _, value := range r.active {
-		keys[i] = blockAndIdToKey(big.NewInt(r.LatestBlock()), value.ID)
+		keys[i] = types.UpkeepIdentifier(value.ID.String())
 		i++
 	}
-	r.mu.RUnlock()
 
 	return keys, nil
 }
@@ -252,9 +252,6 @@ func (r *EvmRegistry) Close() error {
 		r.cancel()
 		r.runState = 0
 		r.runError = nil
-		if r.filterID > 0 {
-			return r.poller.UnregisterFilter(r.filterID)
-		}
 		return nil
 	})
 }
@@ -358,16 +355,18 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
-func (r *EvmRegistry) registerEvents(addr common.Address) error {
+func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterID, err := r.poller.RegisterFilter(logpoller.Filter{
+	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+	err := r.poller.RegisterFilter(logpoller.Filter{
+		Name:      filterName,
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()
-		r.filterID = filterID
+		r.filterName = filterName
 		r.mu.Unlock()
 	}
 	return err
@@ -522,6 +521,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 	}
 }
 
+// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) ([]types.UpkeepResult, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
@@ -565,19 +565,16 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 	}
 
 	var (
-		err     error
-		results = make([]types.UpkeepResult, len(keys))
+		multiErr error
+		results  = make([]types.UpkeepResult, len(keys))
 	)
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
-			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert errror encountered for key %s with message '%s' in check", keys[i], req.Error)
-				continue
-			}
-			// some other error
-			multierr.AppendInto(&err, req.Error)
+			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
+			multierr.AppendInto(&multiErr, req.Error)
 		} else {
+			var err error
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
 				return nil, err
@@ -585,9 +582,10 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 		}
 	}
 
-	return results, err
+	return results, multiErr
 }
 
+// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
@@ -639,16 +637,12 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
-	var err error
+	var multiErr error
 
 	for i, req := range performReqs {
 		if req.Error != nil {
-			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert errror encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
-				continue
-			}
-			// some other error
-			multierr.AppendInto(&err, req.Error)
+			r.lggr.Debugf("error encountered for key %s with message '%s' in simulate perform", checkResults[i].Key, req.Error)
+			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 			if err != nil {
@@ -661,9 +655,10 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
-	return checkResults, nil
+	return checkResults, multiErr
 }
 
+// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
 	if len(ids) == 0 {
 		return []activeUpkeep{}, nil
@@ -706,19 +701,16 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	var (
-		err     error
-		results = make([]activeUpkeep, len(ids))
+		multiErr error
+		results  = make([]activeUpkeep, len(ids))
 	)
 
 	for i, req := range uReqs {
 		if req.Error != nil {
-			if strings.Contains(req.Error.Error(), "reverted") {
-				r.lggr.Debugf("revert errror encountered for config id %s with message '%s' in get config", ids[i], req.Error)
-				continue
-			}
-			// some other error
-			multierr.AppendInto(&err, req.Error)
+			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
+			multierr.AppendInto(&multiErr, req.Error)
 		} else {
+			var err error
 			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack result: %s", err)
@@ -726,15 +718,11 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 		}
 	}
 
-	return results, err
-}
-
-func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
-	return types.UpkeepKey(fmt.Sprintf("%s%s%s", block, separator, id))
+	return results, multiErr
 }
 
 func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
-	parts := strings.Split(string(key), separator)
+	parts := strings.Split(key.String(), separator)
 	if len(parts) != 2 {
 		return nil, nil, fmt.Errorf("%w: missing data in upkeep key", ErrUpkeepKeyNotParsable)
 	}

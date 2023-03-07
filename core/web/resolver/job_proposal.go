@@ -20,6 +20,8 @@ const (
 	APPROVED  JobProposalStatus = "APPROVED"
 	REJECTED  JobProposalStatus = "REJECTED"
 	CANCELLED JobProposalStatus = "CANCELLED"
+	DELETED   JobProposalStatus = "DELETED"
+	REVOKED   JobProposalStatus = "REVOKED"
 )
 
 func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
@@ -32,6 +34,10 @@ func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
 		return REJECTED, nil
 	case feeds.JobProposalStatusCancelled:
 		return CANCELLED, nil
+	case feeds.JobProposalStatusDeleted:
+		return DELETED, nil
+	case feeds.JobProposalStatusRevoked:
+		return REVOKED, nil
 	default:
 		return "", errors.New("invalid job proposal status")
 	}
@@ -60,6 +66,11 @@ func NewJobProposals(jps []feeds.JobProposal) []*JobProposalResolver {
 // ID resolves to the job proposal ID
 func (r *JobProposalResolver) ID() graphql.ID {
 	return int64GQLID(r.jp.ID)
+}
+
+// Name resolves to the job proposal name
+func (r *JobProposalResolver) Name() *string {
+	return r.jp.Name.Ptr()
 }
 
 // Status resolves to the job proposal Status

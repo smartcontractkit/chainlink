@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -33,6 +34,7 @@ func TestVRFv2Basic(t *testing.T) {
 	minimumConfirmations := 3
 
 	t.Parallel()
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	testEnvironment, testNetwork := setupVRFv2Test(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -45,7 +47,7 @@ func TestVRFv2Basic(t *testing.T) {
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)
@@ -103,7 +105,7 @@ func TestVRFv2Basic(t *testing.T) {
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()
 		require.NoError(t, err)
-		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
+		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.NewV4()
 		os := &client.VRFV2TxPipelineSpec{
@@ -150,7 +152,7 @@ func TestVRFv2Basic(t *testing.T) {
 		randomness, err := consumer.GetAllRandomWords(context.Background(), int(words))
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		for _, w := range randomness {
-			log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+			l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
 			g.Expect(w.Uint64()).ShouldNot(gomega.BeNumerically("==", 0), "Expected the VRF job give an answer other than 0")
 		}
 	}, timeout, "1s").Should(gomega.Succeed())
@@ -168,7 +170,7 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 	}
 
 	networkDetailTOML := `[EVM.GasEstimator]
-LimitDefault = 1400000
+LimitDefault = 3_500_000
 PriceMax = 100000000000
 FeeCapDefault = 100000000000`
 	testEnvironment = environment.New(&environment.Config{
@@ -176,7 +178,7 @@ FeeCapDefault = 100000000000`
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(chainlink.New(0, map[string]any{
 			"toml": client.AddNetworkDetailedConfig("", networkDetailTOML, testNetwork),
 		}))
 	err := testEnvironment.Run()
