@@ -3,7 +3,6 @@ package txmgr
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -21,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -191,7 +189,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		var ms services.MultiStart
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		eb := NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
 		ec := NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, eb); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
@@ -322,7 +320,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
 		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
@@ -481,8 +479,6 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		return etx, err
 	}
 
-	q := b.q.WithOpts(qs...)
-
 	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != common.Address{}) {
 		fwdPayload, fwdErr := b.fwdMgr.GetForwardedPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
@@ -501,44 +497,12 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		}
 	}
 
-	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
+	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	value := 0
-	err = q.Transaction(func(tx pg.Queryer) error {
-		if newTx.PipelineTaskRunID != nil {
-			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
-			// If no eth_tx matches (the common case) then continue
-			if !errors.Is(err, sql.ErrNoRows) {
-				if err != nil {
-					return errors.Wrap(err, "Txm#CreateEthTransaction")
-				}
-				// if a previous transaction for this task run exists, immediately return it
-				return nil
-			}
-		}
-		err := tx.Get(&etx, `
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
-VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
-)
-RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
-		if err != nil {
-			return errors.Wrap(err, "Txm#CreateEthTransaction failed to insert eth_tx")
-		}
-
-		pruned, err := newTx.Strategy.PruneQueue(tx)
-		if err != nil {
-			return errors.Wrap(err, "Txm#CreateEthTransaction failed to prune eth_txes")
-		}
-		if pruned > 0 {
-			b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
-		}
-		return nil
-	})
+	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, qs...)
 	return
 }
 
@@ -652,47 +616,6 @@ func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint32, gasP
 	payload := []byte{}
 	tx := gethTypes.NewTransaction(nonce, fromAddress, value, uint64(gasLimit), gasPriceWei, payload)
 	return keyStore.SignTx(fromAddress, tx, chainID)
-}
-
-const insertIntoEthTxAttemptsQuery = `
-INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
-VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
-RETURNING *;
-`
-
-// CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func CountUnconfirmedTransactions(q pg.Q, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
-	return countTransactionsWithState(q, fromAddress, EthTxUnconfirmed, chainID)
-}
-
-// CountUnstartedTransactions returns the number of unconfirmed transactions
-func CountUnstartedTransactions(q pg.Q, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
-	return countTransactionsWithState(q, fromAddress, EthTxUnstarted, chainID)
-}
-
-func countTransactionsWithState(q pg.Q, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
-	err = q.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
-		fromAddress, state, chainID.String())
-	return count, errors.Wrap(err, "failed to countTransactionsWithState")
-}
-
-// CheckEthTxQueueCapacity returns an error if inserting this transaction would
-// exceed the maximum queue size.
-func CheckEthTxQueueCapacity(q pg.Queryer, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
-	if maxQueuedTransactions == 0 {
-		return nil
-	}
-	var count uint64
-	err = q.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, fromAddress, chainID.String())
-	if err != nil {
-		err = errors.Wrap(err, "txmgr.CheckEthTxQueueCapacity query failed")
-		return
-	}
-
-	if count >= maxQueuedTransactions {
-		err = errors.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, label.MaxQueuedTransactionsWarning)
-	}
-	return
 }
 
 var _ TxManager = &NullTxManager{}

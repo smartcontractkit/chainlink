@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -88,6 +88,7 @@ func setupOCRTest(t *testing.T) (
 	testEnvironment *environment.Environment,
 	testNetwork blockchain.EVMNetwork,
 ) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
@@ -112,7 +113,7 @@ func setupOCRTest(t *testing.T) (
 			"replicas": 6,
 			"env":      ocrEnvVars,
 		})
-		log.Debug().Interface("Env", ocrEnvVars).Msg("Using Environment Variable Config")
+		l.Debug().Interface("Env", ocrEnvVars).Msg("Using Environment Variable Config")
 	}
 
 	testEnvironment = environment.New(&environment.Config{
