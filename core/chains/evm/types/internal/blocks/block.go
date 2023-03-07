@@ -5,6 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+//go:generate codecgen -o internal_types_codecgen.go  -j true transactions.go block.go
+
 // BlockInternal is JSON-serialization optimized intermediate representation between EVM blocks
 // and our public representation
 type BlockInternal struct {

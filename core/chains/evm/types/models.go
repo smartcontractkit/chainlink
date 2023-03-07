@@ -503,7 +503,7 @@ func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 	return ary[start:end], nil
 }
 
-// toInternalTxn converts a Transaction into the internal intermediate represenation
+// toInternalTxn converts a Transaction into the internal intermediate representation
 func toInternalTxn(txn Transaction) blocks.TransactionInternal {
 	gas := (hexutil.Uint64)(uint64(txn.GasLimit))
 	itype := blocks.TxType(txn.Type)
@@ -517,7 +517,7 @@ func toInternalTxn(txn Transaction) blocks.TransactionInternal {
 	}
 }
 
-// toInternalTxn converts a []Transaction into the internal intermediate represenation
+// toInternalTxn converts a []Transaction into the internal intermediate representation
 func toInternalTxnSlice(txns []Transaction) []blocks.TransactionInternal {
 	out := make([]blocks.TransactionInternal, len(txns))
 	for i, txn := range txns {
@@ -526,7 +526,7 @@ func toInternalTxnSlice(txns []Transaction) []blocks.TransactionInternal {
 	return out
 }
 
-// fromInternalTxn converts an internal intermediate represenation into a Transaction
+// fromInternalTxn converts an internal intermediate representation into a Transaction
 func fromInternalTxn(ti blocks.TransactionInternal) Transaction {
 	if ti.Type == nil {
 		tpe := LegacyTxType
@@ -542,7 +542,7 @@ func fromInternalTxn(ti blocks.TransactionInternal) Transaction {
 	}
 }
 
-// fromInternalTxnSlice converts a slice of internal intermediate represenation into a []Transaction
+// fromInternalTxnSlice converts a slice of internal intermediate representation into a []Transaction
 func fromInternalTxnSlice(tis []blocks.TransactionInternal) []Transaction {
 	out := make([]Transaction, len(tis))
 	for i, ti := range tis {

@@ -103,13 +103,9 @@ mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.20.0
 
 .PHONY: codecgen
-codecgen: $(codecgen)
+codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
 
-.PHONY: run-codecgen
-run-codecgen: $(run-codecgen)
-	cd core/chains/evm/types/internal/blocks && codecgen -o block_codecgen.go  -j true block.go && codecgen -o transactions_codecgen.go  -j true transactions.go 
-	
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
