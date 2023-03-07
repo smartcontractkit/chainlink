@@ -9,33 +9,39 @@ contract UpkeepCounterStats {
     bytes performData
   );
 
+  mapping(uint256 => uint256) public upkeepIdsToIntervals;
+  mapping(uint256 => uint256) public upkeepIdsToLastBlock;
+  mapping(uint256 => uint256) public upkeepIdsToPreviousPerformBlock;
+  mapping(uint256 => uint256) public upkeepIdsToInitialBlock;
+  mapping(uint256 => uint256) public upkeepIdsToCounter;
+  mapping(uint256 => uint256) public upkeepIdsToPerformGasToBurn;
+  mapping(uint256 => uint256) public upkeepIdsToCheckGasToBurn;
+  mapping(uint256 => uint256) public upkeepIdsToPerformDataSize;
   uint256 public interval;
-  uint256 public lastBlock;
-  uint256 public previousPerformBlock;
-  uint256 public initialBlock;
-  uint256 public counter;
-  uint256 public performGasToBurn;
-  uint256 public checkGasToBurn;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
-  uint256 public performDataSize;
 
+  mapping(uint256 => uint256[]) private upkeepIdsToDelay;
   uint256[] private delays;
 
   constructor(uint256 _interval) {
     interval = _interval;
-    previousPerformBlock = 0;
-    lastBlock = block.number;
-    initialBlock = 0;
-    counter = 0;
-    performGasToBurn = 0;
-    checkGasToBurn = 0;
   }
 
-  function checkUpkeep(bytes calldata) external returns (bool, bytes memory) {
+  function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
     uint256 startGas = gasleft();
-    bytes memory pData = new bytes(performDataSize);
+
+    (uint256 upkeepId, uint256 interval, uint256 checkGasToBurn, uint256 performGasToBurn, uint256 performDataSize) = abi.decode(
+      checkData,
+      (uint256, uint256, uint256, uint256, uint256)
+    );
+
+    upkeepIdsToIntervals[upkeepId] = interval;
+    upkeepIdsToCheckGasToBurn[upkeepId] = checkGasToBurn;
+    upkeepIdsToPerformGasToBurn[upkeepId] = performGasToBurn;
+    upkeepIdsToPerformDataSize[upkeepId] = performDataSize;
+    bytes memory pData = bytes.concat(abi.encode(upkeepId, performGasToBurn), new bytes(performDataSize));
     uint256 blockNum = block.number;
-    bool needed = eligible();
+    bool needed = eligible(upkeepId);
     while (startGas - gasleft() + 10000 < checkGasToBurn) {
       // 10K margin over gas to burn
       // Hard coded check gas to burn
@@ -47,20 +53,29 @@ contract UpkeepCounterStats {
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
+    (uint256 upkeepId, uint256 performGasToBurn, bytes memory performDataPlaceHolder) = abi.decode(
+      performData,
+      (uint256, uint256, bytes)
+    );
+    uint256 initialBlock = upkeepIdsToInitialBlock[upkeepId];
+    uint256 blockNum = block.number;
+    uint256 interval = upkeepIdsToIntervals[upkeepId];
     if (initialBlock == 0) {
-      initialBlock = block.number;
+      upkeepIdsToInitialBlock[upkeepId] = blockNum;
+      initialBlock = blockNum;
     } else {
       // Calculate and append delay
-      uint256 delay = block.number - previousPerformBlock - interval;
-      delays.push(delay);
+      uint256 delay = block.number - upkeepIdsToPreviousPerformBlock[upkeepId] - interval;
+      upkeepIdsToDelay[upkeepId].push(delay);
+      upkeepIdsToDelay[upkeepId] = delays;
     }
 
-    lastBlock = block.number;
-    counter = counter + 1;
-    emit PerformingUpkeep(initialBlock, lastBlock, previousPerformBlock, counter, performData);
-    previousPerformBlock = lastBlock;
+    upkeepIdsToLastBlock[upkeepId] = blockNum;
+    uint256 counter = upkeepIdsToCounter[upkeepId] + 1;
+    upkeepIdsToCounter[upkeepId] = counter;
+    emit PerformingUpkeep(initialBlock, blockNum, upkeepIdsToPreviousPerformBlock[upkeepId], counter, performData);
+    upkeepIdsToPreviousPerformBlock[upkeepId] = blockNum;
 
-    uint256 blockNum = block.number;
     while (startGas - gasleft() + 10000 < performGasToBurn) {
       // 10K margin over gas to burn
       dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
@@ -68,44 +83,43 @@ contract UpkeepCounterStats {
     }
   }
 
-  function eligible() public view returns (bool) {
-    if (initialBlock == 0) {
+  function eligible(uint256 upkeepId) public view returns (bool) {
+    if (upkeepIdsToInitialBlock[upkeepId] == 0) {
       return true;
     }
-    return (block.number - lastBlock) >= interval;
+    return (block.number - upkeepIdsToLastBlock[upkeepId]) >= upkeepIdsToIntervals[upkeepId];
   }
 
-  function setPerformGasToBurn(uint256 value) public {
-    performGasToBurn = value;
+  function setPerformGasToBurn(uint256 upkeepId, uint256 value) public {
+    upkeepIdsToPerformGasToBurn[upkeepId] = value;
   }
 
-  function setCheckGasToBurn(uint256 value) public {
-    checkGasToBurn = value;
+  function setCheckGasToBurn(uint256 upkeepId, uint256 value) public {
+    upkeepIdsToCheckGasToBurn[upkeepId] = value;
   }
 
-  function setPerformDataSize(uint256 value) public {
-    performDataSize = value;
+  function setPerformDataSize(uint256 upkeepId, uint256 value) public {
+    upkeepIdsToPerformDataSize[upkeepId] = value;
   }
 
-  function setSpread(uint256 _interval) external {
-    interval = _interval;
-    initialBlock = 0;
-    counter = 0;
+  function setSpread(uint256 upkeepId, uint256 _interval) external {
+    upkeepIdsToIntervals[upkeepId] = _interval;
+    upkeepIdsToInitialBlock[upkeepId] = 0;
+    upkeepIdsToCounter[upkeepId] = 0;
 
-    uint256 n = delays.length;
-    uint256 i;
-    for (i = 0; i < n; i++) delays.pop();
+    delete upkeepIdsToDelay[upkeepId];
   }
 
-  function getDelaysLength() public view returns (uint256) {
-    return delays.length;
+  function getDelaysLength(uint256 upkeepId) public view returns (uint256) {
+    return upkeepIdsToDelay[upkeepId].length;
   }
 
-  function getDelays() public view returns (uint256[] memory) {
-    return delays;
+  function getDelays(uint256 upkeepId) public view returns (uint256[] memory) {
+    return upkeepIdsToDelay[upkeepId];
   }
 
-  function getSumDelayLastNPerforms(uint256 n) public view returns (uint256, uint256) {
+  function getSumDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
+    uint256[] memory delays = upkeepIdsToDelay[upkeepId];
     uint256 i;
     uint256 len = delays.length;
     if (n == 0 || n >= len) {
@@ -117,7 +131,8 @@ contract UpkeepCounterStats {
     return (sum, n);
   }
 
-  function getPxDelayLastNPerforms(uint256 p, uint256 n) public view returns (uint256) {
+  function getPxDelayLastNPerforms(uint256 upkeepId, uint256 p, uint256 n) public view returns (uint256) {
+    uint256[] memory delays = upkeepIdsToDelay[upkeepId];
     uint256 i;
     uint256 len = delays.length;
     if (n == 0 || n >= len) {
