@@ -75,7 +75,7 @@ type ContractDeployer interface {
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 	DeployAtlasFunctions() (AtlasFunctions, error)
 	DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error)
-	DeployVerifier(feedId [32]byte, verifierProxyAddr string) (Verifier, error)
+	DeployVerifier(verifierProxyAddr string) (Verifier, error)
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
 }
 
