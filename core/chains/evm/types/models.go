@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/ugorji/go/codec"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -282,40 +283,65 @@ type blockInternal struct {
 	Transactions  []Transaction  `json:"transactions"`
 }
 
+func (bi blockInternal) empty() bool {
+	var dflt blockInternal
+
+	return len(bi.Transactions) == 0 &&
+		bi.Hash == dflt.Hash &&
+		bi.ParentHash == dflt.ParentHash &&
+		bi.BaseFeePerGas == dflt.BaseFeePerGas &&
+		bi.Timestamp == dflt.Timestamp
+}
+
 // MarshalJSON implements json marshalling for Block
 func (b Block) MarshalJSON() ([]byte, error) {
-	return json.Marshal(blockInternal{
+	bi := &blockInternal{
 		hexutil.EncodeBig(big.NewInt(b.Number)),
 		b.Hash,
 		b.ParentHash,
 		(*hexutil.Big)(b.BaseFeePerGas),
 		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
 		b.Transactions,
-	})
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, 1024))
+	enc := codec.NewEncoder(buf, &codec.JsonHandle{})
+	err := enc.Encode(bi)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 var ErrMissingBlock = errors.New("missing block")
 
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
-	var bi *blockInternal
-	if err := json.Unmarshal(data, &bi); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
+
+	var h codec.Handle = new(codec.JsonHandle)
+	bi := blockInternal{}
+
+	dec := codec.NewDecoderBytes(data, h)
+	err := dec.Decode(&bi)
+
+	if err != nil {
+		return err
 	}
-	if bi == nil {
+	if bi.empty() {
 		return errors.WithStack(ErrMissingBlock)
 	}
+
 	n, err := hexutil.DecodeBig(bi.Number)
 	if err != nil {
-		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got: '%s'", data)
+		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
 	}
 	*b = Block{
-		n.Int64(),
-		bi.Hash,
-		bi.ParentHash,
-		(*assets.Wei)(bi.BaseFeePerGas),
-		time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		bi.Transactions,
+		Number:        n.Int64(),
+		Hash:          bi.Hash,
+		ParentHash:    bi.ParentHash,
+		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
+		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		Transactions:  bi.Transactions,
 	}
 	return nil
 }
@@ -370,10 +396,17 @@ const LegacyTxType = TxType(0x0)
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
+
+	var h codec.Handle = new(codec.JsonHandle)
 	ti := transactionInternal{}
-	if err := json.Unmarshal(data, &ti); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
+
+	dec := codec.NewDecoderBytes(data, h)
+	err := dec.Decode(&ti)
+
+	if err != nil {
+		return err
 	}
+
 	if ti.Gas == nil {
 		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
 	}
@@ -382,12 +415,12 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		ti.Type = &tpe
 	}
 	*t = Transaction{
-		(*assets.Wei)(ti.GasPrice),
-		uint32(*ti.Gas),
-		(*assets.Wei)(ti.MaxFeePerGas),
-		(*assets.Wei)(ti.MaxPriorityFeePerGas),
-		*ti.Type,
-		ti.Hash,
+		GasPrice:             (*assets.Wei)(ti.GasPrice),
+		GasLimit:             uint32(*ti.Gas),
+		MaxFeePerGas:         (*assets.Wei)(ti.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*assets.Wei)(ti.MaxPriorityFeePerGas),
+		Type:                 *ti.Type,
+		Hash:                 ti.Hash,
 	}
 	return nil
 }
@@ -403,7 +436,15 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		Type:                 &t.Type,
 		Hash:                 t.Hash,
 	}
-	return json.Marshal(ti)
+
+	buf := bytes.NewBuffer(make([]byte, 0, 256))
+	enc := codec.NewEncoder(buf, &codec.JsonHandle{})
+
+	err := enc.Encode(ti)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // WeiPerEth is amount of Wei currency units in one Eth.

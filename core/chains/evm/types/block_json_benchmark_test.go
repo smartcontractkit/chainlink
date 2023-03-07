@@ -1,4 +1,4 @@
-package types
+package types_test
 
 import (
 	"encoding/binary"
@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
 
-func makeTestBlock(nTx int) *Block {
-	txns := make([]Transaction, nTx)
+func makeTestBlock(nTx int) *evmtypes.Block {
+	txns := make([]evmtypes.Transaction, nTx)
 
 	generateHash := func(x int64) common.Hash {
 		out := make([]byte, 0, 32)
@@ -28,21 +29,21 @@ func makeTestBlock(nTx int) *Block {
 	}
 	for i := 0; i < nTx; i++ {
 		wei := assets.NewWei(big.NewInt(int64(i)))
-		txns[i] = Transaction{
+		txns[i] = evmtypes.Transaction{
 			GasPrice:             wei,
 			GasLimit:             uint32(i),
 			MaxFeePerGas:         wei,
 			MaxPriorityFeePerGas: wei,
-			Type:                 0,
+			Type:                 evmtypes.TxType(i),
 			Hash:                 generateHash(int64(i)),
 		}
 	}
-	return &Block{
+	return &evmtypes.Block{
 		Number:        int64(nTx),
 		Hash:          generateHash(int64(1024 * 1024)),
 		ParentHash:    generateHash(int64(512 * 1024)),
 		BaseFeePerGas: assets.NewWei(big.NewInt(3)),
-		Timestamp:     time.Now(),
+		Timestamp:     time.Unix(0, 0),
 		Transactions:  txns,
 	}
 }
@@ -54,14 +55,14 @@ var (
 	xlBlock     = makeTestBlock(4 * 1024)
 )
 
-func unmarshal_block(b *testing.B, block *Block) {
+func unmarshal_block(b *testing.B, block *evmtypes.Block) {
 	jsonBytes, err := json.Marshal(&block)
 	if err != nil {
 		b.Fatalf("failed to create test json %+v", err)
 	}
 	b.ResetTimer()
 
-	var temp Block
+	var temp evmtypes.Block
 	for i := 0; i < b.N; i++ {
 		err := json.Unmarshal(jsonBytes, &temp)
 		if err != nil {
