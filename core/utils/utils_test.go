@@ -1005,7 +1005,8 @@ func TestErrorBuffer(t *testing.T) {
 
 	t.Run("ovewrite oldest error when cap exceeded", func(t *testing.T) {
 		t.Parallel()
-		buff := utils.ErrorBuffer{Cap: 2}
+		buff := utils.ErrorBuffer{}
+		buff.SetCap(2)
 		buff.Append(err1)
 		buff.Append(err2)
 		buff.Append(err3)
