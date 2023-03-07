@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"go.uber.org/zap/zapcore"
 
@@ -34,7 +33,7 @@ func TestVRFv2Basic(t *testing.T) {
 	minimumConfirmations := 3
 
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFv2Test(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

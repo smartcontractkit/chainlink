@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -116,7 +114,7 @@ func TestMain(m *testing.M) {
 
 func TestAutomatedBasic(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "basic-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -235,7 +233,7 @@ func TestAutomatedAddFunds(t *testing.T) {
 
 func TestAutomatedPauseUnPause(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "pause-unpause", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -319,7 +317,7 @@ func TestAutomatedPauseUnPause(t *testing.T) {
 
 func TestAutomatedRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "register-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -451,7 +449,7 @@ func TestAutomatedPauseRegistry(t *testing.T) {
 
 func TestAutomatedKeeperNodesDown(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "keeper-nodes-down", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -593,7 +591,7 @@ func TestAutomatedPerformSimulation(t *testing.T) {
 
 func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "gas-limit", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
@@ -694,7 +692,7 @@ func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 
 func TestUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "update-check-data", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)

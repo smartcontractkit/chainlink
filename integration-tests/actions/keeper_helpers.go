@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/stretchr/testify/require"
@@ -338,7 +337,7 @@ func RegisterUpkeepContracts(
 	numberOfContracts int,
 	upkeepAddresses []string,
 ) []*big.Int {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
 	for contractCount, upkeepAddress := range upkeepAddresses {
@@ -400,7 +399,7 @@ func DeployKeeperConsumers(
 	client blockchain.EVMClient,
 	numberOfContracts int,
 ) []contracts.KeeperConsumer {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -435,7 +434,7 @@ func DeployKeeperConsumersPerformance(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) []contracts.KeeperConsumerPerformance {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerPerformance, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -472,7 +471,7 @@ func DeployPerformDataChecker(
 	numberOfContracts int,
 	expectedData []byte,
 ) []contracts.KeeperPerformDataChecker {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperPerformDataChecker, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -504,7 +503,7 @@ func DeployUpkeepCounters(
 	testRange *big.Int,
 	interval *big.Int,
 ) []contracts.UpkeepCounter {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepCounter, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -537,7 +536,7 @@ func DeployUpkeepPerformCounterRestrictive(
 	testRange *big.Int,
 	averageEligibilityCadence *big.Int,
 ) []contracts.UpkeepPerformCounterRestrictive {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepPerformCounterRestrictive, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
