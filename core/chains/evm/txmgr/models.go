@@ -16,6 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -279,7 +280,7 @@ func (e EthTx) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ gas.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt{}
 
 type EthTxAttempt struct {
 	ID      int64

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/zap/zapcore"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -28,12 +29,12 @@ func main() {
 	ctx := context.Background()
 	withEstimator(ctx, logger.Sugared(lggr), url, func(e gas.EvmEstimator) {
 		printGetLegacyGas(ctx, e, make([]byte, 10), 500_000, assets.GWei(1))
-		printGetLegacyGas(ctx, e, make([]byte, 10), 500_000, assets.GWei(1), gas.OptForceRefetch)
+		printGetLegacyGas(ctx, e, make([]byte, 10), 500_000, assets.GWei(1), txmgrtypes.OptForceRefetch)
 		printGetLegacyGas(ctx, e, make([]byte, 10), max, assets.GWei(1))
 	})
 }
 
-func printGetLegacyGas(ctx context.Context, e gas.EvmEstimator, calldata []byte, l2GasLimit uint32, maxGasPrice *assets.Wei, opts ...gas.Opt) {
+func printGetLegacyGas(ctx context.Context, e gas.EvmEstimator, calldata []byte, l2GasLimit uint32, maxGasPrice *assets.Wei, opts ...txmgrtypes.Opt) {
 	price, limit, err := e.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPrice, opts...)
 	if err != nil {
 		log.Println("failed to get legacy gas:", err)

@@ -14,6 +14,7 @@ import (
 )
 
 func TestWrappedEvmEstimator(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	// fee values

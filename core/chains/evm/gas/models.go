@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
@@ -28,7 +29,7 @@ func IsBumpErr(err error) bool {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
+func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
 	s := cfg.GasEstimatorMode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
 		"estimatorMode", s,
@@ -70,23 +71,15 @@ type DynamicFee struct {
 	TipCap *assets.Wei
 }
 
-type PriorAttempt[FEE any, HASH any] interface {
-	Fee() FEE
-	GetChainSpecificGasLimit() uint32
-	GetBroadcastBeforeBlockNum() *int64
-	GetHash() HASH
-	GetTxType() int
-}
-
 type EvmPriorAttempt interface {
-	PriorAttempt[EvmFee, common.Hash]
+	txmgrtypes.PriorAttempt[EvmFee, common.Hash]
 
 	GetGasPrice() *assets.Wei
 	DynamicFee() DynamicFee
 }
 
 type evmPriorAttempt struct {
-	PriorAttempt[EvmFee, common.Hash]
+	txmgrtypes.PriorAttempt[EvmFee, common.Hash]
 }
 
 func (e evmPriorAttempt) GetGasPrice() *assets.Wei {
@@ -101,14 +94,14 @@ func (e evmPriorAttempt) DynamicFee() DynamicFee {
 	return *fee
 }
 
-func MakeEvmPriorAttempts(attempts []PriorAttempt[EvmFee, common.Hash]) (out []EvmPriorAttempt) {
+func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (out []EvmPriorAttempt) {
 	for i := range attempts {
 		out = append(out, MakeEvmPriorAttempt(attempts[i]))
 	}
 	return out
 }
 
-func MakeEvmPriorAttempt(a PriorAttempt[EvmFee, common.Hash]) EvmPriorAttempt {
+func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, common.Hash]) EvmPriorAttempt {
 	e := evmPriorAttempt{a}
 	return &e
 }
@@ -122,7 +115,7 @@ type EvmEstimator interface {
 	Close() error
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetLegacyGas(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+	GetLegacyGas(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
 	// BumpLegacyGas Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee is greater than maxGasPriceWei, the method returns an error
 	// attempts must:
@@ -145,18 +138,6 @@ type EvmFee struct {
 	Dynamic *DynamicFee
 }
 
-// FeeEstimator provides a generic interface for fee estimation
-//
-//go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
-type FeeEstimator[HEAD any, FEE any, MAXPRICE any, HASH any] interface {
-	OnNewLongestChain(context.Context, HEAD)
-	Start(context.Context) error
-	Close() error
-
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice MAXPRICE, opts ...Opt) (fee FEE, chainSpecificFeeLimit uint32, err error)
-	BumpFee(ctx context.Context, originalFee FEE, feeLimit uint32, maxFeePrice MAXPRICE, attempts []PriorAttempt[FEE, HASH]) (bumpedFee FEE, chainSpecificFeeLimit uint32, err error)
-}
-
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type WrappedEvmEstimator struct {
 	EvmEstimator
@@ -164,16 +145,16 @@ type WrappedEvmEstimator struct {
 }
 
 // var _ FeeEstimator = (*WrappedEvmEstimator)(nil)
-var _ FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] = (*WrappedEvmEstimator)(nil)
+var _ txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
+func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
 	return &WrappedEvmEstimator{
 		EvmEstimator:   e,
 		EIP1559Enabled: cfg.EvmEIP1559DynamicFees(),
 	}
 }
 
-func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {
+func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...txmgrtypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
@@ -187,7 +168,7 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 	return
 }
 
-func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []PriorAttempt[EvmFee, common.Hash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
+func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// validate only 1 fee type is present
 	if (originalFee.Dynamic == nil && originalFee.Legacy == nil) || (originalFee.Dynamic != nil && originalFee.Legacy != nil) {
 		err = errors.New("only one dynamic or legacy fee can be defined")
@@ -210,14 +191,6 @@ func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, fe
 	bumpedFee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.BumpLegacyGas(ctx, originalFee.Legacy, feeLimit, maxFeePrice, evmAttempts)
 	return
 }
-
-// Opt is an option for a gas estimator
-type Opt int
-
-const (
-	// OptForceRefetch forces the estimator to bust a cache if necessary
-	OptForceRefetch Opt = iota
-)
 
 func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
 	return uint32(decimal.NewFromBigInt(big.NewInt(0).SetUint64(uint64(gasLimit)), 0).Mul(decimal.NewFromFloat32(multiplier)).IntPart())

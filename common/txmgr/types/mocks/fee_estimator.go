@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	gas "github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	types "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -15,28 +15,28 @@ type FeeEstimator[HEAD interface{}, FEE interface{}, MAXPRICE interface{}, HASH 
 }
 
 // BumpFee provides a mock function with given fields: ctx, originalFee, feeLimit, maxFeePrice, attempts
-func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) BumpFee(ctx context.Context, originalFee FEE, feeLimit uint32, maxFeePrice MAXPRICE, attempts []gas.PriorAttempt[FEE, HASH]) (FEE, uint32, error) {
+func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) BumpFee(ctx context.Context, originalFee FEE, feeLimit uint32, maxFeePrice MAXPRICE, attempts []types.PriorAttempt[FEE, HASH]) (FEE, uint32, error) {
 	ret := _m.Called(ctx, originalFee, feeLimit, maxFeePrice, attempts)
 
 	var r0 FEE
 	var r1 uint32
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, FEE, uint32, MAXPRICE, []gas.PriorAttempt[FEE, HASH]) (FEE, uint32, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, FEE, uint32, MAXPRICE, []types.PriorAttempt[FEE, HASH]) (FEE, uint32, error)); ok {
 		return rf(ctx, originalFee, feeLimit, maxFeePrice, attempts)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, FEE, uint32, MAXPRICE, []gas.PriorAttempt[FEE, HASH]) FEE); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, FEE, uint32, MAXPRICE, []types.PriorAttempt[FEE, HASH]) FEE); ok {
 		r0 = rf(ctx, originalFee, feeLimit, maxFeePrice, attempts)
 	} else {
 		r0 = ret.Get(0).(FEE)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, FEE, uint32, MAXPRICE, []gas.PriorAttempt[FEE, HASH]) uint32); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, FEE, uint32, MAXPRICE, []types.PriorAttempt[FEE, HASH]) uint32); ok {
 		r1 = rf(ctx, originalFee, feeLimit, maxFeePrice, attempts)
 	} else {
 		r1 = ret.Get(1).(uint32)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, FEE, uint32, MAXPRICE, []gas.PriorAttempt[FEE, HASH]) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, FEE, uint32, MAXPRICE, []types.PriorAttempt[FEE, HASH]) error); ok {
 		r2 = rf(ctx, originalFee, feeLimit, maxFeePrice, attempts)
 	} else {
 		r2 = ret.Error(2)
@@ -60,7 +60,7 @@ func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) Close() error {
 }
 
 // GetFee provides a mock function with given fields: ctx, calldata, feeLimit, maxFeePrice, opts
-func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice MAXPRICE, opts ...gas.Opt) (FEE, uint32, error) {
+func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice MAXPRICE, opts ...types.Opt) (FEE, uint32, error) {
 	_va := make([]interface{}, len(opts))
 	for _i := range opts {
 		_va[_i] = opts[_i]
@@ -73,22 +73,22 @@ func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) GetFee(ctx context.Context, c
 	var r0 FEE
 	var r1 uint32
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint32, MAXPRICE, ...gas.Opt) (FEE, uint32, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint32, MAXPRICE, ...types.Opt) (FEE, uint32, error)); ok {
 		return rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint32, MAXPRICE, ...gas.Opt) FEE); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint32, MAXPRICE, ...types.Opt) FEE); ok {
 		r0 = rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	} else {
 		r0 = ret.Get(0).(FEE)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []byte, uint32, MAXPRICE, ...gas.Opt) uint32); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []byte, uint32, MAXPRICE, ...types.Opt) uint32); ok {
 		r1 = rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	} else {
 		r1 = ret.Get(1).(uint32)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, []byte, uint32, MAXPRICE, ...gas.Opt) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, []byte, uint32, MAXPRICE, ...types.Opt) error); ok {
 		r2 = rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	} else {
 		r2 = ret.Error(2)
