@@ -1,56 +1,64 @@
-package evm
+package mercury
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-// ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
-var ConfigSet common.Hash
+// FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
+var FeedScopedConfigSet common.Hash
 
-var defaultABI abi.ABI
+var verifierABI abi.ABI
 
 const configSetEventName = "ConfigSet"
 
 func init() {
 	var err error
-	abiPointer, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
+	verifierABI, err = abi.JSON(strings.NewReader(mercury_verifier.MercuryVerifierABI))
 	if err != nil {
 		panic(err)
 	}
-	defaultABI = *abiPointer
-	ConfigSet = defaultABI.Events[configSetEventName].ID
+	FeedScopedConfigSet = verifierABI.Events[configSetEventName].ID
 }
 
-func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
-	unpacked := new(ocr2aggregator.OCR2AggregatorConfigSet)
-	err := defaultABI.UnpackIntoInterface(unpacked, configSetEventName, d)
+// FullConfigFromLog defines the contract config with the feedID
+type FullConfigFromLog struct {
+	ocrtypes.ContractConfig
+	feedID [32]byte
+}
+
+func unpackLogData(d []byte) (*mercury_verifier.MercuryVerifierConfigSet, error) {
+	unpacked := new(mercury_verifier.MercuryVerifierConfigSet)
+
+	err := verifierABI.UnpackIntoInterface(unpacked, configSetEventName, d)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unpack log data")
 	}
+
 	return unpacked, nil
 }
 
-func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
+func configFromLog(logData []byte) (FullConfigFromLog, error) {
 	unpacked, err := unpackLogData(logData)
 	if err != nil {
-		return ocrtypes.ContractConfig{}, err
+		return FullConfigFromLog{}, err
 	}
 
 	var transmitAccounts []ocrtypes.Account
-	for _, addr := range unpacked.Transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("0x%x", addr)))
+	for _, addr := range unpacked.OffchainTransmitters {
+		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("%x", addr)))
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
@@ -58,19 +66,22 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		signers = append(signers, addr[:])
 	}
 
-	return ocrtypes.ContractConfig{
-		ConfigDigest:          unpacked.ConfigDigest,
-		ConfigCount:           unpacked.ConfigCount,
-		Signers:               signers,
-		Transmitters:          transmitAccounts,
-		F:                     unpacked.F,
-		OnchainConfig:         unpacked.OnchainConfig,
-		OffchainConfigVersion: unpacked.OffchainConfigVersion,
-		OffchainConfig:        unpacked.OffchainConfig,
+	return FullConfigFromLog{
+		feedID: unpacked.FeedId,
+		ContractConfig: ocrtypes.ContractConfig{
+			ConfigDigest:          unpacked.ConfigDigest,
+			ConfigCount:           unpacked.ConfigCount,
+			Signers:               signers,
+			Transmitters:          transmitAccounts,
+			F:                     unpacked.F,
+			OnchainConfig:         unpacked.OnchainConfig,
+			OffchainConfigVersion: unpacked.OffchainConfigVersion,
+			OffchainConfig:        unpacked.OffchainConfig,
+		},
 	}, nil
 }
 
-// ConfigPoller defines the Config Poller
+// ConfigPoller defines the Mercury Config Poller
 type ConfigPoller struct {
 	lggr               logger.Logger
 	filterName         string
@@ -78,11 +89,11 @@ type ConfigPoller struct {
 	addr               common.Address
 }
 
-// NewConfigPoller creates a new ConfigPoller
+// NewConfigPoller creates a new Mercury ConfigPoller
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
 	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
 
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +120,7 @@ func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
+	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(FeedScopedConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
@@ -126,7 +137,7 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, lp.addr, pg.WithParentCtx(ctx))
+	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -135,7 +146,7 @@ func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 		return ocrtypes.ContractConfig{}, err
 	}
 	lp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
-	return latestConfigSet, nil
+	return latestConfigSet.ContractConfig, nil
 }
 
 // LatestBlockHeight returns the latest block height from the logs

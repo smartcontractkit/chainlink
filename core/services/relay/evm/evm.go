@@ -129,13 +129,19 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 	return configProvider, err
 }
 
+type ConfigPollerInterface interface {
+	ocrtypes.ContractConfigTracker
+
+	Replay(ctx context.Context, fromBlock int64) error
+}
+
 type configWatcher struct {
 	utils.StartStopOnce
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
-	configPoller     *ConfigPoller
+	configPoller     ConfigPollerInterface
 	chain            evm.Chain
 	runReplay        bool
 	fromBlock        uint64
@@ -148,7 +154,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
-	configPoller *ConfigPoller,
+	configPoller ConfigPollerInterface,
 	chain evm.Chain,
 	fromBlock uint64,
 	runReplay bool,
@@ -178,12 +184,12 @@ func (c *configWatcher) Name() string {
 func (c *configWatcher) Start(ctx context.Context) error {
 	return c.StartOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
 		if c.runReplay && c.fromBlock != 0 {
-			// Only replay if its a brand runReplay job.
+			// Only replay if it's a brand runReplay job.
 			c.wg.Add(1)
 			go func() {
 				defer c.wg.Done()
 				c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
-				if err := c.configPoller.destChainLogPoller.Replay(c.replayCtx, int64(c.fromBlock)); err != nil {
+				if err := c.configPoller.Replay(c.replayCtx, int64(c.fromBlock)); err != nil {
 					c.lggr.Errorf("error replaying for config", "err", err)
 				} else {
 					c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
@@ -229,16 +235,23 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	}
 
 	contractAddress := common.HexToAddress(args.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
+	var configPoller ConfigPollerInterface
 
-	configPoller, err := NewConfigPoller(lggr,
-		chain.LogPoller(),
-		contractAddress,
-		WithFeedID(relayConfig.FeedID),
-	)
+	if relayConfig.FeedID != nil {
+		configPoller, err = mercury.NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+		)
+	} else {
+		configPoller, err = NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
