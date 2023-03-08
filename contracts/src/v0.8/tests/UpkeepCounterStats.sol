@@ -32,7 +32,7 @@ contract UpkeepCounterStats {
     upkeepIdsToCheckGasToBurn[upkeepId] = checkGasToBurn;
     upkeepIdsToPerformGasToBurn[upkeepId] = performGasToBurn;
     upkeepIdsToPerformDataSize[upkeepId] = performDataSize;
-    bytes memory pData = bytes.concat(abi.encode(upkeepId, performGasToBurn), new bytes(performDataSize));
+    bytes memory pData = abi.encode(upkeepId, performGasToBurn, new bytes(performDataSize));
     uint256 blockNum = block.number;
     bool needed = eligible(upkeepId);
     while (startGas - gasleft() + 10000 < checkGasToBurn) {
@@ -58,7 +58,7 @@ contract UpkeepCounterStats {
       initialBlock = blockNum;
     } else {
       // Calculate and append delay
-      uint256 delay = block.number - upkeepIdsToPreviousPerformBlock[upkeepId] - interval;
+      uint256 delay = blockNum - upkeepIdsToPreviousPerformBlock[upkeepId] - interval;
       upkeepIdsToDelay[upkeepId].push(delay);
     }
 
