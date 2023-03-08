@@ -9,7 +9,7 @@ on:
 env:
   REF_NAME: ${{ github.head_ref || github.ref_name }}
   DEVELOP_REF: develop
-  BUILD_SHA_REF: ci.${{ github.sha }}
+  BUILD_SHA_REF: chaos.${{ github.sha }}
   CHAINLINK_ECR_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
   TEST_SUITE: chaos
