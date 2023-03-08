@@ -17,7 +17,7 @@ contract ExposedVerifier {
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) internal view returns (bytes32) {
+  ) internal pure returns (bytes32) {
     uint256 h = uint256(
       keccak256(
         abi.encode(
@@ -48,7 +48,7 @@ contract ExposedVerifier {
     bytes calldata _onchainConfig,
     uint64 _encodedConfigVersion,
     bytes memory _encodedConfig
-  ) public view returns (bytes32) {
+  ) public pure returns (bytes32) {
     return _configDigestFromConfigData(_chainId, _contractAddress, _configCount,
       _signers, _offchainTransmitters, _f, _onchainConfig, _encodedConfigVersion,
       _encodedConfig);
