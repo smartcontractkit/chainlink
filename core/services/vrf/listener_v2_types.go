@@ -135,7 +135,7 @@ func (lsn *listenerV2) processBatch(
 	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
 		"batchSumGasLimit", batch.totalGasLimit,
-		"fromAddress", fromAddresses,
+		"fromAddress", fromAddress,
 		"linkBalance", startBalanceNoReserveLink,
 		"totalGasLimitBumped", totalGasLimitBumped,
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
