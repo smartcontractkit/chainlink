@@ -701,6 +701,7 @@ ContractSubscribeInterval = '2m' # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
+CaptureEATelemetry = false # Default
 ```
 
 
@@ -786,6 +787,12 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 ```
 KeyBundleID is a sha256 hexadecimal hash identifier.
 
+### CaptureEATelemetry
+```toml
+CaptureEATelemetry = false # Default
+```
+CaptureEATelemetry toggles collecting extra information from External Adaptares
+
 ## OCR
 ```toml
 [OCR]
@@ -798,6 +805,7 @@ DefaultTransactionQueueDepth = 1 # Default
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
 SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
+CaptureEATelemetry = false # Default
 ```
 This section applies only if you are running off-chain reporting jobs.
 
@@ -863,6 +871,12 @@ SimulateTransactions enables transaction simulation for OCR.
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 ```
 TransmitterAddress is the default sending address to use for OCR. If you have an OCR job that does not explicitly specify a transmitter address, it will fall back to this value.
+
+### CaptureEATelemetry
+```toml
+CaptureEATelemetry = false # Default
+```
+CaptureEATelemetry toggles collecting extra information from External Adaptares
 
 ## P2P
 ```toml
