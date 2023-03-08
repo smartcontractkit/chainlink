@@ -104,27 +104,18 @@ func ValidateReport(r map[string]interface{}) error {
 }
 
 // TODO: Remove this function and just use ed25519.GenerateKey(rand.Reader) with ed25519.PublicKey and ed25519.PrivateKey
-func generateEd25519Keys() (string, string, error) {
-	var (
-		err  error
-		pub  ed25519.PublicKey
-		priv ed25519.PrivateKey
-	)
-	pub, priv, err = ed25519.GenerateKey(rand.Reader)
-	return hex.EncodeToString(priv), hex.EncodeToString(pub), err
-}
+// func generateEd25519Keys() (string, string, error) {
+// 	var (
+// 		err  error
+// 		pub  ed25519.PublicKey
+// 		priv ed25519.PrivateKey
+// 	)
+// 	pub, priv, err = ed25519.GenerateKey(rand.Reader)
+// 	return hex.EncodeToString(priv), hex.EncodeToString(pub), err
+// }
 
-func SetupMercuryServer(
-	t *testing.T,
-	testEnv *environment.Environment,
-	dbSettings map[string]interface{},
-	serverSettings map[string]interface{},
-) string {
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
-	require.NoError(t, err, "Error connecting to Chainlink nodes")
-	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-
-	// Build rpc config for Mercury server
+// Build config with nodes for Mercury server
+func BuildRpcNodesJsonConf(t *testing.T, chainlinkNodes []*client.Chainlink) ([]byte, error) {
 	var msRpcNodesConf []*oracle
 	for i, chainlinkNode := range chainlinkNodes {
 		nodeName := fmt.Sprint(i)
@@ -167,13 +158,24 @@ func SetupMercuryServer(
 		}
 		msRpcNodesConf = append(msRpcNodesConf, node)
 	}
-	rpcNodesJsonConf, _ := json.Marshal(msRpcNodesConf)
-	// result := []interface{}{}
-	// err = json.Unmarshal([]byte(msRpcNodesJsonConf), &result)
-	// err = mapstructure.Decode(msRpcNodesConf[0], &result)
+	return json.Marshal(msRpcNodesConf)
+}
+
+func setupMercuryServer(
+	t *testing.T,
+	testEnv *environment.Environment,
+	dbSettings map[string]interface{},
+	serverSettings map[string]interface{},
+) ed25519.PublicKey {
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+
+	rpcNodesJsonConf, _ := BuildRpcNodesJsonConf(t, chainlinkNodes)
+	log.Info().Msgf("RPC nodes conf for mercury server: %s", rpcNodesJsonConf)
 
 	// Generate keys for Mercury RPC server
-	rpcPrivKey, rpcPubKey, err := generateEd25519Keys()
+	// rpcPrivKey, rpcPubKey, err := generateEd25519Keys()
+	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	settings := map[string]interface{}{
@@ -185,7 +187,7 @@ func SetupMercuryServer(
 			"enabled": true,
 		},
 		"qa": map[string]interface{}{
-			"rpcPrivateKey": rpcPrivKey,
+			"rpcPrivateKey": hex.EncodeToString(rpcPrivKey),
 			"enabled":       true,
 		},
 		"rpcNodesConf": string(rpcNodesJsonConf),
@@ -206,7 +208,7 @@ func SetupMercuryServer(
 
 func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) (
 	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
-	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer, string) {
+	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer, ed25519.PublicKey) {
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -217,21 +219,26 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 		})
 	}
 
-	// TODO: Remove. Not used in the new plugin
-	// secretsToml := fmt.Sprintf("%s\n%s\n%s\n%s\n",
-	// 	"[[Mercury.Credentials]]",
-	// 	fmt.Sprintf(`URL = "%s"`, fmt.Sprintf("%s:1338", mercury_server.URLsKey)),
-	// 	`Username = "node"`,
-	// 	`Password = "nodepass"`,
-	// )
-
 	testEnvironment := environment.New(&environment.Config{
 		// TTL:             12 * time.Hour,
-		NamespacePrefix: fmt.Sprintf("lukaszf-smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
+		AddHelm(mockserver.New(map[string]interface{}{
+			"app": map[string]interface{}{
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "200m",
+						"memory": "2048Mi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "200m",
+						"memory": "2048Mi",
+					},
+				},
+			},
+		})).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
@@ -244,7 +251,7 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 
-	msRpcPubKey := SetupMercuryServer(t, testEnvironment, dbSettings, serverResources)
+	msRpcPubKey := setupMercuryServer(t, testEnvironment, dbSettings, serverResources)
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -259,6 +266,7 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 	mockserverClient, err := ctfClient.ConnectMockServer(testEnvironment)
 	require.NoError(t, err, "Error connecting to mock server")
 
+	// mercuryServerLocalUrl := testEnvironment.URLs[mercury_server.URLsKey][0]
 	mercuryServerRemoteUrl := testEnvironment.URLs[mercury_server.URLsKey][1]
 	mercuryServerClient := client.NewMercuryServer(mercuryServerRemoteUrl)
 
@@ -307,7 +315,8 @@ func SetupMercuryNodeJobs(
 	contractID string,
 	feedId [32]byte,
 	fromBlock uint64,
-	mercuryServerPubKey string,
+	mercuryServerLocalUrl string,
+	mercuryServerPubKey ed25519.PublicKey,
 	chainID int64,
 	keyIndex int,
 ) {
@@ -396,9 +405,11 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 				// 		bn1 -> bn1_lookup;
 				// 	"""`,
 				// },
+				// TODO: Fix local mercury server url. Should be only host without port. Or, local wsrpc url
 				PluginConfig: map[string]interface{}{
-					"serverHost":   fmt.Sprintf("\"%s:1338\"", mercury_server.URLsKey),
-					"serverPubKey": fmt.Sprintf("\"%s\"", mercuryServerPubKey),
+					// "serverHost":   fmt.Sprintf("\"%s:1338\"", mercury_server.URLsKey),
+					"serverURL":    fmt.Sprintf("\"%s:1338\"", mercuryServerLocalUrl[7:len(mercuryServerLocalUrl)-5]),
+					"serverPubKey": fmt.Sprintf("\"%s\"", hex.EncodeToString(mercuryServerPubKey)),
 				},
 				Relay: "evm",
 				RelayConfig: map[string]interface{}{

@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
+	mercury_server "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/stretchr/testify/require"
 )
@@ -115,7 +116,7 @@ var feedId = testsetups.StringToByte32("ETH-USD-1")
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
 
-	_, isExistingTestEnv, testNetwork, chainlinkNodes,
+	testEnv, isExistingTestEnv, testNetwork, chainlinkNodes,
 		mercuryServerRemoteUrl,
 		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t, nil, nil)
 	_ = isExistingTestEnv
@@ -130,8 +131,9 @@ func TestMercurySmoke(t *testing.T) {
 	latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err)
 
+	mercuryServerLocalUrl := testEnv.URLs[mercury_server.URLsKey][0]
 	testsetups.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
-		feedId, latestBlockNum, msRpcPubKey, testNetwork.ChainID, 0)
+		feedId, latestBlockNum, mercuryServerLocalUrl, msRpcPubKey, testNetwork.ChainID, 0)
 
 	verifier.SetConfig(feedId, ocrConfig)
 
