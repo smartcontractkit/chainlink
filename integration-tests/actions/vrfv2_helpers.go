@@ -70,7 +70,7 @@ func CreateVRFV2Jobs(
 		job, err := n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddress:              oracleAddr,
+			FromAddresses:            []string{oracleAddr},
 			EVMChainID:               c.GetChainID().String(),
 			MinIncomingConfirmations: minIncomingConfirmations,
 			PublicKey:                pubKeyCompressed,
