@@ -571,6 +571,10 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		}
 
 		fromAddresses := lsn.fromAddresses()
+		if len(fromAddresses) == 0 {
+			l.Errorw("No fromAddresses specified in VRF v2 job spec, please specify")
+			continue
+		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 
 		// Cases:
@@ -747,6 +751,10 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 
 		fromAddresses := lsn.fromAddresses()
+		if len(fromAddresses) == 0 {
+			l.Errorw("No fromAddresses specified in VRF v2 job spec, please specify")
+			continue
+		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
