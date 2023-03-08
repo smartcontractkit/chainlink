@@ -232,6 +232,7 @@ type OCROracleSpec struct {
 	ObservationGracePeriodEnv                 bool
 	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool
+	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }
@@ -344,6 +345,7 @@ type OCR2OracleSpec struct {
 	PluginType                        OCR2PluginType  `toml:"pluginType"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
+	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.

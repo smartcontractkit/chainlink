@@ -296,6 +296,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				*jb.PipelineSpec,
 				lggr,
 				runResults,
+				d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA),
 			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,

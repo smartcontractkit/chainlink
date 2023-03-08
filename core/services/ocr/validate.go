@@ -33,6 +33,7 @@ type ValidationConfig interface {
 	OCRObservationTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PPeerID() p2pkey.PeerID
+	OCRCaptureEATelemetry() bool
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

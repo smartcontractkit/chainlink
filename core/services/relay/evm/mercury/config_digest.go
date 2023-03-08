@@ -13,9 +13,6 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
-// TODO: import tests
-// Originally from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/config_digest.go
-
 func makeConfigDigestArgs() abi.Arguments {
 	abi, err := abi.JSON(strings.NewReader(
 		exposedocr2aggregator.ExposedOCR2AggregatorABI))

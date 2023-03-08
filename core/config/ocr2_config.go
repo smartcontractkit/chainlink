@@ -22,6 +22,7 @@ type OCR2Config interface {
 	OCR2KeyBundleID() (string, error)
 	// OCR2 config, cannot override in jobs
 	OCR2TraceLogging() bool
+	OCR2CaptureEATelemetry() bool
 }
 
 func (c *generalConfig) OCR2ContractConfirmations() uint16 {
@@ -61,4 +62,10 @@ func (c *generalConfig) OCR2KeyBundleID() (string, error) {
 
 func (c *generalConfig) OCR2TraceLogging() bool {
 	return c.viper.GetBool(envvar.Name("OCRTraceLogging"))
+}
+
+// OCR2CaptureEATelemetry toggles the extraction of additional telemetry data
+// from External Adapters
+func (c *generalConfig) OCR2CaptureEATelemetry() bool {
+	return c.viper.GetBool(envvar.Name("OCR2CaptureEATelemetry"))
 }

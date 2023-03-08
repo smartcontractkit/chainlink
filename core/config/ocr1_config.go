@@ -24,6 +24,7 @@ type OCR1Config interface {
 	// OCR1 config, cannot override in jobs
 	OCRTraceLogging() bool
 	OCRDefaultTransactionQueueDepth() uint32
+	OCRCaptureEATelemetry() bool
 }
 
 func (c *generalConfig) getDuration(field string) time.Duration {
@@ -101,4 +102,10 @@ func (c *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 		return ta, nil
 	}
 	return "", errors.Wrap(ErrEnvUnset, "OCR_TRANSMITTER_ADDRESS env var is not set")
+}
+
+// OCRCaptureEATelemetry toggles the extraction of additional telemetry data
+// from External Adapters
+func (c *generalConfig) OCRCaptureEATelemetry() bool {
+	return c.viper.GetBool(envvar.Name("OCRCaptureEATelemetry"))
 }

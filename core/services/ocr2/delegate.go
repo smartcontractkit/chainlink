@@ -251,10 +251,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			// FIXME:
-			// telemetry types were recently added to help with routing in the ingress service. could we add a new type for mercury and use that instead of OCR2Median?
-			// https://github.com/smartcontractkit/chainlink/blob/develop/core/services/synchronization/common.go#L6-L12
-			MonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Median),
+			// FIXME: It looks like telemetry is uniquely keyed by contractID
+			// but mercury runs multiple feeds per contract.
+			// How can we scope this to a more granular level?
+			// https://smartcontract-it.atlassian.net/browse/MERC-227
+			MonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Mercury),
 			OffchainConfigDigester: mercuryProvider.OffchainConfigDigester(),
 			OffchainKeyring:        kb,
 			OnchainKeyring:         kb,
@@ -288,7 +289,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg)
+		eaMonitoringEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA)
+		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg, eaMonitoringEndpoint)
 	case job.DKG:
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {

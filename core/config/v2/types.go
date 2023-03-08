@@ -599,6 +599,7 @@ type OCR2 struct {
 	ContractTransmitterTransmitTimeout *models.Duration
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
+	CaptureEATelemetry                 *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -626,6 +627,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	if v := f.KeyBundleID; v != nil {
 		o.KeyBundleID = v
 	}
+	if v := f.CaptureEATelemetry; v != nil {
+		o.CaptureEATelemetry = v
+	}
 }
 
 type OCR struct {
@@ -639,6 +643,7 @@ type OCR struct {
 	KeyBundleID          *models.Sha256Hash
 	SimulateTransactions *bool
 	TransmitterAddress   *ethkey.EIP55Address
+	CaptureEATelemetry   *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -668,6 +673,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.TransmitterAddress; v != nil {
 		o.TransmitterAddress = v
+	}
+	if v := f.CaptureEATelemetry; v != nil {
+		o.CaptureEATelemetry = v
 	}
 }
 

@@ -645,6 +645,7 @@ type OCRSpecConfig interface {
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	OCRKeyBundleID() (string, error)
+	OCRCaptureEATelemetry() bool
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
@@ -681,6 +682,8 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
+	os.CaptureEATelemetry = cfg.OCRCaptureEATelemetry()
+
 	return &os
 }
 
