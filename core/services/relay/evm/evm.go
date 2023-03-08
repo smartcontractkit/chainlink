@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
-	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -204,10 +204,20 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configPoller, err := NewConfigPoller(lggr,
-		chain.LogPoller(),
-		contractAddress,
-	)
+
+	var configPoller *ConfigPoller
+	if relayConfig.MercuryConfig != nil && relayConfig.MercuryConfig.FeedID != (common.Hash{}) {
+		configPoller, err = NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+			WithFeedId(relayConfig.MercuryConfig.FeedID),
+		)
+	} else {
+		configPoller, err = NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -237,10 +247,13 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	}
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
-	// Ensure that this forwarder is not set to a local sending key.
+	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
 	for _, s := range sendingKeys {
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
+		}
+		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().ChainID()); err != nil {
+			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}

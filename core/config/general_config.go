@@ -160,6 +160,7 @@ type BasicConfig interface {
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
 	Port() uint16
+	PrometheusAuthToken() string
 	PyroscopeAuthToken() string
 	PyroscopeServerAddress() string
 	PyroscopeEnvironment() string
@@ -607,6 +608,11 @@ func (c *generalConfig) AutoPprofGoroutineThreshold() int {
 // PyroscopeAuthToken specifies the Auth Token used to send profiling info to Pyroscope
 func (c *generalConfig) PyroscopeAuthToken() string {
 	return c.viper.GetString(envvar.Name("PyroscopeAuthToken"))
+}
+
+// PrometheusAuthToken specifies the Auth Token use to scrape Prometheus /metrics endpoint
+func (c *generalConfig) PrometheusAuthToken() string {
+	return c.viper.GetString(envvar.Name("PrometheusAuthToken"))
 }
 
 // PyroscopeServerAddress specifies the Server Address where the Pyroscope instance lives

@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -39,10 +39,11 @@ func CreateOCR2VRFJobs(
 	chainID int64,
 	keyIndex int,
 ) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	p2pV2Bootstrapper := createBootstrapJob(t, bootstrapNode, OCR2VRFPluginConfig.DKGConfig.DKGContractAddress, chainID)
 
 	createNonBootstrapJobs(t, nonBootstrapNodes, OCR2VRFPluginConfig, chainID, keyIndex, p2pV2Bootstrapper)
-	log.Info().Msg("Done creating OCR automation jobs")
+	l.Info().Msg("Done creating OCR automation jobs")
 }
 
 func createNonBootstrapJobs(
@@ -119,7 +120,7 @@ func BuildOCR2DKGConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRConfig {
-
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -191,7 +192,7 @@ func BuildOCR2DKGConfigVars(
 		)
 	require.NoError(t, err, "Shouldn't fail building OCR config")
 
-	log.Info().Msg("Done building DKG OCR config")
+	l.Info().Msg("Done building DKG OCR config")
 	return contracts.OCRConfig{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
@@ -265,7 +266,7 @@ func BuildOCR2VRFConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRConfig {
-
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -316,7 +317,7 @@ func BuildOCR2VRFConfigVars(
 		)
 	require.NoError(t, err)
 
-	log.Info().Msg("Done building VRF OCR config")
+	l.Info().Msg("Done building VRF OCR config")
 	return contracts.OCRConfig{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,

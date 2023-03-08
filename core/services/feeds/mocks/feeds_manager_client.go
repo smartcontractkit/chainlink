@@ -66,6 +66,32 @@ func (_m *FeedsManagerClient) CancelledJob(ctx context.Context, in *proto.Cancel
 	return r0, r1
 }
 
+// Healthcheck provides a mock function with given fields: ctx, in
+func (_m *FeedsManagerClient) Healthcheck(ctx context.Context, in *proto.HealthcheckRequest) (*proto.HealthcheckResponse, error) {
+	ret := _m.Called(ctx, in)
+
+	var r0 *proto.HealthcheckResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *proto.HealthcheckRequest) (*proto.HealthcheckResponse, error)); ok {
+		return rf(ctx, in)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *proto.HealthcheckRequest) *proto.HealthcheckResponse); ok {
+		r0 = rf(ctx, in)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*proto.HealthcheckResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *proto.HealthcheckRequest) error); ok {
+		r1 = rf(ctx, in)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // RejectedJob provides a mock function with given fields: ctx, in
 func (_m *FeedsManagerClient) RejectedJob(ctx context.Context, in *proto.RejectedJobRequest) (*proto.RejectedJobResponse, error) {
 	ret := _m.Called(ctx, in)
