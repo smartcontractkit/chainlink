@@ -102,6 +102,7 @@ func ValidateReport(r map[string]interface{}) error {
 	return nil
 }
 
+// TODO: Remove this function and just use ed25519.GenerateKey(rand.Reader) with ed25519.PublicKey and ed25519.PrivateKey
 func generateEd25519Keys() (string, string, error) {
 	var (
 		err  error
@@ -215,12 +216,13 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 		})
 	}
 
-	secretsToml := fmt.Sprintf("%s\n%s\n%s\n%s\n",
-		"[[Mercury.Credentials]]",
-		fmt.Sprintf(`URL = "%s"`, fmt.Sprintf("%s:1338", mercury_server.URLsKey)),
-		`Username = "node"`,
-		`Password = "nodepass"`,
-	)
+	// TODO: Remove. Not used in the new plugin
+	// secretsToml := fmt.Sprintf("%s\n%s\n%s\n%s\n",
+	// 	"[[Mercury.Credentials]]",
+	// 	fmt.Sprintf(`URL = "%s"`, fmt.Sprintf("%s:1338", mercury_server.URLsKey)),
+	// 	`Username = "node"`,
+	// 	`Password = "nodepass"`,
+	// )
 
 	testEnvironment := environment.New(&environment.Config{
 		// TTL:             12 * time.Hour,
@@ -235,8 +237,8 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 			"toml": client.AddNetworksConfig(
 				config.BaseMercuryTomlConfig,
 				testNetwork),
-			"secretsToml": secretsToml,
-			"prometheus":  "true",
+			// "secretsToml": secretsToml,
+			"prometheus": "true",
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
@@ -272,7 +274,7 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 		mercuryServerRemoteUrl, evmClient, mockserverClient, mercuryServerClient, msRpcPubKey
 }
 
-func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId [32]byte, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
+func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
@@ -288,6 +290,7 @@ func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercury
 	require.NoError(t, err, "Error deploying Verifier contract")
 
 	verifier.SetConfig(feedId, ocrConfig)
+
 	latestConfigDetails, err := verifier.LatestConfigDetails(feedId)
 	require.NoError(t, err, "Error getting Verifier.LatestConfigDetails()")
 	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
@@ -311,15 +314,36 @@ func SetupMercuryNodeJobs(
 	err := mockserverClient.SetRandomValuePath("/variable")
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	osTemplate := `
-	ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true"];
-	ds1_parse    [type=jsonparse path="data,result"];
-	ds1_multiply [type=multiply times=100];
-	ds1 -> ds1_parse -> ds1_multiply -> answer1;
+	observationSource := fmt.Sprintf(`
+// Benchmark Price
+price1          [type=http method=GET url="%[1]s" allowunrestrictednetworkaccess="true"];
+price1_parse    [type=jsonparse path="data,result"];
+price1_multiply [type=multiply times=100000000 index=0];
 
-	answer1 [type=median index=0 allowedFaults=4];
-`
-	observationSource := fmt.Sprintf(string(osTemplate), mockserverClient.Config.ClusterURL+"/variable")
+price1 -> price1_parse -> price1_multiply;
+
+// Bid
+bid          [type=http method=GET url="%[1]s" allowunrestrictednetworkaccess="true"];
+bid_parse    [type=jsonparse path="data,result"];
+bid_multiply [type=multiply times=100000000 index=1];
+
+bid -> bid_parse -> bid_multiply;
+
+// Ask
+ask          [type=http method=GET url="%[1]s" allowunrestrictednetworkaccess="true"];
+ask_parse    [type=jsonparse path="data,result"];
+ask_multiply [type=multiply times=100000000 index=2];
+
+ask -> ask_parse -> ask_multiply;	
+
+// Block Num + Hash
+b1                 [type=ethgetblock];
+bnum_lookup        [type=lookup key="number" index=3];
+bhash_lookup       [type=lookup key="hash" index=4];
+
+b1 -> bnum_lookup;
+b1 -> bhash_lookup;
+	`, mockserverClient.Config.ClusterURL+"/variable")
 
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
@@ -344,14 +368,12 @@ func SetupMercuryNodeJobs(
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
-		require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
 		require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 		csaKeys, _, err := chainlinkNodes[nodeIndex].ReadCSAKeys()
 		require.NoError(t, err)
-		csaKeyId := csaKeys.Data[0].ID
-		_ = csaKeyId
+		// csaKeyId := csaKeys.Data[0].ID
+		csaPubKey := csaKeys.Data[0].Attributes.PublicKey
 
 		var nodeOCRKeyId []string
 		for _, key := range nodeOCRKeys.Data {
@@ -361,59 +383,55 @@ func SetupMercuryNodeJobs(
 			}
 		}
 
-		// Convert feedId to hex with zeros appended
-		// Example: 0x4554482d5553442d4f7074696d69736d2d476f65726c692d3100000000000000
-		feedIdHex := fmt.Sprintf("0x%x", feedId)
-		log.Info().Msgf("Setup feedID, string: %s, hex: %s", feedId, feedIdHex)
-
-		autoOCR2JobSpec := client.OCR2TaskJobSpec{
+		jobSpec := client.OCR2TaskJobSpec{
 			Name:            "ocr2",
 			JobType:         "offchainreporting2",
 			MaxTaskDuration: "1s",
 			OCR2OracleSpec: job.OCR2OracleSpec{
-				PluginType: "median",
+				PluginType: "mercury",
+				// PluginConfig: map[string]interface{}{
+				// 	"juelsPerFeeCoinSource": `"""
+				// 		bn1          [type=ethgetblock];
+				// 		bn1_lookup   [type=lookup key="number"];
+				// 		bn1 -> bn1_lookup;
+				// 	"""`,
+				// },
 				PluginConfig: map[string]interface{}{
-					"juelsPerFeeCoinSource": `"""
-						bn1          [type=ethgetblock];
-						bn1_lookup   [type=lookup key="number"];
-						bn1 -> bn1_lookup;
-					"""`,
+					"serverHost":   fmt.Sprintf("\"%s:1338\"", mercury_server.URLsKey),
+					"serverPubKey": fmt.Sprintf("\"%s\"", mercuryServerPubKey),
 				},
 				Relay: "evm",
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
+					"feedID":  fmt.Sprintf("\"0x%x\"", feedId),
 				},
-				RelayConfigMercuryConfig: map[string]interface{}{
-					"clientPrivKeyID": csaKeyId,
-					"serverPubKey":    fmt.Sprintf("0x%s", mercuryServerPubKey),
-					"feedID":          feedIdHex,
-					"url":             fmt.Sprintf("%s:1338", mercury_server.URLsKey),
-				},
+				// RelayConfigMercuryConfig: map[string]interface{}{
+				// 	"clientPrivKeyID": csaKeyId,
+				// },
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
-				ContractID:                        contractID,                                        // registryAddr
-				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[keyIndex]),           // get node ocr2config.ID
-				TransmitterID:                     null.StringFrom(nodeTransmitterAddress[keyIndex]), // node addr
-				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},                 // bootstrap node key and address <p2p-key>@bootstrap:8000
+				ContractID:                        contractID,
+				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[keyIndex]),
+				TransmitterID:                     null.StringFrom(csaPubKey),
+				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},
 			},
 			ObservationSource: observationSource,
 		}
 
-		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
+		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&jobSpec)
 		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
 	log.Info().Msg("Done creating OCR automation jobs")
 }
 
-func BuildMercuryOCR2Config(
+func BuildMercuryOCRConfig(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
-) contracts.OCRConfig {
+) contracts.MercuryOCRConfig {
 	onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
 	alphaPPB := uint64(1000)
-
-	return actions.BuildGeneralOCR2Config(
+	config := actions.BuildGeneralOCR2Config(
 		t,
 		chainlinkNodes,
 		2*time.Second,        // deltaProgress time.Duration,
@@ -438,4 +456,31 @@ func BuildMercuryOCR2Config(
 		1,                    // f int,
 		onchainConfig,
 	)
+	// Use node CSA pub key as offchain transmitter
+	transmitters := make([][32]byte, len(chainlinkNodes))
+	for i, n := range chainlinkNodes {
+		csaKeys, _, err := n.ReadCSAKeys()
+		require.NoError(t, err)
+		// csaPubKey := csaKeys.Data[0].Attributes.PublicKey
+		csaPubKey, err := hex.DecodeString(csaKeys.Data[0].Attributes.PublicKey)
+		require.NoError(t, err)
+		transmitters[i] = [32]byte(csaPubKey)
+	}
+
+	mercuryConfig := contracts.MercuryOCRConfig{
+		Signers:               config.Signers,
+		Transmitters:          transmitters,
+		F:                     config.F,
+		OnchainConfig:         config.OnchainConfig,
+		OffchainConfigVersion: config.OffchainConfigVersion,
+		OffchainConfig:        config.OffchainConfig,
+	}
+
+	return mercuryConfig
+}
+
+func StringToByte32(str string) [32]byte {
+	var bytes [32]byte
+	copy(bytes[:], str)
+	return bytes
 }

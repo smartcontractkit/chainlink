@@ -12,6 +12,15 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier_proxy"
 )
 
+type MercuryOCRConfig struct {
+	Signers               []common.Address
+	Transmitters          [][32]byte
+	F                     uint8
+	OnchainConfig         []byte
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
+}
+
 type Exchanger interface {
 	Address() string
 	CommitTrade(commitment [32]byte) error
@@ -117,7 +126,7 @@ func (v *EthereumVerifierProxy) Verify(signedReport []byte) error {
 
 type Verifier interface {
 	Address() string
-	SetConfig([32]byte, OCRConfig) error
+	SetConfig([32]byte, MercuryOCRConfig) error
 	LatestConfigDetails(feedId [32]byte) (struct {
 		ConfigCount  uint32
 		BlockNumber  uint32
@@ -135,24 +144,20 @@ func (v *EthereumVerifier) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVerifier) SetConfig(feedId [32]byte, ocrConfig OCRConfig) error {
+func (v *EthereumVerifier) SetConfig(feedId [32]byte, config MercuryOCRConfig) error {
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	offchainTransmitters := make([][32]byte, len(ocrConfig.Transmitters))
-	for i := 0; i < len(ocrConfig.Transmitters); i++ {
-		offchainTransmitters[i] = [32]byte(ocrConfig.Transmitters[i].Bytes())
-	}
 	tx, err := v.verifier.SetConfig(
 		txOpts,
 		feedId,
-		ocrConfig.Signers,
-		offchainTransmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
+		config.Signers,
+		config.Transmitters,
+		config.F,
+		config.OnchainConfig,
+		config.OffchainConfigVersion,
+		config.OffchainConfig,
 	)
 	if err != nil {
 		return err
