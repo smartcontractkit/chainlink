@@ -1,8 +1,6 @@
 package solana
 
 import (
-	"context"
-
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -74,16 +72,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 // ChainSet extends solana.ChainSet with mutability.
 type ChainSet interface {
 	solana.ChainSet
-
-	Add(context.Context, string, *db.ChainCfg) (DBChain, error)
-	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (DBChain, error)
-	Show(id string) (DBChain, error)
-	Index(offset, limit int) ([]DBChain, int, error)
-	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
-	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
-	DeleteNode(ctx context.Context, id int32) error
+	chains.DBChainSet[string, *db.ChainCfg]
+	chains.DBNodeSet[string, db.Node]
 }
 
 // NewChainSet returns a new chain set for opts.

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -722,4 +723,179 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
 		assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))
 	})
+}
+
+func TestTransaction_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+	type args struct {
+		data []byte
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		want    *evmtypes.Transaction
+	}{
+		{
+			name: "sample geth txn",
+			args: args{
+				[]byte(
+					`{
+	"blockHash": "0x45eb0a650b6b0b9fd1ee676b870e43fa7614f1034f7404070327a332faed05c0",
+	"blockNumber": "0xe5a952",
+	"from": "0x76e40d0a69fd81826b5eb7d18145626d46eafdef",
+	"gas": "0xdbba0",
+	"gasPrice": "0x978a846d2",
+	"maxFeePerGas": "0xd0892241d",
+	"maxPriorityFeePerGas": "0x3b9aca01",
+	"hash": "0x754f49f0a2ca7680806d261dd36ee95ac88a81da59fef0b5d8d691478f075d46",
+	"input": "0x1cff79cd000000000000000000000000343933efdf64d2d6eeaf2dcd5fbd701541d64f67000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e44a7d794a000000000000000000000000000000000000000000000005bc94810a20626a9a0000000000000000000000000000000000000000000000000e52b79acdb06152000000000000000000000000000000000000798f836298dfb377b3deeb7ade400000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000062bdc2400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000798e37fb7bc47a14e3b89fa086d600000000000000000000000000000000000000000000000000000000",
+	"nonce": "0xbf65",
+	"to": "0x4cb18386e5d1f34dc6eea834bf3534a970a3f8e7",
+	"transactionIndex": "0x0",
+	"value": "0xa907",
+	"type": "0x2",
+	"accessList": [],
+	"chainId": "0x1",
+	"v": "0x0",
+	"r": "0xcbdf4705610d7b20326dcd153491f37f133c34026f3e0abf72f9db03ac98de0e",
+	"s": "0xa2b2d625d34315e8d6d0543e0f9393d2a14dddaf3678d7f0ed432df9cb8e5c3"
+}`,
+				),
+			},
+			want: &evmtypes.Transaction{
+				GasPrice:             assets.NewWei(utils.HexToBig("978a846d2")),
+				GasLimit:             mustHextoUint32(t, "0xdbba0"),
+				MaxFeePerGas:         assets.NewWei(utils.HexToBig("d0892241d")),
+				MaxPriorityFeePerGas: assets.NewWei(utils.HexToBig("3b9aca01")),
+				Type:                 0x2,
+				Hash:                 common.HexToHash("0x754f49f0a2ca7680806d261dd36ee95ac88a81da59fef0b5d8d691478f075d46"),
+			},
+		},
+		{
+			name: "sample parity txn",
+			args: args{[]byte(
+				`   {
+	"blockHash": "0x0ec62c2a397e114d84ce932387d841787d7ec5757ceba3708386da87934b7c82",
+	"blockNumber": "0x1ef81ff",
+	"chainId": null,
+	"condition": null,
+	"creates": null,
+	"from": "0xe6d63ed2c574b150a205d1d9cc7aaff1b7e4b59d",
+	"gas": "0x2dc6c0",
+	"gasPrice": "0x4f7915f5",
+	"hash": "0xbe6122d6aaf84fb85f4df136d4662c6dc344248e987255c0daa1193b3f17d5a9",
+	"input": "0xfdacd5760000000000000000000000000000000000000000000000000000000000000001",
+	"nonce": "0x7",
+	"publicKey": "0xb2a40fd8ec8703916fde9a0d3bb3c2391d7a2a1a6c1cd6492a7842d9daed24d5064847aaa242e635440f6dd06107044e1bd9387da6c32da3eaee56b928c6bdbf",
+	"r": "0x4b3f442f3a014468b40d2fadea1b152b36582420d28fb69695658be40ffbdffa",
+	"raw": "0xf88807844f7915f5832dc6c0949c97d0e47d81e0ffd0e41450427973e30ff1657b80a4fdacd57600000000000000000000000000000000000000000000000000000000000000011ba04b3f442f3a014468b40d2fadea1b152b36582420d28fb69695658be40ffbdffaa065f626f3a91ca662e56c42ea4376ee8f3db65a4ad613b9bdd2776c292869fee7",
+	"s": "0x65f626f3a91ca662e56c42ea4376ee8f3db65a4ad613b9bdd2776c292869fee7",
+	"standardV": "0x0",
+	"to": "0x9c97d0e47d81e0ffd0e41450427973e30ff1657b",
+	"transactionIndex": "0x1",
+	"v": "0x1b",
+	"value": "0x0"
+  }`,
+			)},
+			want: &evmtypes.Transaction{
+				GasPrice:             assets.NewWei(utils.HexToBig("4f7915f5")),
+				GasLimit:             mustHextoUint32(t, "0x2dc6c0"),
+				MaxFeePerGas:         nil,
+				MaxPriorityFeePerGas: nil,
+				Type:                 0,
+				Hash:                 common.HexToHash("0xbe6122d6aaf84fb85f4df136d4662c6dc344248e987255c0daa1193b3f17d5a9"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := &evmtypes.Transaction{}
+			err := got.UnmarshalJSON(tt.args.data)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+
+		})
+	}
+}
+
+func TestTransaction_JSONRoundtrip(t *testing.T) {
+	t.Parallel()
+	want := &evmtypes.Transaction{
+		GasPrice:             assets.NewWei(utils.HexToBig("978a846d2")),
+		GasLimit:             mustHextoUint32(t, "0xdbba0"),
+		MaxFeePerGas:         assets.NewWei(utils.HexToBig("d0892241d")),
+		MaxPriorityFeePerGas: assets.NewWei(utils.HexToBig("3b9aca01")),
+		Type:                 evmtypes.TxType(2),
+		Hash:                 common.HexToHash("0x754f49f0a2ca7680806d261dd36ee95ac88a81da59fef0b5d8d691478f075d46"),
+	}
+
+	d, err := json.Marshal(want)
+	require.NoError(t, err)
+	got := new(evmtypes.Transaction)
+	err = json.Unmarshal(d, got)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestBlock_JSONRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	d, err := json.Marshal(smallBlock)
+	require.NoError(t, err)
+	got := new(evmtypes.Block)
+	err = json.Unmarshal(d, got)
+	require.NoError(t, err)
+	assert.Equal(t, smallBlock.Hash, got.Hash)
+	assert.Equal(t, smallBlock.BaseFeePerGas, got.BaseFeePerGas)
+	assert.Equal(t, smallBlock.Number, got.Number)
+	assert.Equal(t, smallBlock.ParentHash, got.ParentHash)
+	assert.Equal(t, smallBlock.Timestamp, got.Timestamp)
+
+	assertTxnsEqual(t, smallBlock.Transactions, got.Transactions)
+}
+
+func assertTxnsEqual(t *testing.T, txns1, txns2 []evmtypes.Transaction) {
+	require.Equal(t, len(txns1), len(txns2))
+	for i := range txns1 {
+		assert.Equal(t, txns1[i].GasLimit, txns2[i].GasLimit)
+		assert.True(t, txns1[i].GasPrice.Equal(txns2[i].GasPrice))
+		assert.Equal(t, txns1[i].Hash, txns2[i].Hash)
+		assert.True(t, txns1[i].MaxFeePerGas.Equal(txns2[i].MaxFeePerGas))
+		assert.True(t, txns1[i].MaxPriorityFeePerGas.Equal(txns2[i].MaxPriorityFeePerGas))
+		assert.Equal(t, txns1[i].Type, txns2[i].Type)
+	}
+}
+func TestTxType_JSONRoundtrip(t *testing.T) {
+
+	t.Run("non zero", func(t *testing.T) {
+		t.Parallel()
+		want := evmtypes.TxType(2)
+		d, err := json.Marshal(&want)
+		require.NoError(t, err)
+
+		got := new(evmtypes.TxType)
+		err = json.Unmarshal(d, got)
+		require.NoError(t, err)
+		assert.Equal(t, want, *got)
+	})
+
+	t.Run("zero", func(t *testing.T) {
+		t.Parallel()
+		want := evmtypes.TxType(0)
+		d, err := json.Marshal(&want)
+		require.NoError(t, err)
+
+		got := new(evmtypes.TxType)
+		err = json.Unmarshal(d, got)
+		require.NoError(t, err)
+		assert.Equal(t, want, *got)
+	})
+}
+
+func mustHextoUint32(t *testing.T, hx string) uint32 {
+	temp := new(hexutil.Uint64)
+	err := temp.UnmarshalText([]byte(hx))
+	require.NoError(t, err)
+	return uint32(*temp)
 }
