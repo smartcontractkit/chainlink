@@ -112,18 +112,18 @@ var (
 // Step 2: Check pending transactions for receipts
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
-type EthConfirmer struct {
+type EthConfirmer[HEAD any] struct {
 	utils.StartStopOnce
 	orm       ORM
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
+	estimator      txmgrtypes.FeeEstimator[HEAD, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
 
-	mb        *utils.Mailbox[txmgrtypes.HeadView]
+	mb        *utils.Mailbox[txmgrtypes.HeadView[HEAD]]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
@@ -132,13 +132,13 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+func NewEthConfirmer[HEAD any](orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
+	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[HEAD, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer[HEAD] {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 
-	return &EthConfirmer{
+	return &EthConfirmer[HEAD]{
 		utils.StartStopOnce{},
 		orm,
 		lggr,
@@ -151,7 +151,7 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		estimator,
 		resumeCallback,
 		keyStates,
-		utils.NewSingleMailbox[txmgrtypes.HeadView](),
+		utils.NewSingleMailbox[txmgrtypes.HeadView[HEAD]](),
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -160,7 +160,7 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 }
 
 // Start is a comment to appease the linter
-func (ec *EthConfirmer) Start(_ context.Context) error {
+func (ec *EthConfirmer[HEAD]) Start(_ context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EvmGasBumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
@@ -176,7 +176,7 @@ func (ec *EthConfirmer) Start(_ context.Context) error {
 }
 
 // Close is a comment to appease the linter
-func (ec *EthConfirmer) Close() error {
+func (ec *EthConfirmer[HEAD]) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
 		ec.ctxCancel()
 		ec.wg.Wait()
@@ -184,15 +184,15 @@ func (ec *EthConfirmer) Close() error {
 	})
 }
 
-func (ec *EthConfirmer) Name() string {
+func (ec *EthConfirmer[HEAD]) Name() string {
 	return ec.lggr.Name()
 }
 
-func (ec *EthConfirmer) HealthReport() map[string]error {
+func (ec *EthConfirmer[HEAD]) HealthReport() map[string]error {
 	return map[string]error{ec.Name(): ec.Healthy()}
 }
 
-func (ec *EthConfirmer) runLoop() {
+func (ec *EthConfirmer[HEAD]) runLoop() {
 	defer ec.wg.Done()
 	for {
 		select {
@@ -217,14 +217,14 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head txmgrtypes.HeadView) error {
+func (ec *EthConfirmer[HEAD]) ProcessHead(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head txmgrtypes.HeadView) error {
+func (ec *EthConfirmer[HEAD]) processHead(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
@@ -289,7 +289,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head txmgrtypes.HeadVie
 // 7. Even if/when RPC node 2 catches up, the transaction is still stuck in state "confirmed_missing_receipt"
 //
 // This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
-func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
+func (ec *EthConfirmer[HEAD]) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
 	attempts, err := ec.orm.FindEtxAttemptsConfirmedMissingReceipt(ec.chainID)
 	if err != nil {
 		return err
@@ -323,7 +323,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 }
 
 // CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number
-func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
+func (ec *EthConfirmer[HEAD]) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.orm.FindEthTxAttemptsRequiringReceiptFetch(ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed")
@@ -376,7 +376,7 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	return nil
 }
 
-func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []EthTxAttempt, minedTransactionCount uint64) []EthTxAttempt {
+func (ec *EthConfirmer[HEAD]) separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []EthTxAttempt, minedTransactionCount uint64) []EthTxAttempt {
 	if len(attempts) == 0 {
 		return attempts
 	}
@@ -412,7 +412,7 @@ func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address,
 	return likelyConfirmed
 }
 
-func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) error {
+func (ec *EthConfirmer[HEAD]) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) error {
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
 	batchSize := int(ec.config.EvmRPCDefaultBatchSize())
@@ -447,13 +447,13 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 	return nil
 }
 
-func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
+func (ec *EthConfirmer[HEAD]) getMinedTransactionCount(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
 	return ec.ethClient.NonceAt(ctx, from, nil)
 }
 
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
-func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) (receipts []evmtypes.Receipt, err error) {
+func (ec *EthConfirmer[HEAD]) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) (receipts []evmtypes.Receipt, err error) {
 	var reqs []rpc.BatchElem
 
 	// Metadata is required to determine whether a tx is forwarded or not.
@@ -572,7 +572,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 }
 
 // RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-eth
-func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
+func (ec *EthConfirmer[HEAD]) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
 
 	// It is safe to process separate keys concurrently
@@ -598,7 +598,7 @@ func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeig
 	return multierr.Combine(errors...)
 }
 
-func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
+func (ec *EthConfirmer[HEAD]) rebroadcastWhereNecessary(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
 	if err := ec.handleAnyInProgressAttempts(ctx, address, blockHeight); err != nil {
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
@@ -636,7 +636,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 // NOTE: We also use this to mark attempts for rebroadcast in event of a
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
-func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
+func (ec *EthConfirmer[HEAD]) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
 	attempts, err := ec.orm.GetInProgressEthTxAttempts(ctx, address, ec.chainID)
 	if ctx.Err() != nil {
 		return nil
@@ -656,7 +656,7 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
-func (ec *EthConfirmer) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
+func (ec *EthConfirmer[HEAD]) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
 	etxInsufficientEths, err := ec.orm.FindEthTxsRequiringResubmissionDueToInsufficientEth(address, chainID, pg.WithParentCtx(ctx))
@@ -716,7 +716,7 @@ func (ec *EthConfirmer) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr
 	return
 }
 
-func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx EthTx) (attempt EthTxAttempt, err error) {
+func (ec *EthConfirmer[HEAD]) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx EthTx) (attempt EthTxAttempt, err error) {
 	if len(etx.EthTxAttempts) > 0 {
 		etx.EthTxAttempts[0].EthTx = etx
 		previousAttempt := etx.EthTxAttempts[0]
@@ -745,7 +745,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
 
-func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interface{} {
+func (ec *EthConfirmer[HEAD]) logFieldsPreviousAttempt(attempt EthTxAttempt) []interface{} {
 	etx := attempt.EthTx
 	return []interface{}{
 		"etxID", etx.ID,
@@ -757,7 +757,7 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 	}
 }
 
-func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
+func (ec *EthConfirmer[HEAD]) bumpGas(ctx context.Context, etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
 	// TODO: once generics are introduced at the top level struct (EthConfirmer) remove the chain-specific typings
 	priorAttempts := make([]txmgrtypes.PriorAttempt[gas.EvmFee, gethCommon.Hash], len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
@@ -799,7 +799,7 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
 }
 
-func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
+func (ec *EthConfirmer[HEAD]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
@@ -948,7 +948,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head txmgrtypes.HeadView) error {
+func (ec *EthConfirmer[HEAD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
@@ -1001,7 +1001,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain(etx EthTx, head txmgrtypes.HeadView) bool {
+func hasReceiptInLongestChain[HEAD any](etx EthTx, head txmgrtypes.HeadView[HEAD]) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1017,7 +1017,7 @@ func hasReceiptInLongestChain(etx EthTx, head txmgrtypes.HeadView) bool {
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head txmgrtypes.HeadView) error {
+func (ec *EthConfirmer[HEAD]) markForRebroadcast(etx EthTx, head txmgrtypes.HeadView[HEAD]) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1054,7 +1054,7 @@ func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head txmgrtypes.HeadView) 
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint32) error {
+func (ec *EthConfirmer[HEAD]) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint32) error {
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
@@ -1090,7 +1090,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 	return nil
 }
 
-func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (gethCommon.Hash, error) {
+func (ec *EthConfirmer[HEAD]) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (gethCommon.Hash, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
@@ -1103,7 +1103,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head txmgrtypes.HeadView) error {
+func (ec *EthConfirmer[HEAD]) ResumePendingTaskRuns(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
 
 	receiptsPlus, err := ec.orm.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 

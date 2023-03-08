@@ -4,7 +4,7 @@ import "github.com/ethereum/go-ethereum/common"
 
 // Provides a minimal access to a chain's head, as needed by the TxManager.
 // This is a generic interface whcih ALL chains will implement.
-type HeadView interface {
+type HeadView[HEAD any] interface {
 	// The head's block number
 	BlockNumber() int64
 
@@ -12,13 +12,13 @@ type HeadView interface {
 	ChainLength() uint32
 
 	// EarliestInChain recurses through parents until it finds the earliest one
-	EarliestInChain() HeadView
+	EarliestInChain() HeadView[HEAD]
 
 	// The head's block hash
 	Hash() common.Hash
 
 	// The head's parent block
-	Parent() HeadView
+	Parent() HeadView[HEAD]
 
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
@@ -26,5 +26,5 @@ type HeadView interface {
 
 	// Returns the head in the chain's native type
 	// Chain specific code can retrieve the native type via this function.
-	GetNativeHead() interface{}
+	GetNativeHead() HEAD
 }

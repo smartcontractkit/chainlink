@@ -12,6 +12,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -111,7 +112,7 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, txmgrtypes.HeadView) {
+func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, txmgrtypes.HeadView[*evmtypes.Head]) {
 }
 
 func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {

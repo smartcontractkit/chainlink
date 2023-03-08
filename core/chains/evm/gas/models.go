@@ -110,7 +110,7 @@ func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, common.Hash]) EvmPrio
 //
 //go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
-	OnNewLongestChain(context.Context, txmgrtypes.HeadView)
+	OnNewLongestChain(context.Context, txmgrtypes.HeadView[*evmtypes.Head])
 	Start(context.Context) error
 	Close() error
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
