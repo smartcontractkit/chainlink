@@ -22,7 +22,7 @@ type datasource struct {
 	jb             job.Job
 	spec           pipeline.Spec
 	lggr           logger.Logger
-	runResults     chan pipeline.Run
+	runResults     chan<- pipeline.Run
 
 	mu sync.RWMutex
 }
@@ -33,13 +33,17 @@ func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logg
 	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}}
 }
 
-// Observe without saving to DB
-// TODO: add db saving later?
 func (ds *datasource) Observe(ctx context.Context) (relaymercury.Observation, error) {
-	_, finalResult, err := ds.executeRun(ctx)
+	run, finalResult, err := ds.executeRun(ctx)
 	if err != nil {
 		return relaymercury.Observation{}, err
 	}
+	select {
+	case ds.runResults <- run:
+	default:
+		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
+	}
+
 	return ds.parse(finalResult)
 }
 
