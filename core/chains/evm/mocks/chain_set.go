@@ -22,23 +22,23 @@ type ChainSet struct {
 	mock.Mock
 }
 
-// Add provides a mock function with given fields: ctx, id, config
-func (_m *ChainSet) Add(ctx context.Context, id utils.Big, config *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
-	ret := _m.Called(ctx, id, config)
+// Add provides a mock function with given fields: ctx, id, cfg
+func (_m *ChainSet) Add(ctx context.Context, id utils.Big, cfg *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
+	ret := _m.Called(ctx, id, cfg)
 
 	var r0 chains.DBChain[utils.Big, *types.ChainCfg]
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error)); ok {
-		return rf(ctx, id, config)
+		return rf(ctx, id, cfg)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, *types.ChainCfg) chains.DBChain[utils.Big, *types.ChainCfg]); ok {
-		r0 = rf(ctx, id, config)
+		r0 = rf(ctx, id, cfg)
 	} else {
 		r0 = ret.Get(0).(chains.DBChain[utils.Big, *types.ChainCfg])
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, *types.ChainCfg) error); ok {
-		r1 = rf(ctx, id, config)
+		r1 = rf(ctx, id, cfg)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -90,23 +90,23 @@ func (_m *ChainSet) Close() error {
 	return r0
 }
 
-// Configure provides a mock function with given fields: ctx, id, enabled, config
-func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
-	ret := _m.Called(ctx, id, enabled, config)
+// Configure provides a mock function with given fields: ctx, id, enabled, cfg
+func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, cfg *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
+	ret := _m.Called(ctx, id, enabled, cfg)
 
 	var r0 chains.DBChain[utils.Big, *types.ChainCfg]
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error)); ok {
-		return rf(ctx, id, enabled, config)
+		return rf(ctx, id, enabled, cfg)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, *types.ChainCfg) chains.DBChain[utils.Big, *types.ChainCfg]); ok {
-		r0 = rf(ctx, id, enabled, config)
+		r0 = rf(ctx, id, enabled, cfg)
 	} else {
 		r0 = ret.Get(0).(chains.DBChain[utils.Big, *types.ChainCfg])
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, bool, *types.ChainCfg) error); ok {
-		r1 = rf(ctx, id, enabled, config)
+		r1 = rf(ctx, id, enabled, cfg)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -114,23 +114,23 @@ func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, c
 	return r0, r1
 }
 
-// CreateNode provides a mock function with given fields: ctx, data
-func (_m *ChainSet) CreateNode(ctx context.Context, data types.Node) (types.Node, error) {
-	ret := _m.Called(ctx, data)
+// CreateNode provides a mock function with given fields: _a0, _a1
+func (_m *ChainSet) CreateNode(_a0 context.Context, _a1 types.Node) (types.Node, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 types.Node
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, types.Node) (types.Node, error)); ok {
-		return rf(ctx, data)
+		return rf(_a0, _a1)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, types.Node) types.Node); ok {
-		r0 = rf(ctx, data)
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Get(0).(types.Node)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, types.Node) error); ok {
-		r1 = rf(ctx, data)
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -164,13 +164,13 @@ func (_m *ChainSet) Default() (evm.Chain, error) {
 	return r0, r1
 }
 
-// DeleteNode provides a mock function with given fields: ctx, id
-func (_m *ChainSet) DeleteNode(ctx context.Context, id int32) error {
-	ret := _m.Called(ctx, id)
+// DeleteNode provides a mock function with given fields: _a0, _a1
+func (_m *ChainSet) DeleteNode(_a0 context.Context, _a1 int32) error {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
-		r0 = rf(ctx, id)
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
