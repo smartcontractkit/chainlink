@@ -418,8 +418,8 @@ github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL
 github.com/fatih/color v1.13.0 h1:8LOYc1KYPPmyKMuN8QV2DNRWNbLo6LZ0iLs8+mlH53w=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
 github.com/fatih/structtag v1.1.0/go.mod h1:mBJUNpUnHmRKrKlQQlmCrh5PuhftFbNv8Ys4/aAZl94=
-github.com/ferglor/libocr v0.0.0-20230306221715-098f197f40bb h1:pTAj8wvMTfFCTtnWRd1BUB5FvUSEiIoNVfJpcC3LZzE=
-github.com/ferglor/libocr v0.0.0-20230306221715-098f197f40bb/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
+github.com/ferglor/libocr v0.0.0-20230308144319-28321286649f h1:8fuSmvDH5Dj/e87FWlB1B3sDNd1dSymHICypGM+idoA=
+github.com/ferglor/libocr v0.0.0-20230308144319-28321286649f/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 h1:FtmdgXiUlNeRsoNMFlKLDt+S+6hbjVMEW6RGQ7aUf7c=
 github.com/flowstack/go-jsonschema v0.1.1/go.mod h1:yL7fNggx1o8rm9RlgXv7hTBWxdBM0rVwpMwimd3F3N0=
 github.com/fluent/fluent-bit-go v0.0.0-20190925192703-ea13c021720c/go.mod h1:WQX+afhrekY9rGK+WT4xvKSlzmia9gDoLYu4GGYGASQ=
@@ -1790,8 +1790,8 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be75fb81118/go.mod h1:UPMx1+qH6/T+6DMf3x3ReiD2EJuQOuaG5iIUUPEKL9U=
 github.com/smartcontractkit/chainlink-testing-framework v1.10.9-0.20230301123015-fa17d1a4dc61 h1:gHU9G2SGqY76Xkbsp1l4AtcFh/mFASbo9TIESE4f0So=
 github.com/smartcontractkit/chainlink-testing-framework v1.10.9-0.20230301123015-fa17d1a4dc61/go.mod h1:/N2uivJAgULuhNXXbLL3eVlGjE7QcmmEkzo2svEbWzo=
-github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230306223929-732b514d0aa6 h1:yBuMmrHVW3Q0BtDEkCe25ljneOOEl2lNIVsx/q5zZFw=
-github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230306223929-732b514d0aa6/go.mod h1:eRKUhZXQb3SCPSccnJgG2WMhgRG/NyJjIwroPFgy3dI=
+github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230308144800-366a8acf4dba h1:5dLFPNbyjNxBTTY0e4uoXAob10m/pnf88769sp7ZhJw=
+github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230308144800-366a8acf4dba/go.mod h1:GlRxLPyNDywESJ7DLZuMurw7DP9lt4Cnc36fDX2EvkY=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c h1:C5qc9OPUyUpHYcEvp3w75PNEnbdGGkj1wxE2+a9EHfY=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
