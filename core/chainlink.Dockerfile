@@ -12,6 +12,7 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
+COPY common common
 COPY core core
 COPY operator_ui operator_ui
 
