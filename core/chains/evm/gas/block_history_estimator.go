@@ -75,7 +75,7 @@ const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current bl
 
 var ErrConnectivity = errors.New("transaction propagation issue: transactions are not being mined")
 
-var _ Estimator = &BlockHistoryEstimator{}
+var _ EvmEstimator = &BlockHistoryEstimator{}
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
@@ -108,7 +108,7 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		ethClient: ethClient,
@@ -226,7 +226,7 @@ func (b *BlockHistoryEstimator) HealthReport() map[string]error {
 	return map[string]error{b.Name(): b.Healthy()}
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		gasPrice = b.getGasPrice()
@@ -265,7 +265,7 @@ func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 	return b.tipCap
 }
 
-func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
@@ -281,7 +281,7 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 // checkConnectivity detects if the transaction is not being included due to
 // some kind of mempool propagation or connectivity issue rather than
 // insufficiently high pricing and returns error if so
-func (b *BlockHistoryEstimator) checkConnectivity(attempts []PriorAttempt) error {
+func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) error {
 	percentile := int(b.config.BlockHistoryEstimatorCheckInclusionPercentile())
 	// how many blocks since broadcast?
 	latestBlockNum := b.getCurrentBlockNum()
@@ -439,7 +439,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, cfg Config, tipCap *as
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {

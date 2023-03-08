@@ -11,6 +11,8 @@ import (
 
 	context "context"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	gas "github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
@@ -93,15 +95,15 @@ func (_m *TxManager) GetForwarderForEOA(eoa common.Address) (common.Address, err
 }
 
 // GetGasEstimator provides a mock function with given fields:
-func (_m *TxManager) GetGasEstimator() gas.Estimator {
+func (_m *TxManager) GetGasEstimator() types.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	ret := _m.Called()
 
-	var r0 gas.Estimator
-	if rf, ok := ret.Get(0).(func() gas.Estimator); ok {
+	var r0 types.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	if rf, ok := ret.Get(0).(func() types.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(gas.Estimator)
+			r0 = ret.Get(0).(types.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash])
 		}
 	}
 
@@ -153,7 +155,11 @@ func (_m *TxManager) Name() string {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
+<<<<<<< HEAD
 func (_m *TxManager) OnNewLongestChain(ctx context.Context, head types.HeadView) {
+=======
+func (_m *TxManager) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+>>>>>>> c90fc0ed3d2d8e1ad0b021e32ced366c040ab1f8
 	_m.Called(ctx, head)
 }
 

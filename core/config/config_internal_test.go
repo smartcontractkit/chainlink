@@ -137,3 +137,15 @@ func TestStore_boolParser(t *testing.T) {
 	_, err = parse.Bool("")
 	assert.Error(t, err)
 }
+
+func TestOCRCollectEATelemetry(t *testing.T) {
+	c := NewGeneralConfig(logger.TestLogger(t))
+	assert.Equal(t, c.OCRCaptureEATelemetry(), false)
+	assert.Equal(t, c.OCR2CaptureEATelemetry(), false)
+
+	t.Setenv(envvar.Name("OCRCaptureEATelemetry"), "true")
+	t.Setenv(envvar.Name("OCR2CaptureEATelemetry"), "true")
+
+	assert.Equal(t, c.OCRCaptureEATelemetry(), true)
+	assert.Equal(t, c.OCR2CaptureEATelemetry(), true)
+}

@@ -2940,6 +2940,20 @@ func (_m *GeneralConfig) OCR2BlockchainTimeout() time.Duration {
 	return r0
 }
 
+// OCR2CaptureEATelemetry provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2CaptureEATelemetry() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2ContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2ContractConfirmations() uint16 {
 	ret := _m.Called()
@@ -3057,6 +3071,20 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCRCaptureEATelemetry provides a mock function with given fields:
+func (_m *GeneralConfig) OCRCaptureEATelemetry() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	_ Estimator = &l2SuggestedPriceEstimator{}
+	_ EvmEstimator = &l2SuggestedPriceEstimator{}
 )
 
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
@@ -43,7 +43,7 @@ type l2SuggestedPriceEstimator struct {
 }
 
 // NewL2SuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) Estimator {
+func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
 	return &l2SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
@@ -119,16 +119,16 @@ func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *
 	return
 }
 
-func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = l2GasLimit
 
 	ok := o.IfStarted(func() {
-		if slices.Contains(opts, OptForceRefetch) {
+		if slices.Contains(opts, txmgrtypes.OptForceRefetch) {
 			ch := make(chan struct{})
 			select {
 			case o.chForceRefetch <- ch:
@@ -167,7 +167,7 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (o *l2SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	return nil, 0, errors.New("bump gas is not supported for this l2")
 }
 

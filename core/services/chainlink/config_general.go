@@ -738,6 +738,10 @@ func (g *generalConfig) OCRTraceLogging() bool {
 	return *g.c.P2P.TraceLogging
 }
 
+func (g *generalConfig) OCRCaptureEATelemetry() bool {
+	return *g.c.OCR.CaptureEATelemetry
+}
+
 func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return *g.c.OCR.DefaultTransactionQueueDepth
 }
@@ -776,6 +780,10 @@ func (g *generalConfig) OCR2KeyBundleID() (string, error) {
 
 func (g *generalConfig) OCR2TraceLogging() bool {
 	return *g.c.P2P.TraceLogging
+}
+
+func (g *generalConfig) OCR2CaptureEATelemetry() bool {
+	return *g.c.OCR2.CaptureEATelemetry
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {

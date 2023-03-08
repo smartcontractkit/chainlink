@@ -277,7 +277,7 @@ require (
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/uber/jaeger-client-go v2.25.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
-	github.com/ugorji/go/codec v1.2.7 // indirect
+	github.com/ugorji/go/codec v1.2.10 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
 	github.com/weaveworks/common v0.0.0-20200625145055-4b1847531bc9 // indirect

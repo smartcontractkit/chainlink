@@ -260,6 +260,7 @@ jobs:
         with:
           only-modules: "true"
       - run: make mockery
+      - run: make codecgen
       - run: make abigen
       - run: make gomodtidy
       - name: Ensure clean after tidy

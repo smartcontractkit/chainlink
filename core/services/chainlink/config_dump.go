@@ -620,6 +620,7 @@ func (c *Config) loadLegacyCoreEnv() error {
 		ContractTransmitterTransmitTimeout: envDuration("OCR2ContractTransmitterTransmitTimeout"),
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
+		CaptureEATelemetry:                 envvar.NewBool("OCR2CaptureEATelemetry").ParsePtr(),
 	}
 
 	c.OCR = config.OCR{
@@ -632,6 +633,7 @@ func (c *Config) loadLegacyCoreEnv() error {
 		KeyBundleID:                  envvar.New("OCRKeyBundleID", models.Sha256HashFromHex).ParsePtr(),
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
+		CaptureEATelemetry:           envvar.NewBool("OCRCaptureEATelemetry").ParsePtr(),
 	}
 
 	c.P2P = config.P2P{

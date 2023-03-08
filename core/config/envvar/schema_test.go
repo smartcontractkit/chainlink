@@ -203,6 +203,7 @@ func TestConfigSchema(t *testing.T) {
 		"OCR2ContractConfirmations":              "OCR2_CONTRACT_CONFIRMATIONS",
 		"OCR2KeyBundleID":                        "OCR2_KEY_BUNDLE_ID",
 		"OCR2TraceLogging":                       "OCR2_TRACE_LOGGING",
+		"OCR2CaptureEATelemetry":                 "OCR2_CAPTURE_EA_TELEMETRY",
 
 		// OCR v1
 		"OCRBlockchainTimeout":                  "OCR_BLOCKCHAIN_TIMEOUT",
@@ -218,6 +219,7 @@ func TestConfigSchema(t *testing.T) {
 		"OCRObservationTimeout":                 "OCR_OBSERVATION_TIMEOUT",
 		"OCRTransmitterAddress":                 "OCR_TRANSMITTER_ADDRESS",
 		"OCRSimulateTransactions":               "OCR_SIMULATE_TRANSACTIONS",
+		"OCRCaptureEATelemetry":                 "OCR_CAPTURE_EA_TELEMETRY",
 
 		// P2P v1 and v2 networking
 		"P2PNetworkingStack":           "P2P_NETWORKING_STACK",
