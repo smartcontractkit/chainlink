@@ -795,13 +795,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 				return processed
 			}
 
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-			if err != nil {
-				l.Errorw("Couldn't get next from address", "err", err)
-				continue
-			}
-			ll = ll.With("fromAddress", fromAddress)
-
 			ll.Infow("Enqueuing fulfillment")
 			var ethTX txmgr.EthTx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
@@ -815,6 +808,12 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
+
+				fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+				if err != nil {
+					return errors.Wrap(err, "Couldn't get next from address")
+				}
+
 				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
