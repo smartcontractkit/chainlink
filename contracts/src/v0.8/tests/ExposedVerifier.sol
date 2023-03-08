@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.0;
 
 // ExposedVerifier exposes certain internal Verifier
 // methods/structures so that golang code can access them, and we get
@@ -8,6 +8,8 @@ contract ExposedVerifier {
   constructor(){}
 
   function _configDigestFromConfigData(
+    uint256 chainId,
+    address contractAddress,
     uint64 configCount,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
@@ -19,8 +21,8 @@ contract ExposedVerifier {
     uint256 h = uint256(
       keccak256(
         abi.encode(
-          block.chainid, // chainId
-          address(this), // contractAddress
+          chainId,
+          contractAddress,
           configCount,
           signers,
           offchainTransmitters,
@@ -37,6 +39,8 @@ contract ExposedVerifier {
   }
 
   function exposedConfigDigestFromConfigData(
+    uint256 _chainId,
+    address _contractAddress,
     uint64 _configCount,
     address[] memory  _signers,
     bytes32[] memory _offchainTransmitters,
@@ -45,7 +49,7 @@ contract ExposedVerifier {
     uint64 _encodedConfigVersion,
     bytes memory _encodedConfig
   ) public view returns (bytes32) {
-    return _configDigestFromConfigData(_configCount,
+    return _configDigestFromConfigData(_chainId, _contractAddress, _configCount,
       _signers, _offchainTransmitters, _f, _onchainConfig, _encodedConfigVersion,
       _encodedConfig);
   }
