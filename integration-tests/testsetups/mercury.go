@@ -10,11 +10,14 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	cl_env_config "github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -35,6 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
@@ -229,11 +234,11 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 			"app": map[string]interface{}{
 				"resources": map[string]interface{}{
 					"requests": map[string]interface{}{
-						"cpu":    "200m",
+						"cpu":    "2000m",
 						"memory": "2048Mi",
 					},
 					"limits": map[string]interface{}{
-						"cpu":    "200m",
+						"cpu":    "2000m",
 						"memory": "2048Mi",
 					},
 				},
@@ -439,17 +444,14 @@ func BuildMercuryOCRConfig(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 ) contracts.MercuryOCRConfig {
-	min := big.NewInt(0)
-	max := big.NewInt(math.MaxInt64)
-	c := relaymercury.OnchainConfig{Min: min, Max: max}
+	// Build onchain config
+	c := relaymercury.OnchainConfig{Min: big.NewInt(0), Max: big.NewInt(math.MaxInt64)}
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(c)
-	// onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
-	// alphaPPB := uint64(1000)
-	config := actions.BuildGeneralOCR2Config(
-		t,
-		chainlinkNodes,
+	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+	signerOnchainPublicKeys, _, f, onchainConfig,
+		offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress time.Duration,
 		20*time.Second,       // deltaResend time.Duration,
 		100*time.Millisecond, // deltaRound time.Duration,
@@ -457,6 +459,7 @@ func BuildMercuryOCRConfig(
 		1*time.Minute,        // deltaStage time.Duration,
 		100,                  // rMax uint8,
 		[]int{len(chainlinkNodes)},
+		oracleIdentities,
 		[]byte{},
 		0*time.Millisecond,   // maxDurationQuery time.Duration,
 		250*time.Millisecond, // maxDurationObservation time.Duration,
@@ -466,7 +469,16 @@ func BuildMercuryOCRConfig(
 		1,                    // f int,
 		onchainConfig,
 	)
-	// Use node CSA pub key as offchain transmitter
+	require.NoError(t, err)
+
+	// Convert signers to addresses
+	var signers []common.Address
+	for _, signer := range signerOnchainPublicKeys {
+		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
+		signers = append(signers, common.BytesToAddress(signer))
+	}
+
+	// Use node CSA pub key as transmitter
 	transmitters := make([][32]byte, len(chainlinkNodes))
 	for i, n := range chainlinkNodes {
 		csaKeys, _, err := n.ReadCSAKeys()
@@ -476,16 +488,80 @@ func BuildMercuryOCRConfig(
 		transmitters[i] = [32]byte(csaPubKey)
 	}
 
-	mercuryConfig := contracts.MercuryOCRConfig{
-		Signers:               config.Signers,
+	return contracts.MercuryOCRConfig{
+		Signers:               signers,
 		Transmitters:          transmitters,
-		F:                     config.F,
-		OnchainConfig:         config.OnchainConfig,
-		OffchainConfigVersion: config.OffchainConfigVersion,
-		OffchainConfig:        config.OffchainConfig,
+		F:                     f,
+		OnchainConfig:         onchainConfig,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
 	}
+}
 
-	return mercuryConfig
+func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
+	S := make([]int, len(chainlinkNodes))
+	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
+	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
+	var wg sync.WaitGroup
+	for i, cl := range chainlinkNodes {
+		wg.Add(1)
+		go func(i int, cl *client.Chainlink) {
+			defer wg.Done()
+
+			address, err := cl.PrimaryEthAddress()
+			_ = address
+			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
+			ocr2Keys, err := cl.MustReadOCR2Keys()
+			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
+			var ocr2Config client.OCR2KeyAttributes
+			for _, key := range ocr2Keys.Data {
+				if key.Attributes.ChainType == string(chaintype.EVM) {
+					ocr2Config = key.Attributes
+					break
+				}
+			}
+
+			keys, err := cl.MustReadP2PKeys()
+			require.NoError(t, err, "Shouldn't fail reading P2P keys from node")
+			p2pKeyID := keys.Data[0].Attributes.PeerID
+
+			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
+			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
+
+			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
+			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
+			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+
+			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
+			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
+
+			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
+			n = copy(configPkBytesFixed[:], configPkBytes)
+			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+
+			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
+			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
+
+			csaKeys, _, err := cl.ReadCSAKeys()
+			require.NoError(t, err)
+
+			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
+			oracleIdentities[i] = confighelper.OracleIdentityExtra{
+				OracleIdentity: confighelper.OracleIdentity{
+					OnchainPublicKey:  onchainPkBytes,
+					OffchainPublicKey: offchainPkBytesFixed,
+					PeerID:            p2pKeyID,
+					TransmitAccount:   types.Account(csaKeys.Data[0].Attributes.PublicKey),
+				},
+				ConfigEncryptionPublicKey: configPkBytesFixed,
+			}
+			S[i] = 1
+		}(i, cl)
+	}
+	wg.Wait()
+	l.Info().Msg("Done fetching oracle identities")
+	return S, oracleIdentities
 }
 
 func StringToByte32(str string) [32]byte {
