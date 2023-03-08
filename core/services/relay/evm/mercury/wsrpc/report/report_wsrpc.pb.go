@@ -11,7 +11,6 @@ import (
 )
 
 // ReportClient is the client API for Report service.
-//
 type ReportClient interface {
 	Transmit(ctx context.Context, in *ReportRequest) (*ReportResponse, error)
 }

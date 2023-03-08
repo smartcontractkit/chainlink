@@ -17,7 +17,8 @@ type ReplayController struct {
 
 // ReplayFromBlock causes the node to process blocks again from the given block number
 // Example:
-//  "<application>/v2/replay_from_block/:number"
+//
+//	"<application>/v2/replay_from_block/:number"
 func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 	if c.Param("number") == "" {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))

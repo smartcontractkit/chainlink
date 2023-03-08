@@ -11,10 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     []byte
 //
+//	[]byte
 type ETHABIEncodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`

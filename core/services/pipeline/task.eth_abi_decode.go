@@ -9,10 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     map[string]interface{} with any geth/abigen value type
 //
+//	map[string]interface{} with any geth/abigen value type
 type ETHABIDecodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`

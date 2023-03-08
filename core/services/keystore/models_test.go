@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 )
 
 const password = "password"

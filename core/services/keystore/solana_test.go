@@ -6,12 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 )
 
 func Test_SolanaKeyStore_E2E(t *testing.T) {
