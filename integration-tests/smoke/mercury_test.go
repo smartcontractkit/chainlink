@@ -95,9 +95,10 @@ func createEncodedCommitment(order Order) ([]byte, error) {
 	return args.Pack(order)
 }
 
+var feedId = StringToByte32("ETH-USD-1")
+
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
-	const mercuryFeedId = "ETH-USD-Optimism-Goerli-1"
 
 	_, isExistingTestEnv, testNetwork, chainlinkNodes,
 		mercuryServerRemoteUrl,
@@ -107,14 +108,12 @@ func TestMercurySmoke(t *testing.T) {
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 	ocrConfig := testsetups.BuildMercuryOCR2Config(t, nodesWithoutBootstrap)
 	verifier, verifierProxy, accessController, _ := testsetups.SetupMercuryContracts(t, evmClient,
-		mercuryServerRemoteUrl, mercuryFeedId, ocrConfig)
+		mercuryServerRemoteUrl, feedId, ocrConfig)
 
 	testsetups.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
-		mercuryFeedId, msRpcPubKey, testNetwork.ChainID, 0)
+		feedId, msRpcPubKey, testNetwork.ChainID, 0)
 
-	var feedIdBytes [32]byte
-	copy(feedIdBytes[:], mercuryFeedId)
-	verifier.SetConfig(feedIdBytes, ocrConfig)
+	verifier.SetConfig(feedId, ocrConfig)
 
 	// Wait for the DON to start generating reports
 	d := 160 * time.Second
@@ -133,14 +132,14 @@ func TestMercurySmoke(t *testing.T) {
 	t.Run("test mercury server has report for the latest block number", func(t *testing.T) {
 		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
 		require.NoError(t, err, "Err getting latest block number")
-		report, _, err := mercuryServerClient.GetReports(mercuryFeedId, latestBlockNum-5)
+		report, _, err := mercuryServerClient.GetReports(string(feedId[:]), latestBlockNum-5)
 		require.NoError(t, err, "Error getting report from Mercury Server")
 		require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 	})
 
 	t.Run("test report verfification using Exchanger.ResolveTradeWithReport call", func(t *testing.T) {
 		order := Order{
-			FeedID:       StringToByte32(mercuryFeedId),
+			FeedID:       feedId,
 			CurrencySrc:  StringToByte32("1"),
 			CurrencyDst:  StringToByte32("2"),
 			AmountSrc:    big.NewInt(1),
