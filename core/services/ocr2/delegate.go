@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
+	ocr2vrfcoordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
@@ -111,8 +112,64 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 	// This is only called first time the job is created
 	d.isNewlyCreatedJob = true
 }
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job) {}
+func (d *Delegate) BeforeJobDeleted(jb job.Job) {
+	spec := jb.OCR2OracleSpec
+	if spec == nil {
+		d.lggr.Errorf("offchainreporting2.Delegate.BeforeJobDeleted called with wrong job type, ignoring non-OCR2 spec %v", jb)
+		return
+	}
+	if spec.Relay != relay.EVM {
+		return
+	}
+
+	chainID, err := spec.RelayConfig.EVMChainID()
+	if err != nil {
+		d.lggr.Errorf("OCR2 jobs spec missing chainID")
+		return
+	}
+	chain, err := d.chainSet.Get(big.NewInt(chainID))
+	if err != nil {
+		d.lggr.Errorw("get chainset", err, "err")
+	}
+	lp := chain.LogPoller()
+
+	var filters []string
+	switch spec.PluginType {
+	case job.OCR2VRF:
+		filters, err = ocr2vrfcoordinator.FilterNamesFromSpec(spec)
+		if err != nil {
+			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
+		}
+	case job.OCR2Keeper:
+		filters, err = ocr2keeper.FilterNamesFromSpec(spec)
+		if err != nil {
+			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+		}
+	default:
+		return
+	}
+
+	rargs := types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		New:           false,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+	}
+
+	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
+	if err != nil {
+		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
+	}
+
+	filters = append(filters, relayFilters...)
+
+	for _, filter := range filters {
+		d.lggr.Debugf("Unregistering %s filter", filter)
+		lp.UnregisterFilter(filter)
+	}
+}
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {

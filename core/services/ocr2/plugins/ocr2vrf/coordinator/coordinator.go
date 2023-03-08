@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
@@ -29,6 +30,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
@@ -1101,4 +1105,19 @@ func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	numCallbacks int) {
 	promBlocksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
 	promCallbacksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
+}
+
+func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
+	var cfg ocr2vrfconfig.PluginConfig
+
+	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
+		err = errors.Wrap(err, "failed to unmarshal ocr2vrf plugin config")
+		return
+	}
+
+	beaconAddress := ethkey.MustEIP55Address(spec.ContractID).Address()
+	coordinatorAddress := ethkey.MustEIP55Address(cfg.VRFCoordinatorAddress).Address()
+	dkgAddress := ethkey.MustEIP55Address(cfg.DKGContractAddress).Address()
+
+	return []string{logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)}, err
 }
