@@ -223,8 +223,8 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 	)
 
 	testEnvironment := environment.New(&environment.Config{
-		TTL:             12 * time.Hour,
-		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		// TTL:             12 * time.Hour,
+		NamespacePrefix: fmt.Sprintf("lukaszf-smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
@@ -272,7 +272,7 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 		mercuryServerRemoteUrl, evmClient, mockserverClient, mercuryServerClient, msRpcPubKey
 }
 
-func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId string, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
+func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercuryRemoteUrl string, feedId [32]byte, ocrConfig contracts.OCRConfig) (contracts.Verifier, contracts.VerifierProxy, contracts.ReadAccessController, contracts.Exchanger) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
@@ -280,16 +280,15 @@ func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercury
 	require.NoError(t, err, "Error deploying ReadAccessController contract")
 
 	// verifierProxy, err := contractDeployer.DeployVerifierProxy(accessController.Address())
+	// Use zero address for access controller disables access control
 	verifierProxy, err := contractDeployer.DeployVerifierProxy("0x0")
 	require.NoError(t, err, "Error deploying VerifierProxy contract")
 
-	var feedIdBytes [32]byte
-	copy(feedIdBytes[:], feedId)
 	verifier, err := contractDeployer.DeployVerifier(verifierProxy.Address())
 	require.NoError(t, err, "Error deploying Verifier contract")
 
-	verifier.SetConfig(feedIdBytes, ocrConfig)
-	latestConfigDetails, err := verifier.LatestConfigDetails(feedIdBytes)
+	verifier.SetConfig(feedId, ocrConfig)
+	latestConfigDetails, err := verifier.LatestConfigDetails(feedId)
 	require.NoError(t, err, "Error getting Verifier.LatestConfigDetails()")
 	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
 	log.Info().Msgf("Latest config details: %v", latestConfigDetails)
@@ -304,7 +303,7 @@ func SetupMercuryNodeJobs(
 	chainlinkNodes []*client.Chainlink,
 	mockserverClient *ctfClient.MockserverClient,
 	contractID string,
-	feedID string,
+	feedId [32]byte,
 	mercuryServerPubKey string,
 	chainID int64,
 	keyIndex int,
@@ -362,12 +361,10 @@ func SetupMercuryNodeJobs(
 			}
 		}
 
-		// Convert feedID to hex with zeros appended
+		// Convert feedId to hex with zeros appended
 		// Example: 0x4554482d5553442d4f7074696d69736d2d476f65726c692d3100000000000000
-		var feedIdBytes [32]byte
-		copy(feedIdBytes[:], feedID)
-		feedIdHex := fmt.Sprintf("0x%x", feedIdBytes)
-		log.Info().Msgf("Setup feedID, string: %s, hex: %s", feedID, feedIdHex)
+		feedIdHex := fmt.Sprintf("0x%x", feedId)
+		log.Info().Msgf("Setup feedID, string: %s, hex: %s", feedId, feedIdHex)
 
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
 			Name:            "ocr2",
