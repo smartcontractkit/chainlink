@@ -127,8 +127,11 @@ func TestMercurySmoke(t *testing.T) {
 	_ = verifierProxy
 	_ = accessController
 
+	latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
+	require.NoError(t, err)
+
 	testsetups.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
-		feedId, msRpcPubKey, testNetwork.ChainID, 0)
+		feedId, latestBlockNum, msRpcPubKey, testNetwork.ChainID, 0)
 
 	verifier.SetConfig(feedId, ocrConfig)
 

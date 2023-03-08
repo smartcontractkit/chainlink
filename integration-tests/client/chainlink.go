@@ -92,6 +92,7 @@ func (c *Chainlink) MustCreateJob(spec JobSpec) (*Job, error) {
 func (c *Chainlink) CreateJob(spec JobSpec) (*Job, *http.Response, error) {
 	job := &Job{}
 	specString, err := spec.String()
+	log.Info().Msgf("Creating job spec: %s", specString)
 	if err != nil {
 		return nil, nil, err
 	}

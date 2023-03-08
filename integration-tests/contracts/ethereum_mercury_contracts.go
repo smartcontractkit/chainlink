@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier"
@@ -149,6 +150,17 @@ func (v *EthereumVerifier) SetConfig(feedId [32]byte, config MercuryOCRConfig) e
 	if err != nil {
 		return err
 	}
+	log.Info().Msgf("Setting config, feedId: %x, config: %v", feedId, config)
+	for i, s := range config.Signers {
+		log.Info().Msgf("Signer %d: %x", i, s)
+	}
+	for i, s := range config.Transmitters {
+		log.Info().Msgf("Transmitter %d: %x", i, s)
+	}
+	// log.Info().Msgf("Transmitters: %x", config.Transmitters)
+	// log.Info().Msgf("OnchainConfig: %x", config.OnchainConfig)
+	log.Info().Msgf("OffchainConfig: %x", config.OffchainConfig)
+
 	tx, err := v.verifier.SetConfig(
 		txOpts,
 		feedId,
