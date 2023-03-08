@@ -64,6 +64,10 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Wrap(ErrKeyNotSet, "batch coordinator address must be provided if batchFulfillmentEnabled = true")
 	}
 
+	if len(spec.FromAddresses) == 0 {
+		return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length.")
+	}
+
 	if spec.BatchFulfillmentGasMultiplier <= 0 {
 		spec.BatchFulfillmentGasMultiplier = 1.15
 	}
