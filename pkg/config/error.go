@@ -31,3 +31,12 @@ type ErrEmpty struct {
 func (e ErrEmpty) Error() string {
 	return fmt.Sprintf("%s: empty: %s", e.Name, e.Msg)
 }
+
+type KeyNotFoundError struct {
+	ID      string
+	KeyType string
+}
+
+func (e KeyNotFoundError) Error() string {
+	return fmt.Sprintf("unable to find %s key with id %s", e.KeyType, e.ID)
+}
