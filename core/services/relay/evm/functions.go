@@ -10,20 +10,20 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-type drProvider struct {
+type functionsProvider struct {
 	*configWatcher
 	contractTransmitter ContractTransmitter
 }
 
 var (
-	_ relaytypes.Plugin = (*drProvider)(nil)
+	_ relaytypes.Plugin = (*functionsProvider)(nil)
 )
 
-func (p *drProvider) ContractTransmitter() types.ContractTransmitter {
+func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func NewOCR2DRProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
+func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
 	configWatcher, err := newConfigProvider(lggr, chainSet, rargs)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func NewOCR2DRProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs 
 	if err != nil {
 		return nil, err
 	}
-	return &drProvider{
+	return &functionsProvider{
 		configWatcher:       configWatcher,
 		contractTransmitter: contractTransmitter,
 	}, nil
