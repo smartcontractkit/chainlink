@@ -4,8 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -16,21 +18,21 @@ func init() {
 	MaxStartTime = 1 * time.Second
 }
 
-func (b *BlockHistoryEstimator) CheckConnectivity(attempts []PriorAttempt) error {
-	return b.checkConnectivity(attempts)
+func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) error {
+	return b.checkConnectivity(MakeEvmPriorAttempts(attempts))
 }
 
-func BlockHistoryEstimatorFromInterface(bhe Estimator) *BlockHistoryEstimator {
+func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator {
 	return bhe.(*BlockHistoryEstimator)
 }
 
-func SetRollingBlockHistory(bhe Estimator, blocks []evmtypes.Block) {
+func SetRollingBlockHistory(bhe EvmEstimator, blocks []evmtypes.Block) {
 	bhe.(*BlockHistoryEstimator).blocksMu.Lock()
 	defer bhe.(*BlockHistoryEstimator).blocksMu.Unlock()
 	bhe.(*BlockHistoryEstimator).blocks = blocks
 }
 
-func GetRollingBlockHistory(bhe Estimator) []evmtypes.Block {
+func GetRollingBlockHistory(bhe EvmEstimator) []evmtypes.Block {
 	return bhe.(*BlockHistoryEstimator).getBlocks()
 }
 
