@@ -201,7 +201,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster[*evmtypes.Head] {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
@@ -218,7 +218,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
+func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer[*evmtypes.Head] {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates,
@@ -1036,7 +1036,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.E
 	return txas
 }
 
-func HeadView(val interface{}) txmgrtypes.HeadView {
+func HeadView(val interface{}) txmgrtypes.HeadView[*evmtypes.Head] {
 	return evm.NewHeadViewImpl(Head(val))
 }
 
