@@ -13,18 +13,25 @@ import (
 // that the chain readers respond immediately with random data and the rdd poller
 // will generate a new set of 5 random feeds every second.
 
-//goos: darwin
-//goarch: amd64
-//pkg: github.com/smartcontractkit/chainlink-relay/pkg/monitoring
-//cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/smartcontractkit/chainlink-relay/pkg/monitoring
+// cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 // (10 jan 2022)
-//    5719	    184623 ns/op	   91745 B/op	    1482 allocs/op
+//
+//	5719	    184623 ns/op	   91745 B/op	    1482 allocs/op
+//
 // (17 jan 2022)
-//    6679	    180862 ns/op	   92230 B/op	    1493 allocs/op
+//
+//	6679	    180862 ns/op	   92230 B/op	    1493 allocs/op
+//
 // (18 jan 2022)
-//   16504	     71478 ns/op	   77515 B/op	     963 allocs/op
+//
+//	16504	     71478 ns/op	   77515 B/op	     963 allocs/op
+//
 // (3 feb 2022
-//   59468	     23180 ns/op	    5921 B/op	      61 allocs/op
+//
+//	59468	     23180 ns/op	    5921 B/op	      61 allocs/op
 func BenchmarkManager(b *testing.B) {
 	var subs utils.Subprocesses
 	defer subs.Wait()
