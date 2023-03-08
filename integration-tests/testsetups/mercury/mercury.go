@@ -1,4 +1,4 @@
-package testsetups
+package mercury
 
 import (
 	"crypto/ed25519"
@@ -107,17 +107,6 @@ func ValidateReport(r map[string]interface{}) error {
 
 	return nil
 }
-
-// TODO: Remove this function and just use ed25519.GenerateKey(rand.Reader) with ed25519.PublicKey and ed25519.PrivateKey
-// func generateEd25519Keys() (string, string, error) {
-// 	var (
-// 		err  error
-// 		pub  ed25519.PublicKey
-// 		priv ed25519.PrivateKey
-// 	)
-// 	pub, priv, err = ed25519.GenerateKey(rand.Reader)
-// 	return hex.EncodeToString(priv), hex.EncodeToString(pub), err
-// }
 
 // Build config with nodes for Mercury server
 func BuildRpcNodesJsonConf(t *testing.T, chainlinkNodes []*client.Chainlink) ([]byte, error) {
