@@ -13,8 +13,8 @@ require (
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/slack-go/slack v0.12.1
 	github.com/smartcontractkit/chainlink v1.10.0
-	github.com/smartcontractkit/chainlink-env v0.3.16
-	github.com/smartcontractkit/chainlink-testing-framework v1.10.8-0.20230227214757-a2ed28830a3a
+	github.com/smartcontractkit/chainlink-env v0.3.17
+	github.com/smartcontractkit/chainlink-testing-framework v1.10.9-0.20230301123015-fa17d1a4dc61
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 	github.com/smartcontractkit/ocr2keepers v0.6.14
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
@@ -24,6 +24,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.1.0
 	gopkg.in/guregu/null.v4 v4.0.0
+	nhooyr.io/websocket v1.8.7
 )
 
 require (
@@ -35,6 +36,7 @@ require (
 	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
+	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/aws/constructs-go/constructs/v10 v10.1.255 // indirect
 	github.com/aws/jsii-runtime-go v1.75.0 // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
@@ -92,9 +94,9 @@ require (
 	github.com/go-playground/validator/v10 v10.11.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
-	github.com/gogo/googleapis v1.4.1 // indirect
+	github.com/gogo/googleapis v1.1.0 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
-	github.com/gogo/status v1.1.0 // indirect
+	github.com/gogo/status v1.0.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -273,12 +275,12 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
-	github.com/uber/jaeger-client-go v2.28.0+incompatible // indirect
+	github.com/uber/jaeger-client-go v2.25.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
-	github.com/weaveworks/common v0.0.0-20230208133027-16871410fca4 // indirect
+	github.com/weaveworks/common v0.0.0-20200625145055-4b1847531bc9 // indirect
 	github.com/weaveworks/promrus v1.2.0 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
@@ -292,6 +294,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
+	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
@@ -306,7 +309,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220616135557-88e70c0c3a90 // indirect
+	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

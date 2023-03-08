@@ -3,6 +3,8 @@ enum JobProposalStatus {
   APPROVED
   REJECTED
   CANCELLED
+  DELETED
+  REVOKED
 }
 
 type JobProposal {

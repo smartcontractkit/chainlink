@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
@@ -52,11 +52,12 @@ func CreateVRFV2Jobs(
 	c blockchain.EVMClient,
 	minIncomingConfirmations int,
 ) []VRFV2JobInfo {
+	l := zerolog.New(zerolog.NewTestWriter(t))
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()
 		require.NoError(t, err, "Error creating VRF key")
-		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
+		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.NewV4()
 		os := &client.VRFV2TxPipelineSpec{
