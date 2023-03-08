@@ -1,6 +1,7 @@
 package ocr2
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -9,20 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,7 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -46,7 +43,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type Delegate struct {
@@ -124,10 +123,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if !spec.TransmitterID.Valid {
 		return nil, errors.Errorf("expected a transmitterID to be specified")
 	}
+	transmitterID := spec.TransmitterID.String
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
+
+	spec.RelayConfig["transmitterID"] = transmitterID
 
 	lggr := logger.Sugared(d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
@@ -135,27 +137,44 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		"jobID", jb.ID,
 	))
 
+	if spec.PluginType == job.Mercury {
+		feedID, err2 := spec.RelayConfig.FeedID()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ServicesForSpec failed to get feedID")
+		}
+		if feedID == (common.Hash{}) {
+			return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID to be specified in the relay config")
+		}
+		spec.RelayConfig["feedID"] = feedID
+		if len(transmitterID) != 64 {
+			return nil, errors.Errorf("ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+		}
+		if _, err := hex.DecodeString(transmitterID); err != nil {
+			return nil, errors.Wrapf(err, "ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+		}
+	}
+
 	if spec.Relay == relay.EVM {
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {
-			return nil, err2
+			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
 		}
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "get chainset")
+			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
 		}
 
 		if spec.RelayConfig["sendingKeys"] == nil {
-			spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
+			spec.RelayConfig["sendingKeys"] = []string{transmitterID}
 		}
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
-		effectiveTransmitterAddress := spec.TransmitterID
+		effectiveTransmitterAddress := transmitterID
 		if jb.ForwardingAllowed {
-			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
 			if fwderr == nil {
-				effectiveTransmitterAddress = null.StringFrom(fwdrAddress.String())
+				effectiveTransmitterAddress = fwdrAddress.String()
 			} else {
 				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
 			}
@@ -209,6 +228,39 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	var pluginOracle plugins.OraclePlugin
 	var ocr2Provider types.Plugin
 	switch spec.PluginType {
+	case job.Mercury:
+		mercuryProvider, err2 := relayer.NewMercuryProvider(
+			types.RelayArgs{
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				New:           d.isNewlyCreatedJob,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: transmitterID,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		oracleArgsNoPlugin := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          mercuryProvider.ContractTransmitter(),
+			ContractConfigTracker:        mercuryProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			// FIXME: It looks like telemetry is uniquely keyed by contractID
+			// but mercury runs multiple feeds per contract.
+			// How can we scope this to a more granular level?
+			// https://smartcontract-it.atlassian.net/browse/MERC-227
+			MonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Mercury),
+			OffchainConfigDigester: mercuryProvider.OffchainConfigDigester(),
+			OffchainKeyring:        kb,
+			OnchainKeyring:         kb,
+		}
+		return mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg)
 	case job.Median:
 		medianProvider, err2 := relayer.NewMedianProvider(
 			types.RelayArgs{
@@ -218,7 +270,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
+				TransmitterID: transmitterID,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
@@ -257,7 +309,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
+				TransmitterID: transmitterID,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
@@ -327,7 +379,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
+				TransmitterID: transmitterID,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
@@ -341,7 +393,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				ContractID:    cfg.DKGContractAddress,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
+				TransmitterID: transmitterID,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
@@ -538,7 +590,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				New:           d.isNewlyCreatedJob,
 			},
 			types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
+				TransmitterID: transmitterID,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
 			lggr.Named("FunctionsRelayer"),

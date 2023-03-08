@@ -498,8 +498,8 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 		go func(i int, cl *client.Chainlink) {
 			defer wg.Done()
 
-			address, err := cl.PrimaryEthAddress()
-			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
+			address, resp, err := cl.ReadCSAKeys()
+			require.NoError(t, err, "Shouldn't fail getting CSA public key from OCR node: index %d", i)
 			ocr2Keys, err := cl.MustReadOCR2Keys()
 			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
 			var ocr2Config client.OCR2KeyAttributes

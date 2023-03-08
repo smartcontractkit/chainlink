@@ -4,25 +4,38 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func Test_MercuryConfig(t *testing.T) {
-	h := utils.NewHash()
-	rawToml := fmt.Sprintf(`
-FeedID = "%s"
-URL = "http://example.com/reports"
-`, h.String())
+// ChainID   *utils.Big `json:"chainID"`
+// FromBlock uint64     `json:"fromBlock"`
 
-	var mc MercuryConfig
-	err := toml.Unmarshal([]byte(rawToml), &mc)
+// // Contract-specific
+// EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
+// SendingKeys                 pq.StringArray `json:"sendingKeys"`
+
+// // Mercury-specific
+// FeedID *common.Hash `json:"feedID"`
+func Test_RelayConfig(t *testing.T) {
+	cid := testutils.NewRandomEVMChainID()
+	fromBlock := uint64(2222)
+	feedID := utils.NewHash()
+	rawToml := fmt.Sprintf(`
+ChainID = "%s"
+FromBlock = %d
+FeedID = "0x%x"
+`, cid, fromBlock, feedID[:])
+
+	var rc RelayConfig
+	err := toml.Unmarshal([]byte(rawToml), &rc)
 	require.NoError(t, err)
 
-	assert.Equal(t, h, mc.FeedID)
-	assert.Equal(t, "http://example.com/reports", mc.URL.String())
-
+	assert.Equal(t, cid.String(), rc.ChainID.String())
+	assert.Equal(t, fromBlock, rc.FromBlock)
+	assert.Equal(t, feedID.Hex(), rc.FeedID.Hex())
 }
