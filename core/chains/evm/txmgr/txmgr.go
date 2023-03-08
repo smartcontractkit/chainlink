@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -600,7 +601,9 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 	err = ethClient.SendTransaction(ctx, signedTx)
 
 	a.EthTx = e // for logging
-	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
+	//TODO: This is a hack to debug the zkSync ISSUE - REMOVE this later
+	data, err := signedTx.MarshalBinary()
+	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a, "rawtxnhex", hexutil.Encode(data))
 	sendErr := evmclient.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
