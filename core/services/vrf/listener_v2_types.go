@@ -125,9 +125,17 @@ func (lsn *listenerV2) processBatch(
 		float64(lsn.job.VRFSpec.BatchFulfillmentGasMultiplier),
 	)
 
+	fromAddresses := lsn.fromAddresses()
+	fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+	if err != nil {
+		l.Errorw("Couldn't get next from address", "err", err)
+		return
+	}
+
 	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
 		"batchSumGasLimit", batch.totalGasLimit,
+		"fromAddress", fromAddresses,
 		"linkBalance", startBalanceNoReserveLink,
 		"totalGasLimitBumped", totalGasLimitBumped,
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
@@ -150,13 +158,6 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-
-		fromAddresses := lsn.fromAddresses()
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-		if err != nil {
-			return errors.Wrap(err, "Couldn't get next from address")
-		}
-
 		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
