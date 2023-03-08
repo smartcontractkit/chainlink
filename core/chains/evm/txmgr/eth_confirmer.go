@@ -731,7 +731,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 		}
 		attempt, err = ec.bumpGas(ctx, etx, etx.EthTxAttempts)
 
-		if gas.IsBumpErr(err) {
+		if gas.IsBumpErr(err) || errors.Is(err, gas.ErrConnectivity) {
 			lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
