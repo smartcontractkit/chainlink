@@ -28,7 +28,7 @@ type txmWrapper struct {
 	utils.StartStopOnce
 
 	// core txm object being wrapped
-	txm txmgr.TxManager
+	txm txmgr.TxManager[*evmtypes.Head]
 }
 
 func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
@@ -60,27 +60,27 @@ func newTxManagerWrapper(
 	opts ChainSetOpts,
 ) txmWrapper {
 	chainID := cfg.ChainID()
-	var txm txmgr.TxManager
+	var txm txmgr.TxManager[*evmtypes.Head]
 	if !cfg.EVMRPCEnabled() {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		txm = &txmgr.NullTxManager[*evmtypes.Head]{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
 		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, logPoller)
+		txm = txmgr.NewTxm[*evmtypes.Head](db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, logPoller)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
 	return txmWrapper{txm: txm}
 }
 
-var _ txmgrtypes.HeadView = &headViewImpl{}
+var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}
 
 // Evm implementation for the generic HeadView interface
 type headViewImpl struct {
-	txmgrtypes.HeadView
+	txmgrtypes.HeadView[*evmtypes.Head]
 	evmHead *evmtypes.Head
 }
 
-func NewHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView {
+func NewHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView[*evmtypes.Head] {
 	return &headViewImpl{evmHead: head}
 }
 
@@ -94,7 +94,7 @@ func (head *headViewImpl) ChainLength() uint32 {
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView {
+func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView[*evmtypes.Head] {
 	return NewHeadViewImpl(head.evmHead.EarliestInChain())
 }
 
@@ -102,7 +102,7 @@ func (head *headViewImpl) Hash() common.Hash {
 	return head.evmHead.Hash
 }
 
-func (head *headViewImpl) Parent() txmgrtypes.HeadView {
+func (head *headViewImpl) Parent() txmgrtypes.HeadView[*evmtypes.Head] {
 	return NewHeadViewImpl(head.evmHead.Parent)
 }
 
@@ -112,6 +112,6 @@ func (head *headViewImpl) HashAtHeight(blockNum int64) common.Hash {
 	return head.evmHead.HashAtHeight(blockNum)
 }
 
-func (head *headViewImpl) GetNativeHead() interface{} {
+func (head *headViewImpl) GetNativeHead() *evmtypes.Head {
 	return head.evmHead
 }
