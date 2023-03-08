@@ -570,8 +570,12 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
+		if len(fromAddresses) == 0 {
+			l.Errorw("No fromAddresses specified in VRF v2 job spec, please specify")
+			continue
+		}
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 
 		// Cases:
@@ -747,8 +751,12 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
+		if len(fromAddresses) == 0 {
+			l.Errorw("No fromAddresses specified in VRF v2 job spec, please specify")
+			continue
+		}
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
