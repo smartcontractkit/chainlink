@@ -95,6 +95,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 	if err != nil {
 		return
 	}
+	gasPrice = a.gasPriceWithBuffer(gasPrice, maxGasPriceWei)
 	ok := a.IfStarted(func() {
 		if slices.Contains(opts, txmgrtypes.OptForceRefetch) {
 			ch := make(chan struct{})
@@ -132,6 +133,21 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 		return
 	}
 	return
+}
+
+// During network congestion Arbitrum's suggested gas price can be extremely volatile, making gas estimations less accurate. For any transaction, Arbitrum will only charge
+// the block's base fee. If the base fee increases rapidly there is a chance the suggested gas price will fall under that value, resulting in a fee too low error.
+// We use gasPriceWithBuffer to increase the estimated gas price by some percentage to avoid fee too low errors. Eventually, only the base fee will be paid, regardless of the price.
+func (a *arbitrumEstimator) gasPriceWithBuffer(gasPrice *assets.Wei, maxGasPriceWei *assets.Wei) *assets.Wei {
+	const gasPriceBufferPercentage = 50
+
+	gasPrice = gasPrice.AddPercentage(gasPriceBufferPercentage)
+	if gasPrice.Cmp(maxGasPriceWei) > 0 {
+		a.logger.Warnw("Updated gasPrice with buffer is higher than the max gas price limit. Falling back to max gas price", "gasPriceWithBuffer", gasPrice, "maxGasPriceWei", maxGasPriceWei)
+		gasPrice = maxGasPriceWei
+	}
+	a.logger.Debugw("gasPriceWithBuffer", "updatedGasPrice", gasPrice)
+	return gasPrice
 }
 
 func (a *arbitrumEstimator) getPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32) {
