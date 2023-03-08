@@ -89,7 +89,7 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 
 		if t.Type() == pipeline.TaskTypeVRFV2 {
 			if len(spec.FromAddresses) == 0 {
-				return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length.")
+				return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length")
 			}
 		}
 	}
