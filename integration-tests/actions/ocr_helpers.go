@@ -473,7 +473,7 @@ func BuildGeneralOCR2Config(
 
 	var transmitters []common.Address
 	for _, transmitter := range transmitterAccounts {
-		// require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
+		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
@@ -500,7 +500,6 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 			defer wg.Done()
 
 			address, err := cl.PrimaryEthAddress()
-			_ = address
 			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
 			ocr2Keys, err := cl.MustReadOCR2Keys()
 			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
@@ -533,16 +532,13 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
 			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
 
-			csaKeys, _, err := cl.ReadCSAKeys()
-			require.NoError(t, err)
-
 			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
 			oracleIdentities[i] = confighelper.OracleIdentityExtra{
 				OracleIdentity: confighelper.OracleIdentity{
 					OnchainPublicKey:  onchainPkBytes,
 					OffchainPublicKey: offchainPkBytesFixed,
 					PeerID:            p2pKeyID,
-					TransmitAccount:   types.Account(csaKeys.Data[0].Attributes.PublicKey),
+					TransmitAccount:   types.Account(address),
 				},
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
