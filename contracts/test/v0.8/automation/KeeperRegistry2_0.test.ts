@@ -866,6 +866,7 @@ describe('KeeperRegistry2_0', () => {
           await ethers.provider.send('evm_mine', [])
         }
 
+        // Try to transmit a report which is older than 256 blocks so block hash cannot be matched
         const tx = await registry
           .connect(keeper1)
           .transmit(
@@ -892,7 +893,6 @@ describe('KeeperRegistry2_0', () => {
           await ethers.provider.send('evm_mine', [])
         }
 
-        // Try to transmit a report which is older than 256 blocks so block hash cannot be matched
         const tx = await getTransmitTxWithReport(
           registry,
           keeper1,
