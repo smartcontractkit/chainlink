@@ -265,11 +265,6 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
 
-	fromAddresses := []string{"0x5C7B1d96CA3132576A84423f624C2c492f668Fea"}
-	if len(params.FromAddresses) != 0 {
-		fromAddresses = params.FromAddresses
-	}
-
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
 		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
@@ -369,9 +364,9 @@ observationSource = """
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
-	if len(fromAddresses) != 0 {
+	if len(params.FromAddresses) != 0 {
 		var addresses []string
-		for _, address := range fromAddresses {
+		for _, address := range params.FromAddresses {
 			addresses = append(addresses, fmt.Sprintf("%q", address))
 		}
 		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
@@ -380,7 +375,6 @@ observationSource = """
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:                    jobID,
 		Name:                     name,
-		FromAddresses:            fromAddresses,
 		CoordinatorAddress:       coordinatorAddress,
 		BatchCoordinatorAddress:  batchCoordinatorAddress,
 		BatchFulfillmentEnabled:  params.BatchFulfillmentEnabled,
