@@ -12,12 +12,14 @@ type GetReportsResult struct {
 }
 
 type MercuryServer struct {
+	URL       string
 	APIClient *resty.Client
 }
 
 func NewMercuryServer(url string) *MercuryServer {
 	rc := resty.New().SetBaseURL(url)
 	return &MercuryServer{
+		URL:       url,
 		APIClient: rc,
 	}
 }
