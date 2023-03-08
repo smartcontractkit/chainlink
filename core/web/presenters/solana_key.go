@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 )
 
 // SolanaKeyResource represents a Solana key JSONAPI resource.

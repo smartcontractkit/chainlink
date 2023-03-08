@@ -3,7 +3,8 @@
 package mocks
 
 import (
-	solkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	keys "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -13,11 +14,11 @@ type Solana struct {
 }
 
 // Add provides a mock function with given fields: key
-func (_m *Solana) Add(key solkey.Key) error {
+func (_m *Solana) Add(key keys.Key) error {
 	ret := _m.Called(key)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(solkey.Key) error); ok {
+	if rf, ok := ret.Get(0).(func(keys.Key) error); ok {
 		r0 = rf(key)
 	} else {
 		r0 = ret.Error(0)
@@ -27,18 +28,18 @@ func (_m *Solana) Add(key solkey.Key) error {
 }
 
 // Create provides a mock function with given fields:
-func (_m *Solana) Create() (solkey.Key, error) {
+func (_m *Solana) Create() (keys.Key, error) {
 	ret := _m.Called()
 
-	var r0 solkey.Key
+	var r0 keys.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (solkey.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func() (keys.Key, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() solkey.Key); ok {
+	if rf, ok := ret.Get(0).(func() keys.Key); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(solkey.Key)
+		r0 = ret.Get(0).(keys.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -51,18 +52,18 @@ func (_m *Solana) Create() (solkey.Key, error) {
 }
 
 // Delete provides a mock function with given fields: id
-func (_m *Solana) Delete(id string) (solkey.Key, error) {
+func (_m *Solana) Delete(id string) (keys.Key, error) {
 	ret := _m.Called(id)
 
-	var r0 solkey.Key
+	var r0 keys.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (solkey.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (keys.Key, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) solkey.Key); ok {
+	if rf, ok := ret.Get(0).(func(string) keys.Key); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(solkey.Key)
+		r0 = ret.Get(0).(keys.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
@@ -115,18 +116,18 @@ func (_m *Solana) Export(id string, password string) ([]byte, error) {
 }
 
 // Get provides a mock function with given fields: id
-func (_m *Solana) Get(id string) (solkey.Key, error) {
+func (_m *Solana) Get(id string) (keys.Key, error) {
 	ret := _m.Called(id)
 
-	var r0 solkey.Key
+	var r0 keys.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (solkey.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (keys.Key, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) solkey.Key); ok {
+	if rf, ok := ret.Get(0).(func(string) keys.Key); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(solkey.Key)
+		r0 = ret.Get(0).(keys.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
@@ -139,19 +140,19 @@ func (_m *Solana) Get(id string) (solkey.Key, error) {
 }
 
 // GetAll provides a mock function with given fields:
-func (_m *Solana) GetAll() ([]solkey.Key, error) {
+func (_m *Solana) GetAll() ([]keys.Key, error) {
 	ret := _m.Called()
 
-	var r0 []solkey.Key
+	var r0 []keys.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func() ([]solkey.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func() ([]keys.Key, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() []solkey.Key); ok {
+	if rf, ok := ret.Get(0).(func() []keys.Key); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]solkey.Key)
+			r0 = ret.Get(0).([]keys.Key)
 		}
 	}
 
@@ -165,18 +166,18 @@ func (_m *Solana) GetAll() ([]solkey.Key, error) {
 }
 
 // Import provides a mock function with given fields: keyJSON, password
-func (_m *Solana) Import(keyJSON []byte, password string) (solkey.Key, error) {
+func (_m *Solana) Import(keyJSON []byte, password string) (keys.Key, error) {
 	ret := _m.Called(keyJSON, password)
 
-	var r0 solkey.Key
+	var r0 keys.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte, string) (solkey.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func([]byte, string) (keys.Key, error)); ok {
 		return rf(keyJSON, password)
 	}
-	if rf, ok := ret.Get(0).(func([]byte, string) solkey.Key); ok {
+	if rf, ok := ret.Get(0).(func([]byte, string) keys.Key); ok {
 		r0 = rf(keyJSON, password)
 	} else {
-		r0 = ret.Get(0).(solkey.Key)
+		r0 = ret.Get(0).(keys.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func([]byte, string) error); ok {
