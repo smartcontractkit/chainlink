@@ -64,10 +64,6 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Wrap(ErrKeyNotSet, "batch coordinator address must be provided if batchFulfillmentEnabled = true")
 	}
 
-	if len(spec.FromAddresses) == 0 {
-		return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length.")
-	}
-
 	if spec.BatchFulfillmentGasMultiplier <= 0 {
 		spec.BatchFulfillmentGasMultiplier = 1.15
 	}
@@ -89,6 +85,12 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	for _, t := range jb.Pipeline.Tasks {
 		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
 			foundVRFTask = true
+		}
+
+		if t.Type() == pipeline.TaskTypeVRFV2 {
+			if len(spec.FromAddresses) == 0 {
+				return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length.")
+			}
 		}
 	}
 	if !foundVRFTask {
