@@ -129,7 +129,7 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 	return configProvider, err
 }
 
-type ConfigPollerInterface interface {
+type ConfigPoller interface {
 	ocrtypes.ContractConfigTracker
 
 	Replay(ctx context.Context, fromBlock int64) error
@@ -141,7 +141,7 @@ type configWatcher struct {
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
-	configPoller     ConfigPollerInterface
+	configPoller     ConfigPoller
 	chain            evm.Chain
 	runReplay        bool
 	fromBlock        uint64
@@ -154,7 +154,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
-	configPoller ConfigPollerInterface,
+	configPoller ConfigPoller,
 	chain evm.Chain,
 	fromBlock uint64,
 	runReplay bool,
@@ -239,15 +239,15 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	var configPoller ConfigPollerInterface
+	var cp ConfigPoller
 
 	if relayConfig.FeedID != nil {
-		configPoller, err = mercury.NewConfigPoller(lggr,
+		cp, err = mercury.NewConfigPoller(lggr,
 			chain.LogPoller(),
 			contractAddress,
 		)
 	} else {
-		configPoller, err = NewConfigPoller(lggr,
+		cp, err = NewConfigPoller(lggr,
 			chain.LogPoller(),
 			contractAddress,
 		)
@@ -270,7 +270,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 			ContractAddress: contractAddress,
 		}
 	}
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New), nil
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*contractTransmitter, error) {

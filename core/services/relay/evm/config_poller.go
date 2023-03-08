@@ -70,8 +70,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 	}, nil
 }
 
-// ConfigPoller defines the Config Poller
-type ConfigPoller struct {
+type configPoller struct {
 	lggr               logger.Logger
 	filterName         string
 	destChainLogPoller logpoller.LogPoller
@@ -79,7 +78,7 @@ type ConfigPoller struct {
 }
 
 // NewConfigPoller creates a new ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ConfigPoller, error) {
 	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
 
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
@@ -87,7 +86,7 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		return nil, err
 	}
 
-	cp := &ConfigPoller{
+	cp := &configPoller{
 		lggr:               lggr,
 		filterName:         configFilterName,
 		destChainLogPoller: destChainPoller,
@@ -98,17 +97,17 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 }
 
 // Notify noop method
-func (lp *ConfigPoller) Notify() <-chan struct{} {
+func (lp *configPoller) Notify() <-chan struct{} {
 	return nil
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
-func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
+func (lp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 	return lp.destChainLogPoller.Replay(ctx, fromBlock)
 }
 
 // LatestConfigDetails returns the latest config details from the logs
-func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+func (lp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
@@ -125,7 +124,7 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 }
 
 // LatestConfig returns the latest config from the logs on a certain block
-func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+func (lp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
 	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, lp.addr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
@@ -139,7 +138,7 @@ func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 }
 
 // LatestBlockHeight returns the latest block height from the logs
-func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+func (lp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	latest, err := lp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
