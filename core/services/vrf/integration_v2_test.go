@@ -1989,9 +1989,11 @@ func TestMaliciousConsumer(t *testing.T) {
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
 		Name:                     "vrf-primary",
+		FromAddresses:            []string{key.Address.String()},
 		CoordinatorAddress:       uni.rootContractAddress.String(),
 		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
+		GasLanePrice:             assets.GWei(1),
 		PublicKey:                vrfkey.PublicKey.String(),
 		V2:                       true,
 	}).Toml()
