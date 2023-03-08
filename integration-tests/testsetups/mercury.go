@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	mercury_server "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -33,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
@@ -129,9 +130,9 @@ func SetupMercuryServer(
 		nodeName := fmt.Sprint(i)
 		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err)
-		csaKeys, resp, err := chainlinkNode.ReadCSAKeys()
+		csaKeys, _, err := chainlinkNode.ReadCSAKeys()
 		require.NoError(t, err)
-		csaKeyId := csaKeys.Data[0].ID
+		csaPubKey := csaKeys.Data[0].Attributes.PublicKey
 		ocr2Keys, resp, err := chainlinkNode.ReadOCR2Keys()
 		_ = ocr2Keys
 		_ = resp
@@ -157,7 +158,7 @@ func SetupMercuryServer(
 				{
 					NodeName:    nodeName,
 					NodeAddress: nodeAddress,
-					PublicKey:   csaKeyId,
+					PublicKey:   csaPubKey,
 				},
 			},
 			Ocr2ConfigPublicKey:   []string{ocr2ConfigPublicKey},
@@ -289,8 +290,6 @@ func SetupMercuryContracts(t *testing.T, evmClient blockchain.EVMClient, mercury
 	verifier, err := contractDeployer.DeployVerifier(verifierProxy.Address())
 	require.NoError(t, err, "Error deploying Verifier contract")
 
-	verifier.SetConfig(feedId, ocrConfig)
-
 	latestConfigDetails, err := verifier.LatestConfigDetails(feedId)
 	require.NoError(t, err, "Error getting Verifier.LatestConfigDetails()")
 	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
@@ -307,6 +306,7 @@ func SetupMercuryNodeJobs(
 	mockserverClient *ctfClient.MockserverClient,
 	contractID string,
 	feedId [32]byte,
+	fromBlock uint64,
 	mercuryServerPubKey string,
 	chainID int64,
 	keyIndex int,
@@ -342,8 +342,7 @@ bnum_lookup        [type=lookup key="number" index=3];
 bhash_lookup       [type=lookup key="hash" index=4];
 
 b1 -> bnum_lookup;
-b1 -> bhash_lookup;
-	`, mockserverClient.Config.ClusterURL+"/variable")
+b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
@@ -359,6 +358,7 @@ b1 -> bhash_lookup;
 			Relay:      "evm",
 			RelayConfig: map[string]interface{}{
 				"chainID": int(chainID),
+				"feedID":  fmt.Sprintf("\"0x%x\"", feedId),
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
@@ -402,8 +402,9 @@ b1 -> bhash_lookup;
 				},
 				Relay: "evm",
 				RelayConfig: map[string]interface{}{
-					"chainID": int(chainID),
-					"feedID":  fmt.Sprintf("\"0x%x\"", feedId),
+					"chainID":   int(chainID),
+					"feedID":    fmt.Sprintf("\"0x%x\"", feedId),
+					"fromBlock": fromBlock,
 				},
 				// RelayConfigMercuryConfig: map[string]interface{}{
 				// 	"clientPrivKeyID": csaKeyId,
@@ -427,10 +428,14 @@ func BuildMercuryOCRConfig(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 ) contracts.MercuryOCRConfig {
-	onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
+	min := big.NewInt(0)
+	max := big.NewInt(math.MaxInt64)
+	c := relaymercury.OnchainConfig{Min: min, Max: max}
+	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(c)
+	// onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
-	alphaPPB := uint64(1000)
+	// alphaPPB := uint64(1000)
 	config := actions.BuildGeneralOCR2Config(
 		t,
 		chainlinkNodes,
@@ -441,13 +446,7 @@ func BuildMercuryOCRConfig(
 		1*time.Minute,        // deltaStage time.Duration,
 		100,                  // rMax uint8,
 		[]int{len(chainlinkNodes)},
-		median.OffchainConfig{
-			false,
-			alphaPPB,
-			false,
-			alphaPPB,
-			0,
-		}.Encode(),
+		[]byte{},
 		0*time.Millisecond,   // maxDurationQuery time.Duration,
 		250*time.Millisecond, // maxDurationObservation time.Duration,
 		250*time.Millisecond, // maxDurationReport time.Duration,
@@ -461,7 +460,6 @@ func BuildMercuryOCRConfig(
 	for i, n := range chainlinkNodes {
 		csaKeys, _, err := n.ReadCSAKeys()
 		require.NoError(t, err)
-		// csaPubKey := csaKeys.Data[0].Attributes.PublicKey
 		csaPubKey, err := hex.DecodeString(csaKeys.Data[0].Attributes.PublicKey)
 		require.NoError(t, err)
 		transmitters[i] = [32]byte(csaPubKey)
