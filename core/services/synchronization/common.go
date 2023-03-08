@@ -9,4 +9,5 @@ const (
 	OCR2VRF        TelemetryType = "ocr2-vrf"
 	OCR2Automation TelemetryType = "ocr2-automation"
 	OCR2Functions  TelemetryType = "ocr2-functions"
+	EnhancedEA     TelemetryType = "enhanced-ea"
 )
