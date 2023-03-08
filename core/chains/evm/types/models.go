@@ -274,12 +274,12 @@ type Block struct {
 }
 
 type blockInternal struct {
-	Number        string
-	Hash          common.Hash
-	ParentHash    common.Hash
-	BaseFeePerGas *hexutil.Big
-	Timestamp     hexutil.Uint64
-	Transactions  []Transaction
+	Number        string         `json:"number"`
+	Hash          common.Hash    `json:"hash"`
+	ParentHash    common.Hash    `json:"parentHash"`
+	BaseFeePerGas *hexutil.Big   `json:"baseFeePerGas"`
+	Timestamp     hexutil.Uint64 `json:"timestamp"`
+	Transactions  []Transaction  `json:"transactions"`
 }
 
 // MarshalJSON implements json marshalling for Block
@@ -339,6 +339,11 @@ func (txt *TxType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (txt *TxType) MarshalText() ([]byte, error) {
+	hx := (hexutil.Uint64)(*txt)
+	return hx.MarshalText()
+}
+
 type transactionInternal struct {
 	GasPrice             *hexutil.Big    `json:"gasPrice"`
 	Gas                  *hexutil.Uint64 `json:"gas"`
@@ -353,12 +358,12 @@ type transactionInternal struct {
 // gas used, which can occur on other chains.
 // This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
 type Transaction struct {
-	GasPrice             *assets.Wei
-	GasLimit             uint32
-	MaxFeePerGas         *assets.Wei
-	MaxPriorityFeePerGas *assets.Wei
-	Type                 TxType
-	Hash                 common.Hash
+	GasPrice             *assets.Wei `json:"gasPrice"`
+	GasLimit             uint32      `json:"gasLimit"`
+	MaxFeePerGas         *assets.Wei `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *assets.Wei `json:"maxPriorityFeePerGas"`
+	Type                 TxType      `json:"type"`
+	Hash                 common.Hash `json:"hash"`
 }
 
 const LegacyTxType = TxType(0x0)
@@ -385,6 +390,20 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		ti.Hash,
 	}
 	return nil
+}
+
+func (t *Transaction) MarshalJSON() ([]byte, error) {
+
+	gas := (hexutil.Uint64)(uint64(t.GasLimit))
+	ti := &transactionInternal{
+		GasPrice:             (*hexutil.Big)(t.GasPrice),
+		Gas:                  &gas,
+		MaxFeePerGas:         (*hexutil.Big)(t.MaxFeePerGas),
+		MaxPriorityFeePerGas: (*hexutil.Big)(t.MaxPriorityFeePerGas),
+		Type:                 &t.Type,
+		Hash:                 t.Hash,
+	}
+	return json.Marshal(ti)
 }
 
 // WeiPerEth is amount of Wei currency units in one Eth.

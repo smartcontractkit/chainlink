@@ -40,9 +40,10 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	Get(id *big.Int) (Chain, error)
+	chains.DBChainSet[utils.Big, *types.ChainCfg]
+	chains.DBNodeSet[utils.Big, types.Node]
 
-	Show(id utils.Big) (types.DBChain, error)
+	Get(id *big.Int) (Chain, error)
 
 	Default() (Chain, error)
 	Chains() []Chain
@@ -50,19 +51,9 @@ type ChainSet interface {
 
 	ORM() types.ORM
 
-	Add(ctx context.Context, id utils.Big, config *types.ChainCfg) (types.DBChain, error)
-	Remove(id utils.Big) error
-	Index(offset, limit int) ([]types.DBChain, int, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
-	Configure(ctx context.Context, id utils.Big, enabled bool, config *types.ChainCfg) (types.DBChain, error)
 
-	// GetNodes et al retrieves Nodes from the ORM and adds additional state info
-	GetNodes(ctx context.Context, offset, limit int) (nodes []types.Node, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error)
 	GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error)
-
-	CreateNode(ctx context.Context, data types.Node) (types.Node, error)
-	DeleteNode(ctx context.Context, id int32) error
 }
 
 type chainSet struct {
