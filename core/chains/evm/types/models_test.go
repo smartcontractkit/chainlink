@@ -838,6 +838,34 @@ func TestTransaction_JSONRoundtrip(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+func TestBlock_JSONRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	d, err := json.Marshal(smallBlock)
+	require.NoError(t, err)
+	got := new(evmtypes.Block)
+	err = json.Unmarshal(d, got)
+	require.NoError(t, err)
+	assert.Equal(t, smallBlock.Hash, got.Hash)
+	assert.Equal(t, smallBlock.BaseFeePerGas, got.BaseFeePerGas)
+	assert.Equal(t, smallBlock.Number, got.Number)
+	assert.Equal(t, smallBlock.ParentHash, got.ParentHash)
+	assert.Equal(t, smallBlock.Timestamp, got.Timestamp)
+
+	assertTxnsEqual(t, smallBlock.Transactions, got.Transactions)
+}
+
+func assertTxnsEqual(t *testing.T, txns1, txns2 []evmtypes.Transaction) {
+	require.Equal(t, len(txns1), len(txns2))
+	for i := range txns1 {
+		assert.Equal(t, txns1[i].GasLimit, txns2[i].GasLimit)
+		assert.True(t, txns1[i].GasPrice.Equal(txns2[i].GasPrice))
+		assert.Equal(t, txns1[i].Hash, txns2[i].Hash)
+		assert.True(t, txns1[i].MaxFeePerGas.Equal(txns2[i].MaxFeePerGas))
+		assert.True(t, txns1[i].MaxPriorityFeePerGas.Equal(txns2[i].MaxPriorityFeePerGas))
+		assert.Equal(t, txns1[i].Type, txns2[i].Type)
+	}
+}
 func TestTxType_JSONRoundtrip(t *testing.T) {
 
 	t.Run("non zero", func(t *testing.T) {
