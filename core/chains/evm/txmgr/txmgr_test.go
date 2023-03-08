@@ -322,7 +322,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
+	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Twice()
 	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
 	cfg.On("EvmGasBumpWei").Return(assets.NewWeiI(42)).Maybe().Once()
