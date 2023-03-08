@@ -182,6 +182,7 @@ func TestRunner(t *testing.T) {
 		cfg := new(evmconfigmocks.ChainScopedConfig)
 		cfg.On("Dev").Return(true)
 		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
+		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
 		cs := new(evmmocks.ChainSet)
