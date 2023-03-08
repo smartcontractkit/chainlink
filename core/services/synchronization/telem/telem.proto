@@ -41,6 +41,7 @@ message TelemEnhancedEA {
     string feed=11;
     string chain_id=12;
     int64 observation=13;
-    int64 round=14;
-    int64 epoch=15;
+    string config_digest = 14;
+    int64 round=15;
+    int64 epoch=16;
 }

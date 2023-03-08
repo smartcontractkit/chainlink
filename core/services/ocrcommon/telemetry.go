@@ -145,6 +145,7 @@ func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, f
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,
+			ConfigDigest:                  "",
 			Round:                         0,
 			Epoch:                         0,
 		}
