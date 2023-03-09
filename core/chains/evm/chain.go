@@ -47,7 +47,7 @@ type chain struct {
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	evmTxmObj       evmTxm
+	txm             evmTxm
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -115,9 +115,9 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		}
 	}
 
-	var evmTxm = newEvmTxm(db, cfg, client, l, logPoller, opts)
+	var txm = newEvmTxm(db, cfg, client, l, logPoller, opts)
 
-	headBroadcaster.Subscribe(&evmTxm)
+	headBroadcaster.Subscribe(&txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
 	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
@@ -152,7 +152,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		id:              chainID,
 		cfg:             cfg,
 		client:          client,
-		evmTxmObj:       evmTxm,
+		txm:             txm,
 		logger:          l,
 		headBroadcaster: headBroadcaster,
 		headTracker:     headTracker,
@@ -178,7 +178,7 @@ func (c *chain) Start(ctx context.Context) error {
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		var ms services.MultiStart
-		if err := ms.Start(ctx, &c.evmTxmObj, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
+		if err := ms.Start(ctx, &c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
 			return err
 		}
 		if c.balanceMonitor != nil {
@@ -206,7 +206,7 @@ func (c *chain) Close() error {
 		c.logger.Debug("Chain: stopping headBroadcaster")
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping evmTxm")
-		merr = multierr.Combine(merr, c.evmTxmObj.Close())
+		merr = multierr.Combine(merr, c.txm.Close())
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
 		c.logger.Debug("Chain: stopped")
@@ -217,7 +217,7 @@ func (c *chain) Close() error {
 func (c *chain) Ready() (merr error) {
 	merr = multierr.Combine(
 		c.StartStopOnce.Ready(),
-		c.evmTxmObj.Ready(),
+		c.txm.Ready(),
 		c.headBroadcaster.Ready(),
 		c.headTracker.Ready(),
 		c.logBroadcaster.Ready(),
@@ -231,7 +231,7 @@ func (c *chain) Ready() (merr error) {
 func (c *chain) Healthy() (merr error) {
 	merr = multierr.Combine(
 		c.StartStopOnce.Healthy(),
-		c.evmTxmObj.Healthy(),
+		c.txm.Healthy(),
 		c.headBroadcaster.Healthy(),
 		c.headTracker.Healthy(),
 		c.logBroadcaster.Healthy(),
@@ -256,7 +256,7 @@ func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager[*types.Head]  { return c.evmTxmObj.TxManagerEvmType }
+func (c *chain) TxManager() txmgr.TxManager[*types.Head]  { return c.txm.TxManagerEvmType }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
