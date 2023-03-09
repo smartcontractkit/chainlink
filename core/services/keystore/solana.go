@@ -145,11 +145,11 @@ func (ks *solana) EnsureKey() error {
 }
 
 func (ks *solana) Sign(_ context.Context, id string, msg []byte) (signature []byte, err error) {
-	if k, err := ks.Get(id); err != nil {
+	k, err := ks.Get(id)
+	if err != nil {
 		return nil, err
-	} else {
-		return k.Sign(msg)
 	}
+	return k.Sign(msg)
 }
 
 var (
