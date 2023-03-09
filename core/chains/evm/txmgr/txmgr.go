@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -124,7 +125,7 @@ func (b *Txm[HEAD]) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm[HEAD any](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm[HEAD] {
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm[*evmtypes.Head] {
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
@@ -133,7 +134,7 @@ func NewTxm[HEAD any](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keySt
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
-	b := Txm[HEAD]{
+	b := Txm[*evmtypes.Head]{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		orm:              NewORM(db, lggr, cfg),
@@ -146,7 +147,7 @@ func NewTxm[HEAD any](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keySt
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, cfg),
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
-		chHeads:          make(chan txmgrtypes.HeadView[HEAD]),
+		chHeads:          make(chan txmgrtypes.HeadView[*evmtypes.Head]),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),

@@ -154,6 +154,11 @@ func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) txmgrtypes.FeeEstimator[
 	}
 }
 
+func (e WrappedEvmEstimator) OnNewLongestChain(ctx context.Context, head txmgrtypes.HeadView[*evmtypes.Head]) {
+	e.OnNewLongestChain(ctx, head)
+	return
+}
+
 func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...txmgrtypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// get dynamic fee
 	if e.EIP1559Enabled {

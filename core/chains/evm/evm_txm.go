@@ -19,10 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var _ httypes.HeadTrackable = &txmWrapper{}
+var _ httypes.HeadTrackable = &evmTxm{}
 
 // EVM specific wrapper to hold the core TxMgr object underneath
-type txmWrapper struct {
+type evmTxm struct {
 	httypes.HeadTrackable
 	services.ServiceCtx
 	utils.StartStopOnce
@@ -31,45 +31,45 @@ type txmWrapper struct {
 	txm txmgr.TxManager[*evmtypes.Head]
 }
 
-func (txmWrapper *txmWrapper) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
-	txmWrapper.txm.OnNewLongestChain(ctx, NewHeadViewImpl(evmHead))
+func (e *evmTxm) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
+	e.txm.OnNewLongestChain(ctx, NewHeadViewImpl(evmHead))
 }
 
-func (txmWrapper *txmWrapper) Start(ctx context.Context) (err error) {
-	return txmWrapper.txm.Start(ctx)
+func (e *evmTxm) Start(ctx context.Context) (err error) {
+	return e.txm.Start(ctx)
 }
 
-func (txmWrapper *txmWrapper) Close() error {
-	return txmWrapper.txm.Close()
+func (e *evmTxm) Close() error {
+	return e.txm.Close()
 }
 
-func (txmWrapper *txmWrapper) Ready() error {
-	return txmWrapper.txm.Ready()
+func (e *evmTxm) Ready() error {
+	return e.txm.Ready()
 }
 
-func (txmWrapper *txmWrapper) Healthy() error {
-	return txmWrapper.txm.Healthy()
+func (e *evmTxm) Healthy() error {
+	return e.txm.Healthy()
 }
 
-func newTxManagerWrapper(
+func newEvmTxm(
 	db *sqlx.DB,
 	cfg evmconfig.ChainScopedConfig,
 	client evmclient.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) txmWrapper {
+) evmTxm {
 	chainID := cfg.ChainID()
 	var txm txmgr.TxManager[*evmtypes.Head]
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager[*evmtypes.Head]{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
 		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm[*evmtypes.Head](db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, logPoller)
+		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, logPoller)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-	return txmWrapper{txm: txm}
+	return evmTxm{txm: txm}
 }
 
 var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}

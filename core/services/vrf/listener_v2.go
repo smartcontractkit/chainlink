@@ -83,7 +83,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager,
+	txm txmgr.TxManager[*evmtypes.Head],
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -151,7 +151,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager
+	txm            txmgr.TxManager[*evmtypes.Head]
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
