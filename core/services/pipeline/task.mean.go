@@ -10,9 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// Return types:
 //
-//	*decimal.Decimal
+// Return types:
+//    *decimal.Decimal
+//
 type MeanTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`

@@ -14,10 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 )
 
 func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
