@@ -224,10 +224,7 @@ func (o *orm) EthTransactions(offset, limit int, opts ...any) (txs []EthTx, coun
 		}
 
 		sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
-		if err = o.q.Select(&txs, sql, limit, offset); err != nil {
-			return err
-		}
-		return nil
+		return o.q.Select(&txs, sql, limit, offset)
 	})
 	err = errors.Wrap(err, "EthTransactions failed")
 	return
