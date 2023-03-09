@@ -5,7 +5,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -62,10 +61,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		return nil, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
-
-	cfg := chain.Config()
-	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, cfg.KeeperDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
-	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
+	orm := NewORM(d.db, d.logger, chain.Config())
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
 		"registryAddress", registryAddress.Hex(),

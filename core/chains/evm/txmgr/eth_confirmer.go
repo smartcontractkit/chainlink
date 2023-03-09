@@ -869,7 +869,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"blockHeight", blockHeight,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
+		return ec.orm.DeleteInProgressAttempt(attempt, pg.WithParentCtx(ctx))
 	}
 
 	if sendError.Fatal() {
@@ -886,7 +886,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"blockHeight", blockHeight,
 		)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
-		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
+		return ec.orm.DeleteInProgressAttempt(attempt, pg.WithParentCtx(ctx))
 	}
 
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
@@ -1025,7 +1025,7 @@ func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *evmtypes.Head) error
 
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.EthTxAttempts[0]
-	var receipt EthReceipt
+	var receipt txmgrtypes.Receipt[evmtypes.Receipt, gethCommon.Hash]
 	if len(attempt.EthReceipts) > 0 {
 		receipt = attempt.EthReceipts[0]
 	}

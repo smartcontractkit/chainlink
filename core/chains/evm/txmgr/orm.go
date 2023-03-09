@@ -27,13 +27,8 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	txmgrtypes.ORM[common.Address, big.Int, common.Hash, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64]
-	CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error)
-	DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error
-	EthTransactions(offset, limit int) ([]EthTx, int, error)
-	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
+	txmgrtypes.ORM[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64]
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
-	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EthReceiptsPlus, err error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error)
@@ -50,8 +45,6 @@ type ORM interface {
 	GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error)
 	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
 	HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error)
-	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-	InsertEthReceipt(receipt *EthReceipt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
 	LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error
@@ -59,9 +52,7 @@ type ORM interface {
 	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
 	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
 	PreloadEthTxes(attempts []EthTxAttempt) error
-	PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
 	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
 	SaveInProgressAttempt(attempt *EthTxAttempt) error
 	SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error
@@ -158,34 +149,38 @@ func (o *orm) Close() {
 	o.ctxCancel()
 }
 
-func (o *orm) preloadTxAttempts(txs []EthTx) error {
-	// Preload TxAttempts
-	var ids []int64
-	for _, tx := range txs {
-		ids = append(ids, tx.ID)
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	var attempts []EthTxAttempt
-	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
-	query, args, err := sqlx.In(sql, ids)
-	if err != nil {
-		return err
-	}
-	query = o.q.Rebind(query)
-	if err = o.q.Select(&attempts, query, args...); err != nil {
-		return err
-	}
-	// fill in attempts
-	for _, attempt := range attempts {
-		for i, tx := range txs {
-			if tx.ID == attempt.EthTxID {
-				txs[i].EthTxAttempts = append(txs[i].EthTxAttempts, attempt)
+func (o *orm) preloadTxAttempts(txs []EthTx, qopts ...pg.QOpt) error {
+	qq := o.q.WithOpts(qopts...)
+
+	return qq.Transaction(func(tx pg.Queryer) error {
+		// Preload TxAttempts
+		var ids []int64
+		for _, tx := range txs {
+			ids = append(ids, tx.ID)
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		var attempts []EthTxAttempt
+		sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
+		query, args, err := sqlx.In(sql, ids)
+		if err != nil {
+			return err
+		}
+		query = tx.Rebind(query)
+		if err = tx.Select(&attempts, query, args...); err != nil {
+			return err
+		}
+		// fill in attempts
+		for _, attempt := range attempts {
+			for i, tx := range txs {
+				if tx.ID == attempt.EthTxID {
+					txs[i].EthTxAttempts = append(txs[i].EthTxAttempts, attempt)
+				}
 			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
@@ -214,34 +209,53 @@ func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
 
 // EthTransactions returns all eth transactions without loaded relations
 // limited by passed parameters.
-func (o *orm) EthTransactions(offset, limit int) (txs []EthTx, count int, err error) {
-	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
-	if err = o.q.Get(&count, sql); err != nil {
+func (o *orm) EthTransactions(offset, limit int, opts ...any) (txs []EthTx, count int, err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		err = errors.Wrap(err, "EthTransactions failed")
 		return
 	}
+	qq := o.q.WithOpts(qopts...)
 
-	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
-	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
-		return
-	}
+	qq.Transaction(func(tx pg.Queryer) error {
+		sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
+		if err = o.q.Get(&count, sql); err != nil {
+			return err
+		}
 
+		sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+		if err = o.q.Select(&txs, sql, limit, offset); err != nil {
+			return err
+		}
+		return nil
+	})
 	return
 }
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
-func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
-	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
-	if err = o.q.Get(&count, sql); err != nil {
+func (o *orm) EthTransactionsWithAttempts(offset, limit int, opts ...any) (txs []EthTx, count int, err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		err = errors.Wrap(err, "EthTransactions failed")
 		return
 	}
 
-	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
-	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
-		return
-	}
+	qq := o.q.WithOpts(qopts...)
 
-	err = o.preloadTxAttempts(txs)
+	qq.Transaction(func(tx pg.Queryer) error {
+		sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
+		if err = tx.Get(&count, sql); err != nil {
+			return err
+		}
+
+		sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+		if err = tx.Select(&txs, sql, limit, offset); err != nil {
+			return err
+		}
+
+		return o.preloadTxAttempts(txs, pg.WithQueryer(tx))
+	})
 	return
 }
 
@@ -320,7 +334,7 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
-func (o *orm) InsertEthReceipt(receipt *EthReceipt) error {
+func (o *orm) InsertEthReceipt(receipt *txmgrtypes.Receipt[evmtypes.Receipt, common.Hash], opts ...any) error {
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
@@ -398,7 +412,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
-	var receipts []EthReceipt
+	var receipts []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
 	if err = q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
@@ -416,7 +430,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 		byHash[attempt.Hash] = &attempts[i]
 		hashes = append(hashes, attempt.Hash.Bytes())
 	}
-	var receipts []EthReceipt
+	var receipts []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
 	if err := q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}
@@ -515,7 +529,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error) {
+func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int, opts ...any) (err error) {
 	if len(receipts) == 0 {
 		return nil
 	}
@@ -659,7 +673,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EthReceiptsPlus, err error) {
+func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int, opts ...any) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
 	err = o.q.SelectContext(ctx, &receiptsPlus, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
@@ -798,15 +812,20 @@ func (o *orm) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout ti
 	return errors.Wrap(err, "SaveConfirmedMissingReceiptAttempt failed")
 }
 
-func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error {
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+func (o *orm) DeleteInProgressAttempt(attempt EthTxAttempt, opts ...any) error {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		return errors.Wrap(err, "DeleteInProgressAttempt failed")
+	}
+	qq := o.q.WithOpts(qopts...)
+
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
 	if attempt.ID == 0 {
 		return errors.New("DeleteInProgressAttempt: expected attempt to have an id")
 	}
-	_, err := qq.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
+	_, err = qq.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
 	return errors.Wrap(err, "DeleteInProgressAttempt failed")
 }
 
@@ -1205,7 +1224,13 @@ func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTrans
 	return
 }
 
-func (o *orm) CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error) {
+func (o *orm) CreateEthTransaction(newTx NewTx, chainID big.Int, opts ...any) (etx EthTx, err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		err = errors.Wrap(err, "CreateEthTransaction failed")
+		return
+	}
+
 	qq := o.q.WithOpts(qopts...)
 	value := 0
 	err = qq.Transaction(func(tx pg.Queryer) error {
@@ -1243,7 +1268,12 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (o *orm) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
+func (o *orm) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, opts ...any) (n int64, err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		return 0, errors.Wrap(err, "PruneUnstartedEthTxQueue failed")
+	}
+
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`

@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -17,20 +16,18 @@ import (
 
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
-	q        pg.Q
-	config   Config
-	strategy txmgr.TxStrategy
-	logger   logger.Logger
+	q      pg.Q
+	config Config
+	logger logger.Logger
 }
 
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, config Config, strategy txmgr.TxStrategy) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, config Config) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
-		q:        pg.NewQ(db, lggr, config),
-		config:   config,
-		strategy: strategy,
-		logger:   lggr,
+		q:      pg.NewQ(db, lggr, config),
+		config: config,
+		logger: lggr,
 	}
 }
 

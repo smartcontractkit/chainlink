@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -347,7 +348,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 	}
 }
 
-func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.EthReceipt {
+func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] {
 	transactionIndex := uint(NewRandomPositiveInt64())
 
 	receipt := evmtypes.Receipt{
@@ -358,7 +359,7 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 		Status:           status,
 	}
 
-	r := txmgr.EthReceipt{
+	r := txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
 		TxHash:           txHash,
@@ -368,13 +369,13 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 	return r
 }
 
-func MustInsertEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
+func MustInsertEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
 	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
 }
 
-func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
+func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
 	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
@@ -606,7 +607,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
-	korm := keeper.NewORM(db, logger.TestLogger(t), cfg, txmgr.SendEveryStrategy{})
+	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
 	mathrand.Seed(time.Now().UnixNano())
 	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{

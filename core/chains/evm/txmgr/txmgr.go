@@ -467,7 +467,7 @@ type NewTx struct {
 	MinConfirmations  null.Uint32
 	PipelineTaskRunID *uuid.UUID
 
-	Strategy TxStrategy
+	Strategy txmgrtypes.TxStrategy
 
 	// Checker defines the check that should be run before a transaction is submitted on chain.
 	Checker TransmitCheckerSpec
@@ -502,7 +502,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, qs...)
+	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, ToAnys(qs)...)
 	return
 }
 

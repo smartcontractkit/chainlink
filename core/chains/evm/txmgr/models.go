@@ -298,7 +298,7 @@ type EthTxAttempt struct {
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `json:"-"`
+	EthReceipts             []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] `json:"-"`
 	TxType                  int
 }
 
@@ -348,14 +348,4 @@ func (a EthTxAttempt) GetHash() common.Hash {
 
 func (a EthTxAttempt) GetTxType() int {
 	return a.TxType
-}
-
-type EthReceipt struct {
-	ID               int64
-	TxHash           common.Hash
-	BlockHash        common.Hash
-	BlockNumber      int64
-	TransactionIndex uint
-	Receipt          evmtypes.Receipt
-	CreatedAt        time.Time
 }

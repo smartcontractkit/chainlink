@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -68,7 +70,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 
-	txs, count, err = orm.EthTransactionsWithAttempts(0, 1)
+	txs, count, err = orm.EthTransactionsWithAttempts(0, 1, pg.WithQueryer(db))
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
@@ -105,7 +107,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
-	txs, count, err := orm.EthTransactions(0, 100)
+	txs, count, err := orm.EthTransactions(0, 100, pg.WithParentCtx(context.Background()))
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
@@ -150,7 +152,7 @@ func TestORM(t *testing.T) {
 		assert.Greater(t, int(attemptL.ID), 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
 	})
-	var r txmgr.EthReceipt
+	var r txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)
@@ -856,7 +858,7 @@ func TestORM_DeleteInProgressAttempt(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 
-		err := borm.DeleteInProgressAttempt(context.Background(), etx.EthTxAttempts[0])
+		err := borm.DeleteInProgressAttempt(etx.EthTxAttempts[0], pg.WithParentCtx(context.Background()))
 		require.NoError(t, err)
 
 		nilResult, err := borm.FindEthTxAttempt(attempt.Hash)

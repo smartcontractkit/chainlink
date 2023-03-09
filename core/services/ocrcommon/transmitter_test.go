@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commontxmgrmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -16,6 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
+
+func newMockTxStrategy(t *testing.T) *commontxmgrmocks.TxStrategy {
+	return commontxmgrmocks.NewTxStrategy(t)
+}
 
 func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
@@ -73,7 +78,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewTxManager(t)
-	strategy := txmmocks.NewTxStrategy(t)
+	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
 		txm,
@@ -122,7 +127,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewTxManager(t)
-	strategy := txmmocks.NewTxStrategy(t)
+	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
 		txm,
@@ -152,7 +157,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	txm := txmmocks.NewTxManager(t)
-	strategy := txmmocks.NewTxStrategy(t)
+	strategy := newMockTxStrategy(t)
 
 	_, err := ocrcommon.NewTransmitter(
 		txm,

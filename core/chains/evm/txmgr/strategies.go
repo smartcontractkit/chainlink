@@ -7,24 +7,16 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/common/txmgr/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-// TxStrategy controls how txes are queued and sent
-//
-//go:generate mockery --quiet --name TxStrategy --output ./mocks/ --case=underscore --structname TxStrategy --filename tx_strategy.go
-type TxStrategy interface {
-	// Subject will be saved to eth_txes.subject if not null
-	Subject() uuid.NullUUID
-	// PruneQueue is called after eth_tx insertion
-	PruneQueue(orm ORM, opt any) (n int64, err error)
-}
-
-var _ TxStrategy = SendEveryStrategy{}
+var _ txmgrtypes.TxStrategy = SendEveryStrategy{}
 
 // NewQueueingTxStrategy creates a new TxStrategy that drops the oldest transactions after the
 // queue size is exceeded if a queue size is specified, and otherwise does not drop transactions.
-func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) (strategy TxStrategy) {
+func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) (strategy txmgrtypes.TxStrategy) {
 	if queueSize > 0 {
 		strategy = NewDropOldestStrategy(subject, queueSize, queryTimeout)
 	} else {
@@ -34,17 +26,17 @@ func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, queryTimeout tim
 }
 
 // NewSendEveryStrategy creates a new TxStrategy that does not drop transactions.
-func NewSendEveryStrategy() TxStrategy {
+func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 	return SendEveryStrategy{}
 }
 
 // SendEveryStrategy will always send the tx
 type SendEveryStrategy struct{}
 
-func (SendEveryStrategy) Subject() uuid.NullUUID                     { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(orm ORM, opt any) (int64, error) { return 0, nil }
+func (SendEveryStrategy) Subject() uuid.NullUUID                              { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(pruneService any, opt any) (int64, error) { return 0, nil }
 
-var _ TxStrategy = DropOldestStrategy{}
+var _ types.TxStrategy = DropOldestStrategy{}
 
 // DropOldestStrategy will send the newest N transactions, older ones will be
 // removed from the queue
@@ -64,10 +56,15 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(orm ORM, opt any) (n int64, err error) {
+func (s DropOldestStrategy) PruneQueue(pruneService any, opt any) (n int64, err error) {
 	qopt, err := ToQOpt(opt)
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
+	}
+
+	orm, ok := pruneService.(ORM)
+	if !ok {
+		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed invalid pruneService")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
