@@ -970,7 +970,7 @@ func (ec *EthConfirmer[HEAD]) EnsureConfirmedTransactionsInLongestChain(ctx cont
 	}
 
 	for _, etx := range etxs {
-		if !hasReceiptInLongestChain(*etx, head) {
+		if !hasReceiptInLongestChain[HEAD](*etx, head) {
 			if err := ec.markForRebroadcast(*etx, head); err != nil {
 				return errors.Wrapf(err, "markForRebroadcast failed for etx %v", etx.ID)
 			}

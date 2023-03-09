@@ -218,7 +218,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer[*evmtypes.Head] {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates,
+	ec := txmgr.NewEthConfirmer[*evmtypes.Head](orm, ethClient, config, ks, keyStates,
 		gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config), fn, lggr)
 	return ec
 }

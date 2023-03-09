@@ -115,9 +115,9 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		}
 	}
 
-	var evmTxmObj = newEvmTxm(db, cfg, client, l, logPoller, opts)
+	var evmTxm = newEvmTxm(db, cfg, client, l, logPoller, opts)
 
-	headBroadcaster.Subscribe(&evmTxmObj)
+	headBroadcaster.Subscribe(&evmTxm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
 	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
@@ -152,7 +152,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		id:              chainID,
 		cfg:             cfg,
 		client:          client,
-		evmTxmObj:       evmTxmObj,
+		evmTxmObj:       evmTxm,
 		logger:          l,
 		headBroadcaster: headBroadcaster,
 		headTracker:     headTracker,

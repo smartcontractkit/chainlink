@@ -76,7 +76,7 @@ var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}
 
 // Evm implementation for the generic HeadView interface
 type headViewImpl struct {
-	txmgrtypes.HeadView[*evmtypes.Head]
+	// txmgrtypes.HeadView[*evmtypes.Head]
 	evmHead *evmtypes.Head
 }
 
@@ -103,6 +103,10 @@ func (head *headViewImpl) Hash() common.Hash {
 }
 
 func (head *headViewImpl) Parent() txmgrtypes.HeadView[*evmtypes.Head] {
+	if head.evmHead.Parent == nil {
+		return nil
+	}
+
 	return NewHeadViewImpl(head.evmHead.Parent)
 }
 
