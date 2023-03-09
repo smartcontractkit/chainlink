@@ -12,7 +12,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/ethereum/go-ethereum v1.10.26
-	github.com/fatih/color v1.13.0
+	github.com/fatih/color v1.14.1
 	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27
 	github.com/getsentry/sentry-go v0.15.0
@@ -215,7 +215,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
