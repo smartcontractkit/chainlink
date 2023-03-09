@@ -4,6 +4,8 @@ import "github.com/ethereum/go-ethereum/common"
 
 // Provides a minimal access to a chain's head, as needed by the TxManager.
 // This is a generic interface whcih ALL chains will implement.
+//
+//go:generate mockery --quiet --name HeadView --output ./mocks/ --case=underscore
 type HeadView[HEAD any] interface {
 	// The head's block number
 	BlockNumber() int64
