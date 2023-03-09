@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -28,7 +27,7 @@ import (
 )
 
 func TestOCRSoak(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment, network, testInputs := SetupOCREnvVarsSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
