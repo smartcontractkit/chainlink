@@ -27,7 +27,6 @@ type FeeEstimator[HEAD any, FEE any, MAXPRICE any, HASH any] interface {
 	Start(context.Context) error
 	Close() error
 
-	OnNewLongestChain(ctx context.Context, head HeadView[HEAD])
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice MAXPRICE, opts ...Opt) (fee FEE, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee FEE, feeLimit uint32, maxFeePrice MAXPRICE, attempts []PriorAttempt[FEE, HASH]) (bumpedFee FEE, chainSpecificFeeLimit uint32, err error)
 }

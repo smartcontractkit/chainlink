@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// TxManagerEvmType type aliasing is needed here, to embed inside the evmTxm struct
+// TxManagerEvmType is embedded inside evmTxm, which requires use of this type aliasing.
 type TxManagerEvmType = txmgr.TxManager[*evmtypes.Head]
 
 var _ httypes.HeadTrackable = &evmTxm{}
@@ -29,7 +29,6 @@ type evmTxm struct {
 }
 
 func (e evmTxm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	//TODO implement me
 	e.TxManagerEvmType.OnNewLongestChain(ctx, NewHeadViewImpl(head))
 }
 

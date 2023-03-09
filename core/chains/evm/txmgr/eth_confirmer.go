@@ -112,6 +112,8 @@ var (
 // Step 2: Check pending transactions for receipts
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
+//
+// The type HEAD represents the chain's native head datatype.
 type EthConfirmer[HEAD any] struct {
 	utils.StartStopOnce
 	orm       ORM
