@@ -46,34 +46,6 @@ type ChainScopedConfig struct {
 	mock.Mock
 }
 
-// AdvisoryLockCheckInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) AdvisoryLockCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// AdvisoryLockID provides a mock function with given fields:
-func (_m *ChainScopedConfig) AdvisoryLockID() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
 // AllowOrigins provides a mock function with given fields:
 func (_m *ChainScopedConfig) AllowOrigins() string {
 	ret := _m.Called()
@@ -948,20 +920,6 @@ func (_m *ChainScopedConfig) EthereumHTTPURL() *url.URL {
 	return r0
 }
 
-// EthereumNodes provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumNodes() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // EthereumSecondaryURLs provides a mock function with given fields:
 func (_m *ChainScopedConfig) EthereumSecondaryURLs() []url.URL {
 	ret := _m.Called()
@@ -1643,20 +1601,6 @@ func (_m *ChainScopedConfig) GasEstimatorMode() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// GetAdvisoryLockIDConfiguredOrDefault provides a mock function with given fields:
-func (_m *ChainScopedConfig) GetAdvisoryLockIDConfiguredOrDefault() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
 	}
 
 	return r0
@@ -3320,20 +3264,6 @@ func (_m *ChainScopedConfig) SolanaEnabled() bool {
 	return r0
 }
 
-// SolanaNodes provides a mock function with given fields:
-func (_m *ChainScopedConfig) SolanaNodes() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // StarkNetEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) StarkNetEnabled() bool {
 	ret := _m.Called()
@@ -3343,20 +3273,6 @@ func (_m *ChainScopedConfig) StarkNetEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// StarkNetNodes provides a mock function with given fields:
-func (_m *ChainScopedConfig) StarkNetNodes() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0

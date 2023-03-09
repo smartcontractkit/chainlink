@@ -22,10 +22,11 @@ import (
 var (
 	ErrBumpGasExceedsLimit = errors.New("gas bump exceeds limit")
 	ErrBump                = errors.New("gas bump failed")
+	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
 )
 
 func IsBumpErr(err error) bool {
-	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump))
+	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
 // NewEstimator returns the estimator for a given config

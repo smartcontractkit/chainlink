@@ -73,7 +73,6 @@ var (
 
 const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current block prices by significant margin; tx will continue to be rebroadcasted but your node, RPC, or the chain might be experiencing connectivity issues; please investigate and fix ASAP"
 
-var ErrConnectivity = errors.New("transaction propagation issue: transactions are not being mined")
 
 var _ EvmEstimator = &BlockHistoryEstimator{}
 
@@ -714,7 +713,7 @@ var (
 )
 
 func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []evmtypes.Block, percentile int, eip1559 bool, f func(gasPrices []*assets.Wei), f2 func(tipCaps []*assets.Wei)) (gasPrice, tipCap *assets.Wei, err error) {
-	gasPrices, tipCaps := b.getPercentilePricesFromBlocks(blocks, percentile, eip1559)
+	gasPrices, tipCaps := b.getPricesFromBlocks(blocks, eip1559)
 	if len(gasPrices) == 0 {
 		return nil, nil, ErrNoSuitableTransactions
 	}
@@ -739,7 +738,7 @@ func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []evmtypes.Bloc
 	return
 }
 
-func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []evmtypes.Block, percentile int, eip1559 bool) (gasPrices, tipCaps []*assets.Wei) {
+func (b *BlockHistoryEstimator) getPricesFromBlocks(blocks []evmtypes.Block, eip1559 bool) (gasPrices, tipCaps []*assets.Wei) {
 	gasPrices = make([]*assets.Wei, 0)
 	tipCaps = make([]*assets.Wei, 0)
 	for _, block := range blocks {
