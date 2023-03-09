@@ -269,12 +269,17 @@ func BuildMercuryOCRConfig(
 		[]int{len(chainlinkNodes)},
 		oracleIdentities,
 		[]byte{},
-		0*time.Millisecond,   // maxDurationQuery time.Duration,
-		250*time.Millisecond, // maxDurationObservation time.Duration,
-		250*time.Millisecond, // maxDurationReport time.Duration,
-		250*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
-		250*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                    // f int,
+		0*time.Millisecond, // maxDurationQuery time.Duration,
+		// TODO: fix mockserver and switch to 250ms?
+		500*time.Millisecond, // maxDurationObservation time.Duration,
+		500*time.Millisecond, // maxDurationReport time.Duration,
+		500*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		500*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
+		// 250*time.Millisecond, // maxDurationObservation time.Duration,
+		// 250*time.Millisecond, // maxDurationReport time.Duration,
+		// 250*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		// 250*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1, // f int,
 		onchainConfig,
 	)
 	require.NoError(t, err)
