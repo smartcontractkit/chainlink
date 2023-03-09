@@ -5,7 +5,8 @@ package mocks
 import (
 	context "context"
 
-	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	adapters "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -15,19 +16,19 @@ type ChainSet struct {
 }
 
 // Chain provides a mock function with given fields: ctx, id
-func (_m *ChainSet) Chain(ctx context.Context, id string) (cosmos.Chain, error) {
+func (_m *ChainSet) Chain(ctx context.Context, id string) (adapters.Chain, error) {
 	ret := _m.Called(ctx, id)
 
-	var r0 cosmos.Chain
+	var r0 adapters.Chain
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (cosmos.Chain, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (adapters.Chain, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) cosmos.Chain); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) adapters.Chain); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmos.Chain)
+			r0 = ret.Get(0).(adapters.Chain)
 		}
 	}
 

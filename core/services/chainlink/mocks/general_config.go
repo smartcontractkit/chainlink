@@ -11,6 +11,8 @@ import (
 
 	config "github.com/smartcontractkit/chainlink/core/config"
 
+	cosmos "github.com/smartcontractkit/chainlink/core/chains/cosmos"
+
 	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -433,6 +435,36 @@ func (_m *GeneralConfig) ConfigTOML() (string, string) {
 	}
 
 	return r0, r1
+}
+
+// CosmosConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) CosmosConfigs() cosmos.CosmosConfigs {
+	ret := _m.Called()
+
+	var r0 cosmos.CosmosConfigs
+	if rf, ok := ret.Get(0).(func() cosmos.CosmosConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(cosmos.CosmosConfigs)
+		}
+	}
+
+	return r0
+}
+
+// CosmosEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) CosmosEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // DatabaseBackupDir provides a mock function with given fields:

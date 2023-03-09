@@ -3,11 +3,10 @@
 package mocks
 
 import (
-	context "context"
-
+	adapters "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	client "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 
-	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	context "context"
 
 	db "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
@@ -34,15 +33,15 @@ func (_m *Chain) Close() error {
 }
 
 // Config provides a mock function with given fields:
-func (_m *Chain) Config() cosmos.Config {
+func (_m *Chain) Config() adapters.Config {
 	ret := _m.Called()
 
-	var r0 cosmos.Config
-	if rf, ok := ret.Get(0).(func() cosmos.Config); ok {
+	var r0 adapters.Config
+	if rf, ok := ret.Get(0).(func() adapters.Config); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmos.Config)
+			r0 = ret.Get(0).(adapters.Config)
 		}
 	}
 
@@ -162,15 +161,15 @@ func (_m *Chain) Start(_a0 context.Context) error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() cosmos.TxManager {
+func (_m *Chain) TxManager() adapters.TxManager {
 	ret := _m.Called()
 
-	var r0 cosmos.TxManager
-	if rf, ok := ret.Get(0).(func() cosmos.TxManager); ok {
+	var r0 adapters.TxManager
+	if rf, ok := ret.Get(0).(func() adapters.TxManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmos.TxManager)
+			r0 = ret.Get(0).(adapters.TxManager)
 		}
 	}
 

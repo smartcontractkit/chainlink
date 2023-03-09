@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	adapters "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/cosmos/cosmos-sdk/types"
@@ -63,7 +63,7 @@ func (_m *TxManager) GasPrice() (types.DecCoin, error) {
 }
 
 // GetMsgs provides a mock function with given fields: ids
-func (_m *TxManager) GetMsgs(ids ...int64) (cosmos.Msgs, error) {
+func (_m *TxManager) GetMsgs(ids ...int64) (adapters.Msgs, error) {
 	_va := make([]interface{}, len(ids))
 	for _i := range ids {
 		_va[_i] = ids[_i]
@@ -72,16 +72,16 @@ func (_m *TxManager) GetMsgs(ids ...int64) (cosmos.Msgs, error) {
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 cosmos.Msgs
+	var r0 adapters.Msgs
 	var r1 error
-	if rf, ok := ret.Get(0).(func(...int64) (cosmos.Msgs, error)); ok {
+	if rf, ok := ret.Get(0).(func(...int64) (adapters.Msgs, error)); ok {
 		return rf(ids...)
 	}
-	if rf, ok := ret.Get(0).(func(...int64) cosmos.Msgs); ok {
+	if rf, ok := ret.Get(0).(func(...int64) adapters.Msgs); ok {
 		r0 = rf(ids...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmos.Msgs)
+			r0 = ret.Get(0).(adapters.Msgs)
 		}
 	}
 

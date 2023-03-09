@@ -3,8 +3,10 @@
 package mocks
 
 import (
-	query "github.com/cosmos/cosmos-sdk/types/query"
+	cosmos_sdkclient "github.com/cosmos/cosmos-sdk/client"
 	mock "github.com/stretchr/testify/mock"
+
+	query "github.com/cosmos/cosmos-sdk/types/query"
 
 	tmservice "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 
@@ -99,6 +101,22 @@ func (_m *Reader) BlockByHeight(height int64) (*tmservice.GetBlockByHeightRespon
 	}
 
 	return r0, r1
+}
+
+// Context provides a mock function with given fields:
+func (_m *Reader) Context() *cosmos_sdkclient.Context {
+	ret := _m.Called()
+
+	var r0 *cosmos_sdkclient.Context
+	if rf, ok := ret.Get(0).(func() *cosmos_sdkclient.Context); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*cosmos_sdkclient.Context)
+		}
+	}
+
+	return r0
 }
 
 // ContractState provides a mock function with given fields: contractAddress, queryMsg
