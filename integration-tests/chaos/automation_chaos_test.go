@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -107,7 +106,7 @@ const (
 
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart

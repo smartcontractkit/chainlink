@@ -32,7 +32,6 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	}
 	cfg := solana.SolanaConfig{
 		ChainID: &chainID,
-		Enabled: ptr(true),
 		Nodes:   solana.SolanaNodes{&node},
 	}
 	app := solanaStartNewApplication(t, &cfg)
