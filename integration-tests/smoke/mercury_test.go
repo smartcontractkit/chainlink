@@ -1,4 +1,4 @@
-package smoke
+package smokemercury
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	mshelm "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/stretchr/testify/require"
 )
@@ -43,6 +44,17 @@ var feedId = mercury.StringToByte32("ETH-USD-1")
 // 	require.NoError(t, err, "Error deploying Verifier contract")
 // 	_ = verifier
 // }
+
+func TestMercuryServerHMAC(t *testing.T) {
+	l := zerolog.New(zerolog.NewTestWriter(t))
+
+	// Create new user
+	mercuryserver := client.NewMercuryServer("localhost:3000")
+	_ = mercuryserver
+	// Get report
+
+	l.Log().Msgf("asdsa")
+}
 
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
