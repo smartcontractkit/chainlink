@@ -126,6 +126,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 							tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
 						} else {
 							tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+							tc.SvcErrBuffer.Append(err)
 						}
 					} else {
 						tc.telemClient = telemPb.NewTelemClient(conn)
@@ -137,7 +138,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 				// Spawns a goroutine that will eventually connect
 				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 				if err != nil {
-					return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
+					return fmt.Errorf("could not start TelemIngressBatchClient, Dial returned error: %v", err)
 				}
 				tc.telemClient = telemPb.NewTelemClient(conn)
 				tc.close = func() error { conn.Close(); return nil }
@@ -165,7 +166,7 @@ func (tc *telemetryIngressBatchClient) Name() string {
 }
 
 func (tc *telemetryIngressBatchClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): tc.Healthy()}
+	return map[string]error{tc.Name(): errors.Join(tc.StartStopOnce.Healthy(), tc.SvcErrBuffer.Flush())}
 }
 
 // getCSAPrivateKey gets the client's CSA private key

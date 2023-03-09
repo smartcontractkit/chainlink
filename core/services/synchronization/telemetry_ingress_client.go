@@ -114,7 +114,7 @@ func (tc *telemetryIngressClient) Name() string {
 }
 
 func (tc *telemetryIngressClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): tc.Healthy()}
+	return map[string]error{tc.Name(): errors.Join(tc.StartStopOnce.Healthy(), tc.SvcErrBuffer.Flush())}
 }
 
 func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
@@ -127,8 +127,12 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 		if err != nil {
-			tc.lggr.Errorf("Error connecting to telemetry ingress server: %v", err)
-			return
+			if ctx.Err() != nil {
+				tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
+			} else {
+				tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+				tc.SvcErrBuffer.Append(err)
+			}
 		}
 		defer conn.Close()
 

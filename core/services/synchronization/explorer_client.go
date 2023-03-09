@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -150,7 +149,9 @@ func (ec *explorerClient) Name() string {
 }
 
 func (ec *explorerClient) HealthReport() map[string]error {
-	return map[string]error{ec.Name(): ec.Healthy()}
+	return map[string]error{
+		ec.Name(): errors.Join(ec.StartStopOnce.Healthy(), ec.SvcErrBuffer.Flush()),
+	}
 }
 
 // Send sends data asynchronously across the websocket if it's open, or
@@ -169,7 +170,9 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 	case ExplorerBinaryMessage:
 		send = ec.sendBinary
 	default:
-		log.Panicf("send on explorer client received unsupported message type %d", messageType)
+		err := fmt.Errorf("send on explorer client received unsupported message type %d", messageType)
+		ec.SvcErrBuffer.Append(err)
+		ec.lggr.Critical(err.Error())
 	}
 	select {
 	case send <- data:
