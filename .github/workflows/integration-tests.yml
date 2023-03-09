@@ -134,6 +134,10 @@ jobs:
       fail-fast: false
       matrix:
         product:
+          - name: mercury
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ""
           - name: automation
             nodes: 9
             os: ubuntu-latest
