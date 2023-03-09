@@ -1,12 +1,16 @@
 package mercuryserver
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"os"
+	"path"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -101,6 +105,10 @@ func SetupMercuryServer(
 	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
+	initDbSql, err := buildInitialDbSql()
+	require.NoError(t, err)
+	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
+
 	settings := map[string]interface{}{
 		"image": map[string]interface{}{
 			"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
@@ -112,6 +120,7 @@ func SetupMercuryServer(
 		"qa": map[string]interface{}{
 			"rpcPrivateKey": hex.EncodeToString(rpcPrivKey),
 			"enabled":       true,
+			"initDbSql":     initDbSql,
 		},
 		"rpcNodesConf": string(rpcNodesJsonConf),
 		"prometheus":   "true",
@@ -127,4 +136,33 @@ func SetupMercuryServer(
 	testEnv.AddHelm(mercuryserverhelm.New(settings)).Run()
 
 	return rpcPubKey
+}
+
+func buildInitialDbSql() (string, error) {
+	data := struct {
+		UserId       string
+		UserRole     string
+		EncryptedKey string
+	}{
+		UserId:       os.Getenv("MS_DATABASE_FIRST_ADMIN_ID"),
+		UserRole:     os.Getenv("MS_DATABASE_FIRST_ADMIN_ROLE"),
+		EncryptedKey: os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY"),
+	}
+
+	// Get file path to the sql
+	_, filename, _, _ := runtime.Caller(0)
+	tmplPath := path.Join(path.Dir(filename), "/mercury_db_init_sql_template")
+
+	tmpl, err := template.ParseFiles(tmplPath)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }
