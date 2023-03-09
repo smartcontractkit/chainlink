@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"go.uber.org/zap/zapcore"
 
