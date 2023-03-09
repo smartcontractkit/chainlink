@@ -253,8 +253,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230308154539-3e696293b689 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230308161703-4f4ea97d436e // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230309154839-2b6a5b078888 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be75fb81118 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
