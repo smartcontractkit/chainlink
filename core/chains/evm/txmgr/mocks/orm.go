@@ -26,20 +26,16 @@ type ORM struct {
 	mock.Mock
 }
 
-// CheckEthTxQueueCapacity provides a mock function with given fields: fromAddress, maxQueuedTransactions, chainID, qopts
-func (_m *ORM) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
+// CheckEthTxQueueCapacity provides a mock function with given fields: fromAddress, maxQueuedTransactions, chainID, opts
+func (_m *ORM) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, opts ...interface{}) error {
 	var _ca []interface{}
 	_ca = append(_ca, fromAddress, maxQueuedTransactions, chainID)
-	_ca = append(_ca, _va...)
+	_ca = append(_ca, opts...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, uint64, big.Int, ...pg.QOpt) error); ok {
-		r0 = rf(fromAddress, maxQueuedTransactions, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, uint64, big.Int, ...interface{}) error); ok {
+		r0 = rf(fromAddress, maxQueuedTransactions, chainID, opts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -52,30 +48,26 @@ func (_m *ORM) Close() {
 	_m.Called()
 }
 
-// CountUnconfirmedTransactions provides a mock function with given fields: fromAddress, chainID, qopts
-func (_m *ORM) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (uint32, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
+// CountUnconfirmedTransactions provides a mock function with given fields: fromAddress, chainID, opts
+func (_m *ORM) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, opts ...interface{}) (uint32, error) {
 	var _ca []interface{}
 	_ca = append(_ca, fromAddress, chainID)
-	_ca = append(_ca, _va...)
+	_ca = append(_ca, opts...)
 	ret := _m.Called(_ca...)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) (uint32, error)); ok {
-		return rf(fromAddress, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) (uint32, error)); ok {
+		return rf(fromAddress, chainID, opts...)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) uint32); ok {
-		r0 = rf(fromAddress, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) uint32); ok {
+		r0 = rf(fromAddress, chainID, opts...)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...pg.QOpt) error); ok {
-		r1 = rf(fromAddress, chainID, qopts...)
+	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...interface{}) error); ok {
+		r1 = rf(fromAddress, chainID, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -83,30 +75,26 @@ func (_m *ORM) CountUnconfirmedTransactions(fromAddress common.Address, chainID 
 	return r0, r1
 }
 
-// CountUnstartedTransactions provides a mock function with given fields: fromAddress, chainID, qopts
-func (_m *ORM) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (uint32, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
+// CountUnstartedTransactions provides a mock function with given fields: fromAddress, chainID, opts
+func (_m *ORM) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, opts ...interface{}) (uint32, error) {
 	var _ca []interface{}
 	_ca = append(_ca, fromAddress, chainID)
-	_ca = append(_ca, _va...)
+	_ca = append(_ca, opts...)
 	ret := _m.Called(_ca...)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) (uint32, error)); ok {
-		return rf(fromAddress, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) (uint32, error)); ok {
+		return rf(fromAddress, chainID, opts...)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) uint32); ok {
-		r0 = rf(fromAddress, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) uint32); ok {
+		r0 = rf(fromAddress, chainID, opts...)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...pg.QOpt) error); ok {
-		r1 = rf(fromAddress, chainID, qopts...)
+	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...interface{}) error); ok {
+		r1 = rf(fromAddress, chainID, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}

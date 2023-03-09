@@ -16,6 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -26,9 +27,7 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error)
-	CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
-	CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
+	txmgrtypes.ORM[common.Address, big.Int, common.Hash, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64]
 	CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error)
 	DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error
 	EthTransactions(offset, limit int) ([]EthTx, int, error)
@@ -79,6 +78,8 @@ type ORM interface {
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
+var ErrInvalidNewTx = errors.New("orm: Invalid NewTx")
+var ErrInvalidQOpt = errors.New("orm: Invalid QOpt")
 
 type QueryerFunc func(tx pg.Queryer) error
 
@@ -95,6 +96,34 @@ type orm struct {
 	ctxCancel context.CancelFunc
 }
 
+func ToQOpt(opt any) (pg.QOpt, error) {
+	qopt, ok := opt.(pg.QOpt)
+	if !ok {
+		return func(*pg.Q) {}, ErrInvalidQOpt
+	}
+	return qopt, nil
+}
+
+func ToQOpts(opts []any) ([]pg.QOpt, error) {
+	qopts := make([]pg.QOpt, len(opts))
+	for i, opt := range opts {
+		qopt, err := ToQOpt(opt)
+		if err != nil {
+			return []pg.QOpt{}, err
+		}
+		qopts[i] = qopt
+	}
+	return qopts, nil
+}
+
+func ToAnys(qopts []pg.QOpt) []any {
+	opts := make([]any, len(qopts))
+	for i, qopt := range qopts {
+		opts[i] = qopt
+	}
+	return opts
+}
+
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
@@ -107,6 +136,14 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
+}
+
+func ToNewTx(x any) (NewTx, error) {
+	newTx, ok := x.(NewTx)
+	if !ok {
+		return NewTx{}, ErrInvalidNewTx
+	}
+	return newTx, nil
 }
 
 const insertIntoEthTxAttemptsQuery = `
@@ -1127,16 +1164,30 @@ func (o *orm) countTransactionsWithState(fromAddress common.Address, state EthTx
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func (o *orm) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+func (o *orm) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, opts ...any) (count uint32, err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		err = errors.Wrap(err, "CountUnconfirmedTransactions failed")
+		return
+	}
 	return o.countTransactionsWithState(fromAddress, EthTxUnconfirmed, chainID, qopts...)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func (o *orm) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+func (o *orm) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, opts ...any) (count uint32, err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		err = errors.Wrap(err, "CountUnstartedTransactions failed")
+		return
+	}
 	return o.countTransactionsWithState(fromAddress, EthTxUnstarted, chainID, qopts...)
 }
 
-func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error) {
+func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, opts ...any) (err error) {
+	qopts, err := ToQOpts(opts)
+	if err != nil {
+		return errors.Wrap(err, "CheckEthTxQueueCapacity failure")
+	}
 	qq := o.q.WithOpts(qopts...)
 	if maxQueuedTransactions == 0 {
 		return nil
@@ -1180,7 +1231,7 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}
 
-		pruned, err := newTx.Strategy.PruneQueue(o, tx)
+		pruned, err := newTx.Strategy.PruneQueue(o, pg.WithQueryer(tx))
 		if err != nil {
 			return errors.Wrap(err, "CreateEthTransaction failed to prune eth_txes")
 		}
