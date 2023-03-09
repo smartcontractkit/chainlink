@@ -19,7 +19,7 @@ library ChainSpecificUtil {
             chainid == ARB_MAINNET_CHAIN_ID ||
             chainid == ARB_GOERLI_TESTNET_CHAIN_ID
         ) {
-            if ((getBlockNumber() - blockNumber) > 256) {
+            if ((getBlockNumber() - blockNumber) > 256 || blockNumber > getBlockNumber()) {
                 return "";
             }
             return ARBSYS.arbBlockHash(blockNumber);
