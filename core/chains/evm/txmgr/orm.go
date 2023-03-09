@@ -229,9 +229,7 @@ func (o *orm) EthTransactions(offset, limit int, opts ...any) (txs []EthTx, coun
 		}
 		return nil
 	})
-	if err != nil {
-		err = errors.Wrap(err, "EthTransactions failed")
-	}
+	err = errors.Wrap(err, "EthTransactions failed")
 	return
 }
 
@@ -259,9 +257,7 @@ func (o *orm) EthTransactionsWithAttempts(offset, limit int, opts ...any) (txs [
 
 		return o.preloadTxAttempts(txs, pg.WithQueryer(tx))
 	})
-	if err != nil {
-		err = errors.Wrap(err, "EthTransactionsWithAttempts failed")
-	}
+	err = errors.Wrap(err, "EthTransactionsWithAttempts failed")
 	return
 }
 
