@@ -10,6 +10,8 @@ import (
 
 	context "context"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
