@@ -62,6 +62,7 @@ tests-*.xml
 *.test
 tmp-manifest-*.yaml
 ztarrepo.tar.gz
+**/test-ledger/*
 
 # goreleaser builds
 cosign.*

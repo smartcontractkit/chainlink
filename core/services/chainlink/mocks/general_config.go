@@ -28,6 +28,10 @@ import (
 
 	sessions "github.com/gin-contrib/sessions"
 
+	solana "github.com/smartcontractkit/chainlink/core/chains/solana"
+
+	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet"
+
 	time "time"
 
 	url "net/url"
@@ -35,6 +39,8 @@ import (
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 
 	uuid "github.com/satori/go.uuid"
+
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -462,6 +468,30 @@ func (_m *GeneralConfig) CertFile() string {
 	return r0
 }
 
+// ConfigTOML provides a mock function with given fields:
+func (_m *GeneralConfig) ConfigTOML() (string, string) {
+	ret := _m.Called()
+
+	var r0 string
+	var r1 string
+	if rf, ok := ret.Get(0).(func() (string, string)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func() string); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	return r0, r1
+}
+
 // DatabaseBackupDir provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseBackupDir() string {
 	ret := _m.Called()
@@ -699,6 +729,22 @@ func (_m *GeneralConfig) Dev() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// EVMConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) EVMConfigs() v2.EVMConfigs {
+	ret := _m.Called()
+
+	var r0 v2.EVMConfigs
+	if rf, ok := ret.Get(0).(func() v2.EVMConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(v2.EVMConfigs)
+		}
 	}
 
 	return r0
@@ -2940,6 +2986,20 @@ func (_m *GeneralConfig) OCR2BlockchainTimeout() time.Duration {
 	return r0
 }
 
+// OCR2CaptureEATelemetry provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2CaptureEATelemetry() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2ContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2ContractConfirmations() uint16 {
 	ret := _m.Called()
@@ -3057,6 +3117,20 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCRCaptureEATelemetry provides a mock function with given fields:
+func (_m *GeneralConfig) OCRCaptureEATelemetry() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -3844,6 +3918,22 @@ func (_m *GeneralConfig) ShutdownGracePeriod() time.Duration {
 	return r0
 }
 
+// SolanaConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) SolanaConfigs() solana.SolanaConfigs {
+	ret := _m.Called()
+
+	var r0 solana.SolanaConfigs
+	if rf, ok := ret.Get(0).(func() solana.SolanaConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(solana.SolanaConfigs)
+		}
+	}
+
+	return r0
+}
+
 // SolanaEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) SolanaEnabled() bool {
 	ret := _m.Called()
@@ -3895,6 +3985,22 @@ func (_m *GeneralConfig) StarkNetNodes() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// StarknetConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) StarknetConfigs() starknet.StarknetConfigs {
+	ret := _m.Called()
+
+	var r0 starknet.StarknetConfigs
+	if rf, ok := ret.Get(0).(func() starknet.StarknetConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(starknet.StarknetConfigs)
+		}
 	}
 
 	return r0
