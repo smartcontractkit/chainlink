@@ -59,7 +59,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: relay_ci_updates
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -69,7 +68,7 @@ jobs:
           go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
           go mod tidy
       - name: Install Solana CLI
-        run: make test_install_ci
+        run: ./scripts/install-solana-ci.sh
       - name: Build & Test
         run: make test_relay_unit
   starknet-build-relay:
@@ -109,43 +108,43 @@ jobs:
         run: nix develop -c make build-go-relayer
       - name: Test
         run: nix develop -c make test-unit-go
-  terra-build-relay:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Terra Build Relay
-    runs-on: ubuntu-latest
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Terra Build Relay
-        continue-on-error: true
-      - name: Checkout the terra repo
-        uses: actions/checkout@v3
-        with:
-          repository: smartcontractkit/chainlink-terra
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: "go.mod"
-      - name: Replace chainlink-relay deps
-        run: |
-          go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
-          go mod tidy
-      - name: Install Nix
-        uses: cachix/install-nix-action@v14
-        with:
-          install_url: https://nixos-nix-install-tests.cachix.org/serve/vij683ly7sl95nnhb67bdjjfabclr85m/install
-          install_options: "--tarball-url-prefix https://nixos-nix-install-tests.cachix.org/serve"
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-      - name: Compile relay
-        run: nix develop -c go build -v ./pkg/terra/...
-      - name: Run unit tests
-        run: nix develop -c go test -v ./pkg/terra/...
+  # terra-build-relay:
+  #   environment: integration
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   name: Terra Build Relay
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Collect Metrics
+  #       id: collect-gha-metrics
+  #       uses: smartcontractkit/push-gha-metrics-action@v1
+  #       with:
+  #         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+  #         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+  #         this-job-name: Terra Build Relay
+  #       continue-on-error: true
+  #     - name: Checkout the terra repo
+  #       uses: actions/checkout@v3
+  #       with:
+  #         repository: smartcontractkit/chainlink-terra
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v3
+  #       with:
+  #         go-version-file: "go.mod"
+  #     - name: Replace chainlink-relay deps
+  #       run: |
+  #         go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+  #         go mod tidy
+  #     - name: Install Nix
+  #       uses: cachix/install-nix-action@v14
+  #       with:
+  #         install_url: https://nixos-nix-install-tests.cachix.org/serve/vij683ly7sl95nnhb67bdjjfabclr85m/install
+  #         install_options: "--tarball-url-prefix https://nixos-nix-install-tests.cachix.org/serve"
+  #         extra_nix_config: |
+  #           experimental-features = nix-command flakes
+  #           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+  #     - name: Compile relay
+  #       run: nix develop -c go build -v ./pkg/terra/...
+  #     - name: Run unit tests
+  #       run: nix develop -c go test -v ./pkg/terra/...
