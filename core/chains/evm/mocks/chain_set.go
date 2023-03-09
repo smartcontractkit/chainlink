@@ -22,30 +22,6 @@ type ChainSet struct {
 	mock.Mock
 }
 
-// Add provides a mock function with given fields: ctx, id, cfg
-func (_m *ChainSet) Add(ctx context.Context, id utils.Big, cfg *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
-	ret := _m.Called(ctx, id, cfg)
-
-	var r0 chains.DBChain[utils.Big, *types.ChainCfg]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error)); ok {
-		return rf(ctx, id, cfg)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, *types.ChainCfg) chains.DBChain[utils.Big, *types.ChainCfg]); ok {
-		r0 = rf(ctx, id, cfg)
-	} else {
-		r0 = ret.Get(0).(chains.DBChain[utils.Big, *types.ChainCfg])
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, *types.ChainCfg) error); ok {
-		r1 = rf(ctx, id, cfg)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // ChainCount provides a mock function with given fields:
 func (_m *ChainSet) ChainCount() int {
 	ret := _m.Called()
@@ -90,54 +66,6 @@ func (_m *ChainSet) Close() error {
 	return r0
 }
 
-// Configure provides a mock function with given fields: ctx, id, enabled, cfg
-func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, cfg *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
-	ret := _m.Called(ctx, id, enabled, cfg)
-
-	var r0 chains.DBChain[utils.Big, *types.ChainCfg]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, *types.ChainCfg) (chains.DBChain[utils.Big, *types.ChainCfg], error)); ok {
-		return rf(ctx, id, enabled, cfg)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, *types.ChainCfg) chains.DBChain[utils.Big, *types.ChainCfg]); ok {
-		r0 = rf(ctx, id, enabled, cfg)
-	} else {
-		r0 = ret.Get(0).(chains.DBChain[utils.Big, *types.ChainCfg])
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, bool, *types.ChainCfg) error); ok {
-		r1 = rf(ctx, id, enabled, cfg)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// CreateNode provides a mock function with given fields: _a0, _a1
-func (_m *ChainSet) CreateNode(_a0 context.Context, _a1 types.Node) (types.Node, error) {
-	ret := _m.Called(_a0, _a1)
-
-	var r0 types.Node
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.Node) (types.Node, error)); ok {
-		return rf(_a0, _a1)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.Node) types.Node); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		r0 = ret.Get(0).(types.Node)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, types.Node) error); ok {
-		r1 = rf(_a0, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Default provides a mock function with given fields:
 func (_m *ChainSet) Default() (evm.Chain, error) {
 	ret := _m.Called()
@@ -162,20 +90,6 @@ func (_m *ChainSet) Default() (evm.Chain, error) {
 	}
 
 	return r0, r1
-}
-
-// DeleteNode provides a mock function with given fields: _a0, _a1
-func (_m *ChainSet) DeleteNode(_a0 context.Context, _a1 int32) error {
-	ret := _m.Called(_a0, _a1)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // Get provides a mock function with given fields: id
@@ -403,20 +317,6 @@ func (_m *ChainSet) Ready() error {
 	return r0
 }
 
-// Remove provides a mock function with given fields: id
-func (_m *ChainSet) Remove(id utils.Big) error {
-	ret := _m.Called(id)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(utils.Big) error); ok {
-		r0 = rf(id)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Show provides a mock function with given fields: id
 func (_m *ChainSet) Show(id utils.Big) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
 	ret := _m.Called(id)
@@ -448,27 +348,6 @@ func (_m *ChainSet) Start(_a0 context.Context) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
 		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// UpdateConfig provides a mock function with given fields: id, updaters
-func (_m *ChainSet) UpdateConfig(id *big.Int, updaters ...evm.ChainConfigUpdater) error {
-	_va := make([]interface{}, len(updaters))
-	for _i := range updaters {
-		_va[_i] = updaters[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, id)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int, ...evm.ChainConfigUpdater) error); ok {
-		r0 = rf(id, updaters...)
 	} else {
 		r0 = ret.Error(0)
 	}
