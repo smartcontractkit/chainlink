@@ -11,10 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 
 	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 )
 
 func TestBalanceMonitor(t *testing.T) {

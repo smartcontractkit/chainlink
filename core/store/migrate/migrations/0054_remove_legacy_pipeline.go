@@ -31,7 +31,7 @@ func init() {
 	goose.AddMigration(Up54, Down54)
 }
 
-// nolint
+//nolint
 func Up54(tx *sql.Tx) error {
 	if err := CheckNoLegacyJobs(tx); err != nil {
 		return err
@@ -42,7 +42,7 @@ func Up54(tx *sql.Tx) error {
 	return nil
 }
 
-// nolint
+//nolint
 func Down54(tx *sql.Tx) error {
 	return errors.New("irreversible migration")
 }

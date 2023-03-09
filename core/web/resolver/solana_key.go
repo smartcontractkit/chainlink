@@ -2,7 +2,7 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 )
 
 type SolanaKeyResolver struct {

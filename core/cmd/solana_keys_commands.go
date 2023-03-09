@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )

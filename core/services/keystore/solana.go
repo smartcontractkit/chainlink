@@ -5,8 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
-	keys "github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 )
 
 //go:generate mockery --quiet --name Solana --output ./mocks/ --case=underscore --filename solana.go
@@ -100,7 +99,7 @@ func (ks *solana) Import(keyJSON []byte, password string) (solkey.Key, error) {
 	if ks.isLocked() {
 		return solkey.Key{}, ErrLocked
 	}
-	key, err := keys.FromEncryptedJSON(keyJSON, password)
+	key, err := solkey.FromEncryptedJSON(keyJSON, password)
 	if err != nil {
 		return solkey.Key{}, errors.Wrap(err, "SolanaKeyStore#ImportKey failed to decrypt key")
 	}
@@ -120,7 +119,7 @@ func (ks *solana) Export(id string, password string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return keys.ToEncryptedJSON(key, password, ks.scryptParams)
+	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
 func (ks *solana) EnsureKey() error {

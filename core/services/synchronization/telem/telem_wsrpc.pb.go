@@ -11,6 +11,7 @@ import (
 )
 
 // TelemClient is the client API for Telem service.
+//
 type TelemClient interface {
 	Telem(ctx context.Context, in *TelemRequest) (*TelemResponse, error)
 	TelemBatch(ctx context.Context, in *TelemBatchRequest) (*TelemResponse, error)

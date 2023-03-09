@@ -7,10 +7,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 

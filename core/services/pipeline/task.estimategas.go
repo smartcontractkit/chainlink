@@ -16,9 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Return types:
 //
-//	uint64
+// Return types:
+//   uint64
+//
 type EstimateGasLimitTask struct {
 	BaseTask   `mapstructure:",squash"`
 	Input      string `json:"input"`

@@ -1,8 +1,8 @@
 package web
 
 import (
-	solkey "github.com/smartcontractkit/chainlink-solana/pkg/solana/keys"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
