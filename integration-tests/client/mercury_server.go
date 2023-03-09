@@ -73,10 +73,11 @@ func (ms *MercuryServer) GetUsers(adminId string, adminSecret string) (*[]User, 
 	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
 	hmacSignature := generateHmacSignature("GET", path, []byte{}, []byte(adminSecret), adminId, timestamp)
 	resp, err := ms.APIClient.R().
+		SetHeader("Accept", "application/json").
 		SetHeader("Authorization", adminId).
 		SetHeader("X-Authorization-Timestamp", timestamp).
 		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
-		SetResult(result).
+		SetResult(&result).
 		Get(path)
 	if err != nil {
 		return nil, nil, err
@@ -84,15 +85,18 @@ func (ms *MercuryServer) GetUsers(adminId string, adminSecret string) (*[]User, 
 	return &result, resp.RawResponse, err
 }
 
-func (ms *MercuryServer) GetReports(feedIDStr string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
+func (ms *MercuryServer) GetReports(userId string, userSecret string, feedIDStr string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
+	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedIDStr, blockNumber)
+	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
+	hmacSignature := generateHmacSignature("GET", path, []byte{}, []byte(userSecret), userId, timestamp)
 	resp, err := ms.APIClient.R().
-		SetPathParams(map[string]string{
-			"feedIDStr":     feedIDStr,
-			"L2Blocknumber": strconv.FormatUint(blockNumber, 10),
-		}).
+		SetHeader("Accept", "application/json").
+		SetHeader("Authorization", userId).
+		SetHeader("X-Authorization-Timestamp", timestamp).
+		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
 		SetResult(&result).
-		Get("/client?feedIDStr={feedIDStr}&L2Blocknumber={L2Blocknumber}")
+		Get(path)
 	if err != nil {
 		return nil, nil, err
 	}
