@@ -12,7 +12,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	mshelm "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
+	mercuryserverhelm "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/test-go/testify/require"
@@ -124,7 +124,7 @@ func SetupMercuryServer(
 		settings["resources"] = serverSettings
 	}
 
-	testEnv.AddHelm(mshelm.New(settings)).Run()
+	testEnv.AddHelm(mercuryserverhelm.New(settings)).Run()
 
 	return rpcPubKey
 }

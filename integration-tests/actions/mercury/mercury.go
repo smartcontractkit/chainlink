@@ -14,14 +14,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	cl_env_config "github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	mercury_server "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
+	mshelm "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
@@ -33,60 +32,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	mercuryserveraction "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury/mercuryserver"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	mercuryserversetup "github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury/mercuryserver"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 )
-
-func ValidateReport(r map[string]interface{}) error {
-	feedIdInterface, ok := r["feedId"]
-	if !ok {
-		return errors.Errorf("unpacked report has no 'feedId'")
-	}
-	feedID, ok := feedIdInterface.([32]byte)
-	if !ok {
-		return errors.Errorf("cannot cast feedId to [32]byte, type is %T", feedID)
-	}
-	log.Trace().Str("FeedID", string(feedID[:])).Msg("Feed ID")
-
-	priceInterface, ok := r["median"]
-	if !ok {
-		return errors.Errorf("unpacked report has no 'median'")
-	}
-	medianPrice, ok := priceInterface.(*big.Int)
-	if !ok {
-		return errors.Errorf("cannot cast median to *big.Int, type is %T", medianPrice)
-	}
-	log.Trace().Int64("Price", medianPrice.Int64()).Msg("Median price")
-
-	observationsBlockNumberInterface, ok := r["observationsBlocknumber"]
-	if !ok {
-		return errors.Errorf("unpacked report has no 'observationsBlocknumber'")
-	}
-	observationsBlockNumber, ok := observationsBlockNumberInterface.(uint64)
-	if !ok {
-		return errors.Errorf("cannot cast observationsBlocknumber to uint64, type is %T", observationsBlockNumber)
-	}
-	log.Trace().Uint64("Block", observationsBlockNumber).Msg("Observation block number")
-
-	observationsTimestampInterface, ok := r["observationsTimestamp"]
-	if !ok {
-		return errors.Errorf("unpacked report has no 'observationsTimestamp'")
-	}
-	observationsTimestamp, ok := observationsTimestampInterface.(uint32)
-	if !ok {
-		return errors.Errorf("cannot cast observationsTimestamp to uint32, type is %T", observationsTimestamp)
-	}
-	log.Trace().Uint32("Timestamp", observationsTimestamp).Msg("Observation timestamp")
-
-	return nil
-}
 
 func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) (
 	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
@@ -102,7 +57,8 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 	}
 
 	testEnvironment := environment.New(&environment.Config{
-		// TTL:             12 * time.Hour,
+		// TODO: comment
+		TTL:             1 * time.Hour,
 		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
@@ -133,7 +89,7 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 
-	msRpcPubKey := mercuryserversetup.SetupMercuryServer(t, testEnvironment, dbSettings, serverResources)
+	msRpcPubKey := mercuryserveraction.SetupMercuryServer(t, testEnvironment, dbSettings, serverResources)
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -149,7 +105,7 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 	require.NoError(t, err, "Error connecting to mock server")
 
 	// mercuryServerLocalUrl := testEnvironment.URLs[mercury_server.URLsKey][0]
-	mercuryServerRemoteUrl := testEnvironment.URLs[mercury_server.URLsKey][1]
+	mercuryServerRemoteUrl := testEnvironment.URLs[mshelm.URLsKey][1]
 	mercuryServerClient := client.NewMercuryServer(mercuryServerRemoteUrl)
 
 	t.Cleanup(func() {

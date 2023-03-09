@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	mercury_server "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
+	mshelm "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	mercurysetup "github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
 )
 
-var feedId = mercurysetup.StringToByte32("ETH-USD-1")
+var feedId = mercury.StringToByte32("ETH-USD-1")
 
 // func TestContracts(t *testing.T) {
 // 	testNetwork := networks.SelectedNetwork
@@ -49,12 +49,12 @@ func TestMercurySmoke(t *testing.T) {
 
 	testEnv, isExistingTestEnv, testNetwork, chainlinkNodes,
 		mercuryServerRemoteUrl,
-		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := mercurysetup.SetupMercuryEnv(t, nil, nil)
+		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := mercury.SetupMercuryEnv(t, nil, nil)
 	_ = isExistingTestEnv
 
 	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := mercurysetup.BuildMercuryOCRConfig(t, nodesWithoutBootstrap)
-	verifier, verifierProxy, accessController, _ := mercurysetup.SetupMercuryContracts(t, evmClient,
+	ocrConfig := mercury.BuildMercuryOCRConfig(t, nodesWithoutBootstrap)
+	verifier, verifierProxy, accessController, _ := mercury.SetupMercuryContracts(t, evmClient,
 		mercuryServerRemoteUrl, feedId, ocrConfig)
 	_ = verifierProxy
 	_ = accessController
@@ -62,8 +62,8 @@ func TestMercurySmoke(t *testing.T) {
 	latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err)
 
-	mercuryServerLocalUrl := testEnv.URLs[mercury_server.URLsKey][0]
-	mercurysetup.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
+	mercuryServerLocalUrl := testEnv.URLs[mshelm.URLsKey][0]
+	mercury.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
 		feedId, latestBlockNum, mercuryServerLocalUrl, msRpcPubKey, testNetwork.ChainID, 0)
 
 	verifier.SetConfig(feedId, ocrConfig)
