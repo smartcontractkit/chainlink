@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -71,7 +70,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 
 // Setup sets up the test environment, deploying contracts and funding chainlink nodes
 func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	o.ensureInputValues(t)
 	o.testEnvironment = env
 	var err error
@@ -146,7 +145,7 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	// Set initial value and create jobs
 	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
 	require.NoError(t, err, "Error setting adapter responses")
@@ -230,7 +229,7 @@ func (o *OCRSoakTest) processNewEvent(
 	ocrInstance contracts.OffchainAggregator,
 	contractABI *abi.ABI,
 ) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	errorChan := make(chan error)
 	eventConfirmed := make(chan bool)
 	err := o.chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
@@ -268,7 +267,7 @@ func (o *OCRSoakTest) processNewEvent(
 
 // marshalls new answer events into manageable Go struct for further processing and reporting
 func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *ethereum.OffchainAggregatorAnswerUpdated) bool {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	// Updated Info
 	answerAddress := newAnswer.Raw.Address.Hex()
 	_, tracked := o.TestReporter.ContractReports[answerAddress]
@@ -297,7 +296,7 @@ func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *ethereum.Offchai
 
 // triggers a new OCR round by setting a new mock adapter value
 func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	startingBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Error retrieving latest block number")
 
@@ -332,7 +331,7 @@ func (o *OCRSoakTest) subscribeOCREvents(
 	t *testing.T,
 	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
 ) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	contractABI, err := ethereum.OffchainAggregatorMetaData.GetAbi()
 	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
