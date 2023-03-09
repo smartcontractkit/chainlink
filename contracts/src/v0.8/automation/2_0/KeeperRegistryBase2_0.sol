@@ -265,12 +265,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
-  constructor(
-    Mode mode,
-    address link,
-    address linkNativeFeed,
-    address fastGasFeed
-  ) ConfirmedOwner(msg.sender) {
+  constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
@@ -445,6 +440,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     return transmitter.balance;
   }
 
+  /**
+   * @notice returns the current block number in a chain agnostic manner
+   */
   function _blockNum() internal view returns (uint256) {
     if (i_mode == Mode.ARBITRUM) {
       return ARB_SYS.arbBlockNumber();
@@ -453,15 +451,20 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     }
   }
 
-  function _blockHash(uint256 blockNum) internal view returns (bytes32) {
+  /**
+   * @notice returns the blockhash of the provided block number in a chain agnostic manner
+   * @param n the blocknumber to retrieve the blockhash for
+   * @return blockhash the blockhash of block number n, or 0 if n is out queryable of range
+   */
+  function _blockHash(uint256 n) internal view returns (bytes32) {
     if (i_mode == Mode.ARBITRUM) {
-      try ARB_SYS.arbBlockHash(blockNum) returns (bytes32 blockHash) {
-        return blockHash;
-      } catch {
-        return bytes32("");
+      uint256 blockNum = ARB_SYS.arbBlockNumber();
+      if (n >= blockNum || blockNum - n > 256) {
+        return "";
       }
+      return ARB_SYS.arbBlockHash(n);
     } else {
-      return blockhash(blockNum);
+      return blockhash(n);
     }
   }
 

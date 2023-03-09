@@ -1894,7 +1894,7 @@ describe('KeeperRegistry2_0', () => {
         })
       })
 
-      it('splits l1 payment among performed upkeeps', async () => {
+      it('splits l2 payment among performed upkeeps', async () => {
         const numUpkeeps = 7
         const upkeepIds: string[] = []
         // Same as MockArbGasInfo.sol
