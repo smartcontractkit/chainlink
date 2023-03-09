@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -64,16 +64,16 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (cosmos.Chain, error) {
+func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (adapters.Chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
 	id := dbchain.ID
-	cfg := cosmos.NewConfig(*dbchain.Cfg, o.Logger)
+	cfg := adapters.NewConfig(*dbchain.Cfg, o.Logger)
 	return newChain(id, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
 }
 
-func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (cosmos.Chain, error) {
+func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
@@ -87,21 +87,15 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (cosmos.Chain, error) {
 
 //go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos --output ./mocks/ --case=underscore
 
-// ChainSet extends cosmos.ChainSet with mutability and exposes the underlying ORM.
+// ChainSet extends adapters.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {
-	cosmos.ChainSet
+	adapters.ChainSet
 	chains.DBNodeSet[string, db.Node]
 	chains.DBChainSet[string, *db.ChainCfg]
 }
 
-// NewChainSet returns a new chain set for opts.
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, *db.ChainCfg, db.Node, cosmos.Chain](&opts, func(s string) string { return s })
-}
-
 func NewChainSetImmut(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
-	solChains := map[string]cosmos.Chain{}
+	solChains := map[string]adapters.Chain{}
 	var err error
 	for _, chain := range cfgs {
 		if !chain.IsEnabled() {
@@ -117,5 +111,5 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load some Solana chains")
 	}
-	return chains.NewChainSetImmut[string, *db.ChainCfg, db.Node, cosmos.Chain](solChains, &opts, func(s string) string { return s })
+	return chains.NewChainSetImmut[string, *db.ChainCfg, db.Node, adapters.Chain](solChains, &opts, func(s string) string { return s })
 }

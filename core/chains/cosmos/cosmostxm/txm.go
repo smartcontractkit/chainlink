@@ -18,6 +18,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
@@ -31,7 +32,7 @@ import (
 
 var (
 	_ services.ServiceCtx = (*Txm)(nil)
-	_ cosmos.TxManager    = (*Txm)(nil)
+	_ adapters.TxManager  = (*Txm)(nil)
 )
 
 // Txm manages transactions for the cosmos blockchain.
@@ -44,12 +45,12 @@ type Txm struct {
 	tc         func() (cosmosclient.ReaderWriter, error)
 	ks         keystore.Cosmos
 	stop, done chan struct{}
-	cfg        cosmos.Config
+	cfg        adapters.Config
 	gpe        cosmosclient.ComposedGasPriceEstimator
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg cosmos.Config, ks keystore.Cosmos, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
+func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg adapters.Config, ks keystore.Cosmos, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
@@ -96,7 +97,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 			txm.lggr.Criticalw("unable to get client for handling broadcasted but unconfirmed txes", "count", len(broadcasted), "err", err)
 			return
 		}
-		msgsByTxHash := make(map[string]cosmos.Msgs)
+		msgsByTxHash := make(map[string]adapters.Msgs)
 		for _, msg := range broadcasted {
 			msgsByTxHash[*msg.TxHash] = append(msgsByTxHash[*msg.TxHash], msg)
 		}
@@ -160,10 +161,10 @@ func unmarshalMsg(msgType string, raw []byte) (sdk.Msg, string, error) {
 
 type msgValidator struct {
 	cutoff         time.Time
-	expired, valid cosmos.Msgs
+	expired, valid adapters.Msgs
 }
 
-func (e *msgValidator) add(msg cosmos.Msg) {
+func (e *msgValidator) add(msg adapters.Msg) {
 	if msg.CreatedAt.Before(e.cutoff) {
 		e.expired = append(e.expired, msg)
 	} else {
@@ -172,7 +173,7 @@ func (e *msgValidator) add(msg cosmos.Msg) {
 }
 
 func (e *msgValidator) sortValid() {
-	slices.SortFunc(e.valid, func(a, b cosmos.Msg) bool {
+	slices.SortFunc(e.valid, func(a, b adapters.Msg) bool {
 		ac, bc := a.CreatedAt, b.CreatedAt
 		if ac.Equal(bc) {
 			return a.ID < b.ID
@@ -228,7 +229,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	}
 	msgs.sortValid()
 	txm.lggr.Debugw("building a batch", "not expired", msgs.valid, "marked expired", msgs.expired)
-	var msgsByFrom = make(map[string]cosmos.Msgs)
+	var msgsByFrom = make(map[string]adapters.Msgs)
 	for _, m := range msgs.valid {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
 		if err2 != nil {
@@ -270,7 +271,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 
 }
 
-func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, key cosmoskey.Key, msgs cosmos.Msgs) {
+func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, key cosmoskey.Key, msgs adapters.Msgs) {
 	tc, err := txm.tc()
 	if err != nil {
 		txm.lggr.Criticalw("unable to get client", "err", err)
@@ -490,7 +491,7 @@ func (txm *Txm) marshalMsg(msg sdk.Msg) (string, []byte, error) {
 }
 
 // GetMsgs returns any messages matching ids.
-func (txm *Txm) GetMsgs(ids ...int64) (cosmos.Msgs, error) {
+func (txm *Txm) GetMsgs(ids ...int64) (adapters.Msgs, error) {
 	return txm.orm.GetMsgs(ids...)
 }
 

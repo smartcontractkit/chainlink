@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	tcmocks "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client/mocks"
 	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
@@ -69,7 +69,7 @@ func TestTxm(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	cosmostest.MustInsertChain(t, db, &Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := cosmos.NewConfig(ChainCfg{
+	cfg := adapters.NewConfig(ChainCfg{
 		MaxMsgsPerBatch: null.IntFrom(2),
 	}, lggr)
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
@@ -302,7 +302,7 @@ func TestTxm(t *testing.T) {
 		timeout, err := relayutils.NewDuration(1 * time.Millisecond)
 		require.NoError(t, err)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		cfgShortExpiry := cosmos.NewConfig(ChainCfg{
+		cfgShortExpiry := adapters.NewConfig(ChainCfg{
 			MaxMsgsPerBatch: null.IntFrom(2),
 			TxMsgTimeout:    &timeout,
 		}, lggr)
@@ -346,7 +346,7 @@ func TestTxm(t *testing.T) {
 		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{TxResponse: txResp}, nil)
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{Tx: &txtypes.Tx{}, TxResponse: txResp}, nil)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		cfgMaxMsgs := cosmos.NewConfig(ChainCfg{
+		cfgMaxMsgs := adapters.NewConfig(ChainCfg{
 			MaxMsgsPerBatch: null.IntFrom(2),
 		}, lggr)
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfgMaxMsgs, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)

@@ -11,7 +11,7 @@ import (
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
@@ -278,7 +278,7 @@ func nullString(s fmt.Stringer) null.String {
 	return null.StringFrom(s.String())
 }
 
-var _ cosmos.Config = &CosmosConfig{}
+var _ adapters.Config = &CosmosConfig{}
 
 func (c *CosmosConfig) BlockRate() time.Duration {
 	return c.Chain.BlockRate.Duration()

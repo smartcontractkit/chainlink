@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,7 +32,7 @@ func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *OR
 
 // InsertMsg inserts a cosmos msg, assumed to be a serialized cosmos ExecuteContractMsg.
 func (o *ORM) InsertMsg(contractID, typeURL string, msg []byte, qopts ...pg.QOpt) (int64, error) {
-	var tm cosmos.Msg
+	var tm adapters.Msg
 	q := o.q.WithOpts(qopts...)
 	err := q.Get(&tm, `INSERT INTO cosmos_msgs (contract_id, type, raw, state, cosmos_chain_id, created_at, updated_at)
 	VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`, contractID, typeURL, msg, db.Unstarted, o.chainID)
@@ -54,12 +54,12 @@ func (o *ORM) UpdateMsgsContract(contractID string, from, to db.State, qopts ...
 }
 
 // GetMsgsState returns the oldest messages with a given state up to limit.
-func (o *ORM) GetMsgsState(state db.State, limit int64, qopts ...pg.QOpt) (cosmos.Msgs, error) {
+func (o *ORM) GetMsgsState(state db.State, limit int64, qopts ...pg.QOpt) (adapters.Msgs, error) {
 	if limit < 1 {
-		return cosmos.Msgs{}, errors.New("limit must be greater than 0")
+		return adapters.Msgs{}, errors.New("limit must be greater than 0")
 	}
 	q := o.q.WithOpts(qopts...)
-	var msgs cosmos.Msgs
+	var msgs adapters.Msgs
 	if err := q.Select(&msgs, `SELECT * FROM cosmos_msgs WHERE state = $1 AND cosmos_chain_id = $2 ORDER BY id ASC LIMIT $3`, state, o.chainID, limit); err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func (o *ORM) GetMsgsState(state db.State, limit int64, qopts ...pg.QOpt) (cosmo
 }
 
 // GetMsgs returns any messages matching ids.
-func (o *ORM) GetMsgs(ids ...int64) (cosmos.Msgs, error) {
-	var msgs cosmos.Msgs
+func (o *ORM) GetMsgs(ids ...int64) (adapters.Msgs, error) {
+	var msgs adapters.Msgs
 	if err := o.q.Select(&msgs, `SELECT * FROM cosmos_msgs WHERE id = ANY($1)`, ids); err != nil {
 		return nil, err
 	}

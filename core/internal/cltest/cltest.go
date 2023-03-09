@@ -433,22 +433,17 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			KeyStore:         keyStore.Cosmos(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		if newCfg, ok := cfg.(interface{ CosmosConfigs() cosmos.CosmosConfigs }); ok {
-			cfgs := newCfg.CosmosConfigs()
-			opts.ORM = cosmos.NewORMImmut(cfgs)
-			chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
-			var ids []string
-			for _, c := range cfgs {
-				ids = append(ids, *c.ChainID)
+		cfgs := cfg.CosmosConfigs()
+		opts.ORM = cosmos.NewORMImmut(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		var ids []string
+		for _, c := range cfgs {
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
+				t.Fatal(err)
 			}
-			if len(ids) > 0 {
-				if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
-					t.Fatal(err)
-				}
-			}
-		} else {
-			opts.ORM = cosmos.NewORM(db, cosmosLggr, cfg)
-			chains.Cosmos, err = cosmos.NewChainSet(opts)
 		}
 		if err != nil {
 			lggr.Fatal(err)

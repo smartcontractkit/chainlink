@@ -30,7 +30,7 @@ import (
 func TestClient_SendCosmosCoins(t *testing.T) {
 	t.Skip("requires wasmd")
 	chainID := cosmostest.RandomChainID()
-	accounts, _, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID)
+	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
 	require.Greater(t, len(accounts), 1)
 	app := cosmosStartNewApplication(t)
 
@@ -38,18 +38,7 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Cosmos().Add(cosmoskey.Raw(from.PrivateKey.Bytes()).Key()))
 
-	chains := app.GetChains()
-	_, err := chains.Cosmos.Add(testutils.Context(t), chainID, nil)
-	require.NoError(t, err)
-	chain, err := chains.Cosmos.Chain(testutils.Context(t), chainID)
-	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
-	_, err = chains.Cosmos.CreateNode(ctx, cosmosdb.Node{
-		Name:          t.Name(),
-		CosmosChainID: chainID,
-		TendermintURL: tendermintURL,
-	})
+	chain, err := app.GetChains().Cosmos.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	reader, err := chain.Reader("")

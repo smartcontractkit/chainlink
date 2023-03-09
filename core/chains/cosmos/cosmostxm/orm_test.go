@@ -22,7 +22,7 @@ func TestORM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewQConfig(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err := cosmos.NewORM(db, lggr, logCfg).CreateChain(chainID, nil)
+	err := cosmos.NewORM(db, lggr, logCfg).EnsureChains([]string{chainID})
 	require.NoError(t, err)
 	o := NewORM(chainID, db, lggr, logCfg)
 

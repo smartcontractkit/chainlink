@@ -231,28 +231,19 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			KeyStore:         keyStore.Cosmos(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		if newCfg, ok := cfg.(interface{ CosmosConfigs() cosmos.CosmosConfigs }); ok {
-			cfgs := newCfg.CosmosConfigs()
-			var ids []string
-			for _, c := range cfgs {
-				c := c
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup Cosmos chains")
-				}
-			}
-			opts.ORM = cosmos.NewORMImmut(cfgs)
-			chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
-
-		} else {
-			if err = cosmos.SetupNodes(db, cfg, cosmosLggr); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Cosmos nodes")
-			}
-			opts.ORM = cosmos.NewORM(db, cosmosLggr, cfg)
-			chains.Cosmos, err = cosmos.NewChainSet(opts)
+		cfgs := cfg.CosmosConfigs()
+		var ids []string
+		for _, c := range cfgs {
+			c := c
+			ids = append(ids, *c.ChainID)
 		}
+		if len(ids) > 0 {
+			if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Cosmos chains")
+			}
+		}
+		opts.ORM = cosmos.NewORMImmut(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
 		}

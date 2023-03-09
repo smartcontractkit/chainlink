@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	cosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
@@ -37,19 +37,19 @@ const DefaultRequestTimeout = 30 * time.Second
 //go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos --output ./mocks/ --case=underscore
 //go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client --output ./mocks/ --case=underscore
 //go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos --output ./mocks/ --case=underscore
-var _ cosmos.Chain = (*chain)(nil)
+var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
 	id           string
-	cfg          cosmos.Config
+	cfg          adapters.Config
 	cfgImmutable bool // toml config is immutable
 	txm          *cosmostxm.Txm
 	orm          types.ORM
 	lggr         logger.Logger
 }
 
-func newChain(id string, cfg cosmos.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg adapters.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("cosmosChainID", id)
 	var ch = chain{
 		id:   id,
@@ -80,7 +80,7 @@ func (c *chain) ID() string {
 	return c.id
 }
 
-func (c *chain) Config() cosmos.Config {
+func (c *chain) Config() adapters.Config {
 	return c.cfg
 }
 
@@ -92,7 +92,7 @@ func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
 	c.cfg.Update(*cfg)
 }
 
-func (c *chain) TxManager() cosmos.TxManager {
+func (c *chain) TxManager() adapters.TxManager {
 	return c.txm
 }
 
