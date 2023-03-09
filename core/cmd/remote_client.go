@@ -384,32 +384,6 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-func (cli *Client) configDumpStr() (string, error) {
-	resp, err := cli.HTTP.Get("/v2/config/dump-v1-as-v2")
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	respPayload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	if resp.StatusCode != 200 {
-		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
-	}
-	var configV2Resource web.ConfigV2Resource
-	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	return configV2Resource.Config, nil
-}
-
 func (cli *Client) ConfigV2(c *clipkg.Context) error {
 	userOnly := c.Bool("user-only")
 	s, err := cli.configV2Str(userOnly)
