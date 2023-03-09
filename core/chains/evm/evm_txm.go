@@ -15,40 +15,22 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+// TxManagerEvmType type aliasing is needed here, to embed inside the evmTxm struct
+type TxManagerEvmType = txmgr.TxManager[*evmtypes.Head]
 
 var _ httypes.HeadTrackable = &evmTxm{}
 
-// EVM specific wrapper to hold the core TxMgr object underneath
+// evmTxm is an evm wrapper over the generic TxManager interface
 type evmTxm struct {
 	httypes.HeadTrackable
-	services.ServiceCtx
-	utils.StartStopOnce
-
-	// core txm object being wrapped
-	txm txmgr.TxManager[*evmtypes.Head]
+	TxManagerEvmType
 }
 
-func (e *evmTxm) OnNewLongestChain(ctx context.Context, evmHead *evmtypes.Head) {
-	e.txm.OnNewLongestChain(ctx, NewHeadViewImpl(evmHead))
-}
-
-func (e *evmTxm) Start(ctx context.Context) (err error) {
-	return e.txm.Start(ctx)
-}
-
-func (e *evmTxm) Close() error {
-	return e.txm.Close()
-}
-
-func (e *evmTxm) Ready() error {
-	return e.txm.Ready()
-}
-
-func (e *evmTxm) Healthy() error {
-	return e.txm.Healthy()
+func (e evmTxm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	//TODO implement me
+	e.TxManagerEvmType.OnNewLongestChain(ctx, NewHeadViewImpl(head))
 }
 
 func newEvmTxm(
@@ -69,14 +51,14 @@ func newEvmTxm(
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-	return evmTxm{txm: txm}
+	return evmTxm{TxManagerEvmType: txm}
 }
 
 var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}
 
 // Evm implementation for the generic HeadView interface
 type headViewImpl struct {
-	// txmgrtypes.HeadView[*evmtypes.Head]
+	txmgrtypes.HeadView[*evmtypes.Head]
 	evmHead *evmtypes.Head
 }
 
@@ -93,7 +75,7 @@ func (head *headViewImpl) ChainLength() uint32 {
 	return head.evmHead.ChainLength()
 }
 
-// EarliestInChain recurses through parents until it finds the earliest one
+// EarliestInChain traverses through parents until it finds the earliest one
 func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView[*evmtypes.Head] {
 	return NewHeadViewImpl(head.evmHead.EarliestInChain())
 }
@@ -106,7 +88,6 @@ func (head *headViewImpl) Parent() txmgrtypes.HeadView[*evmtypes.Head] {
 	if head.evmHead.Parent == nil {
 		return nil
 	}
-
 	return NewHeadViewImpl(head.evmHead.Parent)
 }
 
