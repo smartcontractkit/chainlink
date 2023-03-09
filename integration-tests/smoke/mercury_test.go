@@ -3,6 +3,7 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -55,6 +56,11 @@ var feedId = mercury.StringToByte32("ETH-USD-1")
 // 	l.Log().Msgf("asdsa")
 // }
 
+var (
+	ServerAdminId  = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
+	ServerAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
+)
+
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
 
@@ -63,9 +69,8 @@ func TestMercurySmoke(t *testing.T) {
 		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := mercury.SetupMercuryEnv(t, nil, nil)
 	_ = isExistingTestEnv
 
-	adminId := "02185d5a-f1ee-40d1-a52a-bf39871b614c"
-	adminSecret := "admintestkey"
-	users, _, err := mercuryServerClient.GetUsers(adminId, adminSecret)
+	users, _, err := mercuryServerClient.GetUsers(ServerAdminId, ServerAdminKey)
+	require.NoError(t, err)
 	_ = users
 
 	nodesWithoutBootstrap := chainlinkNodes[1:]

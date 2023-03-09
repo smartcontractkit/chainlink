@@ -1,6 +1,10 @@
 package mercury
 
 import (
+	"bytes"
+	"fmt"
+	"html/template"
+	"log"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -32,4 +36,25 @@ func TestMercuryServerHMAC(t *testing.T) {
 	// Get report
 
 	l.Log().Msgf("asdsa")
+}
+
+func TestTemplate(t *testing.T) {
+	data := struct {
+		EncryptedKey string
+	}{
+		EncryptedKey: "my-encrypted-key",
+	}
+
+	tmpl, err := template.ParseFiles("./init_db_template")
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(buf.String())
 }
