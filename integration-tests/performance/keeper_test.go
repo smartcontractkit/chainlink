@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -43,7 +42,7 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 }
 
 func TestKeeperPerformance(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
