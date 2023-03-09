@@ -12,11 +12,12 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/stretchr/testify/require"
 
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
@@ -117,7 +118,7 @@ func TestVRFv2Basic(t *testing.T) {
 		job, err = n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddress:              oracleAddr,
+			FromAddresses:            []string{oracleAddr},
 			EVMChainID:               fmt.Sprint(chainClient.GetNetworkConfig().ChainID),
 			MinIncomingConfirmations: minimumConfirmations,
 			PublicKey:                pubKeyCompressed,
