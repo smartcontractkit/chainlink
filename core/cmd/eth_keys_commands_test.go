@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -25,7 +24,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 )
 
 func ptr[T any](t T) *T { return &t }
@@ -207,47 +205,6 @@ func TestClient_CreateETHKey(t *testing.T) {
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 3, len(keys))
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func TestClient_UpdateETHKey(t *testing.T) {
-	t.Parallel()
-
-	ethClient := newEthMock(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	app := startNewApplication(t,
-		withKey(),
-		withMocks(ethClient),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
-	)
-	ethKeyStore := app.GetKeyStore().Eth()
-	client, _ := app.NewClientAndRenderer()
-
-	// Create the key
-	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
-	require.NoError(t, err)
-
-	// Update the key
-	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.UpdateETHKey, set, "")
-
-	require.NoError(t, set.Set("maxGasPriceGWei", "0"))
-	require.NoError(t, set.Set("maxGasPriceGWei", "12345"))
-	require.NoError(t, set.Parse([]string{key.Address.Hex()}))
-
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.UpdateETHKey(c))
-
-	// Checking updated config
-	chain, err := app.Chains.EVM.Get(&cltest.FixtureChainID)
-	require.NoError(t, err)
-	price := chain.Config().KeySpecificMaxGasPriceWei(key.Address)
-	require.Equal(t, assets.GWei(12345), price)
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {
