@@ -16,7 +16,7 @@ require (
 	github.com/smartcontractkit/chainlink-env v0.3.17
 	github.com/smartcontractkit/chainlink-testing-framework v1.10.9-0.20230301123015-fa17d1a4dc61
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230308144800-366a8acf4dba
+	github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230309214746-81215fedbe6d
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
 	github.com/stretchr/testify v1.8.1
 	github.com/umbracle/ethgo v0.1.3
@@ -369,4 +369,4 @@ replace (
 
 exclude k8s.io/client-go v12.0.0+incompatible
 
-replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230308144319-28321286649f
+replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230309214559-214716585583
