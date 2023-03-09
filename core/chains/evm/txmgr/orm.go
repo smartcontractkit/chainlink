@@ -217,7 +217,7 @@ func (o *orm) EthTransactions(offset, limit int, opts ...any) (txs []EthTx, coun
 	}
 	qq := o.q.WithOpts(qopts...)
 
-	qq.Transaction(func(tx pg.Queryer) error {
+	err = qq.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 		if err = o.q.Get(&count, sql); err != nil {
 			return err
@@ -229,6 +229,9 @@ func (o *orm) EthTransactions(offset, limit int, opts ...any) (txs []EthTx, coun
 		}
 		return nil
 	})
+	if err != nil {
+		err = errors.Wrap(err, "EthTransactions failed")
+	}
 	return
 }
 
@@ -243,7 +246,7 @@ func (o *orm) EthTransactionsWithAttempts(offset, limit int, opts ...any) (txs [
 
 	qq := o.q.WithOpts(qopts...)
 
-	qq.Transaction(func(tx pg.Queryer) error {
+	err = qq.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 		if err = tx.Get(&count, sql); err != nil {
 			return err
@@ -256,6 +259,9 @@ func (o *orm) EthTransactionsWithAttempts(offset, limit int, opts ...any) (txs [
 
 		return o.preloadTxAttempts(txs, pg.WithQueryer(tx))
 	})
+	if err != nil {
+		err = errors.Wrap(err, "EthTransactionsWithAttempts failed")
+	}
 	return
 }
 
