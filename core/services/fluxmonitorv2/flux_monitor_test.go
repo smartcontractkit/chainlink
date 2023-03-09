@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -49,7 +50,7 @@ const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.TxManager[*evmtypes.Head]) fluxmonitorv2.ORM {
 	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
 }
 

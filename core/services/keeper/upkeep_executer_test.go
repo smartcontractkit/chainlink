@@ -59,7 +59,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keeper.UpkeepRegistration,
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
-	*txmmocks.TxManager,
+	*txmmocks.TxManager[*evmtypes.Head],
 	keystore.Master,
 	evm.Chain,
 	keeper.ORM,
@@ -74,7 +74,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[*evmtypes.Head](t)
 	txm.On("GetGasEstimator").Return(estimator)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
