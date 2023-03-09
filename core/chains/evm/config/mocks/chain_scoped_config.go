@@ -32,8 +32,6 @@ import (
 
 	time "time"
 
-	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-
 	url "net/url"
 
 	utils "github.com/smartcontractkit/chainlink/core/utils"
@@ -620,11 +618,6 @@ func (_m *ChainScopedConfig) ChainType() coreconfig.ChainType {
 	}
 
 	return r0
-}
-
-// Configure provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) {
-	_m.Called(_a0)
 }
 
 // DatabaseBackupDir provides a mock function with given fields:
@@ -3051,20 +3044,6 @@ func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
-// PersistedConfig provides a mock function with given fields:
-func (_m *ChainScopedConfig) PersistedConfig() types.ChainCfg {
-	ret := _m.Called()
-
-	var r0 types.ChainCfg
-	if rf, ok := ret.Get(0).(func() types.ChainCfg); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(types.ChainCfg)
-	}
-
-	return r0
-}
-
 // Port provides a mock function with given fields:
 func (_m *ChainScopedConfig) Port() uint16 {
 	ret := _m.Called()
@@ -3284,20 +3263,6 @@ func (_m *ChainScopedConfig) SessionTimeout() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// SetEvmGasPriceDefault provides a mock function with given fields: value
-func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
-	ret := _m.Called(value)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
-		r0 = rf(value)
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0
