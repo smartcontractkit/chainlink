@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -252,7 +253,7 @@ func TestETHCallTask(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			keyStore := keystoremocks.NewEth(t)
-			txManager := txmmocks.NewTxManager(t)
+			txManager := txmmocks.NewTxManager[*evmtypes.Head](t)
 			db := pgtest.NewSqlxDB(t)
 
 			var cc evm.ChainSet
