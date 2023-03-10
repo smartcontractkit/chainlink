@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/rs/zerolog"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
@@ -52,7 +51,7 @@ func CreateVRFV2Jobs(
 	c blockchain.EVMClient,
 	minIncomingConfirmations int,
 ) []VRFV2JobInfo {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()
@@ -70,7 +69,7 @@ func CreateVRFV2Jobs(
 		job, err := n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddress:              oracleAddr,
+			FromAddresses:            []string{oracleAddr},
 			EVMChainID:               c.GetChainID().String(),
 			MinIncomingConfirmations: minIncomingConfirmations,
 			PublicKey:                pubKeyCompressed,
