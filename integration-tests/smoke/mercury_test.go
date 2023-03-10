@@ -2,124 +2,89 @@ package smoke
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"strings"
 	"testing"
 
+	"github.com/ava-labs/coreth/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
 )
-
-var feedId = mercury.StringToByte32("ETH-USD-1")
-
-// func TestContracts(t *testing.T) {
-// 	testNetwork := networks.SelectedNetwork
-// 	// evmConfig := eth.New(nil)
-// 	// if !testNetwork.Simulated {
-// 	// 	evmConfig = eth.New(&eth.Props{
-// 	// 		NetworkName: testNetwork.Name,
-// 	// 		Simulated:   testNetwork.Simulated,
-// 	// 		WsURLs:      testNetwork.URLs,
-// 	// 	})
-// 	// }
-// 	evmClient, err := blockchain.NewEVMClient(testNetwork, nil)
-// 	require.NoError(t, err, "Error connecting to blockchain")
-
-// 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
-// 	require.NoError(t, err, "Deploying contracts shouldn't fail")
-
-// 	// accessController, err := contractDeployer.DeployReadAccessController()
-// 	// require.NoError(t, err, "Error deploying ReadAccessController contract")
-
-// 	// verifierProxy, err := contractDeployer.DeployVerifierProxy(accessController.Address())
-// 	// Use zero address for access controller disables access control
-// 	verifierProxy, err := contractDeployer.DeployVerifierProxy("0x0")
-// 	require.NoError(t, err, "Error deploying VerifierProxy contract")
-
-// 	verifier, err := contractDeployer.DeployVerifier(verifierProxy.Address())
-// 	require.NoError(t, err, "Error deploying Verifier contract")
-// 	_ = verifier
-// }
-
-// func TestMercuryServerHMAC(t *testing.T) {
-// 	l := zerolog.New(zerolog.NewTestWriter(t))
-
-// 	// Create new user
-// 	mercuryserver := client.NewMercuryServer("localhost:3000")
-// 	_ = mercuryserver
-// 	// Get report
-
-// 	l.Log().Msgf("asdsa")
-// }
 
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
 	_ = l
 
-	testEnv := mercury.SetupFullMercuryEnv(t, nil, nil)
+	testEnv := mercury.NewMercuryTestEnv(t)
+	testEnv.SetupFullMercuryEnv(nil, nil)
 
-	users, _, err := testEnv.MercuryServer.GetUsers(testEnv.MSAdminId, testEnv.MSAdminKey)
-	require.NoError(t, err)
-	_ = users
+	var (
+		feedId      = testEnv.Config.FeedId
+		feedIdBytes = mercury.StringToByte32(feedId)
+	)
 
 	t.Run("test mercury server has report for the latest block number", func(t *testing.T) {
 		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 		_ = latestBlockNum
 		require.NoError(t, err, "Err getting latest block number")
-		report, _, err := testEnv.MercuryServer.GetReports(testEnv.MSAdminId, testEnv.MSAdminKey, string(feedId[:]), latestBlockNum-5)
+		report, _, err := testEnv.MSClient.GetReports(testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey,
+			feedId, latestBlockNum-5)
 		require.NoError(t, err, "Error getting report from Mercury Server")
 		require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
+		// TODO: decode the report and validate it has correct fields
 	})
 
-	// t.Run("test report verfification using Exchanger.ResolveTradeWithReport call", func(t *testing.T) {
-	// 	mercuryLookupUrl := fmt.Sprintf("%s/client", mercuryServerRemoteUrl)
-	// 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
-	// 	require.NoError(t, err, "Error in contract deployer")
+	t.Run("test report verfification using Exchanger.ResolveTradeWithReport call", func(t *testing.T) {
+		order := mercury.Order{
+			FeedID:       feedIdBytes,
+			CurrencySrc:  mercury.StringToByte32("1"),
+			CurrencyDst:  mercury.StringToByte32("2"),
+			AmountSrc:    big.NewInt(1),
+			MinAmountDst: big.NewInt(2),
+			Sender:       common.HexToAddress("c7ca5f083dce8c0034e9a6033032ec576d40b222"),
+			Receiver:     common.HexToAddress("c7ca5f083dce8c0034e9a6033032ec576d40bf45"),
+		}
 
-	// 	exchangerContract, err := contractDeployer.DeployExchanger(verifierProxy.Address(), mercuryLookupUrl, 255)
-	// 	require.NoError(t, err, "Error deploying Exchanger contract")
-	// 	err = accessController.AddAccess(exchangerContract.Address())
-	// 	require.NoError(t, err, "Error in AddAccess(exchanger.Address())")
+		// Commit to a trade
+		commitmentHash := mercury.CreateCommitmentHash(order)
+		err := testEnv.ExchangerContract.CommitTrade(commitmentHash)
+		require.NoError(t, err)
 
-	// 	order := exchangersetup.Order{
-	// 		FeedID:       feedId,
-	// 		CurrencySrc:  mercurysetup.StringToByte32("1"),
-	// 		CurrencyDst:  mercurysetup.StringToByte32("2"),
-	// 		AmountSrc:    big.NewInt(1),
-	// 		MinAmountDst: big.NewInt(2),
-	// 		Sender:       common.HexToAddress("c7ca5f083dce8c0034e9a6033032ec576d40b222"),
-	// 		Receiver:     common.HexToAddress("c7ca5f083dce8c0034e9a6033032ec576d40bf45"),
-	// 	}
+		// Resove the trade and get mercry server url
+		encodedCommitment, err := mercury.CreateEncodedCommitment(order)
+		require.NoError(t, err)
+		mercuryUrlPath, err := testEnv.ExchangerContract.ResolveTrade(encodedCommitment)
+		require.NoError(t, err)
+		// feedIdHex param is still not fixed in the Exchanger contract. Should be feedIDHex
+		fixedMerucyrUrlPath := strings.Replace(mercuryUrlPath, "feedIdHex", "feedIDHex", -1)
 
-	// 	// Commit to a trade
-	// 	commitmentHash := exchangersetup.CreateCommitmentHash(order)
-	// 	err = exchangerContract.CommitTrade(commitmentHash)
-	// 	require.NoError(t, err)
+		// Get report from mercury server
+		msClient := client.NewMercuryServer(testEnv.Config.MSLocalUrl)
+		report, _, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath),
+			testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey)
+		l.Info().Msgf("Got response from Mercury server: %s", report)
+		require.NoError(t, err, "Error getting report from Mercury Server")
+		require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")
+		reportBlob := report["chainlinkBlob"].(string)
 
-	// 	// Resove the trade and get mercry server url
-	// 	encodedCommitment, err := exchangersetup.CreateEncodedCommitment(order)
-	// 	require.NoError(t, err)
-	// 	mercuryUrl, err := exchangerContract.ResolveTrade(encodedCommitment)
-	// 	require.NoError(t, err)
+		// Resolve the trade with report
+		reportBytes, err := hex.DecodeString(reportBlob[2:])
+		require.NoError(t, err)
+		receipt, err := testEnv.ExchangerContract.ResolveTradeWithReport(reportBytes, encodedCommitment)
+		require.NoError(t, err)
 
-	// 	// Get report from Mercury server
-	// 	report := &client.GetReportsResult{}
-	// 	resp, err := resty.New().R().SetResult(&report).Get(mercuryUrl)
-	// 	l.Info().Msgf("Got response from Mercury server: %s", resp)
-	// 	require.NoError(t, err, "Error getting report from Mercury Server")
-	// 	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
-
-	// 	// Resolve the trade with report
-	// 	reportBytes, err := hex.DecodeString(report.ChainlinkBlob[2:])
-	// 	require.NoError(t, err)
-	// 	receipt, err := exchangerContract.ResolveTradeWithReport(reportBytes, encodedCommitment)
-	// 	require.NoError(t, err)
-
-	// 	// Get transaction logs
-	// 	exchangerABI, err := abi.JSON(strings.NewReader(exchanger.ExchangerABI))
-	// 	require.NoError(t, err)
-	// 	tradeExecuted := map[string]interface{}{}
-	// 	err = exchangerABI.UnpackIntoMap(tradeExecuted, "TradeExecuted", receipt.Logs[1].Data)
-	// 	require.NoError(t, err)
-	// 	l.Info().Interface("TradeExecuted", tradeExecuted).Msg("ResolveTradeWithReport logs")
-	// })
+		// Get transaction logs
+		exchangerABI, err := abi.JSON(strings.NewReader(exchanger.ExchangerABI))
+		require.NoError(t, err)
+		tradeExecuted := map[string]interface{}{}
+		err = exchangerABI.UnpackIntoMap(tradeExecuted, "TradeExecuted", receipt.Logs[1].Data)
+		require.NoError(t, err)
+		l.Info().Interface("TradeExecuted", tradeExecuted).Msg("ResolveTradeWithReport logs")
+	})
 }

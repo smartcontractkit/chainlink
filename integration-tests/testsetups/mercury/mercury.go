@@ -1,13 +1,20 @@
 package mercury
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"html/template"
+	"io/ioutil"
 	"math"
 	"math/big"
 	"os"
+	"path"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -15,9 +22,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	cl_env_config "github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -33,9 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	mercuryserveraction "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury/mercuryserver"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
+	testconfig "github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -45,25 +49,79 @@ import (
 )
 
 type MercuryTestEnv struct {
-	TestEnv             *environment.Environment
-	ChainlinkNodes      []*client.Chainlink
-	MercuryServer       *client.MercuryServer
-	MSAdminId           string
-	MSAdminKey          string
-	MSAdminEncryptedKey string
-	// MSRemoteUrl           string
+	T                     *testing.T
+	Config                mercuryTestConfig
+	Env                   *environment.Environment
+	ChainlinkNodes        []*client.Chainlink
+	MSClient              *client.MercuryServer
 	IsExistingTestEnv     bool
 	EvmClient             blockchain.EVMClient
 	VerifierContract      contracts.Verifier
 	VerifierProxyContract contracts.VerifierProxy
+	ExchangerContract     contracts.Exchanger
 }
 
-func (t *MercuryTestEnv) JsonConfig() {
-
+type mercuryTestConfig struct {
+	K8Namespace          string `json:"k8Namespace"`
+	FeedId               string `json:"feedId"`
+	VerifierAddress      string `json:"verifierAddress"`
+	VerifierProxyAddress string `json:"verifierProxyAddress"`
+	ExchangerAddress     string `json:"exchangerAddress"`
+	MSRemoteUrl          string `json:"mercuryServerRemoteUrl"`
+	MSLocalUrl           string `json:"mercuryServerLocalUrl"`
+	MSAdminId            string `json:"mercuryServerAdminId"`
+	MSAdminKey           string `json:"mercuryServerAdminKey"`
+	MSAdminEncryptedKey  string `json:"mercuryServerAdminEncryptedKey"`
 }
 
-// Setup DON, Mercury Server and all mandatory contracts
-func SetupFullMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) *MercuryTestEnv {
+func configFromEnv() mercuryTestConfig {
+	c := mercuryTestConfig{}
+	if os.Getenv("MERCURY_TEST_ENV_CONFIG_PATH") != "" {
+		jsonFile, err := os.Open(os.Getenv("MERCURY_TEST_ENV_CONFIG_PATH"))
+		if err != nil {
+			return c
+		}
+		defer jsonFile.Close()
+		b, _ := ioutil.ReadAll(jsonFile)
+		err = json.Unmarshal(b, &c)
+		if err == nil {
+			log.Info().Msgf("Using existing mercury test env config from: %s\n%s",
+				os.Getenv("MERCURY_TEST_ENV_CONFIG_PATH"), c.Json())
+		}
+	}
+	return c
+}
+
+func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
+	testEnv := &MercuryTestEnv{}
+
+	// Re-use existing env when MERCURY_TEST_ENV_CONFIG_PATH env with json c specified
+	c := configFromEnv()
+	if c.K8Namespace != "" {
+		testEnv.IsExistingTestEnv = true
+		// Set env variables for chainlink-env to reuse existing deployment
+		os.Setenv("ENV_NAMESPACE", c.K8Namespace)
+		os.Setenv("NO_MANIFEST_UPDATE", "true")
+	} else {
+		testEnv.IsExistingTestEnv = false
+	}
+
+	testEnv.T = t
+	testEnv.Config = c
+	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
+	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
+	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
+
+	return testEnv
+}
+
+func (c *mercuryTestConfig) Json() string {
+	b, _ := json.Marshal(c)
+	return string(b)
+}
+
+// Setup DON, Mercury Server and all mercury contracts
+func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, serverResources map[string]interface{}) {
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -74,88 +132,89 @@ func SetupFullMercuryEnv(t *testing.T, dbSettings map[string]interface{}, server
 		})
 	}
 
-	isExistingTestEnv := os.Getenv(cl_env_config.EnvVarNamespace) != "" && os.Getenv(cl_env_config.EnvVarNoManifestUpdate) == "true"
+	env := e.SetupDON(e.T, testNetwork, evmConfig)
+	e.Env = env
+	e.Config.K8Namespace = env.Cfg.Namespace
 
-	testEnv := SetupDON(t, testNetwork, evmConfig)
+	chainlinkNodes, err := client.ConnectChainlinkNodes(env)
+	e.ChainlinkNodes = chainlinkNodes
+	require.NoError(e.T, err, "Error connecting to Chainlink nodes")
 
-	msAdminId := os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
-	msAdminKey := os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
-	msAdminEncryptedKey := os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
-	msRpcPubKey := mercuryserveraction.SetupMercuryServer(t, testEnv, dbSettings, serverResources,
-		msAdminId, msAdminEncryptedKey)
+	evmClient, err := blockchain.NewEVMClient(testNetwork, env)
+	e.EvmClient = evmClient
+	require.NoError(e.T, err, "Error connecting to blockchain")
 
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
-	require.NoError(t, err, "Error connecting to Chainlink nodes")
+	e.T.Cleanup(func() {
+		if e.IsExistingTestEnv {
+			log.Info().Msg("Do not tear down existing environment")
+		} else {
+			err := actions.TeardownSuite(e.T, env, utils.ProjectRoot,
+				chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
+			require.NoError(e.T, err, "Error tearing down environment")
+		}
+	})
 
-	evmClient, err := blockchain.NewEVMClient(testNetwork, testEnv)
-	require.NoError(t, err, "Error connecting to blockchain")
+	msRpcPubKey := e.SetupMercuryServer(env, dbSettings, serverResources,
+		e.Config.MSAdminId, e.Config.MSAdminEncryptedKey)
 
 	// Setup random mock server response for mercury price feed
-	mockserverClient, err := ctfClient.ConnectMockServer(testEnv)
-	require.NoError(t, err, "Error connecting to mock server")
+	mockserverClient, err := ctfClient.ConnectMockServer(env)
+	require.NoError(e.T, err, "Error connecting to mock server")
 
-	// mercuryServerLocalUrl := testEnvironment.URLs[mercury_server.URLsKey][0]
-	msLocalUrl := testEnv.URLs[mshelm.URLsKey][1]
+	msLocalUrl := env.URLs[mshelm.URLsKey][1]
 	msClient := client.NewMercuryServer(msLocalUrl)
+	e.Config.MSLocalUrl = msLocalUrl
+	e.MSClient = msClient
 
-	var verifier contracts.Verifier
-	var verifierProxy contracts.VerifierProxy
-
-	if isExistingTestEnv {
-		// TODO: Connect to existing contracts. Pass their address via env var
+	if e.IsExistingTestEnv {
+		// Load existing contracts
+		contractDeployer, err := contracts.NewContractDeployer(evmClient)
+		require.NoError(e.T, err)
+		e.VerifierContract, err = contractDeployer.LoadVerifier(common.HexToAddress(e.Config.VerifierAddress))
+		require.NoError(e.T, err)
+		e.VerifierProxyContract, err = contractDeployer.LoadVerifierProxy(common.HexToAddress(e.Config.VerifierProxyAddress))
+		require.NoError(e.T, err)
+		e.ExchangerContract, err = contractDeployer.LoadExchanger(common.HexToAddress(e.Config.ExchangerAddress))
+		require.NoError(e.T, err)
 	} else {
-		var feedId = StringToByte32("ETH-USD-1")
+		// Deploy new contracts and setup jobs
+		var feedIdStr = "ETH-USD-1"
+		var feedId = StringToByte32(feedIdStr)
+		e.Config.FeedId = feedIdStr
 
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := BuildMercuryOCRConfig(t, nodesWithoutBootstrap)
-		verifier, verifierProxy, _, _ = SetupMercuryContracts(t, evmClient,
-			msLocalUrl, feedId, ocrConfig)
-		_ = verifierProxy
+		ocrConfig, err := BuildMercuryOCRConfig(nodesWithoutBootstrap)
+		require.NoError(e.T, err)
+
+		verifier, verifierProxy, exchanger, _, _ := SetupMercuryContracts(
+			evmClient, "", feedId, *ocrConfig)
+		e.VerifierContract = verifier
+		e.VerifierProxyContract = verifierProxy
+		e.ExchangerContract = exchanger
+		e.Config.VerifierAddress = verifier.Address()
+		e.Config.VerifierProxyAddress = verifierProxy.Address()
+		e.Config.ExchangerAddress = exchanger.Address()
 
 		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
-		require.NoError(t, err)
-
-		msRemoteUrl := testEnv.URLs[mshelm.URLsKey][0]
-		SetupMercuryNodeJobs(t, chainlinkNodes, mockserverClient, verifier.Address(),
+		require.NoError(e.T, err)
+		msRemoteUrl := env.URLs[mshelm.URLsKey][0]
+		SetupMercuryNodeJobs(e.T, chainlinkNodes, mockserverClient, verifier.Address(),
 			feedId, latestBlockNum, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
+		e.Config.MSRemoteUrl = msRemoteUrl
 
-		verifier.SetConfig(feedId, ocrConfig)
+		verifier.SetConfig(feedId, *ocrConfig)
+
+		// Log test env as json so that it can be saved to env variable and used to re-connect to it
+		log.Info().Msgf("Current mercury test env config with TTL: %s\n%s", env.Cfg.TTL, e.Config.Json())
 
 		// Wait for the DON to start generating reports
 		d := 160 * time.Second
 		log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
 		time.Sleep(d)
 	}
-
-	t.Cleanup(func() {
-		if isExistingTestEnv {
-			log.Info().Msg("Do not tear down existing environment")
-		} else {
-			err := actions.TeardownSuite(t, testEnv, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
-			require.NoError(t, err, "Error tearing down environment")
-		}
-	})
-
-	mercuryTestEnv := &MercuryTestEnv{
-		TestEnv:               testEnv,
-		ChainlinkNodes:        chainlinkNodes,
-		MercuryServer:         msClient,
-		MSAdminId:             msAdminId,
-		MSAdminKey:            msAdminKey,
-		MSAdminEncryptedKey:   msAdminEncryptedKey,
-		IsExistingTestEnv:     isExistingTestEnv,
-		EvmClient:             evmClient,
-		VerifierContract:      verifier,
-		VerifierProxyContract: verifierProxy,
-	}
-
-	// TODO: Log test env as json so that it can be saved to env variable and used to re-connect to it
-	// log.Info().Msgf("%s", mercuryTestEnv.JsonConfig())
-
-	return mercuryTestEnv
 }
 
-func SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
+func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
 	testEnv := environment.New(&environment.Config{
 		// TODO: comment
 		TTL:             1 * time.Hour,
@@ -181,7 +240,7 @@ func SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environm
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
-				config.BaseMercuryTomlConfig,
+				testconfig.BaseMercuryTomlConfig,
 				evmNetwork),
 			// "secretsToml": secretsToml,
 			"prometheus": "true",
@@ -289,7 +348,6 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 				// 		bn1 -> bn1_lookup;
 				// 	"""`,
 				// },
-				// TODO: Fix local mercury server url. Should be only host without port. Or, local wsrpc url
 				PluginConfig: map[string]interface{}{
 					// "serverHost":   fmt.Sprintf("\"%s:1338\"", mercury_server.URLsKey),
 					"serverURL":    fmt.Sprintf("\"%s:1338\"", msRemoteUrl[7:len(msRemoteUrl)-5]),
@@ -319,16 +377,168 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 	log.Info().Msg("Done creating OCR automation jobs")
 }
 
-func BuildMercuryOCRConfig(
-	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
-) contracts.MercuryOCRConfig {
+type csaKey struct {
+	NodeName    string `json:"nodeName"`
+	NodeAddress string `json:"nodeAddress"`
+	PublicKey   string `json:"publicKey"`
+}
+
+type oracle struct {
+	Id                    string   `json:"id"`
+	Website               string   `json:"website"`
+	Name                  string   `json:"name"`
+	Status                string   `json:"status"`
+	NodeAddress           []string `json:"nodeAddress"`
+	OracleAddress         string   `json:"oracleAddress"`
+	CsaKeys               []csaKey `json:"csaKeys"`
+	Ocr2ConfigPublicKey   []string `json:"ocr2ConfigPublicKey"`
+	Ocr2OffchainPublicKey []string `json:"ocr2OffchainPublicKey"`
+	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
+}
+
+// Build config with nodes for Mercury server
+func BuildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
+	var msRpcNodesConf []*oracle
+	for i, chainlinkNode := range chainlinkNodes {
+		nodeName := fmt.Sprint(i)
+		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
+		if err != nil {
+			return nil, err
+		}
+		csaKeys, _, err := chainlinkNode.ReadCSAKeys()
+		if err != nil {
+			return nil, err
+		}
+		csaPubKey := csaKeys.Data[0].Attributes.PublicKey
+		ocr2Keys, _, err := chainlinkNode.ReadOCR2Keys()
+		if err != nil {
+			return nil, err
+		}
+		var ocr2Config client.OCR2KeyAttributes
+		for _, key := range ocr2Keys.Data {
+			if key.Attributes.ChainType == string(chaintype.EVM) {
+				ocr2Config = key.Attributes
+				break
+			}
+		}
+		ocr2ConfigPublicKey := strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_")
+		ocr2OffchainPublicKey := strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_")
+		ocr2OnchainPublicKey := strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_")
+
+		node := &oracle{
+			Id:            fmt.Sprint(i),
+			Name:          nodeName,
+			Status:        "active",
+			NodeAddress:   []string{nodeAddress},
+			OracleAddress: "0x0000000000000000000000000000000000000000",
+			CsaKeys: []csaKey{
+				{
+					NodeName:    nodeName,
+					NodeAddress: nodeAddress,
+					PublicKey:   csaPubKey,
+				},
+			},
+			Ocr2ConfigPublicKey:   []string{ocr2ConfigPublicKey},
+			Ocr2OffchainPublicKey: []string{ocr2OffchainPublicKey},
+			Ocr2OnchainPublicKey:  []string{ocr2OnchainPublicKey},
+		}
+		msRpcNodesConf = append(msRpcNodesConf, node)
+	}
+	return json.Marshal(msRpcNodesConf)
+}
+
+func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error) {
+	data := struct {
+		UserId       string
+		UserRole     string
+		EncryptedKey string
+	}{
+		UserId:       adminId,
+		UserRole:     "admin",
+		EncryptedKey: adminEncryptedKey,
+	}
+
+	// Get file path to the sql
+	_, filename, _, _ := runtime.Caller(0)
+	tmplPath := path.Join(path.Dir(filename), "/mercury_db_init_sql_template")
+
+	tmpl, err := template.ParseFiles(tmplPath)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+func (e *MercuryTestEnv) SetupMercuryServer(
+	testEnv *environment.Environment,
+	dbSettings map[string]interface{},
+	serverSettings map[string]interface{},
+	adminId string,
+	adminEncryptedKey string,
+) ed25519.PublicKey {
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
+	require.NoError(e.T, err, "Error connecting to Chainlink nodes")
+
+	rpcNodesJsonConf, _ := BuildRpcNodesJsonConf(chainlinkNodes)
+	log.Info().Msgf("RPC nodes conf for mercury server: %s", rpcNodesJsonConf)
+
+	// Generate keys for Mercury RPC server
+	// rpcPrivKey, rpcPubKey, err := generateEd25519Keys()
+	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(e.T, err)
+
+	initDbSql, err := buildInitialDbSql(adminId, adminEncryptedKey)
+	require.NoError(e.T, err)
+	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
+
+	settings := map[string]interface{}{
+		"image": map[string]interface{}{
+			"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
+			"tag":        os.Getenv("MERCURY_SERVER_TAG"),
+		},
+		"postgresql": map[string]interface{}{
+			"enabled": true,
+		},
+		"qa": map[string]interface{}{
+			"rpcPrivateKey": hex.EncodeToString(rpcPrivKey),
+			"enabled":       true,
+			"initDbSql":     initDbSql,
+		},
+		"rpcNodesConf": string(rpcNodesJsonConf),
+		"prometheus":   "true",
+	}
+
+	if dbSettings != nil {
+		settings["db"] = dbSettings
+	}
+	if serverSettings != nil {
+		settings["resources"] = serverSettings
+	}
+
+	testEnv.AddHelm(mshelm.New(settings)).Run()
+
+	return rpcPubKey
+}
+
+func BuildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.MercuryOCRConfig, error) {
 	// Build onchain config
 	c := relaymercury.OnchainConfig{Min: big.NewInt(0), Max: big.NewInt(math.MaxInt64)}
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(c)
-	require.NoError(t, err, "Shouldn't fail encoding config")
+	if err != nil {
+		return nil, err
+	}
 
-	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+	_, oracleIdentities := getOracleIdentities(chainlinkNodes)
+	if err != nil {
+		return nil, err
+	}
 	signerOnchainPublicKeys, _, f, onchainConfig,
 		offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress time.Duration,
@@ -353,12 +563,13 @@ func BuildMercuryOCRConfig(
 		1, // f int,
 		onchainConfig,
 	)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	// Convert signers to addresses
 	var signers []common.Address
 	for _, signer := range signerOnchainPublicKeys {
-		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
 		signers = append(signers, common.BytesToAddress(signer))
 	}
 
@@ -366,38 +577,40 @@ func BuildMercuryOCRConfig(
 	transmitters := make([][32]byte, len(chainlinkNodes))
 	for i, n := range chainlinkNodes {
 		csaKeys, _, err := n.ReadCSAKeys()
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
 		csaPubKey, err := hex.DecodeString(csaKeys.Data[0].Attributes.PublicKey)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
 		transmitters[i] = [32]byte(csaPubKey)
 	}
 
-	return contracts.MercuryOCRConfig{
+	return &contracts.MercuryOCRConfig{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}
+	}, nil
 }
 
-func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
 	var wg sync.WaitGroup
 	for i, cl := range chainlinkNodes {
 		wg.Add(1)
-		go func(i int, cl *client.Chainlink) {
+		go func(i int, cl *client.Chainlink) error {
 			defer wg.Done()
 
-			address, err := cl.PrimaryEthAddress()
-			_ = address
-			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
 			ocr2Keys, err := cl.MustReadOCR2Keys()
-			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
+			if err != nil {
+				return err
+			}
 			var ocr2Config client.OCR2KeyAttributes
 			for _, key := range ocr2Keys.Data {
 				if key.Attributes.ChainType == string(chaintype.EVM) {
@@ -407,28 +620,42 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 			}
 
 			keys, err := cl.MustReadP2PKeys()
-			require.NoError(t, err, "Shouldn't fail reading P2P keys from node")
+			if err != nil {
+				return err
+			}
 			p2pKeyID := keys.Data[0].Attributes.PeerID
 
 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
+			if err != nil {
+				return err
+			}
 
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
-			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+			copy(offchainPkBytesFixed[:], offchainPkBytes)
+			if err != nil {
+				return err
+			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
+			if err != nil {
+				return err
+			}
 
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			n = copy(configPkBytesFixed[:], configPkBytes)
-			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+			copy(configPkBytesFixed[:], configPkBytes)
+			if err != nil {
+				return err
+			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
+			if err != nil {
+				return err
+			}
 
 			csaKeys, _, err := cl.ReadCSAKeys()
-			require.NoError(t, err)
+			if err != nil {
+				return err
+			}
 
 			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
 			oracleIdentities[i] = confighelper.OracleIdentityExtra{
@@ -441,10 +668,12 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
 			S[i] = 1
+
+			return nil
 		}(i, cl)
 	}
 	wg.Wait()
-	l.Info().Msg("Done fetching oracle identities")
+	log.Info().Msgf("Done fetching oracle identities")
 	return S, oracleIdentities
 }
 
