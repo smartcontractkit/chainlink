@@ -584,7 +584,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		<-chBlock
 	})
 
-	eb := txmgr.NewEthBroadcaster[*evmtypes.Head](
+	eb := txmgr.NewEthBroadcaster(
 		borm,
 		ethClient,
 		evmcfg,
