@@ -123,6 +123,7 @@ func (js *spawner) startAllServices(ctx context.Context) {
 	specs, _, err := js.orm.FindJobs(0, math.MaxUint32)
 	if err != nil {
 		js.lggr.Criticalf("Couldn't fetch unclaimed jobs: %v", err)
+		js.SvcErrBuffer.Append(err)
 		return
 	}
 
@@ -159,6 +160,7 @@ func (js *spawner) stopService(jobID int32) {
 		err := service.Close()
 		if err != nil {
 			js.lggr.Criticalw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.SvcErrBuffer.Append(err)
 		} else {
 			js.lggr.Debugw("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", fmt.Sprintf("%T", service))
 		}
@@ -208,6 +210,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		err = ms.Start(ctx, srv)
 		if err != nil {
 			js.lggr.Criticalw("Error starting service for job", "jobID", jb.ID, "error", err)
+			js.SvcErrBuffer.Append(err)
 			return errors.Wrapf(err, "failed to start service for job %d", jb.ID)
 		}
 		aj.services = append(aj.services, srv)
