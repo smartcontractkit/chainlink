@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -55,6 +57,7 @@ type MercuryTestEnv struct {
 	ChainlinkNodes        []*client.Chainlink
 	MSClient              *client.MercuryServer
 	IsExistingTestEnv     bool
+	KeepEnv               bool
 	EvmClient             blockchain.EVMClient
 	VerifierContract      contracts.Verifier
 	VerifierProxyContract contracts.VerifierProxy
@@ -77,8 +80,8 @@ type mercuryTestConfig struct {
 
 func configFromEnv() mercuryTestConfig {
 	c := mercuryTestConfig{}
-	if os.Getenv("MERCURY_TEST_ENV_CONFIG_PATH") != "" {
-		jsonFile, err := os.Open(os.Getenv("MERCURY_TEST_ENV_CONFIG_PATH"))
+	if os.Getenv("MERCURY_ENV_CONFIG_PATH") != "" {
+		jsonFile, err := os.Open(os.Getenv("MERCURY_ENV_CONFIG_PATH"))
 		if err != nil {
 			return c
 		}
@@ -86,8 +89,8 @@ func configFromEnv() mercuryTestConfig {
 		b, _ := ioutil.ReadAll(jsonFile)
 		err = json.Unmarshal(b, &c)
 		if err == nil {
-			log.Info().Msgf("Using existing mercury test env config from: %s\n%s",
-				os.Getenv("MERCURY_TEST_ENV_CONFIG_PATH"), c.Json())
+			log.Info().Msgf("Using existing mercury env config from: %s\n%s",
+				os.Getenv("MERCURY_ENV_CONFIG_PATH"), c.Json())
 		}
 	}
 	return c
@@ -96,7 +99,7 @@ func configFromEnv() mercuryTestConfig {
 func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
 	testEnv := &MercuryTestEnv{}
 
-	// Re-use existing env when MERCURY_TEST_ENV_CONFIG_PATH env with json c specified
+	// Re-use existing env when MERCURY_ENV_CONFIG_PATH env with json c specified
 	c := configFromEnv()
 	if c.K8Namespace != "" {
 		testEnv.IsExistingTestEnv = true
@@ -108,6 +111,7 @@ func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
 	}
 
 	testEnv.T = t
+	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
 	testEnv.Config = c
 	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
 	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
@@ -119,6 +123,32 @@ func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
 func (c *mercuryTestConfig) Json() string {
 	b, _ := json.Marshal(c)
 	return string(b)
+}
+
+func (c *mercuryTestConfig) Save() (string, error) {
+	// Create mercury env log dir if necessary
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	confDir := fmt.Sprintf("%s/logs", pwd)
+	if _, err := os.Stat(confDir); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(confDir, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Save mercury env config to disk
+	confId, err := uuid.NewV4()
+	if err != nil {
+		return "", nil
+	}
+	confPath := fmt.Sprintf("%s/%s.json", confDir, confId)
+	f, _ := json.MarshalIndent(c, "", " ")
+	err = ioutil.WriteFile(confPath, f, 0644)
+
+	return confPath, err
 }
 
 // Setup DON, Mercury Server and all mercury contracts
@@ -136,7 +166,7 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 	// Fail when existing env is different than current chain
 	if e.IsExistingTestEnv {
 		require.Equal(e.T, e.Config.ChainId, testNetwork.ChainID,
-			"Chain set in SELECTED_NETWORKS is different than chain id set in config provided by MERCURY_TEST_ENV_CONFIG_PATH")
+			"Chain set in SELECTED_NETWORKS is different than chain id set in config provided by MERCURY_ENV_CONFIG_PATH")
 	}
 	e.Config.ChainId = testNetwork.ChainID
 
@@ -153,9 +183,15 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 	require.NoError(e.T, err, "Error connecting to blockchain")
 
 	e.T.Cleanup(func() {
-		if e.IsExistingTestEnv {
-			log.Info().Msg("Do not tear down existing environment")
+		if e.KeepEnv {
+			envConfFile, err := e.Config.Save()
+			require.NoError(e.T, err, "Could not save mercury env conf file")
+			log.Info().Msgf("Keep mercury environment running."+
+				" Chain: %d. Initial TTL: %s", e.Config.ChainId, env.Cfg.TTL)
+			log.Info().Msgf("To reuse this env in next test on chain %d, set:\n"+
+				"\"MERCURY_ENV_CONFIG_PATH\"=\"%s\"", e.Config.ChainId, envConfFile)
 		} else {
+			log.Info().Msgf("Destroy this mercury env because MERCURY_KEEP_ENV not set to \"true\"")
 			err := actions.TeardownSuite(e.T, env, utils.ProjectRoot,
 				chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
 			require.NoError(e.T, err, "Error tearing down environment")
@@ -211,9 +247,6 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		e.Config.MSRemoteUrl = msRemoteUrl
 
 		verifier.SetConfig(feedId, *ocrConfig)
-
-		// Log test env as json so that it can be saved to env variable and used to re-connect to it
-		log.Info().Msgf("Current mercury test env config with TTL: %s\n%s", env.Cfg.TTL, e.Config.Json())
 
 		e.WaitForDONReports()
 	}
