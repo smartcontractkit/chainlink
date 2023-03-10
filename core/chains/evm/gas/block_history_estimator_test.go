@@ -260,13 +260,13 @@ func TestBlockHistoryEstimator_OnNewLongestChain(t *testing.T) {
 
 	// non EIP-1559 block
 	h := cltest.Head(1)
-	bhe.OnNewLongestChainEVM(testutils.Context(t), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 	assert.Nil(t, gas.GetLatestBaseFee(bhe))
 
 	// EIP-1559 block
 	h = cltest.Head(2)
 	h.BaseFeePerGas = assets.NewWeiI(500)
-	bhe.OnNewLongestChainEVM(testutils.Context(t), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	assert.Equal(t, assets.NewWeiI(500), gas.GetLatestBaseFee(bhe))
 }
@@ -1750,7 +1750,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 
 	h := cltest.Head(1)
 	h.BaseFeePerGas = assets.NewWeiI(112500)
-	bhe.OnNewLongestChainEVM(testutils.Context(t), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	t.Run("if gas bumping is enabled", func(t *testing.T) {
 		cfg.EvmGasBumpThresholdF = uint64(1)
@@ -1794,7 +1794,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 
 	h = cltest.Head(1)
 	h.BaseFeePerGas = assets.NewWeiI(900000)
-	bhe.OnNewLongestChainEVM(testutils.Context(t), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	t.Run("if gas bumping is enabled and global max gas price lower than local max gas price", func(t *testing.T) {
 		cfg.EvmGasBumpThresholdF = uint64(1)
@@ -1877,7 +1877,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 	h := cltest.Head(1)
 	h.BaseFeePerGas = assets.NewWeiI(112500)
-	bhe.OnNewLongestChainEVM(testutils.Context(t), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	b0 := evmtypes.Block{
 		Number:       0,
@@ -1919,7 +1919,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0, b1, b2, b3})
 	h = cltest.Head(5)
 	h.BaseFeePerGas = assets.NewWeiI(112500)
-	bhe.OnNewLongestChainEVM(testutils.Context(t), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	t.Run("returns error if one of the supplied attempts is missing BroadcastBeforeBlockNum", func(t *testing.T) {
 		err := bhe.CheckConnectivity(attempts)
@@ -2166,7 +2166,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		}
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b1})
 		head := cltest.Head(1)
-		bhe.OnNewLongestChainEVM(testutils.Context(t), head)
+		bhe.OnNewLongestChain(testutils.Context(t), head)
 
 		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
@@ -2272,7 +2272,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		}
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b1})
 		head := cltest.Head(1)
-		bhe.OnNewLongestChainEVM(testutils.Context(t), head)
+		bhe.OnNewLongestChain(testutils.Context(t), head)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{

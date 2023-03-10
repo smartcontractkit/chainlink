@@ -86,8 +86,6 @@ type TransmitChecker interface {
 // - a monotonic series of increasing nonces for eth_txes that can all eventually be confirmed if you retry enough times
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
-//
-// The type HEAD represents the chain's native head datatype.
 type EthBroadcaster struct {
 	logger    logger.Logger
 	orm       ORM

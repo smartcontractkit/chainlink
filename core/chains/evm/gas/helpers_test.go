@@ -1,7 +1,6 @@
 package gas
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -21,15 +20,6 @@ func init() {
 
 func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) error {
 	return b.checkConnectivity(MakeEvmPriorAttempts(attempts))
-}
-
-// OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
-// in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChainEVM(_ context.Context, head *evmtypes.Head) {
-	// set latest base fee here to avoid potential lag introduced by block delay
-	// it is really important that base fee be as up-to-date as possible
-	b.setLatest(head)
-	b.mb.Deliver(head)
 }
 
 func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator {

@@ -71,7 +71,6 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
-// The type HEAD represents the chain's native head datatype.
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
