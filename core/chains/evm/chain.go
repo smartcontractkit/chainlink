@@ -115,7 +115,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		}
 	}
 
-	var txm = newEvmTxm(db, cfg, client, l, logPoller, opts)
+	txm := newEvmTxm(db, cfg, client, l, logPoller, opts)
 
 	headBroadcaster.Subscribe(&txm)
 
