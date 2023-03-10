@@ -59,7 +59,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keeper.UpkeepRegistration,
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
-	*txmmocks.TxManager[*evmtypes.Head],
+	*txmmocks.TxManager,
 	keystore.Master,
 	evm.Chain,
 	keeper.ORM,

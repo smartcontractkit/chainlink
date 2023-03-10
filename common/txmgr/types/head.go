@@ -2,10 +2,8 @@ package types
 
 import "github.com/ethereum/go-ethereum/common"
 
-// Head provides minimal access to a chain's head, as needed by the TxManager.
+// Head provides access to a chain's head, as needed by the TxManager.
 // This is a generic interface which ALL chains will implement.
-//
-// The NATIVE type is the chain's native Head type.
 //
 //go:generate mockery --quiet --name Head --output ./mocks/ --case=underscore
 type Head interface {
