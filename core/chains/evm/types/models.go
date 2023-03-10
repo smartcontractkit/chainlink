@@ -64,6 +64,9 @@ func (h *Head) BlockHash() common.Hash {
 }
 
 func (h *Head) GetParent() txmgrtypes.Head {
+	if h.Parent == nil {
+		return nil
+	}
 	return h.Parent
 }
 
@@ -165,7 +168,7 @@ func (h *Head) ChainString() string {
 }
 
 // String returns a string representation of this head
-func (h Head) String() string {
+func (h *Head) String() string {
 	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
 }
 
