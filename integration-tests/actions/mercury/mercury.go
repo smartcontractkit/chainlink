@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
@@ -43,9 +44,26 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) (
-	*environment.Environment, bool, blockchain.EVMNetwork, []*client.Chainlink, string,
-	blockchain.EVMClient, *ctfClient.MockserverClient, *client.MercuryServer, ed25519.PublicKey) {
+type MercuryTestEnv struct {
+	TestEnv             *environment.Environment
+	ChainlinkNodes      []*client.Chainlink
+	MercuryServer       *client.MercuryServer
+	MSAdminId           string
+	MSAdminKey          string
+	MSAdminEncryptedKey string
+	// MSRemoteUrl           string
+	IsExistingTestEnv     bool
+	EvmClient             blockchain.EVMClient
+	VerifierContract      contracts.Verifier
+	VerifierProxyContract contracts.VerifierProxy
+}
+
+func (t *MercuryTestEnv) JsonConfig() {
+
+}
+
+// Setup DON, Mercury Server and all mandatory contracts
+func SetupFullMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverResources map[string]interface{}) *MercuryTestEnv {
 	testNetwork := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -56,10 +74,92 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 		})
 	}
 
-	testEnvironment := environment.New(&environment.Config{
+	isExistingTestEnv := os.Getenv(cl_env_config.EnvVarNamespace) != "" && os.Getenv(cl_env_config.EnvVarNoManifestUpdate) == "true"
+
+	testEnv := SetupDON(t, testNetwork, evmConfig)
+
+	msAdminId := os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
+	msAdminKey := os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
+	msAdminEncryptedKey := os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
+	msRpcPubKey := mercuryserveraction.SetupMercuryServer(t, testEnv, dbSettings, serverResources,
+		msAdminId, msAdminEncryptedKey)
+
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+
+	evmClient, err := blockchain.NewEVMClient(testNetwork, testEnv)
+	require.NoError(t, err, "Error connecting to blockchain")
+
+	// Setup random mock server response for mercury price feed
+	mockserverClient, err := ctfClient.ConnectMockServer(testEnv)
+	require.NoError(t, err, "Error connecting to mock server")
+
+	// mercuryServerLocalUrl := testEnvironment.URLs[mercury_server.URLsKey][0]
+	msLocalUrl := testEnv.URLs[mshelm.URLsKey][1]
+	msClient := client.NewMercuryServer(msLocalUrl)
+
+	var verifier contracts.Verifier
+	var verifierProxy contracts.VerifierProxy
+
+	if isExistingTestEnv {
+		// TODO: Connect to existing contracts. Pass their address via env var
+	} else {
+		var feedId = StringToByte32("ETH-USD-1")
+
+		nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig := BuildMercuryOCRConfig(t, nodesWithoutBootstrap)
+		verifier, verifierProxy, _, _ = SetupMercuryContracts(t, evmClient,
+			msLocalUrl, feedId, ocrConfig)
+		_ = verifierProxy
+
+		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
+		require.NoError(t, err)
+
+		msRemoteUrl := testEnv.URLs[mshelm.URLsKey][0]
+		SetupMercuryNodeJobs(t, chainlinkNodes, mockserverClient, verifier.Address(),
+			feedId, latestBlockNum, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
+
+		verifier.SetConfig(feedId, ocrConfig)
+
+		// Wait for the DON to start generating reports
+		d := 160 * time.Second
+		log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
+		time.Sleep(d)
+	}
+
+	t.Cleanup(func() {
+		if isExistingTestEnv {
+			log.Info().Msg("Do not tear down existing environment")
+		} else {
+			err := actions.TeardownSuite(t, testEnv, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
+			require.NoError(t, err, "Error tearing down environment")
+		}
+	})
+
+	mercuryTestEnv := &MercuryTestEnv{
+		TestEnv:               testEnv,
+		ChainlinkNodes:        chainlinkNodes,
+		MercuryServer:         msClient,
+		MSAdminId:             msAdminId,
+		MSAdminKey:            msAdminKey,
+		MSAdminEncryptedKey:   msAdminEncryptedKey,
+		IsExistingTestEnv:     isExistingTestEnv,
+		EvmClient:             evmClient,
+		VerifierContract:      verifier,
+		VerifierProxyContract: verifierProxy,
+	}
+
+	// TODO: Log test env as json so that it can be saved to env variable and used to re-connect to it
+	// log.Info().Msgf("%s", mercuryTestEnv.JsonConfig())
+
+	return mercuryTestEnv
+}
+
+func SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
+	testEnv := environment.New(&environment.Config{
 		// TODO: comment
 		TTL:             1 * time.Hour,
-		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
@@ -67,12 +167,12 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 			"app": map[string]interface{}{
 				"resources": map[string]interface{}{
 					"requests": map[string]interface{}{
-						"cpu":    "2000m",
-						"memory": "2048Mi",
+						"cpu":    "4000m",
+						"memory": "4048Mi",
 					},
 					"limits": map[string]interface{}{
-						"cpu":    "2000m",
-						"memory": "2048Mi",
+						"cpu":    "4000m",
+						"memory": "4048Mi",
 					},
 				},
 			},
@@ -82,43 +182,14 @@ func SetupMercuryEnv(t *testing.T, dbSettings map[string]interface{}, serverReso
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
 				config.BaseMercuryTomlConfig,
-				testNetwork),
+				evmNetwork),
 			// "secretsToml": secretsToml,
 			"prometheus": "true",
 		}))
-	err := testEnvironment.Run()
+	err := testEnv.Run()
 	require.NoError(t, err, "Error running test environment")
 
-	msRpcPubKey := mercuryserveraction.SetupMercuryServer(t, testEnvironment, dbSettings, serverResources)
-
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Error connecting to Chainlink nodes")
-	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-
-	evmClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	require.NoError(t, err, "Error connecting to blockchain")
-
-	isExistingTestEnv := os.Getenv(cl_env_config.EnvVarNamespace) != "" && os.Getenv(cl_env_config.EnvVarNoManifestUpdate) == "true"
-
-	// Setup random mock server response for mercury price feed
-	mockserverClient, err := ctfClient.ConnectMockServer(testEnvironment)
-	require.NoError(t, err, "Error connecting to mock server")
-
-	// mercuryServerLocalUrl := testEnvironment.URLs[mercury_server.URLsKey][0]
-	mercuryServerRemoteUrl := testEnvironment.URLs[mshelm.URLsKey][1]
-	mercuryServerClient := client.NewMercuryServer(mercuryServerRemoteUrl)
-
-	t.Cleanup(func() {
-		if isExistingTestEnv {
-			log.Info().Msg("Do not tear down existing environment")
-		} else {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
-			require.NoError(t, err, "Error tearing down environment")
-		}
-	})
-
-	return testEnvironment, isExistingTestEnv, testNetwork, chainlinkNodes,
-		mercuryServerRemoteUrl, evmClient, mockserverClient, mercuryServerClient, msRpcPubKey
+	return testEnv
 }
 
 func SetupMercuryNodeJobs(
@@ -128,7 +199,7 @@ func SetupMercuryNodeJobs(
 	contractID string,
 	feedId [32]byte,
 	fromBlock uint64,
-	mercuryServerLocalUrl string,
+	msRemoteUrl string,
 	mercuryServerPubKey ed25519.PublicKey,
 	chainID int64,
 	keyIndex int,
@@ -221,7 +292,7 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 				// TODO: Fix local mercury server url. Should be only host without port. Or, local wsrpc url
 				PluginConfig: map[string]interface{}{
 					// "serverHost":   fmt.Sprintf("\"%s:1338\"", mercury_server.URLsKey),
-					"serverURL":    fmt.Sprintf("\"%s:1338\"", mercuryServerLocalUrl[7:len(mercuryServerLocalUrl)-5]),
+					"serverURL":    fmt.Sprintf("\"%s:1338\"", msRemoteUrl[7:len(msRemoteUrl)-5]),
 					"serverPubKey": fmt.Sprintf("\"%s\"", hex.EncodeToString(mercuryServerPubKey)),
 				},
 				Relay: "evm",

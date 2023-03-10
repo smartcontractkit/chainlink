@@ -93,6 +93,8 @@ func SetupMercuryServer(
 	testEnv *environment.Environment,
 	dbSettings map[string]interface{},
 	serverSettings map[string]interface{},
+	adminId string,
+	adminEncryptedKey string,
 ) ed25519.PublicKey {
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -105,7 +107,7 @@ func SetupMercuryServer(
 	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	initDbSql, err := buildInitialDbSql()
+	initDbSql, err := buildInitialDbSql(adminId, adminEncryptedKey)
 	require.NoError(t, err)
 	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
 
@@ -138,15 +140,15 @@ func SetupMercuryServer(
 	return rpcPubKey
 }
 
-func buildInitialDbSql() (string, error) {
+func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error) {
 	data := struct {
 		UserId       string
 		UserRole     string
 		EncryptedKey string
 	}{
-		UserId:       os.Getenv("MS_DATABASE_FIRST_ADMIN_ID"),
-		UserRole:     os.Getenv("MS_DATABASE_FIRST_ADMIN_ROLE"),
-		EncryptedKey: os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY"),
+		UserId:       adminId,
+		UserRole:     "admin",
+		EncryptedKey: adminEncryptedKey,
 	}
 
 	// Get file path to the sql
