@@ -1,15 +1,13 @@
-package load
+package tools
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -30,9 +28,7 @@ func NewWSInstance(srv *client.MercuryServer) *WSInstance {
 
 // Run create an instance firing read requests against mock ws server
 func (m *WSInstance) Run(l *loadgen.Generator) {
-	c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/ws", m.srv.URL), &websocket.DialOptions{
-		HTTPHeader: http.Header{"Authorization": []string{"Basic Y2xpZW50OmNsaWVudHBhc3M="}},
-	})
+	c, _, err := m.srv.DialWS()
 	if err != nil {
 		l.Log.Error().Err(err).Msg("failed to connect from instance")
 		//nolint
@@ -66,7 +62,7 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 					l.ResponsesChan <- loadgen.CallResult{Error: "blob unpacking error"}
 					continue
 				}
-				if err := testsetups.ValidateReport(reportElements); err != nil {
+				if err := mercury.ValidateReport(reportElements); err != nil {
 					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error"}
 					continue
 				}

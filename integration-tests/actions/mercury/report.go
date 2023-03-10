@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TODO: add other fields, bid, ask etc
 func ValidateReport(r map[string]interface{}) error {
 	feedIdInterface, ok := r["feedId"]
 	if !ok {

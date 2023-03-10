@@ -10,6 +10,7 @@ import (
 	mercuryserver "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
+	"github.com/smartcontractkit/chainlink/integration-tests/load/tools"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
 )
@@ -39,14 +40,12 @@ func setupMercuryLoadEnv(
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
 ) (*mercury.MercuryTestEnv, uint64) {
-	testEnv := mercury.NewMercuryTestEnv(t)
+	testEnv := mercury.NewMercuryTestEnv(t, "load")
 	testEnv.SetupFullMercuryEnv(dbSettings, serverResources)
 
 	latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Err getting latest block number")
-	report, _, err := testEnv.MSClient.GetReports(
-		testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey,
-		testEnv.Config.FeedId, latestBlockNum-5)
+	report, _, err := testEnv.MSClient.GetReports(testEnv.Config.FeedId, latestBlockNum-5)
 	require.NoError(t, err, "Error getting report from Mercury Server")
 	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 
@@ -56,13 +55,13 @@ func setupMercuryLoadEnv(
 func TestMercuryHTTPLoad(t *testing.T) {
 	testEnv, latestBlockNumber := setupMercuryLoadEnv(t, dbSettings, serverResources)
 
-	gun := NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.Config.FeedId, latestBlockNumber)
+	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.Config.FeedId, latestBlockNumber)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
 			bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
 			log.Warn().Uint64("Block number", bn).Send()
-			gun.bn.Store(bn - 5)
+			gun.Bn.Store(bn - 5)
 		}
 	}()
 	gen, err := loadgen.NewLoadGenerator(&loadgen.LoadGeneratorConfig{
@@ -115,7 +114,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			StageInterval: 10 * time.Second,
 			Limit:         500,
 		},
-		Instance: NewWSInstance(testEnv.MSClient),
+		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)
 	gen.Run()

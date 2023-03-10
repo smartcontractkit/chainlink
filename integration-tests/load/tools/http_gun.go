@@ -1,4 +1,4 @@
-package load
+package tools
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 var ReportTypes = GetReportTypes()
@@ -35,7 +35,7 @@ type MercuryHTTPGun struct {
 	client    *client.MercuryServer
 	netclient blockchain.EVMClient
 	feedID    string
-	bn        atomic.Uint64
+	Bn        atomic.Uint64
 }
 
 func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn uint64) *MercuryHTTPGun {
@@ -44,13 +44,13 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn 
 		client:  client,
 		feedID:  feedID,
 	}
-	g.bn.Store(bn)
+	g.Bn.Store(bn)
 	return g
 }
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
-	answer, res, err := m.client.GetReports(m.feedID, m.bn.Load())
+	answer, res, err := m.client.GetReports(m.feedID, m.Bn.Load())
 	if err != nil {
 		return loadgen.CallResult{Error: "connection error"}
 	}
@@ -61,7 +61,7 @@ func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	if err = ReportTypes.UnpackIntoMap(reportElements, []byte(answer.ChainlinkBlob)); err != nil {
 		return loadgen.CallResult{Error: "blob unpacking error"}
 	}
-	if err := testsetups.ValidateReport(reportElements); err != nil {
+	if err := mercury.ValidateReport(reportElements); err != nil {
 		return loadgen.CallResult{Error: "report validation error"}
 	}
 	return loadgen.CallResult{}
