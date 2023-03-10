@@ -145,7 +145,8 @@ func (backup *databaseBackup) RunBackup(version string) error {
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Errorw("Backup failed", "duration", duration, "err", err)
+		backup.logger.Criticalw("Backup failed", "duration", duration, "err", err)
+		backup.SvcErrBuffer.Append(err)
 		return err
 	}
 	backup.logger.Infow("Backup completed successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
