@@ -41,9 +41,15 @@ func NewDefaultMetricVec(name string, help string, labelNames ...string) (common
 		Help:      help,
 	}, labelNames)
 
-	return &DefaultMetricVec{
+	c := &DefaultMetricVec{
 		GaugeVec: gv,
-	}, nil
+	}
+
+	err := prometheus.Register(c)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (mv *DefaultMetricVec) GetMetricWith(labels map[string]string) (commontypes.Metric, error) {
