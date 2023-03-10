@@ -110,7 +110,7 @@ type Txm[HEAD any] struct {
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
 
-	chHeads        chan txmgrtypes.HeadView[HEAD]
+	chHeads        chan txmgrtypes.Head[HEAD]
 	trigger        chan common.Address
 	reset          chan reset
 	resumeCallback ResumeCallback
@@ -151,7 +151,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, cfg),
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
-		chHeads:          make(chan txmgrtypes.HeadView[*evmtypes.Head]),
+		chHeads:          make(chan txmgrtypes.Head[*evmtypes.Head]),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
@@ -432,7 +432,7 @@ func (b *Txm[HEAD]) runLoop(eb *EthBroadcaster[HEAD], ec *EthConfirmer[HEAD], ke
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *Txm[HEAD]) OnNewLongestChain(ctx context.Context, head txmgrtypes.HeadView[HEAD]) {
+func (b *Txm[HEAD]) OnNewLongestChain(ctx context.Context, head txmgrtypes.Head[HEAD]) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.BlockNumber())
@@ -627,7 +627,7 @@ type NullTxManager[HEAD any] struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager[HEAD]) OnNewLongestChain(context.Context, txmgrtypes.HeadView[HEAD]) {}
+func (n *NullTxManager[HEAD]) OnNewLongestChain(context.Context, txmgrtypes.Head[HEAD]) {}
 
 // Start does noop for NullTxManager.
 func (n *NullTxManager[HEAD]) Start(context.Context) error { return nil }

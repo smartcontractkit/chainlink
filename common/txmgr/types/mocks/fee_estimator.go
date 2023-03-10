@@ -98,7 +98,7 @@ func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) GetFee(ctx context.Context, c
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) OnNewLongestChain(ctx context.Context, head types.HeadView[HEAD]) {
+func (_m *FeeEstimator[HEAD, FEE, MAXPRICE, HASH]) OnNewLongestChain(ctx context.Context, head types.Head[HEAD]) {
 	_m.Called(ctx, head)
 }
 

@@ -15,7 +15,7 @@ type HeadTrackable[HEAD interface{}] struct {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *HeadTrackable[HEAD]) OnNewLongestChain(ctx context.Context, head types.HeadView[HEAD]) {
+func (_m *HeadTrackable[HEAD]) OnNewLongestChain(ctx context.Context, head types.Head[HEAD]) {
 	_m.Called(ctx, head)
 }
 

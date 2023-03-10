@@ -125,7 +125,7 @@ type EthConfirmer[HEAD any] struct {
 
 	keyStates []ethkey.State
 
-	mb        *utils.Mailbox[txmgrtypes.HeadView[HEAD]]
+	mb        *utils.Mailbox[txmgrtypes.Head[HEAD]]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
@@ -153,7 +153,7 @@ func NewEthConfirmer[HEAD any](orm ORM, ethClient evmclient.Client, config Confi
 		estimator,
 		resumeCallback,
 		keyStates,
-		utils.NewSingleMailbox[txmgrtypes.HeadView[HEAD]](),
+		utils.NewSingleMailbox[txmgrtypes.Head[HEAD]](),
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -219,14 +219,14 @@ func (ec *EthConfirmer[HEAD]) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer[HEAD]) ProcessHead(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
+func (ec *EthConfirmer[HEAD]) ProcessHead(ctx context.Context, head txmgrtypes.Head[HEAD]) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer[HEAD]) processHead(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
+func (ec *EthConfirmer[HEAD]) processHead(ctx context.Context, head txmgrtypes.Head[HEAD]) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
@@ -950,7 +950,7 @@ func (ec *EthConfirmer[HEAD]) handleInProgressAttempt(ctx context.Context, lggr 
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer[HEAD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
+func (ec *EthConfirmer[HEAD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head txmgrtypes.Head[HEAD]) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
@@ -1003,7 +1003,7 @@ func (ec *EthConfirmer[HEAD]) EnsureConfirmedTransactionsInLongestChain(ctx cont
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain[HEAD any](etx EthTx, head txmgrtypes.HeadView[HEAD]) bool {
+func hasReceiptInLongestChain[HEAD any](etx EthTx, head txmgrtypes.Head[HEAD]) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1019,7 +1019,7 @@ func hasReceiptInLongestChain[HEAD any](etx EthTx, head txmgrtypes.HeadView[HEAD
 	}
 }
 
-func (ec *EthConfirmer[HEAD]) markForRebroadcast(etx EthTx, head txmgrtypes.HeadView[HEAD]) error {
+func (ec *EthConfirmer[HEAD]) markForRebroadcast(etx EthTx, head txmgrtypes.Head[HEAD]) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1105,7 +1105,7 @@ func (ec *EthConfirmer[HEAD]) sendEmptyTransaction(ctx context.Context, fromAddr
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer[HEAD]) ResumePendingTaskRuns(ctx context.Context, head txmgrtypes.HeadView[HEAD]) error {
+func (ec *EthConfirmer[HEAD]) ResumePendingTaskRuns(ctx context.Context, head txmgrtypes.Head[HEAD]) error {
 
 	receiptsPlus, err := ec.orm.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 

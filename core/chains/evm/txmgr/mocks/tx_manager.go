@@ -159,7 +159,7 @@ func (_m *TxManager[HEAD]) Name() string {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *TxManager[HEAD]) OnNewLongestChain(ctx context.Context, head types.HeadView[HEAD]) {
+func (_m *TxManager[HEAD]) OnNewLongestChain(ctx context.Context, head types.Head[HEAD]) {
 	_m.Called(ctx, head)
 }
 

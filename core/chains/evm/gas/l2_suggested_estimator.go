@@ -112,7 +112,7 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, txmgrtypes.HeadView[*evmtypes.Head]) {
+func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, txmgrtypes.Head[*evmtypes.Head]) {
 }
 
 func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {

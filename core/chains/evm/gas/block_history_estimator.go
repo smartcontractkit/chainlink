@@ -73,7 +73,6 @@ var (
 
 const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current block prices by significant margin; tx will continue to be rebroadcasted but your node, RPC, or the chain might be experiencing connectivity issues; please investigate and fix ASAP"
 
-
 var _ EvmEstimator = &BlockHistoryEstimator{}
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -128,11 +127,11 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head txmgrtypes.HeadView[*evmtypes.Head]) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head txmgrtypes.Head[*evmtypes.Head]) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
-	b.setLatest(head.GetNativeHead())
-	b.mb.Deliver(head.GetNativeHead())
+	b.setLatest(head.Native())
+	b.mb.Deliver(head.Native())
 }
 
 // setLatest assumes that head won't be mutated

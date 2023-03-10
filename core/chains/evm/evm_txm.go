@@ -29,7 +29,7 @@ type evmTxm struct {
 }
 
 func (e evmTxm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	e.TxManagerEvmType.OnNewLongestChain(ctx, NewHeadViewImpl(head))
+	e.TxManagerEvmType.OnNewLongestChain(ctx, NewHeadImpl(head))
 }
 
 func newEvmTxm(
@@ -53,49 +53,49 @@ func newEvmTxm(
 	return evmTxm{TxManagerEvmType: txm}
 }
 
-var _ txmgrtypes.HeadView[*evmtypes.Head] = &headViewImpl{}
+var _ txmgrtypes.Head[*evmtypes.Head] = &headImpl{}
 
-// Evm implementation for the generic HeadView interface
-type headViewImpl struct {
-	txmgrtypes.HeadView[*evmtypes.Head]
+// Evm implementation for the generic Head interface
+type headImpl struct {
+	txmgrtypes.Head[*evmtypes.Head]
 	evmHead *evmtypes.Head
 }
 
-func NewHeadViewImpl(head *evmtypes.Head) txmgrtypes.HeadView[*evmtypes.Head] {
-	return &headViewImpl{evmHead: head}
+func NewHeadImpl(head *evmtypes.Head) txmgrtypes.Head[*evmtypes.Head] {
+	return &headImpl{evmHead: head}
 }
 
-func (head *headViewImpl) BlockNumber() int64 {
+func (head *headImpl) BlockNumber() int64 {
 	return head.evmHead.Number
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
-func (head *headViewImpl) ChainLength() uint32 {
+func (head *headImpl) ChainLength() uint32 {
 	return head.evmHead.ChainLength()
 }
 
 // EarliestInChain traverses through parents until it finds the earliest one
-func (head *headViewImpl) EarliestInChain() txmgrtypes.HeadView[*evmtypes.Head] {
-	return NewHeadViewImpl(head.evmHead.EarliestInChain())
+func (head *headImpl) EarliestInChain() txmgrtypes.Head[*evmtypes.Head] {
+	return NewHeadImpl(head.evmHead.EarliestInChain())
 }
 
-func (head *headViewImpl) Hash() common.Hash {
+func (head *headImpl) Hash() common.Hash {
 	return head.evmHead.Hash
 }
 
-func (head *headViewImpl) Parent() txmgrtypes.HeadView[*evmtypes.Head] {
+func (head *headImpl) Parent() txmgrtypes.Head[*evmtypes.Head] {
 	if head.evmHead.Parent == nil {
 		return nil
 	}
-	return NewHeadViewImpl(head.evmHead.Parent)
+	return NewHeadImpl(head.evmHead.Parent)
 }
 
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 // If not in chain, returns the zero hash
-func (head *headViewImpl) HashAtHeight(blockNum int64) common.Hash {
+func (head *headImpl) HashAtHeight(blockNum int64) common.Hash {
 	return head.evmHead.HashAtHeight(blockNum)
 }
 
-func (head *headViewImpl) GetNativeHead() *evmtypes.Head {
+func (head *headImpl) Native() *evmtypes.Head {
 	return head.evmHead
 }

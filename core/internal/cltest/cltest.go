@@ -986,8 +986,8 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.E
 	return txas
 }
 
-func HeadView(val interface{}) txmgrtypes.HeadView[*evmtypes.Head] {
-	return evm.NewHeadViewImpl(Head(val))
+func HeadView(val interface{}) txmgrtypes.Head[*evmtypes.Head] {
+	return evm.NewHeadImpl(Head(val))
 }
 
 // Head given the value convert it into an Head
