@@ -2,12 +2,13 @@ package job
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
 	"sync"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -115,14 +116,16 @@ func (js *spawner) Name() string {
 }
 
 func (js *spawner) HealthReport() map[string]error {
-	return map[string]error{js.Name(): js.Healthy()}
+	return map[string]error{js.Name(): errors.Join(js.StartStopOnce.Healthy(), js.SvcErrBuffer.Flush())}
 }
 
 func (js *spawner) startAllServices(ctx context.Context) {
 	// TODO: rename to find AllJobs
 	specs, _, err := js.orm.FindJobs(0, math.MaxUint32)
 	if err != nil {
-		js.lggr.Criticalf("Couldn't fetch unclaimed jobs: %v", err)
+		werr := fmt.Errorf("couldn't fetch unclaimed jobs: %v", err)
+		js.lggr.Critical(werr.Error())
+		js.SvcErrBuffer.Append(werr)
 		return
 	}
 
@@ -159,6 +162,7 @@ func (js *spawner) stopService(jobID int32) {
 		err := service.Close()
 		if err != nil {
 			js.lggr.Criticalw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.SvcErrBuffer.Append(pkgerrors.Wrap(err, "error stopping job service"))
 		} else {
 			js.lggr.Debugw("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", fmt.Sprintf("%T", service))
 		}
@@ -175,7 +179,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
 		js.lggr.Errorw("Job type has not been registered with job.Spawner", "type", jb.Type, "jobID", jb.ID)
-		return errors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
+		return pkgerrors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
 	}
 	// We always add the active job in the activeJob map, even in the case
 	// that it fails to start. That way we have access to the delegate to call
@@ -198,7 +202,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		defer cancel()
 		js.orm.TryRecordError(jb.ID, err.Error(), pg.WithParentCtx(cctx))
 		js.activeJobs[jb.ID] = aj
-		return errors.Wrapf(err, "failed to create services for job: %d", jb.ID)
+		return pkgerrors.Wrapf(err, "failed to create services for job: %d", jb.ID)
 	}
 
 	js.lggr.Debugw("JobSpawner: Starting services for job", "jobID", jb.ID, "count", len(srvs))
@@ -207,8 +211,10 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	for _, srv := range srvs {
 		err = ms.Start(ctx, srv)
 		if err != nil {
-			js.lggr.Criticalw("Error starting service for job", "jobID", jb.ID, "error", err)
-			return errors.Wrapf(err, "failed to start service for job %d", jb.ID)
+			js.lggr.Critical("Error starting service for job", "jobID", jb.ID, "error", err)
+			err := pkgerrors.Wrapf(err, "failed to start service for job %d", jb.ID)
+			js.SvcErrBuffer.Append(err)
+			return err
 		}
 		aj.services = append(aj.services, srv)
 	}
@@ -222,7 +228,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
 		js.lggr.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
-		err = errors.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
+		err = pkgerrors.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
 		return
 	}
 
@@ -262,7 +268,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 // Should not get called before Start()
 func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	if jobID == 0 {
-		return errors.New("will not delete job with 0 ID")
+		return pkgerrors.New("will not delete job with 0 ID")
 	}
 
 	lggr := js.lggr.With("jobID", jobID)
@@ -282,7 +288,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	if !exists { // inactive, so look up the spec and delegate
 		jb, err := js.orm.FindJob(ctx, jobID)
 		if err != nil {
-			return errors.Wrapf(err, "job %d not found", jobID)
+			return pkgerrors.Wrapf(err, "job %d not found", jobID)
 		}
 		aj.spec = jb
 		if !func() (ok bool) {
@@ -292,7 +298,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 			return ok
 		}() {
 			js.lggr.Errorw("Job type has not been registered with job.Spawner", "type", jb.Type, "jobID", jb.ID)
-			return errors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
+			return pkgerrors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
 		}
 	}
 	lggr.Debugw("Callback: BeforeJobDeleted")
