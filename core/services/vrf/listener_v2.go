@@ -83,7 +83,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager[*evmtypes.Head],
+	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,

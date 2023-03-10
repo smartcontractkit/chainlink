@@ -461,7 +461,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory, lp)
 
-	head := cltest.HeadView(42)
+	head := cltest.Head(42)
 	// It should not hang or panic
 	txm.OnNewLongestChain(testutils.Context(t), head)
 

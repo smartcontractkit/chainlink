@@ -52,7 +52,7 @@ type listenerV1 struct {
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             txmgr.TxManager[*evmtypes.Head]
+	txm             txmgr.TxManager
 	gethks          GethKeyStore
 	mailMon         *utils.MailboxMonitor
 	reqLogs         *utils.Mailbox[log.Broadcast]

@@ -8,7 +8,7 @@ import "context"
 //
 // The generic type HEAD here indicates the chain specific Head type.
 //
-//go:generate mockery --quiet --name HeadTrackable --output ../mocks/ --case=underscore
-type HeadTrackable[HEAD any] interface {
-	OnNewLongestChain(ctx context.Context, head Head[HEAD])
+//go:generate mockery --quiet --name HeadTrackable --output ./mocks/ --case=underscore
+type HeadTrackable interface {
+	OnNewLongestChain(ctx context.Context, head Head)
 }

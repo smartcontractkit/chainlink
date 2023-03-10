@@ -2,11 +2,11 @@ package txmgr
 
 import evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
-func SetEthClientOnEthConfirmer[HEAD any](ethClient evmclient.Client, ethConfirmer *EthConfirmer[HEAD]) {
+func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EthConfirmer) {
 	ethConfirmer.ethClient = ethClient
 }
 
-func SetResumeCallbackOnEthBroadcaster[HEAD any](resumeCallback ResumeCallback, ethBroadcaster *EthBroadcaster[HEAD]) {
+func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadcaster *EthBroadcaster) {
 	ethBroadcaster.resumeCallback = resumeCallback
 }
 

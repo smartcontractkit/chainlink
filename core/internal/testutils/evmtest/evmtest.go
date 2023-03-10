@@ -53,7 +53,7 @@ type TestChainOpts struct {
 	GeneralConfig  evm.GeneralConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
-	TxManager      txmgr.TxManager[*evmtypes.Head]
+	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *utils.MailboxMonitor
 }
@@ -100,7 +100,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func(*big.Int) txmgr.TxManager[*evmtypes.Head] {
+		opts.GenTxManager = func(*big.Int) txmgr.TxManager {
 			return testopts.TxManager
 		}
 	}

@@ -10,8 +10,6 @@ import (
 
 	context "context"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
@@ -263,15 +261,15 @@ func (_m *Chain) Start(_a0 context.Context) error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() txmgr.TxManager[*evmtypes.Head] {
+func (_m *Chain) TxManager() txmgr.TxManager {
 	ret := _m.Called()
 
-	var r0 txmgr.TxManager[*evmtypes.Head]
-	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*evmtypes.Head]); ok {
+	var r0 txmgr.TxManager
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.TxManager[*evmtypes.Head])
+			r0 = ret.Get(0).(txmgr.TxManager)
 		}
 	}
 

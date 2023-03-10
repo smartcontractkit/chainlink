@@ -1381,7 +1381,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
 				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
-					lggr.Infof("------------ NATIVE TRACKABLE (%v) --------------", head.Number)
+					lggr.Infof("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
 						return

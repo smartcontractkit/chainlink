@@ -13,7 +13,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -33,7 +32,7 @@ type BulletproofBHS struct {
 	config        bpBHSConfig
 	jobID         uuid.UUID
 	fromAddresses []ethkey.EIP55Address
-	txm           txmgr.TxManager[*evmtypes.Head]
+	txm           txmgr.TxManager
 	abi           *abi.ABI
 	bhs           blockhash_store.BlockhashStoreInterface
 	chainID       *big.Int
@@ -44,7 +43,7 @@ type BulletproofBHS struct {
 func NewBulletproofBHS(
 	config bpBHSConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.TxManager[*evmtypes.Head],
+	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,

@@ -23,7 +23,7 @@ type PriorAttempt[FEE any, HASH any] interface {
 //
 //go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
 type FeeEstimator[HEAD any, FEE any, MAXPRICE any, HASH any] interface {
-	HeadTrackable[HEAD]
+	HeadTrackable
 	Start(context.Context) error
 	Close() error
 

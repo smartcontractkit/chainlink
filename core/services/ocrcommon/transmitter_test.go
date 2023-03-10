@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -32,7 +31,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager[*evmtypes.Head](t)
+	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -73,7 +72,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager[*evmtypes.Head](t)
+	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -122,7 +121,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager[*evmtypes.Head](t)
+	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -152,7 +151,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
-	txm := txmmocks.NewTxManager[*evmtypes.Head](t)
+	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
 	_, err := ocrcommon.NewTransmitter(

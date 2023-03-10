@@ -7,8 +7,6 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-
 	gas "github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
@@ -171,7 +169,7 @@ func (_m *EvmEstimator) GetLegacyGas(ctx context.Context, calldata []byte, gasLi
 }
 
 // OnNewLongestChain provides a mock function with given fields: _a0, _a1
-func (_m *EvmEstimator) OnNewLongestChain(_a0 context.Context, _a1 types.Head[*evmtypes.Head]) {
+func (_m *EvmEstimator) OnNewLongestChain(_a0 context.Context, _a1 types.Head) {
 	_m.Called(_a0, _a1)
 }
 

@@ -54,7 +54,7 @@ type vrfUniverse struct {
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *txmmocks.TxManager[*evmtypes.Head]
+	txm       *txmmocks.TxManager
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int
@@ -72,7 +72,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
-	txm := new(txmmocks.TxManager[*evmtypes.Head])
+	txm := new(txmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
