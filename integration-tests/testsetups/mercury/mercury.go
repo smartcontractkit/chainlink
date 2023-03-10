@@ -136,7 +136,7 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 	// Fail when existing env is different than current chain
 	if e.IsExistingTestEnv {
 		require.Equal(e.T, e.Config.ChainId, testNetwork.ChainID,
-			"Chain set in SELECTED_NETWORKS is different than chain id set in MERCURY_TEST_ENV_CONFIG_PATH")
+			"Chain set in SELECTED_NETWORKS is different than chain id set in config provided by MERCURY_TEST_ENV_CONFIG_PATH")
 	}
 	e.Config.ChainId = testNetwork.ChainID
 
@@ -206,7 +206,7 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
 		require.NoError(e.T, err)
 		msRemoteUrl := env.URLs[mshelm.URLsKey][0]
-		SetupMercuryNodeJobs(e.T, chainlinkNodes, mockserverClient, verifier.Address(),
+		e.SetupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifier.Address(),
 			feedId, latestBlockNum, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
 		e.Config.MSRemoteUrl = msRemoteUrl
 
@@ -215,17 +215,21 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		// Log test env as json so that it can be saved to env variable and used to re-connect to it
 		log.Info().Msgf("Current mercury test env config with TTL: %s\n%s", env.Cfg.TTL, e.Config.Json())
 
-		// Wait for the DON to start generating reports
-		d := 160 * time.Second
-		log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
-		time.Sleep(d)
+		e.WaitForDONReports()
 	}
+}
+
+func (e *MercuryTestEnv) WaitForDONReports() {
+	// Wait for the DON to start generating reports
+	// TODO: use gomega Eventually to check reports in node logs or mercury server or mercury db
+	d := 160 * time.Second
+	log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
+	time.Sleep(d)
 }
 
 func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
 	testEnv := environment.New(&environment.Config{
-		// TODO: comment
-		TTL:             1 * time.Hour,
+		// TTL:             1 * time.Hour,
 		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
@@ -259,8 +263,7 @@ func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork
 	return testEnv
 }
 
-func SetupMercuryNodeJobs(
-	t *testing.T,
+func (e *MercuryTestEnv) SetupMercuryNodeJobs(
 	chainlinkNodes []*client.Chainlink,
 	mockserverClient *ctfClient.MockserverClient,
 	contractID string,
@@ -272,7 +275,7 @@ func SetupMercuryNodeJobs(
 	keyIndex int,
 ) {
 	err := mockserverClient.SetRandomValuePath("/variable")
-	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
+	require.NoError(e.T, err, "Setting mockserver value path shouldn't fail")
 
 	observationSource := fmt.Sprintf(`
 // Benchmark Price
@@ -307,7 +310,7 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
-	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
+	require.NoError(e.T, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
@@ -324,14 +327,14 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
-	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
+	require.NoError(e.T, err, "Shouldn't fail creating bootstrap job on bootstrap node")
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
-		require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
+		require.NoError(e.T, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 		csaKeys, _, err := chainlinkNodes[nodeIndex].ReadCSAKeys()
-		require.NoError(t, err)
+		require.NoError(e.T, err)
 		// csaKeyId := csaKeys.Data[0].ID
 		csaPubKey := csaKeys.Data[0].Attributes.PublicKey
 
@@ -380,7 +383,7 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 		}
 
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&jobSpec)
-		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
+		require.NoError(e.T, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
 	log.Info().Msg("Done creating OCR automation jobs")
 }
