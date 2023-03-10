@@ -2,12 +2,16 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
+	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -54,6 +58,8 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
+	SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (txmtypes.TxmErrorType, error)
+
 	// Wrapped Geth client methods
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
@@ -98,8 +104,8 @@ var _ Client = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
-	pool := NewPool(logger, cfg, primaryNodes, sendOnlyNodes, chainID)
+func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(logger, cfg, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
 		logger: logger,
 		pool:   pool,
@@ -195,6 +201,123 @@ func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 
 func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
 	return client.pool.HeaderByHash(ctx, h)
+}
+
+func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (txmtypes.TxmErrorType, error) {
+	err := client.pool.SendTransaction(ctx, tx)
+	sendError := NewSendError(err)
+	if sendError.Fatal() {
+		client.logger.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return txmtypes.Fatal, err
+	}
+	if sendError == nil || sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsReplacementUnderpriced() {
+		// Either the transaction was successful or one of the following four scenarios happened:
+		//
+		// SCENARIO 1
+		//
+		// This is resuming a previous crashed run. In this scenario, it is
+		// likely that our previous transaction was the one who was confirmed,
+		// in which case we hand it off to the eth confirmer to get the
+		// receipt.
+		//
+		// SCENARIO 2
+		//
+		// It is also possible that an external wallet can have messed with the
+		// account and sent a transaction on this nonce.
+		//
+		// In this case, the onus is on the node operator since this is
+		// explicitly unsupported.
+		//
+		// If it turns out to have been an external wallet, we will never get a
+		// receipt for this transaction and it will eventually be marked as
+		// errored.
+		//
+		// The end result is that we will NOT SEND a transaction for this
+		// nonce.
+		//
+		// SCENARIO 3
+		//
+		// The network/eth client can be assumed to have at-least-once delivery
+		// behavior. It is possible that the eth client could have already
+		// sent this exact same transaction even if this is our first time
+		// calling SendTransaction().
+		//
+		// SCENARIO 4 (most likely)
+		//
+		// A sendonly node got the transaction in first.
+		//
+		// In all scenarios, the correct thing to do is assume success for now
+		// and hand off to the eth confirmer to get the receipt (or mark as
+		// failed).
+		return txmtypes.Successful, err
+	}
+	if sendError.IsTransactionAlreadyInMempool() {
+		client.logger.Debugw("Transaction already in mempool", "txHash", tx.Hash, "nodeErr", sendError.Error())
+		return txmtypes.Successful, err
+	}
+	if sendError.IsTemporarilyUnderpriced() {
+		// If we can't even get the transaction into the mempool at all, assume
+		// success (even though the transaction will never confirm) and hand
+		// off to the ethConfirmer to bump gas periodically until we _can_ get
+		// it in
+		client.logger.Infow("Transaction temporarily underpriced", "err", sendError.Error())
+		return txmtypes.Successful, err
+	}
+	if sendError.IsTerminallyUnderpriced() {
+		return txmtypes.Underpriced, err
+	}
+	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
+		if client.pool.ChainType().IsL2() {
+			return txmtypes.Underpriced, err
+		}
+		return txmtypes.Unsupported, errors.Wrap(sendError, "this error type only handled for L2s")
+	}
+	if sendError.IsNonceTooHighError() {
+		// Nethermind specific error. Nethermind throws a NonceGap error when the tx nonce is
+		// greater than current_nonce + tx_count_in_mempool, instead of keeping the tx in mempool.
+		// This can happen if previous transactions haven't reached the client yet.
+		// The correct thing to do is assume success for now and let the eth_confirmer retry until
+		// the nonce gap gets filled by the previous transactions.
+		client.logger.Warnw("Transaction has a nonce gap.", "err", sendError.Error())
+		return txmtypes.Retryable, err
+	}
+	if sendError.IsInsufficientEth() {
+		client.logger.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
+			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
+			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
+		), "err", sendError)
+		// NOTE: This bails out of the entire cycle and essentially "blocks" on
+		// any transaction that gets insufficient_eth. This is OK if a
+		// transaction with a large VALUE blocks because this always comes last
+		// in the processing list.
+		// If it blocks because of a transaction that is expensive due to large
+		// gas limit, we could have smaller transactions "above" it that could
+		// theoretically be sent, but will instead be blocked.
+		return txmtypes.Retryable, err
+	}
+	if sendError.IsTimeout() {
+		// In the case of timeout, we fall back to the backoff retry loop and
+		// subsequent tries ought to resend the exact same in-progress transaction
+		// attempt and get a definitive answer on what happened
+		return txmtypes.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
+	}
+	if sendError.IsTxFeeExceedsCap() {
+		client.logger.Criticalw(fmt.Sprintf("Sending transaction failed(treating this error as of type Unknown); %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+			"etx", tx,
+			"err", sendError,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		// Note that we may have broadcast to multiple nodes and had it
+		// accepted by one of them! It is not guaranteed that all nodes share
+		// the same tx fee cap. That is why we must treat this as an unknown
+		// error that may have been confirmed.
+		//
+		// If there is only one RPC node, or all RPC nodes have the same
+		// configured cap, this transaction will get stuck and keep repeating
+		// forever until the issue is resolved.
+	}
+	return txmtypes.Unknown, err
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set

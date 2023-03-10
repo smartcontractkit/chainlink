@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	txmtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -357,6 +358,10 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 
 func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
 	return c.b.HeaderByHash(ctx, h)
+}
+
+func (c *SimulatedBackendClient) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (txmtypes.TxmErrorType, error) {
+	panic("unimplemented")
 }
 
 // SendTransaction sends a transaction.

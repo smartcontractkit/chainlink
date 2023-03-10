@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -57,6 +58,7 @@ type Pool struct {
 	nodes        []Node
 	sendonlys    []SendOnlyNode
 	chainID      *big.Int
+	chainType    config.ChainType
 	logger       logger.Logger
 	config       PoolConfig
 	nodeSelector NodeSelector
@@ -68,7 +70,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
+func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -237,6 +239,10 @@ func (p *Pool) Close() error {
 
 func (p *Pool) ChainID() *big.Int {
 	return p.chainID
+}
+
+func (p *Pool) ChainType() config.ChainType {
+	return p.chainType
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.

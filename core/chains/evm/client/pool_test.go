@@ -157,7 +157,7 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID)
+			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID, "")
 			err := p.Dial(ctx)
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
@@ -247,7 +247,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	nodes := []evmclient.Node{n1, n2, n3}
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-	p := evmclient.NewPool(lggr, defaultConfig, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+	p := evmclient.NewPool(lggr, defaultConfig, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -321,7 +321,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
+	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID, "")
 
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }

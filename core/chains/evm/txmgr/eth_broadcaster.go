@@ -516,192 +516,75 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	}
 	cancel()
 
-	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
-
-	if sendError.Fatal() {
-		lgr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", etx)
-		eb.SvcErrBuffer.Append(sendError)
-		etx.Error = null.StringFrom(sendError.Error())
-		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+	signedTx, err := attempt.GetSignedTx()
+	if err != nil {
+		lgr.Criticalw("Fatal error sending transaction", "err", err, "etx", etx)
+		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
 	}
 
-	etx.InitialBroadcastAt = &initialBroadcastAt
-	etx.BroadcastAt = &initialBroadcastAt
-
-	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsReplacementUnderpriced() {
-		// There are four scenarios that this can happen:
-		//
-		// SCENARIO 1
-		//
-		// This is resuming a previous crashed run. In this scenario, it is
-		// likely that our previous transaction was the one who was confirmed,
-		// in which case we hand it off to the eth confirmer to get the
-		// receipt.
-		//
-		// SCENARIO 2
-		//
-		// It is also possible that an external wallet can have messed with the
-		// account and sent a transaction on this nonce.
-		//
-		// In this case, the onus is on the node operator since this is
-		// explicitly unsupported.
-		//
-		// If it turns out to have been an external wallet, we will never get a
-		// receipt for this transaction and it will eventually be marked as
-		// errored.
-		//
-		// The end result is that we will NOT SEND a transaction for this
-		// nonce.
-		//
-		// SCENARIO 3
-		//
-		// The network/eth client can be assumed to have at-least-once delivery
-		// behavior. It is possible that the eth client could have already
-		// sent this exact same transaction even if this is our first time
-		// calling SendTransaction().
-		//
-		// SCENARIO 4 (most likely)
-		//
-		// A sendonly node got the transaction in first.
-		//
-		// In all scenarios, the correct thing to do is assume success for now
-		// and hand off to the eth confirmer to get the receipt (or mark as
-		// failed).
-		sendError = nil
+	// TODO: When eth client is generalized, remove this address conversion logic below
+	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
+	if err != nil {
+		return errors.Wrapf(err, "failed to do address format conversion"), true
 	}
 
-	if sendError.IsTerminallyUnderpriced() {
-		return eb.tryAgainBumpingGas(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
+	lgr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "gasLimit", etx.GasLimit, "attempt", attempt, "etx", etx)
+	errType, err := eb.ethClient.SendTransactionAndReturnErrorType(ctx, signedTx, fromAddress)
+
+	if errType != txmgrtypes.Fatal {
+		etx.InitialBroadcastAt = &initialBroadcastAt
+		etx.BroadcastAt = &initialBroadcastAt
 	}
 
-	// L2-specific cases
-	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if eb.config.IsL2() {
-			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
-		}
-		return errors.Wrap(sendError, "this error type only handled for L2s"), false
-	}
-
-	if sendError.IsNonceTooHighError() {
-		// Nethermind specific error. Nethermind throws a NonceGap error when the tx nonce is
-		// greater than current_nonce + tx_count_in_mempool, instead of keeping the tx in mempool.
-		// This can happen if previous transactions haven't reached the client yet.
-		// The correct thing to do is assume success for now and let the eth_confirmer retry until
-		// the nonce gap gets filled by the previous transactions.
-		lgr.Warnw("Transaction has a nonce gap.", "err", sendError.Error())
-		return sendError, true
-	}
-
-	if sendError.IsTemporarilyUnderpriced() {
-		// If we can't even get the transaction into the mempool at all, assume
-		// success (even though the transaction will never confirm) and hand
-		// off to the ethConfirmer to bump gas periodically until we _can_ get
-		// it in
-		lgr.Infow("Transaction temporarily underpriced", "err", sendError.Error())
-		sendError = nil
-	}
-
-	if sendError.IsInsufficientEth() {
-		lgr.Criticalw(fmt.Sprintf("Tx 0x%x with type 0x%d was rejected due to insufficient eth: %s\n"+
-			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			attempt.Hash, attempt.TxType, sendError.Error(), etx.FromAddress,
-		), "err", sendError)
-		eb.SvcErrBuffer.Append(sendError)
-		// NOTE: This bails out of the entire cycle and essentially "blocks" on
-		// any transaction that gets insufficient_eth. This is OK if a
-		// transaction with a large VALUE blocks because this always comes last
-		// in the processing list.
-		// If it blocks because of a transaction that is expensive due to large
-		// gas limit, we could have smaller transactions "above" it that could
-		// theoretically be sent, but will instead be blocked.
-		return sendError, true
-	}
-
-	if sendError == nil {
-		// We want to observe the time until the first _successful_ broadcast.
-		// Since we can re-enter this method by way of tryAgainBumpingGas,
-		// and we pass the same initialBroadcastAt timestamp there, when we re-enter
-		// this function we'll be using the same initialBroadcastAt.
+	switch errType {
+	case txmgrtypes.Fatal:
+		etx.Error = null.StringFrom(err.Error())
+		return eb.saveFatallyErroredTransaction(lgr, &etx), true
+	case txmgrtypes.Successful:
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
 		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
-	}
-
-	// In the case of timeout, we fall back to the backoff retry loop and
-	// subsequent tries ought to resend the exact same in-progress transaction
-	// attempt and get a definitive answer on what happened
-	if sendError.IsTimeout() {
-		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
-	}
-
-	// Unknown error here. All bets are off in this case, it is possible the
-	// transaction could have been accepted. We may be running on an
-	// unsupported RPC or chain.
-	//
-	// The most conservative course of action would be to retry this
-	// transaction forever (or until success) however this can lead to nodes
-	// getting stuck if we are on an unsupported new chain.
-	//
-	// We can continue in a kind of gracefully degraded manner if we check the
-	// chain for its view on our latest nonce. If it has been incremented, then
-	// it accepted the transaction despite the error and we can move forwards
-	// assuming success in this case.
-
-	if sendError.IsTxFeeExceedsCap() {
-		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
-			"etx", etx,
-			"attempt", attempt,
-			"err", sendError,
-			"id", "RPCTxFeeCapExceeded",
-		)
-		eb.SvcErrBuffer.Append(sendError)
-		// Note that we may have broadcast to multiple nodes and had it
-		// accepted by one of them! It is not guaranteed that all nodes share
-		// the same tx fee cap. That is why we must treat this as an unknown
-		// error that may have been confirmed.
+	case txmgrtypes.Underpriced:
+		if eb.config.IsL2() {
+			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		}
+		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+	case txmgrtypes.Retryable:
+		return err, true
+	case txmgrtypes.Unsupported:
+		return err, false
+	case txmgrtypes.Unknown:
+		fallthrough
+	default:
+		lgr.Criticalw(`Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. `+
+			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
+		nextNonce, e := eb.ethClient.PendingNonceAt(ctx, fromAddress)
+		if e != nil {
+			err = multierr.Combine(e, err)
+			return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true
+		}
+		if nextNonce > math.MaxInt64 {
+			return errors.Errorf("nonce overflow, got: %v", nextNonce), true
+		}
+		if int64(nextNonce) > *etx.Nonce {
+			// Despite the error, the RPC node considers the previously sent
+			// transaction to have been accepted. In this case, the right thing to
+			// do is assume success and hand off to EthConfirmer
+			return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
+				return eb.incrementNextNonceAtomic(tx, etx)
+			}), true
+		}
+		// Either the unknown error prevented the transaction from being mined, or
+		// it has not yet propagated to the mempool, or there is some race on the
+		// remote RPC.
 		//
-		// If there is only one RPC node, or all RPC nodes have the same
-		// configured cap, this transaction will get stuck and keep repeating
-		// forever until the issue is resolved.
-	} else {
-		lgr.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions", "err", sendError, "etx", etx, "attempt", attempt)
-		eb.SvcErrBuffer.Append(sendError)
+		// In all cases, the best thing we can do is go into a retry loop and keep
+		// trying to send the transaction over again.
+		return errors.Wrapf(err, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash.String(), etx.ID), true
 	}
 
-	// TODO: When eth client is generalized, remove this address conversion logic below
-	gethAddr, err := getGethAddressFromADDR(etx.FromAddress)
-	if err != nil {
-		err = multierr.Combine(err, sendError)
-		return errors.Wrapf(err, "failed to do address format conversion"), true
-	}
-	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, gethAddr)
-	if err != nil {
-		err = multierr.Combine(err, sendError)
-		return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true
-	}
-
-	if nextNonce > math.MaxInt64 {
-		return errors.Errorf("nonce overflow, got: %v", nextNonce), true
-	}
-
-	if int64(nextNonce) > *etx.Nonce {
-		// Despite the error, the RPC node considers the previously sent
-		// transaction to have been accepted. In this case, the right thing to
-		// do is assume success and hand off to EthConfirmer
-		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
-			return eb.incrementNextNonceAtomic(tx, etx)
-		}), true
-	}
-
-	// Either the unknown error prevented the transaction from being mined, or
-	// it has not yet propagated to the mempool, or there is some race on the
-	// remote RPC.
-	//
-	// In all cases, the best thing we can do is go into a retry loop and keep
-	// trying to send the transaction over again.
-	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
@@ -724,9 +607,9 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) nextUnstartedTransactionWit
 	return etx, nil
 }
 
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, txError error, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (err error, retryable bool) {
 	lgr.With(
-		"sendError", sendError,
+		"sendError", txError,
 		"attemptGasFeeCap", attempt.GasFeeCap,
 		"attemptGasPrice", attempt.GasPrice,
 		"attemptGasTipCap", attempt.GasTipCap,
@@ -735,7 +618,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainBumpingGas(ctx cont
 		"Eth node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing EVM.GasEstimator.PriceDefault (current value: %s)",
-		attempt.GasPrice, sendError.Error(), eb.config.FeePriceDefault().String())
+		attempt.GasPrice, txError.Error(), eb.config.FeePriceDefault().String())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
@@ -745,9 +628,9 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainBumpingGas(ctx cont
 	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit)
 }
 
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (err error, retryable bool) {
 	if attempt.TxType == 0x2 {
-		err = errors.Errorf("re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug", sendError.Error())
+		err = errors.Errorf("re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug", txError.Error())
 		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
 		return err, false
 	}

@@ -19,6 +19,8 @@ import (
 
 	rpc "github.com/ethereum/go-ethereum/rpc"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+
 	types "github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -571,6 +573,30 @@ func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	}
 
 	return r0
+}
+
+// SendTransactionAndReturnErrorType provides a mock function with given fields: ctx, tx, fromAddress
+func (_m *Client) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (txmgrtypes.TxmErrorType, error) {
+	ret := _m.Called(ctx, tx, fromAddress)
+
+	var r0 txmgrtypes.TxmErrorType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (txmgrtypes.TxmErrorType, error)); ok {
+		return rf(ctx, tx, fromAddress)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) txmgrtypes.TxmErrorType); ok {
+		r0 = rf(ctx, tx, fromAddress)
+	} else {
+		r0 = ret.Get(0).(txmgrtypes.TxmErrorType)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction, common.Address) error); ok {
+		r1 = rf(ctx, tx, fromAddress)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // SubscribeFilterLogs provides a mock function with given fields: ctx, q, ch
