@@ -2,7 +2,7 @@
 set -e
 
 # Path to output.txt file produced from `go test ... | tee $OUTPUT_FILE`
-OUTPUT_FILE=${1:-output.txt}
+OUTPUT_FILE=${1:-output.json}
 if [ ! -f "$OUTPUT_FILE" ]; then
     printf "scrub_logs script error: No output file found at '$OUTPUT_FILE'"
     exit 1
