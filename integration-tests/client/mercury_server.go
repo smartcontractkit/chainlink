@@ -29,23 +29,28 @@ type User struct {
 
 type MercuryServer struct {
 	URL       string
+	UserId    string
+	UserKey   string
 	APIClient *resty.Client
 }
 
-func NewMercuryServer(url string) *MercuryServer {
+// Create new mercury server client for userId and userKey that are used for HMAC authentication
+func NewMercuryServerClient(url string, userId string, userKey string) *MercuryServer {
 	rc := resty.New().SetBaseURL(url)
 	return &MercuryServer{
 		URL:       url,
 		APIClient: rc,
+		UserId:    userId,
+		UserKey:   userKey,
 	}
 }
 
-func (ms *MercuryServer) CallGet(path string, userId string, userSecret string) (map[string]interface{}, *http.Response, error) {
-	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
-	hmacSignature := generateHmacSignature("GET", path, []byte{}, []byte(userSecret), userId, timestamp)
+func (s *MercuryServer) CallGet(path string) (map[string]interface{}, *http.Response, error) {
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	result := map[string]interface{}{}
-	resp, err := ms.APIClient.R().
-		SetHeader("Authorization", userId).
+	resp, err := s.APIClient.R().
+		SetHeader("Authorization", s.UserId).
 		SetHeader("X-Authorization-Timestamp", timestamp).
 		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
 		SetResult(&result).
@@ -57,7 +62,7 @@ func (ms *MercuryServer) CallGet(path string, userId string, userSecret string) 
 }
 
 // Add new user with "admin" or "user" role
-func (ms *MercuryServer) AddUser(adminId string, adminSecret string, newUserSecret string, newUserRole string, newUserDisabled bool) (*User, *http.Response, error) {
+func (s *MercuryServer) AddUser(newUserSecret string, newUserRole string, newUserDisabled bool) (*User, *http.Response, error) {
 	request := map[string]interface{}{
 		"secret":   newUserSecret,
 		"role":     newUserRole,
@@ -67,11 +72,11 @@ func (ms *MercuryServer) AddUser(adminId string, adminSecret string, newUserSecr
 		User User
 	}{}
 	path := "/admin/user"
-	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
+	timestamp := genReqTimestamp()
 	b, _ := json.Marshal(request)
-	hmacSignature := generateHmacSignature("POST", path, b, []byte(adminSecret), adminId, timestamp)
-	resp, err := ms.APIClient.R().
-		SetHeader("Authorization", adminId).
+	hmacSignature := genHmacSignature("POST", path, b, []byte(s.UserKey), s.UserId, timestamp)
+	resp, err := s.APIClient.R().
+		SetHeader("Authorization", s.UserId).
 		SetHeader("X-Authorization-Timestamp", timestamp).
 		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
 		SetBody(request).
@@ -83,14 +88,15 @@ func (ms *MercuryServer) AddUser(adminId string, adminSecret string, newUserSecr
 	return &result.User, resp.RawResponse, err
 }
 
-func (ms *MercuryServer) GetUsers(adminId string, adminSecret string) (*[]User, *http.Response, error) {
+// Need admin role
+func (s *MercuryServer) GetUsers() (*[]User, *http.Response, error) {
 	var result []User
 	path := "/admin/user"
-	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
-	hmacSignature := generateHmacSignature("GET", path, []byte{}, []byte(adminSecret), adminId, timestamp)
-	resp, err := ms.APIClient.R().
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	resp, err := s.APIClient.R().
 		SetHeader("Accept", "application/json").
-		SetHeader("Authorization", adminId).
+		SetHeader("Authorization", s.UserId).
 		SetHeader("X-Authorization-Timestamp", timestamp).
 		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
 		SetResult(&result).
@@ -101,14 +107,14 @@ func (ms *MercuryServer) GetUsers(adminId string, adminSecret string) (*[]User, 
 	return &result, resp.RawResponse, err
 }
 
-func (ms *MercuryServer) GetReports(userId string, userSecret string, feedIDStr string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
+func (s *MercuryServer) GetReports(feedIDStr string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
 	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedIDStr, blockNumber)
-	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
-	hmacSignature := generateHmacSignature("GET", path, []byte{}, []byte(userSecret), userId, timestamp)
-	resp, err := ms.APIClient.R().
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	resp, err := s.APIClient.R().
 		SetHeader("Accept", "application/json").
-		SetHeader("Authorization", userId).
+		SetHeader("Authorization", s.UserId).
 		SetHeader("X-Authorization-Timestamp", timestamp).
 		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
 		SetResult(&result).
@@ -119,7 +125,14 @@ func (ms *MercuryServer) GetReports(userId string, userSecret string, feedIDStr 
 	return result, resp.RawResponse, err
 }
 
-func generateHmacSignature(method string, path string, body []byte, secret []byte, clientId string, timestamp string) string {
+func genReqTimestamp() string {
+	// The timestamp of the request. This is used to prevent replay attacks.
+	// The timestamp should be within 5 seconds of the server's time (by default).
+	// The server will reject requests with timestamps in the future.
+	return strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
+}
+
+func genHmacSignature(method string, path string, body []byte, secret []byte, clientId string, timestamp string) string {
 	// Get the hash for the body
 	bodyHash := sha256.New()
 	bodyHash.Write(body)
