@@ -2,15 +2,10 @@ package smoke
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/rs/zerolog"
-	mshelm "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,63 +51,35 @@ var feedId = mercury.StringToByte32("ETH-USD-1")
 // 	l.Log().Msgf("asdsa")
 // }
 
-var (
-	ServerAdminId  = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
-	ServerAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
-)
-
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
+	_ = l
 
-	testEnv, isExistingTestEnv, testNetwork, chainlinkNodes,
-		mercuryServerRemoteUrl,
-		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := mercury.SetupMercuryEnv(t, nil, nil)
-	_ = isExistingTestEnv
+	testEnv := mercury.SetupFullMercuryEnv(t, nil, nil)
 
-	users, _, err := mercuryServerClient.GetUsers(ServerAdminId, ServerAdminKey)
+	users, _, err := testEnv.MercuryServer.GetUsers(testEnv.MSAdminId, testEnv.MSAdminKey)
 	require.NoError(t, err)
 	_ = users
 
-	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := mercury.BuildMercuryOCRConfig(t, nodesWithoutBootstrap)
-	verifier, verifierProxy, accessController, _ := mercury.SetupMercuryContracts(t, evmClient,
-		mercuryServerRemoteUrl, feedId, ocrConfig)
-	_ = verifierProxy
-	_ = accessController
-
-	latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
-	require.NoError(t, err)
-
-	mercuryServerLocalUrl := testEnv.URLs[mshelm.URLsKey][0]
-	mercury.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
-		feedId, latestBlockNum, mercuryServerLocalUrl, msRpcPubKey, testNetwork.ChainID, 0)
-
-	verifier.SetConfig(feedId, ocrConfig)
-
-	// Wait for the DON to start generating reports
-	d := 160 * time.Second
-	l.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
-	time.Sleep(d)
-
-	mercuryLookupUrl := fmt.Sprintf("%s/client", mercuryServerRemoteUrl)
-	contractDeployer, err := contracts.NewContractDeployer(evmClient)
-	require.NoError(t, err, "Error in contract deployer")
-
-	exchangerContract, err := contractDeployer.DeployExchanger(verifierProxy.Address(), mercuryLookupUrl, 255)
-	require.NoError(t, err, "Error deploying Exchanger contract")
-	err = accessController.AddAccess(exchangerContract.Address())
-	require.NoError(t, err, "Error in AddAccess(exchanger.Address())")
-
 	t.Run("test mercury server has report for the latest block number", func(t *testing.T) {
-		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
+		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 		_ = latestBlockNum
 		require.NoError(t, err, "Err getting latest block number")
-		// report, _, err := mercuryServerClient.GetReports(string(feedId[:]), latestBlockNum-5)
-		// require.NoError(t, err, "Error getting report from Mercury Server")
-		// require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
+		report, _, err := testEnv.MercuryServer.GetReports(testEnv.MSAdminId, testEnv.MSAdminKey, string(feedId[:]), latestBlockNum-5)
+		require.NoError(t, err, "Error getting report from Mercury Server")
+		require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 	})
 
 	// t.Run("test report verfification using Exchanger.ResolveTradeWithReport call", func(t *testing.T) {
+	// 	mercuryLookupUrl := fmt.Sprintf("%s/client", mercuryServerRemoteUrl)
+	// 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
+	// 	require.NoError(t, err, "Error in contract deployer")
+
+	// 	exchangerContract, err := contractDeployer.DeployExchanger(verifierProxy.Address(), mercuryLookupUrl, 255)
+	// 	require.NoError(t, err, "Error deploying Exchanger contract")
+	// 	err = accessController.AddAccess(exchangerContract.Address())
+	// 	require.NoError(t, err, "Error in AddAccess(exchanger.Address())")
+
 	// 	order := exchangersetup.Order{
 	// 		FeedID:       feedId,
 	// 		CurrencySrc:  mercurysetup.StringToByte32("1"),
