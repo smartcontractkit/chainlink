@@ -19,9 +19,8 @@ import (
 
 func TestMercurySmoke(t *testing.T) {
 	l := zerolog.New(zerolog.NewTestWriter(t))
-	_ = l
 
-	testEnv := mercury.NewMercuryTestEnv(t)
+	testEnv := mercury.NewMercuryTestEnv(t, "smoke")
 	testEnv.SetupFullMercuryEnv(nil, nil)
 
 	var (
@@ -33,8 +32,7 @@ func TestMercurySmoke(t *testing.T) {
 		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 		_ = latestBlockNum
 		require.NoError(t, err, "Err getting latest block number")
-		report, _, err := testEnv.MSClient.GetReports(testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey,
-			feedId, latestBlockNum-5)
+		report, _, err := testEnv.MSClient.GetReports(feedId, latestBlockNum-5)
 		require.NoError(t, err, "Error getting report from Mercury Server")
 		require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 		// TODO: decode the report and validate it has correct fields
@@ -65,9 +63,9 @@ func TestMercurySmoke(t *testing.T) {
 		fixedMerucyrUrlPath := strings.Replace(mercuryUrlPath, "feedIdHex", "feedIDHex", -1)
 
 		// Get report from mercury server
-		msClient := client.NewMercuryServer(testEnv.Config.MSLocalUrl)
-		report, _, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath),
-			testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey)
+		msClient := client.NewMercuryServerClient(
+			testEnv.Config.MSLocalUrl, testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey)
+		report, _, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
 		l.Info().Msgf("Got response from Mercury server: %s", report)
 		require.NoError(t, err, "Error getting report from Mercury Server")
 		require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")

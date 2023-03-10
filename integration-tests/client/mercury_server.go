@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
+	"nhooyr.io/websocket"
 )
 
 type GetReportsResult struct {
@@ -43,6 +45,18 @@ func NewMercuryServerClient(url string, userId string, userKey string) *MercuryS
 		UserId:    userId,
 		UserKey:   userKey,
 	}
+}
+
+func (s *MercuryServer) DialWS() (*websocket.Conn, *http.Response, error) {
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", "/ws", []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	return websocket.Dial(context.Background(), fmt.Sprintf("%s/ws", s.URL), &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Authorization":                    []string{s.UserId},
+			"X-Authorization-Timestamp":        []string{timestamp},
+			"X-Authorization-Signature-SHA256": []string{hmacSignature},
+		},
+	})
 }
 
 func (s *MercuryServer) CallGet(path string) (map[string]interface{}, *http.Response, error) {

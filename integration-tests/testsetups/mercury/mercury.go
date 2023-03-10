@@ -53,6 +53,7 @@ import (
 
 type MercuryTestEnv struct {
 	T                     *testing.T
+	NsPrefix              string
 	Config                mercuryTestConfig
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
@@ -98,7 +99,7 @@ func configFromEnv() mercuryTestConfig {
 	return c
 }
 
-func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
+func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
 	testEnv := &MercuryTestEnv{}
 
 	// Re-use existing env when MERCURY_ENV_CONFIG_PATH env with json c specified
@@ -113,6 +114,7 @@ func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
 	}
 
 	testEnv.T = t
+	testEnv.NsPrefix = namespacePrefix
 	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
 	envTTL, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
 	if err == nil {
@@ -271,7 +273,7 @@ func (e *MercuryTestEnv) WaitForDONReports() {
 func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
 	testEnv := environment.New(&environment.Config{
 		TTL:             e.EnvTTL,
-		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
+		NamespacePrefix: fmt.Sprintf("%s-mercury-%s", e.NsPrefix, strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
