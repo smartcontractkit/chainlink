@@ -63,6 +63,7 @@ type MercuryTestEnv struct {
 
 type mercuryTestConfig struct {
 	K8Namespace          string `json:"k8Namespace"`
+	ChainId              int64  `json:"chainId"`
 	FeedId               string `json:"feedId"`
 	VerifierAddress      string `json:"verifierAddress"`
 	VerifierProxyAddress string `json:"verifierProxyAddress"`
@@ -131,6 +132,13 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 			WsURLs:      testNetwork.URLs,
 		})
 	}
+
+	// Fail when existing env is different than current chain
+	if e.IsExistingTestEnv {
+		require.Equal(e.T, e.Config.ChainId, testNetwork.ChainID,
+			"Chain set in SELECTED_NETWORKS is different than chain id set in MERCURY_TEST_ENV_CONFIG_PATH")
+	}
+	e.Config.ChainId = testNetwork.ChainID
 
 	env := e.SetupDON(e.T, testNetwork, evmConfig)
 	e.Env = env
