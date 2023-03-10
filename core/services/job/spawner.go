@@ -212,8 +212,8 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		err = ms.Start(ctx, srv)
 		if err != nil {
 			js.lggr.Critical("Error starting service for job", "jobID", jb.ID, "error", err)
-			err := pkgerrors.Wrapf(err, "failed to start service for job %d", jb.ID)
-			js.SvcErrBuffer.Append(err)
+			werr := pkgerrors.Wrapf(err, "failed to start service for job %d", jb.ID)
+			js.SvcErrBuffer.Append(werr)
 			return err
 		}
 		aj.services = append(aj.services, srv)
