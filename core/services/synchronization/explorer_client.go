@@ -173,6 +173,7 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 		err := fmt.Errorf("send on explorer client received unsupported message type %d", messageType)
 		ec.SvcErrBuffer.Append(err)
 		ec.lggr.Critical(err.Error())
+		return
 	}
 	select {
 	case send <- data:
