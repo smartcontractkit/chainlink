@@ -16,7 +16,7 @@ import (
 
 type (
 	NonceSyncerKeyStore interface {
-		GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+		GetNextMetadata(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	}
 	// NonceSyncer manages the delicate task of syncing the local nonce with the
 	// chain nonce in case of divergence.
@@ -97,7 +97,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return nil
 	}
 
-	keyNextNonce, err := s.kst.GetNextNonce(address, s.chainID, pg.WithParentCtx(ctx))
+	keyNextNonce, err := s.kst.GetNextMetadata(address, s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}

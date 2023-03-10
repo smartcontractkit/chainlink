@@ -6,10 +6,13 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
+
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -22,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -241,7 +243,7 @@ type ChainSetOpts struct {
 	Config           GeneralConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
-	KeyStore         keystore.Eth
+	KeyStore         txmgr.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
 	EventBroadcaster pg.EventBroadcaster
 	ORM              types.ORM
 	MailMon          *utils.MailboxMonitor

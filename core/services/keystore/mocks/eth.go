@@ -252,8 +252,8 @@ func (_m *Eth) GetAll() ([]ethkey.KeyV2, error) {
 	return r0, r1
 }
 
-// GetNextNonce provides a mock function with given fields: address, chainID, qopts
-func (_m *Eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
+// GetNextMetadata provides a mock function with given fields: address, chainID, qopts
+func (_m *Eth) GetNextMetadata(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -423,8 +423,8 @@ func (_m *Eth) Import(keyJSON []byte, password string, chainIDs ...*big.Int) (et
 	return r0, r1
 }
 
-// IncrementNextNonce provides a mock function with given fields: address, chainID, currentNonce, qopts
-func (_m *Eth) IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+// IncrementNextMetadata provides a mock function with given fields: address, chainID, currentNonce, qopts
+func (_m *Eth) IncrementNextMetadata(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -31,8 +32,8 @@ type Eth interface {
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+	GetNextMetadata(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	IncrementNextMetadata(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
@@ -58,6 +59,8 @@ type eth struct {
 }
 
 var _ Eth = &eth{}
+
+var _ txmgr.KeyStore[common.Address, *big.Int, types.Transaction, int64] = (*eth)(nil)
 
 func newEthKeyStore(km *keyManager) *eth {
 	return &eth{
@@ -178,7 +181,7 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 }
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
-func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
+func (ks *eth) GetNextMetadata(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
 	if !ks.exists(address) {
 		return 0, errors.Errorf("key with address %s does not exist", address.Hex())
 	}
@@ -201,7 +204,7 @@ func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...p
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
-func (ks *eth) IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+func (ks *eth) IncrementNextMetadata(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
 	if !ks.exists(address) {
 		return errors.Errorf("key with address %s does not exist", address.Hex())
 	}

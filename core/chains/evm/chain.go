@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"net/url"
 
+	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -54,7 +55,7 @@ type chain struct {
 	logBroadcaster  log.Broadcaster
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
-	keyStore        keystore.Eth
+	keyStore        txmgr.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
 }
 
 type errChainDisabled struct {

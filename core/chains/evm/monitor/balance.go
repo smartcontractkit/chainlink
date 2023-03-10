@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,10 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -39,7 +41,7 @@ type (
 		ethClient      evmclient.Client
 		chainID        *big.Int
 		chainIDStr     string
-		ethKeyStore    keystore.Eth
+		ethKeyStore    txmgr.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -49,7 +51,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore txmgr.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
