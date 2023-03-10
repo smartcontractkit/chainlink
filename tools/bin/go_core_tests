@@ -3,7 +3,7 @@ set -o pipefail
 set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
-OUTPUT_FILE="./output.txt"
+OUTPUT_FILE="./output.json"
 
 echo "Failed tests and panics: ---------------------"
 echo ""
