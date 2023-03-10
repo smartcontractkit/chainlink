@@ -151,7 +151,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager[*evmtypes.Head]
+	txm            txmgr.TxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
