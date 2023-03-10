@@ -189,6 +189,23 @@ func (v *EthereumVerifier) LatestConfigDetails(feedId [32]byte) (struct {
 	return v.verifier.LatestConfigDetails(opts, feedId)
 }
 
+func (e *EthereumContractDeployer) LoadVerifier(address common.Address) (Verifier, error) {
+	instance, err := e.client.LoadContract("Verifier", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return verifier.NewVerifier(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVerifier{
+		client:   e.client,
+		address:  &address,
+		verifier: instance.(*verifier.Verifier),
+	}, err
+}
+
 func (e *EthereumContractDeployer) DeployVerifier(verifierProxyAddr string) (Verifier, error) {
 	address, _, instance, err := e.client.DeployContract("Verifier", func(
 		auth *bind.TransactOpts,
@@ -206,6 +223,23 @@ func (e *EthereumContractDeployer) DeployVerifier(verifierProxyAddr string) (Ver
 	}, err
 }
 
+func (e *EthereumContractDeployer) LoadVerifierProxy(address common.Address) (VerifierProxy, error) {
+	instance, err := e.client.LoadContract("VerifierProxy", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return verifier_proxy.NewVerifierProxy(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVerifierProxy{
+		client:        e.client,
+		address:       &address,
+		verifierProxy: instance.(*verifier_proxy.VerifierProxy),
+	}, err
+}
+
 func (e *EthereumContractDeployer) DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error) {
 	address, _, instance, err := e.client.DeployContract("VerifierProxy", func(
 		auth *bind.TransactOpts,
@@ -220,6 +254,23 @@ func (e *EthereumContractDeployer) DeployVerifierProxy(accessControllerAddr stri
 		client:        e.client,
 		address:       address,
 		verifierProxy: instance.(*verifier_proxy.VerifierProxy),
+	}, err
+}
+
+func (e *EthereumContractDeployer) LoadExchanger(address common.Address) (Exchanger, error) {
+	instance, err := e.client.LoadContract("Exchanger", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return exchanger.NewExchanger(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumExchanger{
+		client:    e.client,
+		address:   &address,
+		exchanger: instance.(*exchanger.Exchanger),
 	}, err
 }
 

@@ -74,8 +74,11 @@ type ContractDeployer interface {
 	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 	DeployAtlasFunctions() (AtlasFunctions, error)
+	LoadVerifierProxy(address common.Address) (VerifierProxy, error)
 	DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error)
+	LoadVerifier(address common.Address) (Verifier, error)
 	DeployVerifier(verifierProxyAddr string) (Verifier, error)
+	LoadExchanger(address common.Address) (Exchanger, error)
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
 }
 

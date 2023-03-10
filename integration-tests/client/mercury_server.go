@@ -40,6 +40,22 @@ func NewMercuryServer(url string) *MercuryServer {
 	}
 }
 
+func (ms *MercuryServer) CallGet(path string, userId string, userSecret string) (map[string]interface{}, *http.Response, error) {
+	timestamp := strconv.FormatInt(time.Now().UTC().UnixMilli(), 10)
+	hmacSignature := generateHmacSignature("GET", path, []byte{}, []byte(userSecret), userId, timestamp)
+	result := map[string]interface{}{}
+	resp, err := ms.APIClient.R().
+		SetHeader("Authorization", userId).
+		SetHeader("X-Authorization-Timestamp", timestamp).
+		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
+		SetResult(&result).
+		Get(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, resp.RawResponse, nil
+}
+
 // Add new user with "admin" or "user" role
 func (ms *MercuryServer) AddUser(adminId string, adminSecret string, newUserSecret string, newUserRole string, newUserDisabled bool) (*User, *http.Response, error) {
 	request := map[string]interface{}{
@@ -98,7 +114,7 @@ func (ms *MercuryServer) GetReports(userId string, userSecret string, feedIDStr 
 		SetResult(&result).
 		Get(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, resp.RawResponse, err
 	}
 	return result, resp.RawResponse, err
 }
