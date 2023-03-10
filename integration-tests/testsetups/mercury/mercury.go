@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -55,9 +56,10 @@ type MercuryTestEnv struct {
 	Config                mercuryTestConfig
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
-	MSClient              *client.MercuryServer
-	IsExistingTestEnv     bool
-	KeepEnv               bool
+	MSClient              *client.MercuryServer // Mercury server client authenticated with admin role
+	IsExistingTestEnv     bool                  // true if config in MERCURY_ENV_CONFIG_PATH contains namespace
+	KeepEnv               bool                  // Set via MERCURY_KEEP_ENV=true env
+	EnvTTL                time.Duration         // Set via MERCURY_ENV_TTL_MINS env
 	EvmClient             blockchain.EVMClient
 	VerifierContract      contracts.Verifier
 	VerifierProxyContract contracts.VerifierProxy
@@ -112,6 +114,12 @@ func NewMercuryTestEnv(t *testing.T) *MercuryTestEnv {
 
 	testEnv.T = t
 	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
+	envTTL, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
+	if err == nil {
+		testEnv.EnvTTL = time.Duration(envTTL) * time.Minute
+	} else {
+		testEnv.EnvTTL = 20 * time.Minute
+	}
 	testEnv.Config = c
 	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
 	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
@@ -206,7 +214,7 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 	require.NoError(e.T, err, "Error connecting to mock server")
 
 	msLocalUrl := env.URLs[mshelm.URLsKey][1]
-	msClient := client.NewMercuryServer(msLocalUrl)
+	msClient := client.NewMercuryServerClient(msLocalUrl, e.Config.MSAdminId, e.Config.MSAdminKey)
 	e.Config.MSLocalUrl = msLocalUrl
 	e.MSClient = msClient
 
@@ -262,7 +270,7 @@ func (e *MercuryTestEnv) WaitForDONReports() {
 
 func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
 	testEnv := environment.New(&environment.Config{
-		// TTL:             1 * time.Hour,
+		TTL:             e.EnvTTL,
 		NamespacePrefix: fmt.Sprintf("smoke-mercury-%s", strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
