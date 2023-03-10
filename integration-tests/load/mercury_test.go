@@ -7,18 +7,11 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-env/environment"
 	mercuryserver "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
-)
-
-const (
-	mercuryFeedID = "mock-feed"
 )
 
 var (
@@ -43,47 +36,31 @@ var (
 
 func setupMercuryLoadEnv(
 	t *testing.T,
-	feedID string,
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
-) (*environment.Environment, *client.MercuryServer, blockchain.EVMClient, uint64) {
-	env, isExistingTestEnv, testNetwork, chainlinkNodes,
-		mercuryServerRemoteUrl,
-		evmClient, mockServerClient, mercuryServerClient, msRpcPubKey := testsetups.SetupMercuryEnv(t, dbSettings, serverResources)
-	_ = isExistingTestEnv
+) (*mercury.MercuryTestEnv, uint64) {
+	testEnv := mercury.NewMercuryTestEnv(t)
+	testEnv.SetupFullMercuryEnv(dbSettings, serverResources)
 
-	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := testsetups.BuildMercuryOCR2Config(t, nodesWithoutBootstrap)
-	verifier, _, _, _ := testsetups.SetupMercuryContracts(t, evmClient,
-		mercuryServerRemoteUrl, feedID, ocrConfig)
-
-	testsetups.SetupMercuryNodeJobs(t, chainlinkNodes, mockServerClient, verifier.Address(),
-		feedID, msRpcPubKey, testNetwork.ChainID, 0)
-
-	err := verifier.SetConfig(ocrConfig)
-	require.NoError(t, err)
-
-	// Wait for the DON to start generating reports
-	d := 160 * time.Second
-	log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
-	time.Sleep(d)
-
-	latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
+	latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Err getting latest block number")
-	report, _, err := mercuryServerClient.GetReports(feedID, latestBlockNum-5)
+	report, _, err := testEnv.MSClient.GetReports(
+		testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey,
+		testEnv.Config.FeedId, latestBlockNum-5)
 	require.NoError(t, err, "Error getting report from Mercury Server")
 	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
-	return env, mercuryServerClient, evmClient, latestBlockNum
+
+	return testEnv, latestBlockNum
 }
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	env, msClient, evmClient, latestBlockNumber := setupMercuryLoadEnv(t, mercuryFeedID, dbSettings, serverResources)
+	testEnv, latestBlockNumber := setupMercuryLoadEnv(t, dbSettings, serverResources)
 
-	gun := NewHTTPGun(env.URLs[mercuryserver.URLsKey][1], msClient, mercuryFeedID, latestBlockNumber)
+	gun := NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.Config.FeedId, latestBlockNumber)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			bn, _ := evmClient.LatestBlockNumber(context.Background())
+			bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
 			log.Warn().Uint64("Block number", bn).Send()
 			gun.bn.Store(bn - 5)
 		}
@@ -97,7 +74,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 			"test_group": "stress",
 			"cluster":    "sdlc",
 			"app":        "mercury-server",
-			"namespace":  env.Cfg.Namespace,
+			"namespace":  testEnv.Env.Cfg.Namespace,
 			"test_id":    "http",
 		},
 		Duration: 1200 * time.Second,
@@ -116,7 +93,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	env, msClient, _, _ := setupMercuryLoadEnv(t, mercuryFeedID, dbSettings, serverResources)
+	testEnv, _ := setupMercuryLoadEnv(t, dbSettings, serverResources)
 
 	gen, err := loadgen.NewLoadGenerator(&loadgen.LoadGeneratorConfig{
 		T: t,
@@ -127,7 +104,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			"test_group": "stress",
 			"cluster":    "sdlc",
 			"app":        "mercury-server",
-			"namespace":  env.Cfg.Namespace,
+			"namespace":  testEnv.Env.Cfg.Namespace,
 			"test_id":    "ws",
 		},
 		Duration: 1200 * time.Second,
@@ -138,7 +115,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			StageInterval: 10 * time.Second,
 			Limit:         500,
 		},
-		Instance: NewWSInstance(msClient),
+		Instance: NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)
 	gen.Run()
