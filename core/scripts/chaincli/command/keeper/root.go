@@ -17,6 +17,7 @@ func init() {
 	RootCmd.AddCommand(registryCmd)
 	RootCmd.AddCommand(launchAndTestCmd)
 	RootCmd.AddCommand(upkeepEventsCmd)
+	RootCmd.AddCommand(pokemonEventsCmd)
 	RootCmd.AddCommand(upkeepHistoryCmd)
 	RootCmd.AddCommand(ocr2UpkeepReportHistoryCmd)
 	RootCmd.AddCommand(ocr2UpdateConfigCmd)

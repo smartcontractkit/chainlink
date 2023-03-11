@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_apifetch_wrapper"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
@@ -58,6 +59,56 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 			upkeepIterator.Event.LastBlock.String(),
 			upkeepIterator.Event.PreviousBlock.String(),
 			upkeepIterator.Event.Counter.String()}
+		if err = w.Write(row); err != nil {
+			log.Fatalln("error writing record to file", err)
+		}
+	}
+}
+
+func (k *Keeper) UpkeepPokemonEvents(ctx context.Context, hexAddr string, fromBlock, toBlock uint64) {
+	contractAddress := common.HexToAddress(hexAddr)
+	upkeepCounter, err := upkeep_apifetch_wrapper.NewUpkeepAPIFetch(contractAddress, k.client)
+	if err != nil {
+		log.Fatalln("Failed to create a new upkeep pokemon", err)
+	}
+	filterOpts := bind.FilterOpts{
+		Start:   fromBlock,
+		End:     &toBlock,
+		Context: ctx,
+	}
+	upkeepIterator, err := upkeepCounter.FilterPokemonUpkeep(&filterOpts, nil)
+	if err != nil {
+		log.Fatalln("Failed to get upkeep iterator", err)
+	}
+	filename := fmt.Sprintf("%s.csv", hexAddr)
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatalln("failed to open file", err)
+	}
+	defer file.Close()
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	fmt.Println("from, id, name, abilities, types")
+	row := []string{"from", "id", "name", "abilities", "types"}
+	if err = w.Write(row); err != nil {
+		log.Fatalln("error writing record to file", err)
+	}
+
+	for upkeepIterator.Next() {
+		fmt.Printf("%s,%s,%s,%s,%s\n",
+			upkeepIterator.Event.From,
+			upkeepIterator.Event.Id,
+			upkeepIterator.Event.Name,
+			upkeepIterator.Event.Abilities,
+			upkeepIterator.Event.Types,
+		)
+		row = []string{upkeepIterator.Event.From.String(),
+			upkeepIterator.Event.Id,
+			upkeepIterator.Event.Name,
+			upkeepIterator.Event.Abilities,
+			upkeepIterator.Event.Types}
 		if err = w.Write(row); err != nil {
 			log.Fatalln("error writing record to file", err)
 		}

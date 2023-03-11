@@ -34,6 +34,7 @@ type canceller interface {
 // upkeepDeployer contains functions needed to deploy an upkeep
 type upkeepDeployer interface {
 	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error)
+	SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error)
 	AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error)
 }
 
@@ -52,12 +53,20 @@ func (d *v11KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClie
 	return d.KeeperRegistryInterface.SetKeepers(opts, keepers, payees)
 }
 
+func (d *v11KeeperDeployer) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
+	return nil, nil
+}
+
 type v12KeeperDeployer struct {
 	registry12.KeeperRegistryInterface
 }
 
 func (d *v12KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
 	return d.KeeperRegistryInterface.SetKeepers(opts, keepers, payees)
+}
+
+func (d *v12KeeperDeployer) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
+	return nil, nil
 }
 
 type v20KeeperDeployer struct {
@@ -194,4 +203,8 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 
 	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+func (d *v20KeeperDeployer) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
+	return d.KeeperRegistryInterface.SetUpkeepOffchainConfig(opts, id, config)
 }

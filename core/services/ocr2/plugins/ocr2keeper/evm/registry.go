@@ -700,6 +700,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			}
 
 			if !simulatePerformSuccess {
+				checkResults[performToKeyIdx[i]].FailureReason = UPKEEP_FAILURE_REASON_TARGET_PERFORM_REVERTED
 				checkResults[performToKeyIdx[i]].State = types.NotEligible
 			}
 		}

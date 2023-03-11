@@ -7,18 +7,24 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/itchyny/gojq"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
+
+const ParseFieldError = "field error"
 
 type OffchainLookup struct {
 	url              string
@@ -37,10 +43,10 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 	for i, _ := range upkeepResults {
 		block, upkeepId, err := blockAndIdFromKey(upkeepResults[i].Key)
 		if err != nil {
-			r.lggr.Error("[OffchainLookup] BlockAndIdFromKey=", err)
+			r.lggr.Error("[OffchainLookup] error getting block and upkeep id:", err)
 			continue
 		}
-		// if its another reason just keep going
+		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
@@ -48,50 +54,61 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 		// checking if this upkeep is in cooldown from api errors
 		_, onIce := r.cooldownCache.Get(upkeepId.String())
 		if onIce {
-			r.lggr.Infof("[OffchainLookup] cooldown Skipping UpkeepId:%s\n", upkeepId)
+			r.lggr.Infof("[OffchainLookup] cooldown Skipping UpkeepId: %s\n", upkeepId)
 			continue
 		}
 
 		var offchainLookup OffchainLookup
+		// if it doesn't decode to the offchain custom error continue/skip
 		offchainLookup, err = r.decodeOffchainLookup(upkeepResults[i].PerformData)
 		if err != nil {
-			r.lggr.Error("[OffchainLookup] decodeOffchainLookup=", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
+			r.lggr.Debug("[OffchainLookup] not an offchain revert decodeOffchainLookup:", err)
 			continue
 		}
-		r.lggr.Infof("[OffchainLookup]= %+v\n", offchainLookup)
-
-		// 	do the http request
-		body, statusCode, err := r.doRequest(offchainLookup, upkeepId)
-		if err != nil {
-			r.lggr.Error("[OffchainLookup] doRequest=", err)
-			continue
-		}
-		r.lggr.Infof("[OffchainLookup] StatusCode: %d\n", statusCode)
-		//r.lggr.Infof("[OffchainLookup] Body: %s\n", string(body))
-
-		values, err := offchainLookup.parseJson(body)
-		if err != nil {
-			r.lggr.Error("[OffchainLookup] parseJson=", err)
-			continue
-		}
-		r.lggr.Infof("[OffchainLookup] Parsed values= %v\n", values)
+		r.lggr.Debugf("[OffchainLookup]: %+v\n", offchainLookup)
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			r.lggr.Error("[OffchainLookup] buildCallOpts=", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
+			r.lggr.Error("[OffchainLookup] buildCallOpts:", err)
 			continue
 		}
-
-		// need upkeep info to hit callback
+		// need upkeep info for offchainConfig and to hit callback
 		upkeepInfo, err := r.getUpkeepInfo(upkeepId, err, opts)
 		if err != nil {
-			r.lggr.Error("[OffchainLookup] GetUpkeep=", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
+			r.lggr.Error("[OffchainLookup] GetUpkeep:", err)
 			continue
 		}
 
+		// 	do the http request
+		body, statusCode, err := r.doRequest(offchainLookup, upkeepId, upkeepInfo.OffchainConfig)
+		if err != nil {
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
+			r.lggr.Error("[OffchainLookup] doRequest:", err)
+			continue
+		}
+		r.lggr.Debugf("[OffchainLookup] StatusCode: %d\n", statusCode)
+		//r.lggr.Debugf("[OffchainLookup] Body: %s\n", string(body))
+
+		values, err := offchainLookup.parseJson(body)
+		if err != nil {
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
+			r.lggr.Error("[OffchainLookup] parseJson:", err)
+			continue
+		}
+		r.lggr.Debugf("[OffchainLookup] Parsed values: %+v\n", values)
+
 		needed, performData, err := r.offchainLookupCallback(ctx, offchainLookup, values, statusCode, upkeepInfo, opts)
-		if err != nil || !needed {
-			r.lggr.Info("[OffchainLookup] offchainLookupCallback=", needed, performData, err)
+		if err != nil {
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
+			r.lggr.Error("[OffchainLookup] offchainLookupCallback=", err)
+			continue
+		}
+		if !needed {
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+			r.lggr.Debug("[OffchainLookup] callback reports upkeep not needed")
 			continue
 		}
 
@@ -99,22 +116,27 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
 		upkeepResults[i].State = types.Eligible
 		upkeepResults[i].PerformData = performData
+		r.lggr.Debugf("[OffchainLookup] Success: %+v\n", upkeepResults[i])
 	}
 	return upkeepResults, nil
 }
 
 func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, err error, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
+	zero := common.Address{}
 	var upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo
 	u, found := r.upkeepCache.Get(upkeepId.String())
 	if found {
-		r.lggr.Infof("[OffchainLookup] cache hit UpkeepInfo: %v\n", upkeepInfo)
 		upkeepInfo = u.(keeper_registry_wrapper2_0.UpkeepInfo)
+		r.lggr.Debugf("[OffchainLookup] cache hit UpkeepInfo: %+v\n", upkeepInfo)
 	} else {
 		upkeepInfo, err = r.registry.GetUpkeep(opts, upkeepId)
 		if err != nil {
 			return upkeepInfo, err
 		}
-		r.lggr.Infof("[OffchainLookup] cache miss UpkeepInfo: %v\n", upkeepInfo)
+		if upkeepInfo.Target == zero {
+			return upkeepInfo, errors.New("upkeepInfo should not be nil")
+		}
+		r.lggr.Debugf("[OffchainLookup] cache miss UpkeepInfo: %+v\n", upkeepInfo)
 		r.upkeepCache.Set(upkeepId.String(), upkeepInfo, cache.DefaultExpiration)
 	}
 	return upkeepInfo, nil
@@ -198,18 +220,46 @@ func (r *EvmRegistry) offchainLookupCallback(ctx context.Context, offchainLookup
 	return true, performData, nil
 }
 
-func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int) ([]byte, int, error) {
+func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int, offchainConfig []byte) ([]byte, int, error) {
 	client := http.Client{}
 	var req *http.Request
 	var err error
+
+	apiKeys, err := getAPIKeys(upkeepId, offchainConfig)
+	if err != nil {
+		r.lggr.Debug("[OffchainLookup] offchain api keys error:", err)
+	}
 
 	req, err = http.NewRequest("GET", o.url, nil)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "get request error:")
 	}
 
+	for _, key := range apiKeys.Keys {
+		value := key.DecryptVal
+		switch strings.ToLower(key.Type) {
+		case "header":
+			req.Header.Set(key.Name, value)
+		case "param":
+			newUrlString := strings.ReplaceAll(o.url, fmt.Sprintf("{%s}", key.Name), value)
+			u, urlErr := url.Parse(newUrlString)
+			if urlErr != nil {
+				continue
+			}
+			req.URL = u
+		case "hmac":
+			// TODO
+			continue
+		default:
+			// not supported
+			continue
+		}
+	}
+
 	// Make an HTTP GET request to the request URL.
 	req.Header.Set("Content-Type", "application/json")
+	r.lggr.Debugf("[OffchainLookup] Headers: %+v\n", req.Header)
+	r.lggr.Debugf("[OffchainLookup] URL: %+v\n", req.URL)
 	resp, err := client.Do(req)
 	if err != nil {
 		r.setCachesOnAPIErr(upkeepId)
@@ -244,20 +294,56 @@ func (r *EvmRegistry) setCachesOnAPIErr(upkeepId *big.Int) {
 	r.cooldownCache.Set(cacheKey, nil, time.Second*time.Duration(2^errCount))
 }
 
-// TODO really parse JSON
+// parseJson expects json bytes as input and offchainLookup.fields to be 'jq' style query strings for extracting data from json
 func (o *OffchainLookup) parseJson(body []byte) ([]string, error) {
-	var m map[string]interface{}
+	var m map[string]any
 	err := json.Unmarshal(body, &m)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]string, len(o.fields), len(o.fields))
+	results := make([]string, len(o.fields), len(o.fields))
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 	for i, field := range o.fields {
-		for key, val := range m {
-			if key == field {
-				result[i] = fmt.Sprint(val)
+		query, parseErr := gojq.Parse(field)
+		if parseErr != nil {
+			// if we can't parse the jq query use the response we are sending to the user to signal to them there was an error
+			fmt.Println(parseErr)
+			results[i] = ParseFieldError
+			continue
+		}
+
+		// always run with context
+		iter := query.RunWithContext(ctx, m)
+		for {
+			fieldValue, ok := iter.Next()
+			if !ok {
+				break
 			}
+			if fieldValueError, isError := fieldValue.(error); isError {
+				// if we have an issue with getting the value use the result response to signal that to the user
+				fmt.Println(fieldValueError)
+				results[i] = ParseFieldError
+				continue
+			}
+			if fieldValue == nil {
+				results[i] = ""
+				continue
+			}
+			if _, isMap := fieldValue.(map[string]any); isMap {
+				// if the return is a map then format it as json
+				// so the json subset can be set to the user where they can further parse if they desire
+				marshal, marshalErr := gojq.Marshal(fieldValue)
+				if marshalErr != nil {
+					// if there is an issue marshalling default to setting the field value
+					results[i] = fmt.Sprint(fieldValue)
+					continue
+				}
+				results[i] = string(marshal)
+				continue
+			}
+			results[i] = fmt.Sprint(fieldValue)
 		}
 	}
-	return result, nil
+	return results, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/fxamacker/cbor/v2"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registrylogic20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -331,17 +332,37 @@ func (k *Keeper) getRegistry11(ctx context.Context) (common.Address, *registry11
 	return registryAddr, keeperRegistry11
 }
 
+type OffchainAPIKeys struct {
+	Keys []Key `json:"keys"`
+}
+
+type Key struct {
+	// header,param,hmac
+	Type string `json:"type"`
+	// for header type this will be put as the Header.Key
+	// for params type this will be used as url substitution key ie {name}
+	Name string `json:"name"`
+	// encrypted(cbor([upkeepID,value]))
+	// for header the inner value will be used as Header.Value
+	// for param the inner value will be what is replaced in the url
+	Value []byte `json:"value"`
+	// this is the value after peeling away the encryption the cbor and checking the upkeepID
+	DecryptVal string
+}
+
 // deployUpkeeps deploys upkeeps and funds upkeeps
 func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, deployer upkeepDeployer, existingCount int64) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
 	var upkeepAddrs []common.Address
+	var offchainConfigs []OffchainAPIKeys
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
 		fmt.Println()
 		// Deploy
 		var upkeepAddr common.Address
 		var deployUpkeepTx *types.Transaction
 		var err error
+		var offchainConfig OffchainAPIKeys
 		if k.cfg.UpkeepAverageEligibilityCadence > 0 {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
@@ -352,6 +373,20 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				big.NewInt(k.cfg.UpkeepTestRange),
 				big.NewInt(k.cfg.UpkeepInterval),
 			)
+			offchainConfig = OffchainAPIKeys{Keys: []Key{
+				{
+					Type:       "Header",
+					Name:       "X-Testing-Header",
+					Value:      nil,
+					DecryptVal: "THIS_IS_API_KEY",
+				},
+				{
+					Type:       "param",
+					Name:       "version",
+					Value:      nil,
+					DecryptVal: "v2",
+				},
+			}}
 		} else {
 			fmt.Println("counter")
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
@@ -374,6 +409,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		k.waitTx(ctx, registerUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", helpers.ExplorerLink(k.cfg.ChainID, registerUpkeepTx.Hash()))
 
+		offchainConfigs = append(offchainConfigs, offchainConfig)
 		upkeepAddrs = append(upkeepAddrs, upkeepAddr)
 	}
 
@@ -414,6 +450,31 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		}
 		k.waitTx(ctx, addFundsTx)
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
+
+		// update offchain config if present
+		if len(offchainConfigs[index].Keys) > 0 {
+			for keyIndex := range offchainConfigs[index].Keys {
+				plaintext := [2]interface{}{
+					upkeepId.Bytes(),
+					offchainConfigs[index].Keys[keyIndex].DecryptVal,
+				}
+				valMarshal, err := cbor.Marshal(plaintext)
+				if err != nil {
+					log.Println(upkeepId, upkeepAddr.Hex(), ": CBOR plaintext failed - ", err)
+				}
+				offchainConfigs[index].Keys[keyIndex].Value = valMarshal
+			}
+			marshal, err := cbor.Marshal(offchainConfigs[index])
+			if err != nil {
+				log.Println(upkeepId, upkeepAddr.Hex(), ": CBOR offchainConfig failed - ", err)
+			}
+			offchainConfigTx, err := deployer.SetUpkeepOffchainConfig(k.buildTxOpts(ctx), upkeepId, marshal)
+			if err != nil {
+				log.Fatal(upkeepId, upkeepAddr.Hex(), ": Set OffchainConfig failed - ", err)
+			}
+			k.waitTx(ctx, offchainConfigTx)
+			log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep OffchainConfig - ", helpers.ExplorerLink(k.cfg.ChainID, offchainConfigTx.Hash()))
+		}
 	}
 	fmt.Println()
 }

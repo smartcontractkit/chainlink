@@ -42,7 +42,7 @@ solidity_vrf_request_id_v08: ../../contracts/solc/v0.8.6/VRFRequestIDBaseTestHel
 solidity_vrf_v08_verifier_wrapper: ../../contracts/solc/v0.8.6/VRFTestHelper.abi ../../contracts/solc/v0.8.6/VRFTestHelper.bin f37f8b21a81c113085c6137835a2246db6ebda07da455c4f2b5c7ec60c725c3b
 solidity_vrf_verifier_wrapper: ../../contracts/solc/v0.6/VRFTestHelper.abi ../../contracts/solc/v0.6/VRFTestHelper.bin 44c2b67d8d2990ab580453deb29d63508c6147a3dc49908a1db563bef06e6474
 type_and_version_interface_wrapper: ../../contracts/solc/v0.8.6/TypeAndVersionInterface.abi ../../contracts/solc/v0.8.6/TypeAndVersionInterface.bin bc9c3a6e73e3ebd5b58754df0deeb3b33f4bb404d5709bb904aed51d32f4b45e
-upkeep_apifetch_wrapper: ../../contracts/solc/v0.8.15/UpkeepAPIFetch.abi ../../contracts/solc/v0.8.15/UpkeepAPIFetch.bin 5bdb3560fed9ce2c744909b92ca19636461f05d83172c86c96b729e289eca668
+upkeep_apifetch_wrapper: ../../contracts/solc/v0.8.15/UpkeepAPIFetch.abi ../../contracts/solc/v0.8.15/UpkeepAPIFetch.bin f79f68ad65bfade35ece8cf65bed1bf9d886ac63dbf98771ba81d4253cc51d3b
 upkeep_counter_wrapper: ../../contracts/solc/v0.7/UpkeepCounter.abi ../../contracts/solc/v0.7/UpkeepCounter.bin 901961ebf18906febc1c350f02da85c7ea1c2a68da70cfd94efa27c837a48663
 upkeep_perform_counter_restrictive_wrapper: ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin 8975a058fba528e16d8414dc6f13946d17a145fcbc66cf25a32449b6fe1ce878
 vrf_consumer_v2: ../../contracts/solc/v0.8.6/VRFConsumerV2.abi ../../contracts/solc/v0.8.6/VRFConsumerV2.bin 9ef258bf8e9f8d880fd229ceb145593d91e24fc89366baa0bf19169c5787d15f

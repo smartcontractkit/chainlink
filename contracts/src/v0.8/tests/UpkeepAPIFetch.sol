@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract UpkeepAPIFetch {
-  event PerformingUpkeep(address indexed from, uint256 lastBlock, uint256 counter, string id, string name);
+  event PokemonUpkeep(address indexed from, string id, string name, string abilities, string types);
 
   error ChainlinkAPIFetch(string url, bytes extraData, string[] jsonFields, bytes4 callbackSelector);
 
@@ -18,6 +18,8 @@ contract UpkeepAPIFetch {
   string public url;
   string public id;
   string public pokemon;
+  string public abilities;
+  string public types;
   string[] public fields;
 
   constructor(uint256 _testRange, uint256 _interval) {
@@ -27,8 +29,8 @@ contract UpkeepAPIFetch {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    fields = ["id", "name"];
-    url = "https://pokeapi.co/api/v2/pokemon/";
+    fields = [".id", ".name", "[.abilities[] | .ability.name]", '[.types[] | .type.name]|join(",")'];
+    url = "https://pokeapi.co/api/{version}/pokemon/";
   }
 
   function callback(
@@ -36,13 +38,15 @@ contract UpkeepAPIFetch {
     string[] calldata values,
     uint256 statusCode
   ) external view returns (bool, bytes memory) {
-    if (statusCode > 299) {
-      // pass true here with msg to perform to trigger changes when a url sees an error
-      return (true, abi.encode("error", "error"));
-    }
+    //    if (statusCode > 299) {
+    //      // pass true here with msg to perform to trigger changes when a url sees an error
+    //      return (true, abi.encode("error", "error", "error", "error"));
+    //    }
     string memory pid = values[0];
     string memory name = values[1];
-    return (true, abi.encode(pid, name));
+    string memory ability = values[2];
+    string memory types = values[3];
+    return (true, abi.encode(pid, name, ability, types));
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
@@ -60,14 +64,19 @@ contract UpkeepAPIFetch {
     }
     lastBlock = block.number;
     counter = counter + 1;
-    (string memory pid, string memory name) = abi.decode(performData, (string, string));
-    if (keccak256(abi.encodePacked(pid)) == keccak256(abi.encodePacked("error"))) {
-      counter = 0;
-    } else {
-      id = pid;
-      pokemon = name;
-    }
-    emit PerformingUpkeep(tx.origin, lastBlock, counter, pid, name);
+    (string memory pid, string memory name, string memory ability, string memory typeArrayString) = abi.decode(
+      performData,
+      (string, string, string, string)
+    );
+    //    if (keccak256(abi.encodePacked(pid)) == keccak256(abi.encodePacked("error"))) {
+    //      counter = 0;
+    //    } else {
+    id = pid;
+    pokemon = name;
+    abilities = ability;
+    types = typeArrayString;
+    //    }
+    emit PokemonUpkeep(tx.origin, id, pokemon, abilities, types);
     previousPerformBlock = lastBlock;
   }
 

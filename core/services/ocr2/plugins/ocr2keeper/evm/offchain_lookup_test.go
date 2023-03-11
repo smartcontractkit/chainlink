@@ -156,6 +156,18 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 		CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
 		ExecuteGas:       5000000,
 	}
+	upkeepResultReasonOffchain := types.UpkeepResult{
+		Key:              upkeepKey,
+		State:            types.NotEligible,
+		FailureReason:    UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR,
+		GasUsed:          big.NewInt(27071),
+		PerformData:      revertPerformData,
+		FastGasWei:       big.NewInt(2000000000),
+		LinkNative:       big.NewInt(4391095484380865),
+		CheckBlockNumber: 8586947,
+		CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
+		ExecuteGas:       5000000,
+	}
 	target := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	callbackResp := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	upkeepNeededFalseResp, err := setupRegistry.apiFetchABI.Methods["callback"].Outputs.Pack(false, []byte{})
@@ -249,7 +261,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 				{
 					Key:           upkeepKey,
 					State:         types.NotEligible,
-					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
+					FailureReason: UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR,
 					PerformData:   []byte{},
 				},
 			},
@@ -260,7 +272,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 			callbackResp:  callbackResp,
 			upkeepInfoErr: errors.New("ouch"),
 
-			want: []types.UpkeepResult{upkeepResult},
+			want: []types.UpkeepResult{upkeepResultReasonOffchain},
 		},
 		{
 			name:         "skip - upkeep not needed",
@@ -271,7 +283,18 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 				ExecuteGas: 5000000,
 			},
 
-			want: []types.UpkeepResult{upkeepResult},
+			want: []types.UpkeepResult{{
+				Key:              upkeepKey,
+				State:            types.NotEligible,
+				FailureReason:    UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED,
+				GasUsed:          big.NewInt(27071),
+				PerformData:      revertPerformData,
+				FastGasWei:       big.NewInt(2000000000),
+				LinkNative:       big.NewInt(4391095484380865),
+				CheckBlockNumber: 8586947,
+				CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
+				ExecuteGas:       5000000,
+			}},
 		},
 		{
 			name:       "skip - cooldown cache",
@@ -492,7 +515,6 @@ func TestEvmRegistry_setCachesOnAPIErr(t *testing.T) {
 	}
 }
 
-// TODO really test parsing
 func TestOffchainLookup_parseJson(t *testing.T) {
 	content, e := os.ReadFile("poke_api.json")
 	assert.Nil(t, e)
@@ -505,12 +527,100 @@ func TestOffchainLookup_parseJson(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "success",
+			// simple top level
+			name: "success - top fields",
 			offchainLookup: OffchainLookup{
-				fields: []string{"id", "name"},
+				fields: []string{".id", ".name"},
 			},
 			body: content,
 			want: []string{"1", "bulbasaur"},
+		},
+		{
+			// query all return string no matter type
+			name: "success - field types all returned as strings",
+			offchainLookup: OffchainLookup{
+				fields: []string{".id", ".name", ".weight", ".types[0].type.name", "[.types[] | .type.name]"},
+			},
+			body: content,
+			want: []string{"1", "bulbasaur", "69", "grass", "[grass poison]"},
+		},
+		{
+			// wrap query in array build. user could do its own parsing or whatever in contract
+			name: "success - creating structure in query",
+			offchainLookup: OffchainLookup{
+				fields: []string{"[.types[] | .type.name]"},
+			},
+			body: content,
+			want: []string{"[grass poison]"},
+		},
+		{
+			// query for json subset
+			name: "success - use select to get subset of json",
+			offchainLookup: OffchainLookup{
+				fields: []string{".abilities[] | select(.ability.name == \"overgrow\")"},
+			},
+			body: content,
+			want: []string{"{\"ability\":{\"name\":\"overgrow\",\"url\":\"https://pokeapi.co/api/v2/ability/65/\"},\"is_hidden\":false,\"slot\":1}"},
+		},
+		{
+			// the first returns a single value. the second finds each value of name of each entry in "moves" and returns the last one found
+			name: "success - nested fields",
+			offchainLookup: OffchainLookup{
+				fields: []string{
+					".abilities[1].ability.name",
+					".moves[] | .move[\"name\"]"},
+			},
+			body: content,
+			want: []string{"chlorophyll", "grassy-glide"},
+		},
+		{
+			// show various ways to combine data into an array
+			name: "success - combining values",
+			offchainLookup: OffchainLookup{
+				fields: []string{
+					".sprites | [.back_default,.front_default]",
+					"[.types[] | .type.name]|join(\",\")"},
+			},
+			body: content,
+			want: []string{
+				"[https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/1.png https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png]",
+				"grass,poison"},
+		},
+		{
+			// using select function
+			name: "success - selecting values",
+			offchainLookup: OffchainLookup{
+				fields: []string{
+					".abilities[] | select(.ability.name == \"overgrow\") | .is_hidden",
+					".stats[] | select(.stat.name == \"attack\") | .base_stat"},
+			},
+			body: content,
+			want: []string{"false", "49"},
+		},
+		{
+			// query returns an array of objects so last object is returned
+			name: "success - query for array",
+			offchainLookup: OffchainLookup{
+				fields: []string{".types[]"},
+			},
+			body: content,
+			want: []string{"{\"slot\":2,\"type\":{\"name\":\"poison\",\"url\":\"https://pokeapi.co/api/v2/type/4/\"}}"},
+		},
+		{
+			name: "success - field not present",
+			offchainLookup: OffchainLookup{
+				fields: []string{".nothere", ".moves[0].move.attack"},
+			},
+			body: content,
+			want: []string{"", ""},
+		},
+		{
+			name: "errors - bad queries",
+			offchainLookup: OffchainLookup{
+				fields: []string{"badthing", ".........", ".[][][]"},
+			},
+			body: content,
+			want: []string{ParseFieldError, ParseFieldError, ParseFieldError},
 		},
 		{
 			name: "fail to unmarshal",
