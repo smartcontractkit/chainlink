@@ -7,6 +7,17 @@ import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 
+struct RegistrationParams {
+  string name;
+  bytes encryptedEmail;
+  address upkeepContract;
+  uint32 gasLimit;
+  address adminAddress;
+  bytes checkData;
+  bytes offchainConfig;
+  uint96 amount;
+}
+
 /**
  * @notice Contract to accept requests for upkeep registrations
  * @dev There are 2 registration workflows in this contract
@@ -56,17 +67,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   struct PendingRequest {
     address admin;
     uint96 balance;
-  }
-
-  struct RegistrationParams {
-    string name;
-    bytes encryptedEmail;
-    address upkeepContract;
-    uint32 gasLimit;
-    address adminAddress;
-    bytes checkData;
-    bytes offchainConfig;
-    uint96 amount;
   }
 
   RegistrarConfig private s_config;

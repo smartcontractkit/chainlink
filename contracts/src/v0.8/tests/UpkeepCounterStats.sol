@@ -1,6 +1,10 @@
 pragma solidity ^0.8.6;
 
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../automation/2_0/KeeperRegistrar2_0.sol";
+
 contract UpkeepCounterStats {
+  using EnumerableSet for EnumerableSet.UintSet;
   event PerformingUpkeep(
     uint256 initialBlock,
     uint256 lastBlock,
@@ -10,7 +14,6 @@ contract UpkeepCounterStats {
   );
 
   mapping(uint256 => uint256) public upkeepIdsToIntervals;
-  mapping(uint256 => uint256) public upkeepIdsToLastBlock;
   mapping(uint256 => uint256) public upkeepIdsToPreviousPerformBlock;
   mapping(uint256 => uint256) public upkeepIdsToInitialBlock;
   mapping(uint256 => uint256) public upkeepIdsToCounter;
@@ -19,20 +22,70 @@ contract UpkeepCounterStats {
   mapping(uint256 => uint256) public upkeepIdsToPerformDataSize;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
   mapping(uint256 => uint256[]) private upkeepIdsToDelay;
+  EnumerableSet.UintSet internal s_upkeepIDs;
+  KeeperRegistrar2_0 public registrar;
+  AutomationRegistryBaseInterface public registry;
+  LinkTokenInterface public linkToken;
+
+  constructor(address registrarAddress) {
+    registrar = KeeperRegistrar2_0(registrarAddress);
+    (,,, address registryAddress,) = registrar.getRegistrationConfig();
+    registry = AutomationRegistryBaseInterface(registryAddress);
+    linkToken = registrar.LINK();
+  }
+
+  function registerUpkeep(RegistrationParams memory params) external returns (uint256) {
+    uint256 upkeepId = registrar.registerUpkeep(params);
+    s_upkeepIDs.add(upkeepId);
+    return upkeepId;
+  }
+
+  function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external returns (uint256[] memory) {
+    RegistrationParams memory params = RegistrationParams({
+      name: "test",
+      encryptedEmail: '0x',
+      upkeepContract: address(this),
+      gasLimit: gasLimit,
+      adminAddress: address(this), // cannot use msg.sender otherwise updateCheckData won't work
+      checkData: '0x', // update check data later bc upkeep id is not available now
+      offchainConfig: '0x',
+      amount: amount
+    });
+
+    uint256[] memory upkeepIds = new uint256[](number);
+    for (uint8 i = 0; i < number; i++) {
+      uint256 upkeepId = this.registerUpkeep(params);
+      upkeepIds[i] = upkeepId;
+    }
+    return upkeepIds;
+  }
+
+  function addFunds(uint256 upkeepId, uint96 amount) external {
+    linkToken.approve(address(registry), amount);
+    registry.addFunds(upkeepId, amount);
+  }
+
+  function updateCheckData(uint256 upkeepId, bytes calldata checkData) external {
+    registry.updateCheckData(upkeepId, checkData);
+  }
+
+  function cancelUpkeep(uint256 upkeepId) external {
+    registry.cancelUpkeep(upkeepId);
+    s_upkeepIDs.remove(upkeepId);
+    // keep data in mappings in case needed afterwards?
+  }
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
     uint256 startGas = gasleft();
 
-    (uint256 upkeepId, uint256 interval, uint256 checkGasToBurn, uint256 performGasToBurn, uint256 performDataSize) = abi.decode(
+    (uint256 upkeepId) = abi.decode(
       checkData,
-      (uint256, uint256, uint256, uint256, uint256)
+      (uint256)
     );
 
-    upkeepIdsToIntervals[upkeepId] = interval;
-    upkeepIdsToCheckGasToBurn[upkeepId] = checkGasToBurn;
-    upkeepIdsToPerformGasToBurn[upkeepId] = performGasToBurn;
-    upkeepIdsToPerformDataSize[upkeepId] = performDataSize;
-    bytes memory pData = abi.encode(upkeepId, performGasToBurn, new bytes(performDataSize));
+    uint256 performDataSize = upkeepIdsToPerformDataSize[upkeepId];
+    uint256 checkGasToBurn = upkeepIdsToCheckGasToBurn[upkeepId];
+    bytes memory pData = abi.encode(upkeepId, new bytes(performDataSize));
     uint256 blockNum = block.number;
     bool needed = eligible(upkeepId);
     while (startGas - gasleft() + 10000 < checkGasToBurn) {
@@ -46,10 +99,11 @@ contract UpkeepCounterStats {
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
-    (uint256 upkeepId, uint256 performGasToBurn, bytes memory performDataPlaceHolder) = abi.decode(
+    (uint256 upkeepId, bytes memory performDataPlaceHolder) = abi.decode(
       performData,
-      (uint256, uint256, bytes)
+      (uint256, bytes)
     );
+    uint256 performGasToBurn = upkeepIdsToPerformGasToBurn[upkeepId];
     uint256 initialBlock = upkeepIdsToInitialBlock[upkeepId];
     uint256 blockNum = block.number;
     uint256 interval = upkeepIdsToIntervals[upkeepId];
@@ -62,7 +116,7 @@ contract UpkeepCounterStats {
       upkeepIdsToDelay[upkeepId].push(delay);
     }
 
-    upkeepIdsToLastBlock[upkeepId] = blockNum;
+    //upkeepIdsToLastBlock[upkeepId] = blockNum;
     uint256 counter = upkeepIdsToCounter[upkeepId] + 1;
     upkeepIdsToCounter[upkeepId] = counter;
     emit PerformingUpkeep(initialBlock, blockNum, upkeepIdsToPreviousPerformBlock[upkeepId], counter, performData);
@@ -79,7 +133,7 @@ contract UpkeepCounterStats {
     if (upkeepIdsToInitialBlock[upkeepId] == 0) {
       return true;
     }
-    return (block.number - upkeepIdsToLastBlock[upkeepId]) >= upkeepIdsToIntervals[upkeepId];
+    return (block.number - upkeepIdsToPreviousPerformBlock[upkeepId]) >= upkeepIdsToIntervals[upkeepId];
   }
 
   function setPerformGasToBurn(uint256 upkeepId, uint256 value) public {
@@ -121,6 +175,21 @@ contract UpkeepCounterStats {
 
     for (i = 0; i < n; i++) sum = sum + delays[len - i - 1];
     return (sum, n);
+  }
+
+  function getPxDelayForAllUpkeeps(uint256 p) public view returns (uint256[] memory upkeepIds, uint256[] memory pxDelays) {
+    uint256 len = s_upkeepIDs.length();
+    uint256[] memory upkeepIds = new uint256[](len);
+    uint256[] memory pxDelays = new uint256[](len);
+
+    for (uint256 idx = 0; idx < len; idx++) {
+      uint256 upkeepId = s_upkeepIDs.at(idx);
+      uint256[] memory delays = upkeepIdsToDelay[upkeepId];
+      upkeepIds[idx] = upkeepId;
+      pxDelays[idx] = this.getPxDelayLastNPerforms(upkeepId, p, delays.length);
+    }
+
+    return (upkeepIds, pxDelays);
   }
 
   function getPxDelayLastNPerforms(uint256 upkeepId, uint256 p, uint256 n) public view returns (uint256) {
