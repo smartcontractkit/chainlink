@@ -34,14 +34,14 @@ contract UpkeepCounterStats {
     linkToken = registrar.LINK();
   }
 
-  function registerUpkeep(RegistrationParams memory params) external returns (uint256) {
+  function registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) external returns (uint256) {
     uint256 upkeepId = registrar.registerUpkeep(params);
     s_upkeepIDs.add(upkeepId);
     return upkeepId;
   }
 
   function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external returns (uint256[] memory) {
-    RegistrationParams memory params = RegistrationParams({
+    KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
       name: "test",
       encryptedEmail: '0x',
       upkeepContract: address(this),
@@ -116,7 +116,6 @@ contract UpkeepCounterStats {
       upkeepIdsToDelay[upkeepId].push(delay);
     }
 
-    //upkeepIdsToLastBlock[upkeepId] = blockNum;
     uint256 counter = upkeepIdsToCounter[upkeepId] + 1;
     upkeepIdsToCounter[upkeepId] = counter;
     emit PerformingUpkeep(initialBlock, blockNum, upkeepIdsToPreviousPerformBlock[upkeepId], counter, performData);
