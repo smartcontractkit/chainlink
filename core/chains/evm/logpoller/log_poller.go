@@ -526,14 +526,14 @@ func (lp *logPoller) run() {
 //	Block timestamps are extracted from blocks param.  If len(blocks) == 1, the same timestamp from this block
 //	will be used for all logs.  If len(blocks) == len(logs) then the block number of each block is used for the
 //	corresponding log.  Any other length for blocks is invalid.
-func (lp *logPoller) convertLogs(logs []types.Log, blocks []LogPollerBlock) []Log {
+func convertLogs(logs []types.Log, blocks []LogPollerBlock, lggr logger.Logger, chainID *big.Int) []Log {
 	var lgs []Log
 	blockTimestamp := time.Now()
 	if len(logs) == 0 {
 		return lgs
 	}
 	if len(blocks) != 1 && len(blocks) != len(logs) {
-		lp.lggr.Errorf("AssumptionViolation:  invalid params passed to convertLogs, length of blocks must either be 1 or match length of logs")
+		lggr.Errorf("AssumptionViolation:  invalid params passed to convertLogs, length of blocks must either be 1 or match length of logs")
 		return lgs
 	}
 
@@ -542,7 +542,7 @@ func (lp *logPoller) convertLogs(logs []types.Log, blocks []LogPollerBlock) []Lo
 			blockTimestamp = blocks[i].BlockTimestamp
 		}
 		lgs = append(lgs, Log{
-			EvmChainId: utils.NewBig(lp.ec.ChainID()),
+			EvmChainId: utils.NewBig(chainID),
 			LogIndex:   int64(l.Index),
 			BlockHash:  l.BlockHash,
 			// We assume block numbers fit in int64
@@ -593,13 +593,12 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		}
 		blocks, err := lp.blocksFromLogs(ctx, gethLogs)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to fetch block timestamps, retrying backfill later")
+			return err
 		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs))
-		logs := lp.convertLogs(gethLogs, blocks)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			return lp.orm.InsertLogs(logs, pg.WithQueryer(tx))
+			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID()), pg.WithQueryer(tx))
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
@@ -773,7 +772,12 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			if len(logs) == 0 {
 				return nil
 			}
-			return lp.orm.InsertLogs(lp.convertLogs(logs, []LogPollerBlock{{BlockNumber: currentBlockNumber, BlockTimestamp: currentBlock.Timestamp}}), pg.WithQueryer(tx))
+			return lp.orm.InsertLogs(convertLogs(logs,
+				[]LogPollerBlock{{BlockNumber: currentBlockNumber,
+					BlockTimestamp: currentBlock.Timestamp}},
+				lp.lggr,
+				lp.ec.ChainID(),
+			), pg.WithQueryer(tx))
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)

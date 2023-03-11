@@ -752,7 +752,7 @@ func TestLogPoller_convertLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, blocks, 2)
 
-	logs := th.LogPoller.convertLogs(gethLogs, blocks)
+	logs := th.LogPoller.ConvertLogs(gethLogs, blocks)
 	require.Len(t, logs, 2)
 
 	val, err := logs[0].Topics.Value()
@@ -777,33 +777,55 @@ func TestLogPoller_convertLogs(t *testing.T) {
 	assert.Equal(t, topics[1], topics1[0])
 }
 
-func TestLogPoller_ConvertLogsInputParams(t *testing.T) {
+type ConvertLogsTestCases struct {
+	name     string
+	logs     []types.Log
+	blocks   []LogPollerBlock
+	expected int
+}
+
+func TestLogPoller_ConvertLogs(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, 2, 3, 2)
+	lggr := logger.TestLogger(t)
 
-	t.Run("EmptyList",
-		func(t *testing.T) {
-			logs := th.LogPoller.convertLogs([]types.Log{}, []LogPollerBlock{})
-			assert.Len(t, logs, 0)
+	topics := []common.Hash{EmitterABI.Events["Log1"].ID}
+
+	cases := []ConvertLogsTestCases{
+		{"SingleBlock",
+			[]types.Log{{Topics: topics}, {Topics: topics}},
+			[]LogPollerBlock{{BlockTimestamp: time.Now()}},
+			2},
+		{"BlockList",
+			[]types.Log{{Topics: topics}, {Topics: topics}, {Topics: topics}},
+			[]LogPollerBlock{{BlockTimestamp: time.Now()}},
+			3},
+		{"EmptyList",
+			[]types.Log{},
+			[]LogPollerBlock{},
+			0},
+		{"TooManyBlocks",
+			[]types.Log{{}},
+			[]LogPollerBlock{{}, {}},
+			0},
+		{"TooFewBlocks",
+			[]types.Log{{}, {}, {}},
+			[]LogPollerBlock{{}, {}},
+			0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			logs := convertLogs(c.logs, c.blocks, lggr, big.NewInt(53))
+			require.Len(t, logs, c.expected)
+			for i := 0; i < c.expected; i++ {
+				if len(c.blocks) == 1 {
+					assert.Equal(t, c.blocks[0].BlockTimestamp, logs[i].BlockTimestamp)
+				} else {
+					assert.Equal(t, logs[i].BlockTimestamp, c.blocks[i].BlockTimestamp)
+				}
+			}
 		})
-
-	log1 := types.Log{BlockNumber: 5}
-	log2 := types.Log{BlockNumber: 8}
-	log3 := types.Log{BlockNumber: 10}
-	block1 := LogPollerBlock{BlockNumber: 5}
-	block2 := LogPollerBlock{BlockNumber: 8}
-
-	t.Run("TooManyBlocks",
-		func(t *testing.T) {
-			logs := th.LogPoller.convertLogs([]types.Log{log1}, []LogPollerBlock{block1, block2})
-			assert.Len(t, logs, 0)
-		})
-
-	t.Run("TooFewBlocks",
-		func(t *testing.T) {
-			logs := th.LogPoller.convertLogs([]types.Log{log1, log2, log3}, []LogPollerBlock{block1, block2})
-			assert.Len(t, logs, 0)
-		})
+	}
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
