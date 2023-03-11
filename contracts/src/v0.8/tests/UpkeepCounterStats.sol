@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
@@ -99,7 +100,7 @@ contract UpkeepCounterStats {
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
-    (uint256 upkeepId, bytes memory performDataPlaceHolder) = abi.decode(
+    (uint256 upkeepId, ) = abi.decode(
       performData,
       (uint256, bytes)
     );
@@ -176,7 +177,7 @@ contract UpkeepCounterStats {
     return (sum, n);
   }
 
-  function getPxDelayForAllUpkeeps(uint256 p) public view returns (uint256[] memory upkeepIds, uint256[] memory pxDelays) {
+  function getPxDelayForAllUpkeeps(uint256 p) public view returns (uint256[] memory, uint256[] memory) {
     uint256 len = s_upkeepIDs.length();
     uint256[] memory upkeepIds = new uint256[](len);
     uint256[] memory pxDelays = new uint256[](len);
