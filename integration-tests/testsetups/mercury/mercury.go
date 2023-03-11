@@ -123,6 +123,8 @@ func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
 		testEnv.EnvTTL = 20 * time.Minute
 	}
 	testEnv.Config = c
+	randomId, _ := uuid.NewV4()
+	testEnv.Config.FeedId = fmt.Sprintf("feed-%s", randomId)
 	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
 	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
 	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
@@ -232,15 +234,12 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		require.NoError(e.T, err)
 	} else {
 		// Deploy new contracts and setup jobs
-		var feedIdStr = "ETH-USD-1"
-		var feedId = StringToByte32(feedIdStr)
-		e.Config.FeedId = feedIdStr
-
 		nodesWithoutBootstrap := chainlinkNodes[1:]
 		ocrConfig, err := BuildMercuryOCRConfig(nodesWithoutBootstrap)
 		require.NoError(e.T, err)
 
-		verifier, verifierProxy, exchanger, _, _ := SetupMercuryContracts(
+		feedId := StringToByte32(e.Config.FeedId)
+		verifier, verifierProxy, exchanger, _, _ := DeployMercuryContracts(
 			evmClient, "", feedId, *ocrConfig)
 		e.VerifierContract = verifier
 		e.VerifierProxyContract = verifierProxy
@@ -249,14 +248,20 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		e.Config.VerifierProxyAddress = verifierProxy.Address()
 		e.Config.ExchangerAddress = exchanger.Address()
 
+		// Setup feed verifier contract
+		verifier.SetConfig(feedId, *ocrConfig)
+		c, err := verifier.LatestConfigDetails(feedId)
+		require.NoError(e.T, err)
+		log.Info().Msgf("Latest Verifier config digest: %x", c.ConfigDigest)
+		verifierProxy.InitializeVerifier(c.ConfigDigest, verifier.Address())
+
+		// Setup jobs on the nodes
 		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
 		require.NoError(e.T, err)
 		msRemoteUrl := env.URLs[mshelm.URLsKey][0]
 		e.SetupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifier.Address(),
 			feedId, latestBlockNum, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
 		e.Config.MSRemoteUrl = msRemoteUrl
-
-		verifier.SetConfig(feedId, *ocrConfig)
 
 		e.WaitForDONReports()
 	}

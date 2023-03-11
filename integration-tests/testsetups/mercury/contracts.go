@@ -6,7 +6,6 @@ import (
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -78,7 +77,7 @@ func CreateCommitmentHash(order Order) common.Hash {
 	return crypto.Keccak256Hash(bytes)
 }
 
-func SetupMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (
+func DeployMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (
 	contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, contracts.ReadAccessController, error) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	if err != nil {
@@ -101,15 +100,6 @@ func SetupMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, fee
 	if err != nil {
 		return nil, verifierProxy, nil, accessController, err
 	}
-
-	latestConfigDetails, err := verifier.LatestConfigDetails(feedId)
-	if err != nil {
-		return verifier, verifierProxy, nil, accessController, err
-	}
-	log.Info().Msgf("Latest config digest: %x", latestConfigDetails.ConfigDigest)
-	log.Info().Msgf("Latest config details: %v", latestConfigDetails)
-
-	verifierProxy.InitializeVerifier(latestConfigDetails.ConfigDigest, verifier.Address())
 
 	exchanger, err := contractDeployer.DeployExchanger(verifierProxy.Address(), lookupUrl, 255)
 	if err != nil {
