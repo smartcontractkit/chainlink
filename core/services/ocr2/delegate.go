@@ -528,7 +528,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
-		drProvider, err2 := evmrelay.NewOCR2DRProvider(
+		functionsProvider, err2 := evmrelay.NewFunctionsProvider(
 			d.chainSet,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
@@ -541,13 +541,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
-			lggr.Named("OCR2DRRelayer"),
+			lggr.Named("FunctionsRelayer"),
 			d.ethKs,
 		)
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = drProvider
+		ocr2Provider = functionsProvider
 
 		var relayConfig evmrelaytypes.RelayConfig
 		err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
