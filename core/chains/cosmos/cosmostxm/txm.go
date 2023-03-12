@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,12 +46,12 @@ type Txm struct {
 	tc         func() (cosmosclient.ReaderWriter, error)
 	ks         keystore.Cosmos
 	stop, done chan struct{}
-	cfg        adapters.Config
+	cfg        coscfg.Config
 	gpe        cosmosclient.ComposedGasPriceEstimator
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg adapters.Config, ks keystore.Cosmos, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
+func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks keystore.Cosmos, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},

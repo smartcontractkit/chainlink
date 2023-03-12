@@ -6,6 +6,8 @@ import (
 	adapters "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	client "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 
+	config "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+
 	context "context"
 
 	db "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
@@ -33,15 +35,15 @@ func (_m *Chain) Close() error {
 }
 
 // Config provides a mock function with given fields:
-func (_m *Chain) Config() adapters.Config {
+func (_m *Chain) Config() config.Config {
 	ret := _m.Called()
 
-	var r0 adapters.Config
-	if rf, ok := ret.Get(0).(func() adapters.Config); ok {
+	var r0 config.Config
+	if rf, ok := ret.Get(0).(func() config.Config); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(adapters.Config)
+			r0 = ret.Get(0).(config.Config)
 		}
 	}
 

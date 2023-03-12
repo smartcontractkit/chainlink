@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -69,7 +70,7 @@ func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (adapters.Chain, error) {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
 	id := dbchain.ID
-	cfg := adapters.NewConfig(*dbchain.Cfg, o.Logger)
+	cfg := coscfg.NewConfig(*dbchain.Cfg, o.Logger)
 	return newChain(id, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
 }
 
