@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -121,6 +122,38 @@ func TestGetJsonParsedValue(t *testing.T) {
 				Value: "1234567890",
 			},
 		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds2_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1234567890",
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds3_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1234567890",
+			},
+		},
 	}
 
 	resp := getJsonParsedValue(trrs[0], &trrs)
@@ -136,6 +169,7 @@ func TestGetJsonParsedValue(t *testing.T) {
 }
 
 func TestSendEATelemetry(t *testing.T) {
+	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
@@ -143,6 +177,7 @@ func TestSendEATelemetry(t *testing.T) {
 	var sentMessage []byte
 	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
 		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+		wg.Done()
 	})
 
 	feedAddress := utils.RandomAddress()
@@ -183,7 +218,8 @@ func TestSendEATelemetry(t *testing.T) {
 		FatalErrors: []error{nil},
 	}
 
-	collectEATelemetry(&ds, &trrs, &fr)
+	wg.Add(1)
+	collectEATelemetry(ds, trrs, fr)
 
 	expectedTelemetry := telem.TelemEnhancedEA{
 		DataSource:                    "data_source_test",
@@ -204,5 +240,60 @@ func TestSendEATelemetry(t *testing.T) {
 	}
 
 	expectedMessage, _ := proto.Marshal(&expectedTelemetry)
+	wg.Wait()
 	assert.Equal(t, expectedMessage, sentMessage)
+}
+
+func BenchmarkCollectEATelemetry(b *testing.B) {
+	wg := sync.WaitGroup{}
+	ingressClient := mocks.NewTelemetryIngressClient(b)
+	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+
+	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
+		wg.Done()
+	})
+
+	ds := inMemoryDataSource{
+		jb: job.Job{
+			Type: job.Type(pipeline.OffchainReportingJobType),
+			OCROracleSpec: &job.OCROracleSpec{
+				ContractAddress:    ethkey.EIP55AddressFromAddress(utils.RandomAddress()),
+				CaptureEATelemetry: true,
+				EVMChainID:         (*utils.Big)(big.NewInt(9)),
+			},
+		},
+		lggr:               nil,
+		monitoringEndpoint: monitoringEndpoint,
+	}
+	trrs := pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds1", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1234567890",
+			},
+		},
+	}
+	finalResult := pipeline.FinalResult{
+		Values:      []interface{}{"123456"},
+		AllErrors:   nil,
+		FatalErrors: []error{nil},
+	}
+	wg.Add(b.N)
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		collectEATelemetry(ds, trrs, finalResult)
+	}
+	wg.Wait()
 }
