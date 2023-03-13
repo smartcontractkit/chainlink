@@ -501,6 +501,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		}
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	ocrMetricFactory := ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec)
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
@@ -515,7 +516,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		RestrictedHTTPClient:     c,
 		UnrestrictedHTTPClient:   c,
 		SecretGenerator:          MockSecretGenerator{},
-		OCRMetricFactory:         ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
+		OCRMetricFactory:         ocrMetricFactory,
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
