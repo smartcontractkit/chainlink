@@ -128,7 +128,7 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pip
 	finalResult := trrs.FinalResult(ds.lggr)
 	promSetBridgeParseMetrics(ds, &trrs)
 	promSetFinalResultMetrics(ds, &finalResult)
-	collectEATelemetry(*ds, &trrs, &finalResult)
+	collectEATelemetry(ds, &trrs, &finalResult)
 
 	return run, finalResult, err
 }

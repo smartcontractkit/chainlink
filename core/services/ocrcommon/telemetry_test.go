@@ -220,7 +220,7 @@ func TestSendEATelemetry(t *testing.T) {
 	}
 
 	wg.Add(1)
-	collectEATelemetry(ds, &trrs, &fr)
+	collectEATelemetry(&ds, &trrs, &fr)
 
 	expectedTelemetry := telem.TelemEnhancedEA{
 		DataSource:                    "data_source_test",
@@ -276,7 +276,7 @@ func BenchmarkCollectEATelemetry(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		collectEATelemetry(ds, &trrs, &finalResult)
+		collectEATelemetry(&ds, &trrs, &finalResult)
 	}
 	wg.Wait()
 }
