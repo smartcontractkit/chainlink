@@ -285,12 +285,12 @@ func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork
 			"app": map[string]interface{}{
 				"resources": map[string]interface{}{
 					"requests": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4048Mi",
+						"cpu":    "8000m",
+						"memory": "8048Mi",
 					},
 					"limits": map[string]interface{}{
-						"cpu":    "4000m",
-						"memory": "4048Mi",
+						"cpu":    "8000m",
+						"memory": "8048Mi",
 					},
 				},
 			},
