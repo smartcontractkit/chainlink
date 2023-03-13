@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -32,7 +31,7 @@ func BuildAutoOCR2ConfigVars(
 	registrar string,
 	deltaStage time.Duration,
 ) contracts.OCRConfig {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -98,7 +97,7 @@ func CreateOCRKeeperJobs(
 	chainID int64,
 	keyIndex int,
 ) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()

@@ -10,15 +10,16 @@ import (
 
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMercurySmoke(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 
 	testEnv := mercury.NewMercuryTestEnv(t, "smoke")
 	testEnv.SetupFullMercuryEnv(nil, nil)
@@ -29,8 +30,6 @@ func TestMercurySmoke(t *testing.T) {
 	)
 
 	t.Run("test mercury server has report for the latest block number", func(t *testing.T) {
-		t.Skip("askdlASDSADSADSASDSDASASDA")
-
 		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 		_ = latestBlockNum
 		require.NoError(t, err, "Err getting latest block number")

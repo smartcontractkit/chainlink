@@ -97,10 +97,11 @@ type ReplayRequest struct {
 // NewLogPoller creates a log poller. Note there is an assumption
 // that blocks can be processed faster than they are produced for the given chain, or the poller will fall behind.
 // Block processing involves the following calls in steady state (without reorgs):
-// - eth_getBlockByNumber - headers only (transaction hashes, not full transaction objects),
-// - eth_getLogs - get the logs for the block
-// - 1 db read latest block - for checking reorgs
-// - 1 db tx including block write and logs write to logs.
+//   - eth_getBlockByNumber - headers only (transaction hashes, not full transaction objects),
+//   - eth_getLogs - get the logs for the block
+//   - 1 db read latest block - for checking reorgs
+//   - 1 db tx including block write and logs write to logs.
+//
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
@@ -179,8 +180,10 @@ func (filter *Filter) contains(other *Filter) bool {
 // the log poller will pick those up and save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then Replay in order to ensure desired logs are present.
 // NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
-// RegisterFilter(event1, addr1)
-// RegisterFilter(event2, addr2)
+//
+//	RegisterFilter(event1, addr1)
+//	RegisterFilter(event2, addr2)
+//
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
