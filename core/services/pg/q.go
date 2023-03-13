@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -87,12 +86,6 @@ func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
 	}
 }
 
-func WithErrorBuf(eb *utils.ErrorBuffer) func(q *Q) {
-	return func(q *Q) {
-		q.errorBuf = eb
-	}
-}
-
 // WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
 func WithLongQueryTimeout() func(q *Q) {
@@ -106,7 +99,6 @@ var _ Queryer = Q{}
 type QConfig interface {
 	LogSQL() bool
 	DatabaseDefaultQueryTimeout() time.Duration
-	// SvcErrBuffer() utils.ErrorBuffer
 }
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
@@ -129,12 +121,9 @@ type Q struct {
 	logger       logger.Logger
 	config       QConfig
 	QueryTimeout time.Duration
-
-	errorBuf *utils.ErrorBuffer
 }
 
 func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
-	q.errorBuf = &utils.ErrorBuffer{}
 	for _, opt := range qopts {
 		opt(&q)
 	}
@@ -359,7 +348,6 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 
 	if elapsed >= timeout {
 		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
-		q.errorBuf.Append(fmt.Errorf("SLOW SQL QUERY +%v", kvs...))
 	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
 		q.logger.Errorw("SLOW SQL QUERY", kvs...)
 	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {
