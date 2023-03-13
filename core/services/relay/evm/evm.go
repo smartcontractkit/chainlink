@@ -109,7 +109,10 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 
 	reportCodec := reportcodec.NewEVMReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodec"))
 
-	privKey, err := r.ks.CSA().Get(relayConfig.TransmitterID)
+	if !relayConfig.EffectiveTransmitterID.Valid {
+		return nil, errors.New("EffectiveTransmitterID must be specified")
+	}
+	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
@@ -280,10 +283,10 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	}
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
-	if !relayConfig.EffectiveTransmitterAddress.Valid {
-		return nil, errors.New("EffectiveTransmitterAddress must be specified")
+	if !relayConfig.EffectiveTransmitterID.Valid {
+		return nil, errors.New("EffectiveTransmitterID must be specified")
 	}
-	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 
 	sendingKeysLength := len(sendingKeys)
 	if sendingKeysLength == 0 {
@@ -346,10 +349,10 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		return nil, err
 	}
 
-	if !relayConfig.EffectiveTransmitterAddress.Valid {
-		return nil, errors.New("EffectiveTransmitterAddress must be specified")
+	if !relayConfig.EffectiveTransmitterID.Valid {
+		return nil, errors.New("EffectiveTransmitterID must be specified")
 	}
-	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())

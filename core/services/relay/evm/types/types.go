@@ -10,13 +10,12 @@ import (
 )
 
 type RelayConfig struct {
-	ChainID       *utils.Big `json:"chainID"`
-	FromBlock     uint64     `json:"fromBlock"`
-	TransmitterID string     `json:"transmitterID"`
+	ChainID                *utils.Big  `json:"chainID"`
+	FromBlock              uint64      `json:"fromBlock"`
+	EffectiveTransmitterID null.String `json:"effectiveTransmitterID"`
 
 	// Contract-specific
-	EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
-	SendingKeys                 pq.StringArray `json:"sendingKeys"`
+	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
 	FeedID *common.Hash `json:"feedID"`

@@ -128,8 +128,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
-
-	spec.RelayConfig["transmitterID"] = transmitterID
+	effectiveTransmitterID := transmitterID
 
 	lggr := logger.Sugared(d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
@@ -164,23 +163,27 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
 		}
 
-		if spec.RelayConfig["sendingKeys"] == nil {
-			spec.RelayConfig["sendingKeys"] = []string{transmitterID}
-		}
+		if spec.PluginType != job.Mercury {
+			if !common.IsHexAddress(transmitterID) {
+				return nil, errors.Errorf("transmitterID is not valid EVM hex address, got: %v", transmitterID)
+			}
+			if spec.RelayConfig["sendingKeys"] == nil {
+				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
+			}
 
-		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
-		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
-		effectiveTransmitterAddress := transmitterID
-		if jb.ForwardingAllowed {
-			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
-			if fwderr == nil {
-				effectiveTransmitterAddress = fwdrAddress.String()
-			} else {
-				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+			// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+			// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+			if jb.ForwardingAllowed { // FIXME: ForwardingAllowed cannot be set with Mercury, validate this
+				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
+				if fwderr == nil {
+					effectiveTransmitterID = fwdrAddress.String()
+				} else {
+					lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+				}
 			}
 		}
-		spec.RelayConfig["effectiveTransmitterAddress"] = effectiveTransmitterAddress
 	}
+	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
 
 	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg)
 	peerWrapper := d.peerWrapper
