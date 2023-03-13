@@ -11,7 +11,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -53,8 +52,6 @@ type BasicConfig interface {
 	FeatureFlags
 	audit.Config
 
-	AdvisoryLockCheckInterval() time.Duration
-	AdvisoryLockID() int64
 	AllowOrigins() string
 	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
@@ -70,8 +67,6 @@ type BasicConfig interface {
 	AutoPprofMutexProfileFraction() int
 	AutoPprofPollInterval() models.Duration
 	AutoPprofProfileRoot() string
-	BlockBackfillDepth() uint64
-	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
 	BridgeCacheTTL() time.Duration
 	CertFile() string
@@ -94,7 +89,6 @@ type BasicConfig interface {
 	Dev() bool
 	ShutdownGracePeriod() time.Duration
 	EthereumHTTPURL() *url.URL
-	EthereumNodes() string
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string
 	ExplorerAccessKey() string
@@ -102,7 +96,6 @@ type BasicConfig interface {
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
-	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
 	InsecureFastScrypt() bool
@@ -154,8 +147,6 @@ type BasicConfig interface {
 	SentryRelease() string
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
-	SolanaNodes() string
-	StarkNetNodes() string
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string
@@ -184,76 +175,8 @@ type BasicConfig interface {
 	P2PV2Networking
 }
 
-// GlobalConfig holds global ENV overrides for EVM chains
-// If set the global ENV will override everything
-// The second bool indicates if it is set or not
-type GlobalConfig interface {
-	GlobalBalanceMonitorEnabled() (bool, bool)
-	GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool)
-	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
-	GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool)
-	GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool)
-	GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool)
-	GlobalBlockHistoryEstimatorCheckInclusionBlocks() (uint16, bool)
-	GlobalBlockHistoryEstimatorCheckInclusionPercentile() (uint16, bool)
-	GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool)
-	GlobalChainType() (string, bool)
-	GlobalEthTxReaperInterval() (time.Duration, bool)
-	GlobalEthTxReaperThreshold() (time.Duration, bool)
-	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
-	GlobalEvmEIP1559DynamicFees() (bool, bool)
-	GlobalEvmFinalityDepth() (uint32, bool)
-	GlobalEvmGasBumpPercent() (uint16, bool)
-	GlobalEvmGasBumpThreshold() (uint64, bool)
-	GlobalEvmGasBumpTxDepth() (uint16, bool)
-	GlobalEvmGasBumpWei() (*assets.Wei, bool)
-	GlobalEvmGasFeeCapDefault() (*assets.Wei, bool)
-	GlobalEvmGasLimitDefault() (uint32, bool)
-	GlobalEvmGasLimitMax() (uint32, bool)
-	GlobalEvmGasLimitMultiplier() (float32, bool)
-	GlobalEvmGasLimitTransfer() (uint32, bool)
-	GlobalEvmGasLimitOCRJobType() (uint32, bool)
-	GlobalEvmGasLimitDRJobType() (uint32, bool)
-	GlobalEvmGasLimitVRFJobType() (uint32, bool)
-	GlobalEvmGasLimitFMJobType() (uint32, bool)
-	GlobalEvmGasLimitKeeperJobType() (uint32, bool)
-	GlobalEvmGasPriceDefault() (*assets.Wei, bool)
-	GlobalEvmGasTipCapDefault() (*assets.Wei, bool)
-	GlobalEvmGasTipCapMinimum() (*assets.Wei, bool)
-	GlobalEvmHeadTrackerHistoryDepth() (uint32, bool)
-	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
-	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
-	GlobalEvmLogBackfillBatchSize() (uint32, bool)
-	GlobalEvmLogPollInterval() (time.Duration, bool)
-	GlobalEvmLogKeepBlocksDepth() (uint32, bool)
-	GlobalEvmMaxGasPriceWei() (*assets.Wei, bool)
-	GlobalEvmMaxInFlightTransactions() (uint32, bool)
-	GlobalEvmMaxQueuedTransactions() (uint64, bool)
-	GlobalEvmMinGasPriceWei() (*assets.Wei, bool)
-	GlobalEvmNonceAutoSync() (bool, bool)
-	GlobalEvmUseForwarders() (bool, bool)
-	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
-	GlobalFlagsContractAddress() (string, bool)
-	GlobalGasEstimatorMode() (string, bool)
-	GlobalLinkContractAddress() (string, bool)
-	GlobalOCRContractConfirmations() (uint16, bool)
-	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
-	GlobalOCRDatabaseTimeout() (time.Duration, bool)
-	GlobalOCRObservationGracePeriod() (time.Duration, bool)
-	GlobalOCR2AutomationGasLimit() (uint32, bool)
-	GlobalOperatorFactoryAddress() (string, bool)
-	GlobalMinIncomingConfirmations() (uint32, bool)
-	GlobalMinimumContractPayment() (*assets.Link, bool)
-	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
-	GlobalNodePollFailureThreshold() (uint32, bool)
-	GlobalNodePollInterval() (time.Duration, bool)
-	GlobalNodeSelectionMode() (string, bool)
-	GlobalNodeSyncThreshold() (uint32, bool)
-}
-
 type GeneralConfig interface {
 	BasicConfig
-	GlobalConfig
 }
 
 func ValidateDBURL(dbURI url.URL) error {

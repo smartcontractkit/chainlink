@@ -8,8 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog"
-
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/require"
 
@@ -25,7 +23,7 @@ import (
 )
 
 func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, vrfBeacon contracts.VRFBeacon) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	ocr2VrfConfig := BuildOCR2VRFConfigVars(t, ocr2VRFPluginConfig)
 	l.Debug().Interface("OCR2 VRF Config", ocr2VrfConfig).Msg("OCR2 VRF Config prepared")
 
@@ -45,7 +43,7 @@ func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OC
 }
 
 func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, dkg contracts.DKG) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	ocr2DkgConfig := BuildOCR2DKGConfigVars(t, ocr2VRFPluginConfig)
 
 	// set config for DKG OCR
@@ -153,7 +151,7 @@ func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chai
 	return ocr2VRFPluginConfig
 }
 
-func FundVRFCoordinatorSubscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient blockchain.EVMClient, subscriptionID, linkFundingAmount *big.Int) {
+func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient blockchain.EVMClient, subscriptionID, linkFundingAmount *big.Int) {
 	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint256"}]`, subscriptionID)
 	require.NoError(t, err, "Error Abi encoding subscriptionID")
 	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
@@ -202,7 +200,7 @@ func RequestAndRedeemRandomness(
 	subscriptionID,
 	confirmationDelay *big.Int,
 ) *big.Int {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomness(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
@@ -214,7 +212,7 @@ func RequestAndRedeemRandomness(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
-	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
+	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
@@ -237,7 +235,7 @@ func RequestRandomnessFulfillment(
 	subscriptionID *big.Int,
 	confirmationDelay *big.Int,
 ) *big.Int {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomnessFulfillment(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
@@ -251,7 +249,7 @@ func RequestRandomnessFulfillment(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
-	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
+	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
@@ -263,7 +261,7 @@ func RequestRandomnessFulfillment(
 	return requestID
 }
 
-func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay, subscriptionID *big.Int) *big.Int {
+func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay *big.Int) *big.Int {
 	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
 	require.NoError(t, err, "Error getting Beacon Period block count")
 
@@ -331,7 +329,7 @@ func SetupOCR2VRFUniverse(
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
 	//3.	fund subscription with LINK token
-	FundVRFCoordinatorSubscription(
+	FundVRFCoordinatorV3Subscription(
 		t,
 		linkToken,
 		coordinatorContract,

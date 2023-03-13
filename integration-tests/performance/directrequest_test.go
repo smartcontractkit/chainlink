@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -29,7 +28,7 @@ import (
 )
 
 func TestDirectRequestPerformance(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment := setupDirectRequestTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

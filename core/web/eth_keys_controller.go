@@ -131,58 +131,6 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusCreated)
 }
 
-// Update an ETH key's parameters
-// Example:
-// "PUT <application>/keys/eth/:keyID?maxGasPriceGWei=12345"
-func (ekc *ETHKeysController) Update(c *gin.Context) {
-	ethKeyStore := ekc.app.GetKeyStore().Eth()
-
-	if c.Query("maxGasPriceGWei") == "" {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("no parameters passed to update"))
-		return
-	}
-
-	if c.Query("maxGasPriceGWei") != "" {
-		jsonAPIError(c, http.StatusUnprocessableEntity, v2.ErrUnsupported)
-		return
-	}
-
-	chain, err := getChain(ekc.app.GetChains().EVM, c.Query("evmChainID"))
-	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	keyID := c.Param("keyID")
-	state, err := ethKeyStore.GetState(keyID, chain.ID())
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	key, err := ethKeyStore.Get(keyID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	r := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(c.Request.Context(), state),
-		ekc.setKeyMaxGasPriceWei(state, key.Address),
-	)
-
-	ekc.app.GetAuditLogger().Audit(audit.KeyUpdated, map[string]interface{}{
-		"type": "ethereum",
-		"id":   keyID,
-	})
-
-	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
-}
-
 // Delete an ETH key bundle (irreversible!)
 // Example:
 // "DELETE <application>/keys/eth/:keyID"
