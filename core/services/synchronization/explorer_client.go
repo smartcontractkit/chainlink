@@ -150,7 +150,7 @@ func (ec *explorerClient) Name() string {
 
 func (ec *explorerClient) HealthReport() map[string]error {
 	return map[string]error{
-		ec.Name(): ec.SvcErrBuffer.Flush(),
+		ec.Name(): ec.StartStopOnce.Healthy(),
 	}
 }
 
