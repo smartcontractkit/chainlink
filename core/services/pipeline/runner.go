@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
@@ -147,7 +147,7 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
+	return map[string]error{r.Name(): r.StartStopOnce.Healthy()}
 }
 
 func (r *runner) destroy() {
@@ -227,7 +227,7 @@ func (r *runner) ExecuteRun(
 	taskRunResults := r.run(ctx, pipeline, &run, vars, l)
 
 	if run.Pending {
-		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
+		return run, nil, pkgerrors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
 	return run, taskRunResults, nil
@@ -288,7 +288,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		if task != nil && task.Base() != nil {
 			task.Base().uuid = taskRun.ID
 		} else {
-			return nil, errors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
+			return nil, pkgerrors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
 		}
 	}
 
@@ -480,7 +480,7 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
-		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return 0, finalResult, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
 	finalResult = trrs.FinalResult(l)
@@ -491,7 +491,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	}
 
 	if err = r.orm.InsertFinishedRun(&run, saveSuccessfulTaskRuns); err != nil {
-		return 0, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+		return 0, finalResult, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return run.ID, finalResult, nil
 
@@ -546,7 +546,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			// FailSilently = run failed and task was marked failEarly. skip StoreRun and instead delete all trace of it
 			if run.FailSilently {
 				if err = r.orm.DeleteRun(run.ID); err != nil {
-					return false, errors.Wrap(err, "Run")
+					return false, pkgerrors.Wrap(err, "Run")
 				}
 				return false, nil
 			}
@@ -554,7 +554,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			var restart bool
 			restart, err = r.orm.StoreRun(run)
 			if err != nil {
-				return false, errors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
+				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
 					run.PipelineSpec.ID, run.State, run.Outputs, run.FatalErrors, run.FinishedAt)
 			}
 
@@ -564,7 +564,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			}
 		} else {
 			if run.Pending {
-				return false, errors.Wrapf(err, "a run without async returned as pending")
+				return false, pkgerrors.Wrapf(err, "a run without async returned as pending")
 			}
 			// don't insert if we exited early
 			if run.FailSilently {
@@ -572,7 +572,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			}
 
 			if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, pg.WithParentCtx(ctx)); err != nil {
-				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
 
@@ -621,6 +621,7 @@ func (r *runner) runReaper() {
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+		r.SvcErrBuffer.Append(err)
 	} else {
 		r.lggr.Debugw("Pipeline run reaper completed successfully")
 	}
