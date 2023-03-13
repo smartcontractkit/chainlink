@@ -1,34 +1,13 @@
 package tools
 
 import (
-	"fmt"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
-
-var ReportTypes = GetReportTypes()
-
-func mustNewType(t string) abi.Type {
-	result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-	if err != nil {
-		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-	}
-	return result
-}
-
-func GetReportTypes() abi.Arguments {
-	return []abi.Argument{
-		{Name: "feedId", Type: mustNewType("bytes32")},
-		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
-		{Name: "observationsBlocknumber", Type: mustNewType("uint64")},
-		{Name: "median", Type: mustNewType("int192")},
-	}
-}
 
 type MercuryHTTPGun struct {
 	BaseURL   string
@@ -43,7 +22,7 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn 
 		BaseURL: baseURL,
 		client:  client,
 		feedID:  feedID,
-	}
+}
 	g.Bn.Store(bn)
 	return g
 }
