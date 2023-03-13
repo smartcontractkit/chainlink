@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -66,9 +65,9 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         config.GeneralConfig // initialized in Before
-	Logger                         logger.Logger        // initialized in Before
-	CloseLogger                    func() error         // called in After
+	Config                         chainlink.GeneralConfig // initialized in Before
+	Logger                         logger.Logger           // initialized in Before
+	CloseLogger                    func() error            // called in After
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -90,14 +89,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	// Avoid double initializations.
 	initOnce.Do(func() {
 		initPrometheus(cfg)
@@ -150,20 +149,14 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
-		if h, ok := cfg.(v2.HasEVMConfigs); ok {
-			var ids []utils.Big
-			for _, c := range h.EVMConfigs() {
-				c := c
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup EVM chains")
-				}
-			}
-		} else {
-			if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
-				return nil, err
+		var ids []utils.Big
+		for _, c := range cfg.EVMConfigs() {
+			c := c
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
 	}
@@ -178,7 +171,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		MailMon:          mailMon,
 	}
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
+	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
@@ -190,29 +183,19 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			DB:       db,
 			KeyStore: keyStore.Solana(),
 		}
-		if newCfg, ok := cfg.(interface {
-			SolanaConfigs() solana.SolanaConfigs
-		}); ok {
-			cfgs := newCfg.SolanaConfigs()
-			var ids []string
-			for _, c := range cfgs {
-				c := c
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup Solana chains")
-				}
-			}
-			opts.ORM = solana.NewORMImmut(cfgs)
-			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
-		} else {
-			if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Solana nodes")
-			}
-			opts.ORM = solana.NewORM(db, solLggr, cfg)
-			chains.Solana, err = solana.NewChainSet(opts)
+		cfgs := cfg.SolanaConfigs()
+		var ids []string
+		for _, c := range cfgs {
+			c := c
+			ids = append(ids, *c.ChainID)
 		}
+		if len(ids) > 0 {
+			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Solana chains")
+			}
+		}
+		opts.ORM = solana.NewORMImmut(cfgs)
+		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
@@ -225,29 +208,19 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			Logger:   starkLggr,
 			KeyStore: keyStore.StarkNet(),
 		}
-		if newCfg, ok := cfg.(interface {
-			StarknetConfigs() starknet.StarknetConfigs
-		}); ok {
-			cfgs := newCfg.StarknetConfigs()
-			var ids []string
-			for _, c := range cfgs {
-				c := c
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup StarkNet chains")
-				}
-			}
-			opts.ORM = starknet.NewORMImmut(cfgs)
-			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
-		} else {
-			if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
-				return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
-			}
-			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
-			chains.StarkNet, err = starknet.NewChainSet(opts)
+		cfgs := cfg.StarknetConfigs()
+		var ids []string
+		for _, c := range cfgs {
+			c := c
+			ids = append(ids, *c.ChainID)
 		}
+		if len(ids) > 0 {
+			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
+			}
+		}
+		opts.ORM = starknet.NewORMImmut(cfgs)
+		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
@@ -279,7 +252,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	})
 }
 
-func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -402,7 +375,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.BasicConfig, runServer func() error) {
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -438,7 +411,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTSPort=0 in your config)")
+	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {

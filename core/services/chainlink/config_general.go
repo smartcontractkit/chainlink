@@ -39,11 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type ConfigV2 interface {
-	// ConfigTOML returns both the user provided and effective configuration as TOML.
-	ConfigTOML() (user, effective string)
-}
-
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
 	lggr simplelogger.Logger
@@ -104,7 +99,7 @@ func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
-func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+func (o GeneralConfigOpts) New(lggr logger.Logger) (GeneralConfig, error) {
 	cfg, err := o.init()
 	if err != nil {
 		return nil, err
@@ -113,8 +108,8 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 	return cfg, nil
 }
 
-// NewAndLogger returns a coreconfig.GeneralConfig for the given options, and a logger.Logger (with close func).
-func (o GeneralConfigOpts) NewAndLogger() (coreconfig.GeneralConfig, logger.Logger, func() error, error) {
+// NewAndLogger returns a GeneralConfig for the given options, and a logger.Logger (with close func).
+func (o GeneralConfigOpts) NewAndLogger() (GeneralConfig, logger.Logger, func() error, error) {
 	cfg, err := o.init()
 	if err != nil {
 		return nil, nil, nil, err
@@ -206,24 +201,8 @@ func (g *generalConfig) Validate() error {
 	return err
 }
 
-//go:embed cfgtest/dump/empty-strings.env
+//go:embed legacy.env
 var emptyStringsEnv string
-
-var legacyEnvToV2 = map[string]string{
-	"CHAINLINK_DEV": "CL_DEV",
-
-	"DATABASE_URL":                            "CL_DATABASE_URL",
-	"DATABASE_BACKUP_URL":                     "CL_DATABASE_BACKUP_URL",
-	"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK": "CL_DATABASE_ALLOW_SIMPLE_PASSWORDS",
-
-	"EXPLORER_ACCESS_KEY": "CL_EXPLORER_ACCESS_KEY",
-	"EXPLORER_SECRET":     "CL_EXPLORER_SECRET",
-
-	"PYROSCOPE_AUTH_TOKEN": "CL_PYROSCOPE_AUTH_TOKEN",
-
-	"LOG_COLOR":          "CL_LOG_COLOR",
-	"LOG_SQL_MIGRATIONS": "CL_LOG_SQL_MIGRATIONS",
-}
 
 // validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
 func validateEnv() (err error) {
@@ -242,18 +221,9 @@ func validateEnv() (err error) {
 			return errors.Errorf("malformed .env file line: %s", kv)
 		}
 		k := kv[:i]
-		if k == "LOG_LEVEL" {
-			continue // exceptional case of permitting legacy env w/o equivalent v2
-		}
-		v, ok := os.LookupEnv(k)
+		_, ok := os.LookupEnv(k)
 		if ok {
-			if k2, ok2 := legacyEnvToV2[k]; ok2 {
-				if v2 := os.Getenv(k2); v != v2 {
-					err = multierr.Append(err, fmt.Errorf("environment variables %s and %s must be equal, or %s must not be set", k, k2, k2))
-				}
-			} else {
-				err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
-			}
+			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
 		}
 	}
 	return
@@ -738,6 +708,10 @@ func (g *generalConfig) OCRTraceLogging() bool {
 	return *g.c.P2P.TraceLogging
 }
 
+func (g *generalConfig) OCRCaptureEATelemetry() bool {
+	return *g.c.OCR.CaptureEATelemetry
+}
+
 func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return *g.c.OCR.DefaultTransactionQueueDepth
 }
@@ -776,6 +750,10 @@ func (g *generalConfig) OCR2KeyBundleID() (string, error) {
 
 func (g *generalConfig) OCR2TraceLogging() bool {
 	return *g.c.P2P.TraceLogging
+}
+
+func (g *generalConfig) OCR2CaptureEATelemetry() bool {
+	return *g.c.OCR2.CaptureEATelemetry
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
