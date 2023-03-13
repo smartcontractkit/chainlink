@@ -132,7 +132,7 @@ func (backup *databaseBackup) Name() string {
 }
 
 func (backup *databaseBackup) HealthReport() map[string]error {
-	return map[string]error{backup.Name(): backup.Healthy()}
+	return map[string]error{backup.Name(): backup.StartStopOnce.Healthy()}
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
