@@ -39,7 +39,7 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) evmTxm {
+) *evmTxm {
 	chainID := cfg.ChainID()
 	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
@@ -50,5 +50,5 @@ func newEvmTxm(
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-	return evmTxm{GenericTxManager: txm}
+	return &evmTxm{GenericTxManager: txm}
 }

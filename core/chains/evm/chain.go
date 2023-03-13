@@ -46,7 +46,7 @@ type chain struct {
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	txm             evmTxm
+	txm             *evmTxm
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -116,7 +116,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 
 	txm := newEvmTxm(db, cfg, client, l, logPoller, opts)
 
-	headBroadcaster.Subscribe(&txm)
+	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
 	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
@@ -177,7 +177,7 @@ func (c *chain) Start(ctx context.Context) error {
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		var ms services.MultiStart
-		if err := ms.Start(ctx, &c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
+		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
 			return err
 		}
 		if c.balanceMonitor != nil {

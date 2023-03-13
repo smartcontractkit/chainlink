@@ -128,10 +128,13 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
 func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head txmgrtypes.Head) {
+	// Get the native head object, using explicit cast
+	evmHead := head.(*evmtypes.Head)
+
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
-	b.setLatest(head.(*evmtypes.Head))
-	b.mb.Deliver(head.(*evmtypes.Head))
+	b.setLatest(evmHead)
+	b.mb.Deliver(evmHead)
 }
 
 // setLatest assumes that head won't be mutated
