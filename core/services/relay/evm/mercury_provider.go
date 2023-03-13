@@ -2,13 +2,13 @@ package evm
 
 import (
 	"context"
-
-	"go.uber.org/multierr"
+	"errors"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
 )
@@ -19,8 +19,24 @@ type mercuryProvider struct {
 	configWatcher *configWatcher
 	transmitter   mercury.Transmitter
 	reportCodec   relaymercury.ReportCodec
+	logger        logger.Logger
 
 	ms services.MultiStart
+}
+
+func NewMercuryProvider(
+	configWatcher *configWatcher,
+	transmitter mercury.Transmitter,
+	reportCodec relaymercury.ReportCodec,
+	lggr logger.Logger,
+) *mercuryProvider {
+	return &mercuryProvider{
+		configWatcher,
+		transmitter,
+		reportCodec,
+		lggr,
+		services.MultiStart{},
+	}
 }
 
 func (p *mercuryProvider) Start(ctx context.Context) error {
@@ -32,15 +48,15 @@ func (p *mercuryProvider) Close() error {
 }
 
 func (p *mercuryProvider) Ready() error {
-	return multierr.Combine(p.configWatcher.Ready(), p.transmitter.Ready())
+	return errors.Join(p.configWatcher.Ready(), p.transmitter.Ready())
 }
 
 func (p *mercuryProvider) Healthy() error {
-	return multierr.Combine(p.configWatcher.Healthy(), p.transmitter.Healthy())
+	return errors.Join(p.configWatcher.Healthy(), p.transmitter.Healthy())
 }
 
 func (p *mercuryProvider) Name() string {
-	return "EVM.MercuryProvider"
+	return p.logger.Name()
 }
 
 func (p *mercuryProvider) HealthReport() map[string]error {

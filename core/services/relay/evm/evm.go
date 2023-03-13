@@ -117,7 +117,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	client := wsrpc.NewClient(r.lggr, privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
 	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID)
 
-	return &mercuryProvider{configWatcher, transmitter, reportCodec, services.MultiStart{}}, nil
+	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr), nil
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {

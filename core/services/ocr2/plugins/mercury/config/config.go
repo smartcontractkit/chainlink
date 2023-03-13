@@ -4,12 +4,12 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -31,13 +31,13 @@ func ValidatePluginConfig(config PluginConfig) (merr error) {
 		}
 		uri, err := url.ParseRequestURI(normalizedURI)
 		if err != nil {
-			merr = errors.Wrap(err, "Mercury: invalid value for ServerURL")
+			merr = pkgerrors.Wrap(err, "Mercury: invalid value for ServerURL")
 		} else if !(uri.Scheme == "" || uri.Scheme == "wss") {
-			merr = errors.Errorf(`Mercury: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, config.RawServerURL, uri.Scheme)
+			merr = pkgerrors.Errorf(`Mercury: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, config.RawServerURL, uri.Scheme)
 		}
 	}
 	if len(config.ServerPubKey) != 32 {
-		merr = multierr.Combine(merr, errors.New("Mercury: ServerPubKey is required and must be a 32-byte hex string"))
+		merr = errors.Join(merr, errors.New("Mercury: ServerPubKey is required and must be a 32-byte hex string"))
 	}
 	return merr
 }

@@ -2,12 +2,13 @@ package mercury
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math/big"
 	sync "sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
@@ -68,7 +69,7 @@ func (ds *datasource) parse(result pipeline.FinalResult) (obs relaymercury.Obser
 	}
 	vals := result.Values
 	if len(vals) != 5 {
-		return obs, errors.Errorf("invalid number of results, got: %s", vals)
+		return obs, fmt.Errorf("invalid number of results, got: %s", vals)
 	}
 	for i := 0; i < len(vals); i++ {
 		var err error
@@ -83,16 +84,16 @@ func (ds *datasource) parse(result pipeline.FinalResult) (obs relaymercury.Obser
 			if currentblocknum, is := vals[i].(int64); is {
 				obs.CurrentBlockNum = currentblocknum
 			} else {
-				err = errors.Errorf("expected int64, got: %v", vals[i])
+				err = fmt.Errorf("expected int64, got: %v", vals[i])
 			}
 		case 4:
 			if currentblockhash, is := vals[i].(common.Hash); is {
 				obs.CurrentBlockHash = currentblockhash.Bytes()
 			} else {
-				err = errors.Errorf("expected hash, got: %v", vals[i])
+				err = fmt.Errorf("expected hash, got: %v", vals[i])
 			}
 		}
-		merr = multierr.Combine(merr, err)
+		merr = errors.Join(merr, err)
 	}
 
 	return obs, merr
@@ -111,7 +112,7 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Fi
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return pipeline.Run{}, pipeline.FinalResult{}, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	finalResult := trrs.FinalResult(ds.lggr)
 
