@@ -11,7 +11,6 @@ type ORM interface {
 	Chain(string, ...pg.QOpt) (DBChain, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
 	GetChainsByIDs(ids []string) (chains []DBChain, err error)
-	EnabledChains(...pg.QOpt) ([]DBChain, error)
 
 	GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []db.Node, err error)
 	NodeNamed(string, ...pg.QOpt) (db.Node, error)

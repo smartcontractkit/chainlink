@@ -227,14 +227,6 @@ func (m *mockORM) GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes
 	panic("implement me")
 }
 
-func (m *mockORM) StoreString(chainID string, key, val string) error {
-	panic("implement me")
-}
-
-func (m *mockORM) Clear(chainID string, key string) error {
-	panic("implement me")
-}
-
 func (m *mockORM) NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
 	return m.nodesForChain, len(m.nodesForChain), nil
 }
@@ -244,24 +236,6 @@ func (m *mockORM) Chain(s string, opt ...pg.QOpt) (DBChain, error) { panic("unim
 func (m *mockORM) Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error) {
 	panic("unimplemented")
 }
-
-func (m *mockORM) CreateChain(id string, config *db.ChainCfg, qopts ...pg.QOpt) (DBChain, error) {
-	panic("unimplemented")
-}
-
-func (m *mockORM) UpdateChain(id string, enabled bool, config *db.ChainCfg, qopts ...pg.QOpt) (DBChain, error) {
-	panic("unimplemented")
-}
-
-func (m *mockORM) DeleteChain(id string, qopts ...pg.QOpt) error { panic("unimplemented") }
-
-func (m *mockORM) EnabledChains(opt ...pg.QOpt) ([]DBChain, error) { panic("unimplemented") }
-
-func (m *mockORM) CreateNode(node db.Node, opt ...pg.QOpt) (db.Node, error) {
-	panic("unimplemented")
-}
-
-func (m *mockORM) DeleteNode(i int32, opt ...pg.QOpt) error { panic("unimplemented") }
 
 func (m *mockORM) NodeNamed(s string, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
 

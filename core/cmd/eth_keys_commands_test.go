@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -443,79 +442,4 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	err = client.ExportETHKey(c)
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
-}
-
-func TestClient_UpdateChainEVMKey(t *testing.T) {
-	t.Parallel()
-
-	ethClient := newEthMock(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-	},
-		withKey(),
-		withMocks(ethClient),
-	)
-	db := app.GetSqlxDB()
-	client, _ := app.NewClientAndRenderer()
-
-	newFlagSet := func() *flag.FlagSet {
-		fs := testutils.NewTestFlagSet()
-		cltest.FlagSetApplyFromAction(client.UpdateChainEVMKey, fs, "")
-		return fs
-	}
-
-	t.Run("resets a key nonce", func(t *testing.T) {
-		fs := newFlagSet()
-		require.NoError(t, fs.Set("evmChainID", "0"))
-		require.NoError(t, fs.Set("setNextNonce", "42"))
-		require.NoError(t, fs.Set("address", app.Keys[0].Address.Hex()))
-		c := cli.NewContext(nil, fs, nil)
-		assert.NoError(t, client.UpdateChainEVMKey(c))
-
-		var nonce int64
-		require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states`))
-		require.Equal(t, int64(42), nonce)
-	})
-
-	t.Run("disables and enables a key", func(t *testing.T) {
-		fs := newFlagSet()
-		require.NoError(t, fs.Set("evmChainID", "0"))
-		require.NoError(t, fs.Set("disable", "true"))
-		require.NoError(t, fs.Set("enable", "true"))
-		require.NoError(t, fs.Set("address", app.Keys[0].Address.Hex()))
-		c := cli.NewContext(nil, fs, nil)
-
-		err := client.UpdateChainEVMKey(c)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot set both --enable and --disable simultaneously")
-
-		fs = newFlagSet()
-		require.NoError(t, fs.Set("evmChainID", "0"))
-		require.NoError(t, fs.Set("disable", "true"))
-		require.NoError(t, fs.Set("address", app.Keys[0].Address.Hex()))
-		c = cli.NewContext(nil, fs, nil)
-
-		assert.NoError(t, client.UpdateChainEVMKey(c))
-
-		testutils.AssertCount(t, db, "evm_key_states", 1)
-		var disabled bool
-		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Keys[0].Address))
-		require.True(t, disabled)
-
-		fs = newFlagSet()
-		require.NoError(t, fs.Set("evmChainID", "0"))
-		require.NoError(t, fs.Set("enable", "true"))
-		require.NoError(t, fs.Set("address", app.Keys[0].Address.Hex()))
-		c = cli.NewContext(nil, fs, nil)
-
-		assert.NoError(t, client.UpdateChainEVMKey(c))
-
-		testutils.AssertCount(t, db, "evm_key_states", 1)
-		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Keys[0].Address))
-		assert.False(t, disabled)
-	})
 }

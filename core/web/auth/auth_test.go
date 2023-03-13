@@ -222,7 +222,6 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/keys/csa/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/eth", true, true, true},
 	{"POST", "/v2/keys/eth", false, false, true},
-	{"PUT", "/v2/keys/eth/MOCK", false, false, false},
 	{"DELETE", "/v2/keys/eth/MOCK", false, false, false},
 	{"POST", "/v2/keys/eth/import", false, false, false},
 	{"POST", "/v2/keys/eth/export/MOCK", false, false, false},
