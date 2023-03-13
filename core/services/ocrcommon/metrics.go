@@ -35,10 +35,8 @@ type DefaultMetricVec struct {
 
 func NewDefaultMetricVec(name string, help string, labelNames ...string) (commontypes.MetricVec, error) {
 	gv := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: name,
-		Subsystem: "",
-		Name:      name,
-		Help:      help,
+		Name: name,
+		Help: help,
 	}, labelNames)
 
 	c := &DefaultMetricVec{
