@@ -16,7 +16,6 @@ type ChainsORM[I ID, CFG Config, C DBChain[I, CFG]] interface {
 	Chain(I, ...pg.QOpt) (C, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]C, int, error)
 	GetChainsByIDs(ids []I) (chains []C, err error)
-	EnabledChains(...pg.QOpt) ([]C, error)
 }
 
 type NodesORM[I ID, N Node] interface {
@@ -183,15 +182,6 @@ func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []
 		return errors.Wrap(err, "failed to fetch chains")
 	}, pg.OptReadOnlyTx())
 
-	return
-}
-
-func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []DBChain[I, C], err error) {
-	q := o.q.WithOpts(qopts...)
-	chainsSQL := fmt.Sprintf(`SELECT * FROM %s_chains WHERE enabled ORDER BY created_at, id;`, o.prefix)
-	if err = q.Select(&chains, chainsSQL); err != nil {
-		return
-	}
 	return
 }
 

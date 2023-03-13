@@ -448,10 +448,6 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
-func (g *generalConfig) BlockBackfillDepth() uint64 { panic(v2.ErrUnsupported) }
-
-func (g *generalConfig) BlockBackfillSkip() bool { panic(v2.ErrUnsupported) }
-
 func (g *generalConfig) BridgeResponseURL() *url.URL {
 	if g.c.WebServer.BridgeResponseURL.IsZero() {
 		return nil
