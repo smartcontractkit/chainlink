@@ -92,6 +92,7 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
+
 		urlStr := c.String("remote-node-url")
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
@@ -112,6 +113,7 @@ func NewApp(client *Client) *cli.App {
 		client.CookieAuthenticator = cookieAuth
 		client.FileSessionRequestBuilder = sessionRequestBuilder
 		return nil
+
 	}
 	app.After = func(c *cli.Context) error {
 		if client.CloseLogger != nil {
