@@ -166,7 +166,7 @@ func (tc *telemetryIngressBatchClient) Name() string {
 }
 
 func (tc *telemetryIngressBatchClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): errors.Join(tc.StartStopOnce.Healthy(), tc.SvcErrBuffer.Flush())}
+	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
 }
 
 // getCSAPrivateKey gets the client's CSA private key

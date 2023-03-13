@@ -114,7 +114,7 @@ func (tc *telemetryIngressClient) Name() string {
 }
 
 func (tc *telemetryIngressClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): errors.Join(tc.StartStopOnce.Healthy(), tc.SvcErrBuffer.Flush())}
+	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
 }
 
 func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
