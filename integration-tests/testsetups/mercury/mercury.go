@@ -123,8 +123,8 @@ func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
 		testEnv.EnvTTL = 20 * time.Minute
 	}
 	testEnv.Config = c
-	randomId, _ := uuid.NewV4()
-	testEnv.Config.FeedId = fmt.Sprintf("feed-%s", randomId)
+	// Feed id can have max 32 characters
+	testEnv.Config.FeedId = "feed-1234"
 	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
 	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
 	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
@@ -240,7 +240,7 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 
 		feedId := StringToByte32(e.Config.FeedId)
 		verifier, verifierProxy, exchanger, _, _ := DeployMercuryContracts(
-			evmClient, "", feedId, *ocrConfig)
+			evmClient, "", *ocrConfig)
 		e.VerifierContract = verifier
 		e.VerifierProxyContract = verifierProxy
 		e.ExchangerContract = exchanger
@@ -264,6 +264,9 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		e.Config.MSRemoteUrl = msRemoteUrl
 
 		e.WaitForDONReports()
+
+		// TODO: remove if https://smartcontract-it.atlassian.net/browse/MERC-248 fixed
+		verifier.SetConfig(feedId, *ocrConfig)
 	}
 }
 
@@ -329,21 +332,21 @@ func (e *MercuryTestEnv) SetupMercuryNodeJobs(
 // Benchmark Price
 price1          [type=http method=GET url="%[1]s" allowunrestrictednetworkaccess="true"];
 price1_parse    [type=jsonparse path="data,result"];
-price1_multiply [type=multiply times=100000000 index=0];
+price1_multiply [type=multiply times=10 index=0];
 
 price1 -> price1_parse -> price1_multiply;
 
 // Bid
 bid          [type=http method=GET url="%[1]s" allowunrestrictednetworkaccess="true"];
 bid_parse    [type=jsonparse path="data,result"];
-bid_multiply [type=multiply times=100000000 index=1];
+bid_multiply [type=multiply times=10 index=1];
 
 bid -> bid_parse -> bid_multiply;
 
 // Ask
 ask          [type=http method=GET url="%[1]s" allowunrestrictednetworkaccess="true"];
 ask_parse    [type=jsonparse path="data,result"];
-ask_multiply [type=multiply times=100000000 index=2];
+ask_multiply [type=multiply times=10 index=2];
 
 ask -> ask_parse -> ask_multiply;	
 

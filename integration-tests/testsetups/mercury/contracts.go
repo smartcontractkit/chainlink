@@ -77,7 +77,7 @@ func CreateCommitmentHash(order Order) common.Hash {
 	return crypto.Keccak256Hash(bytes)
 }
 
-func DeployMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (
+func DeployMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, ocrConfig contracts.MercuryOCRConfig) (
 	contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, contracts.ReadAccessController, error) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	if err != nil {
