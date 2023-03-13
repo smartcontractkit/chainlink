@@ -986,7 +986,7 @@ func (once *StartStopOnce) Ready() error {
 func (once *StartStopOnce) Healthy() error {
 	state := once.State()
 	if state == StartStopOnce_Started {
-		return nil
+		return once.SvcErrBuffer.Flush()
 	}
 	return &errNotStarted{state: state}
 }
