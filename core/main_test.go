@@ -228,7 +228,6 @@ func ExampleRun_keys_eth() {
 	//
 	// COMMANDS:
 	//    create  Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
-	//    update  Update the existing key's parameters
 	//    list    List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata
 	//    delete  Delete the ETH key by address (irreversible!)
 	//    import  Import an ETH key from a JSON file
