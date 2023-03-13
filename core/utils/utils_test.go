@@ -1037,4 +1037,12 @@ func TestErrorBuffer(t *testing.T) {
 		assert.Equal(t, err1.Error(), errs[0].Error())
 	})
 
+	t.Run("flushing an empty err buffer is a nil error", func(t *testing.T) {
+		t.Parallel()
+		buff := utils.ErrorBuffer{}
+
+		combined := buff.Flush()
+		require.Nil(t, combined)
+	})
+
 }
