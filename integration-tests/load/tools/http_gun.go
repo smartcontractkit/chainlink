@@ -22,7 +22,7 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn 
 		BaseURL: baseURL,
 		client:  client,
 		feedID:  feedID,
-}
+	}
 	g.Bn.Store(bn)
 	return g
 }
