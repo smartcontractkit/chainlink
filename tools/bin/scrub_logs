@@ -19,7 +19,6 @@ declare -a arr=(
     "T.tLHkcmwePT%2fp%2c%5dsYuntjwHKAsrhm%234eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"      # URL Encoded
     "16charlengthp4SsW0rD1!@#_"                 # Test user password
     "16charlengthp4SsW0rD1%21%40%23_"           # URL Encoded
-    "wss://"                                    # Possible credentials
     "psql://"                                   # Possible DB connection string
     "psql%3a%2f%2f"                             # URL Encoded
     "postgresql://"                             # Possible DB connection string
