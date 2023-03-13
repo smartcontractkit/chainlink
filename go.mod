@@ -61,7 +61,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be75fb81118
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 	github.com/smartcontractkit/ocr2keepers v0.6.14
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230313164535-dce9b4be73a3
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.6.1
 	github.com/spf13/cast v1.5.0
