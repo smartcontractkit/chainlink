@@ -2,7 +2,6 @@ package mercury
 
 import (
 	"bytes"
-	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -256,17 +255,13 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		verifierProxy.InitializeVerifier(c.ConfigDigest, verifier.Address())
 
 		// Setup jobs on the nodes
-		latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
 		require.NoError(e.T, err)
 		msRemoteUrl := env.URLs[mshelm.URLsKey][0]
 		e.SetupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifier.Address(),
-			feedId, latestBlockNum, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
+			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
 		e.Config.MSRemoteUrl = msRemoteUrl
 
 		e.WaitForDONReports()
-
-		// TODO: remove if https://smartcontract-it.atlassian.net/browse/MERC-248 fixed
-		verifier.SetConfig(feedId, *ocrConfig)
 	}
 }
 
@@ -314,12 +309,15 @@ func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork
 	return testEnv
 }
 
+// Setup node jobs for Mercury OCR
+// For 'fromBlock', use the block number in which the config was set. Or latest block number if
+// the config is not set yet
 func (e *MercuryTestEnv) SetupMercuryNodeJobs(
 	chainlinkNodes []*client.Chainlink,
 	mockserverClient *ctfClient.MockserverClient,
 	contractID string,
 	feedId [32]byte,
-	fromBlock uint64,
+	fromBlock uint32,
 	msRemoteUrl string,
 	mercuryServerPubKey ed25519.PublicKey,
 	chainID int64,
@@ -371,8 +369,9 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 			ContractID: contractID,
 			Relay:      "evm",
 			RelayConfig: map[string]interface{}{
-				"chainID": int(chainID),
-				"feedID":  fmt.Sprintf("\"0x%x\"", feedId),
+				"chainID":   int(chainID),
+				"feedID":    fmt.Sprintf("\"0x%x\"", feedId),
+				"fromBlock": fromBlock,
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
