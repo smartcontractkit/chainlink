@@ -57,11 +57,7 @@ func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	if res.Status != "200 OK" {
 		return loadgen.CallResult{Error: "not 200"}
 	}
-	reportElements := map[string]interface{}{}
-	if err = ReportTypes.UnpackIntoMap(reportElements, []byte(answer.ChainlinkBlob)); err != nil {
-		return loadgen.CallResult{Error: "blob unpacking error"}
-	}
-	if err := mercury.ValidateReport(reportElements); err != nil {
+	if err := mercury.ValidateReport([]byte(answer.ChainlinkBlob)); err != nil {
 		return loadgen.CallResult{Error: "report validation error"}
 	}
 	return loadgen.CallResult{}

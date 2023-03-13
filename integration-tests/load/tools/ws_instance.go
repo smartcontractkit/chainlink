@@ -57,12 +57,7 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 					continue
 				}
 				reportElements := map[string]interface{}{}
-				if err = ReportTypes.UnpackIntoMap(reportElements, []byte(v["report"])); err != nil {
-					l.Log.Error().Err(err).Msg("failed to unpack report")
-					l.ResponsesChan <- loadgen.CallResult{Error: "blob unpacking error"}
-					continue
-				}
-				if err := mercury.ValidateReport(reportElements); err != nil {
+				if err := mercury.ValidateReport([]byte(v["report"])); err != nil {
 					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error"}
 					continue
 				}
