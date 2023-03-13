@@ -69,9 +69,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
-	GetConfig() config.GeneralConfig
-	// ConfigDump returns a TOML configuration from the current environment and database configuration.
-	ConfigDump(context.Context) (string, error)
+	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
@@ -124,7 +122,7 @@ type ChainlinkApplication struct {
 	txmORM                   txmgr.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -145,7 +143,7 @@ type ChainlinkApplication struct {
 }
 
 type ApplicationOpts struct {
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
 	MailMon                  *utils.MailboxMonitor
@@ -606,7 +604,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	return err
 }
 
-func (app *ChainlinkApplication) GetConfig() config.GeneralConfig {
+func (app *ChainlinkApplication) GetConfig() GeneralConfig {
 	return app.Config
 }
 
