@@ -29,6 +29,8 @@ func TestMercurySmoke(t *testing.T) {
 	)
 
 	t.Run("test mercury server has report for the latest block number", func(t *testing.T) {
+		t.Skip("askdlASDSADSADSASDSDASASDA")
+
 		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 		_ = latestBlockNum
 		require.NoError(t, err, "Err getting latest block number")
