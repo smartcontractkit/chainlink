@@ -36,7 +36,6 @@ declare -a arr=(
     "CAESQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzswVB9wd3XKVlRwpCIjwla25BE0bc9aW5t8GXWg71Pw="    # Base64 representation of internal Ed25519PrivateKey
                                                                                                       # secret used by keys with KeyBigIntSeed seed (1)
     "CAESQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzswVB9wd3XKVlRwpCIjwla25BE0bc9aW5t8GXWg71Pw%3D"  # URL Encoded
-    "AQ=="
     "AQ%3D%3D"
     "Ag%3D%3D"
 )
