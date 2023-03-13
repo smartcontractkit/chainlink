@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -65,6 +66,7 @@ type Delegate struct {
 	relayers              map[relay.Network]types.Relayer
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
+	ocrMetricFactory      commontypes.Metrics
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -84,23 +86,24 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers map[relay.Network]types.Relayer,
 	mailMon *utils.MailboxMonitor,
+	ocrMetricFactory commontypes.Metrics,
 ) *Delegate {
 	return &Delegate{
-		db,
-		jobORM,
-		pipelineRunner,
-		peerWrapper,
-		monitoringEndpointGen,
-		chainSet,
-		cfg,
-		lggr,
-		ks,
-		dkgSignKs,
-		dkgEncryptKs,
-		ethKs,
-		relayers,
-		false,
-		mailMon,
+		db:                    db,
+		jobORM:                jobORM,
+		pipelineRunner:        pipelineRunner,
+		peerWrapper:           peerWrapper,
+		monitoringEndpointGen: monitoringEndpointGen,
+		chainSet:              chainSet,
+		cfg:                   cfg,
+		lggr:                  lggr,
+		ks:                    ks,
+		dkgSignKs:             dkgSignKs,
+		dkgEncryptKs:          dkgEncryptKs,
+		ethKs:                 ethKs,
+		relayers:              relayers,
+		mailMon:               mailMon,
+		ocrMetricFactory:      ocrMetricFactory,
 	}
 }
 
@@ -236,7 +239,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
-			Metrics:                      ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
+			Metrics:                      d.ocrMetricFactory,
 		}
 		eaMonitoringEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA)
 		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg, eaMonitoringEndpoint)
@@ -278,7 +281,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
 			OffchainKeyring:        kb,
 			OnchainKeyring:         kb,
-			Metrics:                ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
+			Metrics:                d.ocrMetricFactory,
 		}
 		return dkg.NewDKGServices(
 			jb,
@@ -595,7 +598,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       pluginFactory,
-		Metrics:                      ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
+		Metrics:                      d.ocrMetricFactory,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOracle")

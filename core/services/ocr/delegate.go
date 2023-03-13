@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -40,6 +41,7 @@ type Delegate struct {
 	lggr                  logger.Logger
 	cfg                   Config
 	mailMon               *utils.MailboxMonitor
+	ocrMetricFactory      commontypes.Metrics
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -57,18 +59,21 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg Config,
 	mailMon *utils.MailboxMonitor,
+	metricFactory commontypes.Metrics,
+
 ) *Delegate {
 	return &Delegate{
-		db,
-		jobORM,
-		keyStore,
-		pipelineRunner,
-		peerWrapper,
-		monitoringEndpointGen,
-		chainSet,
-		lggr.Named("OCR"),
-		cfg,
-		mailMon,
+		db:                    db,
+		jobORM:                jobORM,
+		keyStore:              keyStore,
+		pipelineRunner:        pipelineRunner,
+		peerWrapper:           peerWrapper,
+		monitoringEndpointGen: monitoringEndpointGen,
+		chainSet:              chainSet,
+		lggr:                  lggr.Named("OCR"),
+		cfg:                   cfg,
+		mailMon:               mailMon,
+		ocrMetricFactory:      metricFactory,
 	}
 }
 
@@ -308,7 +313,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			V2Bootstrappers:              v2Bootstrappers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.OCR),
 			ConfigOverrider:              configOverrider,
-			Metrics:                      ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec),
+			Metrics:                      d.ocrMetricFactory,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")

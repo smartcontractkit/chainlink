@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/sqlx"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -159,6 +160,7 @@ type ApplicationOpts struct {
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
+	OCRMetricFactory         commontypes.Metrics
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -199,6 +201,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+	ocrMetricFactory := opts.OCRMetricFactory
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
@@ -370,6 +373,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			mailMon,
+			ocrMetricFactory,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
@@ -407,6 +411,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			relayers,
 			mailMon,
+			ocrMetricFactory,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,

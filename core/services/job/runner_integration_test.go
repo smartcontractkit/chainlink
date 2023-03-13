@@ -460,6 +460,7 @@ ds1 -> ds1_parse;
 			logger.TestLogger(t),
 			config,
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -500,6 +501,7 @@ ds1 -> ds1_parse;
 			lggr,
 			config,
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -555,6 +557,7 @@ ds1 -> ds1_parse;
 			lggr,
 			config,
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -591,6 +594,7 @@ ds1 -> ds1_parse;
 			lggr,
 			config,
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -621,6 +625,7 @@ ds1 -> ds1_parse;
 			lggr,
 			config,
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -655,6 +660,7 @@ ds1 -> ds1_parse;
 			lggr,
 			config,
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			nil,
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
