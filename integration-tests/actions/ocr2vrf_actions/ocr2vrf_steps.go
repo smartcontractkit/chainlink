@@ -151,7 +151,7 @@ func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chai
 	return ocr2VRFPluginConfig
 }
 
-func FundVRFCoordinatorSubscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient blockchain.EVMClient, subscriptionID, linkFundingAmount *big.Int) {
+func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient blockchain.EVMClient, subscriptionID, linkFundingAmount *big.Int) {
 	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint256"}]`, subscriptionID)
 	require.NoError(t, err, "Error Abi encoding subscriptionID")
 	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
@@ -212,7 +212,7 @@ func RequestAndRedeemRandomness(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
-	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
+	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
@@ -249,7 +249,7 @@ func RequestRandomnessFulfillment(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
-	requestID := getRequestId(t, consumer, receipt, confirmationDelay, subscriptionID)
+	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
@@ -261,7 +261,7 @@ func RequestRandomnessFulfillment(
 	return requestID
 }
 
-func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay, subscriptionID *big.Int) *big.Int {
+func getRequestId(t *testing.T, consumer contracts.VRFBeaconConsumer, receipt *types.Receipt, confirmationDelay *big.Int) *big.Int {
 	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
 	require.NoError(t, err, "Error getting Beacon Period block count")
 
@@ -329,7 +329,7 @@ func SetupOCR2VRFUniverse(
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
 	//3.	fund subscription with LINK token
-	FundVRFCoordinatorSubscription(
+	FundVRFCoordinatorV3Subscription(
 		t,
 		linkToken,
 		coordinatorContract,

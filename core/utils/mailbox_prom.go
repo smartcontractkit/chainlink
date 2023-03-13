@@ -51,7 +51,7 @@ func (m *MailboxMonitor) Close() error {
 }
 
 func (m *MailboxMonitor) HealthReport() map[string]error {
-	return map[string]error{m.Name(): m.Healthy()}
+	return map[string]error{m.Name(): m.StartStopOnce.Healthy()}
 }
 
 func (m *MailboxMonitor) monitorLoop(c <-chan time.Time) {

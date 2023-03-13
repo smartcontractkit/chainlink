@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
 	"math/big"
 	"testing"
 
@@ -106,4 +107,13 @@ func VRFV2RegisterProvingKey(
 	)
 	require.NoError(t, err, "Error registering proving keys")
 	return provingKey
+}
+
+func FundVRFCoordinatorV2Subscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV2, chainClient blockchain.EVMClient, subscriptionID uint64, linkFundingAmount *big.Int) {
+	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
+	require.NoError(t, err, "Error Abi encoding subscriptionID")
+	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
+	require.NoError(t, err, "Error sending Link token")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for TXs to complete")
 }
