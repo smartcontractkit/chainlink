@@ -238,8 +238,9 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		require.NoError(e.T, err)
 
 		feedId := StringToByte32(e.Config.FeedId)
-		verifier, verifierProxy, exchanger, _, _ := DeployMercuryContracts(
+		verifier, verifierProxy, exchanger, _, err := DeployMercuryContracts(
 			evmClient, "", *ocrConfig)
+		require.NoError(e.T, err, "Error deploying mercury contracts")
 		e.VerifierContract = verifier
 		e.VerifierProxyContract = verifierProxy
 		e.ExchangerContract = exchanger
