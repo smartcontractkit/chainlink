@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -148,7 +147,7 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): errors.Join(r.StartStopOnce.Healthy(), r.SvcErrBuffer.Flush())}
+	return map[string]error{r.Name(): r.StartStopOnce.Healthy()}
 }
 
 func (r *runner) destroy() {

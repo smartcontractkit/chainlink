@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -116,7 +115,7 @@ func (js *spawner) Name() string {
 }
 
 func (js *spawner) HealthReport() map[string]error {
-	return map[string]error{js.Name(): errors.Join(js.StartStopOnce.Healthy(), js.SvcErrBuffer.Flush())}
+	return map[string]error{js.Name(): js.StartStopOnce.Healthy()}
 }
 
 func (js *spawner) startAllServices(ctx context.Context) {
