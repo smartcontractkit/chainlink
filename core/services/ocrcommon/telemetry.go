@@ -89,7 +89,7 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 }
 
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
-func collectEATelemetry(ds inMemoryDataSource, trrs pipeline.TaskRunResults, finalResult pipeline.FinalResult) {
+func collectEATelemetry(ds inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
 	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
@@ -110,7 +110,7 @@ func collectEATelemetry(ds inMemoryDataSource, trrs pipeline.TaskRunResults, fin
 		}
 		observation = finalResultDecimal.BigInt().Int64()
 
-		for _, trr := range trrs {
+		for _, trr := range *trrs {
 			if trr.Task.Type() != pipeline.TaskTypeBridge {
 				continue
 			}
@@ -124,7 +124,7 @@ func collectEATelemetry(ds inMemoryDataSource, trrs pipeline.TaskRunResults, fin
 			if err != nil {
 				ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %d", ds.jb.ID, trr.Task.DotID())
 			}
-			parsedValue := getJsonParsedValue(trr, &trrs)
+			parsedValue := getJsonParsedValue(trr, trrs)
 			if parsedValue == nil {
 				ds.lggr.Warnf("cannot get json parse value, job %d, id %d", ds.jb.ID, trr.Task.DotID())
 			}

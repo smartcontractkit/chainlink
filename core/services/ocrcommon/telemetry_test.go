@@ -31,6 +31,57 @@ const bridgeResponse = `{
 			}
 		}`
 
+var trrs = pipeline.TaskRunResults{
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: "123456",
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds2_parse", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: "12345678",
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds3_parse", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: "1234567890",
+		},
+	},
+}
+
 func TestShouldCollectTelemetry(t *testing.T) {
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
@@ -105,59 +156,9 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
-	trrs := pipeline.TaskRunResults{
-		pipeline.TaskRunResult{
-			Task: &pipeline.BridgeTask{
-				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
-			},
-			Result: pipeline.Result{
-				Value: bridgeResponse,
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
-			},
-			Result: pipeline.Result{
-				Value: "1234567890",
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.BridgeTask{
-				BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
-			},
-			Result: pipeline.Result{
-				Value: bridgeResponse,
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(1, "ds2_parse", nil, nil, 1),
-			},
-			Result: pipeline.Result{
-				Value: "1234567890",
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.BridgeTask{
-				BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
-			},
-			Result: pipeline.Result{
-				Value: bridgeResponse,
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(1, "ds3_parse", nil, nil, 1),
-			},
-			Result: pipeline.Result{
-				Value: "1234567890",
-			},
-		},
-	}
 
 	resp := getJsonParsedValue(trrs[0], &trrs)
-	assert.Equal(t, "1234567890", resp.String())
+	assert.Equal(t, "123456", resp.String())
 
 	trrs[1].Result.Value = nil
 	resp = getJsonParsedValue(trrs[0], &trrs)
@@ -219,7 +220,7 @@ func TestSendEATelemetry(t *testing.T) {
 	}
 
 	wg.Add(1)
-	collectEATelemetry(ds, trrs, fr)
+	collectEATelemetry(ds, &trrs, &fr)
 
 	expectedTelemetry := telem.TelemEnhancedEA{
 		DataSource:                    "data_source_test",
@@ -266,24 +267,6 @@ func BenchmarkCollectEATelemetry(b *testing.B) {
 		lggr:               nil,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	trrs := pipeline.TaskRunResults{
-		pipeline.TaskRunResult{
-			Task: &pipeline.BridgeTask{
-				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
-			},
-			Result: pipeline.Result{
-				Value: bridgeResponse,
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(1, "ds1", nil, nil, 1),
-			},
-			Result: pipeline.Result{
-				Value: "1234567890",
-			},
-		},
-	}
 	finalResult := pipeline.FinalResult{
 		Values:      []interface{}{"123456"},
 		AllErrors:   nil,
@@ -293,7 +276,7 @@ func BenchmarkCollectEATelemetry(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		collectEATelemetry(ds, trrs, finalResult)
+		collectEATelemetry(ds, &trrs, &finalResult)
 	}
 	wg.Wait()
 }
