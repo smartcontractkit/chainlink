@@ -53,3 +53,26 @@ func NewDefaultMetricVec(name string, help string, labelNames ...string) (common
 func (mv *DefaultMetricVec) GetMetricWith(labels map[string]string) (commontypes.Metric, error) {
 	return mv.GaugeVec.GetMetricWith(labels)
 }
+
+var _ commontypes.MetricVec = &NoopMetricVec{}
+
+type NoopMetricVec struct {
+}
+
+func NewNoopMetricVec(name string, help string, labelNames ...string) (commontypes.MetricVec, error) {
+	return &NoopMetricVec{}, nil
+}
+
+func (mv *NoopMetricVec) GetMetricWith(labels map[string]string) (commontypes.Metric, error) {
+	return &NoopMetric{}, nil
+}
+
+var _ commontypes.Metric = &NoopMetric{}
+
+type NoopMetric struct{}
+
+func (n *NoopMetric) Set(float64) {}
+func (n *NoopMetric) Inc()        {}
+func (n *NoopMetric) Dec()        {}
+func (n *NoopMetric) Add(float64) {}
+func (n *NoopMetric) Sub(float64) {}

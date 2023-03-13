@@ -32,6 +32,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -379,6 +380,9 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainORM evmtypes.ORM
+	var ocrMetricFactory commontypes.Metrics
+	ocrMetricFactory = ocrcommon.NewMetricVecFactory(ocrcommon.NewNoopMetricVec)
+
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -392,6 +396,8 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			chainORM = evmtest.NewMockORM([]evmtypes.DBChain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
+		case commontypes.Metrics:
+			ocrMetricFactory = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -501,7 +507,6 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		}
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	ocrMetricFactory := ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec)
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
