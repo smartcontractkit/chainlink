@@ -33,7 +33,6 @@ contract SCA is IAccount {
         s_nonce++;
         bytes32 h = keccak256(
             abi.encode(
-                userOp.sender,
                 userOp.callData,
                 s_owner,
                 s_nonce,
