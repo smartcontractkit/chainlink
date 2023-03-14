@@ -38,6 +38,7 @@ const (
 	BlockhashStoreJobType     string = "blockhashstore"
 	WebhookJobType            string = "webhook"
 	BootstrapJobType          string = "bootstrap"
+	TransmissionJobType       string = "transmission"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

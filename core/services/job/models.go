@@ -38,6 +38,7 @@ const (
 	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
+	Transmission       Type = (Type)(pipeline.TransmissionJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -513,6 +514,26 @@ type BlockhashStoreSpec struct {
 	EVMChainID *utils.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
+}
+
+// TransmissionSpec
+type TransmissionSpec struct {
+	ID int32
+
+	// Entrypoint contract address
+	EntrypointAddress *ethkey.EIP55Address `toml:"entrypointAddress"`
+
+	// EVMChainID defines the source chain ID for transactions
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// FromAddress is the sender address that should be used to submit transactions
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
 
 	// CreatedAt is the time this job was created.
