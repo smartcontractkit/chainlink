@@ -2,6 +2,7 @@ package mercury
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
+	"github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -267,17 +269,23 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		e.SetupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifier.Address(),
 			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
 		e.Config.MSRemoteUrl = msRemoteUrl
-
-		e.WaitForDONReports()
 	}
+
+	e.WaitForReportsInMercuryDb()
 }
 
-func (e *MercuryTestEnv) WaitForDONReports() {
-	// Wait for the DON to start generating reports
-	// TODO: use gomega Eventually to check reports in node logs or mercury server or mercury db
-	d := 160 * time.Second
-	log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
-	time.Sleep(d)
+// Wait for the DON to start generating reports and storing them in mercury server db
+func (e *MercuryTestEnv) WaitForReportsInMercuryDb() {
+	log.Info().Msg("Wait for mercury server to have at least one report in the db..")
+
+	latestBlockNum, err := e.EvmClient.LatestBlockNumber(context.Background())
+	require.NoError(e.T, err, "Err getting latest block number")
+
+	gom := gomega.NewGomegaWithT(e.T)
+	gom.Eventually(func(g gomega.Gomega) {
+		report, _, _ := e.MSClient.GetReports(e.Config.FeedId, latestBlockNum)
+		g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Failed to retrieve a report from mercury server")
+	}, "3m", "5s").Should(gomega.Succeed())
 }
 
 func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
