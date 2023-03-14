@@ -7,7 +7,6 @@ import { makeDebug } from '../../test-helpers/debug'
 
 const debug = makeDebug('FunctionsTestHelper')
 let concreteFunctionsTestHelperFactory: ContractFactory
-let functionsLibraryFactory: ContractFactory
 
 let roles: Roles
 
@@ -15,10 +14,6 @@ before(async () => {
   roles = (await getUsers()).roles
   concreteFunctionsTestHelperFactory = await ethers.getContractFactory(
     'src/v0.8/tests/FunctionsTestHelper.sol:FunctionsTestHelper',
-    roles.defaultAccount,
-  )
-  functionsLibraryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/functions/Functions.sol:Functions',
     roles.defaultAccount,
   )
 })
@@ -98,9 +93,7 @@ describe('FunctionsTestHelper', () => {
     it('reverts with EmptySource() if source param is empty', async () => {
       await expect(
         ctr.initializeRequestForInlineJavaScript(''),
-      ).to.be.revertedWith(
-        functionsLibraryFactory.interface.getSighash('EmptySource'),
-      )
+      ).to.be.revertedWith('EmptySource()')
     })
   })
 
@@ -135,9 +128,7 @@ describe('FunctionsTestHelper', () => {
     it('reverts with EmptySecrets() if secrets param is empty', async () => {
       const js = 'function run(args, responses) {}'
       await ctr.initializeRequestForInlineJavaScript(js)
-      await expect(ctr.addSecrets('0x')).to.be.revertedWith(
-        functionsLibraryFactory.interface.getSighash('EmptySecrets'),
-      )
+      await expect(ctr.addSecrets('0x')).to.be.revertedWith('EmptySecrets()')
     })
   })
 
@@ -167,9 +158,7 @@ describe('FunctionsTestHelper', () => {
 
   describe('#addEmptyArgs to revert', () => {
     it('reverts with EmptyArgs() if args param is empty', async () => {
-      await expect(ctr.addEmptyArgs()).to.be.revertedWith(
-        functionsLibraryFactory.interface.getSighash('EmptyArgs'),
-      )
+      await expect(ctr.addEmptyArgs()).to.be.revertedWith('EmptyArgs()')
     })
   })
 })
