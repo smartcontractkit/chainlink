@@ -9,12 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgconn"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
@@ -27,6 +29,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -191,6 +194,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	b, err := th.Client.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), b.NumberU64())
+	require.Equal(t, uint64(10), b.Time())
 
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
@@ -204,6 +208,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, lpb.BlockHash, b.Hash())
 	assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 	assert.Equal(t, int64(1), int64(b.NumberU64()))
+	assert.Equal(t, uint64(10), b.Time())
 
 	// No logs.
 	lgs, err := th.ORM.SelectLogsByBlockRange(1, 1)
@@ -237,6 +242,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, th.EmitterAddress1, lgs[0].Address)
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
+	assert.Equal(t, latest.BlockTimestamp, lgs[0].BlockTimestamp)
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
 		lgs[0].Data)
@@ -376,6 +382,18 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, 7, len(lgs))
 	assertHaveCanonical(t, 15, 16, th.Client, th.ORM)
 	assertDontHave(t, 11, 14, th.ORM) // Do not expect to save backfilled blocks.
+
+	// Verify that a custom block timestamp will get written to db correctly also
+	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(17), b.NumberU64())
+	require.Equal(t, uint64(170), b.Time())
+	require.NoError(t, th.Client.AdjustTime(1*time.Hour))
+	th.Client.Commit()
+
+	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(180+time.Hour.Seconds()), b.Time())
 }
 
 func TestLogPoller_Logs(t *testing.T) {
@@ -665,6 +683,149 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, filter.contains(&filter3))
 	assert.True(t, filter3.contains(&filter))
+}
+
+func TestLogPoller_convertLogs(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	th := SetupTH(t, 2, 3, 2)
+
+	addresses := []common.Address{th.EmitterAddress1, th.EmitterAddress2}
+	topics := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
+
+	err := th.LogPoller.RegisterFilter(Filter{"convertLogs", topics, addresses})
+	require.NoError(t, err)
+
+	blk, err := th.Client.BlockByNumber(ctx, nil)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1), blk.Number())
+	start := blk.Time()
+
+	// There is automatically a 10s delay between each block.  To make sure it's including the correct block timestamps,
+	// we introduce irregularities by inserting two additional block delays. We can't control the block times for
+	// blocks produced by the log emitter, but we can adjust the time on empty blocks in between.  Simulated time
+	// sequence:  [ #1 ] ..(10s + delay1).. [ #2 ] ..10s.. [ #3 (LOG1) ] ..(10s + delay2).. [ #4 ] ..10s.. [ #5 (LOG2) ]
+	const delay1 = 589
+	const delay2 = 643
+	time1 := start + 20 + delay1
+	time2 := time1 + 20 + delay2
+
+	require.NoError(t, th.Client.AdjustTime(delay1*time.Second))
+	hash := th.Client.Commit()
+
+	blk, err = th.Client.BlockByHash(ctx, hash)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(2), blk.Number())
+	assert.Equal(t, time1-10, blk.Time())
+
+	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	hash = th.Client.Commit()
+
+	blk, err = th.Client.BlockByHash(ctx, hash)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(3), blk.Number())
+	assert.Equal(t, time1, blk.Time())
+
+	require.NoError(t, th.Client.AdjustTime(delay2*time.Second))
+	th.Client.Commit()
+	_, err = th.Emitter2.EmitLog2(th.Owner, []*big.Int{big.NewInt(2)})
+	require.NoError(t, err)
+	hash = th.Client.Commit()
+
+	blk, err = th.Client.BlockByHash(ctx, hash)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(5), blk.Number())
+	assert.Equal(t, time2, blk.Time())
+
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(2),
+		ToBlock:   big.NewInt(5),
+		Topics:    [][]common.Hash{topics},
+		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
+
+	gethLogs, err := th.Client.FilterLogs(ctx, query)
+	require.NoError(t, err)
+	require.Len(t, gethLogs, 2)
+
+	blocks, err := th.LogPoller.blocksFromLogs(ctx, gethLogs)
+	require.NoError(t, err)
+	require.Len(t, blocks, 2)
+
+	logs := th.LogPoller.ConvertLogs(gethLogs, blocks)
+	require.Len(t, logs, 2)
+
+	val, err := logs[0].Topics.Value()
+	require.NoError(t, err)
+	s, ok := val.(string)
+	require.True(t, ok)
+	var topics0 evmtypes.HashArray
+	require.NoError(t, topics0.Scan(s))
+
+	val, err = logs[1].Topics.Value()
+	require.NoError(t, err)
+	s, ok = val.(string)
+	require.True(t, ok)
+	var topics1 evmtypes.HashArray
+	require.NoError(t, topics1.Scan(s))
+
+	assert.Equal(t, time.Unix(big.NewInt(int64(time1)).Int64(), 0).UTC(), logs[0].BlockTimestamp)
+	assert.Equal(t, addresses[0], logs[0].Address)
+	assert.Equal(t, topics[0], topics0[0])
+	assert.Equal(t, time.Unix(big.NewInt(int64(time2)).Int64(), 0).UTC(), logs[1].BlockTimestamp)
+	assert.Equal(t, addresses[1], logs[1].Address)
+	assert.Equal(t, topics[1], topics1[0])
+}
+
+type ConvertLogsTestCases struct {
+	name     string
+	logs     []types.Log
+	blocks   []LogPollerBlock
+	expected int
+}
+
+func TestLogPoller_ConvertLogs(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+
+	topics := []common.Hash{EmitterABI.Events["Log1"].ID}
+
+	cases := []ConvertLogsTestCases{
+		{"SingleBlock",
+			[]types.Log{{Topics: topics}, {Topics: topics}},
+			[]LogPollerBlock{{BlockTimestamp: time.Now()}},
+			2},
+		{"BlockList",
+			[]types.Log{{Topics: topics}, {Topics: topics}, {Topics: topics}},
+			[]LogPollerBlock{{BlockTimestamp: time.Now()}},
+			3},
+		{"EmptyList",
+			[]types.Log{},
+			[]LogPollerBlock{},
+			0},
+		{"TooManyBlocks",
+			[]types.Log{{}},
+			[]LogPollerBlock{{}, {}},
+			0},
+		{"TooFewBlocks",
+			[]types.Log{{}, {}, {}},
+			[]LogPollerBlock{{}, {}},
+			0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			logs := convertLogs(c.logs, c.blocks, lggr, big.NewInt(53))
+			require.Len(t, logs, c.expected)
+			for i := 0; i < c.expected; i++ {
+				if len(c.blocks) == 1 {
+					assert.Equal(t, c.blocks[0].BlockTimestamp, logs[i].BlockTimestamp)
+				} else {
+					assert.Equal(t, logs[i].BlockTimestamp, c.blocks[i].BlockTimestamp)
+				}
+			}
+		})
+	}
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
