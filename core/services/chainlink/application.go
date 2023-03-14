@@ -511,8 +511,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
-			app.logger.Errorf("[Feeds Service] Failed to start %v", err)
-			app.FeedsService = &feeds.NullService{} // so we don't try to Close() later
+			app.logger.Infof("[Feeds Service] Failed to start: %v", err)
+			app.FeedsService = &feeds.NullService{} // Ensure that we have an error free Close().
 		}
 	}
 
