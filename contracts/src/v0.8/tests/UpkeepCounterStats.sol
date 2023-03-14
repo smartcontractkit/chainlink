@@ -7,6 +7,11 @@ import "../automation/2_0/KeeperRegistrar2_0.sol";
 contract UpkeepCounterStats {
   error IndexOutOfRange();
 
+  event UpkeepsRegistered(uint256[] upkeepIds);
+  event UpkeepsCancelled(uint256[] upkeepIds);
+  event RegistrarSet(address newRegistrar);
+  event FundsAdded(uint256 upkeepId, uint256 amount);
+
   using EnumerableSet for EnumerableSet.UintSet;
   event PerformingUpkeep(
     uint256 initialBlock,
@@ -45,6 +50,31 @@ contract UpkeepCounterStats {
     emit Received(msg.sender, msg.value);
   }
 
+  function setRegistrar(KeeperRegistrar2_0 newRegistrar) external {
+    registrar = newRegistrar;
+    (,,, address registryAddress,) = registrar.getRegistrationConfig();
+    registry = AutomationRegistryBaseInterface(registryAddress);
+    linkToken = registrar.LINK();
+
+    emit RegistrarSet(address(registrar));
+  }
+
+  function getInterval(uint256 upkeepId) external view returns (uint256) {
+    return upkeepIdsToIntervals[upkeepId];
+  }
+
+  function getPreviousPerformBlock(uint256 upkeepId) external view returns (uint256) {
+    return upkeepIdsToPreviousPerformBlock[upkeepId];
+  }
+
+  function getCounter(uint256 upkeepId) external view returns (uint256) {
+    return upkeepIdsToCounter[upkeepId];
+  }
+
+  function getGasLimit(uint256 upkeepId) external view returns (uint256) {
+    return upkeepIdsToGasLimit[upkeepId];
+  }
+
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
     if (startIndex >= maxIdx) revert IndexOutOfRange();
@@ -58,7 +88,7 @@ contract UpkeepCounterStats {
     return ids;
   }
 
-  function registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) external returns (uint256) {
+  function _registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) private returns (uint256) {
     uint256 upkeepId = registrar.registerUpkeep(params);
     s_upkeepIDs.add(upkeepId);
     upkeepIdsToGasLimit[upkeepId] = params.gasLimit;
@@ -66,7 +96,7 @@ contract UpkeepCounterStats {
     return upkeepId;
   }
 
-  function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external returns (uint256[] memory) {
+  function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external {
     KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
       name: "test",
       encryptedEmail: bytes(""),
@@ -82,15 +112,16 @@ contract UpkeepCounterStats {
 
     uint256[] memory upkeepIds = new uint256[](number);
     for (uint8 i = 0; i < number; i++) {
-      uint256 upkeepId = this.registerUpkeep(params);
+      uint256 upkeepId = _registerUpkeep(params);
       upkeepIds[i] = upkeepId;
     }
-    return upkeepIds;
+    emit UpkeepsRegistered(upkeepIds);
   }
 
   function addFunds(uint256 upkeepId, uint96 amount) external {
     linkToken.approve(address(registry), amount);
     registry.addFunds(upkeepId, amount);
+    emit FundsAdded(upkeepId, amount);
   }
 
   function updateCheckData(uint256 upkeepId, bytes calldata checkData) external {
@@ -98,17 +129,18 @@ contract UpkeepCounterStats {
     upkeepIdsToCheckData[upkeepId] = checkData;
   }
 
-  function cancelUpkeep(uint256 upkeepId) external {
+  function _cancelUpkeep(uint256 upkeepId) private {
     registry.cancelUpkeep(upkeepId);
     s_upkeepIDs.remove(upkeepId);
     // keep data in mappings in case needed afterwards?
   }
 
-  function cancelUpkeeps(uint256[] calldata upkeepIds) external {
+  function batchCancelUpkeeps(uint256[] calldata upkeepIds) external {
     uint256 len = upkeepIds.length;
     for (uint8 i = 0; i < len; i++) {
-      this.cancelUpkeep(upkeepIds[i]);
+      _cancelUpkeep(upkeepIds[i]);
     }
+    emit UpkeepsCancelled(upkeepIds);
   }
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
