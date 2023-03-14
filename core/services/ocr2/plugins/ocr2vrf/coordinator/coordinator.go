@@ -1065,9 +1065,6 @@ func (c *coordinator) SetOffChainConfig(b []byte) error {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
 	}
 
-	// Update blockhash lookback window.
-	c.blockhashLookback = mathutil.Min(256, c.coordinatorConfig.LookbackBlocks)
-
 	// Update local caches with new eviction window.
 	cacheEvictionWindowSeconds := c.coordinatorConfig.CacheEvictionWindowSeconds
 	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
