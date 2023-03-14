@@ -8,7 +8,7 @@ import (
 )
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
-type ORM[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
+type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, opts ...any) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, opts ...any) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress ADDR, chainID CHAINID, opts ...any) (count uint32, err error)
