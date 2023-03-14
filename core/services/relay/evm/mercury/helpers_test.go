@@ -2,9 +2,7 @@ package mercury
 
 import (
 	"encoding/base64"
-	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -62,9 +60,8 @@ var (
 		},
 		ExtraHash: [32]uint8{27, 144, 106, 73, 166, 228, 123, 166, 179, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114},
 	}
-	samplePayload       = buildSamplePayload()
-	samplePayloadHex    = hexutil.Encode(samplePayload)
-	sampleMercuryReport = fmt.Sprintf(`{"Payload":"%s","FromAccount":"%s"}`, samplePayloadHex, strings.ToLower(sampleFromAccount.Hex()))
+	samplePayload    = buildSamplePayload()
+	samplePayloadHex = hexutil.Encode(samplePayload)
 )
 
 func mustDecodeBase64(s string) (b []byte) {
