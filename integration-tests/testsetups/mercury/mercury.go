@@ -194,14 +194,15 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 	require.NoError(e.T, err, "Error connecting to blockchain")
 
 	e.T.Cleanup(func() {
-		if e.KeepEnv {
+		if !e.IsExistingTestEnv && e.KeepEnv {
 			envConfFile, err := e.Config.Save()
 			require.NoError(e.T, err, "Could not save mercury env conf file")
 			log.Info().Msgf("Keep mercury environment running."+
 				" Chain: %d. Initial TTL: %s", e.Config.ChainId, env.Cfg.TTL)
 			log.Info().Msgf("To reuse this env in next test on chain %d, set:\n"+
 				"\"MERCURY_ENV_CONFIG_PATH\"=\"%s\"", e.Config.ChainId, envConfFile)
-		} else {
+		}
+		if !e.KeepEnv {
 			log.Info().Msgf("Destroy this mercury env because MERCURY_KEEP_ENV not set to \"true\"")
 			err := actions.TeardownSuite(e.T, env, utils.ProjectRoot,
 				chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
