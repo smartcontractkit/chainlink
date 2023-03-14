@@ -186,6 +186,17 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	Celo = blockchain.EVMNetwork{
+		Name:                      "Celo Alfajores",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   42220,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       1000,
+	}
+
 	mappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -201,6 +212,7 @@ var (
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
 		"AVALANCHE_FUJI":  Avalanche,
+		"CELO_ALFAJORES":  Celo,
 	}
 )
 
