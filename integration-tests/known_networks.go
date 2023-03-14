@@ -189,7 +189,7 @@ var (
 	Celo = blockchain.EVMNetwork{
 		Name:                      "Celo Alfajores",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
-		ChainID:                   42220,
+		ChainID:                   44787,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{time.Minute},
