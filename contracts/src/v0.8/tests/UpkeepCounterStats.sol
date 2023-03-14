@@ -5,6 +5,8 @@ import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/Enumerabl
 import "../automation/2_0/KeeperRegistrar2_0.sol";
 
 contract UpkeepCounterStats {
+  error IndexOutOfRange();
+
   using EnumerableSet for EnumerableSet.UintSet;
   event PerformingUpkeep(
     uint256 initialBlock,
@@ -21,6 +23,8 @@ contract UpkeepCounterStats {
   mapping(uint256 => uint256) public upkeepIdsToPerformGasToBurn;
   mapping(uint256 => uint256) public upkeepIdsToCheckGasToBurn;
   mapping(uint256 => uint256) public upkeepIdsToPerformDataSize;
+  mapping(uint256 => uint256) public upkeepIdsToGasLimit;
+  mapping(uint256 => bytes) public upkeepIdsToCheckData;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
   mapping(uint256 => uint256[]) private upkeepIdsToDelay;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -41,9 +45,24 @@ contract UpkeepCounterStats {
     emit Received(msg.sender, msg.value);
   }
 
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
+    uint256 maxIdx = s_upkeepIDs.length();
+    if (startIndex >= maxIdx) revert IndexOutOfRange();
+    if (maxCount == 0) {
+      maxCount = maxIdx - startIndex;
+    }
+    uint256[] memory ids = new uint256[](maxCount);
+    for (uint256 idx = 0; idx < maxCount; idx++) {
+      ids[idx] = s_upkeepIDs.at(startIndex + idx);
+    }
+    return ids;
+  }
+
   function registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) external returns (uint256) {
     uint256 upkeepId = registrar.registerUpkeep(params);
     s_upkeepIDs.add(upkeepId);
+    upkeepIdsToGasLimit[upkeepId] = params.gasLimit;
+    upkeepIdsToCheckData[upkeepId] = params.checkData;
     return upkeepId;
   }
 
@@ -60,7 +79,6 @@ contract UpkeepCounterStats {
     });
 
     linkToken.approve(address(registrar), amount * number);
-    linkToken.approve(address(registry), amount * number);
 
     uint256[] memory upkeepIds = new uint256[](number);
     for (uint8 i = 0; i < number; i++) {
@@ -77,12 +95,20 @@ contract UpkeepCounterStats {
 
   function updateCheckData(uint256 upkeepId, bytes calldata checkData) external {
     registry.updateCheckData(upkeepId, checkData);
+    upkeepIdsToCheckData[upkeepId] = checkData;
   }
 
   function cancelUpkeep(uint256 upkeepId) external {
     registry.cancelUpkeep(upkeepId);
     s_upkeepIDs.remove(upkeepId);
     // keep data in mappings in case needed afterwards?
+  }
+
+  function cancelUpkeeps(uint256[] calldata upkeepIds) external {
+    uint256 len = upkeepIds.length;
+    for (uint8 i = 0; i < len; i++) {
+      this.cancelUpkeep(upkeepIds[i]);
+    }
   }
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
@@ -155,6 +181,11 @@ contract UpkeepCounterStats {
 
   function setPerformDataSize(uint256 upkeepId, uint256 value) public {
     upkeepIdsToPerformDataSize[upkeepId] = value;
+  }
+
+  function setUpkeepGasLimit(uint256 upkeepId, uint32 gasLimit) public {
+    registry.setUpkeepGasLimit(upkeepId, gasLimit);
+    upkeepIdsToGasLimit[upkeepId] = gasLimit;
   }
 
   function setSpread(uint256 upkeepId, uint256 _interval) external {
