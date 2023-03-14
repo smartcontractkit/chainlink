@@ -148,12 +148,6 @@ func (mo *MockORM) AddNodes(ns ...evmtypes.Node) {
 	}
 }
 
-func (mo *MockORM) EnabledChains(qopts ...pg.QOpt) ([]evmtypes.DBChain, error) {
-	mo.mu.RLock()
-	defer mo.mu.RUnlock()
-	return maps.Values(mo.chains), nil
-}
-
 func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.DBChain, error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()

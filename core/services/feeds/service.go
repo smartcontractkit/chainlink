@@ -1194,7 +1194,7 @@ func extractName(defn string) null.String {
 		Name null.String
 	}{}
 
-	if err := toml.Unmarshal([]byte(defn), spec); err != nil {
+	if err := toml.Unmarshal([]byte(defn), &spec); err != nil {
 		return null.StringFromPtr(nil)
 	}
 
