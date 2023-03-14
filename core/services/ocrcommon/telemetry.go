@@ -88,16 +88,42 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 	return nil
 }
 
+// getObservation checks pipeline.FinalResult and extracts the observation
+func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) int64 {
+	singularResult, err := finalResult.SingularResult()
+	if err != nil {
+		ds.lggr.Warnf("cannot get singular result, job %d", ds.jb.ID)
+		return 0
+	}
+
+	finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
+	if err != nil {
+		ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
+		return 0
+	}
+
+	return finalResultDecimal.BigInt().Int64()
+}
+
+func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) int64 {
+	parsedValue := getJsonParsedValue(trr, trrs)
+	if parsedValue == nil {
+		ds.lggr.Warnf("cannot get json parse value, job %d, id %s", ds.jb.ID, trr.Task.DotID())
+		return 0
+	}
+	return parsedValue.Int64()
+}
+
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
 func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
 	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
-	go extractAndSend(ds, trrs, finalResult)
+	go collectAndSend(ds, trrs, finalResult)
 }
 
-func extractAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
 	chainID := getChainID(&ds.jb)
 	contract := getContract(&ds.jb)
 
@@ -110,18 +136,14 @@ func extractAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 			continue
 		}
 		eaTelemetry, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		}
-		parsedValue := getJsonParsedValue(trr, trrs)
-		if parsedValue == nil {
-			ds.lggr.Warnf("cannot get json parse value, job %d, id %d", ds.jb.ID, trr.Task.DotID())
-		}
-		value := parsedValue.Int64()
+		value := getParsedValue(ds, trrs, trr)
 
 		t := &telem.TelemEnhancedEA{
 			DataSource:                    eaTelemetry.DataSource,
@@ -149,20 +171,4 @@ func extractAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 		}
 		ds.monitoringEndpoint.SendLog(bytes)
 	}
-}
-
-func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) int64 {
-	singularResult, err := finalResult.SingularResult()
-	if err != nil {
-		ds.lggr.Warnf("cannot get singular result, job %d, id %d", ds.jb.ID)
-		return 0
-	}
-
-	finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
-	if err != nil {
-		ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
-		return 0
-	}
-
-	return finalResultDecimal.BigInt().Int64()
 }

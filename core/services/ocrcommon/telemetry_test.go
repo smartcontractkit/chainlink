@@ -7,8 +7,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -243,6 +245,86 @@ func TestSendEATelemetry(t *testing.T) {
 	expectedMessage, _ := proto.Marshal(&expectedTelemetry)
 	wg.Wait()
 	assert.Equal(t, expectedMessage, sentMessage)
+}
+
+func TestGetObservation(t *testing.T) {
+	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
+	ds := &inMemoryDataSource{
+		jb: job.Job{
+			ID:   1234567890,
+			Type: job.Type(pipeline.OffchainReportingJobType),
+			OCROracleSpec: &job.OCROracleSpec{
+				CaptureEATelemetry: true,
+			},
+		},
+		lggr: lggr,
+	}
+
+	obs := getObservation(ds, &pipeline.FinalResult{})
+	assert.Equal(t, obs, int64(0))
+	assert.Equal(t, logs.Len(), 1)
+	assert.Contains(t, logs.All()[0].Message, "cannot get singular result")
+
+	finalResult := &pipeline.FinalResult{
+		Values:      []interface{}{"123456"},
+		AllErrors:   nil,
+		FatalErrors: []error{nil},
+	}
+	obs = getObservation(ds, finalResult)
+	assert.Equal(t, obs, int64(123456))
+}
+
+func TestCollectAndSend(t *testing.T) {
+	ingressClient := mocks.NewTelemetryIngressClient(t)
+	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return()
+
+	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
+	ds := &inMemoryDataSource{
+		jb: job.Job{
+			ID:   1234567890,
+			Type: job.Type(pipeline.OffchainReportingJobType),
+			OCROracleSpec: &job.OCROracleSpec{
+				CaptureEATelemetry: true,
+			},
+		},
+		lggr:               lggr,
+		monitoringEndpoint: monitoringEndpoint,
+	}
+
+	finalResult := &pipeline.FinalResult{
+		Values:      []interface{}{"123456"},
+		AllErrors:   nil,
+		FatalErrors: []error{nil},
+	}
+
+	badTrrs := &pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: nil,
+			},
+		}}
+
+	collectAndSend(ds, badTrrs, finalResult)
+	assert.Contains(t, logs.All()[0].Message, "cannot get bridge response from bridge task")
+
+	badTrrs = &pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: "[]",
+			},
+		}}
+	collectAndSend(ds, badTrrs, finalResult)
+	assert.Equal(t, logs.Len(), 3)
+	assert.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
+	assert.Contains(t, logs.All()[2].Message, "cannot get json parse value")
 }
 
 func BenchmarkCollectEATelemetry(b *testing.B) {
