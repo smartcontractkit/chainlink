@@ -22,11 +22,15 @@ import (
 func TestMercurySmoke(t *testing.T) {
 	l := actions.GetTestLogger(t)
 
-	testEnv := mercury.NewMercuryTestEnv(t, "smoke")
-	testEnv.SetupFullMercuryEnv(nil, nil)
+	testEnv, err := mercury.SetupMercuryTestEnv("smoke", nil, nil)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		testEnv.Cleanup(t)
+	})
 
 	var (
-		feedId      = testEnv.Config.FeedId
+		feedId      = testEnv.FeedId
 		feedIdBytes = mercury.StringToByte32(feedId)
 	)
 
@@ -67,9 +71,9 @@ func TestMercurySmoke(t *testing.T) {
 
 		// Get report from mercury server
 		msClient := client.NewMercuryServerClient(
-			testEnv.Config.MSLocalUrl, testEnv.Config.MSAdminId, testEnv.Config.MSAdminKey)
-		report, _, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
-		l.Info().Msgf("Got response from Mercury server: %s", report)
+			testEnv.MSInfo.LocalUrl, testEnv.MSInfo.AdminId, testEnv.MSInfo.AdminKey)
+		report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
+		l.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
 		require.NoError(t, err, "Error getting report from Mercury Server")
 		require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")
 		reportBlob := report["chainlinkBlob"].(string)

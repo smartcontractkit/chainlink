@@ -23,9 +23,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
-	"github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -47,61 +45,66 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 )
 
 type MercuryTestEnv struct {
-	T                     *testing.T
+	Namespace             string
 	NsPrefix              string
-	Config                *mercuryTestConfig
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
+	MockserverClient      *ctfClient.MockserverClient
+	FeedId                string                // feed id configured in Mercury
 	MSClient              *client.MercuryServer // Mercury server client authenticated with admin role
-	IsExistingTestEnv     bool                  // true if config in MERCURY_ENV_CONFIG_PATH contains namespace
-	KeepEnv               bool                  // Set via MERCURY_KEEP_ENV=true env
-	EnvTTL                time.Duration         // Set via MERCURY_ENV_TTL_MINS env
+	MSInfo                mercuryServerInfo
+	IsExistingTestEnv     bool          // true if config in MERCURY_ENV_CONFIG_PATH contains namespace
+	KeepEnv               bool          // Set via MERCURY_KEEP_ENV=true env
+	EnvTTL                time.Duration // Set via MERCURY_ENV_TTL_MINS env
+	ChainId               int64
 	EvmClient             blockchain.EVMClient
 	VerifierContract      contracts.Verifier
 	VerifierProxyContract contracts.VerifierProxy
 	ExchangerContract     contracts.Exchanger
+	ContractInfo          mercuryContractInfo
 }
 
 type mercuryTestConfig struct {
-	K8Namespace          string `json:"k8Namespace"`
-	ChainId              int64  `json:"chainId"`
-	FeedId               string `json:"feedId"`
+	K8Namespace   string              `json:"k8Namespace"`
+	ChainId       int64               `json:"chainId"`
+	FeedId        string              `json:"feedId"`
+	ContractsInfo mercuryContractInfo `json:"contracts"`
+	MSInfo        mercuryServerInfo   `json:"mercuryServer"`
+}
+
+type mercuryContractInfo struct {
 	VerifierAddress      string `json:"verifierAddress"`
 	VerifierProxyAddress string `json:"verifierProxyAddress"`
 	ExchangerAddress     string `json:"exchangerAddress"`
-	MSRemoteUrl          string `json:"mercuryServerRemoteUrl"`
-	MSLocalUrl           string `json:"mercuryServerLocalUrl"`
-	MSAdminId            string `json:"mercuryServerAdminId"`
-	MSAdminKey           string `json:"mercuryServerAdminKey"`
-	MSAdminEncryptedKey  string `json:"mercuryServerAdminEncryptedKey"`
 }
 
-// Fetch mercury environment config from local json
-// file provided by MERCURY_ENV_CONFIG_PATH env
-func configFromFile() *mercuryTestConfig {
-	if os.Getenv("MERCURY_ENV_CONFIG_PATH") != "" {
-		c := &mercuryTestConfig{}
-		jsonFile, err := os.Open(os.Getenv("MERCURY_ENV_CONFIG_PATH"))
-		if err != nil {
-			return c
-		}
-		defer jsonFile.Close()
-		b, _ := ioutil.ReadAll(jsonFile)
-		err = json.Unmarshal(b, &c)
-		if err != nil {
-			return nil
-		}
-		log.Info().Msgf("Using existing mercury env config from: %s\n%s",
-			os.Getenv("MERCURY_ENV_CONFIG_PATH"), c.Json())
-		return c
+type mercuryServerInfo struct {
+	RemoteUrl         string `json:"remoteUrl"`
+	LocalUrl          string `json:"localUrl"`
+	AdminId           string `json:"adminId"`
+	AdminKey          string `json:"adminKey"`
+	AdminEncryptedKey string `json:"adminEncryptedKey"`
+}
+
+// Fetch mercury environment config from local json file
+func configFromFile(path string) (*mercuryTestConfig, error) {
+	c := &mercuryTestConfig{}
+	jsonFile, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	defer jsonFile.Close()
+	b, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(b, &c)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *mercuryTestConfig) Json() string {
@@ -124,11 +127,7 @@ func (c *mercuryTestConfig) Save() (string, error) {
 	}
 
 	// Save mercury env config to disk
-	confId, err := uuid.NewV4()
-	if err != nil {
-		return "", nil
-	}
-	confPath := fmt.Sprintf("%s/%s.json", confDir, confId)
+	confPath := fmt.Sprintf("%s/%s.json", confDir, c.K8Namespace)
 	f, _ := json.MarshalIndent(c, "", " ")
 	err = ioutil.WriteFile(confPath, f, 0644)
 
@@ -140,161 +139,252 @@ func (c *mercuryTestConfig) Save() (string, error) {
 // MS_DATABASE_FIRST_ADMIN_ID: mercury server admin id
 // MS_DATABASE_FIRST_ADMIN_KEY: mercury server admin key
 // MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY: mercury server admin encrypted key
-func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
-	testEnv := &MercuryTestEnv{}
-	testEnv.T = t
-	testEnv.NsPrefix = namespacePrefix
-	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
-	envTTL, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
+// Optional envs:
+// MERCURY_ENV_CONFIG_PATH: path to saved mercury test env config
+// MERCURY_KEEP_ENV: Env config file will be generated and the env will not be destroyed when true
+// MERCURY_ENV_TTL_MINS: Env ttl in min
+func SetupMercuryTestEnv(
+	namespacePrefix string,
+	msDbSettings map[string]interface{},
+	msResources map[string]interface{}) (*MercuryTestEnv, error) {
+
+	var (
+		feedId                    string
+		namespace                 string
+		isExistingTestEnv         bool
+		keepEnv                   bool
+		envTTL                    time.Duration
+		chainId                   int64
+		msLocalUrl                string
+		msRemoteUrl               string
+		msAdminId                 string
+		msAdminKey                string
+		msAdminEncryptedKey       string
+		existingVerifierAddr      string
+		existingVerifierProxyAddr string
+		existingExchangerAddr     string
+		verifierContract          contracts.Verifier
+		verifierProxyContract     contracts.VerifierProxy
+		exchangerContract         contracts.Exchanger
+	)
+
+	keepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
+	ttl, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
 	if err == nil {
-		testEnv.EnvTTL = time.Duration(envTTL) * time.Minute
+		envTTL = time.Duration(ttl) * time.Minute
 	} else {
 		// Set default TTL for k8 environment
-		testEnv.EnvTTL = 20 * time.Minute
+		envTTL = 20 * time.Minute
 	}
 
-	existingConfig := configFromFile()
-	testEnv.IsExistingTestEnv = existingConfig != nil
-	if existingConfig != nil {
-		testEnv.Config = existingConfig
+	// Load mercury env info from a config file if it exists
+	configPath := os.Getenv("MERCURY_ENV_CONFIG_PATH")
+	if configPath != "" {
+		c, err := configFromFile(configPath)
+		if err != nil {
+			return nil, err
+		}
+		// Fail when chain on env loaded from config is different than currently selected chain
+		if c.ChainId != networks.SelectedNetwork.ChainID {
+			return nil, fmt.Errorf("chain set in SELECTED_NETWORKS is" +
+				" different than chain id set in config provided by MERCURY_ENV_CONFIG_PATH")
+		}
+
+		log.Info().Msgf("Using existing mercury env config from: %s\n%s",
+			configPath, c.Json())
+
+		namespace = c.K8Namespace
+		feedId = c.FeedId
+		msAdminId = c.MSInfo.AdminId
+		msAdminKey = c.MSInfo.AdminKey
+		msAdminEncryptedKey = c.MSInfo.AdminEncryptedKey
+		existingVerifierAddr = c.ContractsInfo.VerifierAddress
+		existingVerifierProxyAddr = c.ContractsInfo.VerifierProxyAddress
+		existingExchangerAddr = c.ContractsInfo.ExchangerAddress
+
+		isExistingTestEnv = true
 	} else {
-		testEnv.Config = &mercuryTestConfig{}
-	}
-	// Feed id can have max 32 characters
-	testEnv.Config.FeedId = "feed-1234"
-	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
-	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
-	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
+		// Feed id can have max 32 characters
+		feedId = "feed-1234"
+		msAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
+		msAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
+		msAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
 
-	return testEnv
-}
-
-// Setup DON, Mercury Server and all mercury contracts
-func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, serverResources map[string]interface{}) {
-	testNetwork := networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
+		isExistingTestEnv = false
 	}
 
-	// Fail when existing env is different than current chain
-	if e.IsExistingTestEnv {
-		require.Equal(e.T, e.Config.ChainId, testNetwork.ChainID,
-			"Chain set in SELECTED_NETWORKS is different than chain id set in config provided by MERCURY_ENV_CONFIG_PATH")
+	chainId = networks.SelectedNetwork.ChainID
+	evmNetwork, evmConfig := setupEvmNetwork()
+
+	env, chainlinkNodes, err := setupDON(envTTL, namespace, namespacePrefix, isExistingTestEnv,
+		evmNetwork, evmConfig)
+	if err != nil {
+		return nil, err
 	}
-	e.Config.ChainId = testNetwork.ChainID
 
-	env := e.SetupDON(e.T, testNetwork, evmConfig)
-	e.Env = env
-	e.Config.K8Namespace = env.Cfg.Namespace
+	evmClient, err := blockchain.NewEVMClient(evmNetwork, env)
+	if err != nil {
+		return nil, err
+	}
 
-	chainlinkNodes, err := client.ConnectChainlinkNodes(env)
-	e.ChainlinkNodes = chainlinkNodes
-	require.NoError(e.T, err, "Error connecting to Chainlink nodes")
-
-	evmClient, err := blockchain.NewEVMClient(testNetwork, env)
-	e.EvmClient = evmClient
-	require.NoError(e.T, err, "Error connecting to blockchain")
-
-	e.T.Cleanup(func() {
-		if !e.IsExistingTestEnv && e.KeepEnv {
-			envConfFile, err := e.Config.Save()
-			require.NoError(e.T, err, "Could not save mercury env conf file")
-			log.Info().Msgf("Keep mercury environment running."+
-				" Chain: %d. Initial TTL: %s", e.Config.ChainId, env.Cfg.TTL)
-			log.Info().Msgf("To reuse this env in next test on chain %d, set:\n"+
-				"\"MERCURY_ENV_CONFIG_PATH\"=\"%s\"", e.Config.ChainId, envConfFile)
-		}
-		if !e.KeepEnv {
-			log.Info().Msgf("Destroy this mercury env because MERCURY_KEEP_ENV not set to \"true\"")
-			err := actions.TeardownSuite(e.T, env, utils.ProjectRoot,
-				chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
-			require.NoError(e.T, err, "Error tearing down environment")
-		}
-	})
-
-	msRpcPubKey := e.SetupMercuryServer(env, dbSettings, serverResources,
-		e.Config.MSAdminId, e.Config.MSAdminEncryptedKey)
+	msRpcPubKey, msLocalUrl, msRemoteUrl, msClient, err := setupMercuryServer(
+		env, msDbSettings, msResources,
+		msAdminId, msAdminKey, msAdminEncryptedKey)
+	if err != nil {
+		return nil, err
+	}
 
 	// Setup random mock server response for mercury price feed
 	mockserverClient, err := ctfClient.ConnectMockServer(env)
-	require.NoError(e.T, err, "Error connecting to mock server")
-
-	msLocalUrl := env.URLs[mshelm.URLsKey][1]
-	msClient := client.NewMercuryServerClient(msLocalUrl, e.Config.MSAdminId, e.Config.MSAdminKey)
-	e.Config.MSLocalUrl = msLocalUrl
-	e.MSClient = msClient
-
-	if e.IsExistingTestEnv {
-		// Load existing contracts
-		contractDeployer, err := contracts.NewContractDeployer(evmClient)
-		require.NoError(e.T, err)
-		e.VerifierContract, err = contractDeployer.LoadVerifier(common.HexToAddress(e.Config.VerifierAddress))
-		require.NoError(e.T, err)
-		e.VerifierProxyContract, err = contractDeployer.LoadVerifierProxy(common.HexToAddress(e.Config.VerifierProxyAddress))
-		require.NoError(e.T, err)
-		e.ExchangerContract, err = contractDeployer.LoadExchanger(common.HexToAddress(e.Config.ExchangerAddress))
-		require.NoError(e.T, err)
-	} else {
-		// Deploy new contracts and setup jobs
-		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig, err := BuildMercuryOCRConfig(nodesWithoutBootstrap)
-		require.NoError(e.T, err)
-
-		feedId := StringToByte32(e.Config.FeedId)
-		verifier, verifierProxy, exchanger, _, err := DeployMercuryContracts(
-			evmClient, "", *ocrConfig)
-		require.NoError(e.T, err, "Error deploying mercury contracts")
-		e.VerifierContract = verifier
-		e.VerifierProxyContract = verifierProxy
-		e.ExchangerContract = exchanger
-		e.Config.VerifierAddress = verifier.Address()
-		e.Config.VerifierProxyAddress = verifierProxy.Address()
-		e.Config.ExchangerAddress = exchanger.Address()
-
-		// Setup feed verifier contract
-		verifier.SetConfig(feedId, *ocrConfig)
-		c, err := verifier.LatestConfigDetails(feedId)
-		require.NoError(e.T, err)
-		log.Info().Msgf("Latest Verifier config digest: %x", c.ConfigDigest)
-		verifierProxy.InitializeVerifier(c.ConfigDigest, verifier.Address())
-
-		// Setup jobs on the nodes
-		require.NoError(e.T, err)
-		msRemoteUrl := env.URLs[mshelm.URLsKey][0]
-		e.SetupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifier.Address(),
-			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
-		e.Config.MSRemoteUrl = msRemoteUrl
+	if err != nil {
+		return nil, err
 	}
 
-	e.WaitForReportsInMercuryDb()
+	if isExistingTestEnv {
+		verifierContract, verifierProxyContract, exchangerContract, err = LoadMercuryContracts(
+			evmClient,
+			existingVerifierAddr,
+			existingVerifierProxyAddr,
+			existingExchangerAddr,
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Build OCR config
+		nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig, err := buildMercuryOCRConfig(nodesWithoutBootstrap)
+		if err != nil {
+			return nil, err
+		}
+
+		// Deploy contracts
+		feedId := StringToByte32(feedId)
+		verifierContract, verifierProxyContract, exchangerContract, _, err = DeployMercuryContracts(
+			evmClient, "", *ocrConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		// Setup feed verifier contract
+		verifierContract.SetConfig(feedId, *ocrConfig)
+		c, err := verifierContract.LatestConfigDetails(feedId)
+		if err != nil {
+			return nil, err
+		}
+		log.Info().Msgf("Latest Verifier config digest: %x", c.ConfigDigest)
+		verifierProxyContract.InitializeVerifier(c.ConfigDigest, verifierContract.Address())
+
+		// Setup jobs on the nodes
+		if err != nil {
+			return nil, err
+		}
+		setupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifierContract.Address(),
+			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, evmNetwork.ChainID, 0)
+	}
+
+	err = waitForReportsInMercuryDb(feedId, evmClient, msClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MercuryTestEnv{
+		Namespace:         namespace,
+		NsPrefix:          namespacePrefix,
+		Env:               env,
+		EnvTTL:            envTTL,
+		KeepEnv:           keepEnv,
+		ChainId:           chainId,
+		IsExistingTestEnv: isExistingTestEnv,
+		FeedId:            feedId,
+		MSInfo: mercuryServerInfo{
+			LocalUrl:          msLocalUrl,
+			RemoteUrl:         msRemoteUrl,
+			AdminId:           msAdminId,
+			AdminKey:          msAdminKey,
+			AdminEncryptedKey: msAdminEncryptedKey,
+		},
+		MSClient:              msClient,
+		EvmClient:             evmClient,
+		MockserverClient:      mockserverClient,
+		ChainlinkNodes:        chainlinkNodes,
+		VerifierContract:      verifierContract,
+		VerifierProxyContract: verifierProxyContract,
+		ExchangerContract:     exchangerContract,
+	}, nil
+}
+
+// Build config of the current mercury env
+func (e *MercuryTestEnv) Config() *mercuryTestConfig {
+	return &mercuryTestConfig{
+		K8Namespace: e.Env.Cfg.Namespace,
+		ChainId:     e.ChainId,
+		FeedId:      e.FeedId,
+		ContractsInfo: mercuryContractInfo{
+			VerifierAddress:      e.VerifierContract.Address(),
+			VerifierProxyAddress: e.VerifierProxyContract.Address(),
+			ExchangerAddress:     e.ExchangerContract.Address(),
+		},
+		MSInfo: e.MSInfo,
+	}
+}
+
+func (e *MercuryTestEnv) Cleanup(t *testing.T) error {
+	if !e.IsExistingTestEnv && e.KeepEnv {
+		envConfPath, err := e.Config().Save()
+		if err == nil {
+			log.Info().Msgf("Keep mercury environment running."+
+				" Chain: %d. Initial TTL: %s", e.ChainId, e.EnvTTL)
+			log.Info().Msgf("To reuse this env in next test on chain %d, set:\n"+
+				"\"MERCURY_ENV_CONFIG_PATH\"=\"%s\"", e.ChainId, envConfPath)
+		} else {
+			log.Error().Msgf("Could not save mercury env config to file. Err: %v", err)
+		}
+	}
+	if !e.KeepEnv {
+		log.Info().Msgf("Destroy this mercury env because MERCURY_KEEP_ENV not set to \"true\"")
+		err := actions.TeardownSuite(t, e.Env, utils.ProjectRoot,
+			e.ChainlinkNodes, nil, zapcore.PanicLevel, e.EvmClient)
+		return err
+	}
+	return nil
 }
 
 // Wait for the DON to start generating reports and storing them in mercury server db
-func (e *MercuryTestEnv) WaitForReportsInMercuryDb() {
+func waitForReportsInMercuryDb(
+	feedId string, evmClient blockchain.EVMClient, msClient *client.MercuryServer) error {
 	log.Info().Msg("Wait for mercury server to have at least one report in the db..")
 
-	latestBlockNum, err := e.EvmClient.LatestBlockNumber(context.Background())
-	require.NoError(e.T, err, "Err getting latest block number")
+	latestBlockNum, err := evmClient.LatestBlockNumber(context.Background())
+	if err != nil {
+		return err
+	}
 
-	gom := gomega.NewGomegaWithT(e.T)
-	gom.Eventually(func(g gomega.Gomega) {
-		report, _, _ := e.MSClient.GetReports(e.Config.FeedId, latestBlockNum)
-		g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Failed to retrieve a report from mercury server")
-	}, "3m", "5s").Should(gomega.Succeed())
+	timeout := time.Minute * 3
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+	to := time.NewTimer(timeout)
+	defer to.Stop()
+	for {
+		select {
+		case <-to.C:
+			return fmt.Errorf("no reports found in mercury db after %s", timeout)
+		case <-ticker.C:
+			report, _, _ := msClient.GetReports(feedId, latestBlockNum)
+			if report != nil && report.ChainlinkBlob != "" {
+				return nil
+			}
+		}
+	}
 }
 
-func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
-	testEnv := environment.New(&environment.Config{
-		TTL:              e.EnvTTL,
-		NamespacePrefix:  fmt.Sprintf("%s-mercury-%s", e.NsPrefix, strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
-		Test:             t,
-		Namespace:        e.Config.K8Namespace,
-		NoManifestUpdate: e.IsExistingTestEnv,
+func setupDON(envTTL time.Duration, namespace string, namespacePrefix string, isExistingTestEnv bool,
+	evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) (*environment.Environment, []*client.Chainlink, error) {
+	env := environment.New(&environment.Config{
+		TTL:              envTTL,
+		NamespacePrefix:  fmt.Sprintf("%s-mercury-%s", namespacePrefix, strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
+		Namespace:        namespace,
+		NoManifestUpdate: isExistingTestEnv,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(map[string]interface{}{
@@ -317,19 +407,25 @@ func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork
 			"toml": client.AddNetworksConfig(
 				testconfig.BaseMercuryTomlConfig,
 				evmNetwork),
-			// "secretsToml": secretsToml,
 			"prometheus": "true",
 		}))
-	err := testEnv.Run()
-	require.NoError(t, err, "Error running test environment")
+	err := env.Run()
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return testEnv
+	nodes, err := client.ConnectChainlinkNodes(env)
+	if err != nil {
+		return env, nil, err
+	}
+
+	return env, nodes, nil
 }
 
 // Setup node jobs for Mercury OCR
 // For 'fromBlock', use the block number in which the config was set. Or latest block number if
 // the config is not set yet
-func (e *MercuryTestEnv) SetupMercuryNodeJobs(
+func setupMercuryNodeJobs(
 	chainlinkNodes []*client.Chainlink,
 	mockserverClient *ctfClient.MockserverClient,
 	contractID string,
@@ -339,9 +435,11 @@ func (e *MercuryTestEnv) SetupMercuryNodeJobs(
 	mercuryServerPubKey ed25519.PublicKey,
 	chainID int64,
 	keyIndex int,
-) {
+) error {
 	err := mockserverClient.SetRandomValuePath("/variable")
-	require.NoError(e.T, err, "Setting mockserver value path shouldn't fail")
+	if err != nil {
+		return err
+	}
 
 	observationSource := fmt.Sprintf(`
 // Benchmark Price
@@ -376,7 +474,9 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
-	require.NoError(e.T, err, "Shouldn't fail reading P2P keys from bootstrap node")
+	if err != nil {
+		return err
+	}
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
@@ -394,14 +494,20 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
-	require.NoError(e.T, err, "Shouldn't fail creating bootstrap job on bootstrap node")
+	if err != nil {
+		return err
+	}
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
-		require.NoError(e.T, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
+		if err != nil {
+			return err
+		}
 		csaKeys, _, err := chainlinkNodes[nodeIndex].ReadCSAKeys()
-		require.NoError(e.T, err)
+		if err != nil {
+			return err
+		}
 		// csaKeyId := csaKeys.Data[0].ID
 		csaPubKey := csaKeys.Data[0].Attributes.PublicKey
 
@@ -450,9 +556,12 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 		}
 
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&jobSpec)
-		require.NoError(e.T, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
+		if err != nil {
+			return err
+		}
 	}
 	log.Info().Msg("Done creating OCR automation jobs")
+	return nil
 }
 
 type csaKey struct {
@@ -475,7 +584,7 @@ type oracle struct {
 }
 
 // Build config with nodes for Mercury server
-func BuildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
+func buildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
 	var msRpcNodesConf []*oracle
 	for i, chainlinkNode := range chainlinkNodes {
 		nodeName := fmt.Sprint(i)
@@ -554,26 +663,33 @@ func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error)
 	return buf.String(), nil
 }
 
-func (e *MercuryTestEnv) SetupMercuryServer(
-	testEnv *environment.Environment,
+func setupMercuryServer(
+	env *environment.Environment,
 	dbSettings map[string]interface{},
 	serverSettings map[string]interface{},
 	adminId string,
+	adminKey string,
 	adminEncryptedKey string,
-) ed25519.PublicKey {
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnv)
-	require.NoError(e.T, err, "Error connecting to Chainlink nodes")
+) (ed25519.PublicKey, string, string, *client.MercuryServer, error) {
+	chainlinkNodes, err := client.ConnectChainlinkNodes(env)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
 
-	rpcNodesJsonConf, _ := BuildRpcNodesJsonConf(chainlinkNodes)
+	rpcNodesJsonConf, _ := buildRpcNodesJsonConf(chainlinkNodes)
 	log.Info().Msgf("RPC nodes conf for mercury server: %s", rpcNodesJsonConf)
 
 	// Generate keys for Mercury RPC server
 	// rpcPrivKey, rpcPubKey, err := generateEd25519Keys()
 	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(e.T, err)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
 
 	initDbSql, err := buildInitialDbSql(adminId, adminEncryptedKey)
-	require.NoError(e.T, err)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
 	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
 
 	settings := map[string]interface{}{
@@ -600,12 +716,16 @@ func (e *MercuryTestEnv) SetupMercuryServer(
 		settings["resources"] = serverSettings
 	}
 
-	testEnv.AddHelm(mshelm.New(settings)).Run()
+	env.AddHelm(mshelm.New(settings)).Run()
 
-	return rpcPubKey
+	msRemoteUrl := env.URLs[mshelm.URLsKey][0]
+	msLocalUrl := env.URLs[mshelm.URLsKey][1]
+	msClient := client.NewMercuryServerClient(msLocalUrl, adminId, adminKey)
+
+	return rpcPubKey, msLocalUrl, msRemoteUrl, msClient, nil
 }
 
-func BuildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.MercuryOCRConfig, error) {
+func buildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.MercuryOCRConfig, error) {
 	// Build onchain config
 	c := relaymercury.OnchainConfig{Min: big.NewInt(0), Max: big.NewInt(math.MaxInt64)}
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(c)
@@ -672,6 +792,22 @@ func BuildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.Mercu
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}, nil
+}
+
+func setupEvmNetwork() (blockchain.EVMNetwork, environment.ConnectedChart) {
+	network := networks.SelectedNetwork
+	var evmChart environment.ConnectedChart
+	if network.Simulated {
+		evmChart = eth.New(nil)
+	} else {
+		evmChart = eth.New(&eth.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+
+	return network, evmChart
 }
 
 func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
