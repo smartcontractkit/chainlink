@@ -7,6 +7,7 @@ import { makeDebug } from '../../test-helpers/debug'
 
 const debug = makeDebug('FunctionsTestHelper')
 let concreteFunctionsTestHelperFactory: ContractFactory
+let functionsLibraryFactory: ContractFactory
 
 let roles: Roles
 
@@ -14,6 +15,10 @@ before(async () => {
   roles = (await getUsers()).roles
   concreteFunctionsTestHelperFactory = await ethers.getContractFactory(
     'src/v0.8/tests/FunctionsTestHelper.sol:FunctionsTestHelper',
+    roles.defaultAccount,
+  )
+  functionsLibraryFactory = await ethers.getContractFactory(
+    'src/v0.8/dev/functions/Functions.sol:Functions',
     roles.defaultAccount,
   )
 })
@@ -52,11 +57,18 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: '',
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: '',
+        },
+      )
     })
   })
 
@@ -67,11 +79,18 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+        },
+      )
     })
   })
 
@@ -79,7 +98,9 @@ describe('FunctionsTestHelper', () => {
     it('reverts with EmptySource() if source param is empty', async () => {
       await expect(
         ctr.initializeRequestForInlineJavaScript(''),
-      ).to.be.revertedWith('EmptySource()')
+      ).to.be.revertedWith(
+        functionsLibraryFactory.interface.getSighash('EmptySource'),
+      )
     })
   })
 
@@ -92,13 +113,21 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        secretsLocation: 0,
-        secrets: hexToBuf(secrets),
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+          secretsLocation: decoded.secretsLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+          secretsLocation: 0,
+          secrets: hexToBuf(secrets),
+        },
+      )
     })
   })
 
@@ -106,7 +135,9 @@ describe('FunctionsTestHelper', () => {
     it('reverts with EmptySecrets() if secrets param is empty', async () => {
       const js = 'function run(args, responses) {}'
       await ctr.initializeRequestForInlineJavaScript(js)
-      await expect(ctr.addSecrets('0x')).to.be.revertedWith('EmptySecrets()')
+      await expect(ctr.addSecrets('0x')).to.be.revertedWith(
+        functionsLibraryFactory.interface.getSighash('EmptySecrets'),
+      )
     })
   })
 
@@ -118,18 +149,27 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        args: ['arg1', 'arg2'],
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+          args: ['arg1', 'arg2'],
+        },
+      )
     })
   })
 
   describe('#addEmptyArgs to revert', () => {
     it('reverts with EmptyArgs() if args param is empty', async () => {
-      await expect(ctr.addEmptyArgs()).to.be.revertedWith('EmptyArgs()')
+      await expect(ctr.addEmptyArgs()).to.be.revertedWith(
+        functionsLibraryFactory.interface.getSighash('EmptyArgs'),
+      )
     })
   })
 })
