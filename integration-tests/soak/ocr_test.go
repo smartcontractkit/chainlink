@@ -99,6 +99,9 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 		} else {
 			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
+				"db": map[string]any{
+					"stateful": "true",
+				},
 			}))
 		}
 	}
