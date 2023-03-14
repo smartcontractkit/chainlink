@@ -107,7 +107,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
 
-	t.Run("ocr metric instationation", func(t *testing.T) {
+	t.Run("ocr metric instantiation", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = ptr(true)
 			p2paddresses := []string{
