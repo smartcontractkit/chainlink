@@ -355,7 +355,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		ocrMetricFactory := ocrcommon.NewMetricVecFactory(ocrcommon.NewDefaultMetricVec)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger, ocrMetricFactory)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
@@ -373,7 +374,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			mailMon,
-			ocrMetricFactory,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")

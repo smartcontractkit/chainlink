@@ -12,6 +12,7 @@ import (
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -62,6 +63,8 @@ type (
 
 		// OCR2 peer adapter
 		Peer2 *peerAdapterOCR2
+
+		OCRMetricFactory commontypes.Metrics
 	}
 )
 
@@ -91,12 +94,17 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, config PeerWrapperConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master,
+	config PeerWrapperConfig,
+	db *sqlx.DB,
+	lggr logger.Logger,
+	ocrMetricFactory commontypes.Metrics) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
-		keyStore: keyStore,
-		config:   config,
-		db:       db,
-		lggr:     lggr.Named("SingletonPeerWrapper"),
+		keyStore:         keyStore,
+		config:           config,
+		db:               db,
+		lggr:             lggr.Named("SingletonPeerWrapper"),
+		OCRMetricFactory: ocrMetricFactory,
 	}
 }
 
@@ -183,7 +191,7 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 				IncomingMessageBufferSize: p.config.P2PIncomingMessageBufferSize(),
 				OutgoingMessageBufferSize: p.config.P2POutgoingMessageBufferSize(),
 			},
-			Metrics: NewMetricVecFactory(NewDefaultMetricVec),
+			Metrics: p.OCRMetricFactory,
 		}
 
 		p.lggr.Debugw("Creating OCR/OCR2 Peer", "config", peerConfig)
