@@ -17,12 +17,25 @@ type WSConfig struct {
 }
 
 type WSInstance struct {
-	srv *client.MercuryServer
+	srv  *client.MercuryServer
+	stop chan struct{}
+}
+
+func (m *WSInstance) Stop(l *loadgen.Generator) {
+	m.stop <- struct{}{}
+}
+
+func (m *WSInstance) Clone(l *loadgen.Generator) loadgen.Instance {
+	return &WSInstance{
+		srv:  m.srv,
+		stop: make(chan struct{}, 1),
+	}
 }
 
 func NewWSInstance(srv *client.MercuryServer) *WSInstance {
 	return &WSInstance{
-		srv: srv,
+		srv:  srv,
+		stop: make(chan struct{}, 1),
 	}
 }
 
@@ -36,12 +49,14 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 	}
 	l.ResponsesWaitGroup.Add(1)
 	go func() {
+		//nolint
 		defer l.ResponsesWaitGroup.Done()
+		defer c.Close(websocket.StatusNormalClosure, "")
 		for {
 			select {
 			case <-l.ResponsesCtx.Done():
-				//nolint
-				c.Close(websocket.StatusNormalClosure, "")
+				return
+			case <-m.stop:
 				return
 			default:
 				startedAt := time.Now()
@@ -51,17 +66,17 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 					l.Log.Error().Err(err).Msg("failed read ws msg from instance")
 					l.ResponsesChan <- loadgen.CallResult{StartedAt: &startedAt, Failed: true, Error: "ws read error"}
 				}
-				log.Debug().Interface("Results", v).Msg("Report results")
+				log.Info().Interface("Results", v).Msg("Report results")
 				if v["report"] == "" {
 					log.Error().Msg("report is empty")
 					continue
 				}
 				reportElements := map[string]interface{}{}
 				if err := mercury.ValidateReport([]byte(v["report"])); err != nil {
-					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error"}
+					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error", Failed: true}
 					continue
 				}
-				log.Debug().Interface("Report", reportElements).Msg("Decoded report")
+				log.Info().Interface("Report", reportElements).Msg("Decoded report")
 				l.ResponsesChan <- loadgen.CallResult{StartedAt: &startedAt}
 			}
 		}

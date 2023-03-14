@@ -154,7 +154,7 @@ func genHmacSignature(method string, path string, body []byte, secret []byte, cl
 
 	// Generate the message to be signed
 	message := fmt.Sprintf("%s %s %s %s %s", method, path, bodyHashString, clientId, timestamp)
-	log.Info().Msgf("message: %s", message)
+	log.Debug().Msgf("message: %s", message)
 
 	// Generate the signature
 	signedMessage := hmac.New(sha256.New, secret)

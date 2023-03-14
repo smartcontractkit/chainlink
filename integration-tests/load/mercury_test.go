@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	mercuryserver "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
@@ -60,11 +59,10 @@ func TestMercuryHTTPLoad(t *testing.T) {
 		for {
 			time.Sleep(5 * time.Second)
 			bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
-			log.Warn().Uint64("Block number", bn).Send()
 			gun.Bn.Store(bn - 5)
 		}
 	}()
-	gen, err := loadgen.NewLoadGenerator(&loadgen.LoadGeneratorConfig{
+	gen, err := loadgen.NewLoadGenerator(&loadgen.Config{
 		T: t,
 		LokiConfig: ctfClient.NewDefaultLokiConfig(
 			os.Getenv("LOKI_URL"),
@@ -76,15 +74,10 @@ func TestMercuryHTTPLoad(t *testing.T) {
 			"namespace":  testEnv.Env.Cfg.Namespace,
 			"test_id":    "http",
 		},
-		Duration: 1200 * time.Second,
-		Schedule: &loadgen.LoadSchedule{
-			Type:          loadgen.RPSScheduleType,
-			StartFrom:     10,
-			Increase:      5,
-			StageInterval: 20 * time.Second,
-			Limit:         1000,
-		},
-		Gun: gun,
+		LoadType:    loadgen.RPSScheduleType,
+		CallTimeout: 5 * time.Second,
+		Schedule:    loadgen.Line(10, 800, 500*time.Second),
+		Gun:         gun,
 	})
 	require.NoError(t, err)
 	gen.Run()
@@ -94,7 +87,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 func TestMercuryWSLoad(t *testing.T) {
 	testEnv, _ := setupMercuryLoadEnv(t, dbSettings, serverResources)
 
-	gen, err := loadgen.NewLoadGenerator(&loadgen.LoadGeneratorConfig{
+	gen, err := loadgen.NewLoadGenerator(&loadgen.Config{
 		T: t,
 		LokiConfig: ctfClient.NewDefaultLokiConfig(
 			os.Getenv("LOKI_URL"),
@@ -106,14 +99,8 @@ func TestMercuryWSLoad(t *testing.T) {
 			"namespace":  testEnv.Env.Cfg.Namespace,
 			"test_id":    "ws",
 		},
-		Duration: 1200 * time.Second,
-		Schedule: &loadgen.LoadSchedule{
-			Type:          loadgen.InstancesScheduleType,
-			StartFrom:     10,
-			Increase:      20,
-			StageInterval: 10 * time.Second,
-			Limit:         500,
-		},
+		LoadType: loadgen.InstancesScheduleType,
+		Schedule: loadgen.Line(1, 10, 500*time.Second),
 		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)
