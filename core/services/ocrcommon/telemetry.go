@@ -94,69 +94,75 @@ func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, f
 		return
 	}
 
-	go func() {
-		chainID := getChainID(&ds.jb)
-		contract := getContract(&ds.jb)
+	go extractAndSend(ds, trrs, finalResult)
+}
 
-		observation := int64(0)
-		singularResult, err := finalResult.SingularResult()
+func extractAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+	chainID := getChainID(&ds.jb)
+	contract := getContract(&ds.jb)
+
+	observation := getObservation(ds, finalResult)
+
+	for _, trr := range *trrs {
+		if trr.Task.Type() != pipeline.TaskTypeBridge {
+			continue
+		}
+
+		bridgeRawResponse, ok := trr.Result.Value.(string)
+		if !ok {
+			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+			continue
+		}
+		eaTelemetry, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			ds.lggr.Warnf("cannot get singular result, job %d, id %d", ds.jb.ID)
+			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+		}
+		parsedValue := getJsonParsedValue(trr, trrs)
+		if parsedValue == nil {
+			ds.lggr.Warnf("cannot get json parse value, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+		}
+		value := parsedValue.Int64()
+
+		t := &telem.TelemEnhancedEA{
+			DataSource:                    eaTelemetry.DataSource,
+			Value:                         value,
+			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
+			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
+			ProviderRequestedProtocol:     eaTelemetry.ProviderRequestedProtocol,
+			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
+			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
+			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
+			ProviderDataReceived:          eaTelemetry.ProviderDataReceived,
+			ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
+			Feed:                          contract,
+			ChainId:                       chainID,
+			Observation:                   observation,
+			ConfigDigest:                  "",
+			Round:                         0,
+			Epoch:                         0,
 		}
 
-		finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
+		bytes, err := proto.Marshal(t)
 		if err != nil {
-			ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
+			ds.lggr.Warnf("protobuf marshal failed %v", err.Error())
+			continue
 		}
-		observation = finalResultDecimal.BigInt().Int64()
+		ds.monitoringEndpoint.SendLog(bytes)
+	}
+}
 
-		for _, trr := range *trrs {
-			if trr.Task.Type() != pipeline.TaskTypeBridge {
-				continue
-			}
+func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) int64 {
+	singularResult, err := finalResult.SingularResult()
+	if err != nil {
+		ds.lggr.Warnf("cannot get singular result, job %d, id %d", ds.jb.ID)
+		return 0
+	}
 
-			bridgeRawResponse, ok := trr.Result.Value.(string)
-			if !ok {
-				ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %d", ds.jb.ID, trr.Task.DotID())
-				continue
-			}
-			eaTelemetry, err := parseEATelemetry([]byte(bridgeRawResponse))
-			if err != nil {
-				ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %d", ds.jb.ID, trr.Task.DotID())
-			}
-			parsedValue := getJsonParsedValue(trr, trrs)
-			if parsedValue == nil {
-				ds.lggr.Warnf("cannot get json parse value, job %d, id %d", ds.jb.ID, trr.Task.DotID())
-			}
-			value := parsedValue.Int64()
+	finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
+	if err != nil {
+		ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
+		return 0
+	}
 
-			t := &telem.TelemEnhancedEA{
-				DataSource:                    eaTelemetry.DataSource,
-				Value:                         value,
-				BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
-				BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-				ProviderRequestedProtocol:     eaTelemetry.ProviderRequestedProtocol,
-				ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
-				ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
-				ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
-				ProviderDataReceived:          eaTelemetry.ProviderDataReceived,
-				ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
-				Feed:                          contract,
-				ChainId:                       chainID,
-				Observation:                   observation,
-				ConfigDigest:                  "",
-				Round:                         0,
-				Epoch:                         0,
-			}
-
-			bytes, err := proto.Marshal(t)
-			if err != nil {
-				ds.lggr.Warnf("protobuf marshal failed %v", err.Error())
-				continue
-			}
-			ds.monitoringEndpoint.SendLog(bytes)
-		}
-
-	}()
-
+	return finalResultDecimal.BigInt().Int64()
 }
