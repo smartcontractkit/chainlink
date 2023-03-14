@@ -128,6 +128,14 @@ func TestClient_ReplayBlocks(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ReplayFromBlock(c))
+
+	require.NoError(t, set.Set("evm-chain-id", "12345678"))
+	c = cli.NewContext(nil, set, nil)
+	assert.ErrorContains(t, client.ReplayFromBlock(c), "evmChainID does not match any local chains")
+
+	require.NoError(t, set.Set("evm-chain-id", "0"))
+	c = cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
 func TestClient_CreateExternalInitiator(t *testing.T) {
