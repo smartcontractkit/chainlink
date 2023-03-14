@@ -28,11 +28,17 @@ contract UpkeepCounterStats {
   AutomationRegistryBaseInterface public registry;
   LinkTokenInterface public linkToken;
 
+  event Received(address sender, uint256 value);
+
   constructor(address registrarAddress) {
     registrar = KeeperRegistrar2_0(registrarAddress);
     (,,, address registryAddress,) = registrar.getRegistrationConfig();
     registry = AutomationRegistryBaseInterface(registryAddress);
     linkToken = registrar.LINK();
+  }
+
+  receive() external payable {
+    emit Received(msg.sender, msg.value);
   }
 
   function registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) external returns (uint256) {
@@ -44,14 +50,17 @@ contract UpkeepCounterStats {
   function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external returns (uint256[] memory) {
     KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
       name: "test",
-      encryptedEmail: '0x',
+      encryptedEmail: bytes(""),
       upkeepContract: address(this),
       gasLimit: gasLimit,
       adminAddress: address(this), // cannot use msg.sender otherwise updateCheckData won't work
-      checkData: '0x', // update check data later bc upkeep id is not available now
-      offchainConfig: '0x',
+      checkData: bytes(""), // update check data later bc upkeep id is not available now
+      offchainConfig: bytes(""),
       amount: amount
     });
+
+    linkToken.approve(address(registrar), amount * number);
+    linkToken.approve(address(registry), amount * number);
 
     uint256[] memory upkeepIds = new uint256[](number);
     for (uint8 i = 0; i < number; i++) {
