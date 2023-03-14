@@ -2,6 +2,7 @@ package mercury
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
+	"github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -53,7 +55,7 @@ import (
 type MercuryTestEnv struct {
 	T                     *testing.T
 	NsPrefix              string
-	Config                mercuryTestConfig
+	Config                *mercuryTestConfig
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
 	MSClient              *client.MercuryServer // Mercury server client authenticated with admin role
@@ -80,9 +82,11 @@ type mercuryTestConfig struct {
 	MSAdminEncryptedKey  string `json:"mercuryServerAdminEncryptedKey"`
 }
 
-func configFromEnv() mercuryTestConfig {
-	c := mercuryTestConfig{}
+// Fetch mercury environment config from local json
+// file provided by MERCURY_ENV_CONFIG_PATH env
+func configFromFile() *mercuryTestConfig {
 	if os.Getenv("MERCURY_ENV_CONFIG_PATH") != "" {
+		c := &mercuryTestConfig{}
 		jsonFile, err := os.Open(os.Getenv("MERCURY_ENV_CONFIG_PATH"))
 		if err != nil {
 			return c
@@ -90,45 +94,14 @@ func configFromEnv() mercuryTestConfig {
 		defer jsonFile.Close()
 		b, _ := ioutil.ReadAll(jsonFile)
 		err = json.Unmarshal(b, &c)
-		if err == nil {
-			log.Info().Msgf("Using existing mercury env config from: %s\n%s",
-				os.Getenv("MERCURY_ENV_CONFIG_PATH"), c.Json())
+		if err != nil {
+			return nil
 		}
+		log.Info().Msgf("Using existing mercury env config from: %s\n%s",
+			os.Getenv("MERCURY_ENV_CONFIG_PATH"), c.Json())
+		return c
 	}
-	return c
-}
-
-func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
-	testEnv := &MercuryTestEnv{}
-
-	// Re-use existing env when MERCURY_ENV_CONFIG_PATH env with json c specified
-	c := configFromEnv()
-	if c.K8Namespace != "" {
-		testEnv.IsExistingTestEnv = true
-		// Set env variables for chainlink-env to reuse existing deployment
-		os.Setenv("ENV_NAMESPACE", c.K8Namespace)
-		os.Setenv("NO_MANIFEST_UPDATE", "true")
-	} else {
-		testEnv.IsExistingTestEnv = false
-	}
-
-	testEnv.T = t
-	testEnv.NsPrefix = namespacePrefix
-	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
-	envTTL, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
-	if err == nil {
-		testEnv.EnvTTL = time.Duration(envTTL) * time.Minute
-	} else {
-		testEnv.EnvTTL = 20 * time.Minute
-	}
-	testEnv.Config = c
-	// Feed id can have max 32 characters
-	testEnv.Config.FeedId = "feed-1234"
-	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
-	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
-	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
-
-	return testEnv
+	return nil
 }
 
 func (c *mercuryTestConfig) Json() string {
@@ -160,6 +133,40 @@ func (c *mercuryTestConfig) Save() (string, error) {
 	err = ioutil.WriteFile(confPath, f, 0644)
 
 	return confPath, err
+}
+
+// Setup new mercury env
+// Required envs:
+// MS_DATABASE_FIRST_ADMIN_ID: mercury server admin id
+// MS_DATABASE_FIRST_ADMIN_KEY: mercury server admin key
+// MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY: mercury server admin encrypted key
+func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
+	testEnv := &MercuryTestEnv{}
+	testEnv.T = t
+	testEnv.NsPrefix = namespacePrefix
+	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
+	envTTL, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
+	if err == nil {
+		testEnv.EnvTTL = time.Duration(envTTL) * time.Minute
+	} else {
+		// Set default TTL for k8 environment
+		testEnv.EnvTTL = 20 * time.Minute
+	}
+
+	existingConfig := configFromFile()
+	testEnv.IsExistingTestEnv = existingConfig != nil
+	if existingConfig != nil {
+		testEnv.Config = existingConfig
+	} else {
+		testEnv.Config = &mercuryTestConfig{}
+	}
+	// Feed id can have max 32 characters
+	testEnv.Config.FeedId = "feed-1234"
+	testEnv.Config.MSAdminId = os.Getenv("MS_DATABASE_FIRST_ADMIN_ID")
+	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
+	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
+
+	return testEnv
 }
 
 // Setup DON, Mercury Server and all mercury contracts
@@ -194,14 +201,15 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 	require.NoError(e.T, err, "Error connecting to blockchain")
 
 	e.T.Cleanup(func() {
-		if e.KeepEnv {
+		if !e.IsExistingTestEnv && e.KeepEnv {
 			envConfFile, err := e.Config.Save()
 			require.NoError(e.T, err, "Could not save mercury env conf file")
 			log.Info().Msgf("Keep mercury environment running."+
 				" Chain: %d. Initial TTL: %s", e.Config.ChainId, env.Cfg.TTL)
 			log.Info().Msgf("To reuse this env in next test on chain %d, set:\n"+
 				"\"MERCURY_ENV_CONFIG_PATH\"=\"%s\"", e.Config.ChainId, envConfFile)
-		} else {
+		}
+		if !e.KeepEnv {
 			log.Info().Msgf("Destroy this mercury env because MERCURY_KEEP_ENV not set to \"true\"")
 			err := actions.TeardownSuite(e.T, env, utils.ProjectRoot,
 				chainlinkNodes, nil, zapcore.PanicLevel, evmClient)
@@ -261,24 +269,32 @@ func (e *MercuryTestEnv) SetupFullMercuryEnv(dbSettings map[string]interface{}, 
 		e.SetupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifier.Address(),
 			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, testNetwork.ChainID, 0)
 		e.Config.MSRemoteUrl = msRemoteUrl
-
-		e.WaitForDONReports()
 	}
+
+	e.WaitForReportsInMercuryDb()
 }
 
-func (e *MercuryTestEnv) WaitForDONReports() {
-	// Wait for the DON to start generating reports
-	// TODO: use gomega Eventually to check reports in node logs or mercury server or mercury db
-	d := 160 * time.Second
-	log.Info().Msgf("Sleeping for %s to wait for Mercury env to be ready..", d)
-	time.Sleep(d)
+// Wait for the DON to start generating reports and storing them in mercury server db
+func (e *MercuryTestEnv) WaitForReportsInMercuryDb() {
+	log.Info().Msg("Wait for mercury server to have at least one report in the db..")
+
+	latestBlockNum, err := e.EvmClient.LatestBlockNumber(context.Background())
+	require.NoError(e.T, err, "Err getting latest block number")
+
+	gom := gomega.NewGomegaWithT(e.T)
+	gom.Eventually(func(g gomega.Gomega) {
+		report, _, _ := e.MSClient.GetReports(e.Config.FeedId, latestBlockNum)
+		g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Failed to retrieve a report from mercury server")
+	}, "3m", "5s").Should(gomega.Succeed())
 }
 
 func (e *MercuryTestEnv) SetupDON(t *testing.T, evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) *environment.Environment {
 	testEnv := environment.New(&environment.Config{
-		TTL:             e.EnvTTL,
-		NamespacePrefix: fmt.Sprintf("%s-mercury-%s", e.NsPrefix, strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
-		Test:            t,
+		TTL:              e.EnvTTL,
+		NamespacePrefix:  fmt.Sprintf("%s-mercury-%s", e.NsPrefix, strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
+		Test:             t,
+		Namespace:        e.Config.K8Namespace,
+		NoManifestUpdate: e.IsExistingTestEnv,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(map[string]interface{}{

@@ -12,6 +12,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -103,13 +104,13 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 )
 
-// func TestMain(m *testing.M) {
-// 	logging.Init()
-// 	fmt.Printf("Running Smoke Test on %s\n", networks.SelectedNetwork.Name) // Print to get around disabled logging
-// 	fmt.Printf("Chainlink Image %s\n", os.Getenv("CHAINLINK_IMAGE"))        // Print to get around disabled logging
-// 	fmt.Printf("Chainlink Version %s\n", os.Getenv("CHAINLINK_VERSION"))    // Print to get around disabled logging
-// 	os.Exit(m.Run())
-// }
+func TestMain(m *testing.M) {
+	logging.Init()
+	fmt.Printf("Running Smoke Test on %s\n", networks.SelectedNetwork.Name) // Print to get around disabled logging
+	fmt.Printf("Chainlink Image %s\n", os.Getenv("CHAINLINK_IMAGE"))        // Print to get around disabled logging
+	fmt.Printf("Chainlink Version %s\n", os.Getenv("CHAINLINK_VERSION"))    // Print to get around disabled logging
+	os.Exit(m.Run())
+}
 
 func TestAutomatedBasic(t *testing.T) {
 	t.Parallel()

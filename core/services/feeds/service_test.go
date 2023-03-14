@@ -495,6 +495,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		}
 		jp = feeds.JobProposal{
 			FeedsManagerID: 1,
+			Name:           null.StringFrom("example flux monitor spec"),
 			RemoteUUID:     remoteUUID,
 			Status:         feeds.JobProposalStatusPending,
 		}
