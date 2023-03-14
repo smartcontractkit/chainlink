@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -28,6 +29,11 @@ func initBlocksSubCmds(client *Client) []cli.Command {
 					Name:  "force",
 					Usage: "Whether to force broadcasting logs which were already consumed and that would otherwise be skipped",
 				},
+				cli.Int64Flag{
+					Name:     "evm-chain-id",
+					Usage:    "Chain ID of the EVM-based blockchain",
+					Required: false,
+				},
 			},
 		},
 	}
@@ -40,14 +46,19 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
 	}
 
-	forceBroadcast := c.Bool("force")
+	v := url.Values{}
+	v.Add("force", strconv.FormatBool(c.Bool("force")))
+
+	if c.IsSet("evm-chain-id") {
+		v.Add("evmChainID", fmt.Sprintf("%d", c.Int64("evm-chain-id")))
+	}
 
 	buf := bytes.NewBufferString("{}")
 	resp, err := cli.HTTP.Post(
 		fmt.Sprintf(
-			"/v2/replay_from_block/%v?force=%s",
+			"/v2/replay_from_block/%v?%s",
 			blockNumber,
-			strconv.FormatBool(forceBroadcast),
+			v.Encode(),
 		), buf)
 	if err != nil {
 		return cli.errorOut(err)
