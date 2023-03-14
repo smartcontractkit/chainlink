@@ -101,6 +101,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
 				"db": map[string]any{
 					"stateful": "true",
+					"capacity": "20Gi",
 				},
 			}))
 		}
