@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230221200929-d415eda78bff
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230223033525-5be75fb81118
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230314131345-65a6a7709378
+	github.com/smartcontractkit/ocr2keepers v0.6.15-0.20230314181912-2c3d4cbe4948
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230221012516-b4187fdffa0c
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.6.1
@@ -321,4 +321,4 @@ exclude (
 	github.com/nats-io/nats-server/v2 v2.5.0
 )
 
-replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230314131233-763d1b962d90
+replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230314181804-fd40e3d0d0ff
