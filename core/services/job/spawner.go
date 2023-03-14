@@ -89,6 +89,7 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, db *
 		chStop:              make(chan struct{}),
 		lbDependentAwaiters: lbDependentAwaiters,
 	}
+	s.q = s.q.WithOpts(pg.WithErrorBuf(&s.SvcErrBuffer))
 	return s
 }
 

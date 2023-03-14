@@ -58,7 +58,7 @@ func NewRequestRoundTracker(
 	chain ocrcommon.Config,
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &RequestRoundTracker{
+	rt := &RequestRoundTracker{
 		ethClient:        ethClient,
 		contract:         contract,
 		contractFilterer: contractFilterer,
@@ -66,11 +66,13 @@ func NewRequestRoundTracker(
 		jobID:            jobID,
 		lggr:             logger.Sugared(lggr),
 		odb:              odb,
-		q:                pg.NewQ(db, lggr, chain),
-		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
-		ctx:              ctx,
-		ctxCancel:        cancel,
+
+		blockTranslator: ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
+		ctx:             ctx,
+		ctxCancel:       cancel,
 	}
+	rt.q = pg.NewQ(db, lggr, chain, pg.WithErrorBuf(&rt.SvcErrBuffer))
+	return rt
 }
 
 // Start must be called before logs can be delivered

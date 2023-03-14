@@ -140,6 +140,7 @@ func NewFluxMonitor(
 		waitOnStop:    make(chan struct{}),
 	}
 
+	fm.q = fm.q.WithOpts(pg.WithErrorBuf(&fm.SvcErrBuffer))
 	return fm, nil
 }
 
@@ -265,6 +266,7 @@ func NewFromJobSpec(
 		fmLogger,
 		ethClient.ChainID(),
 	)
+
 }
 
 const (

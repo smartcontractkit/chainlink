@@ -135,12 +135,12 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
+
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		orm:              NewORM(db, lggr, cfg),
 		db:               db,
-		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
 		config:           cfg,
 		keyStore:         keyStore,
@@ -154,6 +154,8 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
 	}
+	b.q = pg.NewQ(db, lggr, cfg, pg.WithErrorBuf(&b.SvcErrBuffer))
+
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {

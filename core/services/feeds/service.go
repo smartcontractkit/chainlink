@@ -127,9 +127,9 @@ func NewService(
 ) *service {
 	lggr = lggr.Named("Feeds")
 	svc := &service{
-		orm:          orm,
-		jobORM:       jobORM,
-		q:            pg.NewQ(db, lggr, cfg),
+		orm:    orm,
+		jobORM: jobORM,
+
 		jobSpawner:   jobSpawner,
 		p2pKeyStore:  keyStore.P2P(),
 		csaKeyStore:  keyStore.CSA(),
@@ -142,6 +142,7 @@ func NewService(
 		version:      version,
 	}
 
+	svc.q = pg.NewQ(db, lggr, cfg, pg.WithErrorBuf(&svc.SvcErrBuffer))
 	return svc
 }
 

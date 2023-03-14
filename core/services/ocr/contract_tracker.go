@@ -110,7 +110,7 @@ func NewOCRContractTracker(
 	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
-	return &OCRContractTracker{
+	ot := &OCRContractTracker{
 		ethClient:            ethClient,
 		contract:             contract,
 		contractFilterer:     contractFilterer,
@@ -130,6 +130,8 @@ func NewOCRContractTracker(
 		chConfigs:            make(chan ocrtypes.ContractConfig),
 		latestBlockHeight:    -1,
 	}
+	ot.q = ot.q.WithOpts(pg.WithErrorBuf(&ot.SvcErrBuffer))
+	return ot
 }
 
 // Start must be called before logs can be delivered

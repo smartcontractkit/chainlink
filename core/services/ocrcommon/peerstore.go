@@ -49,17 +49,19 @@ func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey
 	namedLogger := lggr.Named("PeerStore")
 	q := pg.NewQ(db, namedLogger, cfg)
 
-	return &Pstorewrapper{
-		utils.StartStopOnce{},
-		pstoremem.NewPeerstore(),
-		peerID.Raw(),
-		q,
-		writeInterval,
-		ctx,
-		cancel,
-		make(chan struct{}),
-		logger.Sugared(namedLogger),
-	}, nil
+	pw := &Pstorewrapper{
+		StartStopOnce: utils.StartStopOnce{},
+		Peerstore:     pstoremem.NewPeerstore(),
+		peerID:        peerID.Raw(),
+		writeInterval: writeInterval,
+		ctx:           ctx,
+		ctxCancel:     cancel,
+		chDone:        make(chan struct{}),
+		lggr:          logger.Sugared(namedLogger),
+	}
+
+	pw.q = q.WithOpts(pg.WithErrorBuf(&pw.SvcErrBuffer))
+	return pw, nil
 }
 
 func (p *Pstorewrapper) Start() error {
