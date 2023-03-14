@@ -31,13 +31,13 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn 
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	answer, res, err := m.client.GetReports(m.feedID, m.Bn.Load())
 	if err != nil {
-		return loadgen.CallResult{Error: "connection error"}
+		return loadgen.CallResult{Error: "connection error", Failed: true}
 	}
 	if res.Status != "200 OK" {
-		return loadgen.CallResult{Error: "not 200"}
+		return loadgen.CallResult{Error: "not 200", Failed: true}
 	}
 	if err := mercury.ValidateReport([]byte(answer.ChainlinkBlob)); err != nil {
-		return loadgen.CallResult{Error: "report validation error"}
+		return loadgen.CallResult{Error: "report validation error", Failed: true}
 	}
 	return loadgen.CallResult{}
 }
