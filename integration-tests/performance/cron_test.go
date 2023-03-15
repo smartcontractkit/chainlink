@@ -17,12 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/stretchr/testify/require"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -42,7 +44,7 @@ func CleanupPerformanceTest(
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, &testReporter, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, &testReporter, zapcore.PanicLevel, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 

@@ -20,7 +20,6 @@ import (
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -30,7 +29,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
@@ -71,9 +69,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
-	GetConfig() config.GeneralConfig
-	// ConfigDump returns a TOML configuration from the current environment and database configuration.
-	ConfigDump(context.Context) (string, error)
+	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
@@ -126,7 +122,7 @@ type ChainlinkApplication struct {
 	txmORM                   txmgr.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -147,7 +143,7 @@ type ChainlinkApplication struct {
 }
 
 type ApplicationOpts struct {
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
 	MailMon                  *utils.MailboxMonitor
@@ -167,7 +163,6 @@ type ApplicationOpts struct {
 type Chains struct {
 	EVM      evm.ChainSet
 	Solana   solana.ChainSet   // nil if disabled
-	Terra    terra.ChainSet    // nil if disabled
 	StarkNet starknet.ChainSet // nil if disabled
 }
 
@@ -177,9 +172,6 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	}
 	if c.Solana != nil {
 		s = append(s, c.Solana)
-	}
-	if c.Terra != nil {
-		s = append(s, c.Terra)
 	}
 	if c.StarkNet != nil {
 		s = append(s, c.StarkNet)
@@ -260,7 +252,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		} else {
 			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize())
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
@@ -393,11 +385,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.Solana] = solanaRelayer
 			srvcs = append(srvcs, solanaRelayer)
 		}
-		if cfg.TerraEnabled() {
-			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relayers[relay.Terra] = terraRelayer
-			srvcs = append(srvcs, terraRelayer)
-		}
 		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
 			relayers[relay.StarkNet] = starknetRelayer
@@ -524,7 +511,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
-			app.logger.Infof("[Feeds Service] %v", err)
+			app.logger.Errorf("[Feeds Service] Failed to start %v", err)
+			app.FeedsService = &feeds.NullService{} // so we don't try to Close() later
 		}
 	}
 
@@ -616,7 +604,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	return err
 }
 
-func (app *ChainlinkApplication) GetConfig() config.GeneralConfig {
+func (app *ChainlinkApplication) GetConfig() GeneralConfig {
 	return app.Config
 }
 

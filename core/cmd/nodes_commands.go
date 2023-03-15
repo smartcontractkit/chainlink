@@ -1,17 +1,57 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 )
+
+func initStarkNetNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("StarkNet", NewStarkNetNodeClient(client),
+		cli.StringFlag{
+			Name:  "chain-id",
+			Usage: "chain ID",
+		},
+		cli.StringFlag{
+			Name:  "url",
+			Usage: "URL",
+		})
+}
+
+func initEVMNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("EVM", NewEVMNodeClient(client),
+		cli.StringFlag{
+			Name:  "ws-url",
+			Usage: "Websocket URL",
+		},
+		cli.StringFlag{
+			Name:  "http-url",
+			Usage: "HTTP URL, optional",
+		},
+		cli.Int64Flag{
+			Name:  "chain-id",
+			Usage: "chain ID",
+		},
+		cli.StringFlag{
+			Name:  "type",
+			Usage: "primary|secondary",
+		})
+}
+
+func initSolanaNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("Solana", NewSolanaNodeClient(client),
+		cli.StringFlag{
+			Name:  "chain-id",
+			Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+		},
+		cli.StringFlag{
+			Name:  "url",
+			Usage: "URL",
+		})
+}
 
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
 // A string cli.Flag for "name" is automatically included.
@@ -21,19 +61,6 @@ func nodeCommand(typ string, client NodeClient, flags ...cli.Flag) cli.Command {
 		Name:  lower,
 		Usage: fmt.Sprintf("Commands for handling %s node configuration", typ),
 		Subcommands: cli.Commands{
-			{
-				Name:   "create",
-				Usage:  fmt.Sprintf("Create a new %s node", typ),
-				Action: client.CreateNode,
-				Flags: append([]cli.Flag{
-					cli.StringFlag{Name: "name", Usage: "node name"},
-				}, flags...),
-			},
-			{
-				Name:   "delete",
-				Usage:  fmt.Sprintf("Delete an existing %s node", typ),
-				Action: client.RemoveNode,
-			},
 			{
 				Name:   "list",
 				Usage:  fmt.Sprintf("List all existing %s nodes", typ),
@@ -46,8 +73,6 @@ func nodeCommand(typ string, client NodeClient, flags ...cli.Flag) cli.Command {
 // NodeClient is a generic client interface for any of node.
 type NodeClient interface {
 	IndexNodes(c *cli.Context) error
-	CreateNode(c *cli.Context) error
-	RemoveNode(c *cli.Context) error
 }
 
 type nodeClient[N chains.Node, P TableRenderer, P2 ~[]P] struct {
@@ -70,53 +95,4 @@ func newNodeClient[N chains.Node, P TableRenderer, P2 ~[]P](c *Client, name stri
 func (cli *nodeClient[N, P, P2]) IndexNodes(c *cli.Context) (err error) {
 	var p P2
 	return cli.getPage(cli.path, c.Int("page"), &p)
-}
-
-// CreateNode adds a new node to the chainlink node
-func (cli *nodeClient[N, P, P2]) CreateNode(c *cli.Context) (err error) {
-	name := c.String("name")
-	if name == "" {
-		return cli.errorOut(errors.New("missing --name"))
-	}
-	newNode, err := cli.createNode(c)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	body, err := json.Marshal(newNode)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post(cli.path, bytes.NewBuffer(body))
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var p P
-	return cli.renderAPIResponse(resp, &p)
-}
-
-// RemoveNode removes a specific Node by name.
-func (cli *nodeClient[N, P, P2]) RemoveNode(c *cli.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the id of the node to be removed"))
-	}
-	nodeID := c.Args().First()
-	resp, err := cli.HTTP.Delete(cli.path + "/" + nodeID)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	fmt.Printf("Node %v deleted\n", c.Args().First())
-	return nil
 }

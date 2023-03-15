@@ -4,19 +4,26 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 // Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/OCR2Abstract.sol#L23
 var ConfigSet = common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
+
+const (
+	firstIndexWithoutFeedId = 1
+	firstIndexWithFeedId    = 2
+)
 
 type OCR2AbstractConfigSet struct {
 	PreviousConfigBlockNumber uint32
@@ -30,8 +37,13 @@ type OCR2AbstractConfigSet struct {
 	OffchainConfig            []byte
 }
 
-func makeConfigSetMsgArgs() abi.Arguments {
-	return []abi.Argument{
+var configSetFeedIDArg = abi.Argument{
+	Name: "feedId",
+	Type: utils.MustAbiType("bytes32", nil),
+}
+
+func makeConfigSetMsgArgs(withFeedId bool) abi.Arguments {
+	args := []abi.Argument{
 		{
 			Name: "previousConfigBlockNumber",
 			Type: utils.MustAbiType("uint32", nil),
@@ -69,47 +81,51 @@ func makeConfigSetMsgArgs() abi.Arguments {
 			Type: utils.MustAbiType("bytes", nil),
 		},
 	}
+
+	if withFeedId {
+		args = append([]abi.Argument{configSetFeedIDArg}, args...)
+	}
+
+	return args
 }
 
-func ConfigFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
-	unpacked, err := makeConfigSetMsgArgs().Unpack(logData)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, err
-	}
-	if len(unpacked) != 9 {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid number of fields, got %v", len(unpacked))
-	}
-	configDigest, ok := unpacked[1].([32]byte)
+type FullConfigFromLog struct {
+	ocrtypes.ContractConfig
+	FeedId [32]byte
+}
+
+func NewContractConfigFromLog(unpacked []interface{}, fromIndex int) (ocrtypes.ContractConfig, error) {
+	configDigest, ok := unpacked[fromIndex].([32]byte)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[1])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[fromIndex])
 	}
-	configCount, ok := unpacked[2].(uint64)
+	configCount, ok := unpacked[fromIndex+1].(uint64)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config count, got %T", unpacked[2])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config count, got %T", unpacked[fromIndex+1])
 	}
-	signersAddresses, ok := unpacked[3].([]common.Address)
+	signersAddresses, ok := unpacked[fromIndex+2].([]common.Address)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid signers, got %T", unpacked[3])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid signers, got %T", unpacked[fromIndex+2])
 	}
-	transmitters, ok := unpacked[4].([]common.Address)
+	transmitters, ok := unpacked[fromIndex+3].([]common.Address)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid transmitters, got %T", unpacked[4])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid transmitters, got %T", unpacked[fromIndex+3])
 	}
-	f, ok := unpacked[5].(uint8)
+	f, ok := unpacked[fromIndex+4].(uint8)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid f, got %T", unpacked[5])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid f, got %T", unpacked[fromIndex+4])
 	}
-	onchainConfig, ok := unpacked[6].([]byte)
+	onchainConfig, ok := unpacked[fromIndex+5].([]byte)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid onchain config, got %T", unpacked[6])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid onchain config, got %T", unpacked[fromIndex+5])
 	}
-	offchainConfigVersion, ok := unpacked[7].(uint64)
+	offchainConfigVersion, ok := unpacked[fromIndex+6].(uint64)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[7])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[fromIndex+6])
 	}
-	offchainConfig, ok := unpacked[8].([]byte)
+	offchainConfig, ok := unpacked[fromIndex+7].([]byte)
 	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid offchainConfig, got %T", unpacked[8])
+		return ocrtypes.ContractConfig{}, errors.Errorf("invalid offchainConfig, got %T", unpacked[fromIndex+7])
 	}
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range transmitters {
@@ -132,22 +148,92 @@ func ConfigFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 	}, nil
 }
 
-type ConfigPoller struct {
-	lggr               logger.Logger
-	destChainLogPoller logpoller.LogPoller
-	addr               common.Address
-}
-
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
-	_, err := destChainPoller.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+func unpackLogData(d []byte, withFeedId bool) ([]interface{}, error) {
+	args := makeConfigSetMsgArgs(withFeedId)
+	unpacked, err := args.Unpack(d)
 	if err != nil {
 		return nil, err
 	}
-	return &ConfigPoller{
+	if len(unpacked) != len(args) {
+		return nil, errors.Errorf("invalid number of fields, got %v", len(unpacked))
+	}
+	return unpacked, nil
+}
+
+func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
+	unpacked, err := unpackLogData(logData, false)
+	if err != nil {
+		return FullConfigFromLog{}, err
+	}
+	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithoutFeedId)
+	if err != nil {
+		return FullConfigFromLog{}, err
+	}
+	return FullConfigFromLog{
+		FeedId:         [32]byte{},
+		ContractConfig: contractConfig,
+	}, nil
+}
+
+func ConfigFromLogWithFeedId(logData []byte) (FullConfigFromLog, error) {
+	unpacked, err := unpackLogData(logData, true)
+	if err != nil {
+		return FullConfigFromLog{}, err
+	}
+	feedId, ok := unpacked[0].([32]byte)
+	if !ok {
+		return FullConfigFromLog{}, errors.Errorf("invalid feed ID, got %T", unpacked[0])
+	}
+	contractConfig, err := NewContractConfigFromLog(unpacked, firstIndexWithFeedId)
+	if err != nil {
+		return FullConfigFromLog{}, err
+	}
+
+	return FullConfigFromLog{
+		FeedId:         feedId,
+		ContractConfig: contractConfig,
+	}, nil
+}
+
+type ConfigPoller struct {
+	lggr               logger.Logger
+	filterName         string
+	destChainLogPoller logpoller.LogPoller
+	addr               common.Address
+	feedId             common.Hash
+}
+
+type ConfigPollerOption func(cp *ConfigPoller)
+
+func WithFeedId(feedId common.Hash) ConfigPollerOption {
+	return func(cp *ConfigPoller) {
+		cp.feedId = feedId
+	}
+}
+
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, opts ...ConfigPollerOption) (*ConfigPoller, error) {
+	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	if err != nil {
+		return nil, err
+	}
+
+	cp := &ConfigPoller{
 		lggr:               lggr,
+		filterName:         configFilterName,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(cp)
+	}
+
+	return cp, nil
+}
+
+func (lp *ConfigPoller) WithFeedId() bool {
+	return lp.feedId != (common.Hash{})
 }
 
 func (lp *ConfigPoller) Notify() <-chan struct{} {
@@ -163,7 +249,12 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
-	latestConfigSet, err := ConfigFromLog(latest.Data)
+	var latestConfigSet FullConfigFromLog
+	if lp.WithFeedId() {
+		latestConfigSet, err = ConfigFromLogWithFeedId(latest.Data)
+	} else {
+		latestConfigSet, err = ConfigFromLog(latest.Data)
+	}
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -175,12 +266,17 @@ func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	latestConfigSet, err := ConfigFromLog(lgs[len(lgs)-1].Data)
+	var latestConfigSet FullConfigFromLog
+	if lp.WithFeedId() {
+		latestConfigSet, err = ConfigFromLogWithFeedId(lgs[len(lgs)-1].Data)
+	} else {
+		latestConfigSet, err = ConfigFromLog(lgs[len(lgs)-1].Data)
+	}
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
 	lp.lggr.Infof("LatestConfig %+v\n", latestConfigSet)
-	return latestConfigSet, nil
+	return latestConfigSet.ContractConfig, nil
 }
 
 func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {

@@ -19,10 +19,12 @@ type MockWSRPCClient struct {
 	transmit func(ctx context.Context, in *report.ReportRequest) (*report.ReportResponse, error)
 }
 
-func (m MockWSRPCClient) Start(context.Context) error { return nil }
-func (m MockWSRPCClient) Close() error                { return nil }
-func (m MockWSRPCClient) Healthy() error              { return nil }
-func (m MockWSRPCClient) Ready() error                { return nil }
+func (m MockWSRPCClient) Name() string                   { return "" }
+func (m MockWSRPCClient) Start(context.Context) error    { return nil }
+func (m MockWSRPCClient) Close() error                   { return nil }
+func (m MockWSRPCClient) Healthy() error                 { return nil }
+func (m MockWSRPCClient) HealthReport() map[string]error { return map[string]error{} }
+func (m MockWSRPCClient) Ready() error                   { return nil }
 func (m MockWSRPCClient) Transmit(ctx context.Context, in *report.ReportRequest) (*report.ReportResponse, error) {
 	return m.transmit(ctx, in)
 }

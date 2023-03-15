@@ -522,7 +522,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
-	defer jorm.Close()
+	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
 	var keeperJob = job.Job{
@@ -623,7 +623,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
-	defer jorm.Close()
+	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
 	var drJob = job.Job{

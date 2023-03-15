@@ -54,7 +54,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		url := r.newHTTPServer(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
 		s := evmclient.NewSendOnlyNode(lggr, *url, t.Name(), chainID)
-		defer s.Close()
+		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(testutils.Context(t))
 		assert.NoError(t, err)                 // No errors expected
 		assert.Equal(t, 0, observedLogs.Len()) // No warnings expected
@@ -68,7 +68,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		url := r.newHTTPServer(t)
 		s := evmclient.NewSendOnlyNode(lggr, *url, t.Name(), testutils.FixtureChainID)
 
-		defer s.Close()
+		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(testutils.Context(t))
 		assert.NoError(t, err)
 		// If ChainID = 0, this should get converted into a warning from Start()
@@ -81,7 +81,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		invalidURL := url.URL{Scheme: "some rubbish", Host: "not a valid host"}
 		s := evmclient.NewSendOnlyNode(lggr, invalidURL, t.Name(), testutils.FixtureChainID)
 
-		defer s.Close()
+		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(testutils.Context(t))
 		require.NoError(t, err)
 

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --with-expecter=true --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	CountManagers() (int64, error)
@@ -35,6 +35,7 @@ type ORM interface {
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CountJobProposals() (int64, error)
 	CountJobProposalsByStatus() (counts *JobProposalCounts, err error)
+	DeleteProposal(id int64, qopts ...pg.QOpt) error
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	ListJobProposals() (jps []JobProposal, err error)
@@ -47,6 +48,7 @@ type ORM interface {
 	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
 	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
 	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
+	GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
@@ -298,12 +300,12 @@ WHERE id = $4;
 // CreateJobProposal creates a job proposal.
 func (o *orm) CreateJobProposal(jp *JobProposal) (id int64, err error) {
 	stmt := `
-INSERT INTO job_proposals (remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES ($1, $2, $3, $4, NOW(), NOW())
+INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 RETURNING id;
 `
 
-	err = o.q.Get(&id, stmt, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "CreateJobProposal failed")
 }
 
@@ -319,10 +321,10 @@ func (o *orm) CountJobProposals() (count int64, err error) {
 func (o *orm) CountJobProposalsByStatus() (counts *JobProposalCounts, err error) {
 	stmt := `
 SELECT 
-	COUNT(*) filter (where job_proposals.status = 'pending') as pending,
-	COUNT(*) filter (where job_proposals.status = 'approved') as approved,
-	COUNT(*) filter (where job_proposals.status = 'rejected') as rejected,
-	COUNT(*) filter (where job_proposals.status = 'cancelled') as cancelled
+	COUNT(*) filter (where job_proposals.status = 'pending' OR job_proposals.pending_update = TRUE) as pending,
+	COUNT(*) filter (where job_proposals.status = 'approved' AND job_proposals.pending_update = FALSE) as approved,
+	COUNT(*) filter (where job_proposals.status = 'rejected' AND job_proposals.pending_update = FALSE) as rejected,
+	COUNT(*) filter (where job_proposals.status = 'cancelled' AND job_proposals.pending_update = FALSE) as cancelled
 FROM job_proposals;
 	`
 
@@ -334,7 +336,7 @@ FROM job_proposals;
 // GetJobProposal gets a job proposal by id.
 func (o *orm) GetJobProposal(id int64, qopts ...pg.QOpt) (jp *JobProposal, err error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals
 WHERE id = $1
 `
@@ -346,7 +348,7 @@ WHERE id = $1
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid.
 func (o *orm) GetJobProposalByRemoteUUID(id uuid.UUID) (jp *JobProposal, err error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals
 WHERE remote_uuid = $1;
 `
@@ -359,7 +361,7 @@ WHERE remote_uuid = $1;
 // ListJobProposals lists all job proposals.
 func (o *orm) ListJobProposals() (jps []JobProposal, err error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals;
 `
 
@@ -370,7 +372,7 @@ FROM job_proposals;
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs.
 func (o *orm) ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error) {
 	stmt := `
-SELECT id, remote_uuid, status, external_job_id, feeds_manager_id, multiaddrs, pending_update, created_at, updated_at
+SELECT *
 FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
@@ -409,19 +411,19 @@ WHERE id = $2;
 // feeds manager id exists.
 func (o *orm) UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (id int64, err error) {
 	stmt := `
-INSERT INTO job_proposals (remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES ($1, $2, $3, $4, NOW(), NOW())
+INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 ON CONFLICT (remote_uuid)
 DO
 	UPDATE SET
 		pending_update = TRUE,
+		name = EXCLUDED.name,
 		multiaddrs = EXCLUDED.multiaddrs,
 		updated_at = EXCLUDED.updated_at
-
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
@@ -483,20 +485,24 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusCancelled, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusCancelled, id); err != nil {
 		return err
 	}
 
 	stmt = `
 UPDATE job_proposals
-SET status = $1,
-	external_job_id = $2,
+SET status = (
+		CASE
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'cancelled'::job_proposal_status
+		END
+	),
 	pending_update = FALSE,
+	external_job_id = $2,
 	updated_at = NOW()
-WHERE id = $3;
+WHERE id = $1;
 `
-
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusCancelled, nil, jpID)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil)
 	if err != nil {
 		return err
 	}
@@ -541,6 +547,40 @@ SELECT exists (
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
 }
 
+// DeleteProposal performs a soft delete of the job proposal by setting the
+// status to deleted, remove the external job id, and update the status to
+// deleted
+func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
+	stmt := `
+UPDATE job_proposals
+SET status = $1,
+    external_job_id = $2,
+    pending_update = (
+        CASE
+            WHEN status = 'approved' THEN true
+            ELSE false
+        END
+    ),
+    updated_at = NOW()
+WHERE id = $3;
+`
+
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, nil, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
 // GetSpec fetches the job proposal spec by id
 func (o *orm) GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error) {
 	stmt := `
@@ -552,6 +592,21 @@ WHERE id = $1;
 	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
 
 	return &spec, errors.Wrap(err, "CreateJobProposalSpec failed")
+}
+
+// GetApprovedSpec gets the approved spec for a job proposal
+func (o *orm) GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error) {
+	stmt := `
+SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
+FROM job_proposal_specs
+WHERE status = $1
+AND job_proposal_id = $2
+`
+
+	var spec JobProposalSpec
+	err := o.q.WithOpts(qopts...).Get(&spec, stmt, SpecStatusApproved, jpID)
+
+	return &spec, errors.Wrap(err, "GetApprovedSpec failed")
 }
 
 // GetLatestSpec gets the latest spec for a job proposal.
@@ -599,24 +654,25 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusRejected, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusRejected, id); err != nil {
 		return err
 	}
 
 	stmt = `
 UPDATE job_proposals
-SET status = subquery.updateStatus,
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'rejected'::job_proposal_status
+		END
+	),
 	pending_update = FALSE,
 	updated_at = NOW()
-FROM (
-	SELECT (CASE WHEN status = 'approved' THEN 'approved'::job_proposal_status ELSE 'rejected'::job_proposal_status END) as updateStatus
-	FROM job_proposals
-	WHERE id = $1
-) as subquery
-WHERE id = $2;
+WHERE id = $1
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, jpID)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract, ContractFactory, Signer } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
-import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
+import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
 import { stringToBytes } from '../../test-helpers/helpers'
 
 let functionsOracleFactory: ContractFactory

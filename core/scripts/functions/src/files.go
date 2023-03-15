@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -20,13 +22,17 @@ func writeLines(lines []string, path string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	wc := utils.NewDeferableWriteCloser(file)
+	defer wc.Close()
 
 	w := bufio.NewWriter(file)
 	for _, line := range lines {
 		fmt.Fprintln(w, line)
 	}
-	return w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	return wc.Close()
 }
 
 func readLines(path string) ([]string, error) {

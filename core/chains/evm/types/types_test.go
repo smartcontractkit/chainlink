@@ -1,8 +1,9 @@
 package types_test
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,12 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -66,29 +62,6 @@ var (
 		},
 	}
 )
-
-func Test_PersistsReadsChain(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-
-	val := assets.NewWeiI(rand.Int63())
-	addr := testutils.NewAddress()
-	ks := make(map[string]types.ChainCfg)
-	ks[addr.Hex()] = types.ChainCfg{EvmMaxGasPriceWei: val}
-	chain := types.DBChain{
-		ID: *utils.NewBigI(rand.Int63()),
-		Cfg: &types.ChainCfg{
-			KeySpecific: ks,
-		},
-	}
-
-	evmtest.MustInsertChain(t, db, &chain)
-
-	var loadedChain types.DBChain
-	require.NoError(t, db.Get(&loadedChain, "SELECT * FROM evm_chains WHERE id = $1", chain.ID))
-
-	loadedVal := loadedChain.Cfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
-	assert.Equal(t, loadedVal, val)
-}
 
 func TestFromGethReceipt(t *testing.T) {
 	t.Parallel()
@@ -174,4 +147,108 @@ func TestLog_MarshalUnmarshalJson(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, log, parsedLog)
+}
+
+// constraint satisfied by common.Hash and common.Address
+type ByteString interface {
+	Bytes() []byte
+}
+
+type ScannableArrayType interface {
+	Scan(src any) error
+}
+
+type HexArrayScanTestArgs struct {
+	b1        []byte
+	b2        []byte
+	wrongsize []byte
+}
+
+func testHexArrayScan[T ScannableArrayType](t *testing.T, dest T, args HexArrayScanTestArgs) {
+	b0 := "NULL"
+	empty := "{}"
+	b1, b2, wrongsize := args.b1, args.b2, args.wrongsize
+
+	src1 := fmt.Sprintf("{\"\\\\x%x\"}", b1)
+	src2 := fmt.Sprintf("{\"\\\\x%x\",\"\\\\x%x\"}", b2, b2)
+	src3 := fmt.Sprintf("{\"\\\\x%x\"}", wrongsize)
+	invalid := fmt.Sprintf("{\"\\\\x%x\", NULL}", b1)
+	d2 := fmt.Sprintf("[1][1]={{\"\\\\x%x\"}}", b1)
+
+	get := func(d T, ind int) (bs ByteString) {
+		switch val := (ScannableArrayType(dest)).(type) {
+		case *types.HashArray:
+			bs = ([]common.Hash(*val))[ind]
+		case *types.AddressArray:
+			bs = ([]common.Address(*val))[ind]
+		}
+		return bs
+	}
+
+	length := func(d T) (l int) {
+		switch val := (ScannableArrayType(dest)).(type) {
+		case *types.HashArray:
+			l = len([]common.Hash(*val))
+		case *types.AddressArray:
+			l = len([]common.Address(*val))
+		}
+		return l
+	}
+
+	err := dest.Scan(b0)
+	require.Error(t, err)
+
+	err = dest.Scan(empty)
+	assert.NoError(t, err)
+
+	err = dest.Scan(src1)
+	require.NoError(t, err)
+	require.Equal(t, length(dest), 1)
+	assert.Equal(t, get(dest, 0).Bytes(), b1)
+
+	err = dest.Scan(src2)
+	require.NoError(t, err)
+	require.Equal(t, length(dest), 3)
+	assert.Equal(t, get(dest, 1).Bytes(), b2)
+	assert.Equal(t, get(dest, 2).Bytes(), b2)
+
+	err = dest.Scan(src3)
+	require.Error(t, err)
+
+	err = dest.Scan(invalid)
+	require.Error(t, err)
+
+	err = dest.Scan(d2)
+	require.Error(t, err)
+}
+
+func Test_AddressArrayScan(t *testing.T) {
+	t.Parallel()
+	addr1, err := hex.DecodeString("2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
+	require.NoError(t, err)
+	require.Len(t, addr1, 20)
+	addr2, err := hex.DecodeString("56b9a2dc53736b361b72d900cdf9f78f9406fbbb")
+	require.Len(t, addr2, 20)
+	toolong, err := hex.DecodeString("6b361b72d900cdf9f78f9406fbbb6b361b72d900cdf9f78f9406fbbb")
+	require.Len(t, toolong, 28)
+
+	a := types.AddressArray{}
+	args := HexArrayScanTestArgs{addr1, addr2, toolong}
+	testHexArrayScan[*types.AddressArray](t, &a, args)
+}
+
+func Test_HashArrayScan(t *testing.T) {
+	t.Parallel()
+
+	h1, err := hex.DecodeString("2ab9130c6b361b72d900cdf9f78f9406fbbb6b361b72d900cdf9f78f9406fbbb")
+	require.NoError(t, err)
+	require.Len(t, h1, 32)
+	h2, err := hex.DecodeString("56b9a2dc53736b361b72d900cdf9f78f9406fbbb06fbbb6b361b7206fbbb6b36")
+	require.Len(t, h2, 32)
+	tooshort, err := hex.DecodeString("6b361b72d900cdf9f78f9406fbbb6b361b72d900cdf9f78f9406fbbb")
+	require.Len(t, tooshort, 28)
+
+	h := types.HashArray{}
+	args := HexArrayScanTestArgs{h1, h2, tooshort}
+	testHexArrayScan[*types.HashArray](t, &h, args)
 }

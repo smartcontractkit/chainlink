@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -46,7 +47,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)

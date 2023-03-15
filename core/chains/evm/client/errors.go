@@ -74,9 +74,10 @@ var parity = ClientErrors{
 
 // Geth
 // See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
-var gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+var gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low)$`)
 var geth = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
+	NonceTooHigh:                      regexp.MustCompile(`(: |^)nonce too high$`),
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
@@ -105,9 +106,10 @@ var besu = ClientErrors{
 //   - https://github.com/ledgerwatch/erigon/blob/devel/core/vm/errors.go
 //
 // Note: some error definitions are unused, many errors are created inline.
-var erigonFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+var erigonFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low)$`)
 var erigon = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
+	NonceTooHigh:                      regexp.MustCompile(`(: |^)nonce too high$`),
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(block already known|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
@@ -119,11 +121,12 @@ var erigon = ClientErrors{
 // Arbitrum
 // https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
 // nitro: https://github.com/OffchainLabs/go-ethereum/blob/master/core/state_transition.go
-var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address)$|(: |^)(nonce too high|execution reverted)(:|$)`)
+var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)`)
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
 	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
 	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
+	NonceTooHigh:          regexp.MustCompile(`(: |^)nonce too high(:|$)`),
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
 	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
 	Fatal:                 arbitrumFatal,
@@ -216,8 +219,6 @@ func (s *SendError) is(errorType int) bool {
 	}
 	return false
 }
-
-var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {

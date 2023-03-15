@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -44,6 +43,8 @@ const (
 	ExplorerBinaryMessage = websocket.BinaryMessage
 )
 
+//go:generate mockery --quiet --name ExplorerClient --output ./mocks --case=underscore
+
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
@@ -55,6 +56,9 @@ type ExplorerClient interface {
 }
 
 type NoopExplorerClient struct{}
+
+func (NoopExplorerClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopExplorerClient) Name() string                   { return "" }
 
 // Url always returns underlying url.
 func (NoopExplorerClient) Url() url.URL { return url.URL{} }
@@ -140,6 +144,16 @@ func (ec *explorerClient) Start(context.Context) error {
 	})
 }
 
+func (ec *explorerClient) Name() string {
+	return ec.lggr.Name()
+}
+
+func (ec *explorerClient) HealthReport() map[string]error {
+	return map[string]error{
+		ec.Name(): ec.StartStopOnce.Healthy(),
+	}
+}
+
 // Send sends data asynchronously across the websocket if it's open, or
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
@@ -156,7 +170,10 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 	case ExplorerBinaryMessage:
 		send = ec.sendBinary
 	default:
-		log.Panicf("send on explorer client received unsupported message type %d", messageType)
+		err := fmt.Errorf("send on explorer client received unsupported message type %d", messageType)
+		ec.SvcErrBuffer.Append(err)
+		ec.lggr.Critical(err.Error())
+		return
 	}
 	select {
 	case send <- data:
@@ -245,11 +262,14 @@ func (ec *explorerClient) connectAndWritePump() {
 			ec.setStatus(ConnectionStatusConnected)
 
 			ec.lggr.Infow("Connected to explorer", "url", ec.url)
-			ec.sleeper.Reset()
+			start := time.Now()
 			ec.writePumpDone = make(chan struct{})
 			ec.wg.Add(1)
 			go ec.readPump()
 			ec.writePump()
+			if time.Since(start) > time.Second {
+				ec.sleeper.Reset()
+			}
 
 		case <-ec.chStop:
 			return

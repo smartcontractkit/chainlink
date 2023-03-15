@@ -36,7 +36,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	serverPubKeyHex := "33333333333"
 	telemIngressClient := synchronization.NewTestTelemetryIngressClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient)
 	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
-	defer telemIngressClient.Close()
+	defer func() { assert.NoError(t, telemIngressClient.Close()) }()
 
 	// Create the telemetry payload
 	telemetry := []byte("101010")
@@ -45,6 +45,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 		Ctx:        testutils.Context(t),
 		Telemetry:  telemetry,
 		ContractID: address.String(),
+		TelemType:  synchronization.OCR,
 	}
 
 	// Assert the telemetry payload is correctly sent to wsrpc
@@ -54,6 +55,8 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 		telemReq := args.Get(1).(*telemPb.TelemRequest)
 		assert.Equal(t, telemPayload.ContractID, telemReq.Address)
 		assert.Equal(t, telemPayload.Telemetry, telemReq.Telemetry)
+		assert.Equal(t, string(synchronization.OCR), telemReq.TelemetryType)
+		assert.Greater(t, telemReq.SentAt, int64(0))
 	})
 
 	// Send telemetry

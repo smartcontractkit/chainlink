@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -21,16 +20,17 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
-	n, err := s.PruneQueue(nil)
+	n, err := s.PruneQueue(nil, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), n)
 }
 
 func Test_DropOldestStrategy_Subject(t *testing.T) {
 	t.Parallel()
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	subject := uuid.NewV4()
-	s := txmgr.NewDropOldestStrategy(subject, 1, pg.DefaultQueryTimeout)
+	s := txmgr.NewDropOldestStrategy(subject, 1, cfg.DatabaseDefaultQueryTimeout())
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
@@ -67,9 +67,9 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := txmgr.NewDropOldestStrategy(subj1, 2, pg.DefaultQueryTimeout)
+		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.DatabaseDefaultQueryTimeout())
 
-		n, err := s.PruneQueue(db)
+		n, err := s.PruneQueue(borm, db)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 

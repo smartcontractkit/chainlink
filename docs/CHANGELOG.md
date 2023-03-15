@@ -5,39 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 <!-- unreleased -->
 ## [dev]
 
-...
+### Removed
+- Configuration with legacy environment variables is no longer supported. TOML is required.
 
-## 1.12.0 - UNRELEASED
+## 1.13.0 - UNRELEASED
+
+### Added
+
+- Support for sending OCR2 job specs to the feeds manager
+- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
+### Changed
+
+- The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
+
+### Removed
+
+- Terra is no longer supported 
+
+<!-- unreleasedstop -->
+
+## 1.12.0 - 2023-02-15
 
 ### Added
 
 - Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
-- New config variable, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+- New config option, `JobPipeline.MaxSuccessfulRuns` caps the total number of
   saved completed runs per job. This is done in response to the `pipeline_runs`
   table potentially becoming large, which can cause performance degradation.
   The default is set to 10,000. You can set it to 0 to disable run saving
-  entirely.
+  entirely. **NOTE**: This can only be configured via TOML and not with an
+  environment variable.
 - Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 - Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
-- Support for sending OCR2 job specs to the feeds manager
 
 ### Updated
 
 - Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
 - Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
-- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
-of any values provided via configuration files.
 
 ### Fixed
 
 - Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
-- The `config dump` subcommand was fixed to dump the correct config data. The P2P.V1.Enabled config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The V1.Enabled default value is actually true already, and is now updated to only set explicit false values.
-
-<!-- unreleasedstop -->
+- The `config dump` subcommand was fixed to dump the correct config data. 
+  - The `P2P.V1.Enabled` config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The `V1.Enabled` default value is actually true already, and is now updated to only set explicit false values.
+  - The `[EVM.Transactions]` config fields `MaxQueued` & `MaxInFlight` will now correctly match `ETH_MAX_QUEUED_TRANSACTIONS` & `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
 
 ## 1.11.0 - 2022-12-12
 

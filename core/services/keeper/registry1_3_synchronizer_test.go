@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -142,7 +143,7 @@ func Test_RegistrySynchronizer1_3_Start(t *testing.T) {
 
 	err := synchronizer.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
@@ -242,7 +243,7 @@ func Test_RegistrySynchronizer1_3_ConfigSetLog(t *testing.T) {
 		0)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -295,7 +296,7 @@ func Test_RegistrySynchronizer1_3_KeepersUpdatedLog(t *testing.T) {
 		0)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -387,7 +388,7 @@ func Test_RegistrySynchronizer1_3_UpkeepRegisteredLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -432,7 +433,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPerformedLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -487,7 +488,7 @@ func Test_RegistrySynchronizer1_3_UpkeepGasLimitSetLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -540,7 +541,7 @@ func Test_RegistrySynchronizer1_3_UpkeepReceivedLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -695,7 +696,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 

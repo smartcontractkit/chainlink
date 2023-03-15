@@ -58,7 +58,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "ethereum-waffle": "^3.3.0",
     "ethers": "~5.6.0",
-    "hardhat": "~2.10.1",
+    "hardhat": "~2.12.7",
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.5.1",
     "istanbul": "^0.4.5",

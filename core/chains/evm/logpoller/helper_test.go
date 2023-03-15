@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
@@ -41,8 +42,9 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
 	o := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
@@ -99,4 +101,12 @@ func (lp *logPoller) Filter() ethereum.FilterQuery {
 
 func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
 	return o.selectLogsByBlockRange(start, end)
+}
+
+func (lp *logPoller) ConvertLogs(gethLogs []types.Log, blocks []LogPollerBlock) []Log {
+	return convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID())
+}
+
+func (lp *logPoller) BlocksFromLogs(ctx context.Context, logs []types.Log) (blocks []LogPollerBlock, err error) {
+	return lp.blocksFromLogs(ctx, logs)
 }

@@ -432,6 +432,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 				true, // forwardingAllowed
 				"",   // P2P Bootstrapper
 				e.ChainID,
+				sendingKeys[i],
 				dkgEncrypters[adjustedIndex],
 				dkgSigners[adjustedIndex],
 				*keyID,

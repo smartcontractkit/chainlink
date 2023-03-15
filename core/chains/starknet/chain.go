@@ -54,6 +54,10 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 	return ch, nil
 }
 
+func (c *chain) Name() string {
+	return c.lggr.Name()
+}
+
 func (c *chain) Config() config.Config {
 	return c.cfg
 }
@@ -127,4 +131,8 @@ func (c *chain) Ready() error {
 
 func (c *chain) Healthy() error {
 	return c.StartStopOnce.Healthy()
+}
+
+func (c *chain) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
 }

@@ -231,6 +231,7 @@ type OCROracleSpec struct {
 	ObservationGracePeriodEnv                 bool
 	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool
+	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }
@@ -311,6 +312,7 @@ type OCR2OracleSpec struct {
 	ContractID                        string          `toml:"contractID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -322,6 +324,7 @@ type OCR2OracleSpec struct {
 	PluginType                        OCR2PluginType  `toml:"pluginType"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
+	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -510,7 +513,7 @@ type BlockhashStoreSpec struct {
 	EVMChainID *utils.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
-	FromAddress *ethkey.EIP55Address `toml:"fromAddress"`
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

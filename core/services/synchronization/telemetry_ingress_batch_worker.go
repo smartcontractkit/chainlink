@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -13,6 +14,8 @@ import (
 // telemetryIngressBatchWorker pushes telemetry in batches to the ingress server via wsrpc.
 // A worker is created per ContractID.
 type telemetryIngressBatchWorker struct {
+	services.ServiceCtx
+
 	telemMaxBatchSize uint
 	telemSendInterval time.Duration
 	telemSendTimeout  time.Duration
@@ -21,6 +24,7 @@ type telemetryIngressBatchWorker struct {
 	chDone            chan struct{}
 	chTelemetry       chan TelemPayload
 	contractID        string
+	telemType         TelemetryType
 	logging           bool
 	lggr              logger.Logger
 	dropMessageCount  atomic.Uint32
@@ -37,6 +41,7 @@ func NewTelemetryIngressBatchWorker(
 	chDone chan struct{},
 	chTelemetry chan TelemPayload,
 	contractID string,
+	telemType TelemetryType,
 	globalLogger logger.Logger,
 	logging bool,
 ) *telemetryIngressBatchWorker {
@@ -49,6 +54,7 @@ func NewTelemetryIngressBatchWorker(
 		chDone:            chDone,
 		chTelemetry:       chTelemetry,
 		contractID:        contractID,
+		telemType:         telemType,
 		logging:           logging,
 		lggr:              globalLogger.Named("TelemetryIngressBatchWorker"),
 	}
@@ -80,7 +86,7 @@ func (tw *telemetryIngressBatchWorker) Start() {
 					continue
 				}
 				if tw.logging {
-					tw.lggr.Debugw("Successfully sent telemetry to ingress server", "contractID", telemBatchReq.ContractId, "telemetry", telemBatchReq.Telemetry)
+					tw.lggr.Debugw("Successfully sent telemetry to ingress server", "contractID", telemBatchReq.ContractId, "telemType", telemBatchReq.TelemetryType, "telemetry", telemBatchReq.Telemetry)
 				}
 			case <-tw.chDone:
 				return
@@ -119,7 +125,9 @@ func (tw *telemetryIngressBatchWorker) BuildTelemBatchReq() *telemPb.TelemBatchR
 	}
 
 	return &telemPb.TelemBatchRequest{
-		ContractId: tw.contractID,
-		Telemetry:  telemBatch,
+		ContractId:    tw.contractID,
+		TelemetryType: string(tw.telemType),
+		Telemetry:     telemBatch,
+		SentAt:        time.Now().UnixNano(),
 	}
 }

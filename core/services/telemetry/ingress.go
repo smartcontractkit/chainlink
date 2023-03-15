@@ -3,8 +3,9 @@ package telemetry
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 )
 
 var _ MonitoringEndpointGenerator = &IngressAgentWrapper{}
@@ -17,19 +18,21 @@ func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryIngr
 	return &IngressAgentWrapper{telemetryIngressClient}
 }
 
-func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
-	return NewIngressAgent(t.telemetryIngressClient, contractID)
+func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
+	return NewIngressAgent(t.telemetryIngressClient, contractID, telemType)
 }
 
 type IngressAgent struct {
 	telemetryIngressClient synchronization.TelemetryIngressClient
 	contractID             string
+	telemType              synchronization.TelemetryType
 }
 
-func NewIngressAgent(telemetryIngressClient synchronization.TelemetryIngressClient, contractID string) *IngressAgent {
+func NewIngressAgent(telemetryIngressClient synchronization.TelemetryIngressClient, contractID string, telemType synchronization.TelemetryType) *IngressAgent {
 	return &IngressAgent{
 		telemetryIngressClient,
 		contractID,
+		telemType,
 	}
 }
 
@@ -39,6 +42,7 @@ func (t *IngressAgent) SendLog(telemetry []byte) {
 		Ctx:        context.Background(),
 		Telemetry:  telemetry,
 		ContractID: t.contractID,
+		TelemType:  t.telemType,
 	}
 	t.telemetryIngressClient.Send(payload)
 }

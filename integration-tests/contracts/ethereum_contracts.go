@@ -569,17 +569,18 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeade
 	if err != nil {
 		return err
 	}
-	fluxLog := log.Debug().
-		Str("Contract Address", f.fluxInstance.Address()).
-		Int64("Current Round", lr.Int64()).
-		Int64("Waiting for Round", f.roundID.Int64()).
-		Uint64("Header Number", header.Number.Uint64())
+	logFields := map[string]any{
+		"Contract Address":  f.fluxInstance.Address(),
+		"Current Round":     lr.Int64(),
+		"Waiting for Round": f.roundID.Int64(),
+		"Header Number":     header.Number.Uint64(),
+	}
 	if lr.Cmp(f.roundID) >= 0 {
-		fluxLog.Msg("FluxAggregator round completed")
+		log.Info().Fields(logFields).Msg("FluxAggregator round completed")
 		f.complete = true
 		f.doneChan <- struct{}{}
 	} else {
-		fluxLog.Msg("Waiting for FluxAggregator round")
+		log.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
 	}
 	return nil
 }
@@ -896,9 +897,9 @@ func (o *EthereumOffchainAggregator) GetLatestRound(ctx context.Context) (*Round
 	}, err
 }
 
-func (v *EthereumOffchainAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
-	data, err := v.ocr.LatestRoundData(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+func (o *EthereumOffchainAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := o.ocr.LatestRoundData(&bind.CallOpts{
+		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
 	})
 	if err != nil {
@@ -963,15 +964,16 @@ func (o *RunlogRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	if err != nil {
 		return err
 	}
-	ocrLog := log.Info().
-		Str("Contract Address", o.consumer.Address()).
-		Int64("Current Round", currentRoundID.Int64()).
-		Int64("Waiting for Round", o.roundID.Int64())
+	logFields := map[string]any{
+		"Contract Address":  o.consumer.Address(),
+		"Current Round":     currentRoundID.Int64(),
+		"Waiting for Round": o.roundID.Int64(),
+	}
 	if currentRoundID.Cmp(o.roundID) >= 0 {
-		ocrLog.Msg("Runlog round completed")
+		log.Info().Fields(logFields).Msg("Runlog round completed")
 		o.doneChan <- struct{}{}
 	} else {
-		ocrLog.Msg("Waiting for Runlog round")
+		log.Debug().Fields(logFields).Msg("Waiting for Runlog round")
 	}
 	return nil
 }
@@ -1032,16 +1034,17 @@ func (o *OffchainAggregatorRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader
 	}
 	o.blocksSinceAnswer++
 	currRound := lr.RoundId
-	ocrLog := log.Info().
-		Str("Contract Address", o.ocrInstance.Address()).
-		Int64("Current Round", currRound.Int64()).
-		Int64("Waiting for Round", o.roundID.Int64())
+	logFields := map[string]any{
+		"Contract Address":  o.ocrInstance.Address(),
+		"Current Round":     currRound.Int64(),
+		"Waiting for Round": o.roundID.Int64(),
+	}
 	if currRound.Cmp(o.roundID) >= 0 {
-		ocrLog.Msg("OCR round completed")
+		log.Info().Fields(logFields).Msg("OCR round completed")
 		o.doneChan <- struct{}{}
 		o.complete = true
 	} else {
-		ocrLog.Msg("Waiting for OCR round")
+		log.Debug().Fields(logFields).Msg("Waiting on OCR Round")
 	}
 	return nil
 }

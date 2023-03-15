@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
@@ -19,8 +20,7 @@ import (
 
 //go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
-// SendIngressBufferSize is the number of messages to keep in the buffer before dropping additional ones
-const SendIngressBufferSize = 100
+//go:generate mockery --quiet --name TelemetryIngressClient --output ./mocks --case=underscore
 
 // TelemetryIngressClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
@@ -42,6 +42,9 @@ func (NoopTelemetryIngressClient) Send(TelemPayload) {}
 
 // Healthy is a no-op
 func (NoopTelemetryIngressClient) Healthy() error { return nil }
+
+func (NoopTelemetryIngressClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopTelemetryIngressClient) Name() string                   { return "" }
 
 // Ready is a no-op
 func (NoopTelemetryIngressClient) Ready() error { return nil }
@@ -65,19 +68,20 @@ type telemetryIngressClient struct {
 type TelemPayload struct {
 	Ctx        context.Context
 	Telemetry  []byte
+	TelemType  TelemetryType
 	ContractID string
 }
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger) TelemetryIngressClient {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryIngressClient {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
 		lggr:            lggr.Named("TelemetryIngressClient"),
-		chTelemetry:     make(chan TelemPayload, SendIngressBufferSize),
+		chTelemetry:     make(chan TelemPayload, telemBufferSize),
 		chDone:          make(chan struct{}),
 	}
 }
@@ -105,6 +109,14 @@ func (tc *telemetryIngressClient) Close() error {
 	})
 }
 
+func (tc *telemetryIngressClient) Name() string {
+	return tc.lggr.Name()
+}
+
+func (tc *telemetryIngressClient) HealthReport() map[string]error {
+	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
+}
+
 func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
 	tc.wgDone.Add(1)
 
@@ -115,8 +127,12 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 		if err != nil {
-			tc.lggr.Errorf("Error connecting to telemetry ingress server: %v", err)
-			return
+			if ctx.Err() != nil {
+				tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
+			} else {
+				tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+				tc.SvcErrBuffer.Append(err)
+			}
 		}
 		defer conn.Close()
 
@@ -141,7 +157,12 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 			select {
 			case p := <-tc.chTelemetry:
 				// Send telemetry to the ingress server, log any errors
-				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractID}
+				telemReq := &telemPb.TelemRequest{
+					Telemetry:     p.Telemetry,
+					Address:       p.ContractID,
+					TelemetryType: string(p.TelemType),
+					SentAt:        time.Now().UnixNano(),
+				}
 				_, err := tc.telemClient.Telem(p.Ctx, telemReq)
 				if err != nil {
 					tc.lggr.Errorf("Could not send telemetry: %v", err)

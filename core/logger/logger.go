@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,18 +27,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
-	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-	var logColor string
-	if v1, v2 := os.Getenv("LOG_COLOR"), os.Getenv("CL_LOG_COLOR"); v1 != "" && v2 != "" {
-		if v1 != v2 {
-			panic("you may only set one of LOG_COLOR and CL_LOG_COLOR environment variables, not both")
-		}
-	} else if v1 == "" {
-		logColor = v2
-	} else if v2 == "" {
-		logColor = v1
-	}
-	if logColor != "true" {
+	if os.Getenv("CL_LOG_COLOR") != "true" {
 		InitColor(false)
 	}
 }
@@ -124,6 +112,9 @@ type Logger interface {
 	// This allows wrappers and helpers to point higher up the stack (like testing.T.Helper()).
 	Helper(skip int) Logger
 
+	// Name returns the fully qualified name of the logger.
+	Name() string
+
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
 	Recover(panicErr interface{})
@@ -146,79 +137,12 @@ func verShaNameStatic() string {
 	return fmt.Sprintf("%s@%s", ver, sha)
 }
 
-// NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
+// NewLogger returns a new Logger with default configuration.
 // Tests should use TestLogger.
-// Deprecated: This depends on legacy environment variables.
 func NewLogger() (Logger, func() error) {
 	var c Config
-	var parseErrs []string
-	var warnings []string
-
-	var invalid string
-	c.LogLevel, invalid = envvar.LogLevel.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-	c.Dir = os.Getenv("LOG_FILE_DIR")
-	if c.Dir == "" {
-		var invalid2 string
-		c.Dir, invalid2 = envvar.RootDir.Parse()
-		if invalid2 != "" {
-			parseErrs = append(parseErrs, invalid2)
-		}
-	}
-
-	c.JsonConsole, invalid = envvar.JSONConsole.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-
-	var fileMaxSize utils.FileSize
-	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-	if fileMaxSize <= 0 {
-		c.FileMaxSizeMB = 0 // disabled
-	} else if fileMaxSize < utils.MB {
-		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
-		warnings = append(warnings, fmt.Sprintf("LogFileMaxSize %s is too small: using default %s", fileMaxSize, utils.FileSize(utils.MB)))
-	} else {
-		c.FileMaxSizeMB = int(fileMaxSize / utils.MB)
-	}
-
-	if c.DebugLogsToDisk() {
-		var (
-			fileMaxAge int64
-			maxBackups int64
-		)
-
-		fileMaxAge, invalid = envvar.LogFileMaxAge.Parse()
-		c.FileMaxAgeDays = int(fileMaxAge)
-		if invalid != "" {
-			parseErrs = append(parseErrs, invalid)
-		}
-
-		maxBackups, invalid = envvar.LogFileMaxBackups.Parse()
-		c.FileMaxBackups = int(maxBackups)
-		if invalid != "" {
-			parseErrs = append(parseErrs, invalid)
-		}
-	}
-
-	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-
 	l, closeLogger := c.New()
-	for _, msg := range parseErrs {
-		l.Error(msg)
-	}
-	for _, msg := range warnings {
-		l.Warn(msg)
-	}
-	return l.Named(verShaNameStatic()), closeLogger
+	return l.With("version", verShaNameStatic()), closeLogger
 }
 
 type Config struct {

@@ -58,141 +58,6 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
 
-func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-
-	var maxUnconfirmedTransactions uint64 = 2
-
-	t.Run("with no eth_txes returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	// deliberately one extra to exceed limit
-	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
-	}
-
-	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertFatalErrorEthTx(t, borm, otherAddress)
-	}
-
-	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	var n int64
-	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
-	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
-	n++
-
-	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, 1, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	// deliberately one extra to exceed limit
-	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
-		n++
-	}
-
-	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	}
-
-	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-
-	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
-
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-		err = txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
-	})
-
-	t.Run("with different chain ID ignores txes", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, *big.NewInt(42))
-		require.NoError(t, err)
-	})
-
-	t.Run("disables check with 0 limit", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, 0, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-}
-
-func TestTxm_CountUnconfirmedTransactions(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	count, err := txmgr.CountUnconfirmedTransactions(q, fromAddress, cltest.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, int(count), 3)
-}
-
-func TestTxm_CountUnstartedTransactions(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	count, err := txmgr.CountUnstartedTransactions(q, fromAddress, cltest.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, int(count), 2)
-}
 func TestTxm_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
@@ -222,7 +87,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		subject := uuid.NewV4()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
@@ -457,7 +322,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
+	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Twice()
 	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
 	cfg.On("EvmGasBumpWei").Return(assets.NewWeiI(42)).Maybe().Once()
@@ -506,7 +371,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
 
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
@@ -529,7 +394,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
 
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
@@ -551,7 +416,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
 
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
@@ -729,6 +594,7 @@ func TestTxm_Reset(t *testing.T) {
 	})
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
+	defer func() { assert.NoError(t, txm.Close()) }()
 
 	t.Run("calls function if started", func(t *testing.T) {
 		f := new(fnMock)
@@ -758,4 +624,5 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
+
 }

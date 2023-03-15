@@ -36,13 +36,13 @@ $SCRIPTPATH/native_solc7_compile KeeperRegistry1_1.sol
 $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
-$SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
-$SCRIPTPATH/native_solc8_6_compile KeeperRegistry1_2.sol
-$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
-$SCRIPTPATH/native_solc8_6_compile KeeperRegistry1_3.sol
-$SCRIPTPATH/native_solc8_6_compile KeeperRegistryLogic1_3.sol
-$SCRIPTPATH/native_solc8_6_compile keeper2_0/KeeperRegistry2_0.sol
-$SCRIPTPATH/native_solc8_6_compile keeper2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/upkeeps/CronUpkeepFactory.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistry1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistry1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -87,7 +87,6 @@ $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
 
 $SCRIPTPATH/native_solc8_6_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile VRFCoordinatorV2.sol
-$SCRIPTPATH/native_solc8_6_compile dev/special/NoCancelVRFCoordinatorV2.sol
 $SCRIPTPATH/native_solc8_6_compile dev/MetaERC20.sol
 
 # Feeds

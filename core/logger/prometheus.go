@@ -82,6 +82,10 @@ func (s *prometheusLogger) Named(name string) Logger {
 	}
 }
 
+func (s *prometheusLogger) Name() string {
+	return s.h.Name()
+}
+
 func (s *prometheusLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }

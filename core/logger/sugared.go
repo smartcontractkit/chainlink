@@ -11,7 +11,6 @@ type SugaredLogger interface {
 	ErrorIf(err error, msg string)
 	// ErrorIfFn calls fn() and logs any returned error along with msg.
 	// Unlike ErrorIf, this can be deffered inline, since the function call is delayed.
-	//  defer l.ErrorIfFn(db.Close, "Error closing db")
 	ErrorIfFn(fn func() error, msg string)
 }
 

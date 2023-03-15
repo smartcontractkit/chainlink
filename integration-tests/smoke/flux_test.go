@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -19,17 +20,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 )
 
 func TestFluxBasic(t *testing.T) {
 	t.Parallel()
+	l := actions.GetTestLogger(t)
 	testEnvironment, testNetwork := setupFluxTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -47,7 +49,7 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Creating mock server client shouldn't fail")
 	// Register cleanup
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -90,7 +92,7 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	oracles, err := fluxInstance.GetOracles(context.Background())
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
-	log.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
+	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
 	adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
 	bta := client.BridgeTypeAttributes{
@@ -122,7 +124,7 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err := fluxInstance.GetContractData(context.Background())
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
-	log.Info().Interface("Data", data).Msg("Round data")
+	l.Info().Interface("Data", data).Msg("Round data")
 	require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
 		"Expected latest round answer to be %d, but found %d", int64(1e5), data.LatestRoundData.Answer.Int64())
 	require.Equal(t, int64(1), data.LatestRoundData.RoundId.Int64(),
@@ -150,7 +152,7 @@ func TestFluxBasic(t *testing.T) {
 		"Expected available funds to be %d, but found %d", int64(999999999999999994), data.AvailableFunds.Int64())
 	require.Equal(t, int64(6), data.AllocatedFunds.Int64(),
 		"Expected allocated funds to be %d, but found %d", int64(6), data.AllocatedFunds.Int64())
-	log.Info().Interface("data", data).Msg("Round data")
+	l.Info().Interface("data", data).Msg("Round data")
 
 	for _, oracleAddr := range nodeAddresses {
 		payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)

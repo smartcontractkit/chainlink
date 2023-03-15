@@ -8,12 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -117,6 +116,7 @@ func ResetUpkeeps(
 	predeployedContracts []contracts.KeeperConsumerBenchmark,
 	upkeepResetterAddr string,
 ) {
+	l := GetTestLogger(t)
 	contractLoader, err := contracts.NewContractLoader(client)
 	require.NoError(t, err, "Error loading upkeep contract")
 	upkeepChunkSize := 500
@@ -131,11 +131,11 @@ func ResetUpkeeps(
 		}
 		err = client.WaitForEvents()
 		require.NoError(t, err, "Failed to wait for deploying UpkeepResetter")
-		log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Deployed UpkeepResetter")
+		l.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Deployed UpkeepResetter")
 		upkeepResetterAddr = upkeepResetter.Address()
 	}
 	upkeepResetter, _ := contractLoader.LoadUpkeepResetter(common.HexToAddress(upkeepResetterAddr))
-	log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Loaded UpkeepResetter")
+	l.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Loaded UpkeepResetter")
 
 	iter := 0
 	upkeepChunks[iter] = make([]string, 0)
@@ -146,13 +146,13 @@ func ResetUpkeeps(
 		}
 		upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count].Address())
 	}
-	log.Debug().Int("UpkeepChunk length", len(upkeepChunks))
+	l.Debug().Int("UpkeepChunk length", len(upkeepChunks))
 	for it, upkeepChunk := range upkeepChunks {
 		err := upkeepResetter.ResetManyConsumerBenchmark(context.Background(), upkeepChunk, big.NewInt(blockRange),
 			big.NewInt(blockInterval), big.NewInt(firstEligibleBuffer), big.NewInt(checkGasToBurn), big.NewInt(performGasToBurn))
-		log.Info().Int("Number of Contracts", len(upkeepChunk)).Int("Batch", it).Msg("Resetting batch of Contracts")
-		log.Debug().Str("Address", upkeepChunk[0]).Msg("First Upkeep to be reset")
-		log.Debug().Str("Address", upkeepChunk[len(upkeepChunk)-1]).Msg("Last Upkeep to be reset")
+		l.Info().Int("Number of Contracts", len(upkeepChunk)).Int("Batch", it).Msg("Resetting batch of Contracts")
+		l.Debug().Str("Address", upkeepChunk[0]).Msg("First Upkeep to be reset")
+		l.Debug().Str("Address", upkeepChunk[len(upkeepChunk)-1]).Msg("Last Upkeep to be reset")
 		if err != nil {
 			require.NoError(t, err, "Resetting upkeeps shouldn't fail")
 		}
@@ -174,19 +174,20 @@ func DeployKeeperConsumersBenchmark(
 	predeployedContracts []string,
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
+	l := GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
 	firstEligibleBuffer = 10000
 
 	if len(predeployedContracts) >= numberOfContracts {
 		contractLoader, err := contracts.NewContractLoader(client)
 		if err != nil {
-			log.Error().Err(err).Msg("Loading Contract Loader shouldn't fail")
+			l.Error().Err(err).Msg("Loading Contract Loader shouldn't fail")
 		}
 		for count, address := range predeployedContracts {
 			if count < numberOfContracts {
 				keeperConsumerInstance, err := contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
 				if err != nil {
-					log.Error().Err(err).Int("count", count+1).Str("UpkeepAddress", address).Msg("Loading KeeperConsumerBenchmark instance shouldn't fail")
+					l.Error().Err(err).Int("count", count+1).Str("UpkeepAddress", address).Msg("Loading KeeperConsumerBenchmark instance shouldn't fail")
 					require.NoError(t, err, "Failed to load KeeperConsumerBenchmark")
 				}
 				upkeeps = append(upkeeps, keeperConsumerInstance)
@@ -208,7 +209,7 @@ func DeployKeeperConsumersBenchmark(
 			big.NewInt(firstEligibleBuffer),
 		)
 		if err != nil {
-			log.Error().Err(err).Int("count", contractCount+1).Msg("Deploying KeeperConsumerBenchmark instance %d shouldn't fail")
+			l.Error().Err(err).Int("count", contractCount+1).Msg("Deploying KeeperConsumerBenchmark instance %d shouldn't fail")
 			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumerBenchmark(
 				big.NewInt(blockRange),
 				big.NewInt(blockInterval),
@@ -220,7 +221,7 @@ func DeployKeeperConsumersBenchmark(
 		}
 		//require.NoError(t, err, "Deploying KeeperConsumerBenchmark instance %d shouldn't fail", contractCount+1)
 		upkeeps = append(upkeeps, keeperConsumerInstance)
-		log.Debug().
+		l.Debug().
 			Str("Contract Address", keeperConsumerInstance.Address()).
 			Int("Number", contractCount+1).
 			Int("Out Of", numberOfContracts).
@@ -232,7 +233,7 @@ func DeployKeeperConsumersBenchmark(
 	}
 	err := client.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for to deploy all keeper consumer contracts")
-	log.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
+	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeeps
 }

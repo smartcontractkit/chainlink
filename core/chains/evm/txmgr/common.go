@@ -8,9 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,7 +22,7 @@ const batchSendTransactionTimeout = 30 * time.Second
 // elements in that batch.
 func batchSendTransactions(
 	ctx context.Context,
-	db *sqlx.DB,
+	orm ORM,
 	attempts []EthTxAttempt,
 	batchSize int,
 	logger logger.Logger,
@@ -65,21 +63,9 @@ func batchSendTransactions(
 			return reqs, errors.Wrap(err, "failed to batch send transactions")
 		}
 
-		if err := updateBroadcastAts(db, now, ethTxIDs[i:j]); err != nil {
+		if err := orm.UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
 			return reqs, errors.Wrap(err, "failed to update last succeeded on attempts")
 		}
 	}
 	return reqs, nil
-}
-
-func updateBroadcastAts(db *sqlx.DB, now time.Time, etxIDs []int64) error {
-	// Deliberately do nothing on NULL broadcast_at because that indicates the
-	// tx has been moved into a state where broadcast_at is not relevant, e.g.
-	// fatally errored.
-	//
-	// Since EthConfirmer/EthResender can race (totally OK since highest
-	// priced transaction always wins) we only want to update broadcast_at if
-	// our version is later.
-	_, err := db.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
-	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
 }

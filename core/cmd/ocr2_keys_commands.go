@@ -17,6 +17,66 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initOCR2KeysSubCmd(client *Client) cli.Command {
+	return cli.Command{
+		Name:  "ocr2",
+		Usage: "Remote commands for administering the node's off chain reporting keys",
+		Subcommands: cli.Commands{
+			{
+				Name:   "create",
+				Usage:  format(`Create an OCR2 key bundle, encrypted with password from the password file, and store it in the database`),
+				Action: client.CreateOCR2KeyBundle,
+			},
+			{
+				Name:  "delete",
+				Usage: format(`Deletes the encrypted OCR2 key bundle matching the given ID`),
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "yes, y",
+						Usage: "skip the confirmation prompt",
+					},
+					cli.BoolFlag{
+						Name:  "hard",
+						Usage: "hard-delete the key instead of archiving (irreversible!)",
+					},
+				},
+				Action: client.DeleteOCR2KeyBundle,
+			},
+			{
+				Name:   "list",
+				Usage:  format(`List available OCR2 key bundles`),
+				Action: client.ListOCR2KeyBundles,
+			},
+			{
+				Name:  "import",
+				Usage: format(`Imports an OCR2 key bundle from a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "oldpassword, p",
+						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+					},
+				},
+				Action: client.ImportOCR2Key,
+			},
+			{
+				Name:  "export",
+				Usage: format(`Exports an OCR2 key bundle to a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "newpassword, p",
+						Usage: "`FILE` containing the password to encrypt the key (required)",
+					},
+					cli.StringFlag{
+						Name:  "output, o",
+						Usage: "`FILE` where the JSON file will be saved (required)",
+					},
+				},
+				Action: client.ExportOCR2Key,
+			},
+		},
+	}
+}
+
 type OCR2KeyBundlePresenter struct {
 	JAID // Include this to overwrite the presenter JAID so it can correctly render the ID in JSON
 	presenters.OCR2KeysBundleResource
@@ -213,7 +273,7 @@ func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
-	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}

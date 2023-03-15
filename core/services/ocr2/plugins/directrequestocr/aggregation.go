@@ -3,7 +3,6 @@ package directrequestocr
 import (
 	"bytes"
 	"fmt"
-	"math/big"
 	"sort"
 
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
@@ -83,24 +82,5 @@ func aggregateMedian(items [][]byte) []byte {
 		}
 		return bytes.Compare(items[i], items[j]) < 0
 	})
-	if len(items)%2 == 1 {
-		return items[len(items)/2]
-	}
-	return average(items[len(items)/2-1], items[len(items)/2])
-}
-
-func average(v1 []byte, v2 []byte) []byte {
-	if bytes.Equal(v1, v2) {
-		return v1
-	}
-	var val1, val2, res big.Int
-	val1.SetBytes(v1)
-	val2.SetBytes(v2)
-	res.Add(&val1, &val2)
-	res.Div(&res, big.NewInt(2))
-	if len(v1) == len(v2) {
-		// Align to the same length as inputs
-		return res.FillBytes(make([]byte, len(v1)))
-	}
-	return res.Bytes()
+	return items[(len(items)-1)/2]
 }

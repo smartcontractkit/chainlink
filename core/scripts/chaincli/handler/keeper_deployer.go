@@ -142,7 +142,6 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
-			UniqueReports:        false,          // set quorum requirements
 			MinConfirmations:     1,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,

@@ -6,12 +6,7 @@
 Bar = 7 # Required
 ```
 
-## Table of contents
-
-- [Global](#Global)
-- [TableName](#TableName)
-
-## Global<a id='Global'></a>
+## Global
 ```toml
 FieldName = 'foo' # Default
 ```
@@ -19,7 +14,7 @@ FieldName = 'foo' # Default
 
 This example demonstrates some of the features:
 
-### FieldName<a id='FieldName'></a>
+### FieldName
 ```toml
 FieldName = 'foo' # Default
 ```
@@ -28,7 +23,7 @@ FieldName is a string with a default value. Every field **must** be documented w
 This is a loose comment.
 Comments can span multiple lines.
 
-## TableName<a id='TableName'></a>
+## TableName
 ```toml
 [TableName]
 Bar = 10 # Example
@@ -42,13 +37,13 @@ We can include a long description here:
 2. list
 3. items
 
-### Bar<a id='TableName-Bar'></a>
+### Bar
 ```toml
 Bar = 10 # Example
 ```
 Bar doesn't have a default value, so an example **must** be included.
 
-### TrickyField<a id='TableName-TrickyField'></a>
+### TrickyField
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 TrickyField = true # Default

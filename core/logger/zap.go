@@ -73,6 +73,10 @@ func (l *zapLogger) Helper(skip int) Logger {
 	return &newLogger
 }
 
+func (l *zapLogger) Name() string {
+	return l.name
+}
+
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {
 	return l.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))
 }

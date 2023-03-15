@@ -4,7 +4,7 @@ RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 
 [Feature]
-FeedsManager = false
+FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 
@@ -113,6 +113,7 @@ ContractSubscribeInterval = '2m0s'
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
 
 [OCR]
 Enabled = true
@@ -124,6 +125,7 @@ DefaultTransactionQueueDepth = 1
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
+CaptureEATelemetry = false
 
 [P2P]
 IncomingMessageBufferSize = 999
@@ -441,6 +443,11 @@ TxConfirmTimeout = '30s'
 SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 12
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
+FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -458,6 +465,11 @@ TxConfirmTimeout = '30s'
 SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 0
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
+FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -475,37 +487,3 @@ TxMaxBatchSize = 100
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
-
-[[Terra]]
-ChainID = 'Columbus-5'
-BlockRate = '6s'
-BlocksUntilTxTimeout = 30
-ConfirmPollPeriod = '1s'
-FallbackGasPriceULuna = '0.015'
-FCDURL = ''
-GasLimitMultiplier = '1.5'
-MaxMsgsPerBatch = 13
-OCR2CachePollPeriod = '4s'
-OCR2CacheTTL = '1m0s'
-TxMsgTimeout = '10m0s'
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://columbus.terra.com'
-
-[[Terra]]
-ChainID = 'Bombay-12'
-BlockRate = '6s'
-BlocksUntilTxTimeout = 20
-ConfirmPollPeriod = '1s'
-FallbackGasPriceULuna = '0.015'
-FCDURL = ''
-GasLimitMultiplier = '1.5'
-MaxMsgsPerBatch = 100
-OCR2CachePollPeriod = '4s'
-OCR2CacheTTL = '1m0s'
-TxMsgTimeout = '10m0s'
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://bombay.terra.com'

@@ -3,9 +3,9 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	stderrs "errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,13 +20,12 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,8 +34,57 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
-var errForbidden = errors.New(http.StatusText(http.StatusForbidden))
+func initRemoteConfigSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "show",
+			Usage:  "Show the application configuration",
+			Action: client.ConfigV2,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "user-only",
+					Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+				},
+			},
+		},
+		{
+			Name:   "loglevel",
+			Usage:  "Set log level",
+			Action: client.SetLogLevel,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "level",
+					Usage: "set log level for node (debug||info||warn||error)",
+				},
+			},
+		},
+		{
+			Name:   "logsql",
+			Usage:  "Enable/disable SQL statement logging",
+			Action: client.SetLogSQL,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "enable",
+					Usage: "enable SQL logging",
+				},
+				cli.BoolFlag{
+					Name:  "disable",
+					Usage: "disable SQL logging",
+				},
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
+		},
+	}
+}
+
+var (
+	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
+	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
+)
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -126,44 +174,6 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 	return err
 }
 
-// ReplayFromBlock replays chain data from the given block number until the most recent
-func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
-	blockNumber := c.Int64("block-number")
-	if blockNumber <= 0 {
-		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
-	}
-
-	forceBroadcast := c.Bool("force")
-
-	buf := bytes.NewBufferString("{}")
-	resp, err := cli.HTTP.Post(
-		fmt.Sprintf(
-			"/v2/replay_from_block/%v?force=%s",
-			blockNumber,
-			strconv.FormatBool(forceBroadcast),
-		), buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		bytes, err2 := cli.parseResponse(resp)
-		if err2 != nil {
-			return errors.Wrap(err2, "parseResponse error")
-		}
-		return cli.errorOut(errors.New(string(bytes)))
-	}
-
-	err = cli.printResponseBody(resp)
-	return err
-}
-
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	lggr := cli.Logger.Named("RemoteLogin")
@@ -240,17 +250,17 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
+
 	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
 		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
 	}
 
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
-	err := os.Mkdir(genDir, 0755)
+	err := os.Mkdir(genDir, 0o755)
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	cli.Logger.Infof("writing pprof to %s", genDir)
 	var wgPprof sync.WaitGroup
 	vitals := []string{
 		"allocs",       // A sampling of all past memory allocations
@@ -264,41 +274,55 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		"trace",        // A trace of execution of the current program.
 	}
 	wgPprof.Add(len(vitals))
-	errs := make(chan error)
+	cli.Logger.Infof("Collecting profiles: %v", vitals)
+	cli.Logger.Infof("writing debug info to %s", genDir)
+
+	errs := make(chan error, len(vitals))
 	for _, vt := range vitals {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			cli.Logger.Infof("Collecting %s ", uri)
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				cli.Logger.Errorf("error collecting vt %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error collecting %s", vt)
+				return
+			}
+			if resp.StatusCode == http.StatusUnauthorized {
+				errs <- errors.Wrapf(errUnauthorized, "error collecting %s", vt)
 				return
 			}
 			defer resp.Body.Close()
-
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
-				cli.Logger.Errorf("error creating file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error creating file for %s", vt)
 				return
 			}
-			defer f.Close()
+			wc := utils.NewDeferableWriteCloser(f)
+			defer wc.Close()
 
-			_, err = io.Copy(f, resp.Body)
+			_, err = io.Copy(wc, resp.Body)
 			if err != nil {
-				cli.Logger.Errorf("error writing to file for %s: %s", vt, err.Error())
-				errs <- err
+				errs <- errors.Wrapf(err, "error writing to file for %s", vt)
 				return
 			}
-			cli.Logger.Infof("Collected %s", vt)
+			err = wc.Close()
+			if err != nil {
+				errs <- errors.Wrapf(err, "error closing file for %s", vt)
+				return
+			}
 		}(vt)
 	}
 	wgPprof.Wait()
+	close(errs)
+	// Atmost one err is emitted per vital.
+	cli.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
 	if len(errs) > 0 {
-		return cli.errorOut(fmt.Errorf("%d profile collections failed", len(errs)))
+		var merr error
+		for err := range errs {
+			merr = stderrs.Join(merr, err)
+		}
+		return cli.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
 	}
 	return nil
 }
@@ -360,114 +384,6 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
-	var adjustedAmount *big.Int
-	if c.NArg() != 1 {
-		return cli.errorOut(errors.New("expecting an amount"))
-	}
-	value := c.Args().Get(0)
-	amount, ok := new(big.Float).SetString(value)
-	if !ok {
-		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
-	}
-	if c.IsSet("gwei") {
-		amount.Mul(amount, big.NewFloat(1000000000))
-	}
-	var chainID *big.Int
-	if c.IsSet("evmChainID") {
-		var ok bool
-		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
-		if !ok {
-			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
-		}
-	}
-	adjustedAmount, _ = amount.Int(nil)
-
-	request := struct {
-		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
-		EvmChainID         *utils.Big `json:"evmChainID"`
-	}{
-		EvmGasPriceDefault: adjustedAmount.String(),
-		EvmChainID:         utils.NewBig(chainID),
-	}
-
-	requestData, err := json.Marshal(request)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-	response, err := cli.HTTP.Patch("/v2/config", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	patchResponse := web.ConfigPatchResponse{}
-	if err = cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
-		return err
-	}
-
-	err = cli.errorOut(cli.Render(&patchResponse))
-	return err
-}
-
-// GetConfiguration gets the nodes environment variables
-func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/config")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	cwl := config.ConfigPrinter{}
-	err = cli.renderAPIResponse(resp, &cwl)
-	return err
-}
-
-func (cli *Client) configDumpStr() (string, error) {
-	resp, err := cli.HTTP.Get("/v2/config/dump-v1-as-v2")
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	respPayload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	if resp.StatusCode != 200 {
-		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
-	}
-	var configV2Resource web.ConfigV2Resource
-	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
-	configStr, err := cli.configDumpStr()
-	if err != nil {
-		return err
-	}
-	fmt.Print(configStr)
-	return nil
-}
-
 func (cli *Client) ConfigV2(c *clipkg.Context) error {
 	userOnly := c.Bool("user-only")
 	s, err := cli.configV2Str(userOnly)
@@ -504,9 +420,6 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 }
 
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	if _, ok := cli.Config.(chainlink.ConfigV2); !ok {
-		return errors.New("unsupported with legacy ENV config")
-	}
 	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
 	err := cli.Config.Validate()
 	if err != nil {
@@ -549,7 +462,6 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 
 // SetLogSQL enables or disables the log sql statements
 func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
-
 	// Enforces selection of --enable or --disable
 	if !c.Bool("enable") && !c.Bool("disable") {
 		return cli.errorOut(errors.New("Must set logSql --enabled || --disable"))
@@ -649,7 +561,6 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errForbidden
 	} else if resp.StatusCode >= http.StatusBadRequest {
 		errorMessage, err := parseErrorResponseBody(b)
-
 		if err != nil {
 			return b, err
 		}

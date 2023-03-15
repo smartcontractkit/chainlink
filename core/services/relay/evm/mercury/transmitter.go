@@ -57,6 +57,13 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) error { return mt.rpcCl
 func (mt *mercuryTransmitter) Close() error                    { return mt.rpcClient.Close() }
 func (mt *mercuryTransmitter) Healthy() error                  { return mt.rpcClient.Healthy() }
 func (mt *mercuryTransmitter) Ready() error                    { return mt.rpcClient.Ready() }
+func (mt *mercuryTransmitter) Name() string {
+	return mt.lggr.Name()
+}
+
+func (mt *mercuryTransmitter) HealthReport() map[string]error {
+	return map[string]error{mt.Name(): mt.Healthy()}
+}
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
 func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {

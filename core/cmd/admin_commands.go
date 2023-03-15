@@ -15,6 +15,93 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initAdminSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "chpass",
+			Usage:  "Change your API password remotely",
+			Action: client.ChangePassword,
+		},
+		{
+			Name:   "login",
+			Usage:  "Login to remote client by creating a session cookie",
+			Action: client.RemoteLogin,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "file, f",
+					Usage: "text file holding the API email and password needed to create a session cookie",
+				},
+				cli.BoolFlag{
+					Name:  "bypass-version-check",
+					Usage: "Bypass versioning check for compatibility of remote node",
+				},
+			},
+		},
+		{
+			Name:   "logout",
+			Usage:  "Delete any local sessions",
+			Action: client.Logout,
+		},
+		{
+			Name:  "users",
+			Usage: "Create, edit permissions, or delete API users",
+			Subcommands: cli.Commands{
+				{
+					Name:   "list",
+					Usage:  "Lists all API users and their roles",
+					Action: client.ListUsers,
+				},
+				{
+					Name:   "create",
+					Usage:  "Create a new API user",
+					Action: client.CreateUser,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:     "email",
+							Usage:    "Email of new user to create",
+							Required: true,
+						},
+						cli.StringFlag{
+							Name:     "role",
+							Usage:    "Permission level of new user. Options: 'admin', 'edit', 'run', 'view'.",
+							Required: true,
+						},
+					},
+				},
+				{
+					Name:   "chrole",
+					Usage:  "Changes an API user's role",
+					Action: client.ChangeRole,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:     "email",
+							Usage:    "email of user to be editted",
+							Required: true,
+						},
+						cli.StringFlag{
+							Name:     "newrole",
+							Usage:    "new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
+							Required: true,
+						},
+					},
+				},
+				{
+					Name:   "delete",
+					Usage:  "Delete an API user",
+					Action: client.DeleteUser,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:     "email",
+							Usage:    "Email of API user to delete",
+							Required: true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 type AdminUsersPresenter struct {
 	JAID
 	presenters.UserResource

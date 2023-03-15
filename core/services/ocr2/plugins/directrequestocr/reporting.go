@@ -285,6 +285,12 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			})
 			continue
 		}
+		r.logger.Debug("FunctionsReporting Report: aggregated successfully", commontypes.LogFields{
+			"epoch":         ts.Epoch,
+			"round":         ts.Round,
+			"requestID":     reqId,
+			"nObservations": len(observations),
+		})
 		allAggregated = append(allAggregated, aggregated)
 		allIdStrs = append(allIdStrs, reqId)
 	}

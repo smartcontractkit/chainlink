@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
@@ -19,40 +20,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-type NewNode struct {
-	Name       string      `json:"name"`
-	EVMChainID utils.Big   `json:"evmChainId"`
-	WSURL      null.String `json:"wsURL" db:"ws_url"`
-	HTTPURL    null.String `json:"httpURL" db:"http_url"`
-	SendOnly   bool        `json:"sendOnly"`
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-type ChainConfigORM interface {
-	StoreString(chainID utils.Big, key, val string) error
-	Clear(chainID utils.Big, key string) error
-}
-
 type ORM interface {
 	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id utils.Big, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id utils.Big, enabled bool, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
-	EnabledChains(...pg.QOpt) ([]DBChain, error)
 
-	CreateNode(data Node, qopts ...pg.QOpt) (Node, error)
-	DeleteNode(id int32, qopts ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
 	NodeNamed(string, ...pg.QOpt) (Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 
-	ChainConfigORM
-
-	SetupNodes([]Node, []utils.Big) error
 	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
 
@@ -395,4 +372,57 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 		l.Removed = *dec.Removed
 	}
 	return nil
+}
+
+type AddressArray []common.Address
+
+func (a *AddressArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return errors.Wrap(err, "Expected BYTEA[] column for AddressArray")
+	}
+	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
+		return errors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	for i, ba := range baArray.Elements {
+		addr := common.Address{}
+		if ba.Status != pgtype.Present {
+			return errors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
+		}
+		err = addr.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		*a = append(*a, addr)
+	}
+
+	return nil
+}
+
+type HashArray []common.Hash
+
+func (h *HashArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return errors.Wrap(err, "Expected BYTEA[] column for HashArray")
+	}
+	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
+		return errors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	for i, ba := range baArray.Elements {
+		hash := common.Hash{}
+		if ba.Status != pgtype.Present {
+			return errors.Errorf("Expected all addresses in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
+		}
+		err = hash.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		*h = append(*h, hash)
+	}
+	return err
 }

@@ -15,7 +15,6 @@ func TestExport(t *testing.T) {
 		chain chaintype.ChainType
 	}{
 		{chain: chaintype.EVM},
-		{chain: chaintype.Terra},
 		{chain: chaintype.Solana},
 		{chain: chaintype.StarkNet},
 	}
