@@ -318,6 +318,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
      * @dev This function is a modified version of the method from OCR2Abstract
      */
     function _configDigestFromConfigData(
+        bytes32 feedId,
         uint64 configCount,
         address[] memory signers,
         bytes32[] memory offchainTransmitters,
@@ -329,6 +330,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
         uint256 h = uint256(
             keccak256(
                 abi.encode(
+                    feedId,
                     block.chainid, // chainId
                     address(this), // contractAddress
                     configCount,
@@ -411,6 +413,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
         feedVerifierState.configCount++;
 
         bytes32 configDigest = _configDigestFromConfigData(
+            feedId,
             feedVerifierState.configCount,
             signers,
             offchainTransmitters,

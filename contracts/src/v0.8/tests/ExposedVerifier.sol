@@ -8,6 +8,7 @@ contract ExposedVerifier {
   constructor(){}
 
   function _configDigestFromConfigData(
+    bytes32 feedId,
     uint256 chainId,
     address contractAddress,
     uint64 configCount,
@@ -21,6 +22,7 @@ contract ExposedVerifier {
     uint256 h = uint256(
       keccak256(
         abi.encode(
+          feedId,
           chainId,
           contractAddress,
           configCount,
@@ -39,6 +41,7 @@ contract ExposedVerifier {
   }
 
   function exposedConfigDigestFromConfigData(
+    bytes32 _feedId,
     uint256 _chainId,
     address _contractAddress,
     uint64 _configCount,
@@ -49,7 +52,7 @@ contract ExposedVerifier {
     uint64 _encodedConfigVersion,
     bytes memory _encodedConfig
   ) public pure returns (bytes32) {
-    return _configDigestFromConfigData(_chainId, _contractAddress, _configCount,
+    return _configDigestFromConfigData(_feedId, _chainId, _contractAddress, _configCount,
       _signers, _offchainTransmitters, _f, _onchainConfig, _encodedConfigVersion,
       _encodedConfig);
   }
