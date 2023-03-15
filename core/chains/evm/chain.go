@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	cfgv2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -32,7 +30,6 @@ type Chain interface {
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
-	UpdateConfig(*types.ChainCfg)
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
 	TxManager() txmgr.TxManager
@@ -46,10 +43,8 @@ var _ Chain = &chain{}
 
 type chain struct {
 	utils.StartStopOnce
-	id  *big.Int
-	cfg evmconfig.ChainScopedConfig
-	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config - immutability becomes default
-	cfgImmutable    bool // toml config is immutable
+	id              *big.Int
+	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
@@ -67,28 +62,6 @@ type errChainDisabled struct {
 
 func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func newDBChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
-	chainID := dbchain.ID.ToInt()
-	l := opts.Logger.With("evmChainID", chainID.String())
-	if !dbchain.Enabled {
-		return nil, errChainDisabled{ChainID: &dbchain.ID}
-	}
-	cfg := evmconfig.NewChainScopedConfig(chainID, *dbchain.Cfg, opts.ORM, l, opts.Config)
-	if err := cfg.Validate(); err != nil {
-		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
-	}
-	v2ns := make([]*v2.Node, len(nodes))
-	for i, n := range nodes {
-		n2 := new(v2.Node)
-		if err := n2.SetFromDB(n); err != nil {
-			return nil, errors.Wrapf(err, "failed to convert node")
-		}
-		v2ns[i] = n2
-	}
-	return newChain(ctx, cfg, v2ns, opts)
 }
 
 func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (*chain, error) {
@@ -284,16 +257,9 @@ func (c *chain) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.Healthy()}
 }
 
-func (c *chain) ID() *big.Int                        { return c.id }
-func (c *chain) Client() evmclient.Client            { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig { return c.cfg }
-func (c *chain) UpdateConfig(cfg *types.ChainCfg) {
-	if c.cfgImmutable {
-		c.logger.Criticalw("TOML configuration cannot be updated", "err", cfgv2.ErrUnsupported)
-		return
-	}
-	c.cfg.Configure(*cfg)
-}
+func (c *chain) ID() *big.Int                             { return c.id }
+func (c *chain) Client() evmclient.Client                 { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }

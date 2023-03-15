@@ -6,7 +6,6 @@ import (
 	stderrs "errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,9 +25,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -40,38 +37,13 @@ import (
 func initRemoteConfigSubCmds(client *Client) []cli.Command {
 	return []cli.Command{
 		{
-			Name:   "dump",
-			Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
-			Action: client.ConfigDump,
-		},
-		{
-			Name:   "list",
-			Usage:  "Show the node's environment variables [Not supported with TOML]",
-			Action: client.GetConfiguration,
-		},
-		{
 			Name:   "show",
-			Usage:  "Show the application configuration [Only supported with TOML]",
+			Usage:  "Show the application configuration",
 			Action: client.ConfigV2,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "user-only",
 					Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
-				},
-			},
-		},
-		{
-			Name:   "setgasprice",
-			Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
-			Action: client.SetEvmGasPriceDefault,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "gwei",
-					Usage: "Specify amount in gwei",
-				},
-				cli.StringFlag{
-					Name:  "evmChainID",
-					Usage: "(optional) specify the chain ID for which to make the update",
 				},
 			},
 		},
@@ -88,22 +60,22 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 		},
 		{
 			Name:   "logsql",
-			Usage:  "Enable/disable sql statement logging",
+			Usage:  "Enable/disable SQL statement logging",
 			Action: client.SetLogSQL,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "enable",
-					Usage: "enable sql logging",
+					Usage: "enable SQL logging",
 				},
 				cli.BoolFlag{
 					Name:  "disable",
-					Usage: "disable sql logging",
+					Usage: "disable SQL logging",
 				},
 			},
 		},
 		{
 			Name:   "validate",
-			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
+			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
 			Action: client.ConfigFileValidate,
 		},
 	}
@@ -412,114 +384,6 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
-	var adjustedAmount *big.Int
-	if c.NArg() != 1 {
-		return cli.errorOut(errors.New("expecting an amount"))
-	}
-	value := c.Args().Get(0)
-	amount, ok := new(big.Float).SetString(value)
-	if !ok {
-		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
-	}
-	if c.IsSet("gwei") {
-		amount.Mul(amount, big.NewFloat(1000000000))
-	}
-	var chainID *big.Int
-	if c.IsSet("evmChainID") {
-		var ok bool
-		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
-		if !ok {
-			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
-		}
-	}
-	adjustedAmount, _ = amount.Int(nil)
-
-	request := struct {
-		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
-		EvmChainID         *utils.Big `json:"evmChainID"`
-	}{
-		EvmGasPriceDefault: adjustedAmount.String(),
-		EvmChainID:         utils.NewBig(chainID),
-	}
-
-	requestData, err := json.Marshal(request)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-	response, err := cli.HTTP.Patch("/v2/config", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	patchResponse := web.ConfigPatchResponse{}
-	if err = cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
-		return err
-	}
-
-	err = cli.errorOut(cli.Render(&patchResponse))
-	return err
-}
-
-// GetConfiguration gets the nodes environment variables
-func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/config")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	cwl := config.ConfigPrinter{}
-	err = cli.renderAPIResponse(resp, &cwl)
-	return err
-}
-
-func (cli *Client) configDumpStr() (string, error) {
-	resp, err := cli.HTTP.Get("/v2/config/dump-v1-as-v2")
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	respPayload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	if resp.StatusCode != 200 {
-		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
-	}
-	var configV2Resource web.ConfigV2Resource
-	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
-	configStr, err := cli.configDumpStr()
-	if err != nil {
-		return err
-	}
-	fmt.Print(configStr)
-	return nil
-}
-
 func (cli *Client) ConfigV2(c *clipkg.Context) error {
 	userOnly := c.Bool("user-only")
 	s, err := cli.configV2Str(userOnly)
@@ -556,9 +420,6 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 }
 
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	if _, ok := cli.Config.(chainlink.ConfigV2); !ok {
-		return errors.New("unsupported with legacy ENV config")
-	}
 	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
 	err := cli.Config.Validate()
 	if err != nil {

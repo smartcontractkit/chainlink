@@ -1005,7 +1005,8 @@ func TestErrorBuffer(t *testing.T) {
 
 	t.Run("ovewrite oldest error when cap exceeded", func(t *testing.T) {
 		t.Parallel()
-		buff := utils.ErrorBuffer{Cap: 2}
+		buff := utils.ErrorBuffer{}
+		buff.SetCap(2)
 		buff.Append(err1)
 		buff.Append(err2)
 		buff.Append(err3)
@@ -1034,6 +1035,14 @@ func TestErrorBuffer(t *testing.T) {
 		errs := utils.UnwrapError(err1)
 		assert.Equal(t, 1, len(errs))
 		assert.Equal(t, err1.Error(), errs[0].Error())
+	})
+
+	t.Run("flushing an empty err buffer is a nil error", func(t *testing.T) {
+		t.Parallel()
+		buff := utils.ErrorBuffer{}
+
+		combined := buff.Flush()
+		require.Nil(t, combined)
 	})
 
 }

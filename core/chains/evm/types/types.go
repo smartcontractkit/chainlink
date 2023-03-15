@@ -20,40 +20,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-type NewNode struct {
-	Name       string      `json:"name"`
-	EVMChainID utils.Big   `json:"evmChainId"`
-	WSURL      null.String `json:"wsURL" db:"ws_url"`
-	HTTPURL    null.String `json:"httpURL" db:"http_url"`
-	SendOnly   bool        `json:"sendOnly"`
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-type ChainConfigORM interface {
-	StoreString(chainID utils.Big, key, val string) error
-	Clear(chainID utils.Big, key string) error
-}
-
 type ORM interface {
 	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id utils.Big, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id utils.Big, enabled bool, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
-	EnabledChains(...pg.QOpt) ([]DBChain, error)
 
-	CreateNode(data Node, qopts ...pg.QOpt) (Node, error)
-	DeleteNode(id int32, qopts ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
 	NodeNamed(string, ...pg.QOpt) (Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 
-	ChainConfigORM
-
-	SetupNodes([]Node, []utils.Big) error
 	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
 

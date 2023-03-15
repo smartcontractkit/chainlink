@@ -230,7 +230,7 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	return fr
 }
 
-// GetNextTaskOf returns the task with the next id
+// GetNextTaskOf returns the task with the next id or nil if it does not exist
 func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 	nextID := task.Task.Base().id + 1
 

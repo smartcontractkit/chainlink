@@ -102,6 +102,11 @@ presubmit: ## Format go files and imports.
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.20.0
 
+.PHONY: codecgen
+codecgen: $(codecgen) ## Install codecgen
+	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
+
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
 	protoc \
@@ -121,7 +126,7 @@ config-docs: ## Generate core node configuration documentation
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.51.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 .PHONY: snapshot
 snapshot:

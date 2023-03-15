@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -117,7 +116,7 @@ func ResetUpkeeps(
 	predeployedContracts []contracts.KeeperConsumerBenchmark,
 	upkeepResetterAddr string,
 ) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	contractLoader, err := contracts.NewContractLoader(client)
 	require.NoError(t, err, "Error loading upkeep contract")
 	upkeepChunkSize := 500
@@ -175,7 +174,7 @@ func DeployKeeperConsumersBenchmark(
 	predeployedContracts []string,
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
 	firstEligibleBuffer = 10000
 
