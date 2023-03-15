@@ -354,10 +354,10 @@ func BenchmarkCollectEATelemetry(b *testing.B) {
 		AllErrors:   nil,
 		FatalErrors: []error{nil},
 	}
-	wg.Add(b.N)
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
+		wg.Add(1)
 		collectEATelemetry(&ds, &trrs, &finalResult)
 	}
 	wg.Wait()
