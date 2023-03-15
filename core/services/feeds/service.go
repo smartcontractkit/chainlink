@@ -64,26 +64,27 @@ type Service interface {
 
 	CountManagers() (int64, error)
 	GetManager(id int64) (*FeedsManager, error)
-	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
+	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error)
 	UpdateManager(ctx context.Context, mgr FeedsManager) error
 
-	GetChainConfig(id int64) (*ChainConfig, error)
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
+	GetChainConfig(id int64) (*ChainConfig, error)
 	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
 	UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 
-	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
-	DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error)
-	SyncNodeInfo(ctx context.Context, id int64) error
+	DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error)
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
+	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
+	RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error)
+	SyncNodeInfo(ctx context.Context, id int64) error
 
-	GetJobProposal(id int64) (*JobProposal, error)
-	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
-	ListJobProposals() ([]JobProposal, error)
 	CountJobProposalsByStatus() (*JobProposalCounts, error)
+	GetJobProposal(id int64) (*JobProposal, error)
+	ListJobProposals() ([]JobProposal, error)
+	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 
 	ApproveSpec(ctx context.Context, id int64, force bool) error
 	CancelSpec(ctx context.Context, id int64) error
@@ -413,23 +414,22 @@ type DeleteJobArgs struct {
 	RemoteUUID     uuid.UUID
 }
 
-// DeleteProposal deletes a job proposal if it exist. The feeds manager id check
+// DeleteJob deletes a job proposal if it exist. The feeds manager id check
 // ensures that only the intended feed manager can make this request.
-func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
 	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
 		}
+
+		return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID did not find any proposals to delete")
 	}
 
-	// Validation for existing job proposals
-	if err == nil {
-		// Ensure that if the job proposal exists, that it belongs to the feeds
-		// manager which previously proposed a job using the remote UUID.
-		if args.FeedsManagerID != proposal.FeedsManagerID {
-			return 0, errors.New("cannot delete a job proposal belonging to another feeds manager")
-		}
+	// Ensure that if the job proposal exists, that it belongs to the feeds
+	// manager which previously proposed a job using the remote UUID.
+	if args.FeedsManagerID != proposal.FeedsManagerID {
+		return 0, errors.New("cannot delete a job proposal belonging to another feeds manager")
 	}
 
 	pctx := pg.WithParentCtx(ctx)
@@ -437,6 +437,40 @@ func (s *service) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int6
 		s.lggr.Errorw("Failed to delete the proposal", "error", err)
 
 		return 0, errors.Wrap(err, "DeleteProposal failed")
+	}
+
+	return proposal.ID, nil
+}
+
+// RevokeJobArgs are the arguments to provide the RevokeJob method
+type RevokeJobArgs struct {
+	FeedsManagerID int64
+	RemoteUUID     uuid.UUID
+}
+
+// RevokeJob revokes a pending job proposal if it exist. The feeds manager
+// id check ensures that only the intended feed manager can make this request.
+func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
+	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
+		}
+
+		return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID did not find any proposals to revoke")
+	}
+
+	// Ensure that if the job proposal exists, that it belongs to the feeds
+	// manager which previously proposed a job using the remote UUID.
+	if args.FeedsManagerID != proposal.FeedsManagerID {
+		return 0, errors.New("cannot revoke a job proposal belonging to another feeds manager")
+	}
+
+	pctx := pg.WithParentCtx(ctx)
+	if err = s.orm.RevokeProposal(proposal.ID, pctx); err != nil {
+		s.lggr.Errorw("Failed to revoke the proposal", "error", err)
+
+		return 0, errors.Wrap(err, "RevokeProposal failed")
 	}
 
 	return proposal.ID, nil
@@ -611,34 +645,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal spec")
 	}
 
-	switch spec.Status {
-	case SpecStatusApproved:
-		return errors.New("cannot approve an approved spec")
-	case SpecStatusRejected:
-		return errors.New("cannot approve a rejected spec")
-	case SpecStatusCancelled:
-		// Allowed to approve a cancelled job if it is the latest job
-		latest, serr := s.orm.GetLatestSpec(spec.JobProposalID)
-		if serr != nil {
-			return errors.Wrap(err, "failed to get latest spec")
-		}
-
-		if latest.ID != spec.ID {
-			return errors.New("cannot approve a cancelled spec")
-		}
-	case SpecStatusPending:
-		// NOOP - pending jobs are allowed to be approved
-	default:
-		return errors.New("invalid status")
-	}
-
 	proposal, err := s.orm.GetJobProposal(spec.JobProposalID, pctx)
 	if err != nil {
 		return errors.Wrap(err, "orm: job proposal")
 	}
 
-	if proposal.Status == JobProposalStatusDeleted {
-		return errors.New("cannot approve spec for a deleted job proposal")
+	if err = s.isApprovable(proposal.Status, proposal.ID, spec.Status, spec.ID); err != nil {
+		return err
 	}
 
 	logger := s.lggr.With(
@@ -1201,6 +1214,42 @@ func extractName(defn string) null.String {
 	return spec.Name
 }
 
+// isApprovable returns nil if a spec can be approved based on the current
+// proposal and spec status, and if it can't be approved, the reason as an
+// error.
+func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, specStatus SpecStatus, specID int64) error {
+	if propStatus == JobProposalStatusDeleted {
+		return errors.New("cannot approve spec for a deleted job proposal")
+	}
+
+	if propStatus == JobProposalStatusRevoked {
+		return errors.New("cannot approve spec for a revoked job proposal")
+	}
+
+	switch specStatus {
+	case SpecStatusApproved:
+		return errors.New("cannot approve an approved spec")
+	case SpecStatusRejected:
+		return errors.New("cannot approve a rejected spec")
+	case SpecStatusCancelled:
+		// Allowed to approve a cancelled job if it is the latest job
+		latest, serr := s.orm.GetLatestSpec(proposalID)
+		if serr != nil {
+			return errors.Wrap(serr, "failed to get latest spec")
+		}
+
+		if latest.ID != specID {
+			return errors.New("cannot approve a cancelled spec")
+		}
+
+		return nil
+	case SpecStatusPending:
+		return nil
+	default:
+		return errors.New("invalid job spec status")
+	}
+}
+
 var _ Service = &NullService{}
 
 // NullService defines an implementation of the Feeds Service that is used
@@ -1213,18 +1262,12 @@ func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
-	return ErrFeedsManagerDisabled
-}
 func (ns NullService) CountManagers() (int64, error) { return 0, nil }
 func (ns NullService) CountJobProposalsByStatus() (*JobProposalCounts, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
-}
-func (ns NullService) CreateJobProposal(jp *JobProposal) (int64, error) {
-	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) GetJobProposal(id int64) (*JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
@@ -1264,7 +1307,10 @@ func (ns NullService) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal,
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
-func (ns NullService) DeleteProposal(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+func (ns NullService) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+	return 0, ErrFeedsManagerDisabled
+}
+func (ns NullService) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
@@ -1274,9 +1320,6 @@ func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return nil }
-func (ns NullService) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	return ErrFeedsManagerDisabled
-}
 func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return ErrFeedsManagerDisabled
 }

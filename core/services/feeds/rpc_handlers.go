@@ -49,7 +49,7 @@ func (h *RPCHandlers) DeleteJob(ctx context.Context, req *pb.DeleteJobRequest) (
 		return nil, err
 	}
 
-	_, err = h.svc.DeleteProposal(ctx, &DeleteJobArgs{
+	_, err = h.svc.DeleteJob(ctx, &DeleteJobArgs{
 		FeedsManagerID: h.feedsManagerID,
 		RemoteUUID:     remoteUUID,
 	})
@@ -58,4 +58,22 @@ func (h *RPCHandlers) DeleteJob(ctx context.Context, req *pb.DeleteJobRequest) (
 	}
 
 	return &pb.DeleteJobResponse{}, nil
+}
+
+// RevokeJob revokes a pending job proposal record.
+func (h *RPCHandlers) RevokeJob(ctx context.Context, req *pb.RevokeJobRequest) (*pb.RevokeJobResponse, error) {
+	remoteUUID, err := uuid.FromString(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = h.svc.RevokeJob(ctx, &RevokeJobArgs{
+		FeedsManagerID: h.feedsManagerID,
+		RemoteUUID:     remoteUUID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.RevokeJobResponse{}, nil
 }
