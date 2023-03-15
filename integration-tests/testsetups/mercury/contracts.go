@@ -6,6 +6,7 @@ import (
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -75,6 +76,27 @@ func CreateCommitmentHash(order Order) common.Hash {
 	)
 
 	return crypto.Keccak256Hash(bytes)
+}
+
+func InitVerifierContract(feedIds []string, ocrConfig contracts.MercuryOCRConfig,
+	verifier contracts.Verifier, verifierProxy contracts.VerifierProxy) error {
+
+	for _, feedId := range feedIds {
+		log.Info().Msgf("Init Verifier contract: %x for feedId: %s and ocrConfig: %v", verifier.Address(), feedId, ocrConfig)
+		err := verifier.SetConfig(StringToByte32(feedId), ocrConfig)
+		if err != nil {
+			return err
+		}
+	}
+	c, err := verifier.LatestConfigDetails(StringToByte32(feedIds[len(feedIds)-1]))
+	if err != nil {
+		return err
+	}
+	log.Info().Msgf("Init VerifierProxy with config digest: %x", c.ConfigDigest)
+	if err := verifierProxy.InitializeVerifier(c.ConfigDigest, verifier.Address()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func LoadMercuryContracts(evmClient blockchain.EVMClient,
