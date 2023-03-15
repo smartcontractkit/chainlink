@@ -53,7 +53,6 @@ type MercuryTestEnv struct {
 	Namespace             string
 	NsPrefix              string
 	Chart                 string
-	Config                *mercuryTestConfig
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
 	MockserverClient      *ctfClient.MockserverClient
@@ -180,7 +179,7 @@ func SetupMercuryTestEnv(
 	}
 	mschart := os.Getenv("MERCURY_CHART")
 	if mschart == "" {
-		return nil, errors.New("MERCURY_CHART should be provided, a local path or a name of a mercury-server helm chart")
+		return nil, errors.New("MERCURY_CHART must be provided, a local path or a name of a mercury-server helm chart")
 	}
 
 	// Load mercury env info from a config file if it exists
@@ -234,7 +233,7 @@ func SetupMercuryTestEnv(
 	}
 
 	msRpcPubKey, msLocalUrl, msRemoteUrl, msClient, err := setupMercuryServer(
-		env, msDbSettings, msResources,
+		env, mschart, "", msDbSettings, msResources,
 		msAdminId, msAdminKey, msAdminEncryptedKey)
 	if err != nil {
 		return nil, err
@@ -672,6 +671,8 @@ func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error)
 
 func setupMercuryServer(
 	env *environment.Environment,
+	chartPath string,
+	chartVersion string,
 	dbSettings map[string]interface{},
 	serverSettings map[string]interface{},
 	adminId string,
@@ -723,7 +724,7 @@ func setupMercuryServer(
 		settings["resources"] = serverSettings
 	}
 
-	env.AddHelm(mshelm.New(env.Chart, "", settings)).Run()
+	env.AddHelm(mshelm.New(chartPath, "", settings)).Run()
 
 	msRemoteUrl := env.URLs[mshelm.URLsKey][0]
 	msLocalUrl := env.URLs[mshelm.URLsKey][1]
