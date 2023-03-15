@@ -336,7 +336,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}
 			} else {
-				lggr.Infof("AutoCreateKey=false, will not ensure EVM key for chain %s", ch.ID())
+				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", ch.ID())
 			}
 		}
 	}
