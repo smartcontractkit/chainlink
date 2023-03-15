@@ -1,26 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../vrf/VRFConsumerBaseV2.sol";
+import "../../interfaces/LinkTokenInterface.sol";
+import "../../interfaces/VRFCoordinatorV2Interface.sol";
+import "../../vrf/VRFConsumerBaseV2.sol";
 
-// VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
-contract VRFV2RevertingExample is VRFConsumerBaseV2 {
+contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   VRFCoordinatorV2Interface COORDINATOR;
   LinkTokenInterface LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
+  bytes32 s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function fulfillRandomWords(uint256, uint256[] memory) internal override {
-    revert();
+  function setKeyHash(bytes32 keyHash) public {
+    s_keyHash = keyHash;
+  }
+
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    s_gasAvailable = gasleft();
+    s_randomWords = randomWords;
+    s_requestId = requestId;
+    // Should revert
+    COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 200000, 1);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
@@ -32,12 +40,6 @@ contract VRFV2RevertingExample is VRFConsumerBaseV2 {
     LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
   }
 
-  function topUpSubscription(uint96 amount) external {
-    require(s_subId != 0, "sub not set");
-    // Approve the link transfer.
-    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
-  }
-
   function updateSubscription(address[] memory consumers) external {
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
@@ -45,14 +47,7 @@ contract VRFV2RevertingExample is VRFConsumerBaseV2 {
     }
   }
 
-  function requestRandomness(
-    bytes32 keyHash,
-    uint64 subId,
-    uint16 minReqConfs,
-    uint32 callbackGasLimit,
-    uint32 numWords
-  ) external returns (uint256) {
-    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
-    return s_requestId;
+  function requestRandomness() external returns (uint256) {
+    return COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 500000, 1);
   }
 }

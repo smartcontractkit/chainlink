@@ -61,7 +61,7 @@ describe('VRFCoordinatorV2', () => {
       mockLinkEth.address,
     )
     const vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory(
-      'src/v0.8/tests/VRFCoordinatorV2TestHelper.sol:VRFCoordinatorV2TestHelper',
+      'src/v0.8/tests/vrf/VRFCoordinatorV2TestHelper.sol:VRFCoordinatorV2TestHelper',
       accounts[0],
     )
     vrfCoordinatorV2TestHelper = await vrfCoordinatorV2TestHelperFactory.deploy(

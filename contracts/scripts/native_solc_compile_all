@@ -53,36 +53,36 @@ $SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
 # VRF
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBase.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFConsumer.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFRequestIDBaseTestHelper.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFConsumer.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFRequestIDBaseTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile mocks/VRFCoordinatorMock.sol
 
 # VRF V2
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBaseV2.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFConsumerV2.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFMaliciousConsumerV2.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFTestHelper.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFV2ProxyAdmin.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFV2TransparentUpgradeableProxy.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFConsumerV2UpgradeableExample.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFConsumerV2.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFMaliciousConsumerV2.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFTestHelper.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFV2RevertingExample.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFV2ProxyAdmin.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFV2TransparentUpgradeableProxy.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFConsumerV2UpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFCoordinatorV2TestHelper.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
 $SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2WrapperConsumerBase.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFV2WrapperConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFV2WrapperConsumerExample.sol
 
 # VRF Consumers and Mocks
-$SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFSingleConsumerExample.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFOwnerlessConsumerExample.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestOwnerlessConsumer.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestExternalSubOwner.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFExternalSubOwnerExample.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFSingleConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFOwnerlessConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFLoadTestOwnerlessConsumer.sol
+$SCRIPTPATH/native_solc8_6_compile tests/vrf/VRFLoadTestExternalSubOwner.sol
 
 # Keepers x VRF v2
 $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol

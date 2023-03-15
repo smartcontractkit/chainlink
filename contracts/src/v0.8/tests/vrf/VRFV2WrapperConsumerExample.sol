@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../vrf/VRFV2WrapperConsumerBase.sol";
-import "../ConfirmedOwner.sol";
+import "../../vrf/VRFV2WrapperConsumerBase.sol";
+import "../../ConfirmedOwner.sol";
 
 contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
