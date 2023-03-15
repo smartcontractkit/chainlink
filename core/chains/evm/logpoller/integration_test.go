@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -83,7 +84,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}()
 
 	// Confirm all the logs.
-	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000))
+	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now()))
 	func() {
 		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
@@ -294,4 +295,96 @@ func Test_BackupLogPoller(t *testing.T) {
 	logs, err = th.LogPoller.Logs(32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(logs))
+}
+
+func TestLogPoller_BlockTimestamps(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	th := logpoller.SetupTH(t, 2, 3, 2)
+
+	addresses := []common.Address{th.EmitterAddress1, th.EmitterAddress2}
+	topics := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
+
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{"convertLogs", topics, addresses})
+	require.NoError(t, err)
+
+	blk, err := th.Client.BlockByNumber(ctx, nil)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1), blk.Number())
+	start := blk.Time()
+
+	// There is automatically a 10s delay between each block.  To make sure it's including the correct block timestamps,
+	// we introduce irregularities by inserting two additional block delays. We can't control the block times for
+	// blocks produced by the log emitter, but we can adjust the time on empty blocks in between.  Simulated time
+	// sequence:  [ #1 ] ..(10s + delay1).. [ #2 ] ..10s.. [ #3 (LOG1) ] ..(10s + delay2).. [ #4 ] ..10s.. [ #5 (LOG2) ]
+	const delay1 = 589
+	const delay2 = 643
+	time1 := start + 20 + delay1
+	time2 := time1 + 20 + delay2
+
+	require.NoError(t, th.Client.AdjustTime(delay1*time.Second))
+	hash := th.Client.Commit()
+
+	blk, err = th.Client.BlockByHash(ctx, hash)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(2), blk.Number())
+	assert.Equal(t, time1-10, blk.Time())
+
+	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	hash = th.Client.Commit()
+
+	blk, err = th.Client.BlockByHash(ctx, hash)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(3), blk.Number())
+	assert.Equal(t, time1, blk.Time())
+
+	require.NoError(t, th.Client.AdjustTime(delay2*time.Second))
+	th.Client.Commit()
+	_, err = th.Emitter2.EmitLog2(th.Owner, []*big.Int{big.NewInt(2)})
+	require.NoError(t, err)
+	hash = th.Client.Commit()
+
+	blk, err = th.Client.BlockByHash(ctx, hash)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(5), blk.Number())
+	assert.Equal(t, time2, blk.Time())
+
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(2),
+		ToBlock:   big.NewInt(5),
+		Topics:    [][]common.Hash{topics},
+		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
+
+	gethLogs, err := th.Client.FilterLogs(ctx, query)
+	require.NoError(t, err)
+	require.Len(t, gethLogs, 2)
+
+	blocks, err := th.LogPoller.BlocksFromLogs(ctx, gethLogs)
+	require.NoError(t, err)
+	require.Len(t, blocks, 2)
+
+	logs := th.LogPoller.ConvertLogs(gethLogs, blocks)
+	require.Len(t, logs, 2)
+
+	val, err := logs[0].Topics.Value()
+	require.NoError(t, err)
+	s, ok := val.(string)
+	require.True(t, ok)
+	var topics0 evmtypes.HashArray
+	require.NoError(t, topics0.Scan(s))
+
+	val, err = logs[1].Topics.Value()
+	require.NoError(t, err)
+	s, ok = val.(string)
+	require.True(t, ok)
+	var topics1 evmtypes.HashArray
+	require.NoError(t, topics1.Scan(s))
+
+	assert.Equal(t, time.Unix(big.NewInt(int64(time1)).Int64(), 0).UTC(), logs[0].BlockTimestamp)
+	assert.Equal(t, addresses[0], logs[0].Address)
+	assert.Equal(t, topics[0], topics0[0])
+	assert.Equal(t, time.Unix(big.NewInt(int64(time2)).Int64(), 0).UTC(), logs[1].BlockTimestamp)
+	assert.Equal(t, addresses[1], logs[1].Address)
+	assert.Equal(t, topics[1], topics1[0])
 }

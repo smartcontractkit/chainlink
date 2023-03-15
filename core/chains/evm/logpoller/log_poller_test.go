@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgconn"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
@@ -191,6 +192,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	b, err := th.Client.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), b.NumberU64())
+	require.Equal(t, uint64(10), b.Time())
 
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
@@ -204,6 +206,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, lpb.BlockHash, b.Hash())
 	assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 	assert.Equal(t, int64(1), int64(b.NumberU64()))
+	assert.Equal(t, uint64(10), b.Time())
 
 	// No logs.
 	lgs, err := th.ORM.SelectLogsByBlockRange(1, 1)
@@ -237,6 +240,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, th.EmitterAddress1, lgs[0].Address)
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
+	assert.Equal(t, latest.BlockTimestamp, lgs[0].BlockTimestamp)
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
 		lgs[0].Data)
@@ -376,6 +380,18 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, 7, len(lgs))
 	assertHaveCanonical(t, 15, 16, th.Client, th.ORM)
 	assertDontHave(t, 11, 14, th.ORM) // Do not expect to save backfilled blocks.
+
+	// Verify that a custom block timestamp will get written to db correctly also
+	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(17), b.NumberU64())
+	require.Equal(t, uint64(170), b.Time())
+	require.NoError(t, th.Client.AdjustTime(1*time.Hour))
+	th.Client.Commit()
+
+	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(180+time.Hour.Seconds()), b.Time())
 }
 
 func TestLogPoller_Logs(t *testing.T) {
@@ -665,6 +681,57 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, filter.contains(&filter3))
 	assert.True(t, filter3.contains(&filter))
+}
+
+type ConvertLogsTestCases struct {
+	name     string
+	logs     []types.Log
+	blocks   []LogPollerBlock
+	expected int
+}
+
+func TestLogPoller_ConvertLogs(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+
+	topics := []common.Hash{EmitterABI.Events["Log1"].ID}
+
+	cases := []ConvertLogsTestCases{
+		{"SingleBlock",
+			[]types.Log{{Topics: topics}, {Topics: topics}},
+			[]LogPollerBlock{{BlockTimestamp: time.Now()}},
+			2},
+		{"BlockList",
+			[]types.Log{{Topics: topics}, {Topics: topics}, {Topics: topics}},
+			[]LogPollerBlock{{BlockTimestamp: time.Now()}},
+			3},
+		{"EmptyList",
+			[]types.Log{},
+			[]LogPollerBlock{},
+			0},
+		{"TooManyBlocks",
+			[]types.Log{{}},
+			[]LogPollerBlock{{}, {}},
+			0},
+		{"TooFewBlocks",
+			[]types.Log{{}, {}, {}},
+			[]LogPollerBlock{{}, {}},
+			0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			logs := convertLogs(c.logs, c.blocks, lggr, big.NewInt(53))
+			require.Len(t, logs, c.expected)
+			for i := 0; i < c.expected; i++ {
+				if len(c.blocks) == 1 {
+					assert.Equal(t, c.blocks[0].BlockTimestamp, logs[i].BlockTimestamp)
+				} else {
+					assert.Equal(t, logs[i].BlockTimestamp, c.blocks[i].BlockTimestamp)
+				}
+			}
+		})
+	}
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
