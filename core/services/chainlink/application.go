@@ -489,12 +489,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 	}
 
-	// FIX ME: we should add chains exactly once, while also adding relayers and their services separately
-	// atm relayers are only added when OCR2 is enabled.
-	for _, service := range app.Chains.services() {
-		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-			return nil, err
+	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
+	// If it's enabled, they are going to be registered with relayers by default.
+	if !cfg.FeatureOffchainReporting2() {
+		for _, service := range app.Chains.services() {
+			checkable := service.(services.Checkable)
+			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
+				return nil, err
+			}
 		}
 	}
 
