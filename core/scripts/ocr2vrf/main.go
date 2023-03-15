@@ -178,7 +178,7 @@ func main() {
 		coordinatorOverhead := cmd.Int64("coordinator-overhead", 50_000, "coordinator overhead")
 		callbackOverhead := cmd.Int64("callback-overhead", 50_000, "callback overhead")
 		blockGasOverhead := cmd.Int64("block-gas-overhead", 50_000, "block gas overhead")
-		lookbackBlocks := cmd.Int64("lookback-blocks", 1000, "lookback blocks")
+		lookbackBlocks := cmd.Uint64("lookback-blocks", 1000, "lookback blocks")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
