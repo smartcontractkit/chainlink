@@ -436,15 +436,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		cfgs := cfg.CosmosConfigs()
 		opts.ORM = cosmos.NewORMImmut(cfgs)
 		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
-		var ids []string
-		for _, c := range cfgs {
-			ids = append(ids, *c.ChainID)
-		}
-		if len(ids) > 0 {
-			if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
-				t.Fatal(err)
-			}
-		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
