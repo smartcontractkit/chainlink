@@ -45,7 +45,9 @@ import (
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfigOpts) []cli.Command {
+var ErrProfileTooLong = errors.New("requested profile too long")
+
+func InitLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfigOpts) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -138,6 +140,17 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 					Usage: "output directory of the captured profile",
 					Value: "/tmp/",
 				},
+			},
+			Before: func(ctx *clipkg.Context) error {
+				log.Printf("ctx %+v", *ctx)
+				s := ctx.Uint64("seconds")
+				// prevent indefinitively long profiles
+				d := time.Duration(s * uint64(time.Second))
+				max := 120 * time.Second
+				if d.Seconds() > max.Seconds() {
+					return fmt.Errorf("%w: %s is too long. profiles are limited to %s", ErrProfileTooLong, d, max)
+				}
+				return nil
 			},
 		},
 		{

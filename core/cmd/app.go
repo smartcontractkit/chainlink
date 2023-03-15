@@ -29,7 +29,6 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
 	devMode := v2.EnvDev.IsTrue()
-	defaultCookeDir := filepath.Join(os.TempDir(), "chainlink", "cookies")
 
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
@@ -54,11 +53,6 @@ func NewApp(client *Client) *cli.App {
 		cli.BoolFlag{
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
-		},
-		cli.StringFlag{
-			Name:  "cookie-dir",
-			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
-			Value: defaultCookeDir,
 		},
 		cli.StringSliceFlag{
 			Name:  "config, c",
@@ -88,16 +82,9 @@ func NewApp(client *Client) *cli.App {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieDir := c.String("cookie-dir")
-		if cookieDir == defaultCookeDir {
-			err := os.MkdirAll(defaultCookeDir, 0755)
-			if err != nil {
-				return fmt.Errorf("error creating default cookie directory '%s': %w", defaultCookeDir, err)
-			}
-		}
-
-		cookieJar := &cookieStore{
-			dir: cookieDir,
+		cookieJar, err := newCookieStore()
+		if err != nil {
+			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
 
 		urlStr := c.String("remote-node-url")
@@ -187,7 +174,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode, &opts),
+			Subcommands: InitLocalSubCmds(client, devMode, &opts),
 		},
 		{
 			Name:        "initiators",
@@ -277,6 +264,19 @@ func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
 
 type cookieStore struct {
 	dir string
+}
+
+func newCookieStore() (*cookieStore, error) {
+
+	cd, err := os.UserCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	cookieDir := filepath.Join(cd, "chainlink", "cookies")
+
+	return &cookieStore{
+		dir: cookieDir,
+	}, nil
 }
 
 func (cs *cookieStore) RootDir() string {

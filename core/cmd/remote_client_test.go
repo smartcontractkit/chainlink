@@ -452,21 +452,40 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 
 	client := app.NewAuthenticatingClient(prompter)
 
+	// we want to test tht the before func of the profile cmd is
+	// behaving correctly. to do that, we need to initialize a cli app,
+	// find the profile command and then run it.
+	var opts chainlink.GeneralConfigOpts
+	cmds := cmd.InitLocalSubCmds(client, true, &opts)
+	var profileCmd cli.Command
+	found := false
+	for _, c := range cmds {
+		t.Logf("cmd name %s", c.Name)
+		if c.Name == "profile" {
+			profileCmd = c
+			found = true
+		}
+	}
+	require.True(t, found)
+
+	clCli := cmd.NewApp(client)
+
+	// we have to declare and parse the profile flags in order for the
+	// cli context to be handled correctly when parseCmd.Run is called
+	tDir := t.TempDir()
+
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
-
-	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
-	require.NoError(t, set.Set("bypass-version-check", "true"))
-
-	c := cli.NewContext(nil, set, nil)
-	err := client.RemoteLogin(c)
+	err := set.Parse([]string{"profile", "-seconds", "150", "-o", tDir})
 	require.NoError(t, err)
 
-	set.Uint("seconds", 10, "")
+	ctx := cli.NewContext(clCli, set, nil)
+	err = profileCmd.Run(ctx)
+	require.ErrorIs(t, err, cmd.ErrProfileTooLong)
 
-	err = client.Profile(cli.NewContext(nil, set, nil))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout")
+	ents, err := os.ReadDir(tDir)
+	require.NoError(t, err)
+	require.Len(t, ents, 0, "ents %+v", ents)
+
 }
 
 func TestClient_Profile(t *testing.T) {
@@ -489,10 +508,17 @@ func TestClient_Profile(t *testing.T) {
 	require.NoError(t, err)
 
 	set.Uint("seconds", 1, "")
-	set.String("output_dir", t.TempDir(), "")
+	tDir := t.TempDir()
+	set.String("output_dir", tDir, "")
 
+	// we don't care about the cli behavior, i.e. the before func,
+	// so call the client func directly
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
+
+	ents, err := os.ReadDir(tDir)
+	require.NoError(t, err)
+	require.Greater(t, len(ents), 0, "ents %+v", ents)
 }
 
 func TestClient_Profile_Unauthenticated(t *testing.T) {
