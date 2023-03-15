@@ -3,7 +3,10 @@ pragma solidity ^0.8.6;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../automation/2_0/KeeperRegistrar2_0.sol";
+import "../automation/2_0/KeeperRegistry2_0.sol";
 
+// this contract must have lots of LINKs bc it will check for every active upkeeps and top up 20 LINKs if their balance is lower than 5 LINK
+// if it does not have enough LINKs, upkeeps won't perform due to low LINK balance.
 contract UpkeepCounterStats {
   error IndexOutOfRange();
 
@@ -11,6 +14,10 @@ contract UpkeepCounterStats {
   event UpkeepsCancelled(uint256[] upkeepIds);
   event RegistrarSet(address newRegistrar);
   event FundsAdded(uint256 upkeepId, uint256 amount);
+  event TransmitterTopUp(address transmitter, uint256 amount, uint256 blockNum);
+  event UpkeepTopUp(uint256 upkeepId, uint256 amount, uint256 blockNum);
+  event InsufficientFunds(uint256 balance, uint256 blockNum);
+  event Received(address sender, uint256 value);
 
   using EnumerableSet for EnumerableSet.UintSet;
   event PerformingUpkeep(
@@ -21,6 +28,7 @@ contract UpkeepCounterStats {
     bytes performData
   );
 
+  mapping(uint256 => uint256) public upkeepIdsToLastTopUpBlock;
   mapping(uint256 => uint256) public upkeepIdsToIntervals;
   mapping(uint256 => uint256) public upkeepIdsToPreviousPerformBlock;
   mapping(uint256 => uint256) public upkeepIdsToInitialBlock;
@@ -36,8 +44,7 @@ contract UpkeepCounterStats {
   KeeperRegistrar2_0 public registrar;
   AutomationRegistryBaseInterface public registry;
   LinkTokenInterface public linkToken;
-
-  event Received(address sender, uint256 value);
+  uint256 public lastTransmitterCheckBlock;
 
   constructor(address registrarAddress) {
     registrar = KeeperRegistrar2_0(registrarAddress);
@@ -144,6 +151,10 @@ contract UpkeepCounterStats {
   }
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
+    // one upkeep to add funds for transmitters
+    if (checkData.length == 0 && block.number - lastTransmitterCheckBlock > 5000) {
+      return (true, checkData);
+    }
     uint256 startGas = gasleft();
 
     (uint256 upkeepId) = abi.decode(
@@ -166,6 +177,36 @@ contract UpkeepCounterStats {
   }
 
   function performUpkeep(bytes calldata performData) external {
+//    if (performData.length == 0 && block.number - lastTransmitterCheckBlock > 5000) {
+
+//      uint256 len = s_upkeepIDs.length();
+//      for (uint256 i = 0; i < len; i++) {
+//        uint256 upkeepId = s_upkeepIDs.at(i);
+//        UpkeepInfo memory info = registry.getUpkeep(upkeepId);
+//        uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
+//        if (info.balance / 20 < minBalance) {
+//          this.addFunds(upkeepId, 20 * minBalance);
+//        }
+//      }
+
+//      (,,, address[] memory transmitters, ) = registry.getState();
+//      uint256 len = transmitters.length;
+//      uint256 blockNum = block.number;
+//      for (uint256 i = 0; i < len; i++) {
+//        if (transmitters[i].balance < 20000000000000000000) { // less than 20 native tokens
+//          if (address(this).balance < 20000000000000000000) {
+//            emit InsufficientFunds(address(this).balance, blockNum);
+//          } else {
+//            transmitters[i].call{value: 20000000000000000000}(""); // send 20 native tokens
+//            emit TransmitterTopUp(transmitters[i], 20000000000000000000, blockNum);
+//          }
+//        }
+//      }
+//
+//      lastTransmitterCheckBlock = block.number;
+//      return;
+//    }
+
     uint256 startGas = gasleft();
     (uint256 upkeepId, ) = abi.decode(
       performData,
@@ -188,6 +229,16 @@ contract UpkeepCounterStats {
     upkeepIdsToCounter[upkeepId] = counter;
     emit PerformingUpkeep(initialBlock, blockNum, upkeepIdsToPreviousPerformBlock[upkeepId], counter, performData);
     upkeepIdsToPreviousPerformBlock[upkeepId] = blockNum;
+
+    // every upkeep adds funds for themselves
+    if (blockNum - upkeepIdsToLastTopUpBlock[upkeepId] > 2000) {
+      UpkeepInfo memory info = registry.getUpkeep(upkeepId);
+      if (info.balance < 5000000000000000000) { // less than 5 LINK, send 20 LINK, cannot use getMinBalance bc it's not in the interface
+        this.addFunds(upkeepId, 20000000000000000000);
+        upkeepIdsToLastTopUpBlock[upkeepId] = blockNum;
+        emit UpkeepTopUp(upkeepId, 20000000000000000000, blockNum);
+      }
+    }
 
     while (startGas - gasleft() + 10000 < performGasToBurn) {
       // 10K margin over gas to burn
