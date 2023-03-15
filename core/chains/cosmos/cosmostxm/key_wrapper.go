@@ -6,12 +6,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 )
 
-// Note we use this strictly for https://github.com/smartcontractkit/cosmos.go/blob/master/tx/txbuilder.go#L37
-// i.e. inline signing txes.
 var _ cryptotypes.PrivKey = KeyWrapper{}
 
 // KeyWrapper wrapper around a cosmos transmitter key
-// for use in the cosmos txbuilder and client.
+// for use in the cosmos txbuilder and client, see chainlink-cosmos.
 type KeyWrapper struct {
 	key cosmoskey.Key
 }
