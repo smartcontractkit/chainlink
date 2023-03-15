@@ -220,7 +220,7 @@ func (b *broadcaster) Name() string {
 }
 
 func (b *broadcaster) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -789,7 +789,7 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
-func (n *NullBroadcaster) Name() string { return "" }
+func (n *NullBroadcaster) Name() string { return "NullBroadcaster" }
 
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }

@@ -313,7 +313,7 @@ func NewNullEventBroadcaster() *NullEventBroadcaster {
 
 var _ EventBroadcaster = &NullEventBroadcaster{}
 
-func (*NullEventBroadcaster) Name() string { return "" }
+func (*NullEventBroadcaster) Name() string { return "NullEventBroadcaster" }
 
 // Start does no-op.
 func (*NullEventBroadcaster) Start(context.Context) error { return nil }

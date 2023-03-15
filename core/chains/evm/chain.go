@@ -254,7 +254,19 @@ func (c *chain) Name() string {
 }
 
 func (c *chain) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
+	report := map[string]error{
+		c.Name(): c.StartStopOnce.Healthy(),
+	}
+	report = utils.MergeMaps(report, c.txm.HealthReport())
+	report = utils.MergeMaps(report, c.headBroadcaster.HealthReport())
+	report = utils.MergeMaps(report, c.headTracker.HealthReport())
+	report = utils.MergeMaps(report, c.logBroadcaster.HealthReport())
+
+	if c.balanceMonitor != nil {
+		report = utils.MergeMaps(report, c.balanceMonitor.HealthReport())
+	}
+
+	return report
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

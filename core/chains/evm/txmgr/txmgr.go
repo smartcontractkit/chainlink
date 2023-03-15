@@ -284,7 +284,7 @@ func (b *Txm) Name() string {
 }
 
 func (b *Txm) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
 func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
@@ -343,6 +343,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 				case <-time.After(backoff.Duration()):
 					if err := eb.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
+						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
@@ -361,6 +362,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 				case <-time.After(backoff.Duration()):
 					if err := ec.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
+						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
@@ -419,6 +421,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			keyStates, err = b.keyStore.GetStatesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
+				b.SvcErrBuffer.Append(err)
 				continue
 			}
 			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
@@ -650,8 +653,8 @@ func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, val
 }
 func (n *NullTxManager) Healthy() error                 { return nil }
 func (n *NullTxManager) Ready() error                   { return nil }
-func (n *NullTxManager) Name() string                   { return "" }
-func (n *NullTxManager) HealthReport() map[string]error { return nil }
+func (n *NullTxManager) Name() string                   { return "NullTxManager" }
+func (n *NullTxManager) HealthReport() map[string]error { return map[string]error{} }
 func (n *NullTxManager) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	return nil
 }

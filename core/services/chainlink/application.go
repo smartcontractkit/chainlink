@@ -484,7 +484,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	for _, service := range app.srvcs {
 		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
+		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
+			return nil, err
+		}
+	}
+
+	// FIX ME: we should add chains exactly once, while also adding relayers and their services separately
+	// atm relayers are only added when OCR2 is enabled.
+	for _, service := range app.Chains.services() {
+		checkable := service.(services.Checkable)
+		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
 			return nil, err
 		}
 	}

@@ -66,7 +66,7 @@ func NewOCRContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                lggr,
+		lggr:                lggr.Named("OCRContractTransmitter"),
 	}, nil
 }
 
@@ -177,4 +177,4 @@ func (oc *contractTransmitter) Ready() error   { return nil }
 func (oc *contractTransmitter) HealthReport() map[string]error {
 	return map[string]error{oc.Name(): oc.Healthy()}
 }
-func (oc *contractTransmitter) Name() string { return "" }
+func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }

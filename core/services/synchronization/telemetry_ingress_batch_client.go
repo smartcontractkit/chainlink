@@ -45,7 +45,7 @@ func (NoopTelemetryIngressBatchClient) Send(TelemPayload) {}
 // Healthy is a no-op
 func (NoopTelemetryIngressBatchClient) Healthy() error                 { return nil }
 func (NoopTelemetryIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopTelemetryIngressBatchClient) Name() string                   { return "" }
+func (NoopTelemetryIngressBatchClient) Name() string                   { return "NoopTelemetryIngressBatchClient" }
 
 // Ready is a no-op
 func (NoopTelemetryIngressBatchClient) Ready() error { return nil }

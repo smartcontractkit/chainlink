@@ -83,7 +83,7 @@ func (r *Relayer) Healthy() error {
 }
 
 func (r *Relayer) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
+	return r.chainSet.HealthReport()
 }
 
 // This is a stub, to be added in smartcontractkit/chainlink#8340
@@ -174,7 +174,7 @@ func (c *configWatcher) Close() error {
 }
 
 func (c *configWatcher) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
+	return map[string]error{c.Name(): c.StartStopOnce.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {

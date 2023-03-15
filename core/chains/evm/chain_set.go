@@ -104,7 +104,11 @@ func (cll *chainSet) Name() string {
 }
 
 func (cll *chainSet) HealthReport() map[string]error {
-	return map[string]error{cll.Name(): cll.Healthy()}
+	report := map[string]error{}
+	for _, c := range cll.Chains() {
+		report = utils.MergeMaps(report, c.HealthReport())
+	}
+	return report
 }
 
 func (cll *chainSet) Ready() (err error) {

@@ -151,7 +151,7 @@ func (ht *headTracker) Name() string {
 }
 
 func (ht *headTracker) HealthReport() map[string]error {
-	return map[string]error{ht.Name(): ht.Healthy()}
+	return map[string]error{ht.Name(): ht.StartStopOnce.Healthy()}
 }
 
 func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
@@ -220,6 +220,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
 	return nil
