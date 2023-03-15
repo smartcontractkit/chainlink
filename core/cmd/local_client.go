@@ -382,14 +382,16 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil && !errors.Is(err, ErrNoCredentialFile) {
-		return errors.Wrap(err, "error creating api initializer")
-	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
-		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
-			return errors.WithStack(err)
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil {
+		if !errors.Is(err, ErrNoCredentialFile) {
+			return errors.Wrap(err, "error creating api initializer")
 		}
-		return errors.Wrap(err, "error creating fallback initializer")
+		if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
+			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
+				return errors.WithStack(err)
+			}
+			return errors.Wrap(err, "error creating fallback initializer")
+		}
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
