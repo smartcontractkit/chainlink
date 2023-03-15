@@ -232,16 +232,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			EventBroadcaster: eventBroadcaster,
 		}
 		cfgs := cfg.CosmosConfigs()
-		var ids []string
-		for _, c := range cfgs {
-			c := c
-			ids = append(ids, *c.ChainID)
-		}
-		if len(ids) > 0 {
-			if err = cosmos.NewORM(db, cosmosLggr, cfg).EnsureChains(ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Cosmos chains")
-			}
-		}
 		opts.ORM = cosmos.NewORMImmut(cfgs)
 		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
 		if err != nil {
