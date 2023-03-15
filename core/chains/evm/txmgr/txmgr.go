@@ -284,6 +284,8 @@ func (b *Txm) Name() string {
 }
 
 func (b *Txm) HealthReport() map[string]error {
+	report := map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+	utils.MergeMaps(report, b.eb)
 	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 

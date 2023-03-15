@@ -257,13 +257,13 @@ func (c *chain) HealthReport() map[string]error {
 	report := map[string]error{
 		c.Name(): c.StartStopOnce.Healthy(),
 	}
-	report = utils.MergeMaps(report, c.txm.HealthReport())
-	report = utils.MergeMaps(report, c.headBroadcaster.HealthReport())
-	report = utils.MergeMaps(report, c.headTracker.HealthReport())
-	report = utils.MergeMaps(report, c.logBroadcaster.HealthReport())
+	utils.MergeMaps(report, c.txm.HealthReport())
+	utils.MergeMaps(report, c.headBroadcaster.HealthReport())
+	utils.MergeMaps(report, c.headTracker.HealthReport())
+	utils.MergeMaps(report, c.logBroadcaster.HealthReport())
 
 	if c.balanceMonitor != nil {
-		report = utils.MergeMaps(report, c.balanceMonitor.HealthReport())
+		utils.MergeMaps(report, c.balanceMonitor.HealthReport())
 	}
 
 	return report

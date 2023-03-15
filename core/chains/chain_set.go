@@ -179,5 +179,11 @@ func (c *chainSet[I, C, N, S]) Name() string {
 }
 
 func (c *chainSet[I, C, N, S]) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
+	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	c.chainsMu.RLock()
+	defer c.chainsMu.RUnlock()
+	for _, c := range c.chains {
+		utils.MergeMaps(report, c.HealthReport())
+	}
+	return report
 }
