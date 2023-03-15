@@ -239,6 +239,16 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			if jb.OCR2OracleSpec.PluginType == Mercury {
+				if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
+					return errors.New("feed ID is required for mercury plugin type")
+				}
+			} else {
+				if jb.OCR2OracleSpec.FeedID != (common.Hash{}) {
+					return errors.New("feed ID is not currently supported for non-mercury jobs")
+				}
+			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
 				if jb.OCR2OracleSpec.PluginType == Mercury {
@@ -282,10 +292,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
@@ -372,10 +382,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.BlockhashStoreSpecID = &specID
 		case Bootstrap:
 			var specID int32
-			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
+			sql := `INSERT INTO bootstrap_specs (contract_id, feed_id, relay, relay_config, monitoring_endpoint,
 					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
+			VALUES (:contract_id, :feed_id, :relay, :relay_config, :monitoring_endpoint,
 					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`

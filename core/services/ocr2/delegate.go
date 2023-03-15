@@ -135,16 +135,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		"jobName", jb.Name.ValueOrZero(),
 		"jobID", jb.ID,
 	))
+	feedID := spec.FeedID
+	if feedID != (common.Hash{}) {
+		lggr = logger.Sugared(lggr.With("feedID", spec.FeedID))
+		spec.RelayConfig["feedID"] = feedID
+	}
 
 	if spec.PluginType == job.Mercury {
-		feedID, err2 := spec.RelayConfig.FeedID()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ServicesForSpec failed to get feedID")
-		}
 		if feedID == (common.Hash{}) {
-			return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID to be specified in the relay config")
+			return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID")
 		}
-		spec.RelayConfig["feedID"] = feedID
 		if len(transmitterID) != 64 {
 			return nil, errors.Errorf("ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 		}

@@ -137,11 +137,11 @@ relay                             = "evm"
 schemaVersion                     = 1
 name                              = "boot"
 contractID                        = "%s"
+feedID 							  = "0x%x"
 contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 chainID = 1337
-feedID = "0x%x"
 	`, verifierAddress, feedID))
 
 	createBridge := func(name string, i, p int, borm bridges.ORM) (bridgeName string) {
@@ -178,6 +178,7 @@ name = "mercury-%[1]d"
 forwardingAllowed = false
 maxTaskDuration = "1s"
 contractID = "%[2]s"
+feedID = "0x%[11]x"
 contractConfigTrackerPollInterval = "1s"
 ocrKeyBundleID = "%[3]s"
 p2pv2Bootstrappers = [
@@ -222,7 +223,6 @@ serverURL = "%[8]s"
 serverPubKey = "%[9]x"
 
 [relayConfig]
-feedID = "0x%[11]x"
 chainID = %[12]d
 fromBlock = %[13]d
 		`,
