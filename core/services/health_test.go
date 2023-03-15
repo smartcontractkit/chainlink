@@ -13,27 +13,30 @@ import (
 
 var ErrUnhealthy = errors.New("Unhealthy")
 
-type boolCheck bool
+type boolCheck struct {
+	name    string
+	healthy bool
+}
 
 func (b boolCheck) Ready() error {
-	if b {
+	if b.healthy {
 		return nil
 	}
 	return errors.New("Not ready")
 }
 
 func (b boolCheck) Healthy() error {
-	if b {
+	if b.healthy {
 		return nil
 	}
 	return ErrUnhealthy
 }
 
 func (b boolCheck) HealthReport() map[string]error {
-	if b {
-		return map[string]error{"boolCheck": nil}
+	if b.healthy {
+		return map[string]error{b.name: nil}
 	}
-	return map[string]error{"boolCheck": ErrUnhealthy}
+	return map[string]error{b.name: ErrUnhealthy}
 }
 
 func TestCheck(t *testing.T) {
@@ -44,13 +47,13 @@ func TestCheck(t *testing.T) {
 	}{
 		{[]services.Checkable{}, true, map[string]error{}},
 
-		{[]services.Checkable{boolCheck(true)}, true, map[string]error{"0": nil}},
+		{[]services.Checkable{boolCheck{"0", true}}, true, map[string]error{"0": nil}},
 
-		{[]services.Checkable{boolCheck(true), boolCheck(true)}, true, map[string]error{"0": nil, "1": nil}},
+		{[]services.Checkable{boolCheck{"0", true}, boolCheck{"1", true}}, true, map[string]error{"0": nil, "1": nil}},
 
-		{[]services.Checkable{boolCheck(true), boolCheck(false)}, false, map[string]error{"0": nil, "1": ErrUnhealthy}},
+		{[]services.Checkable{boolCheck{"0", true}, boolCheck{"1", false}}, false, map[string]error{"0": nil, "1": ErrUnhealthy}},
 
-		{[]services.Checkable{boolCheck(true), boolCheck(false), boolCheck(false)}, false, map[string]error{
+		{[]services.Checkable{boolCheck{"0", true}, boolCheck{"1", false},boolCheck{"2", false}}, false, map[string]error{
 			"0": nil,
 			"1": ErrUnhealthy,
 			"2": ErrUnhealthy,
