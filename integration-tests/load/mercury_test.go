@@ -38,11 +38,12 @@ func setupMercuryLoadEnv(
 	t *testing.T,
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
-) (*mercury.MercuryTestEnv, uint64) {
+) (*mercury.TestEnv, uint64) {
 	testEnv, err := mercury.SetupMercuryTestEnv("load", dbSettings, serverResources)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
+		//nolint
 		testEnv.Cleanup(t)
 	})
 
@@ -104,7 +105,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			"test_id":    "ws",
 		},
 		LoadType: loadgen.InstancesScheduleType,
-		Schedule: loadgen.Plain(1, 30*time.Second),
+		Schedule: loadgen.Line(10, 300, 30*time.Second),
 		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)

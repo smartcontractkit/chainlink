@@ -49,7 +49,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-type MercuryTestEnv struct {
+type TestEnv struct {
 	Namespace             string
 	NsPrefix              string
 	Chart                 string
@@ -70,7 +70,7 @@ type MercuryTestEnv struct {
 	ContractInfo          mercuryContractInfo
 }
 
-type mercuryTestConfig struct {
+type TestConfig struct {
 	K8Namespace   string              `json:"k8Namespace"`
 	ChainId       int64               `json:"chainId"`
 	FeedId        string              `json:"feedId"`
@@ -93,8 +93,8 @@ type mercuryServerInfo struct {
 }
 
 // Fetch mercury environment config from local json file
-func configFromFile(path string) (*mercuryTestConfig, error) {
-	c := &mercuryTestConfig{}
+func configFromFile(path string) (*TestConfig, error) {
+	c := &TestConfig{}
 	jsonFile, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -108,12 +108,12 @@ func configFromFile(path string) (*mercuryTestConfig, error) {
 	return c, nil
 }
 
-func (c *mercuryTestConfig) Json() string {
+func (c *TestConfig) Json() string {
 	b, _ := json.Marshal(c)
 	return string(b)
 }
 
-func (c *mercuryTestConfig) Save() (string, error) {
+func (c *TestConfig) Save() (string, error) {
 	// Create mercury env log dir if necessary
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *mercuryTestConfig) Save() (string, error) {
 func SetupMercuryTestEnv(
 	namespacePrefix string,
 	msDbSettings map[string]interface{},
-	msResources map[string]interface{}) (*MercuryTestEnv, error) {
+	msResources map[string]interface{}) (*TestEnv, error) {
 
 	var (
 		feedId                    string
@@ -272,20 +272,26 @@ func SetupMercuryTestEnv(
 		}
 
 		// Setup feed verifier contract
-		verifierContract.SetConfig(feedId, *ocrConfig)
+		if err := verifierContract.SetConfig(feedId, *ocrConfig); err != nil {
+			return nil, err
+		}
 		c, err := verifierContract.LatestConfigDetails(feedId)
 		if err != nil {
 			return nil, err
 		}
 		log.Info().Msgf("Latest Verifier config digest: %x", c.ConfigDigest)
-		verifierProxyContract.InitializeVerifier(c.ConfigDigest, verifierContract.Address())
+		if err := verifierProxyContract.InitializeVerifier(c.ConfigDigest, verifierContract.Address()); err != nil {
+			return nil, err
+		}
 
 		// Setup jobs on the nodes
 		if err != nil {
 			return nil, err
 		}
-		setupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifierContract.Address(),
-			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, evmNetwork.ChainID, 0)
+		if err := setupMercuryNodeJobs(chainlinkNodes, mockserverClient, verifierContract.Address(),
+			feedId, c.BlockNumber, msRemoteUrl, msRpcPubKey, evmNetwork.ChainID, 0); err != nil {
+			return nil, err
+		}
 	}
 
 	err = waitForReportsInMercuryDb(feedId, evmClient, msClient)
@@ -293,7 +299,7 @@ func SetupMercuryTestEnv(
 		return nil, err
 	}
 
-	return &MercuryTestEnv{
+	return &TestEnv{
 		Namespace:         namespace,
 		NsPrefix:          namespacePrefix,
 		Chart:             mschart,
@@ -321,8 +327,8 @@ func SetupMercuryTestEnv(
 }
 
 // Build config of the current mercury env
-func (e *MercuryTestEnv) Config() *mercuryTestConfig {
-	return &mercuryTestConfig{
+func (e *TestEnv) Config() *TestConfig {
+	return &TestConfig{
 		K8Namespace: e.Env.Cfg.Namespace,
 		ChainId:     e.ChainId,
 		FeedId:      e.FeedId,
@@ -335,7 +341,7 @@ func (e *MercuryTestEnv) Config() *mercuryTestConfig {
 	}
 }
 
-func (e *MercuryTestEnv) Cleanup(t *testing.T) error {
+func (e *TestEnv) Cleanup(t *testing.T) error {
 	if !e.IsExistingTestEnv && e.KeepEnv {
 		envConfPath, err := e.Config().Save()
 		if err == nil {
@@ -724,7 +730,9 @@ func setupMercuryServer(
 		settings["resources"] = serverSettings
 	}
 
-	env.AddHelm(mshelm.New(chartPath, "", settings)).Run()
+	if err = env.AddHelm(mshelm.New(chartPath, "", settings)).Run(); err != nil {
+		return rpcPubKey, "", "", nil, nil
+	}
 
 	msRemoteUrl := env.URLs[mshelm.URLsKey][0]
 	msLocalUrl := env.URLs[mshelm.URLsKey][1]
@@ -899,7 +907,7 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 }
 
 func StringToByte32(str string) [32]byte {
-	var bytes [32]byte
-	copy(bytes[:], str)
-	return bytes
+	var b [32]byte
+	copy(b[:], str)
+	return b
 }
