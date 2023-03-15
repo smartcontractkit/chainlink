@@ -25,21 +25,22 @@ type ORM interface {
 	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) error
 
-	CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (int64, error)
 	CreateBatchChainConfig(cfgs []ChainConfig, qopts ...pg.QOpt) ([]int64, error)
+	CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (int64, error)
 	DeleteChainConfig(id int64) (int64, error)
 	GetChainConfig(id int64) (*ChainConfig, error)
-	UpdateChainConfig(cfg ChainConfig) (int64, error)
 	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
+	UpdateChainConfig(cfg ChainConfig) (int64, error)
 
-	CreateJobProposal(jp *JobProposal) (int64, error)
 	CountJobProposals() (int64, error)
 	CountJobProposalsByStatus() (counts *JobProposalCounts, err error)
+	CreateJobProposal(jp *JobProposal) (int64, error)
 	DeleteProposal(id int64, qopts ...pg.QOpt) error
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	ListJobProposals() (jps []JobProposal, err error)
 	ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
+	RevokeProposal(id int64, qopts ...pg.QOpt) error
 	UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...pg.QOpt) error // NEEDED?
 	UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (int64, error)
 
@@ -47,8 +48,8 @@ type ORM interface {
 	CancelSpec(id int64, qopts ...pg.QOpt) error
 	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
 	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
-	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
 	GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
+	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
@@ -345,16 +346,19 @@ WHERE id = $1
 	return jp, errors.Wrap(err, "GetJobProposal failed")
 }
 
-// GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid.
+// GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid. This
+// method will filter out the deleted job proposals. To get all job proposals,
+// use the GetJobProposal get by id method.
 func (o *orm) GetJobProposalByRemoteUUID(id uuid.UUID) (jp *JobProposal, err error) {
 	stmt := `
 SELECT *
 FROM job_proposals
-WHERE remote_uuid = $1;
+WHERE remote_uuid = $1
+AND status <> $2;
 `
 
 	jp = new(JobProposal)
-	err = o.q.Get(jp, stmt, id)
+	err = o.q.Get(jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
 }
 
@@ -494,6 +498,7 @@ UPDATE job_proposals
 SET status = (
 		CASE
 			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			WHEN status = 'revoked' THEN 'revoked'::job_proposal_status
 			ELSE 'cancelled'::job_proposal_status
 		END
 	),
@@ -673,6 +678,40 @@ WHERE id = $1
 `
 
 	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+// RevokeProposal revokes a job proposal with a pending job spec. An approved
+// proposal cannot be revoked. A revoked proposal's job spec cannot be approved
+// or edited, but the job can be reproposed by FMS.
+func (o *orm) RevokeProposal(id int64, qopts ...pg.QOpt) error {
+	stmt := `
+UPDATE job_proposals
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'revoked'::job_proposal_status
+		END
+	),
+	pending_update = FALSE,
+	updated_at = NOW()
+WHERE id = $1
+	`
+
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, id)
 	if err != nil {
 		return err
 	}
