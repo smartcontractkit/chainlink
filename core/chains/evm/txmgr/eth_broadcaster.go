@@ -518,7 +518,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 
 	signedTx, err := attempt.GetSignedTx()
 	if err != nil {
-		lgr.Criticalw("Fatal error sending transaction", "err", err, "etx", etx)
+		lgr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
 	}
@@ -541,22 +541,62 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	case txmgrtypes.Fatal:
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
+	case txmgrtypes.SuccessfulMissingReceipt:
+		fallthrough
 	case txmgrtypes.Successful:
+		// Either the transaction was successful or one of the following four scenarios happened:
+		//
+		// SCENARIO 1
+		//
+		// This is resuming a previous crashed run. In this scenario, it is
+		// likely that our previous transaction was the one who was confirmed,
+		// in which case we hand it off to the eth confirmer to get the
+		// receipt.
+		//
+		// SCENARIO 2
+		//
+		// It is also possible that an external wallet can have messed with the
+		// account and sent a transaction on this nonce.
+		//
+		// In this case, the onus is on the node operator since this is
+		// explicitly unsupported.
+		//
+		// If it turns out to have been an external wallet, we will never get a
+		// receipt for this transaction and it will eventually be marked as
+		// errored.
+		//
+		// The end result is that we will NOT SEND a transaction for this
+		// nonce.
+		//
+		// SCENARIO 3
+		//
+		// The network/eth client can be assumed to have at-least-once delivery
+		// behavior. It is possible that the eth client could have already
+		// sent this exact same transaction even if this is our first time
+		// calling SendTransaction().
+		//
+		// SCENARIO 4 (most likely)
+		//
+		// A sendonly node got the transaction in first.
+		//
+		// In all scenarios, the correct thing to do is assume success for now
+		// and hand off to the eth confirmer to get the receipt (or mark as
+		// failed).
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
 		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	case txmgrtypes.Underpriced:
-		if eb.config.IsL2() {
-			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
-		}
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+	case txmgrtypes.InsufficientFunds:
+		fallthrough
 	case txmgrtypes.Retryable:
 		return err, true
 	case txmgrtypes.Unsupported:
+		if eb.config.IsL2() {
+			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		}
 		return err, false
-	case txmgrtypes.Unknown:
-		fallthrough
 	default:
 		lgr.Criticalw(`Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)

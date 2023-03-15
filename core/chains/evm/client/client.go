@@ -211,45 +211,21 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return txmtypes.Fatal, err
 	}
-	if sendError == nil || sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsReplacementUnderpriced() {
-		// Either the transaction was successful or one of the following four scenarios happened:
-		//
-		// SCENARIO 1
-		//
-		// This is resuming a previous crashed run. In this scenario, it is
-		// likely that our previous transaction was the one who was confirmed,
-		// in which case we hand it off to the eth confirmer to get the
-		// receipt.
-		//
-		// SCENARIO 2
-		//
-		// It is also possible that an external wallet can have messed with the
-		// account and sent a transaction on this nonce.
-		//
-		// In this case, the onus is on the node operator since this is
-		// explicitly unsupported.
-		//
-		// If it turns out to have been an external wallet, we will never get a
-		// receipt for this transaction and it will eventually be marked as
-		// errored.
-		//
-		// The end result is that we will NOT SEND a transaction for this
-		// nonce.
-		//
-		// SCENARIO 3
-		//
-		// The network/eth client can be assumed to have at-least-once delivery
-		// behavior. It is possible that the eth client could have already
-		// sent this exact same transaction even if this is our first time
-		// calling SendTransaction().
-		//
-		// SCENARIO 4 (most likely)
-		//
-		// A sendonly node got the transaction in first.
-		//
-		// In all scenarios, the correct thing to do is assume success for now
-		// and hand off to the eth confirmer to get the receipt (or mark as
-		// failed).
+	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
+		// Nonce too low indicated that a transaction at this nonce was confirmed already.
+		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
+		return txmtypes.SuccessfulMissingReceipt, err
+	}
+	if sendError.IsReplacementUnderpriced() {
+		client.logger.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
+			"Eth node returned error: '%s'. "+
+			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
+			tx.Hash(), err), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap)
+
+		// Assume success and hand off to the next cycle.
+		return txmtypes.Successful, err
+	}
+	if sendError == nil {
 		return txmtypes.Successful, err
 	}
 	if sendError.IsTransactionAlreadyInMempool() {
@@ -257,10 +233,16 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 		return txmtypes.Successful, err
 	}
 	if sendError.IsTemporarilyUnderpriced() {
-		// If we can't even get the transaction into the mempool at all, assume
+		// Broadcaster: If we can't even get the transaction into the mempool at all, assume
 		// success (even though the transaction will never confirm) and hand
 		// off to the ethConfirmer to bump gas periodically until we _can_ get
 		// it in
+		//
+		// Confirmer: Most likely scenario here is a parity node that is rejecting
+		// low-priced transactions due to mempool pressure.
+		// In that case, the safest thing to do is to pretend the transaction
+		// was accepted and continue the normal gas bumping cycle until we can
+		// get it into the mempool
 		client.logger.Infow("Transaction temporarily underpriced", "err", sendError.Error())
 		return txmtypes.Successful, err
 	}
@@ -268,9 +250,6 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 		return txmtypes.Underpriced, err
 	}
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if client.pool.ChainType().IsL2() {
-			return txmtypes.Underpriced, err
-		}
 		return txmtypes.Unsupported, errors.Wrap(sendError, "this error type only handled for L2s")
 	}
 	if sendError.IsNonceTooHighError() {
@@ -279,7 +258,7 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 		// This can happen if previous transactions haven't reached the client yet.
 		// The correct thing to do is assume success for now and let the eth_confirmer retry until
 		// the nonce gap gets filled by the previous transactions.
-		client.logger.Warnw("Transaction has a nonce gap.", "err", sendError.Error())
+		client.logger.Warnw("Transaction has a nonce gap.", "err", err)
 		return txmtypes.Retryable, err
 	}
 	if sendError.IsInsufficientEth() {
@@ -294,7 +273,7 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 		// If it blocks because of a transaction that is expensive due to large
 		// gas limit, we could have smaller transactions "above" it that could
 		// theoretically be sent, but will instead be blocked.
-		return txmtypes.Retryable, err
+		return txmtypes.InsufficientFunds, err
 	}
 	if sendError.IsTimeout() {
 		// In the case of timeout, we fall back to the backoff retry loop and

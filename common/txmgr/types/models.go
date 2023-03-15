@@ -10,4 +10,6 @@ const (
 	Underpriced
 	Unknown
 	Unsupported
+	SuccessfulMissingReceipt
+	InsufficientFunds
 )

@@ -1676,7 +1676,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransactionAndReturnErrorType", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(txmtypes.Retryable, errors.New(insufficientEthError)).Once()
+		}), fromAddress).Return(txmtypes.InsufficientFunds, errors.New(insufficientEthError)).Once()
 
 		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), evmFromAddress)
 		require.Error(t, err)
