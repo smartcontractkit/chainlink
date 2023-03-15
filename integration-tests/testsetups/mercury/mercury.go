@@ -55,6 +55,7 @@ import (
 type MercuryTestEnv struct {
 	T                     *testing.T
 	NsPrefix              string
+	Chart                 string
 	Config                *mercuryTestConfig
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
@@ -140,7 +141,7 @@ func (c *mercuryTestConfig) Save() (string, error) {
 // MS_DATABASE_FIRST_ADMIN_ID: mercury server admin id
 // MS_DATABASE_FIRST_ADMIN_KEY: mercury server admin key
 // MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY: mercury server admin encrypted key
-func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
+func NewMercuryTestEnv(t *testing.T, namespacePrefix string) (*MercuryTestEnv, error) {
 	testEnv := &MercuryTestEnv{}
 	testEnv.T = t
 	testEnv.NsPrefix = namespacePrefix
@@ -152,6 +153,11 @@ func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
 		// Set default TTL for k8 environment
 		testEnv.EnvTTL = 20 * time.Minute
 	}
+	mschart := os.Getenv("MERCURY_CHART")
+	if mschart == "" {
+		return nil, errors.New("MERCURY_CHART should be provided, a local path or a name of a mercury-server helm chart")
+	}
+	testEnv.Chart = mschart
 
 	existingConfig := configFromFile()
 	testEnv.IsExistingTestEnv = existingConfig != nil
@@ -166,7 +172,7 @@ func NewMercuryTestEnv(t *testing.T, namespacePrefix string) *MercuryTestEnv {
 	testEnv.Config.MSAdminKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY")
 	testEnv.Config.MSAdminEncryptedKey = os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY")
 
-	return testEnv
+	return testEnv, nil
 }
 
 // Setup DON, Mercury Server and all mercury contracts
@@ -600,7 +606,7 @@ func (e *MercuryTestEnv) SetupMercuryServer(
 		settings["resources"] = serverSettings
 	}
 
-	testEnv.AddHelm(mshelm.New(settings)).Run()
+	testEnv.AddHelm(mshelm.New(e.Chart, "", settings)).Run()
 
 	return rpcPubKey
 }
