@@ -22,7 +22,8 @@ import (
 func TestMercurySmoke(t *testing.T) {
 	l := actions.GetTestLogger(t)
 
-	testEnv := mercury.NewMercuryTestEnv(t, "smoke")
+	testEnv, err := mercury.NewMercuryTestEnv(t, "smoke")
+	require.NoError(t, err)
 	testEnv.SetupFullMercuryEnv(nil, nil)
 
 	var (

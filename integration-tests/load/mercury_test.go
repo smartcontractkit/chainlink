@@ -39,7 +39,8 @@ func setupMercuryLoadEnv(
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
 ) (*mercury.MercuryTestEnv, uint64) {
-	testEnv := mercury.NewMercuryTestEnv(t, "load")
+	testEnv, err := mercury.NewMercuryTestEnv(t, "load")
+	require.NoError(t, err)
 	testEnv.SetupFullMercuryEnv(dbSettings, serverResources)
 
 	latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
@@ -100,7 +101,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			"test_id":    "ws",
 		},
 		LoadType: loadgen.InstancesScheduleType,
-		Schedule: loadgen.Line(1, 10, 500*time.Second),
+		Schedule: loadgen.Line(10, 200, 500*time.Second),
 		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)
