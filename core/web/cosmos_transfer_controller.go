@@ -57,7 +57,7 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	coin, err := denom.ConvertToUAtom(sdk.NewDecCoinFromDec("atom", tr.Amount))
+	coin, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", tr.Amount))
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("unable to convert to uatom: %v", err))
 		return

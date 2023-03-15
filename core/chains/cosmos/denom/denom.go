@@ -22,13 +22,13 @@ func init() {
 	}
 }
 
-// ConvertToAtom is a helper for converting to atom.
-func ConvertToAtom(coin sdk.Coin) (sdk.DecCoin, error) {
+// CoinToAtom is a helper for converting to atom.
+func CoinToAtom(coin sdk.Coin) (sdk.DecCoin, error) {
 	return sdk.ConvertDecCoin(sdk.NewDecCoinFromCoin(coin), "atom")
 }
 
-// ConvertToUAtom is a helper for converting to uatom.
-func ConvertToUAtom(coin sdk.DecCoin) (sdk.Coin, error) {
+// DecCoinToUAtom is a helper for converting to uatom.
+func DecCoinToUAtom(coin sdk.DecCoin) (sdk.Coin, error) {
 	decCoin, err := sdk.ConvertDecCoin(coin, "uatom")
 	if err != nil {
 		return sdk.Coin{}, err

@@ -134,7 +134,7 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.ConvertToUAtom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)))
+				sent, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)))
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())

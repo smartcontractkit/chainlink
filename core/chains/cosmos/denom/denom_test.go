@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConvertToAtom(t *testing.T) {
+func TestCoinToAtom(t *testing.T) {
 	tests := []struct {
 		coin types.Coin
 		exp  string
@@ -21,7 +21,7 @@ func TestConvertToAtom(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.coin.String(), func(t *testing.T) {
-			got, err := ConvertToAtom(tt.coin)
+			got, err := CoinToAtom(tt.coin)
 			require.NoError(t, err)
 			require.Equal(t, tt.exp, got.String())
 		})
