@@ -7,10 +7,6 @@ pragma solidity ^0.8.0;
 contract Create2Factory {
     event ContractCreated(address);
 
-    // TODO: get rid of hardcode.
-    address public immutable SENDER_CREATOR =
-        0x932a3A220aC2CD48fab18118954601f565f19681;
-
     /**
      * @dev Create a contract using CREATE2 by submitting a given salt or nonce
      * along with the initialization code for the contract.
@@ -25,9 +21,7 @@ contract Create2Factory {
         payable
         returns (address deploymentAddress)
     {
-        require(msg.sender == SENDER_CREATOR, "not authorized.");
-
-        // move the initialization code from calldata to memory. (use calldataload?)
+        // move the initialization code from calldata to memory, and append the entry point contract address.
         bytes memory initCode = initializationCode;
 
         // using inline assembly: load data and length of data, then call CREATE2.
