@@ -15,7 +15,12 @@ import (
 
 var _ ocrtypes.OffchainConfigDigester = OffchainConfigDigester{}
 
+func NewOffchainConfigDigester(feedID [32]byte, chainID uint64, contractAddress common.Address) OffchainConfigDigester {
+	return OffchainConfigDigester{feedID, chainID, contractAddress}
+}
+
 type OffchainConfigDigester struct {
+	FeedID          [32]byte
 	ChainID         uint64
 	ContractAddress common.Address
 }
@@ -45,6 +50,7 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 	}
 
 	return configDigest(
+		d.FeedID,
 		d.ChainID,
 		d.ContractAddress,
 		cc.ConfigCount,

@@ -50,6 +50,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 			offchainConfig []byte,
 		) bool {
 			golangDigest := configDigest(
+				sampleFeedID,
 				chainID,
 				contractAddress,
 				configCount,
@@ -65,6 +66,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 			bigChainID.SetUint64(chainID)
 
 			solidityDigest, err := eoa.ExposedConfigDigestFromConfigData(nil,
+				sampleFeedID,
 				bigChainID,
 				contractAddress,
 				configCount,

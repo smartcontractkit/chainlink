@@ -8,14 +8,14 @@ import (
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/libocr/gethwrappers2/exposedocr2aggregator"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_exposed_verifier"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
 func makeConfigDigestArgs() abi.Arguments {
-	abi, err := abi.JSON(strings.NewReader(
-		exposedocr2aggregator.ExposedOCR2AggregatorABI))
+	abi, err := abi.JSON(strings.NewReader(mercury_exposed_verifier.MercuryExposedVerifierABI))
 	if err != nil {
 		// assertion
 		panic(fmt.Sprintf("could not parse aggregator ABI: %s", err.Error()))
@@ -26,6 +26,7 @@ func makeConfigDigestArgs() abi.Arguments {
 var configDigestArgs = makeConfigDigestArgs()
 
 func configDigest(
+	feedID common.Hash,
 	chainID uint64,
 	contractAddress common.Address,
 	configCount uint64,
@@ -39,6 +40,7 @@ func configDigest(
 	chainIDBig := new(big.Int)
 	chainIDBig.SetUint64(chainID)
 	msg, err := configDigestArgs.Pack(
+		feedID,
 		chainIDBig,
 		contractAddress,
 		configCount,
