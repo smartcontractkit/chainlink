@@ -2,7 +2,6 @@ package cosmostxm
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -66,9 +65,7 @@ func TestTxm(t *testing.T) {
 	contract2, err := cosmostypes.AccAddressFromBech32("wasm19ctxyyc49cf42cfx3vvj3kmkrgzflw72h4afvv")
 	require.NoError(t, err)
 	logCfg := pgtest.NewQConfig(true)
-	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	cosmostest.MustInsertChain(t, db, &Chain{ID: chainID})
-	require.NoError(t, err)
+	chainID := cosmostest.RandomChainID()
 	cfg := coscfg.NewConfig(ChainCfg{
 		MaxMsgsPerBatch: null.IntFrom(2),
 	}, lggr)

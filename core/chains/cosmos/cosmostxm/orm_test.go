@@ -1,14 +1,12 @@
 package cosmostxm_test
 
 import (
-	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -21,9 +19,7 @@ func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewQConfig(true)
-	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	err := cosmos.NewORM(db, lggr, logCfg).EnsureChains([]string{chainID})
-	require.NoError(t, err)
+	chainID := cosmostest.RandomChainID()
 	o := NewORM(chainID, db, lggr, logCfg)
 
 	// Create
