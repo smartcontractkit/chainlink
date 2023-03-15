@@ -87,14 +87,14 @@ func InitVerifierContract(feedIds []string, ocrConfig contracts.MercuryOCRConfig
 		if err != nil {
 			return err
 		}
-	}
-	c, err := verifier.LatestConfigDetails(StringToByte32(feedIds[len(feedIds)-1]))
-	if err != nil {
-		return err
-	}
-	log.Info().Msgf("Init VerifierProxy with config digest: %x", c.ConfigDigest)
-	if err := verifierProxy.InitializeVerifier(c.ConfigDigest, verifier.Address()); err != nil {
-		return err
+		c, err := verifier.LatestConfigDetails(StringToByte32(feedId))
+		if err != nil {
+			return err
+		}
+		log.Info().Msgf("Init VerifierProxy for feedId: %s, with config digest: %x", feedId, c.ConfigDigest)
+		if err := verifierProxy.InitializeVerifier(c.ConfigDigest, verifier.Address()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
