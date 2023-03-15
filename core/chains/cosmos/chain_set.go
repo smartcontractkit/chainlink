@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -64,16 +63,6 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (adapters.Chain, error) {
-	if !dbchain.Enabled {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
-	}
-	id := dbchain.ID
-	cfg := coscfg.NewConfig(*dbchain.Cfg, o.Logger)
-	return newChain(id, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
-}
-
 func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
@@ -110,7 +99,7 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 		}
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to load some Solana chains")
+		return nil, errors.Wrap(err, "failed to load some Cosmos chains")
 	}
 	return chains.NewChainSetImmut[string, *db.ChainCfg, db.Node, adapters.Chain](solChains, &opts, func(s string) string { return s })
 }
