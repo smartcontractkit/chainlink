@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,7 +27,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	}
 
 	cfg := mocks.NewConfig(t)
-	e := mocks.NewEvmEstimator(t)
+	e := mocks.NewEvmEstimator[*evmtypes.Head](t)
 	e.On("GetDynamicFee", mock.Anything, mock.Anything, mock.Anything).
 		Return(dynamicFee, gasLimit, nil).Once()
 	e.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything).

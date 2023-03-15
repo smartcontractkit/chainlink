@@ -22,8 +22,8 @@ type PriorAttempt[FEE any, HASH any] interface {
 // FeeEstimator provides a generic interface for fee estimation
 //
 //go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
-type FeeEstimator[HEAD any, FEE any, MAXPRICE any, HASH any] interface {
-	HeadTrackable
+type FeeEstimator[H Head, FEE any, MAXPRICE any, HASH any] interface {
+	HeadTrackable[H]
 	Start(context.Context) error
 	Close() error
 

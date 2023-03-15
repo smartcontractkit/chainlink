@@ -22,17 +22,17 @@ func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAtt
 	return b.checkConnectivity(MakeEvmPriorAttempts(attempts))
 }
 
-func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator {
+func BlockHistoryEstimatorFromInterface(bhe EvmEstimator[*evmtypes.Head]) *BlockHistoryEstimator {
 	return bhe.(*BlockHistoryEstimator)
 }
 
-func SetRollingBlockHistory(bhe EvmEstimator, blocks []evmtypes.Block) {
+func SetRollingBlockHistory(bhe EvmEstimator[*evmtypes.Head], blocks []evmtypes.Block) {
 	bhe.(*BlockHistoryEstimator).blocksMu.Lock()
 	defer bhe.(*BlockHistoryEstimator).blocksMu.Unlock()
 	bhe.(*BlockHistoryEstimator).blocks = blocks
 }
 
-func GetRollingBlockHistory(bhe EvmEstimator) []evmtypes.Block {
+func GetRollingBlockHistory(bhe EvmEstimator[*evmtypes.Head]) []evmtypes.Block {
 	return bhe.(*BlockHistoryEstimator).getBlocks()
 }
 

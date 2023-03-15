@@ -74,7 +74,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
-	txmgrtypes.HeadTrackable
+	txmgrtypes.HeadTrackable[txmgrtypes.Head]
 	services.ServiceCtx
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
@@ -136,6 +136,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
+	estimator := gas.NewEstimator(lggr, ethClient, cfg).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash])
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -146,7 +147,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
-		gasEstimator:     gas.NewEstimator(lggr, ethClient, cfg),
+		gasEstimator:     estimator,
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan txmgrtypes.Head),

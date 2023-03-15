@@ -12,12 +12,13 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
-	_ EvmEstimator = &l2SuggestedPriceEstimator{}
+	_ EvmEstimator[*evmtypes.Head] = &l2SuggestedPriceEstimator{}
 )
 
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
@@ -43,7 +44,7 @@ type l2SuggestedPriceEstimator struct {
 }
 
 // NewL2SuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
+func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator[*evmtypes.Head] {
 	return &l2SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
@@ -111,8 +112,7 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, txmgrtypes.Head) {
-}
+func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
 func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")

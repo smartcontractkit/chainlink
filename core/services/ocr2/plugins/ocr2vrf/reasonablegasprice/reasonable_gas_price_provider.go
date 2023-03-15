@@ -10,12 +10,11 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
 
 // reasonableGasPriceProvider provides an estimate for the average gas price
 type reasonableGasPriceProvider struct {
-	estimator          txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	estimator          txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	timeout            time.Duration
 	maxGasPrice        *assets.Wei
 	supportsDynamicFee bool
@@ -24,7 +23,7 @@ type reasonableGasPriceProvider struct {
 var _ types.ReasonableGasPrice = (*reasonableGasPriceProvider)(nil)
 
 func NewReasonableGasPriceProvider(
-	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
+	estimator txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	timeout time.Duration,
 	maxGasPrice *assets.Wei,
 	supportsDynamicFee bool,

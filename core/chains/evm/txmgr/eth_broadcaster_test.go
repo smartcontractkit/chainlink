@@ -23,12 +23,12 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	txmgrmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -577,7 +577,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chStartEstimate := make(chan struct{})
 	chBlock := make(chan struct{})
 
-	var estimator = txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash](t)
+	var estimator = txmgrmocks.NewFeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash](t)
 
 	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, evmcfg.KeySpecificMaxGasPriceWei(fromAddress)).Return(gas.EvmFee{Legacy: assets.GWei(32)}, uint32(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
@@ -1141,8 +1141,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					require.NoError(t, err)
 					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 					lggr := logger.TestLogger(t)
+					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash])
 					eb = txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
-						[]ethkey.State{keyState}, gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg), fn, lggr,
+						[]ethkey.State{keyState}, estimator, fn, lggr,
 						&testCheckerFactory{}, false)
 
 					{
@@ -1891,7 +1892,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	sub.On("Events").Return(make(<-chan pg.Event))
 	sub.On("Close")
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg)
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash])
 	checkerFactory := &testCheckerFactory{}
 
 	t.Run("does nothing if nonce sync is disabled", func(t *testing.T) {
