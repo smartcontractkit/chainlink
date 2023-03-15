@@ -40,6 +40,10 @@ type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
 	Name() string
 	HealthReport() map[string]error
 
+	// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+	// https://smartcontract-it.atlassian.net/browse/BCF-2140
+	Healthy() error
+
 	DBChainSet[I, C]
 
 	DBNodeSet[I, N]
@@ -164,14 +168,10 @@ func (c *chainSet[I, C, N, S]) Ready() (err error) {
 	return
 }
 
-func (c *chainSet[I, C, N, S]) Healthy() (err error) {
-	err = c.StartStopOnce.Healthy()
-	c.chainsMu.RLock()
-	defer c.chainsMu.RUnlock()
-	for _, c := range c.chains {
-		err = multierr.Combine(err, c.Healthy())
-	}
-	return
+// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+// https://smartcontract-it.atlassian.net/browse/BCF-2140
+func (c *chainSet[I, C, N, S]) Healthy() error {
+	return nil
 }
 
 func (c *chainSet[I, C, N, S]) Name() string {

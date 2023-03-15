@@ -72,9 +72,6 @@ func (NoopExplorerClient) Start(context.Context) error { return nil }
 // Close is a no-op
 func (NoopExplorerClient) Close() error { return nil }
 
-// Healthy is a no-op
-func (NoopExplorerClient) Healthy() error { return nil }
-
 // Ready is a no-op
 func (NoopExplorerClient) Ready() error { return nil }
 

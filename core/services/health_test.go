@@ -25,13 +25,6 @@ func (b boolCheck) Ready() error {
 	return errors.New("Not ready")
 }
 
-func (b boolCheck) Healthy() error {
-	if b.healthy {
-		return nil
-	}
-	return ErrUnhealthy
-}
-
 func (b boolCheck) HealthReport() map[string]error {
 	if b.healthy {
 		return map[string]error{b.name: nil}
@@ -53,7 +46,7 @@ func TestCheck(t *testing.T) {
 
 		{[]services.Checkable{boolCheck{"0", true}, boolCheck{"1", false}}, false, map[string]error{"0": nil, "1": ErrUnhealthy}},
 
-		{[]services.Checkable{boolCheck{"0", true}, boolCheck{"1", false},boolCheck{"2", false}}, false, map[string]error{
+		{[]services.Checkable{boolCheck{"0", true}, boolCheck{"1", false}, boolCheck{"2", false}}, false, map[string]error{
 			"0": nil,
 			"1": ErrUnhealthy,
 			"2": ErrUnhealthy,

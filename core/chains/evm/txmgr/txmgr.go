@@ -665,7 +665,6 @@ func (n *NullTxManager) Reset(f func(), addr common.Address, abandon bool) error
 func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error                 { return nil }
 func (n *NullTxManager) Ready() error                   { return nil }
 func (n *NullTxManager) Name() string                   { return "NullTxManager" }
 func (n *NullTxManager) HealthReport() map[string]error { return map[string]error{} }

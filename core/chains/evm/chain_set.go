@@ -92,12 +92,6 @@ func (cll *chainSet) Close() (err error) {
 	}
 	return
 }
-func (cll *chainSet) Healthy() (err error) {
-	for _, c := range cll.Chains() {
-		err = multierr.Combine(err, c.Healthy())
-	}
-	return
-}
 
 func (cll *chainSet) Name() string {
 	return cll.logger.Name()

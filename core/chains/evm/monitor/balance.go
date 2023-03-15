@@ -84,10 +84,6 @@ func (bm *balanceMonitor) Ready() error {
 	return nil
 }
 
-func (bm *balanceMonitor) Healthy() error {
-	return nil
-}
-
 func (bm *balanceMonitor) Name() string {
 	return bm.logger.Name()
 }
@@ -223,7 +219,6 @@ func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 func (*NullBalanceMonitor) Start(context.Context) error                                { return nil }
 func (*NullBalanceMonitor) Close() error                                               { return nil }
 func (*NullBalanceMonitor) Ready() error                                               { return nil }
-func (*NullBalanceMonitor) Healthy() error                                             { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {

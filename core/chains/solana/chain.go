@@ -316,13 +316,8 @@ func (c *chain) Ready() error {
 	)
 }
 
-func (c *chain) Healthy() error {
-	return multierr.Combine(
-		c.StartStopOnce.Healthy(),
-		c.txm.Healthy(),
-	)
-}
-
 func (c *chain) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
+	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	utils.MergeMaps(report, c.txm.HealthReport())
+	return report
 }

@@ -77,7 +77,8 @@ func (r *Relayer) Ready() error {
 	return nil
 }
 
-// Healthy does noop: always healthy
+// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+// https://smartcontract-it.atlassian.net/browse/BCF-2140
 func (r *Relayer) Healthy() error {
 	return nil
 }
@@ -435,12 +436,16 @@ func (p *medianProvider) Ready() error {
 	return multierr.Combine(p.configWatcher.Ready(), p.contractTransmitter.Ready())
 }
 
+// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+// https://smartcontract-it.atlassian.net/browse/BCF-2140
 func (p *medianProvider) Healthy() error {
-	return multierr.Combine(p.configWatcher.Healthy(), p.contractTransmitter.Healthy())
+	return nil
 }
 
 func (p *medianProvider) HealthReport() map[string]error {
-	return map[string]error{p.Name(): p.Healthy()}
+	report := p.configWatcher.HealthReport()
+	utils.MergeMaps(report, p.contractTransmitter.HealthReport())
+	return report
 }
 
 func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

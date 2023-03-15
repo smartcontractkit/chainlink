@@ -324,9 +324,6 @@ func (*NullEventBroadcaster) Close() error { return nil }
 // Ready does no-op.
 func (*NullEventBroadcaster) Ready() error { return nil }
 
-// Healthy does no-op.
-func (*NullEventBroadcaster) Healthy() error { return nil }
-
 // HealthReport does no-op
 func (*NullEventBroadcaster) HealthReport() map[string]error { return map[string]error{} }
 

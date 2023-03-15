@@ -235,20 +235,6 @@ func (c *chain) Ready() (merr error) {
 	return
 }
 
-func (c *chain) Healthy() (merr error) {
-	merr = multierr.Combine(
-		c.StartStopOnce.Healthy(),
-		c.txm.Healthy(),
-		c.headBroadcaster.Healthy(),
-		c.headTracker.Healthy(),
-		c.logBroadcaster.Healthy(),
-	)
-	if c.balanceMonitor != nil {
-		merr = multierr.Combine(merr, c.balanceMonitor.Healthy())
-	}
-	return
-}
-
 func (c *chain) Name() string {
 	return c.logger.Name()
 }
