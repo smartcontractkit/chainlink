@@ -39,13 +39,16 @@ func setupMercuryLoadEnv(
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
 ) (*mercury.MercuryTestEnv, uint64) {
-	testEnv, err := mercury.NewMercuryTestEnv(t, "load")
+	testEnv, err := mercury.SetupMercuryTestEnv("load", dbSettings, serverResources)
 	require.NoError(t, err)
-	testEnv.SetupFullMercuryEnv(dbSettings, serverResources)
+
+	t.Cleanup(func() {
+		testEnv.Cleanup(t)
+	})
 
 	latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Err getting latest block number")
-	report, _, err := testEnv.MSClient.GetReports(testEnv.Config.FeedId, latestBlockNum-5)
+	report, _, err := testEnv.MSClient.GetReports(testEnv.FeedId, latestBlockNum-5)
 	require.NoError(t, err, "Error getting report from Mercury Server")
 	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 
@@ -55,7 +58,7 @@ func setupMercuryLoadEnv(
 func TestMercuryHTTPLoad(t *testing.T) {
 	testEnv, latestBlockNumber := setupMercuryLoadEnv(t, dbSettings, serverResources)
 
-	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.Config.FeedId, latestBlockNumber)
+	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.FeedId, latestBlockNumber)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)

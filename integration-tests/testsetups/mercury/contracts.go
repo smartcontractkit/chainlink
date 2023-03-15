@@ -77,6 +77,30 @@ func CreateCommitmentHash(order Order) common.Hash {
 	return crypto.Keccak256Hash(bytes)
 }
 
+func LoadMercuryContracts(evmClient blockchain.EVMClient,
+	verifierAddr string, verifierProxyAddr string, exchangerAddr string) (
+	contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, error) {
+
+	contractDeployer, err := contracts.NewContractDeployer(evmClient)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	verifier, err := contractDeployer.LoadVerifier(common.HexToAddress(verifierAddr))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	verifierProxy, err := contractDeployer.LoadVerifierProxy(common.HexToAddress(verifierProxyAddr))
+	if err != nil {
+		return verifier, nil, nil, err
+	}
+	exchanger, err := contractDeployer.LoadExchanger(common.HexToAddress(exchangerAddr))
+	if err != nil {
+		return verifier, verifierProxy, nil, err
+	}
+
+	return verifier, verifierProxy, exchanger, nil
+}
+
 func DeployMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, ocrConfig contracts.MercuryOCRConfig) (
 	contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, contracts.ReadAccessController, error) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
