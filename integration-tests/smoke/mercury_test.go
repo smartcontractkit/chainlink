@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 )
 
+// TODO: tests that use different env should use different env configs. Save list of tests into json with [{name: testName, testEnvConfig: {}}]
 func TestMercurySmoke(t *testing.T) {
 	l := actions.GetTestLogger(t)
 
@@ -33,9 +34,32 @@ func TestMercurySmoke(t *testing.T) {
 		feedIdBytes = mercury.StringToByte32(feedId)
 	)
 
-	t.Run("multiple feeds with single verifier", func(t *testing.T) {
+	t.Run("multiple feeds using separate verifier contracts", func(t *testing.T) {
 		// setup multiple job specs with different feed ids
-		//
+
+		testEnv, _ := mercury.NewEnv("smoke")
+
+		testEnv.SetupEvmNetwork()
+
+		// each call updates test env struct
+		// when reconstructing from config, each function should do it individually
+		err := testEnv.AddDON()
+		require.NoError(t, err)
+
+		err = testEnv.AddMercuryServer()
+		require.NoError(t, err)
+
+		// saved in the test env state in list of verifier contracts
+		// verifier1 will be saved in env config so that it can be loaded when config reused
+		verifierContract1 := testEnv.AddVerifierContract("verifier1")
+		verifierContract2 := testEnv.AddVerifierContract("verifier2")
+
+		// job name can be saved in config
+		testEnv.AddBootstrapJob("bootstrap-1", verifierContract1)
+		testEnv.AddBootstrapJob("bootstrap-2", verifierContract2)
+
+		testEnv.AddOCRJob("ocr2-1", verifierContract1)
+		testEnv.AddOCRJob("ocr2-2", verifierContract2)
 
 	})
 

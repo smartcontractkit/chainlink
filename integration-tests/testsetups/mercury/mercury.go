@@ -64,6 +64,8 @@ type TestEnv struct {
 	KeepEnv               bool          // Set via MERCURY_KEEP_ENV=true env
 	EnvTTL                time.Duration // Set via MERCURY_ENV_TTL_MINS env
 	ChainId               int64
+	EvmNetwork            *blockchain.EVMNetwork
+	EvmChart              *environment.ConnectedChart
 	EvmClient             blockchain.EVMClient
 	VerifierContract      contracts.Verifier
 	VerifierProxyContract contracts.VerifierProxy
@@ -134,6 +136,54 @@ func (c *TestConfig) Save() (string, error) {
 	err = ioutil.WriteFile(confPath, f, 0644)
 
 	return confPath, err
+}
+
+func NewEnv(namespacePrefix string) (TestEnv, error) {
+	testEnv := TestEnv{}
+
+	c, err := configFromFile(os.Getenv("MERCURY_ENV_CONFIG_PATH"))
+	if err != nil {
+		// Fail when chain on env loaded from config is different than currently selected chain
+		if c.ChainId != networks.SelectedNetwork.ChainID {
+			return testEnv, fmt.Errorf("chain set in SELECTED_NETWORKS is" +
+				" different than chain id set in config provided by MERCURY_ENV_CONFIG_PATH")
+		}
+
+		log.Info().Msgf("Using existing mercury environment based on config: %s\n%s",
+			os.Getenv("MERCURY_ENV_CONFIG_PATH"), c.Json())
+
+		testEnv.Namespace = c.K8Namespace
+		testEnv.FeedIds = c.FeedIds
+		testEnv.MSInfo = c.MSInfo
+		testEnv.ContractInfo = c.ContractsInfo
+		testEnv.IsExistingTestEnv = true
+	} else {
+		// Feed id can have max 32 characters
+		testEnv.FeedIds = []string{"feed-1", "feed-2"}
+		testEnv.MSInfo = mercuryServerInfo{
+			AdminId:           os.Getenv("MS_DATABASE_FIRST_ADMIN_ID"),
+			AdminKey:          os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY"),
+			AdminEncryptedKey: os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY"),
+		}
+		testEnv.IsExistingTestEnv = false
+	}
+
+	testEnv.KeepEnv = os.Getenv("MERCURY_KEEP_ENV") == "true"
+	ttl, err := strconv.ParseUint(os.Getenv("MERCURY_ENV_TTL_MINS"), 10, 64)
+	if err == nil {
+		testEnv.EnvTTL = time.Duration(ttl) * time.Minute
+	} else {
+		// Set default TTL for k8 environment
+		testEnv.EnvTTL = 20 * time.Minute
+	}
+	mschart := os.Getenv("MERCURY_CHART")
+	if mschart == "" {
+		return testEnv, errors.New("MERCURY_CHART must be provided, a local path or a name of a mercury-server helm chart")
+	} else {
+		testEnv.Chart = mschart
+	}
+
+	return testEnv, nil
 }
 
 // Setup new mercury env
@@ -360,13 +410,16 @@ func waitForReportsInMercuryDb(
 	}
 }
 
-func setupDON(envTTL time.Duration, namespace string, namespacePrefix string, isExistingTestEnv bool,
-	evmNetwork blockchain.EVMNetwork, evmConfig environment.ConnectedChart) (*environment.Environment, []*client.Chainlink, error) {
+func (te *TestEnv) AddDON() error {
+	if te.EvmNetwork == nil || te.EvmChart == nil {
+		return fmt.Errorf("Setup evm network first")
+	}
+
 	env := environment.New(&environment.Config{
-		TTL:              envTTL,
-		NamespacePrefix:  fmt.Sprintf("%s-mercury-%s", namespacePrefix, strings.ReplaceAll(strings.ToLower(evmNetwork.Name), " ", "-")),
-		Namespace:        namespace,
-		NoManifestUpdate: isExistingTestEnv,
+		TTL:              te.EnvTTL,
+		NamespacePrefix:  fmt.Sprintf("%s-mercury-%s", te.NsPrefix, strings.ReplaceAll(strings.ToLower(te.EvmNetwork.Name), " ", "-")),
+		Namespace:        te.Namespace,
+		NoManifestUpdate: te.IsExistingTestEnv,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(map[string]interface{}{
@@ -383,25 +436,27 @@ func setupDON(envTTL time.Duration, namespace string, namespacePrefix string, is
 				},
 			},
 		})).
-		AddHelm(evmConfig).
+		AddHelm(*te.EvmChart).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
 				testconfig.BaseMercuryTomlConfig,
-				evmNetwork),
+				*te.EvmNetwork),
 			"prometheus": "true",
 		}))
 	err := env.Run()
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
+	te.Env = env
 
 	nodes, err := client.ConnectChainlinkNodes(env)
 	if err != nil {
-		return env, nil, err
+		return err
 	}
+	te.ChainlinkNodes = nodes
 
-	return env, nodes, nil
+	return nil
 }
 
 func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feedId string) *client.OCR2TaskJobSpec {
@@ -791,7 +846,7 @@ func buildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.Mercu
 	}, nil
 }
 
-func setupEvmNetwork() (blockchain.EVMNetwork, environment.ConnectedChart) {
+func (te *TestEnv) SetupEvmNetwork() {
 	network := networks.SelectedNetwork
 	var evmChart environment.ConnectedChart
 	if network.Simulated {
@@ -803,8 +858,8 @@ func setupEvmNetwork() (blockchain.EVMNetwork, environment.ConnectedChart) {
 			WsURLs:      network.URLs,
 		})
 	}
-
-	return network, evmChart
+	te.EvmNetwork = &network
+	te.EvmChart = &evmChart
 }
 
 func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
