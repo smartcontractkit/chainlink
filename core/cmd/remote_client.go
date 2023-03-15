@@ -6,6 +6,7 @@ import (
 	stderrs "errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -251,10 +252,6 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
 
-	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
-		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
-	}
-
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
 	err := os.Mkdir(genDir, 0o755)
@@ -282,20 +279,25 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
+			start := time.Now()
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				errs <- errors.Wrapf(err, "error collecting %s", vt)
+				netErr, ok := err.(net.Error)
+				if ok && netErr.Timeout() {
+					err = fmt.Errorf("server timeout after %s. try shorting the collection time (%d seconds): %w", time.Since(start), seconds, err)
+				}
+				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
 				return
 			}
 			if resp.StatusCode == http.StatusUnauthorized {
-				errs <- errors.Wrapf(errUnauthorized, "error collecting %s", vt)
+				errs <- fmt.Errorf("error collecting %s: %w", vt, errUnauthorized)
 				return
 			}
 			defer resp.Body.Close()
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
-				errs <- errors.Wrapf(err, "error creating file for %s", vt)
+				errs <- fmt.Errorf("error creating file for %s: %w", vt, err)
 				return
 			}
 			wc := utils.NewDeferableWriteCloser(f)
@@ -303,12 +305,12 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 
 			_, err = io.Copy(wc, resp.Body)
 			if err != nil {
-				errs <- errors.Wrapf(err, "error writing to file for %s", vt)
+				errs <- fmt.Errorf("error writing to file for %s: %w", vt, err)
 				return
 			}
 			err = wc.Close()
 			if err != nil {
-				errs <- errors.Wrapf(err, "error closing file for %s", vt)
+				errs <- fmt.Errorf("error closing file for %s: %w", vt, err)
 				return
 			}
 		}(vt)

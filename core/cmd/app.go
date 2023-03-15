@@ -29,9 +29,14 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
 	devMode := v2.EnvDev.IsTrue()
+	defaultCookeDir := filepath.Join(os.TempDir(), "chainlink", "cookies")
+
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
+	// TOML
+	var opts chainlink.GeneralConfigOpts
+
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
@@ -50,37 +55,27 @@ func NewApp(client *Client) *cli.App {
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
+		cli.StringFlag{
+			Name:  "cookie-dir",
+			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
+			Value: defaultCookeDir,
+		},
 		cli.StringSliceFlag{
 			Name:  "config, c",
 			Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
 			// Note: we cannot use the EnvVar field since it will combine with the flags.
+			Hidden: true,
 		},
 		cli.StringFlag{
-			Name:  "secrets, s",
-			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Name:   "secrets, s",
+			Usage:  "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Hidden: true,
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		// TOML
-		var opts chainlink.GeneralConfigOpts
 
-		fileNames := c.StringSlice("config")
-		if err := loadOpts(&opts, fileNames...); err != nil {
-			return err
-		}
-
-		secretsTOML := ""
-		if c.IsSet("secrets") {
-			secretsFileName := c.String("secrets")
-			b, err := os.ReadFile(secretsFileName)
-			if err != nil {
-				return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
-			}
-			secretsTOML = string(b)
-		}
-		if err := opts.ParseSecrets(secretsTOML); err != nil {
-			return err
-		}
+		// load opts and secrets here for backward compatibility
+		initConfigOpts(&opts, c)
 
 		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 			return err
@@ -93,14 +88,27 @@ func NewApp(client *Client) *cli.App {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
+		cookieDir := c.String("cookie-dir")
+		if cookieDir == defaultCookeDir {
+			err := os.MkdirAll(defaultCookeDir, 0755)
+			if err != nil {
+				return fmt.Errorf("error creating default cookie directory '%s': %w", defaultCookeDir, err)
+			}
+		}
+
+		cookieJar := &cookieStore{
+			dir: cookieDir,
+		}
+
 		urlStr := c.String("remote-node-url")
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
 			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
 		}
+
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
 		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
-		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: cookieJar}, client.Logger)
 		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
 
 		credentialsFile := c.String("admin-credentials-file")
@@ -179,7 +187,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode),
+			Subcommands: initLocalSubCmds(client, devMode, &opts),
 		},
 		{
 			Name:        "initiators",
@@ -230,6 +238,24 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
+func initConfigOpts(opts *chainlink.GeneralConfigOpts, cliCtx *cli.Context) error {
+	fileNames := cliCtx.StringSlice("config")
+	if err := loadOpts(opts, fileNames...); err != nil {
+		return err
+	}
+
+	secretsTOML := ""
+	if cliCtx.IsSet("secrets") {
+		secretsFileName := cliCtx.String("secrets")
+		b, err := os.ReadFile(secretsFileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+		}
+		secretsTOML = string(b)
+	}
+	return opts.ParseSecrets(secretsTOML)
+}
+
 // loadOpts applies file configs and then overlays env config
 func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
 	for _, fileName := range fileNames {
@@ -247,4 +273,12 @@ func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
 		}
 	}
 	return nil
+}
+
+type cookieStore struct {
+	dir string
+}
+
+func (cs *cookieStore) RootDir() string {
+	return cs.dir
 }
