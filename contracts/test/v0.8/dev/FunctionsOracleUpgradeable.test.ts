@@ -3,8 +3,7 @@ import { expect } from 'chai'
 import { BigNumber, Contract, ContractFactory } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
-let functionsOracleFactory: ContractFactory
-let functionsOracleMigrationFactory: ContractFactory
+let functionsOracleOriginalFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
 let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
@@ -44,13 +43,8 @@ const config: RegistryConfig = {
 before(async () => {
   roles = (await getUsers()).roles
 
-  functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleUpgradeableHelper.sol:FunctionsOracleUpgradeableHelper',
-    roles.defaultAccount,
-  )
-
-  functionsOracleMigrationFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleMigrationHelper.sol:FunctionsOracleMigrationHelper',
+  functionsOracleOriginalFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/FunctionsOracleOriginalHelper.sol:FunctionsOracleOriginalHelper',
     roles.defaultAccount,
   )
 
@@ -92,7 +86,7 @@ describe('FunctionsOracleUpgradeable', () => {
       ethers.BigNumber.from(5021530000000000),
     )
     oracle = await upgrades.deployProxy(
-      functionsOracleFactory.connect(roles.defaultAccount),
+      functionsOracleOriginalFactory.connect(roles.defaultAccount),
     )
     registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
@@ -169,6 +163,34 @@ describe('FunctionsOracleUpgradeable', () => {
       return requestId
     }
 
+    async function migrateAndCheck(factoryPath: string): Promise<Contract> {
+      const functionsOracleMigrationFactory = await ethers.getContractFactory(
+        factoryPath,
+        roles.consumer,
+      )
+
+      // Upgrade the implementation contract
+      const upgradedOracle = await upgrades.upgradeProxy(
+        oracle.address,
+        functionsOracleMigrationFactory.connect(roles.defaultAccount),
+      )
+
+      // Check request fulfillment still works
+      const requestId = await placeTestRequest()
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        stringToHex('hello world'),
+        stringToHex(''),
+      )
+      await expect(
+        upgradedOracle
+          .connect(roles.oracleNode)
+          .callReport(report, { gasLimit: 500_000 }),
+      ).to.emit(registry, 'BillingEnd')
+
+      return upgradedOracle
+    }
+
     it('is successful when deployed behind a proxy', async () => {
       const requestId1 = await placeTestRequest()
       const requestId2 = await placeTestRequest()
@@ -198,10 +220,8 @@ describe('FunctionsOracleUpgradeable', () => {
     })
 
     it('can be upgraded to a new implementation', async () => {
-      // Upgrade the implementation contract
-      const upgradedOracle = await upgrades.upgradeProxy(
-        oracle.address,
-        functionsOracleMigrationFactory.connect(roles.defaultAccount),
+      const upgradedOracle = await migrateAndCheck(
+        'src/v0.8/tests/FunctionsOracleMigrationHelper.sol:FunctionsOracleMigrationHelper',
       )
 
       // Check that upgrade was successful
@@ -216,19 +236,12 @@ describe('FunctionsOracleUpgradeable', () => {
       ]
       const registryFee = await upgradedOracle.getRequiredFee(...dummyRequest)
       expect(registryFee).to.equal(1)
+    })
 
-      // Check request fulfillment still works
-      const requestId = await placeTestRequest()
-      const report = encodeReport(
-        ethers.utils.hexZeroPad(requestId, 32),
-        stringToHex('hello world'),
-        stringToHex(''),
+    it('can be upgraded to the latest implementation', async () => {
+      await migrateAndCheck(
+        'src/v0.8/tests/FunctionsOracleUpgradeableHelper.sol:FunctionsOracleUpgradeableHelper',
       )
-      await expect(
-        upgradedOracle
-          .connect(roles.oracleNode)
-          .callReport(report, { gasLimit: 500_000 }),
-      ).to.emit(registry, 'BillingEnd')
     })
   })
 })
