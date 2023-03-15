@@ -367,34 +367,6 @@ func (_m *GeneralConfig) AutoPprofProfileRoot() string {
 	return r0
 }
 
-// BlockBackfillDepth provides a mock function with given fields:
-func (_m *GeneralConfig) BlockBackfillDepth() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// BlockBackfillSkip provides a mock function with given fields:
-func (_m *GeneralConfig) BlockBackfillSkip() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // BridgeCacheTTL provides a mock function with given fields:
 func (_m *GeneralConfig) BridgeCacheTTL() time.Duration {
 	ret := _m.Called()

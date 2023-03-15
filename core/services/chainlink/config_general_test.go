@@ -8,19 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
 	require.NoError(t, err)
-	assert.PanicsWithError(t, v2.ErrUnsupported.Error(), func() {
-		_ = config.BlockBackfillDepth()
-	})
-	assert.PanicsWithError(t, v2.ErrUnsupported.Error(), func() {
-		_ = config.BlockBackfillSkip()
-	})
 	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())

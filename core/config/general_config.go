@@ -67,8 +67,6 @@ type BasicConfig interface {
 	AutoPprofMutexProfileFraction() int
 	AutoPprofPollInterval() models.Duration
 	AutoPprofProfileRoot() string
-	BlockBackfillDepth() uint64
-	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
 	BridgeCacheTTL() time.Duration
 	CertFile() string
