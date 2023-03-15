@@ -64,6 +64,9 @@ func NewMedianServices(jb job.Job,
 	if err != nil {
 		return nil, err
 	}
+	if !jb.OCR2OracleSpec.CaptureEATelemetry {
+		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
+	}
 	return []job.ServiceCtx{ocr2Provider, ocrcommon.NewResultRunSaver(
 		runResults,
 		pipelineRunner,
