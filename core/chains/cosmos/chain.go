@@ -137,7 +137,6 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
 		c.lggr.Debug("Starting")
-		//TODO dial client?
 		return c.txm.Start(ctx)
 	})
 }
