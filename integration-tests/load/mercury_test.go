@@ -104,7 +104,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			"test_id":    "ws",
 		},
 		LoadType: loadgen.InstancesScheduleType,
-		Schedule: loadgen.Line(10, 200, 500*time.Second),
+		Schedule: loadgen.Plain(1, 30*time.Second),
 		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)

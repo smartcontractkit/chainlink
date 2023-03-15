@@ -6,7 +6,6 @@ require (
 	github.com/ava-labs/coreth v0.11.0-rc.4
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-resty/resty/v2 v2.7.0
-	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.7
 	github.com/onsi/gomega v1.24.1
@@ -15,7 +14,7 @@ require (
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/slack-go/slack v0.12.1
 	github.com/smartcontractkit/chainlink v1.10.0
-	github.com/smartcontractkit/chainlink-env v0.3.20
+	github.com/smartcontractkit/chainlink-env v0.30.20
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230309154839-2b6a5b078888
 	github.com/smartcontractkit/chainlink-testing-framework v1.10.9
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
@@ -29,8 +28,6 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 	nhooyr.io/websocket v1.8.7
 )
-
-replace github.com/smartcontractkit/chainlink-env => /Users/f4hrenh9it/GolandProjects/chainlink-env
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
