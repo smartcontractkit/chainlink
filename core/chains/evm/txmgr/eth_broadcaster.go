@@ -182,6 +182,14 @@ func (eb *EthBroadcaster) Close() error {
 	})
 }
 
+func (eb *EthBroadcaster) Name() string {
+	return eb.logger.Name()
+}
+
+func (eb *EthBroadcaster) HealthReport() map[string]error {
+	return map[string]error{eb.Name(): eb.StartStopOnce.Healthy()}
+}
+
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
 func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
