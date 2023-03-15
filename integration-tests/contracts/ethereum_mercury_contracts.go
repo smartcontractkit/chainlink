@@ -6,11 +6,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier_proxy"
 )
+
+type MercuryOCRConfig struct {
+	Signers               []common.Address
+	Transmitters          [][32]byte
+	F                     uint8
+	OnchainConfig         []byte
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
+}
 
 type Exchanger interface {
 	Address() string
@@ -117,8 +127,8 @@ func (v *EthereumVerifierProxy) Verify(signedReport []byte) error {
 
 type Verifier interface {
 	Address() string
-	SetConfig(OCRConfig) error
-	LatestConfigDetails() (struct {
+	SetConfig([32]byte, MercuryOCRConfig) error
+	LatestConfigDetails(feedId [32]byte) (struct {
 		ConfigCount  uint32
 		BlockNumber  uint32
 		ConfigDigest [32]byte
@@ -135,19 +145,31 @@ func (v *EthereumVerifier) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVerifier) SetConfig(ocrConfig OCRConfig) error {
+func (v *EthereumVerifier) SetConfig(feedId [32]byte, config MercuryOCRConfig) error {
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
+	log.Info().Msgf("Setting config, feedId: %x, config: %v", feedId, config)
+	for i, s := range config.Signers {
+		log.Info().Msgf("Signer %d: %x", i, s)
+	}
+	for i, s := range config.Transmitters {
+		log.Info().Msgf("Transmitter %d: %x", i, s)
+	}
+	// log.Info().Msgf("Transmitters: %x", config.Transmitters)
+	// log.Info().Msgf("OnchainConfig: %x", config.OnchainConfig)
+	log.Info().Msgf("OffchainConfig: %x", config.OffchainConfig)
+
 	tx, err := v.verifier.SetConfig(
 		txOpts,
-		ocrConfig.Signers,
-		ocrConfig.Transmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
+		feedId,
+		config.Signers,
+		config.Transmitters,
+		config.F,
+		config.OnchainConfig,
+		config.OffchainConfigVersion,
+		config.OffchainConfig,
 	)
 	if err != nil {
 		return err
@@ -155,7 +177,7 @@ func (v *EthereumVerifier) SetConfig(ocrConfig OCRConfig) error {
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVerifier) LatestConfigDetails() (struct {
+func (v *EthereumVerifier) LatestConfigDetails(feedId [32]byte) (struct {
 	ConfigCount  uint32
 	BlockNumber  uint32
 	ConfigDigest [32]byte
@@ -164,15 +186,32 @@ func (v *EthereumVerifier) LatestConfigDetails() (struct {
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
 	}
-	return v.verifier.LatestConfigDetails(opts)
+	return v.verifier.LatestConfigDetails(opts, feedId)
 }
 
-func (e *EthereumContractDeployer) DeployVerifier(feedId [32]byte, verifierProxyAddr string) (Verifier, error) {
+func (e *EthereumContractDeployer) LoadVerifier(address common.Address) (Verifier, error) {
+	instance, err := e.client.LoadContract("Verifier", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return verifier.NewVerifier(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVerifier{
+		client:   e.client,
+		address:  &address,
+		verifier: instance.(*verifier.Verifier),
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployVerifier(verifierProxyAddr string) (Verifier, error) {
 	address, _, instance, err := e.client.DeployContract("Verifier", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return verifier.DeployVerifier(auth, backend, feedId, common.HexToAddress(verifierProxyAddr))
+		return verifier.DeployVerifier(auth, backend, common.HexToAddress(verifierProxyAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -181,6 +220,23 @@ func (e *EthereumContractDeployer) DeployVerifier(feedId [32]byte, verifierProxy
 		client:   e.client,
 		address:  address,
 		verifier: instance.(*verifier.Verifier),
+	}, err
+}
+
+func (e *EthereumContractDeployer) LoadVerifierProxy(address common.Address) (VerifierProxy, error) {
+	instance, err := e.client.LoadContract("VerifierProxy", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return verifier_proxy.NewVerifierProxy(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVerifierProxy{
+		client:        e.client,
+		address:       &address,
+		verifierProxy: instance.(*verifier_proxy.VerifierProxy),
 	}, err
 }
 
@@ -198,6 +254,23 @@ func (e *EthereumContractDeployer) DeployVerifierProxy(accessControllerAddr stri
 		client:        e.client,
 		address:       address,
 		verifierProxy: instance.(*verifier_proxy.VerifierProxy),
+	}, err
+}
+
+func (e *EthereumContractDeployer) LoadExchanger(address common.Address) (Exchanger, error) {
+	instance, err := e.client.LoadContract("Exchanger", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return exchanger.NewExchanger(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumExchanger{
+		client:    e.client,
+		address:   &address,
+		exchanger: instance.(*exchanger.Exchanger),
 	}, err
 }
 

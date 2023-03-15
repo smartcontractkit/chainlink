@@ -16,6 +16,8 @@ type ChainScopedOnlyConfig interface {
 
 	AutoCreateKey() bool
 	BalanceMonitorEnabled() bool
+	BlockBackfillDepth() uint64
+	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	BlockHistoryEstimatorBatchSize() (size uint32)
 	BlockHistoryEstimatorBlockDelay() uint16

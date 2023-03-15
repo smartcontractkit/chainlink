@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -18,8 +19,9 @@ import (
 )
 
 type block struct {
-	number int64
-	hash   common.Hash
+	number    int64
+	hash      common.Hash
+	timestamp int64
 }
 
 // Setup creates two orms representing logs from different chains.
@@ -39,28 +41,33 @@ func TestORM_GetBlocks_From_Range(t *testing.T) {
 	// Insert many blocks and read them back together
 	blocks := []block{
 		{
-			number: 10,
-			hash:   common.HexToHash("0x111"),
+			number:    10,
+			hash:      common.HexToHash("0x111"),
+			timestamp: 0,
 		},
 		{
-			number: 11,
-			hash:   common.HexToHash("0x112"),
+			number:    11,
+			hash:      common.HexToHash("0x112"),
+			timestamp: 10,
 		},
 		{
-			number: 12,
-			hash:   common.HexToHash("0x113"),
+			number:    12,
+			hash:      common.HexToHash("0x113"),
+			timestamp: 20,
 		},
 		{
-			number: 13,
-			hash:   common.HexToHash("0x114"),
+			number:    13,
+			hash:      common.HexToHash("0x114"),
+			timestamp: 30,
 		},
 		{
-			number: 14,
-			hash:   common.HexToHash("0x115"),
+			number:    14,
+			hash:      common.HexToHash("0x115"),
+			timestamp: 40,
 		},
 	}
 	for _, b := range blocks {
-		require.NoError(t, o1.InsertBlock(b.hash, b.number))
+		require.NoError(t, o1.InsertBlock(b.hash, b.number, time.Unix(b.timestamp, 0).UTC()))
 	}
 
 	var blockNumbers []uint64
@@ -92,7 +99,7 @@ func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
 		recentBlocks = append(recentBlocks, block{number: int64(i), hash: common.HexToHash(fmt.Sprintf("0x%d", i))})
 	}
 	for _, b := range recentBlocks {
-		require.NoError(t, o1.InsertBlock(b.hash, b.number))
+		require.NoError(t, o1.InsertBlock(b.hash, b.number, time.Now()))
 	}
 
 	var blockNumbers []uint64
@@ -118,7 +125,7 @@ func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
 func TestORM(t *testing.T) {
 	o1, o2 := setup(t)
 	// Insert and read back a block.
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 10))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 10, time.Now()))
 	b, err := o1.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.NoError(t, err)
 	assert.Equal(t, b.BlockNumber, int64(10))
@@ -126,8 +133,8 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, b.EvmChainId.String(), "137")
 
 	// Insert blocks from a different chain
-	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 11))
-	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1235"), 12))
+	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 11, time.Now()))
+	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1235"), 12, time.Now()))
 	b2, err := o2.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.NoError(t, err)
 	assert.Equal(t, b2.BlockNumber, int64(11))
@@ -246,7 +253,7 @@ func TestORM(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 10, only 0 confs should work
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 10))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 10, time.Now()))
 	log, err := o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
 	require.NoError(t, err)
 	assert.Equal(t, int64(10), log.BlockNumber)
@@ -255,8 +262,8 @@ func TestORM(t *testing.T) {
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
 	require.NoError(t, o1.DeleteBlocksAfter(10))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 12))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11, time.Now()))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 12, time.Now()))
 	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
 	require.NoError(t, err)
 	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 1)
@@ -268,9 +275,9 @@ func TestORM(t *testing.T) {
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
 	// Required for confirmations to work
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 13))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 14))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 15))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 13, time.Now()))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 14, time.Now()))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 15, time.Now()))
 	// Latest log for topic for addr "0x1234" is @ block 11
 	lgs, err := o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic}, 0)
 	require.NoError(t, err)
@@ -336,7 +343,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	o1, _ := setup(t)
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
 	insertLogsTopicValueRange(t, o1, addr, 1, eventSig, 1, 3)
 	insertLogsTopicValueRange(t, o1, addr, 2, eventSig, 4, 4) // unconfirmed
 
@@ -363,11 +370,11 @@ func TestORM_IndexedLogs(t *testing.T) {
 	assert.Equal(t, 3, len(lgs))
 
 	// Check confirmations work as expected.
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x2"), 2))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
 	lgs, err = o1.SelectIndexLogsTopicRange(addr, eventSig, 1, EvmWord(4), EvmWord(4), 1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x3"), 3))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x3"), 3, time.Now()))
 	lgs, err = o1.SelectIndexLogsTopicRange(addr, eventSig, 1, EvmWord(4), EvmWord(4), 1)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
@@ -377,7 +384,7 @@ func TestORM_DataWords(t *testing.T) {
 	o1, _ := setup(t)
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
 	require.NoError(t, o1.InsertLogs([]Log{
 		{
 			EvmChainId:  utils.NewBig(o1.chainID),
@@ -423,7 +430,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
 	// Confirm it, then can query.
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x2"), 2))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
 	lgs, err = o1.SelectDataWordRange(addr, eventSig, 1, EvmWord(3), EvmWord(3), 0)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
@@ -530,8 +537,8 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 
 func TestORM_DeleteBlocksBefore(t *testing.T) {
 	o1, _ := setup(t)
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 1))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 2))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 1, time.Now()))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 2, time.Now()))
 	require.NoError(t, o1.DeleteBlocksBefore(1))
 	// 1 should be gone.
 	_, err := o1.SelectBlockByNumber(1)
@@ -540,8 +547,8 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), b.BlockNumber)
 	// Clear multiple
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 3))
-	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1237"), 4))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 3, time.Now()))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1237"), 4, time.Now()))
 	require.NoError(t, o1.DeleteBlocksBefore(3))
 	_, err = o1.SelectBlockByNumber(2)
 	require.Equal(t, err, sql.ErrNoRows)
