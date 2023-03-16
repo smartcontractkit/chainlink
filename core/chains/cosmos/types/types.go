@@ -9,14 +9,8 @@ import (
 
 // ORM manages cosmos chains and nodes.
 type ORM interface {
-	Chain(string, ...pg.QOpt) (DBChain, error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	GetChainsByIDs(ids []string) (chains []DBChain, err error)
-
-	GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []db.Node, err error)
-	NodeNamed(string, ...pg.QOpt) (db.Node, error)
-	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
-	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
+	chains.ChainsORM[string, *db.ChainCfg, DBChain]
+	chains.NodesORM[string, db.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
 }
