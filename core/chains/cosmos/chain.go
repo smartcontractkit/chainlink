@@ -18,7 +18,6 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
@@ -42,12 +41,11 @@ var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id           string
-	cfg          coscfg.Config
-	cfgImmutable bool // toml config is immutable
-	txm          *cosmostxm.Txm
-	orm          types.ORM
-	lggr         logger.Logger
+	id   string
+	cfg  coscfg.Config
+	txm  *cosmostxm.Txm
+	orm  types.ORM
+	lggr logger.Logger
 }
 
 func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
@@ -83,14 +81,6 @@ func (c *chain) ID() string {
 
 func (c *chain) Config() coscfg.Config {
 	return c.cfg
-}
-
-func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
-	if c.cfgImmutable {
-		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
-		return
-	}
-	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() adapters.TxManager {

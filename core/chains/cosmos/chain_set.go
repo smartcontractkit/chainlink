@@ -71,7 +71,6 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.cfgImmutable = true
 	return c, nil
 }
 
