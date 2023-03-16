@@ -15,21 +15,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// GenericTxManager is type alias for txmgr.TxManager.
-// This is necessary because Golang doesn't allow embedding
-// txmgr.TxManager directly inside evmTxm struct.
-type GenericTxManager = txmgr.TxManager
-
 var _ httypes.HeadTrackable = &evmTxm{}
 
 // evmTxm is an evm wrapper over the generic TxManager interface
 type evmTxm struct {
 	httypes.HeadTrackable
-	GenericTxManager
+	txmgr.TxManager
 }
 
 func (e evmTxm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	e.GenericTxManager.OnNewLongestChain(ctx, head)
+	e.TxManager.OnNewLongestChain(ctx, head)
 }
 
 func newEvmTxm(
@@ -50,5 +45,5 @@ func newEvmTxm(
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-	return &evmTxm{GenericTxManager: txm}
+	return &evmTxm{TxManager: txm}
 }
