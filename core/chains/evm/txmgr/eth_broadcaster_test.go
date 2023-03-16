@@ -946,7 +946,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionAndReturnErrorType", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(firstNonce)
-		}), fromAddress).Return(txmtypes.Successful, errors.New("nonce too low")).Once()
+		}), fromAddress).Return(txmtypes.SuccessfulMissingReceipt, errors.New("nonce too low")).Once()
 
 		// Do the thing
 		{
@@ -1275,7 +1275,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransactionAndReturnErrorType", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(txmtypes.Unknown, errors.New(TxFeeExceedsCapError)).Twice()
+		}), fromAddress).Return(txmtypes.ExceedsFeeCap, errors.New(TxFeeExceedsCapError)).Twice()
 		// In the first case, the tx was NOT accepted into the mempool. In the case
 		// of multiple RPC nodes, it is possible that it can be accepted by
 		// another node even if the primary one returns "exceeds the configured

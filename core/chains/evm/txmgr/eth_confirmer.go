@@ -905,6 +905,8 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
+	case txmgrtypes.ExceedsFeeCap:
+		fallthrough
 	case txmgrtypes.Fatal:
 		// WARNING: This should never happen!
 		// Should NEVER be fatal this is an invariant violation. The

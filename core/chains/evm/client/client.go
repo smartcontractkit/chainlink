@@ -287,14 +287,19 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		// Note that we may have broadcast to multiple nodes and had it
+		// Broadcaster: Note that we may have broadcast to multiple nodes and had it
 		// accepted by one of them! It is not guaranteed that all nodes share
 		// the same tx fee cap. That is why we must treat this as an unknown
 		// error that may have been confirmed.
-		//
 		// If there is only one RPC node, or all RPC nodes have the same
 		// configured cap, this transaction will get stuck and keep repeating
 		// forever until the issue is resolved.
+		//
+		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
+		//
+		// Best thing we can do is to re-send the previous attempt at the old
+		// price and discard this bumped version.
+		return txmtypes.ExceedsFeeCap, err
 	}
 	return txmtypes.Unknown, err
 }

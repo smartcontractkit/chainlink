@@ -12,4 +12,5 @@ const (
 	Unsupported
 	SuccessfulMissingReceipt
 	InsufficientFunds
+	ExceedsFeeCap
 )
