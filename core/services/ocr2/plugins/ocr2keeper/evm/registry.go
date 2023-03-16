@@ -173,6 +173,10 @@ func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdenti
 	return id.Bytes(), nil
 }
 
+func (r *EvmRegistry) Name() string {
+	return r.lggr.Name()
+}
+
 func (r *EvmRegistry) Start(ctx context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
@@ -266,14 +270,14 @@ func (r *EvmRegistry) Ready() error {
 	return r.sync.Ready()
 }
 
-func (r *EvmRegistry) Healthy() error {
+func (r *EvmRegistry) HealthReport() map[string]error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if r.runState > 1 {
-		return fmt.Errorf("failed run state: %w", r.runError)
+		r.sync.SvcErrBuffer.Append(fmt.Errorf("failed run state: %w", r.runError))
 	}
-	return r.sync.Healthy()
+	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
 func (r *EvmRegistry) initialize() error {

@@ -75,7 +75,7 @@ func (hb *headBroadcaster) Name() string {
 	return hb.logger.Name()
 }
 func (hb *headBroadcaster) HealthReport() map[string]error {
-	return map[string]error{hb.Name(): hb.Healthy()}
+	return map[string]error{hb.Name(): hb.StartStopOnce.Healthy()}
 }
 
 func (hb *headBroadcaster) BroadcastNewLongestChain(head *evmtypes.Head) {

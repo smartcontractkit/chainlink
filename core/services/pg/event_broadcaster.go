@@ -313,7 +313,7 @@ func NewNullEventBroadcaster() *NullEventBroadcaster {
 
 var _ EventBroadcaster = &NullEventBroadcaster{}
 
-func (*NullEventBroadcaster) Name() string { return "" }
+func (*NullEventBroadcaster) Name() string { return "NullEventBroadcaster" }
 
 // Start does no-op.
 func (*NullEventBroadcaster) Start(context.Context) error { return nil }
@@ -323,9 +323,6 @@ func (*NullEventBroadcaster) Close() error { return nil }
 
 // Ready does no-op.
 func (*NullEventBroadcaster) Ready() error { return nil }
-
-// Healthy does no-op.
-func (*NullEventBroadcaster) Healthy() error { return nil }
 
 // HealthReport does no-op
 func (*NullEventBroadcaster) HealthReport() map[string]error { return map[string]error{} }

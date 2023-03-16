@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -92,19 +93,17 @@ func (cll *chainSet) Close() (err error) {
 	}
 	return
 }
-func (cll *chainSet) Healthy() (err error) {
-	for _, c := range cll.Chains() {
-		err = multierr.Combine(err, c.Healthy())
-	}
-	return
-}
 
 func (cll *chainSet) Name() string {
 	return cll.logger.Name()
 }
 
 func (cll *chainSet) HealthReport() map[string]error {
-	return map[string]error{cll.Name(): cll.Healthy()}
+	report := map[string]error{}
+	for _, c := range cll.Chains() {
+		maps.Copy(report, c.HealthReport())
+	}
+	return report
 }
 
 func (cll *chainSet) Ready() (err error) {

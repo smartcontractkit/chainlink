@@ -287,24 +287,18 @@ func (l *AuditLoggerService) Close() error {
 	return nil
 }
 
-func (l *AuditLoggerService) Healthy() error {
-	if !l.enabled {
-		return errors.New("the audit logger is not enabled")
-	}
-
-	if len(l.loggingChannel) == bufferCapacity {
-		return errors.New("buffer is full")
-	}
-
-	return nil
-}
-
 func (l *AuditLoggerService) Name() string {
 	return l.logger.Name()
 }
 
 func (l *AuditLoggerService) HealthReport() map[string]error {
-	return map[string]error{l.logger.Name(): l.Healthy()}
+	var err error
+	if !l.enabled {
+		err = errors.New("the audit logger is not enabled")
+	} else if len(l.loggingChannel) == bufferCapacity {
+		err = errors.New("buffer is full")
+	}
+	return map[string]error{l.Name(): err}
 }
 
 func (l *AuditLoggerService) Ready() error {
