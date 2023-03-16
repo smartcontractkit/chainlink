@@ -55,14 +55,13 @@ func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount comm
 
 func (mt *mercuryTransmitter) Start(ctx context.Context) error { return mt.rpcClient.Start(ctx) }
 func (mt *mercuryTransmitter) Close() error                    { return mt.rpcClient.Close() }
-func (mt *mercuryTransmitter) Healthy() error                  { return mt.rpcClient.Healthy() }
 func (mt *mercuryTransmitter) Ready() error                    { return mt.rpcClient.Ready() }
 func (mt *mercuryTransmitter) Name() string {
 	return mt.lggr.Name()
 }
 
 func (mt *mercuryTransmitter) HealthReport() map[string]error {
-	return map[string]error{mt.Name(): mt.Healthy()}
+	return mt.rpcClient.HealthReport()
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
