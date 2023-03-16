@@ -5,8 +5,9 @@ package mocks
 import (
 	context "context"
 
-	job "github.com/smartcontractkit/chainlink/core/services/job"
 	mock "github.com/stretchr/testify/mock"
+
+	job "github.com/smartcontractkit/chainlink/core/services/job"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 )

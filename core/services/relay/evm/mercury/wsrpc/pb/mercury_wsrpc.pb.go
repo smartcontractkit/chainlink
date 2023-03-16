@@ -7,11 +7,11 @@ package pb
 
 import (
 	context "context"
+
 	wsrpc "github.com/smartcontractkit/wsrpc"
 )
 
 // MercuryClient is the client API for Mercury service.
-//
 type MercuryClient interface {
 	Transmit(ctx context.Context, in *TransmitRequest) (*TransmitResponse, error)
 	LatestReport(ctx context.Context, in *LatestReportRequest) (*LatestReportResponse, error)

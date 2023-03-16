@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"

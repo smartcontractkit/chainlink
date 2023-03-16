@@ -40,11 +40,11 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 			return types.ConfigDigest{}, errors.Errorf("%v-th evm transmitter should be a 64 character hex-encoded ed25519 public key, but got '%v' (%d chars)", i, transmitter, len(transmitter))
 		}
 		var t credentials.StaticSizedPublicKey
-		if b, err := hex.DecodeString(string(transmitter)); err != nil {
+		b, err := hex.DecodeString(string(transmitter))
+		if err != nil {
 			return types.ConfigDigest{}, errors.Wrapf(err, "%v-th evm transmitter is not valid hex, got: %q", i, transmitter)
-		} else {
-			copy(t[:], b)
 		}
+		copy(t[:], b)
 
 		transmitters = append(transmitters, t)
 	}

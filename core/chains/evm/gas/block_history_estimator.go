@@ -73,7 +73,6 @@ var (
 
 const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current block prices by significant margin; tx will continue to be rebroadcasted but your node, RPC, or the chain might be experiencing connectivity issues; please investigate and fix ASAP"
 
-
 var _ EvmEstimator = &BlockHistoryEstimator{}
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

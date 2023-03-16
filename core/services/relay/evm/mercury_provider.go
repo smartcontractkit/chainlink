@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"

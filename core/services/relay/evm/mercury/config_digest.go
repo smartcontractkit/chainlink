@@ -8,10 +8,10 @@ import (
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_exposed_verifier"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_exposed_verifier"
 )
 
 func makeConfigDigestArgs() abi.Arguments {

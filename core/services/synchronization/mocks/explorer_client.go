@@ -5,8 +5,9 @@ package mocks
 import (
 	context "context"
 
-	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
 	mock "github.com/stretchr/testify/mock"
+
+	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
 
 	time "time"
 
