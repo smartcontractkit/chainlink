@@ -4,9 +4,8 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	mock "github.com/stretchr/testify/mock"
-
 	directrequestocr "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 

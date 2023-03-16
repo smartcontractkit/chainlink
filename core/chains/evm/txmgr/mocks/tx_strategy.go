@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	mock "github.com/stretchr/testify/mock"
-
 	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	mock "github.com/stretchr/testify/mock"
 
 	uuid "github.com/satori/go.uuid"
 )

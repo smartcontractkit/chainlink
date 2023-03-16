@@ -3,9 +3,8 @@
 package mocks
 
 import (
-	mock "github.com/stretchr/testify/mock"
-
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
+	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 

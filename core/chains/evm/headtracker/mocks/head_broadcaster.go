@@ -5,9 +5,8 @@ package mocks
 import (
 	context "context"
 
-	mock "github.com/stretchr/testify/mock"
-
 	headtrackertypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )

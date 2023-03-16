@@ -6,7 +6,6 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-
 	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
 	context "context"
