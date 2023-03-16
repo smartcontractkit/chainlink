@@ -80,7 +80,11 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 			},
 			Usage: "Run the Chainlink node",
 			Before: func(c *cli.Context) error {
-				return updateClientConfig(opts, c, client)
+				err := setOptsFromFlags(opts, c)
+				if err != nil {
+					return err
+				}
+				return setClientConfig(*opts, client)
 			},
 			Action: client.RunNode,
 		},
@@ -212,23 +216,6 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 	}
 }
 
-func updateClientConfig(opts *chainlink.GeneralConfigOpts, ctx *cli.Context, client *Client) error {
-
-	err := initConfigOpts(opts, ctx)
-	if err != nil {
-		return err
-	}
-	cfg, err := opts.New(client.Logger)
-	if err != nil {
-		return err
-	} else {
-		client.Config = cfg
-
-	}
-	return nil
-
-}
-
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
 
@@ -241,6 +228,12 @@ const (
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
+	/*
+		err := cli.Config.Validate()
+		if err != nil {
+			return err
+		}
+	*/
 	if err := cli.runNode(c); err != nil {
 		return cli.errorOut(err)
 	}

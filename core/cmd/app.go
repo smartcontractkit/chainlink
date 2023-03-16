@@ -68,16 +68,16 @@ func NewApp(client *Client) *cli.App {
 	}
 	app.Before = func(c *cli.Context) error {
 
-		// load opts and secrets here for backward compatibility
-		initConfigOpts(&opts, c)
-
-		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		// handle config and secrets flags here for backward compatibility
+		err := setOptsFromFlags(&opts, c)
+		if err != nil {
 			return err
-		} else {
-			client.Config = cfg
-			client.Logger = lggr
-			client.CloseLogger = closeLggr
 		}
+		err = setClientConfig(opts, client)
+		if err != nil {
+			return nil
+		}
+
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
@@ -225,7 +225,10 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
-func initConfigOpts(opts *chainlink.GeneralConfigOpts, cliCtx *cli.Context) error {
+// setOptsFromFlags is a help that modifies the given opts if the cli context contains
+// -config or -secrets flags.
+// calling for multiple contexts has the effect of upserting toml configuration into opts
+func setOptsFromFlags(opts *chainlink.GeneralConfigOpts, cliCtx *cli.Context) error {
 	fileNames := cliCtx.StringSlice("config")
 	if err := loadOpts(opts, fileNames...); err != nil {
 		return err
@@ -241,6 +244,20 @@ func initConfigOpts(opts *chainlink.GeneralConfigOpts, cliCtx *cli.Context) erro
 		secretsTOML = string(b)
 	}
 	return opts.ParseSecrets(secretsTOML)
+}
+
+// setClientConfig derives and sets new configuration based on the opts
+func setClientConfig(opts chainlink.GeneralConfigOpts, client *Client) error {
+
+	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		return err
+	} else {
+		client.Config = cfg
+		client.Logger = lggr
+		client.CloseLogger = closeLggr
+	}
+	return nil
+
 }
 
 // loadOpts applies file configs and then overlays env config

@@ -88,7 +88,11 @@ func initRemoteConfigSubCmds(client *Client, opts *chainlink.GeneralConfigOpts) 
 				},
 			},
 			Before: func(c *cli.Context) error {
-				return updateClientConfig(opts, c, client)
+				err := setOptsFromFlags(opts, c)
+				if err != nil {
+					return err
+				}
+				return setClientConfig(*opts, client)
 			},
 		},
 	}
