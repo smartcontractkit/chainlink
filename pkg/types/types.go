@@ -16,7 +16,6 @@ type Service interface {
 	Start(context.Context) error
 	Close() error
 	Ready() error
-	Healthy() error
 	HealthReport() map[string]error
 }
 
