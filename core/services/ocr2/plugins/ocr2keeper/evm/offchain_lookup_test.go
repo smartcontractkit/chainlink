@@ -557,10 +557,10 @@ func TestOffchainLookup_parseJson(t *testing.T) {
 			// query for json subset
 			name: "success - use select to get subset of json",
 			offchainLookup: OffchainLookup{
-				fields: []string{".abilities[] | select(.ability.name == \"overgrow\")"},
+				fields: []string{`.abilities[] | select(.ability.name == "overgrow")`},
 			},
 			body: content,
-			want: []string{"{\"ability\":{\"name\":\"overgrow\",\"url\":\"https://pokeapi.co/api/v2/ability/65/\"},\"is_hidden\":false,\"slot\":1}"},
+			want: []string{`{"ability":{"name":"overgrow","url":"https://pokeapi.co/api/v2/ability/65/"},"is_hidden":false,"slot":1}`},
 		},
 		{
 			// the first returns a single value. the second finds each value of name of each entry in "moves" and returns the last one found
@@ -568,7 +568,7 @@ func TestOffchainLookup_parseJson(t *testing.T) {
 			offchainLookup: OffchainLookup{
 				fields: []string{
 					".abilities[1].ability.name",
-					".moves[] | .move[\"name\"]"},
+					`.moves[] | .move["name"]`},
 			},
 			body: content,
 			want: []string{"chlorophyll", "grassy-glide"},
@@ -579,7 +579,7 @@ func TestOffchainLookup_parseJson(t *testing.T) {
 			offchainLookup: OffchainLookup{
 				fields: []string{
 					".sprites | [.back_default,.front_default]",
-					"[.types[] | .type.name]|join(\",\")"},
+					`[.types[] | .type.name]|join(",")`},
 			},
 			body: content,
 			want: []string{
@@ -591,8 +591,8 @@ func TestOffchainLookup_parseJson(t *testing.T) {
 			name: "success - selecting values",
 			offchainLookup: OffchainLookup{
 				fields: []string{
-					".abilities[] | select(.ability.name == \"overgrow\") | .is_hidden",
-					".stats[] | select(.stat.name == \"attack\") | .base_stat"},
+					`.abilities[] | select(.ability.name == "overgrow") | .is_hidden`,
+					`.stats[] | select(.stat.name == "attack") | .base_stat`},
 			},
 			body: content,
 			want: []string{"false", "49"},
@@ -604,7 +604,7 @@ func TestOffchainLookup_parseJson(t *testing.T) {
 				fields: []string{".types[]"},
 			},
 			body: content,
-			want: []string{"{\"slot\":2,\"type\":{\"name\":\"poison\",\"url\":\"https://pokeapi.co/api/v2/type/4/\"}}"},
+			want: []string{`{"slot":2,"type":{"name":"poison","url":"https://pokeapi.co/api/v2/type/4/"}}`},
 		},
 		{
 			name: "success - field not present",

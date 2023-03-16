@@ -41,13 +41,13 @@ type OffchainLookupBody struct {
 // offchainLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	for i, _ := range upkeepResults {
+		// if its another reason continue/skip
+		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
+			continue
+		}
 		block, upkeepId, err := blockAndIdFromKey(upkeepResults[i].Key)
 		if err != nil {
 			r.lggr.Error("[OffchainLookup] error getting block and upkeep id:", err)
-			continue
-		}
-		// if its another reason continue/skip
-		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
 
@@ -58,9 +58,8 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 			continue
 		}
 
-		var offchainLookup OffchainLookup
 		// if it doesn't decode to the offchain custom error continue/skip
-		offchainLookup, err = r.decodeOffchainLookup(upkeepResults[i].PerformData)
+		offchainLookup, err := r.decodeOffchainLookup(upkeepResults[i].PerformData)
 		if err != nil {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
 			r.lggr.Debug("[OffchainLookup] not an offchain revert decodeOffchainLookup:", err)
@@ -144,7 +143,6 @@ func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, err error, opts *bind.Cal
 
 // decodeOffchainLookup decodes the revert error ChainlinkAPIFetch(string url, bytes extraData, string[] jsonFields, bytes4 callbackSelector)
 func (r *EvmRegistry) decodeOffchainLookup(data []byte) (OffchainLookup, error) {
-	offchainLookup := OffchainLookup{}
 	e := r.apiFetchABI.Errors["ChainlinkAPIFetch"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
@@ -152,11 +150,12 @@ func (r *EvmRegistry) decodeOffchainLookup(data []byte) (OffchainLookup, error) 
 	}
 	errorParameters := unpack.([]interface{})
 
-	offchainLookup.url = *abi.ConvertType(errorParameters[0], new(string)).(*string)
-	offchainLookup.extraData = *abi.ConvertType(errorParameters[1], new([]byte)).(*[]byte)
-	offchainLookup.fields = *abi.ConvertType(errorParameters[2], new([]string)).(*[]string)
-	offchainLookup.callbackFunction = *abi.ConvertType(errorParameters[3], new([4]byte)).(*[4]byte)
-	return offchainLookup, nil
+	return OffchainLookup{
+		url:              *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		extraData:        *abi.ConvertType(errorParameters[1], new([]byte)).(*[]byte),
+		fields:           *abi.ConvertType(errorParameters[2], new([]string)).(*[]string),
+		callbackFunction: *abi.ConvertType(errorParameters[3], new([4]byte)).(*[4]byte),
+	}, nil
 }
 
 // offchainLookupCallback calls the callback(bytes calldata extraData, string[] calldata values, uint256 statusCode) specified by the
@@ -221,7 +220,9 @@ func (r *EvmRegistry) offchainLookupCallback(ctx context.Context, offchainLookup
 }
 
 func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int, offchainConfig []byte) ([]byte, int, error) {
-	client := http.Client{}
+	client := http.Client{
+		Timeout: 2 * time.Second,
+	}
 	var req *http.Request
 	var err error
 
@@ -241,7 +242,7 @@ func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int, offchainCon
 		case "header":
 			req.Header.Set(key.Name, value)
 		case "param":
-			newUrlString := strings.ReplaceAll(o.url, fmt.Sprintf("{%s}", key.Name), value)
+			newUrlString := strings.ReplaceAll(o.url, fmt.Sprintf("{%s}", key.Name), url.PathEscape(value))
 			u, urlErr := url.Parse(newUrlString)
 			if urlErr != nil {
 				continue
@@ -258,8 +259,6 @@ func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int, offchainCon
 
 	// Make an HTTP GET request to the request URL.
 	req.Header.Set("Content-Type", "application/json")
-	r.lggr.Debugf("[OffchainLookup] Headers: %+v\n", req.Header)
-	r.lggr.Debugf("[OffchainLookup] URL: %+v\n", req.URL)
 	resp, err := client.Do(req)
 	if err != nil {
 		r.setCachesOnAPIErr(upkeepId)
