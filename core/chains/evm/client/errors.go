@@ -220,8 +220,6 @@ func (s *SendError) is(errorType int) bool {
 	return false
 }
 
-var hexDataRegex = regexp.MustCompile(`0x\w+$`)
-
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
 	return s.is(ReplacementTransactionUnderpriced)

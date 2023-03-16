@@ -3,13 +3,12 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"go.uber.org/zap/zapcore"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -26,15 +25,18 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 )
 
 func TestVRFv2Basic(t *testing.T) {
 	linkEthFeedResponse := big.NewInt(1e18)
 	minimumConfirmations := 3
+	subID := uint64(1)
+	linkFundingAmount := big.NewInt(100)
+	numberOfWords := uint32(3)
 
 	t.Parallel()
+	l := actions.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFv2Test(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -60,18 +62,14 @@ func TestVRFv2Basic(t *testing.T) {
 	require.NoError(t, err)
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2(linkToken.Address(), bhs.Address(), mf.Address())
 	require.NoError(t, err)
-	consumer, err := contractDeployer.DeployVRFConsumerV2(linkToken.Address(), coordinator.Address())
+
+	consumer, err := contractDeployer.DeployVRFv2Consumer(coordinator.Address())
 	require.NoError(t, err)
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(1))
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	// https://docs.chain.link/docs/chainlink-vrf/#subscription-limits
-	linkFunding := big.NewInt(100)
-
-	err = linkToken.Transfer(consumer.Address(), big.NewInt(0).Mul(linkFunding, big.NewInt(1e18)))
-	require.NoError(t, err)
 	err = coordinator.SetConfig(
 		uint16(minimumConfirmations),
 		2.5e6,
@@ -93,19 +91,32 @@ func TestVRFv2Basic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	err = consumer.CreateFundedSubscription(big.NewInt(0).Mul(linkFunding, big.NewInt(1e18)))
+	err = coordinator.CreateSubscription()
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
+	err = coordinator.AddConsumer(subID, consumer.Address())
+	require.NoError(t, err, "Error adding a consumer to a subscription in VRFCoordinator contract")
+
+	actions.FundVRFCoordinatorV2Subscription(
+		t,
+		linkToken,
+		coordinator,
+		chainClient,
+		subID,
+		linkFundingAmount,
+	)
+
 	var (
 		job                *client.Job
 		encodedProvingKeys = make([][2]*big.Int, 0)
+		oracleAddress      string
 	)
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()
 		require.NoError(t, err)
-		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
+		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.NewV4()
 		os := &client.VRFV2TxPipelineSpec{
@@ -113,12 +124,12 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 		ost, err := os.String()
 		require.NoError(t, err)
-		oracleAddr, err := n.PrimaryEthAddress()
+		oracleAddress, err = n.PrimaryEthAddress()
 		require.NoError(t, err)
 		job, err = n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddresses:            []string{oracleAddr},
+			FromAddresses:            []string{oracleAddress},
 			EVMChainID:               fmt.Sprint(chainClient.GetNetworkConfig().ChainID),
 			MinIncomingConfirmations: minimumConfirmations,
 			PublicKey:                pubKeyCompressed,
@@ -130,30 +141,39 @@ func TestVRFv2Basic(t *testing.T) {
 		provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
 		require.NoError(t, err)
 		err = coordinator.RegisterProvingKey(
-			oracleAddr,
+			oracleAddress,
 			provingKey,
 		)
 		require.NoError(t, err)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 	}
 
-	words := uint32(3)
 	keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 	require.NoError(t, err)
-	err = consumer.RequestRandomness(keyHash, 1, uint16(minimumConfirmations), 1000000, words)
+
+	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), 1000000, numberOfWords)
 	require.NoError(t, err)
 
 	gom := gomega.NewGomegaWithT(t)
 	timeout := time.Minute * 2
+	var lastRequestID *big.Int
 	gom.Eventually(func(g gomega.Gomega) {
 		jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
-		randomness, err := consumer.GetAllRandomWords(context.Background(), int(words))
+		lastRequestID, err = consumer.GetLastRequestId(context.Background())
+		l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
+
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		for _, w := range randomness {
-			log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-			g.Expect(w.Uint64()).ShouldNot(gomega.BeNumerically("==", 0), "Expected the VRF job give an answer other than 0")
+		status, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(status.Fulfilled).Should(gomega.BeTrue())
+		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		for _, w := range status.RandomWords {
+			l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+			g.Expect(w.Uint64()).Should(gomega.BeNumerically(">", 0), "Expected the VRF job give an answer bigger than 0")
 		}
 	}, timeout, "1s").Should(gomega.Succeed())
 }

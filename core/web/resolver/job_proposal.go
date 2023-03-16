@@ -20,6 +20,8 @@ const (
 	APPROVED  JobProposalStatus = "APPROVED"
 	REJECTED  JobProposalStatus = "REJECTED"
 	CANCELLED JobProposalStatus = "CANCELLED"
+	DELETED   JobProposalStatus = "DELETED"
+	REVOKED   JobProposalStatus = "REVOKED"
 )
 
 func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
@@ -32,6 +34,10 @@ func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
 		return REJECTED, nil
 	case feeds.JobProposalStatusCancelled:
 		return CANCELLED, nil
+	case feeds.JobProposalStatusDeleted:
+		return DELETED, nil
+	case feeds.JobProposalStatusRevoked:
+		return REVOKED, nil
 	default:
 		return "", errors.New("invalid job proposal status")
 	}

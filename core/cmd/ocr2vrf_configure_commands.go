@@ -56,6 +56,7 @@ type ocr2vrfTemplateArgs struct {
 	vrfBeaconAddress      string
 	vrfCoordinatorAddress string
 	linkEthFeedAddress    string
+	sendingKeys           []string
 }
 
 const DKGTemplate = `
@@ -96,6 +97,7 @@ forwardingAllowed    = %t
 
 [relayConfig]
 chainID              = %d
+sendingKeys          = [%s]
 
 [pluginConfig]
 dkgEncryptionPublicKey = "%s"
@@ -305,6 +307,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 			vrfBeaconAddress:      c.String("vrf-beacon-address"),
 			vrfCoordinatorAddress: c.String("vrf-coordinator-address"),
 			linkEthFeedAddress:    c.String("link-eth-feed-address"),
+			sendingKeys:           sendingKeys,
 		})
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
@@ -424,6 +427,10 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
+	var sendingKeysString = fmt.Sprintf(`"%s"`, args.sendingKeys[0])
+	for x := 1; x < len(args.sendingKeys); x++ {
+		sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, args.sendingKeys[x])
+	}
 	sp := fmt.Sprintf(OCR2VRFTemplate,
 		args.chainID,
 		args.vrfBeaconAddress,
@@ -432,6 +439,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.useForwarder,
 		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
+		sendingKeysString,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
 		args.keyID,

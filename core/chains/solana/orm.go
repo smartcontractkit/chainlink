@@ -14,26 +14,10 @@ type DBChain = chains.DBChain[string, *soldb.ChainCfg]
 
 // ORM manages solana chains and nodes.
 type ORM interface {
-	Chain(string, ...pg.QOpt) (DBChain, error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id string, config *soldb.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id string, enabled bool, config *soldb.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	DeleteChain(id string, qopts ...pg.QOpt) error
-	GetChainsByIDs(ids []string) (chains []DBChain, err error)
-	EnabledChains(...pg.QOpt) ([]DBChain, error)
+	chains.ChainsORM[string, *soldb.ChainCfg, DBChain]
+	chains.NodesORM[string, soldb.Node]
 
-	CreateNode(soldb.Node, ...pg.QOpt) (soldb.Node, error)
-	DeleteNode(int32, ...pg.QOpt) error
-	GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []soldb.Node, err error)
-	NodeNamed(string, ...pg.QOpt) (soldb.Node, error)
-	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
-	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
-
-	SetupNodes([]soldb.Node, []string) error
 	EnsureChains([]string, ...pg.QOpt) error
-
-	StoreString(chainID string, key, val string) error
-	Clear(chainID string, key string) error
 }
 
 var _ chains.ORM[string, *soldb.ChainCfg, soldb.Node] = (ORM)(nil)

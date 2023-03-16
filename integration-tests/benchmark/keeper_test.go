@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	env_client "github.com/smartcontractkit/chainlink-env/client"
@@ -158,16 +157,17 @@ type BenchmarkTestEntry struct {
 }
 
 func TestAutomationBenchmark(t *testing.T) {
+	l := actions.GetTestLogger(t)
 	testEnvironment, benchmarkNetwork, registryToTest := SetupAutomationBenchmarkEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 	networkTestName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkTestName, registryToTest)
-	log.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
+	l.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
 	benchmarkTestEntry := tests[testName]
 
-	log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
+	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
 	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
@@ -204,7 +204,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	)
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
-			log.Error().Err(err).Msg("Error when tearing down remote suite")
+			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
 	keeperBenchmarkTest.Setup(t, testEnvironment)
@@ -347,6 +347,7 @@ func getEnv(key, fallback string) string {
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, string) {
+	l := actions.GetTestLogger(t)
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"
@@ -469,7 +470,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[0])
 		}
 	}
-	log.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
+	l.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
 	for i := 0; i < NumberOfNodes; i++ {
 		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
