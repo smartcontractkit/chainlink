@@ -29,7 +29,6 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
 	devMode := v2.EnvDev.IsTrue()
-
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -69,7 +68,7 @@ func NewApp(client *Client) *cli.App {
 	app.Before = func(c *cli.Context) error {
 
 		// setup a default config and logger
-		// these will be overwritten later if a config is specified
+		// these will be overwritten later if a TOML config is specified
 		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 			return err
 		} else {
