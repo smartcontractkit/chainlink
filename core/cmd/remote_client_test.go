@@ -500,7 +500,7 @@ func TestClient_Profile(t *testing.T) {
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	set.Uint("seconds", 10, "")
+	set.Uint("seconds", 1, "")
 	tDir := t.TempDir()
 	set.String("output_dir", tDir, "")
 
