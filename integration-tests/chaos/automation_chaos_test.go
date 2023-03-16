@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -107,6 +106,7 @@ const (
 
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
+	l := actions.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -251,7 +251,7 @@ func TestAutomationChaos(t *testing.T) {
 				defaultUpkeepGasLimit,
 			)
 
-			log.Info().Msg("Waiting for all upkeeps to be performed")
+			l.Info().Msg("Waiting for all upkeeps to be performed")
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -260,7 +260,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
-					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
@@ -275,7 +275,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10
-					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}

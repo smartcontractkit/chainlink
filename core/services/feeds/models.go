@@ -132,6 +132,8 @@ const (
 	JobProposalStatusApproved  JobProposalStatus = "approved"
 	JobProposalStatusRejected  JobProposalStatus = "rejected"
 	JobProposalStatusCancelled JobProposalStatus = "cancelled"
+	JobProposalStatusDeleted   JobProposalStatus = "deleted"
+	JobProposalStatusRevoked   JobProposalStatus = "revoked"
 )
 
 // JobProposal represents a proposal which has been sent by a Feeds Manager.
@@ -155,7 +157,7 @@ type JobProposal struct {
 type SpecStatus string
 
 const (
-	// SpecStatusPending defines a spec status  which has been proposed by the
+	// SpecStatusPending defines a spec status which has been proposed by the
 	// FMS.
 	SpecStatusPending SpecStatus = "pending"
 	// SpecStatusApproved defines a spec status which the node op has approved.

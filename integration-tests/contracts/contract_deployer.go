@@ -61,6 +61,7 @@ type ContractDeployer interface {
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
+	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployDKG() (DKG, error)
@@ -74,8 +75,11 @@ type ContractDeployer interface {
 	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 	DeployAtlasFunctions() (AtlasFunctions, error)
+	LoadVerifierProxy(address common.Address) (VerifierProxy, error)
 	DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error)
-	DeployVerifier(feedId [32]byte, verifierProxyAddr string) (Verifier, error)
+	LoadVerifier(address common.Address) (Verifier, error)
+	DeployVerifier(verifierProxyAddr string) (Verifier, error)
+	LoadExchanger(address common.Address) (Exchanger, error)
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
 }
 

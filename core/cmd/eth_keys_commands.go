@@ -40,17 +40,6 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 				},
 			},
 			{
-				Name:   "update",
-				Usage:  "Update the existing key's parameters",
-				Action: client.UpdateETHKey,
-				Flags: []cli.Flag{
-					cli.Uint64Flag{
-						Name:  "maxGasPriceGWei",
-						Usage: "Maximum gas price (GWei) for the specified key.",
-					},
-				},
-			},
-			{
 				Name:   "list",
 				Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
 				Action: client.ListETHKeys,
@@ -219,38 +208,6 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	}()
 
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key created.\n\n🔑 New key")
-}
-
-// UpdateETHKey updates an Ethereum key's parameters,
-// address of key must be passed as well as at least one parameter to update
-func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the address of the key to be updated"))
-	}
-	address := c.Args().Get(0)
-	updateUrl := url.URL{
-		Path: "/v2/keys/evm/" + address,
-	}
-
-	query := updateUrl.Query()
-	if c.IsSet("maxGasPriceGWei") {
-		query.Set("maxGasPriceGWei", c.String("maxGasPriceGWei"))
-	} else {
-		return cli.errorOut(errors.New("Must pass at least one parameter to update"))
-	}
-
-	updateUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Put(updateUrl.String(), nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key updated.\n\n🔑 Updated key")
 }
 
 // DeleteETHKey hard deletes an Ethereum key,

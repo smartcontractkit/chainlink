@@ -9,10 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     map[string]interface{}
 //
+//	map[string]interface{}
 type MergeTask struct {
 	BaseTask `mapstructure:",squash"`
 	Left     string `json:"left"`
