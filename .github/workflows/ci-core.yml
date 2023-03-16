@@ -79,7 +79,7 @@ jobs:
         ##
         uses: smartcontractkit/golangci-lint-action@54ab6c5f11d66a92d14c3f7cc41ea13f676644bd # feature/multiple-output-formats-backup
         with:
-          version: v1.51.1
+          version: v1.51.2
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
           allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
@@ -138,9 +138,7 @@ jobs:
     name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
-      LOG_LEVEL: debug
     steps:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
