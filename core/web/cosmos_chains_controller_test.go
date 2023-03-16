@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"testing"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -98,14 +98,14 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &cosmos.CosmosConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		ChainID: ptr(cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
 	chainB := &cosmos.CosmosConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		ChainID: ptr(cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),

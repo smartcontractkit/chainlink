@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -36,7 +37,7 @@ import (
 
 func TestTxm_Integration(t *testing.T) {
 	t.Skip("requires wasmd")
-	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	chainID := cosmotest.RandomChainID()
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	chain := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: coscfg.Chain{
 		FallbackGasPriceUAtom: ptr(decimal.RequireFromString("0.01")),
