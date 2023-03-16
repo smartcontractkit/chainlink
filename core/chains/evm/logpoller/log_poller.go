@@ -129,7 +129,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		rpcBatchSize:      rpcBatchSize,
 		keepBlocksDepth:   keepBlocksDepth,
 		filters:           make(map[string]Filter),
-		filterDirty:       true, // Always build Filter on first call to cache an empty Filter if nothing registered yet.
+		filterDirty:       true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
 	}
 }
 
@@ -139,7 +139,7 @@ type Filter struct {
 	Addresses evmtypes.AddressArray
 }
 
-// FilterName is a suggested convenience function for clients to construct unique Filter names
+// FilterName is a suggested convenience function for clients to construct unique filter names
 // to populate Name field of struct Filter
 func FilterName(id string, args ...any) string {
 	if len(args) == 0 {
@@ -155,8 +155,8 @@ func FilterName(id string, args ...any) string {
 	return s.String()
 }
 
-// Contains returns true if this Filter already fully Contains a
-// Filter passed to it.
+// Contains returns true if this filter already fully Contains a
+// filter passed to it.
 func (filter *Filter) Contains(other *Filter) bool {
 	if other == nil {
 		return true
@@ -183,12 +183,12 @@ func (filter *Filter) Contains(other *Filter) bool {
 	return true
 }
 
-// RegisterFilter adds the provided EventSigs and Addresses to the log poller's log Filter query.
+// RegisterFilter adds the provided EventSigs and Addresses to the log poller's log filter query.
 // If any eventSig is emitted from any address, it will be captured by the log poller.
 // If an event matching any of the given event signatures is emitted from any of the provided Addresses,
 // the log poller will pick those up and save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then Replay in order to ensure desired logs are present.
-// NOTE: due to constraints of the eth Filter, there is "leakage" between successive MergeFilter calls, for example
+// NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
 //
 //	RegisterFilter(event1, addr1)
 //	RegisterFilter(event2, addr2)
@@ -196,7 +196,7 @@ func (filter *Filter) Contains(other *Filter) bool {
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
-// The Filter may be unregistered later by Filter.Name
+// The filter may be unregistered later by Filter.Name
 func (lp *logPoller) RegisterFilter(filter Filter) error {
 	if len(filter.Addresses) == 0 {
 		return errors.Errorf("at least one address must be specified")
@@ -224,13 +224,13 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 			// Nothing new in this Filter
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing Filter %s with more events or addresses", "Filter.Name", filter.Name)
+		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "Filter.Name", filter.Name)
 	} else {
-		lp.lggr.Debugf("Creating new Filter %s", filter.Name)
+		lp.lggr.Debugf("Creating new filter %s", filter.Name)
 	}
 
 	if err := lp.orm.InsertFilter(filter); err != nil {
-		return errors.Wrap(err, "RegisterFilter failed to save Filter to db")
+		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
 	}
 	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
@@ -246,7 +246,7 @@ func (lp *logPoller) UnregisterFilter(name string) error {
 		return errors.Errorf("Filter %s not found", name)
 	}
 	if err := lp.orm.DeleteFilter(name); err != nil {
-		return errors.Wrapf(err, "Failed to delete Filter %s", name)
+		return errors.Wrapf(err, "Failed to delete filter %s", name)
 	}
 	delete(lp.filters, name)
 	lp.filterDirty = true
@@ -287,7 +287,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 		return bytes.Compare(eventSigs[i][:], eventSigs[j][:]) < 0
 	})
 	if len(eventSigs) == 0 && len(addresses) == 0 {
-		// If no Filter specified, ignore everything.
+		// If no filter specified, ignore everything.
 		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
 		// then as jobs are added dynamically start using their filters.
 		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
@@ -301,7 +301,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
-// Replay can be used to ensure that Filter modification has been applied for all blocks from "fromBlock" up to latest.
+// Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
