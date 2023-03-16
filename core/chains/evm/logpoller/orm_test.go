@@ -160,7 +160,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, b2.BlockNumber, int64(11))
 	assert.Equal(t, b2.BlockHash.Bytes(), common.HexToHash("0x1234").Bytes())
-	assert.Equal(t, b2.EvmChainId.String(), th.ChainID.String())
+	assert.Equal(t, b2.EvmChainId.String(), th.ChainID2.String())
 
 	latest, err := o1.SelectLatestBlock()
 	require.NoError(t, err)
