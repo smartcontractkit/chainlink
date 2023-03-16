@@ -17,6 +17,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -78,13 +79,14 @@ func (r *Relayer) Ready() error {
 	return nil
 }
 
-// Healthy does noop: always healthy
+// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+// https://smartcontract-it.atlassian.net/browse/BCF-2140
 func (r *Relayer) Healthy() error {
 	return nil
 }
 
 func (r *Relayer) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
+	return r.chainSet.HealthReport()
 }
 
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
@@ -212,7 +214,7 @@ func (c *configWatcher) Close() error {
 }
 
 func (c *configWatcher) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
+	return map[string]error{c.Name(): c.StartStopOnce.Healthy()}
 }
 
 func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
@@ -445,12 +447,16 @@ func (p *medianProvider) Ready() error {
 	return multierr.Combine(p.configWatcher.Ready(), p.contractTransmitter.Ready())
 }
 
+// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+// https://smartcontract-it.atlassian.net/browse/BCF-2140
 func (p *medianProvider) Healthy() error {
-	return multierr.Combine(p.configWatcher.Healthy(), p.contractTransmitter.Healthy())
+	return nil
 }
 
 func (p *medianProvider) HealthReport() map[string]error {
-	return map[string]error{p.Name(): p.Healthy()}
+	report := p.configWatcher.HealthReport()
+	maps.Copy(report, p.contractTransmitter.HealthReport())
+	return report
 }
 
 func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

@@ -97,6 +97,10 @@ func NewLogProvider(
 	}, nil
 }
 
+func (c *LogProvider) Name() string {
+	return c.logger.Name()
+}
+
 func (c *LogProvider) Start(ctx context.Context) error {
 	return c.sync.StartOnce("AutomationLogProvider", func() error {
 		c.mu.Lock()
@@ -130,14 +134,14 @@ func (c *LogProvider) Ready() error {
 	return c.sync.Ready()
 }
 
-func (c *LogProvider) Healthy() error {
+func (c *LogProvider) HealthReport() map[string]error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	if c.runState > 1 {
-		return fmt.Errorf("failed run state: %w", c.runError)
+		c.sync.SvcErrBuffer.Append(fmt.Errorf("failed run state: %w", c.runError))
 	}
-	return c.sync.Healthy()
+	return map[string]error{c.Name(): c.sync.Healthy()}
 }
 
 func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog, error) {

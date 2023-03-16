@@ -40,11 +40,8 @@ func (NoopTelemetryIngressClient) Close() error { return nil }
 // Send is a no-op
 func (NoopTelemetryIngressClient) Send(TelemPayload) {}
 
-// Healthy is a no-op
-func (NoopTelemetryIngressClient) Healthy() error { return nil }
-
 func (NoopTelemetryIngressClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopTelemetryIngressClient) Name() string                   { return "" }
+func (NoopTelemetryIngressClient) Name() string                   { return "NoopTelemetryIngressClient" }
 
 // Ready is a no-op
 func (NoopTelemetryIngressClient) Ready() error { return nil }

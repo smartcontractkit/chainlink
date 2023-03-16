@@ -74,20 +74,6 @@ func (_m *Broadcaster) HealthReport() map[string]error {
 	return r0
 }
 
-// Healthy provides a mock function with given fields:
-func (_m *Broadcaster) Healthy() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // IsConnected provides a mock function with given fields:
 func (_m *Broadcaster) IsConnected() bool {
 	ret := _m.Called()

@@ -210,20 +210,6 @@ func (_m *ORM) HealthReport() map[string]error {
 	return r0
 }
 
-// Healthy provides a mock function with given fields:
-func (_m *ORM) Healthy() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
 func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))

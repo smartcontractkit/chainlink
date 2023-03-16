@@ -12,6 +12,8 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -330,7 +332,10 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 		headers.TrySend(cltest.Head(1))
 	}()
 
-	g.Eventually(func() bool { return ht.headTracker.Healthy() == nil }, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
+	g.Eventually(func() bool {
+		report := ht.headTracker.HealthReport()
+		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
+	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 
 	// trigger reconnect loop
 	headers.CloseCh()
@@ -393,7 +398,9 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	}()
 
 	gomega.NewWithT(t).Eventually(func() bool {
-		return ht.headTracker.Healthy() == nil && ht.headBroadcaster.Healthy() == nil
+		report := ht.headTracker.HealthReport()
+		maps.Copy(report, ht.headBroadcaster.HealthReport())
+		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
 	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 
 	h, err := orm.LatestHead(testutils.Context(t))
@@ -1030,7 +1037,8 @@ func (u *headTrackerUniverse) Start(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
-		return u.headBroadcaster.Healthy() == nil
+		report := u.headBroadcaster.HealthReport()
+		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
 	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 
 	t.Cleanup(func() {
