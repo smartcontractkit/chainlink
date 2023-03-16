@@ -19,11 +19,35 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 )
 
+// var configs mercury.TestEnvConfigs
+
+// func TestMain(m *testing.M) {
+// 	logging.Init()
+
+// 	configs = mercury.LoadSavedEnvConfigs()
+
+// 	exitVal := m.Run()
+
+// 	configs.Save()
+
+// 	os.Exit(exitVal)
+// }
+
+func TestMercurySmoke2(t *testing.T) {
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
+
+	t.Cleanup(func() {
+		testEnv.Cleanup(t)
+	})
+	require.NoError(t, err)
+}
+
 // TODO: tests that use different env should use different env configs. Save list of tests into json with [{name: testName, testEnvConfig: {}}]
 func TestMercurySmoke(t *testing.T) {
 	l := actions.GetTestLogger(t)
 
-	testEnv, err := mercury.SetupMercuryTestEnv("smoke", nil, nil)
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
+
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
 	})
@@ -34,32 +58,53 @@ func TestMercurySmoke(t *testing.T) {
 		feedIdBytes = mercury.StringToByte32(feedId)
 	)
 
+	testEnv.AddEvmNetwork()
+
+	// // each call updates test env struct
+	// // when reconstructing from config, each function should do it individually
+	// err = testEnv.AddDON()
+	// require.NoError(t, err)
+
+	// ocrConfig, err := testEnv.BuildOCRConfig()
+	// require.NoError(t, err)
+
+	// err = testEnv.AddMercuryServer(nil, nil)
+	// require.NoError(t, err)
+
+	// // saved in the test env state in list of verifier contracts
+	// // verifier1 will be saved in env config so that it can be loaded when config reused
+	// verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy")
+	// require.NoError(t, err)
+	// verifierContract1, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
+	// require.NoError(t, err)
+	// exchangerContract, err := testEnv.AddExchangerContract("exchanger1", verifierProxyContract.Address(),
+	// 	"", 255)
+	// _ = exchangerContract
+
+	// require.NoError(t, err)
+
+	// // Initialize first feed
+	// err = verifierContract1.SetConfig(feedIdBytes, *ocrConfig)
+	// require.NoError(t, err)
+	// configDetails, err := verifierContract1.LatestConfigDetails(feedIdBytes)
+	// require.NoError(t, err)
+	// verifierProxyContract.InitializeVerifier(configDetails.ConfigDigest, verifierContract1.Address())
+
+	// // verifierContract2 := testEnv.AddVerifierContract("verifier2")
+
+	// err = testEnv.AddBootstrapJob(verifierContract1.Address(), uint64(configDetails.BlockNumber), feedId)
+	// require.NoError(t, err)
+
+	// // testEnv.AddBootstrapJob("bootstrap-2", verifierContract2)
+
+	// err = testEnv.AddOCRJobs(verifierContract1.Address(), uint64(configDetails.BlockNumber), feedId)
+	// require.NoError(t, err)
+
+	// err = testEnv.WaitForReportsInMercuryDb([]string{feedId})
+	// require.NoError(t, err)
+
 	t.Run("multiple feeds using separate verifier contracts", func(t *testing.T) {
 		// setup multiple job specs with different feed ids
-
-		testEnv, _ := mercury.NewEnv("smoke")
-
-		testEnv.SetupEvmNetwork()
-
-		// each call updates test env struct
-		// when reconstructing from config, each function should do it individually
-		err := testEnv.AddDON()
-		require.NoError(t, err)
-
-		err = testEnv.AddMercuryServer()
-		require.NoError(t, err)
-
-		// saved in the test env state in list of verifier contracts
-		// verifier1 will be saved in env config so that it can be loaded when config reused
-		verifierContract1 := testEnv.AddVerifierContract("verifier1")
-		verifierContract2 := testEnv.AddVerifierContract("verifier2")
-
-		// job name can be saved in config
-		testEnv.AddBootstrapJob("bootstrap-1", verifierContract1)
-		testEnv.AddBootstrapJob("bootstrap-2", verifierContract2)
-
-		testEnv.AddOCRJob("ocr2-1", verifierContract1)
-		testEnv.AddOCRJob("ocr2-2", verifierContract2)
 
 	})
 
