@@ -145,7 +145,7 @@ type WrappedEvmEstimator struct {
 	EIP1559Enabled bool
 }
 
-//var _ txmgrtypes.FeeEstimator[txmgrtypes.Head, EvmFee, *assets.Wei, common.Hash] = (*WrappedEvmEstimator)(nil)
+var _ txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] = (*WrappedEvmEstimator)(nil)
 
 func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
 	return &WrappedEvmEstimator{
