@@ -257,17 +257,14 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
-      - run: make mockery
-      - run: make codecgen
-      - run: make abigen
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - run: make generate # generate install go deps
+      - name: Ensure clean after generate
+        run: git diff --stat --exit-code
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: git diff --minimal --exit-code
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - run: make generate
-      - name: Ensure clean after generate
-        run: git diff --stat --exit-code
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

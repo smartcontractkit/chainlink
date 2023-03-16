@@ -11,7 +11,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsOracleMigration is
+contract FunctionsOracleOriginal is
   Initializable,
   FunctionsOracleInterface,
   OCR2BaseUpgradeable,
@@ -146,7 +146,7 @@ contract FunctionsOracleMigration is
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between nodes of the DON here
     // e.g. 0.1 LINK * s_transmitters.length
-    return 1;
+    return 0;
   }
 
   /**

@@ -20,7 +20,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsBillingRegistryMigration is
+contract FunctionsBillingRegistryOriginal is
   Initializable,
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
@@ -284,7 +284,7 @@ contract FunctionsBillingRegistryMigration is
     bytes calldata, /* data */
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
-    return 1;
+    return 0;
   }
 
   /**
