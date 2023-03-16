@@ -21,15 +21,8 @@ import (
 )
 
 type ORM interface {
-	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
-	EnabledChains(...pg.QOpt) ([]DBChain, error)
-
-	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
-	NodeNamed(string, ...pg.QOpt) (Node, error)
-	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
-	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
+	chains.ChainsORM[utils.Big, *ChainCfg, DBChain]
+	chains.NodesORM[utils.Big, Node]
 
 	EnsureChains([]utils.Big, ...pg.QOpt) error
 }

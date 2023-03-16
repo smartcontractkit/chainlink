@@ -3,6 +3,7 @@ package logpoller
 import (
 	"database/sql"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -30,10 +31,10 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 }
 
 // InsertBlock is idempotent to support replays.
-func (o *ORM) InsertBlock(h common.Hash, n int64, qopts ...pg.QOpt) error {
+func (o *ORM) InsertBlock(h common.Hash, n int64, t time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`INSERT INTO evm_log_poller_blocks (evm_chain_id, block_hash, block_number, created_at) 
-      VALUES ($1, $2, $3, NOW()) ON CONFLICT DO NOTHING`, utils.NewBig(o.chainID), h[:], n)
+	err := q.ExecQ(`INSERT INTO evm_log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, created_at) 
+      VALUES ($1, $2, $3, $4, NOW()) ON CONFLICT DO NOTHING`, utils.NewBig(o.chainID), h[:], n, t)
 	return err
 }
 
@@ -158,8 +159,8 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 		}
 
 		err := q.ExecQNamed(`INSERT INTO evm_logs 
-(evm_chain_id, log_index, block_hash, block_number, address, event_sig, topics, tx_hash, data, created_at) VALUES 
-(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
+(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) VALUES 
+(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
 
 		if err != nil {
 			return err

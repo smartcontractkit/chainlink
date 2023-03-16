@@ -62,30 +62,6 @@ func (o *chainsORMImmut[I, C]) GetChainsByIDs(ids []I) (chains []DBChain[I, C], 
 	return o.data.Chains(ids...), nil
 }
 
-func (o *chainsORMImmut[I, C]) CreateChain(id I, config C, _ ...pg.QOpt) (chain DBChain[I, C], err error) {
-	err = v2.ErrUnsupported
-	return
-}
-
-func (o *chainsORMImmut[I, C]) UpdateChain(id I, enabled bool, config C, _ ...pg.QOpt) (chain DBChain[I, C], err error) {
-	err = v2.ErrUnsupported
-	return
-}
-
-// StoreString saves a string value into the config for the given chain and key
-func (o *chainsORMImmut[I, C]) StoreString(chainID I, name, val string) error {
-	return v2.ErrUnsupported
-}
-
-// Clear deletes a config value for the given chain and key
-func (o *chainsORMImmut[I, C]) Clear(chainID I, name string) error {
-	return v2.ErrUnsupported
-}
-
-func (o *chainsORMImmut[I, C]) DeleteChain(id I, _ ...pg.QOpt) error {
-	return v2.ErrUnsupported
-}
-
 func (o *chainsORMImmut[I, C]) Chains(offset, limit int, _ ...pg.QOpt) (chains []DBChain[I, C], count int, err error) {
 	chains = o.data.Chains()
 	count = len(chains)
@@ -97,11 +73,6 @@ func (o *chainsORMImmut[I, C]) Chains(offset, limit int, _ ...pg.QOpt) (chains [
 	if limit > 0 && len(chains) > limit {
 		chains = chains[:limit]
 	}
-	return
-}
-
-func (o *chainsORMImmut[I, C]) EnabledChains(_ ...pg.QOpt) (chains []DBChain[I, C], err error) {
-	err = v2.ErrUnsupported
 	return
 }
 
@@ -118,15 +89,6 @@ type nodeData[I ID, N Node] interface {
 
 func newNodesORMImmut[I ID, N Node](d nodeData[I, N]) *nodesORMImmut[I, N] {
 	return &nodesORMImmut[I, N]{data: d}
-}
-
-func (o *nodesORMImmut[I, N]) CreateNode(data N, _ ...pg.QOpt) (node N, err error) {
-	err = v2.ErrUnsupported
-	return
-}
-
-func (o *nodesORMImmut[I, N]) DeleteNode(id int32, _ ...pg.QOpt) error {
-	return v2.ErrUnsupported
 }
 
 func (o *nodesORMImmut[I, N]) NodeNamed(name string, _ ...pg.QOpt) (node N, err error) {

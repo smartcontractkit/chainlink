@@ -349,7 +349,7 @@ func (lp *logPoller) Name() string {
 }
 
 func (lp *logPoller) HealthReport() map[string]error {
-	return map[string]error{lp.Name(): lp.Healthy()}
+	return map[string]error{lp.Name(): lp.StartStopOnce.Healthy()}
 }
 
 func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
@@ -521,21 +521,39 @@ func (lp *logPoller) run() {
 	}
 }
 
-func convertLogs(chainID *big.Int, logs []types.Log) []Log {
+// convertLogs converts an array of geth logs ([]type.Log) to an array of logpoller logs ([]Log)
+//
+//	Block timestamps are extracted from blocks param.  If len(blocks) == 1, the same timestamp from this block
+//	will be used for all logs.  If len(blocks) == len(logs) then the block number of each block is used for the
+//	corresponding log.  Any other length for blocks is invalid.
+func convertLogs(logs []types.Log, blocks []LogPollerBlock, lggr logger.Logger, chainID *big.Int) []Log {
 	var lgs []Log
-	for _, l := range logs {
+	blockTimestamp := time.Now()
+	if len(logs) == 0 {
+		return lgs
+	}
+	if len(blocks) != 1 && len(blocks) != len(logs) {
+		lggr.Errorf("AssumptionViolation:  invalid params passed to convertLogs, length of blocks must either be 1 or match length of logs")
+		return lgs
+	}
+
+	for i, l := range logs {
+		if i == 0 || len(blocks) == len(logs) {
+			blockTimestamp = blocks[i].BlockTimestamp
+		}
 		lgs = append(lgs, Log{
 			EvmChainId: utils.NewBig(chainID),
 			LogIndex:   int64(l.Index),
 			BlockHash:  l.BlockHash,
 			// We assume block numbers fit in int64
 			// in many places.
-			BlockNumber: int64(l.BlockNumber),
-			EventSig:    l.Topics[0], // First topic is always event signature.
-			Topics:      convertTopics(l.Topics),
-			Address:     l.Address,
-			TxHash:      l.TxHash,
-			Data:        l.Data,
+			BlockNumber:    int64(l.BlockNumber),
+			BlockTimestamp: blockTimestamp,
+			EventSig:       l.Topics[0], // First topic is always event signature.
+			Topics:         convertTopics(l.Topics),
+			Address:        l.Address,
+			TxHash:         l.TxHash,
+			Data:           l.Data,
 		})
 	}
 	return lgs
@@ -549,6 +567,15 @@ func convertTopics(topics []common.Hash) [][]byte {
 	return topicsForDB
 }
 
+func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log) (blocks []LogPollerBlock, err error) {
+	var numbers []uint64
+	for _, log := range logs {
+		numbers = append(numbers, log.BlockNumber)
+	}
+
+	return lp.GetBlocksRange(ctx, numbers)
+}
+
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
@@ -556,17 +583,22 @@ func convertTopics(topics []common.Hash) [][]byte {
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	for from := start; from <= end; from += lp.backfillBatchSize {
 		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
-		logs, err := lp.ec.FilterLogs(ctx, lp.filter(big.NewInt(from), big.NewInt(to), nil))
+		gethLogs, err := lp.ec.FilterLogs(ctx, lp.filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
 			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
 			return err
 		}
-		if len(logs) == 0 {
+		if len(gethLogs) == 0 {
 			continue
 		}
-		lp.lggr.Infow("Backfill found logs", "from", from, "to", to, "logs", len(logs))
+		blocks, err := lp.blocksFromLogs(ctx, gethLogs)
+		if err != nil {
+			return err
+		}
+
+		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs))
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
+			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID()), pg.WithQueryer(tx))
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
@@ -734,13 +766,18 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 		lp.lggr.Debugw("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
+			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, pg.WithQueryer(tx)); err2 != nil {
 				return err2
 			}
 			if len(logs) == 0 {
 				return nil
 			}
-			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
+			return lp.orm.InsertLogs(convertLogs(logs,
+				[]LogPollerBlock{{BlockNumber: currentBlockNumber,
+					BlockTimestamp: currentBlock.Timestamp}},
+				lp.lggr,
+				lp.ec.ChainID(),
+			), pg.WithQueryer(tx))
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)
@@ -795,7 +832,9 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 		}
 	}
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
-	return nil, errors.New("Reorg greater than finality depth")
+	rerr := errors.New("Reorg greater than finality depth")
+	lp.SvcErrBuffer.Append(rerr)
+	return nil, rerr
 }
 
 // pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.
@@ -990,10 +1029,11 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
 		}
 		blocksFoundFromRPC[uint64(block.Number)] = LogPollerBlock{
-			EvmChainId:  block.EVMChainID,
-			BlockHash:   block.Hash,
-			BlockNumber: block.Number,
-			CreatedAt:   block.Timestamp,
+			EvmChainId:     block.EVMChainID,
+			BlockHash:      block.Hash,
+			BlockNumber:    block.Number,
+			BlockTimestamp: block.Timestamp,
+			CreatedAt:      block.Timestamp,
 		}
 	}
 
