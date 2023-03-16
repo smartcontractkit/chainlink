@@ -6,7 +6,6 @@ import (
 	stderrs "errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -280,15 +279,9 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			start := time.Now()
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				netErr, ok := err.(net.Error)
-				if ok && netErr.Timeout() {
-					err = fmt.Errorf("server timeout after %s. try shorting the collection time (%d seconds): %w", time.Since(start), seconds, err)
-				}
 				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
-
 				return
 			}
 			defer func() {
@@ -304,13 +297,17 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 				// best effort to interpret the underlying problem
 				pprofVersion := resp.Header.Get("X-Go-Pprof")
 				if pprofVersion == "1" {
-					b, _ := io.ReadAll(resp.Body)
-					s := string(b)
+					b, err := io.ReadAll(resp.Body)
+					if err != nil {
+						errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
+						return
+					}
+					respContent := string(b)
 					// taken from pprof.Profile https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/pprof/pprof.go#L133
-					if strings.Contains(s, "profile duration exceeds server's WriteTimeout") {
-						errs <- fmt.Errorf("%w: %s", ErrProfileTooLong, s)
+					if strings.Contains(respContent, "profile duration exceeds server's WriteTimeout") {
+						errs <- fmt.Errorf("%w: %s", ErrProfileTooLong, respContent)
 					} else {
-						errs <- fmt.Errorf("error collecting %s: %w: %s", vt, errBadRequest, s)
+						errs <- fmt.Errorf("error collecting %s: %w: %s", vt, errBadRequest, respContent)
 					}
 				} else {
 					errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)

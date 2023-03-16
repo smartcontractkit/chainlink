@@ -174,7 +174,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: InitLocalSubCmds(client, devMode, &opts),
+			Subcommands: initLocalSubCmds(client, devMode, &opts),
 		},
 		{
 			Name:        "initiators",
