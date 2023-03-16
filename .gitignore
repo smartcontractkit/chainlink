@@ -67,3 +67,8 @@ ztarrepo.tar.gz
 cosign.*
 dist/
 MacOSX*
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out

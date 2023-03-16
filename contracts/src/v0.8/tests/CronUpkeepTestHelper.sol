@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.6;
 
-import "../upkeeps/CronUpkeep.sol";
+import "../automation/upkeeps/CronUpkeep.sol";
 import {Cron, Spec} from "../libraries/internal/Cron.sol";
 
 /**

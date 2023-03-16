@@ -380,9 +380,22 @@ func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int6
 	return r
 }
 
+// Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, borm txmgr.ORM, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EthTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, nonce, blockNum, fromAddress)
 	MustInsertEthReceipt(t, borm, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
+	return etx
+}
+
+func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, borm txmgr.ORM, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.EthTx) {
+	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, nonce, blockNum, fromAddress)
+	receipt := evmtypes.Receipt{
+		TxHash:           etx.EthTxAttempts[0].Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(nonce),
+		TransactionIndex: uint(1),
+	}
+	borm.SaveFetchedReceipts([]evmtypes.Receipt{receipt}, chainID)
 	return etx
 }
 

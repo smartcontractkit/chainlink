@@ -108,7 +108,7 @@ func TestORM_SetError(t *testing.T) {
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, 123, directrequestocr.USER_EXCEPTION, []byte("error"), rdts)
+	err := orm.SetError(id, 123, directrequestocr.USER_ERROR, []byte("error"), rdts, true)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -118,10 +118,30 @@ func TestORM_SetError(t *testing.T) {
 	require.NotNil(t, req.ResultReadyAt)
 	require.Equal(t, rdts, *req.ResultReadyAt)
 	require.NotNil(t, req.ErrorType)
-	require.Equal(t, directrequestocr.USER_EXCEPTION, *req.ErrorType)
+	require.Equal(t, directrequestocr.USER_ERROR, *req.ErrorType)
 	require.Equal(t, directrequestocr.RESULT_READY, req.State)
 	require.Equal(t, []byte("error"), req.Error)
 	require.NotNil(t, req.RunID)
+	require.Equal(t, int64(123), *req.RunID)
+}
+
+func TestORM_SetError_Internal(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	id, _, ts := createRequest(t, orm)
+
+	rdts := time.Now().Round(time.Second)
+	err := orm.SetError(id, 123, directrequestocr.INTERNAL_ERROR, []byte("error"), rdts, false)
+	require.NoError(t, err)
+
+	req, err := orm.FindById(id)
+	require.NoError(t, err)
+	require.Equal(t, id, req.RequestID)
+	require.Equal(t, ts, req.ReceivedAt)
+	require.Equal(t, directrequestocr.INTERNAL_ERROR, *req.ErrorType)
+	require.Equal(t, directrequestocr.IN_PROGRESS, req.State)
+	require.Equal(t, []byte("error"), req.Error)
 	require.Equal(t, int64(123), *req.RunID)
 }
 

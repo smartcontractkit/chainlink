@@ -24,6 +24,10 @@ type ChainSetOpts struct {
 	ORM      types.ORM
 }
 
+func (o *ChainSetOpts) Name() string {
+	return o.Logger.Name()
+}
+
 func (o *ChainSetOpts) Validate() (err error) {
 	required := func(s string) error {
 		return errors.Errorf("%s is required", s)

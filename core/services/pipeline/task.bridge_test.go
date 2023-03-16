@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"

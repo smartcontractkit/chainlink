@@ -15,8 +15,6 @@ const (
 	EVM ChainType = "evm"
 	// Solana for the Solana chain
 	Solana ChainType = "solana"
-	// Terra for the Terra chain
-	Terra ChainType = "terra"
 	// StarkNet for the StarkNet chain
 	StarkNet ChainType = "starknet"
 )
@@ -35,7 +33,7 @@ func (c ChainTypes) String() (out string) {
 }
 
 // SupportedChainTypes contain all chains that are supported
-var SupportedChainTypes = ChainTypes{EVM, Solana, Terra, StarkNet}
+var SupportedChainTypes = ChainTypes{EVM, Solana, StarkNet}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error

@@ -310,6 +310,11 @@ TxConfirmTimeout = '1s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000000
+ComputeUnitPriceMin = 0
+ComputeUnitPriceDefault = 0
+FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -336,29 +341,3 @@ TxMaxBatchSize = 17
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
-
-[[Terra]]
-ChainID = 'Bombay-12'
-Enabled = true
-BlockRate = '1m0s'
-BlocksUntilTxTimeout = 12
-ConfirmPollPeriod = '1s'
-FallbackGasPriceULuna = '0.001'
-FCDURL = 'http://terra.com'
-GasLimitMultiplier = '1.2'
-MaxMsgsPerBatch = 17
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-TxMsgTimeout = '1s'
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
-
-[[Terra.Nodes]]
-Name = 'foo'
-TendermintURL = 'http://foo.url'
-
-[[Terra.Nodes]]
-Name = 'bar'
-TendermintURL = 'http://bar.web'

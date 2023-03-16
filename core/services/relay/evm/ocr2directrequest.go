@@ -12,7 +12,7 @@ import (
 
 type drProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 }
 
 var (

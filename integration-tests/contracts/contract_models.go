@@ -211,6 +211,8 @@ type AtlasFunctions interface {
 	UserCallbackError(requestId [32]byte, reason string) error
 	UserCallbackRawError(requestId [32]byte, lowLevelData []byte) error
 	SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
+	BillingStart(requestId [32]byte, subscriptionId uint64) error
+	BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) error
 }
 
 type RoundData struct {

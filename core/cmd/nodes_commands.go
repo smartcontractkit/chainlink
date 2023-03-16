@@ -13,6 +13,50 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 )
 
+func initStarkNetNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("StarkNet", NewStarkNetNodeClient(client),
+		cli.StringFlag{
+			Name:  "chain-id",
+			Usage: "chain ID",
+		},
+		cli.StringFlag{
+			Name:  "url",
+			Usage: "URL",
+		})
+}
+
+func initEVMNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("EVM", NewEVMNodeClient(client),
+		cli.StringFlag{
+			Name:  "ws-url",
+			Usage: "Websocket URL",
+		},
+		cli.StringFlag{
+			Name:  "http-url",
+			Usage: "HTTP URL, optional",
+		},
+		cli.Int64Flag{
+			Name:  "chain-id",
+			Usage: "chain ID",
+		},
+		cli.StringFlag{
+			Name:  "type",
+			Usage: "primary|secondary",
+		})
+}
+
+func initSolanaNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("Solana", NewSolanaNodeClient(client),
+		cli.StringFlag{
+			Name:  "chain-id",
+			Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+		},
+		cli.StringFlag{
+			Name:  "url",
+			Usage: "URL",
+		})
+}
+
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
 // A string cli.Flag for "name" is automatically included.
 func nodeCommand(typ string, client NodeClient, flags ...cli.Flag) cli.Command {

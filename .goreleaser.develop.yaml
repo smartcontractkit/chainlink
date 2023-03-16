@@ -26,7 +26,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
     flags:
@@ -34,7 +34,7 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: linux-amd64
@@ -46,7 +46,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
     flags:
@@ -54,7 +54,7 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
@@ -64,8 +64,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_amd64/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -76,7 +77,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"
@@ -86,8 +87,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_arm64/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -98,7 +100,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-arm64"
@@ -108,8 +110,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_amd64/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -121,7 +124,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
@@ -131,8 +134,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_arm64/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -144,7 +148,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-arm64"
@@ -174,17 +178,19 @@ docker_signs:
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
-archives:
-  - files:
-      - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
-        dst: libs
-        strip_parent: true
+archives: []
+  # uncomment if using native libs / cgo enabled
+  # - rlcp: true
+  #   files:
+  #     - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
+  #       dst: libs
+  #       strip_parent: true
 
 checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-{{ .ShortCommit }}"
+  name_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
 
 changelog:
   sort: asc

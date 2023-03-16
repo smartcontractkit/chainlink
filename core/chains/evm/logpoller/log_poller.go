@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,8 +32,8 @@ import (
 type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
-	RegisterFilter(filter Filter) (int, error)
-	UnregisterFilter(filterID int) error
+	RegisterFilter(filter Filter) error
+	UnregisterFilter(name string) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	// General querying
@@ -75,8 +77,7 @@ type logPoller struct {
 	backupPollerNextBlock int64
 
 	filterMu        sync.RWMutex
-	currentFilterID int
-	filters         map[int]Filter
+	filters         map[string]Filter
 	filterDirty     bool
 	cachedAddresses []common.Address
 	cachedEventSigs []common.Hash
@@ -104,6 +105,7 @@ type ReplayRequest struct {
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
 	finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
+
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -116,14 +118,59 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		backfillBatchSize: backfillBatchSize,
 		rpcBatchSize:      rpcBatchSize,
 		keepBlocksDepth:   keepBlocksDepth,
-		filters:           make(map[int]Filter),
+		filters:           make(map[string]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
 }
 
 type Filter struct {
-	EventSigs []common.Hash
-	Addresses []common.Address
+	Name      string // see FilterName(id, args) below
+	EventSigs evmtypes.HashArray
+	Addresses evmtypes.AddressArray
+}
+
+// FilterName is a suggested convenience function for clients to construct unique filter names
+// to populate Name field of struct Filter
+func FilterName(id string, args ...any) string {
+	if len(args) == 0 {
+		return id
+	}
+	s := &strings.Builder{}
+	s.WriteString(id)
+	s.WriteString(" - ")
+	fmt.Fprintf(s, "%s", args[0])
+	for _, a := range args[1:] {
+		fmt.Fprintf(s, ":%s", a)
+	}
+	return s.String()
+}
+
+// contains returns true if this filter already fully contains a
+// filter passed to it.
+func (filter *Filter) contains(other *Filter) bool {
+	if other == nil {
+		return true
+	}
+	addresses := make(map[common.Address]interface{})
+	for _, addr := range filter.Addresses {
+		addresses[addr] = struct{}{}
+	}
+	events := make(map[common.Hash]interface{})
+	for _, ev := range filter.EventSigs {
+		events[ev] = struct{}{}
+	}
+
+	for _, addr := range other.Addresses {
+		if _, ok := addresses[addr]; !ok {
+			return false
+		}
+	}
+	for _, ev := range other.EventSigs {
+		if _, ok := events[ev]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // RegisterFilter adds the provided EventSigs and Addresses to the log poller's log filter query.
@@ -137,40 +184,59 @@ type Filter struct {
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
-// It returns an ID which can be used to unregister.
-func (lp *logPoller) RegisterFilter(filter Filter) (int, error) {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
+// The filter may be unregistered later by Filter.Name
+func (lp *logPoller) RegisterFilter(filter Filter) error {
 	if len(filter.Addresses) == 0 {
-		return 0, errors.Errorf("at least one address must be specified")
+		return errors.Errorf("at least one address must be specified")
 	}
 	if len(filter.EventSigs) == 0 {
-		return 0, errors.Errorf("at least one event must be specified")
+		return errors.Errorf("at least one event must be specified")
 	}
+
 	for _, eventSig := range filter.EventSigs {
 		if eventSig == [common.HashLength]byte{} {
-			return 0, errors.Errorf("empty event sig")
+			return errors.Errorf("empty event sig")
 		}
 	}
 	for _, addr := range filter.Addresses {
 		if addr == [common.AddressLength]byte{} {
-			return 0, errors.Errorf("empty address")
+			return errors.Errorf("empty address")
 		}
 	}
-	lp.currentFilterID++
-	lp.filters[lp.currentFilterID] = filter
-	lp.filterDirty = true
-	return lp.currentFilterID, nil
-}
 
-func (lp *logPoller) UnregisterFilter(filterID int) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
-	_, ok := lp.filters[filterID]
-	if !ok {
-		return errors.Errorf("filter %d doesn't exist", filterID)
+
+	if existingFilter, ok := lp.filters[filter.Name]; ok {
+		if existingFilter.contains(&filter) {
+			// Nothing new in this filter
+			return nil
+		}
+		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "filter.Name", filter.Name)
+	} else {
+		lp.lggr.Debugf("Creating new filter %s", filter.Name)
 	}
-	delete(lp.filters, filterID)
+
+	if err := lp.orm.InsertFilter(filter); err != nil {
+		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
+	}
+	lp.filters[filter.Name] = filter
+	lp.filterDirty = true
+	return nil
+}
+
+func (lp *logPoller) UnregisterFilter(name string) error {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+
+	_, ok := lp.filters[name]
+	if !ok {
+		return errors.Errorf("filter %s not found", name)
+	}
+	if err := lp.orm.DeleteFilter(name); err != nil {
+		return errors.Wrapf(err, "Failed to delete filter %s", name)
+	}
+	delete(lp.filters, name)
 	lp.filterDirty = true
 	return nil
 }
@@ -213,6 +279,7 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
 		// then as jobs are added dynamically start using their filters.
 		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
+		eventSigs = []common.Hash{}
 	}
 	lp.cachedAddresses = addresses
 	lp.cachedEventSigs = eventSigs
@@ -229,7 +296,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		return err
 	}
 	if fromBlock < 1 || fromBlock > latest.Number {
-		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
+		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
@@ -260,6 +327,7 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
+
 		go lp.run()
 		return nil
 	})
@@ -271,6 +339,14 @@ func (lp *logPoller) Close() error {
 		<-lp.done
 		return nil
 	})
+}
+
+func (lp *logPoller) Name() string {
+	return lp.lggr.Name()
+}
+
+func (lp *logPoller) HealthReport() map[string]error {
+	return map[string]error{lp.Name(): lp.Healthy()}
 }
 
 func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
@@ -294,8 +370,23 @@ func (lp *logPoller) run() {
 	logPollTick := time.After(0)
 	// trigger first backup poller run shortly after first log poller run
 	backupLogPollTick := time.After(100 * time.Millisecond)
-
 	blockPruneTick := time.After(0)
+	filtersLoaded := false
+
+	loadFilters := func() error {
+		lp.filterMu.Lock()
+		defer lp.filterMu.Unlock()
+		filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
+
+		if err != nil {
+			return errors.Wrapf(err, "Failed to load initial filters from db, retrying")
+		}
+
+		lp.filters = filters
+		lp.filterDirty = true
+		filtersLoaded = true
+		return nil
+	}
 
 	for {
 		select {
@@ -304,9 +395,16 @@ func (lp *logPoller) run() {
 		case replayReq := <-lp.replayStart:
 			fromBlock, err := lp.getReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
 			if err == nil {
-				// Serially process replay requests.
-				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
+				if !filtersLoaded {
+					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					if err = loadFilters(); err != nil {
+						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
+					}
+				} else {
+					// Serially process replay requests.
+					lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
+				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
@@ -321,6 +419,13 @@ func (lp *logPoller) run() {
 			}
 		case <-logPollTick:
 			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
+			if !filtersLoaded {
+				if err := loadFilters(); err != nil {
+					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
+					continue
+				}
+			}
+
 			// Always start from the latest block in the db.
 			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
@@ -363,6 +468,10 @@ func (lp *logPoller) run() {
 			const backupPollerBlockDelay = 100
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
+			if !filtersLoaded {
+				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
+				continue
+			}
 
 			if lp.backupPollerNextBlock == 0 {
 				lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))

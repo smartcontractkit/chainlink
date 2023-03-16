@@ -127,6 +127,14 @@ func (backup *databaseBackup) Close() error {
 	})
 }
 
+func (backup *databaseBackup) Name() string {
+	return backup.logger.Name()
+}
+
+func (backup *databaseBackup) HealthReport() map[string]error {
+	return map[string]error{backup.Name(): backup.Healthy()}
+}
+
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }

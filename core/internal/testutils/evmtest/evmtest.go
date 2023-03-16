@@ -5,12 +5,12 @@ import (
 	"math/big"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/mock"
-	"go.uber.org/atomic"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
@@ -358,14 +358,14 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 }
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
-	m.subscribeCalls.Inc()
+	m.subscribeCalls.Add(1)
 	sub := evmMocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
 		Return(func() <-chan error { return errCh }).Maybe()
 	sub.On("Unsubscribe").
 		Run(func(mock.Arguments) {
-			m.unsubscribeCalls.Inc()
+			m.unsubscribeCalls.Add(1)
 			close(errCh)
 		}).Return().Maybe()
 	m.subsMu.Lock()

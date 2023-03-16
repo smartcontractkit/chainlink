@@ -2,13 +2,13 @@ package headtracker
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/atomic"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"

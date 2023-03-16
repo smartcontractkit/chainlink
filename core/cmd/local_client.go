@@ -23,6 +23,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -43,13 +44,169 @@ import (
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+	return []cli.Command{
+		{
+			Name:    "start",
+			Aliases: []string{"node", "n"},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "api, a",
+					Usage: "text file holding the API email and password, each on a line",
+				},
+				cli.BoolFlag{
+					Name:  "debug, d",
+					Usage: "set logger level to debug",
+				},
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "text file holding the password for the node's account",
+				},
+				cli.StringFlag{
+					Name:  "vrfpassword, vp",
+					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
+				},
+			},
+			Usage:  "Run the Chainlink node",
+			Action: client.RunNode,
+		},
+		{
+			Name:   "rebroadcast-transactions",
+			Usage:  "Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue",
+			Action: client.RebroadcastTransactions,
+			Flags: []cli.Flag{
+				cli.Uint64Flag{
+					Name:  "beginningNonce, b",
+					Usage: "beginning of nonce range to rebroadcast",
+				},
+				cli.Uint64Flag{
+					Name:  "endingNonce, e",
+					Usage: "end of nonce range to rebroadcast (inclusive)",
+				},
+				cli.Uint64Flag{
+					Name:  "gasPriceWei, g",
+					Usage: "gas price (in Wei) to rebroadcast transactions at",
+				},
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "text file holding the password for the node's account",
+				},
+				cli.StringFlag{
+					Name:  "address, a",
+					Usage: "The address (in hex format) for the key which we want to rebroadcast transactions",
+				},
+				cli.StringFlag{
+					Name:  "evmChainID",
+					Usage: "Chain ID for which to rebroadcast transactions. If left blank, ETH_CHAIN_ID will be used.",
+				},
+				cli.Uint64Flag{
+					Name:  "gasLimit",
+					Usage: "OPTIONAL: gas limit to use for each transaction ",
+				},
+			},
+		},
+		{
+			Name:   "status",
+			Usage:  "Displays the health of various services running inside the node.",
+			Action: client.Status,
+			Flags:  []cli.Flag{},
+		},
+		{
+			Name:   "profile",
+			Usage:  "Collects profile metrics from the node.",
+			Action: client.Profile,
+			Flags: []cli.Flag{
+				cli.Uint64Flag{
+					Name:  "seconds, s",
+					Usage: "duration of profile capture",
+					Value: 8,
+				},
+				cli.StringFlag{
+					Name:  "output_dir, o",
+					Usage: "output directory of the captured profile",
+					Value: "/tmp/",
+				},
+			},
+		},
+		{
+			Name:        "db",
+			Usage:       "Commands for managing the database.",
+			Description: "Potentially destructive commands for managing the database.",
+			Subcommands: []cli.Command{
+				{
+					Name:   "reset",
+					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
+					Hidden: !devMode,
+					Action: client.ResetDatabase,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "dangerWillRobinson",
+							Usage: "set to true to enable dropping non-test databases",
+						},
+					},
+				},
+				{
+					Name:   "preparetest",
+					Usage:  "Reset database and load fixtures.",
+					Hidden: !devMode,
+					Action: client.PrepareTestDatabase,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "user-only",
+							Usage: "only include test user fixture",
+						},
+					},
+				},
+				{
+					Name:   "version",
+					Usage:  "Display the current database version.",
+					Action: client.VersionDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "status",
+					Usage:  "Display the current database migration status.",
+					Action: client.StatusDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate the database to the latest version.",
+					Action: client.MigrateDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "rollback",
+					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
+					Action: client.RollbackDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "create-migration",
+					Usage:  "Create a new migration.",
+					Hidden: !devMode,
+					Action: client.CreateMigration,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "type",
+							Usage: "set to `go` to generate a .go migration (instead of .sql)",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // ownerPermsMask are the file permission bits reserved for owner.
-const ownerPermsMask = os.FileMode(0700)
+const ownerPermsMask = os.FileMode(0o700)
 
 // PristineDBName is a clean copy of test DB with migrations.
 // Used by heavyweight.FullTestDB* functions.
-const PristineDBName = "chainlink_test_pristine"
-const TestDBNamePrefix = "chainlink_test_"
+const (
+	PristineDBName   = "chainlink_test_pristine"
+	TestDBNamePrefix = "chainlink_test_"
+)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -203,12 +360,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
-	if cli.Config.TerraEnabled() {
-		err2 := app.GetKeyStore().Terra().EnsureKey()
-		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure terra key")
-		}
-	}
 	if cli.Config.StarkNetEnabled() {
 		err2 := app.GetKeyStore().StarkNet().EnsureKey()
 		if err2 != nil {
@@ -226,14 +377,16 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil && !errors.Is(err, ErrNoCredentialFile) {
-		return errors.Wrap(err, "error creating api initializer")
-	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
-		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
-			return errors.WithStack(err)
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil {
+		if !errors.Is(err, ErrNoCredentialFile) {
+			return errors.Wrap(err, "error creating api initializer")
 		}
-		return errors.Wrap(err, "error creating fallback initializer")
+		if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
+			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
+				return errors.WithStack(err)
+			}
+			return errors.Wrap(err, "error creating fallback initializer")
+		}
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
@@ -401,7 +554,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := txmgr.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+
+	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
@@ -521,7 +676,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	}
 
 	userOnly := c.Bool("user-only")
-	var fixturePath = "../store/fixtures/fixtures.sql"
+	fixturePath := "../store/fixtures/fixtures.sql"
 	if userOnly {
 		fixturePath = "../store/fixtures/users_only_fixture.sql"
 	}

@@ -8,7 +8,7 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { abi as registryAbi } from '../../../artifacts/src/v0.8/KeeperRegistry1_2.sol/KeeperRegistry1_2.json'
+import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry12__factory'
 
 let personas: Personas
 let owner: Signer
@@ -27,7 +27,10 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper1_2', () => {
     caller = personas.Carol
     nelly = personas.Nelly
 
-    registryMockContract = await deployMockContract(owner as any, registryAbi)
+    registryMockContract = await deployMockContract(
+      owner as any,
+      KeeperRegistryFactory.abi,
+    )
     // @ts-ignore bug in autogen file
     gasWrapperFactory = await ethers.getContractFactory(
       'KeeperRegistryCheckUpkeepGasUsageWrapper1_2',

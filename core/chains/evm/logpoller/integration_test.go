@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -110,9 +111,15 @@ func TestLogPoller_Integration(t *testing.T) {
 	th := logpoller.SetupTH(t, 2, 3, 2)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
-	_, err := th.LogPoller.RegisterFilter(logpoller.Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}})
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}})
 	require.NoError(t, err)
+	require.Len(t, th.LogPoller.Filter().Addresses, 1)
+	require.Len(t, th.LogPoller.Filter().Topics, 1)
+
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload filter from db.
 	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
+	require.Len(t, th.LogPoller.Filter().Addresses, 1)
+	require.Len(t, th.LogPoller.Filter().Topics, 1)
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
@@ -131,8 +138,8 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5, len(logs))
 	// Now let's update the filter and replay to get Log2 logs.
-	_, err = th.LogPoller.RegisterFilter(logpoller.Filter{
-		[]common.Hash{EmitterABI.Events["Log2"].ID},
+	err = th.LogPoller.RegisterFilter(logpoller.Filter{
+		"Emitter - log2", []common.Hash{EmitterABI.Events["Log2"].ID},
 		[]common.Address{th.EmitterAddress1},
 	})
 	require.NoError(t, err)
@@ -172,20 +179,26 @@ func Test_BackupLogPoller(t *testing.T) {
 
 	ctx := testutils.Context(t)
 
-	filterID1, err := th.LogPoller.RegisterFilter(
-		logpoller.Filter{[]common.Hash{
-			EmitterABI.Events["Log1"].ID,
-			EmitterABI.Events["Log2"].ID},
-			[]common.Address{th.EmitterAddress1}})
+	filter1 := logpoller.Filter{"filter1", []common.Hash{
+		EmitterABI.Events["Log1"].ID,
+		EmitterABI.Events["Log2"].ID},
+		[]common.Address{th.EmitterAddress1}}
+	err := th.LogPoller.RegisterFilter(filter1)
 	require.NoError(t, err)
-	filterID2, err := th.LogPoller.RegisterFilter(
-		logpoller.Filter{[]common.Hash{
-			EmitterABI.Events["Log1"].ID},
+
+	filters, err := th.ORM.LoadFilters(pg.WithParentCtx(testutils.Context(t)))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(filters))
+	require.Equal(t, filter1, filters["filter1"])
+
+	err = th.LogPoller.RegisterFilter(
+		logpoller.Filter{"filter2",
+			[]common.Hash{EmitterABI.Events["Log1"].ID},
 			[]common.Address{th.EmitterAddress2}})
 	require.NoError(t, err)
 
-	defer th.LogPoller.UnregisterFilter(filterID1)
-	defer th.LogPoller.UnregisterFilter(filterID2)
+	defer th.LogPoller.UnregisterFilter("filter1")
+	defer th.LogPoller.UnregisterFilter("filter2")
 
 	// generate some tx's with logs
 	tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
@@ -222,7 +235,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	currentBlock := th.LogPoller.PollAndSaveLogs(ctx, 1)
 	assert.Equal(t, int64(35), currentBlock)
 
-	// simluate logs becoming available
+	// simulate logs becoming available
 	rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
 	require.True(t, rawdb.HasReceipts(th.EthDB, h.Hash(), h.Number.Uint64()))
 	body.Transactions = txs

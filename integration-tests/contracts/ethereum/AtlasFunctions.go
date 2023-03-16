@@ -28,10 +28,23 @@ var (
 	_ = event.NewSubscription
 )
 
+// AtlasFunctionsCommitment is an auto generated low-level Go binding around an user-defined struct.
+type AtlasFunctionsCommitment struct {
+	SubscriptionId uint64
+	Client         common.Address
+	GasLimit       uint32
+	GasPrice       *big.Int
+	Don            common.Address
+	DonFee         *big.Int
+	RegistryFee    *big.Int
+	EstimatedCost  *big.Int
+	Timestamp      *big.Int
+}
+
 // AtlasFunctionsMetaData contains all meta data concerning the AtlasFunctions contract.
 var AtlasFunctionsMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestingContract\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestInitiator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"subscriptionOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OracleRequest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"OracleResponse\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newBalance\",\"type\":\"uint256\"}],\"name\":\"SubscriptionFunded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"UserCallbackError\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"UserCallbackRawError\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"fireOracleRequest\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"fireOracleResponse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"oldBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"newBalance\",\"type\":\"uint256\"}],\"name\":\"fireSubscriptionFunded\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"fireUserCallbackError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"fireUserCallbackRawError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b506104c7806100206000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c806338ddd89c1461005c5780634bc2065f146100715780635fa55d55146100845780637c89a07f146100975780638b2d730b146100aa575b600080fd5b61006f61006a3660046102ab565b6100bd565b005b61006f61007f366004610301565b610102565b61006f61009236600461031a565b610130565b61006f6100a536600461034d565b610171565b61006f6100b8366004610393565b6101ad565b827fa1ec73989d79578cd6f67d4f593ac3e0a4d1020e5c0164db52108d7ff785406c30338533866040516100f5959493929190610430565b60405180910390a2505050565b60405181907f9e9bc7616d42c2835d05ae617e508454e63b30b934be8aa932ebc125e0e58a6490600090a250565b60408051838152602081018390526001600160401b038516917fd39ec07f4e209f627a4c427971473820dc129761ba28de8906bd56f57101d4f891016100f5565b817fe0b838ffe6ee22a0d3acf19a85db6a41b34a1ab739e2d6c759a2e42d95bdccb2826040516101a1919061047e565b60405180910390a25050565b817fb2931868c372fe17a25643458add467d60ec5c51125a99b7309f41f5bcd2da6c826040516101a1919061047e565b80356001600160401b03811681146101f457600080fd5b919050565b634e487b7160e01b600052604160045260246000fd5b60006001600160401b0380841115610229576102296101f9565b604051601f8501601f19908116603f01168101908282118183101715610251576102516101f9565b8160405280935085815286868601111561026a57600080fd5b858560208301376000602087830101525050509392505050565b600082601f83011261029557600080fd5b6102a48383356020850161020f565b9392505050565b6000806000606084860312156102c057600080fd5b833592506102d0602085016101dd565b915060408401356001600160401b038111156102eb57600080fd5b6102f786828701610284565b9150509250925092565b60006020828403121561031357600080fd5b5035919050565b60008060006060848603121561032f57600080fd5b610338846101dd565b95602085013595506040909401359392505050565b6000806040838503121561036057600080fd5b8235915060208301356001600160401b0381111561037d57600080fd5b61038985828601610284565b9150509250929050565b600080604083850312156103a657600080fd5b8235915060208301356001600160401b038111156103c357600080fd5b8301601f810185136103d457600080fd5b6103898582356020840161020f565b6000815180845260005b81811015610409576020818501810151868301820152016103ed565b8181111561041b576000602083870101525b50601f01601f19169290920160200192915050565b6001600160a01b03868116825285811660208301526001600160401b03851660408301528316606082015260a060808201819052600090610473908301846103e3565b979650505050505050565b6020815260006102a460208301846103e356fea2646970667358221220fcf04cf28d335033e93f0442c18b019ba1043c4c073653033ea339a4dfce7c7764736f6c634300080d0033",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"signerPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"transmitterPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalCost\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"BillingEnd\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"client\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"gasPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"don\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"donFee\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"registryFee\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"estimatedCost\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"indexed\":false,\"internalType\":\"structAtlasFunctions.Commitment\",\"name\":\"commitment\",\"type\":\"tuple\"}],\"name\":\"BillingStart\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestingContract\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestInitiator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"subscriptionOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OracleRequest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"OracleResponse\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"RequestTimedOut\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newBalance\",\"type\":\"uint256\"}],\"name\":\"SubscriptionFunded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"UserCallbackError\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"UserCallbackRawError\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"uint96\",\"name\":\"totalCost\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"billingEnd\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"}],\"name\":\"billingStart\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"fireOracleRequest\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"fireOracleResponse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"oldBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"newBalance\",\"type\":\"uint256\"}],\"name\":\"fireSubscriptionFunded\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"fireUserCallbackError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"fireUserCallbackRawError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"requestTimedOut\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b5061079b806100206000396000f3fe608060405234801561001057600080fd5b50600436106100785760003560e01c806338ddd89c1461007d5780634bc2065f146100925780635f6dd72f146100a55780635fa55d55146100b85780636a44ff83146100cb5780637c89a07f146100de5780638b2d730b146100f1578063b4d97a3f14610104575b600080fd5b61009061008b36600461042e565b610117565b005b6100906100a0366004610484565b61015c565b6100906100b3366004610484565b61018a565b6100906100c636600461049d565b6101b8565b6100906100d93660046104d0565b6101f9565b6100906100ec366004610532565b610262565b6100906100ff366004610578565b61029e565b6100906101123660046105c8565b6102ce565b827fa1ec73989d79578cd6f67d4f593ac3e0a4d1020e5c0164db52108d7ff785406c303385338660405161014f959493929190610641565b60405180910390a2505050565b60405181907f9e9bc7616d42c2835d05ae617e508454e63b30b934be8aa932ebc125e0e58a6490600090a250565b60405181907ff1ca1e9147be737b04a2b018a79405f687a97de8dd8a2559bbe62357343af41490600090a250565b60408051838152602081018390526001600160401b038516917fd39ec07f4e209f627a4c427971473820dc129761ba28de8906bd56f57101d4f8910161014f565b604080516001600160401b0385168152600160208201526002818301526001600160601b03841660608201528215156080820152905185917fc8dc973332de19a5f71b6026983110e9c2e04b0c98b87eb771ccb78607fd114f919081900360a00190a250505050565b817fe0b838ffe6ee22a0d3acf19a85db6a41b34a1ab739e2d6c759a2e42d95bdccb282604051610292919061068f565b60405180910390a25050565b817fb2931868c372fe17a25643458add467d60ec5c51125a99b7309f41f5bcd2da6c82604051610292919061068f565b6040805161012081018252600060608201526001600160401b03831681523360208201526103e88183015273b12044ba63f66191e53b0cd8c10095080b4c84346080820152600160a0820152600260c0820152606460e082015242610100820152905183907f99f7f4e65b4b9fbabd4e357c47ed3099b36e57ecd3a43e84662f34c207d0ebe49061014f9084906106a2565b80356001600160401b038116811461037757600080fd5b919050565b634e487b7160e01b600052604160045260246000fd5b60006001600160401b03808411156103ac576103ac61037c565b604051601f8501601f19908116603f011681019082821181831017156103d4576103d461037c565b816040528093508581528686860111156103ed57600080fd5b858560208301376000602087830101525050509392505050565b600082601f83011261041857600080fd5b61042783833560208501610392565b9392505050565b60008060006060848603121561044357600080fd5b8335925061045360208501610360565b915060408401356001600160401b0381111561046e57600080fd5b61047a86828701610407565b9150509250925092565b60006020828403121561049657600080fd5b5035919050565b6000806000606084860312156104b257600080fd5b6104bb84610360565b95602085013595506040909401359392505050565b600080600080608085870312156104e657600080fd5b843593506104f660208601610360565b925060408501356001600160601b038116811461051257600080fd5b91506060850135801515811461052757600080fd5b939692955090935050565b6000806040838503121561054557600080fd5b8235915060208301356001600160401b0381111561056257600080fd5b61056e85828601610407565b9150509250929050565b6000806040838503121561058b57600080fd5b8235915060208301356001600160401b038111156105a857600080fd5b8301601f810185136105b957600080fd5b61056e85823560208401610392565b600080604083850312156105db57600080fd5b823591506105eb60208401610360565b90509250929050565b6000815180845260005b8181101561061a576020818501810151868301820152016105fe565b8181111561062c576000602083870101525b50601f01601f19169290920160200192915050565b6001600160a01b03868116825285811660208301526001600160401b03851660408301528316606082015260a060808201819052600090610684908301846105f4565b979650505050505050565b60208152600061042760208301846105f4565b81516001600160401b031681526020808301516001600160a01b0316908201526040808301516101208301916106df9084018263ffffffff169052565b5060608301516060830152608083015161070460808401826001600160a01b03169052565b5060a083015161071f60a08401826001600160601b03169052565b5060c083015161073a60c08401826001600160601b03169052565b5060e083015161075560e08401826001600160601b03169052565b506101009283015191909201529056fea2646970667358221220c8fd9bafd4f795438ed838cdf6105b6a3120ab3a78e58ab1e24bb4374aa6952b64736f6c634300080d0033",
 }
 
 // AtlasFunctionsABI is the input ABI used to generate the binding from.
@@ -201,6 +214,48 @@ func (_AtlasFunctions *AtlasFunctionsTransactorRaw) Transact(opts *bind.Transact
 	return _AtlasFunctions.Contract.contract.Transact(opts, method, params...)
 }
 
+// BillingEnd is a paid mutator transaction binding the contract method 0x6a44ff83.
+//
+// Solidity: function billingEnd(bytes32 requestId, uint64 subscriptionId, uint96 totalCost, bool success) returns()
+func (_AtlasFunctions *AtlasFunctionsTransactor) BillingEnd(opts *bind.TransactOpts, requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) (*types.Transaction, error) {
+	return _AtlasFunctions.contract.Transact(opts, "billingEnd", requestId, subscriptionId, totalCost, success)
+}
+
+// BillingEnd is a paid mutator transaction binding the contract method 0x6a44ff83.
+//
+// Solidity: function billingEnd(bytes32 requestId, uint64 subscriptionId, uint96 totalCost, bool success) returns()
+func (_AtlasFunctions *AtlasFunctionsSession) BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) (*types.Transaction, error) {
+	return _AtlasFunctions.Contract.BillingEnd(&_AtlasFunctions.TransactOpts, requestId, subscriptionId, totalCost, success)
+}
+
+// BillingEnd is a paid mutator transaction binding the contract method 0x6a44ff83.
+//
+// Solidity: function billingEnd(bytes32 requestId, uint64 subscriptionId, uint96 totalCost, bool success) returns()
+func (_AtlasFunctions *AtlasFunctionsTransactorSession) BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) (*types.Transaction, error) {
+	return _AtlasFunctions.Contract.BillingEnd(&_AtlasFunctions.TransactOpts, requestId, subscriptionId, totalCost, success)
+}
+
+// BillingStart is a paid mutator transaction binding the contract method 0xb4d97a3f.
+//
+// Solidity: function billingStart(bytes32 requestId, uint64 subscriptionId) returns()
+func (_AtlasFunctions *AtlasFunctionsTransactor) BillingStart(opts *bind.TransactOpts, requestId [32]byte, subscriptionId uint64) (*types.Transaction, error) {
+	return _AtlasFunctions.contract.Transact(opts, "billingStart", requestId, subscriptionId)
+}
+
+// BillingStart is a paid mutator transaction binding the contract method 0xb4d97a3f.
+//
+// Solidity: function billingStart(bytes32 requestId, uint64 subscriptionId) returns()
+func (_AtlasFunctions *AtlasFunctionsSession) BillingStart(requestId [32]byte, subscriptionId uint64) (*types.Transaction, error) {
+	return _AtlasFunctions.Contract.BillingStart(&_AtlasFunctions.TransactOpts, requestId, subscriptionId)
+}
+
+// BillingStart is a paid mutator transaction binding the contract method 0xb4d97a3f.
+//
+// Solidity: function billingStart(bytes32 requestId, uint64 subscriptionId) returns()
+func (_AtlasFunctions *AtlasFunctionsTransactorSession) BillingStart(requestId [32]byte, subscriptionId uint64) (*types.Transaction, error) {
+	return _AtlasFunctions.Contract.BillingStart(&_AtlasFunctions.TransactOpts, requestId, subscriptionId)
+}
+
 // FireOracleRequest is a paid mutator transaction binding the contract method 0x38ddd89c.
 //
 // Solidity: function fireOracleRequest(bytes32 requestId, uint64 subscriptionId, bytes data) returns()
@@ -304,6 +359,321 @@ func (_AtlasFunctions *AtlasFunctionsSession) FireUserCallbackRawError(requestId
 // Solidity: function fireUserCallbackRawError(bytes32 requestId, bytes lowLevelData) returns()
 func (_AtlasFunctions *AtlasFunctionsTransactorSession) FireUserCallbackRawError(requestId [32]byte, lowLevelData []byte) (*types.Transaction, error) {
 	return _AtlasFunctions.Contract.FireUserCallbackRawError(&_AtlasFunctions.TransactOpts, requestId, lowLevelData)
+}
+
+// RequestTimedOut is a paid mutator transaction binding the contract method 0x5f6dd72f.
+//
+// Solidity: function requestTimedOut(bytes32 requestId) returns()
+func (_AtlasFunctions *AtlasFunctionsTransactor) RequestTimedOut(opts *bind.TransactOpts, requestId [32]byte) (*types.Transaction, error) {
+	return _AtlasFunctions.contract.Transact(opts, "requestTimedOut", requestId)
+}
+
+// RequestTimedOut is a paid mutator transaction binding the contract method 0x5f6dd72f.
+//
+// Solidity: function requestTimedOut(bytes32 requestId) returns()
+func (_AtlasFunctions *AtlasFunctionsSession) RequestTimedOut(requestId [32]byte) (*types.Transaction, error) {
+	return _AtlasFunctions.Contract.RequestTimedOut(&_AtlasFunctions.TransactOpts, requestId)
+}
+
+// RequestTimedOut is a paid mutator transaction binding the contract method 0x5f6dd72f.
+//
+// Solidity: function requestTimedOut(bytes32 requestId) returns()
+func (_AtlasFunctions *AtlasFunctionsTransactorSession) RequestTimedOut(requestId [32]byte) (*types.Transaction, error) {
+	return _AtlasFunctions.Contract.RequestTimedOut(&_AtlasFunctions.TransactOpts, requestId)
+}
+
+// AtlasFunctionsBillingEndIterator is returned from FilterBillingEnd and is used to iterate over the raw logs and unpacked data for BillingEnd events raised by the AtlasFunctions contract.
+type AtlasFunctionsBillingEndIterator struct {
+	Event *AtlasFunctionsBillingEnd // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AtlasFunctionsBillingEndIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AtlasFunctionsBillingEnd)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AtlasFunctionsBillingEnd)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AtlasFunctionsBillingEndIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AtlasFunctionsBillingEndIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// AtlasFunctionsBillingEnd represents a BillingEnd event raised by the AtlasFunctions contract.
+type AtlasFunctionsBillingEnd struct {
+	RequestId          [32]byte
+	SubscriptionId     uint64
+	SignerPayment      *big.Int
+	TransmitterPayment *big.Int
+	TotalCost          *big.Int
+	Success            bool
+	Raw                types.Log // Blockchain specific contextual infos
+}
+
+// FilterBillingEnd is a free log retrieval operation binding the contract event 0xc8dc973332de19a5f71b6026983110e9c2e04b0c98b87eb771ccb78607fd114f.
+//
+// Solidity: event BillingEnd(bytes32 indexed requestId, uint64 subscriptionId, uint96 signerPayment, uint96 transmitterPayment, uint96 totalCost, bool success)
+func (_AtlasFunctions *AtlasFunctionsFilterer) FilterBillingEnd(opts *bind.FilterOpts, requestId [][32]byte) (*AtlasFunctionsBillingEndIterator, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _AtlasFunctions.contract.FilterLogs(opts, "BillingEnd", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &AtlasFunctionsBillingEndIterator{contract: _AtlasFunctions.contract, event: "BillingEnd", logs: logs, sub: sub}, nil
+}
+
+// WatchBillingEnd is a free log subscription operation binding the contract event 0xc8dc973332de19a5f71b6026983110e9c2e04b0c98b87eb771ccb78607fd114f.
+//
+// Solidity: event BillingEnd(bytes32 indexed requestId, uint64 subscriptionId, uint96 signerPayment, uint96 transmitterPayment, uint96 totalCost, bool success)
+func (_AtlasFunctions *AtlasFunctionsFilterer) WatchBillingEnd(opts *bind.WatchOpts, sink chan<- *AtlasFunctionsBillingEnd, requestId [][32]byte) (event.Subscription, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _AtlasFunctions.contract.WatchLogs(opts, "BillingEnd", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(AtlasFunctionsBillingEnd)
+				if err := _AtlasFunctions.contract.UnpackLog(event, "BillingEnd", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBillingEnd is a log parse operation binding the contract event 0xc8dc973332de19a5f71b6026983110e9c2e04b0c98b87eb771ccb78607fd114f.
+//
+// Solidity: event BillingEnd(bytes32 indexed requestId, uint64 subscriptionId, uint96 signerPayment, uint96 transmitterPayment, uint96 totalCost, bool success)
+func (_AtlasFunctions *AtlasFunctionsFilterer) ParseBillingEnd(log types.Log) (*AtlasFunctionsBillingEnd, error) {
+	event := new(AtlasFunctionsBillingEnd)
+	if err := _AtlasFunctions.contract.UnpackLog(event, "BillingEnd", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// AtlasFunctionsBillingStartIterator is returned from FilterBillingStart and is used to iterate over the raw logs and unpacked data for BillingStart events raised by the AtlasFunctions contract.
+type AtlasFunctionsBillingStartIterator struct {
+	Event *AtlasFunctionsBillingStart // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AtlasFunctionsBillingStartIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AtlasFunctionsBillingStart)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AtlasFunctionsBillingStart)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AtlasFunctionsBillingStartIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AtlasFunctionsBillingStartIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// AtlasFunctionsBillingStart represents a BillingStart event raised by the AtlasFunctions contract.
+type AtlasFunctionsBillingStart struct {
+	RequestId  [32]byte
+	Commitment AtlasFunctionsCommitment
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// FilterBillingStart is a free log retrieval operation binding the contract event 0x99f7f4e65b4b9fbabd4e357c47ed3099b36e57ecd3a43e84662f34c207d0ebe4.
+//
+// Solidity: event BillingStart(bytes32 indexed requestId, (uint64,address,uint32,uint256,address,uint96,uint96,uint96,uint256) commitment)
+func (_AtlasFunctions *AtlasFunctionsFilterer) FilterBillingStart(opts *bind.FilterOpts, requestId [][32]byte) (*AtlasFunctionsBillingStartIterator, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _AtlasFunctions.contract.FilterLogs(opts, "BillingStart", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &AtlasFunctionsBillingStartIterator{contract: _AtlasFunctions.contract, event: "BillingStart", logs: logs, sub: sub}, nil
+}
+
+// WatchBillingStart is a free log subscription operation binding the contract event 0x99f7f4e65b4b9fbabd4e357c47ed3099b36e57ecd3a43e84662f34c207d0ebe4.
+//
+// Solidity: event BillingStart(bytes32 indexed requestId, (uint64,address,uint32,uint256,address,uint96,uint96,uint96,uint256) commitment)
+func (_AtlasFunctions *AtlasFunctionsFilterer) WatchBillingStart(opts *bind.WatchOpts, sink chan<- *AtlasFunctionsBillingStart, requestId [][32]byte) (event.Subscription, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _AtlasFunctions.contract.WatchLogs(opts, "BillingStart", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(AtlasFunctionsBillingStart)
+				if err := _AtlasFunctions.contract.UnpackLog(event, "BillingStart", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBillingStart is a log parse operation binding the contract event 0x99f7f4e65b4b9fbabd4e357c47ed3099b36e57ecd3a43e84662f34c207d0ebe4.
+//
+// Solidity: event BillingStart(bytes32 indexed requestId, (uint64,address,uint32,uint256,address,uint96,uint96,uint96,uint256) commitment)
+func (_AtlasFunctions *AtlasFunctionsFilterer) ParseBillingStart(log types.Log) (*AtlasFunctionsBillingStart, error) {
+	event := new(AtlasFunctionsBillingStart)
+	if err := _AtlasFunctions.contract.UnpackLog(event, "BillingStart", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // AtlasFunctionsOracleRequestIterator is returned from FilterOracleRequest and is used to iterate over the raw logs and unpacked data for OracleRequest events raised by the AtlasFunctions contract.
@@ -593,6 +963,150 @@ func (_AtlasFunctions *AtlasFunctionsFilterer) WatchOracleResponse(opts *bind.Wa
 func (_AtlasFunctions *AtlasFunctionsFilterer) ParseOracleResponse(log types.Log) (*AtlasFunctionsOracleResponse, error) {
 	event := new(AtlasFunctionsOracleResponse)
 	if err := _AtlasFunctions.contract.UnpackLog(event, "OracleResponse", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// AtlasFunctionsRequestTimedOutIterator is returned from FilterRequestTimedOut and is used to iterate over the raw logs and unpacked data for RequestTimedOut events raised by the AtlasFunctions contract.
+type AtlasFunctionsRequestTimedOutIterator struct {
+	Event *AtlasFunctionsRequestTimedOut // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AtlasFunctionsRequestTimedOutIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AtlasFunctionsRequestTimedOut)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AtlasFunctionsRequestTimedOut)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AtlasFunctionsRequestTimedOutIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AtlasFunctionsRequestTimedOutIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// AtlasFunctionsRequestTimedOut represents a RequestTimedOut event raised by the AtlasFunctions contract.
+type AtlasFunctionsRequestTimedOut struct {
+	RequestId [32]byte
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// FilterRequestTimedOut is a free log retrieval operation binding the contract event 0xf1ca1e9147be737b04a2b018a79405f687a97de8dd8a2559bbe62357343af414.
+//
+// Solidity: event RequestTimedOut(bytes32 indexed requestId)
+func (_AtlasFunctions *AtlasFunctionsFilterer) FilterRequestTimedOut(opts *bind.FilterOpts, requestId [][32]byte) (*AtlasFunctionsRequestTimedOutIterator, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _AtlasFunctions.contract.FilterLogs(opts, "RequestTimedOut", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &AtlasFunctionsRequestTimedOutIterator{contract: _AtlasFunctions.contract, event: "RequestTimedOut", logs: logs, sub: sub}, nil
+}
+
+// WatchRequestTimedOut is a free log subscription operation binding the contract event 0xf1ca1e9147be737b04a2b018a79405f687a97de8dd8a2559bbe62357343af414.
+//
+// Solidity: event RequestTimedOut(bytes32 indexed requestId)
+func (_AtlasFunctions *AtlasFunctionsFilterer) WatchRequestTimedOut(opts *bind.WatchOpts, sink chan<- *AtlasFunctionsRequestTimedOut, requestId [][32]byte) (event.Subscription, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _AtlasFunctions.contract.WatchLogs(opts, "RequestTimedOut", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(AtlasFunctionsRequestTimedOut)
+				if err := _AtlasFunctions.contract.UnpackLog(event, "RequestTimedOut", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRequestTimedOut is a log parse operation binding the contract event 0xf1ca1e9147be737b04a2b018a79405f687a97de8dd8a2559bbe62357343af414.
+//
+// Solidity: event RequestTimedOut(bytes32 indexed requestId)
+func (_AtlasFunctions *AtlasFunctionsFilterer) ParseRequestTimedOut(log types.Log) (*AtlasFunctionsRequestTimedOut, error) {
+	event := new(AtlasFunctionsRequestTimedOut)
+	if err := _AtlasFunctions.contract.UnpackLog(event, "RequestTimedOut", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

@@ -291,6 +291,18 @@ export async function assertLinkTokenBalance(
   expect(await lt.balanceOf(address)).equal(balance, msg)
 }
 
+export async function assertSubscriptionBalance(
+  coordinator: Contract,
+  subID: BigNumberish,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect((await coordinator.getSubscription(subID)).balance).deep.equal(
+    balance,
+    msg,
+  )
+}
+
 export async function setTimestamp(timestamp: number) {
   await network.provider.request({
     method: 'evm_setNextBlockTimestamp',

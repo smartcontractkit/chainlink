@@ -32,6 +32,8 @@ func NewMailboxMonitor(appID string) *MailboxMonitor {
 	return &MailboxMonitor{appID: appID}
 }
 
+func (m *MailboxMonitor) Name() string { return "MailboxMonitor" }
+
 func (m *MailboxMonitor) Start(context.Context) error {
 	return m.StartOnce("MailboxMonitor", func() error {
 		t := time.NewTicker(WithJitter(mailboxPromInterval))
@@ -46,6 +48,10 @@ func (m *MailboxMonitor) Close() error {
 		m.stop()
 		return nil
 	})
+}
+
+func (m *MailboxMonitor) HealthReport() map[string]error {
+	return map[string]error{m.Name(): m.Healthy()}
 }
 
 func (m *MailboxMonitor) monitorLoop(c <-chan time.Time) {

@@ -122,8 +122,8 @@ type ConfigSchema struct {
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
 	// Feeds manager
-	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
-	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
+	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"true"` //nodoc
+	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`  //nodoc
 
 	// LogPoller
 	FeatureLogPoller bool `env:"FEATURE_LOG_POLLER" default:"false"` //nodoc
@@ -133,8 +133,6 @@ type ConfigSchema struct {
 	EVMRPCEnabled   bool   `env:"EVM_RPC_ENABLED" default:"true"`
 	SolanaEnabled   bool   `env:"SOLANA_ENABLED" default:"false"`
 	SolanaNodes     string `env:"SOLANA_NODES"`
-	TerraEnabled    bool   `env:"TERRA_ENABLED" default:"false"`
-	TerraNodes      string `env:"TERRA_NODES"`
 	StarknetEnabled bool   `env:"STARKNET_ENABLED" default:"false"`
 	StarknetNodes   string `env:"STARKNET_NODES"`
 

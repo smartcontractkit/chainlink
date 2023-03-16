@@ -3,6 +3,7 @@ ChainType = 'arbitrum'
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
+LogPollInterval = '1s'
 
 [GasEstimator]
 Mode = 'Arbitrum'

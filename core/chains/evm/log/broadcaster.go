@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"go.uber.org/atomic"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -213,6 +213,14 @@ func (b *broadcaster) Close() error {
 		b.wgDone.Wait()
 		return b.changeSubscriberStatus.Close()
 	})
+}
+
+func (b *broadcaster) Name() string {
+	return b.logger.Name()
+}
+
+func (b *broadcaster) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -483,7 +491,10 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	if replayReq.forceBroadcast {
 		ctx, cancel := utils.ContextFromChan(b.chStop)
 		defer cancel()
-		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx))
+
+		// Use a longer timeout in the event that a very large amount of logs need to be marked
+		// as consumed.
+		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"error", err, "fromBlock", replayReq.fromBlock)
@@ -778,11 +789,14 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
+func (n *NullBroadcaster) Name() string { return "" }
+
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
 func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }
+func (n *NullBroadcaster) HealthReport() map[string]error                    { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 func (n *NullBroadcaster) Pause()                                            {}
 func (n *NullBroadcaster) Resume()                                           {}

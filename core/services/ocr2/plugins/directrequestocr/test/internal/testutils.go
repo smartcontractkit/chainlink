@@ -362,7 +362,10 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 
 		[pluginConfig]
 		minIncomingConfirmations = 3
-		listenerEventHandlerTimeoutSec = 40
+		requestTimeoutSec = 300
+		requestTimeoutCheckFrequencySec = 10
+		requestTimeoutBatchLookupSize = 20
+		listenerEventHandlerTimeoutSec = 120
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)

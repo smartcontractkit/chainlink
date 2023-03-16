@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./FunctionsClient.sol";
-import "./Functions.sol";
-import "../../ConfirmedOwner.sol";
+import {FunctionsClient} from "./FunctionsClient.sol";
+import {Functions} from "./Functions.sol";
+import {ConfirmedOwner} from "../../ConfirmedOwner.sol";
 
 /**
  * @title Chainlink Functions example client contract implementation
@@ -40,7 +40,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addInlineSecrets(secrets);
     if (args.length > 0) req.addArgs(args);
-    lastRequestId = sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, tx.gasprice);
+    lastRequestId = sendRequest(req, subscriptionId, MAX_CALLBACK_GAS);
   }
 
   /**
@@ -71,7 +71,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     if (b.length < 32) {
       maxLen = b.length;
     }
-    for (uint i = 0; i < maxLen; i++) {
+    for (uint256 i = 0; i < maxLen; i++) {
       out |= bytes32(b[i]) >> (i * 8);
     }
     return out;

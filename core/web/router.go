@@ -77,7 +77,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
-	unauthenticatedDevOnlyMetricRoutes(app, api)
+	debugRoutes(app, api)
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
@@ -170,14 +170,9 @@ func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 
-func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
+func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
-
-	if app.GetConfig().Dev() {
-		// No authentication because `go tool pprof` doesn't support it
-		metricRoutes(r, true)
-	}
 }
 
 func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
@@ -262,8 +257,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ets := EVMTransfersController{app}
 		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
 		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
-		tts := TerraTransfersController{app}
-		authv2.POST("/transfers/terra", auth.RequiresAdminRole(tts.Create))
 		sts := SolanaTransfersController{app}
 		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
@@ -335,7 +328,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			kc   KeysController
 		}{
 			{"solana", NewSolanaKeysController(app)},
-			{"terra", NewTerraKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"dkgsign", NewDKGSignKeysController(app)},
 			{"dkgencrypt", NewDKGEncryptKeysController(app)},
@@ -385,7 +377,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
-			{"terra", NewTerraChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
 			chains.POST(chain.path, auth.RequiresEditRole(chain.cc.Create))
@@ -402,7 +393,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
-			{"terra", NewTerraNodesController(app)},
 		} {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
@@ -425,7 +415,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, false)
+		metricRoutes(authv2, app.GetConfig().Dev())
 	}
 
 	ping := PingController{app}

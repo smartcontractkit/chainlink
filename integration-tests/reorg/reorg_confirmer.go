@@ -4,12 +4,12 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -50,7 +50,7 @@ type ReorgController struct {
 	forkBlockNumber       int64
 	currentAltBlocks      int
 	currentVerifiedBlocks int
-	networkStep           *atomic.Int64
+	networkStep           atomic.Int64
 	altBlockNumbers       []int64
 	blocksByNode          map[int]map[int64]blockchain.NodeHeader
 	blockHashes           map[int64][]common.Hash
@@ -86,9 +86,9 @@ func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 		mutex:              sync.Mutex{},
 		ctx:                ctx,
 		cancel:             ctxCancel,
-		networkStep:        atomic.NewInt64(InitConsensus),
 		complete:           false,
 	}
+	rc.networkStep.Store(InitConsensus)
 	cfg.Network.AddHeaderEventSubscription("reorg", rc)
 	<-rc.initConsensusReady
 	return rc, nil

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.6;
 
-import "../upkeeps/EthBalanceMonitor.sol";
+import "../automation/upkeeps/EthBalanceMonitor.sol";
 
 contract EthBalanceMonitorExposed is EthBalanceMonitor {
   constructor(address keeperRegistryAddress, uint256 minWaitPeriod)

@@ -29,6 +29,13 @@ func (b boolCheck) Healthy() error {
 	return ErrUnhealthy
 }
 
+func (b boolCheck) HealthReport() map[string]error {
+	if b {
+		return map[string]error{"boolCheck": nil}
+	}
+	return map[string]error{"boolCheck": ErrUnhealthy}
+}
+
 func TestCheck(t *testing.T) {
 	for i, test := range []struct {
 		checks   []services.Checkable

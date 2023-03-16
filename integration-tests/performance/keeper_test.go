@@ -45,6 +45,9 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 
 func TestKeeperPerformance(t *testing.T) {
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_1,
@@ -150,7 +153,10 @@ SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	testEnvironment := environment.New(
-		&environment.Config{NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName)},
+		&environment.Config{
+			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
+			Test:            t,
+		},
 	).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -161,6 +167,9 @@ PerformGasOverhead = 150_000`
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		return testEnvironment, nil, nil, nil, nil
+	}
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")

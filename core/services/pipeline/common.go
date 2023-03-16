@@ -230,6 +230,19 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	return fr
 }
 
+// GetNextTaskOf returns the task with the next id
+func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
+	nextID := task.Task.Base().id + 1
+
+	for _, trr := range *trrs {
+		if trr.Task.Base().id == nextID {
+			return &trr
+		}
+	}
+
+	return nil
+}
+
 type JSONSerializable struct {
 	Val   interface{}
 	Valid bool

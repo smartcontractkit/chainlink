@@ -135,8 +135,10 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Create VRF job but do not start it yet
 	jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 
+	sendingKeys := []string{key.Address.String()}
+
 	// Create BHS job and start it
-	_ = createAndStartBHSJob(t, key.Address.String(), app, cu.bhsContractAddress.String(),
+	_ = createAndStartBHSJob(t, sendingKeys, app, cu.bhsContractAddress.String(),
 		cu.rootContractAddress.String(), "")
 
 	// Create a VRF request

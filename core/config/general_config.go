@@ -59,7 +59,6 @@ type FeatureFlags interface {
 	EVMRPCEnabled() bool
 	P2PEnabled() bool
 	SolanaEnabled() bool
-	TerraEnabled() bool
 	StarkNetEnabled() bool
 }
 
@@ -177,7 +176,6 @@ type BasicConfig interface {
 	SessionTimeout() models.Duration
 	SolanaNodes() string
 	StarkNetNodes() string
-	TerraNodes() string
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string
@@ -561,7 +559,7 @@ func (c *generalConfig) AutoPprofEnabled() bool {
 func (c *generalConfig) AutoPprofProfileRoot() string {
 	root := c.viper.GetString(envvar.Name("AutoPprofProfileRoot"))
 	if root == "" {
-		return c.RootDir()
+		return filepath.Join(c.RootDir(), "pprof")
 	}
 	return root
 }
@@ -874,11 +872,6 @@ func (c *generalConfig) StarkNetEnabled() bool {
 	return c.viper.GetBool(envvar.Name("StarknetEnabled"))
 }
 
-// TerraEnabled allows Terra to be used
-func (c *generalConfig) TerraEnabled() bool {
-	return c.viper.GetBool(envvar.Name("TerraEnabled"))
-}
-
 // P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol
 func (c *generalConfig) P2PEnabled() bool {
 	// We need p2p networking if either ocr1 or ocr2 is enabled
@@ -1012,12 +1005,6 @@ func (c *generalConfig) SolanaNodes() string {
 // sets up multiple nodes
 func (c *generalConfig) StarkNetNodes() string {
 	return c.viper.GetString(envvar.Name("StarknetNodes"))
-}
-
-// TerraNodes is a hack to allow node operators to give a JSON string that
-// sets up multiple nodes
-func (c *generalConfig) TerraNodes() string {
-	return c.viper.GetString(envvar.Name("TerraNodes"))
 }
 
 // TelemetryIngressURL returns the WSRPC URL for this node to push telemetry to, or nil.

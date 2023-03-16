@@ -26,6 +26,10 @@ func (raw Raw) GoString() string {
 	return raw.String()
 }
 
+func (raw Raw) Bytes() []byte {
+	return ([]byte)(raw)
+}
+
 var _ fmt.GoStringer = &KeyV2{}
 
 type KeyV2 struct {

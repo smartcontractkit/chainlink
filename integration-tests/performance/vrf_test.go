@@ -27,6 +27,9 @@ import (
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment, testNetwork := setupVRFTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting client shouldn't fail")
@@ -143,6 +146,7 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 HTTPWriteTimout = '300s'`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{

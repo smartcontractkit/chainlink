@@ -28,6 +28,8 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+func ptr[T any](t T) *T { return &t }
+
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 

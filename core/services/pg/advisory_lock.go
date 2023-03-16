@@ -149,13 +149,8 @@ func (l *advisoryLock) loop(ctx context.Context) {
 	check := time.NewTicker(utils.WithJitter(l.cfg.AdvisoryLockCheckInterval()))
 	defer check.Stop()
 
-	stats := time.NewTicker(dbStatsInternal)
-	defer stats.Stop()
-
 	for {
 		select {
-		case <-stats.C:
-			publishStats(l.db.Stats())
 		case <-ctx.Done():
 			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DatabaseDefaultQueryTimeout())
 			err := multierr.Combine(

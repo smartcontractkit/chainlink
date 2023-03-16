@@ -232,7 +232,7 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockhashStoreSpec.PollPeriod, savedJob.BlockhashStoreSpec.PollPeriod)
 		require.Equal(t, jb.BlockhashStoreSpec.RunTimeout, savedJob.BlockhashStoreSpec.RunTimeout)
 		require.Equal(t, jb.BlockhashStoreSpec.EVMChainID, savedJob.BlockhashStoreSpec.EVMChainID)
-		require.Equal(t, jb.BlockhashStoreSpec.FromAddress, savedJob.BlockhashStoreSpec.FromAddress)
+		require.Equal(t, jb.BlockhashStoreSpec.FromAddresses, savedJob.BlockhashStoreSpec.FromAddresses)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		_, err = orm.FindJob(testutils.Context(t), jb.ID)

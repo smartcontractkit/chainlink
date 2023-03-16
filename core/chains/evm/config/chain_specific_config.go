@@ -314,6 +314,7 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.gasFeeCapDefault = *assets.GWei(1000)
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
+	arbitrumMainnet.logPollInterval = 1 * time.Second
 	arbitrumMainnet.nodeSyncThreshold = 10
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet

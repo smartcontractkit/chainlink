@@ -273,6 +273,18 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
+func (r JSONConfig) EVMChainID() (int64, error) {
+	i, ok := r["chainID"]
+	if !ok {
+		return -1, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
+	}
+	f, ok := i.(float64)
+	if !ok {
+		return -1, fmt.Errorf("expected float64 chain id but got: %T", i)
+	}
+	return int64(f), nil
+}
+
 // OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
@@ -299,6 +311,7 @@ type OCR2OracleSpec struct {
 	ContractID                        string          `toml:"contractID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -498,7 +511,7 @@ type BlockhashStoreSpec struct {
 	EVMChainID *utils.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
-	FromAddress *ethkey.EIP55Address `toml:"fromAddress"`
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

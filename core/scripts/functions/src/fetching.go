@@ -23,7 +23,7 @@ type ocr2Bundle struct {
 	ConfigPublicKey   string `json:"configPublicKey"`
 }
 
-func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []*nodeConfig) {
+func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 	for _, node := range nodes {
 		output := &bytes.Buffer{}
 		client, app := newApp(node, output)
@@ -70,13 +70,13 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []*nodeConfig) {
 		}
 		ocr2Bundle := ocr2Bundles[ocr2BundleIndex]
 
-		nc := &nodeConfig{
-			ethAddress:            ethAddress,
-			p2pPeerID:             peerID,
-			ocr2BundleID:          ocr2Bundle.ID,
-			ocr2ConfigPublicKey:   strings.TrimPrefix(ocr2Bundle.ConfigPublicKey, "ocr2cfg_evm_"),
-			ocr2OnchainPublicKey:  strings.TrimPrefix(ocr2Bundle.OnchainPublicKey, "ocr2on_evm_"),
-			ocr2OffchainPublicKey: strings.TrimPrefix(ocr2Bundle.OffchainPublicKey, "ocr2off_evm_"),
+		nc := NodeKeys{
+			EthAddress:            ethAddress,
+			P2PPeerID:             peerID,
+			OCR2BundleID:          ocr2Bundle.ID,
+			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bundle.ConfigPublicKey, "ocr2cfg_evm_"),
+			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bundle.OnchainPublicKey, "ocr2on_evm_"),
+			OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bundle.OffchainPublicKey, "ocr2off_evm_"),
 		}
 
 		nca = append(nca, nc)

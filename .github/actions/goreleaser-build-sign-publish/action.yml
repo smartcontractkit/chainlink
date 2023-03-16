@@ -3,11 +3,11 @@ description: A composite action that allows building and publishing signed chain
 inputs:
   goreleaser-version:
     description: The goreleaser version
-    default: 1.13.1
+    default: 1.15.2
     required: false
   zig-version:
     description: The zig version
-    default: 0.10.0
+    default: 0.10.1
     required: false
   cosign-version:
     description: The cosign version

@@ -127,24 +127,6 @@ storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 chainID = "Chainlink-99"`
 
-	OCR2TerraSpecMinimal = `type = "offchainreporting2"
-schemaVersion = 1
-name = "local testing job"
-contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
-isBootstrapPeer = false
-p2pv2Bootstrappers = []
-relay = "terra"
-transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
-observationSource = """
-"""
-juelsPerFeeCoinSource = """
-"""
-
-[relayConfig]
-chainID = "Chainlink-99"`
-	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
-nodeName = "some-test-node"`
-
 	OCR2EVMSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
@@ -282,6 +264,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.BatchCoordinatorAddress != "" {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
+
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
 		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
@@ -554,7 +537,7 @@ type BlockhashStoreSpecParams struct {
 	PollPeriod            time.Duration
 	RunTimeout            time.Duration
 	EVMChainID            int64
-	FromAdress            string
+	FromAddresses         []string
 }
 
 // BlockhashStoreSpec defines a blockhash store job spec.
@@ -606,8 +589,15 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		params.RunTimeout = 15 * time.Second
 	}
 
-	if params.FromAdress == "" {
-		params.FromAdress = "0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"
+	var formattedFromAddresses string
+	if params.FromAddresses == nil {
+		formattedFromAddresses = `["0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"]`
+	} else {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
 	}
 
 	template := `
@@ -622,12 +612,12 @@ blockhashStoreAddress = "%s"
 pollPeriod = "%s"
 runTimeout = "%s"
 evmChainID = "%d"
-fromAddress = "%s"
+fromAddresses = %s
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
 		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
-		params.EVMChainID, params.FromAdress)
+		params.EVMChainID, formattedFromAddresses)
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
 }

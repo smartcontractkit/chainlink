@@ -5,14 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 <!-- unreleased -->
 ## [dev]
 
 ...
+
 <!-- unreleasedstop -->
 
-## 1.12.0 - 2023-02-14
+## 1.13.0 - 2023-03-16
+
+### Added
+
+- Support for sending OCR2 job specs to the feeds manager
+- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
+### Changed
+
+- The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
+
+### Removed
+
+- Terra is no longer supported
+
+## 1.12.0 - 2023-02-15
 
 ### Added
 

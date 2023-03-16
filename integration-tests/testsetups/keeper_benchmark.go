@@ -230,12 +230,12 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 
 	k.TestReporter.Summary.Config.Chainlink, err = k.env.ResourcesSummary("app=chainlink-0")
 	if err != nil {
-		panic(err)
+		log.Error().Err(err).Msg("Error getting resource summary of chainlink node")
 	}
 
 	k.TestReporter.Summary.Config.Geth, err = k.env.ResourcesSummary("app=geth")
 	if err != nil && k.Inputs.BlockchainClient.NetworkSimulated() {
-		panic(err)
+		log.Error().Err(err).Msg("Error getting resource summary of geth node")
 	}
 
 	endTime := time.Now()

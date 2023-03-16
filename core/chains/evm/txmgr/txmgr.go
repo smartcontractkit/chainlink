@@ -96,8 +96,8 @@ type reset struct {
 
 type Txm struct {
 	utils.StartStopOnce
-
 	logger           logger.Logger
+	orm              ORM
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
@@ -139,6 +139,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
+		orm:              NewORM(db, lggr, cfg),
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -155,7 +156,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, db, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
@@ -190,7 +191,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 
 		var ms services.MultiStart
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		ec := NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, eb); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -257,6 +258,8 @@ func (b *Txm) Close() (merr error) {
 	return b.StopOnce("Txm", func() error {
 		close(b.chStop)
 
+		b.orm.Close()
+
 		if b.reaper != nil {
 			b.reaper.Stop()
 		}
@@ -275,6 +278,14 @@ func (b *Txm) Close() (merr error) {
 
 		return nil
 	})
+}
+
+func (b *Txm) Name() string {
+	return b.logger.Name()
+}
+
+func (b *Txm) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
@@ -311,7 +322,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 		}
 
 		eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -648,25 +659,6 @@ VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_n
 RETURNING *;
 `
 
-func saveReplacementInProgressAttempt(q pg.Q, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
-	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
-		return errors.New("expected attempts to be in_progress")
-	}
-	if oldAttempt.ID == 0 {
-		return errors.New("expected oldAttempt to have an ID")
-	}
-	return q.Transaction(func(tx pg.Queryer) error {
-		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
-			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
-		}
-		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, replacementAttempt)
-		if e != nil {
-			return errors.Wrap(e, "saveReplacementInProgressAttempt failed to BindNamed")
-		}
-		return errors.Wrap(tx.Get(replacementAttempt, query, args...), "saveReplacementInProgressAttempt failed to insert replacement attempt")
-	})
-}
-
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func CountUnconfirmedTransactions(q pg.Q, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
 	return countTransactionsWithState(q, fromAddress, EthTxUnconfirmed, chainID)
@@ -734,5 +726,7 @@ func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, val
 }
 func (n *NullTxManager) Healthy() error                           { return nil }
 func (n *NullTxManager) Ready() error                             { return nil }
+func (n *NullTxManager) Name() string                             { return "" }
+func (n *NullTxManager) HealthReport() map[string]error           { return nil }
 func (n *NullTxManager) GetGasEstimator() gas.Estimator           { return nil }
 func (n *NullTxManager) RegisterResumeCallback(fn ResumeCallback) {}

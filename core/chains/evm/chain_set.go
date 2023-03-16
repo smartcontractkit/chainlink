@@ -126,6 +126,15 @@ func (cll *chainSet) Healthy() (err error) {
 	}
 	return
 }
+
+func (cll *chainSet) Name() string {
+	return cll.logger.Name()
+}
+
+func (cll *chainSet) HealthReport() map[string]error {
+	return map[string]error{cll.Name(): cll.Healthy()}
+}
+
 func (cll *chainSet) Ready() (err error) {
 	for _, c := range cll.Chains() {
 		err = multierr.Combine(err, c.Ready())

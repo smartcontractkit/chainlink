@@ -279,3 +279,15 @@ func TestZapLogger_LogCaller(t *testing.T) {
 
 	require.Contains(t, lines[0], "logger/zap_test.go:268")
 }
+
+func TestZapLogger_Name(t *testing.T) {
+	cfg := newZapConfigBase()
+	zapCfg := zapDiskLoggerConfig{}
+
+	lggr := zapCfg.newTestLogger(t, cfg)
+	require.Equal(t, "", lggr.Name())
+	lggr1 := lggr.Named("Lggr1")
+	require.Equal(t, "Lggr1", lggr1.Name())
+	lggr2 := lggr1.Named("Lggr2")
+	require.Equal(t, "Lggr1.Lggr2", lggr2.Name())
+}

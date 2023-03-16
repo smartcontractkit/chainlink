@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"time"
 
-	caigotypes "github.com/dontpanicdao/caigo/types"
 	"github.com/pkg/errors"
 
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
@@ -43,7 +42,7 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 		lggr: lggr.Named("Chain"),
 	}
 
-	getClient := func() (caigotypes.Provider, error) {
+	getClient := func() (*starknet.Client, error) {
 		return ch.getClient()
 	}
 
@@ -53,6 +52,10 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 	}
 
 	return ch, nil
+}
+
+func (c *chain) Name() string {
+	return c.lggr.Name()
 }
 
 func (c *chain) Config() config.Config {
@@ -128,4 +131,8 @@ func (c *chain) Ready() error {
 
 func (c *chain) Healthy() error {
 	return c.StartStopOnce.Healthy()
+}
+
+func (c *chain) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
 }

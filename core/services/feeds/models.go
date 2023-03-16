@@ -140,6 +140,7 @@ const (
 // the Feeds Manager sends a new proposal version.
 type JobProposal struct {
 	ID             int64
+	Name           null.String
 	RemoteUUID     uuid.UUID // RemoteUUID is the uuid of the proposal in FMS.
 	Status         JobProposalStatus
 	ExternalJobID  uuid.NullUUID // ExternalJobID is the external job id in the job spec.
