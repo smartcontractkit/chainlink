@@ -14,6 +14,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -77,7 +78,7 @@ type TxManager interface {
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error)
-	GetGasEstimator() gas.Estimator
+	GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	RegisterResumeCallback(fn ResumeCallback)
 	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
 	Reset(f func(), addr common.Address, abandon bool) error
@@ -102,7 +103,7 @@ type Txm struct {
 	config           Config
 	keyStore         KeyStore
 	eventBroadcaster pg.EventBroadcaster
-	gasEstimator     gas.Estimator
+	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
 
@@ -520,7 +521,7 @@ func (b *Txm) checkEnabled(addr common.Address) error {
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
-func (b *Txm) GetGasEstimator() gas.Estimator {
+func (b *Txm) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	return b.gasEstimator
 }
 
@@ -647,9 +648,11 @@ func (n *NullTxManager) Reset(f func(), addr common.Address, abandon bool) error
 func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error                           { return nil }
-func (n *NullTxManager) Ready() error                             { return nil }
-func (n *NullTxManager) Name() string                             { return "" }
-func (n *NullTxManager) HealthReport() map[string]error           { return nil }
-func (n *NullTxManager) GetGasEstimator() gas.Estimator           { return nil }
+func (n *NullTxManager) Healthy() error                 { return nil }
+func (n *NullTxManager) Ready() error                   { return nil }
+func (n *NullTxManager) Name() string                   { return "" }
+func (n *NullTxManager) HealthReport() map[string]error { return nil }
+func (n *NullTxManager) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
+	return nil
+}
 func (n *NullTxManager) RegisterResumeCallback(fn ResumeCallback) {}

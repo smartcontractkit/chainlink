@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
@@ -100,4 +101,12 @@ func (lp *logPoller) Filter() ethereum.FilterQuery {
 
 func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
 	return o.selectLogsByBlockRange(start, end)
+}
+
+func (lp *logPoller) ConvertLogs(gethLogs []types.Log, blocks []LogPollerBlock) []Log {
+	return convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID())
+}
+
+func (lp *logPoller) BlocksFromLogs(ctx context.Context, logs []types.Log) (blocks []LogPollerBlock, err error) {
+	return lp.blocksFromLogs(ctx, logs)
 }

@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
 type Data struct {
@@ -29,7 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMigrationDatabase(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := actions.GetTestLogger(t)
 	testEnvironment, err := testsetups.DBMigration(&testsetups.DBMigrationSpec{
 		FromSpec: testsetups.FromVersionSpec{
 			Image: "public.ecr.aws/chainlink/chainlink",
