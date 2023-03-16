@@ -2,13 +2,14 @@ package mercury
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/jpillora/backoff"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoimpl"
@@ -50,11 +51,11 @@ type StandardOnchainConfigCodec struct{}
 
 func (StandardOnchainConfigCodec) Decode(b []byte) (OnchainConfig, error) {
 	if len(b) != onchainConfigEncodedLength {
-		return OnchainConfig{}, errors.Errorf("unexpected length of OnchainConfig, expected %v, got %v", onchainConfigEncodedLength, len(b))
+		return OnchainConfig{}, pkgerrors.Errorf("unexpected length of OnchainConfig, expected %v, got %v", onchainConfigEncodedLength, len(b))
 	}
 
 	if b[0] != onchainConfigVersion {
-		return OnchainConfig{}, errors.Errorf("unexpected version of OnchainConfig, expected %v, got %v", onchainConfigVersion, b[0])
+		return OnchainConfig{}, pkgerrors.Errorf("unexpected version of OnchainConfig, expected %v, got %v", onchainConfigVersion, b[0])
 	}
 
 	min, err := DecodeValueInt192(b[1 : 1+byteWidthInt192])
@@ -67,7 +68,7 @@ func (StandardOnchainConfigCodec) Decode(b []byte) (OnchainConfig, error) {
 	}
 
 	if !(min.Cmp(max) <= 0) {
-		return OnchainConfig{}, errors.Errorf("OnchainConfig min (%v) should not be greater than max(%v)", min, max)
+		return OnchainConfig{}, pkgerrors.Errorf("OnchainConfig min (%v) should not be greater than max(%v)", min, max)
 	}
 
 	return OnchainConfig{min, max}, nil
@@ -296,19 +297,18 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 
 	obs, err := rp.dataSource.Observe(ctx)
 	if err != nil {
-		return nil, errors.Errorf("DataSource.Observe returned an error: %s", err)
+		return nil, pkgerrors.Errorf("DataSource.Observe returned an error: %s", err)
 	}
 
 	maxFinalizedBlockNumber := rp.maxFinalizedBlockNumber.Load()
 	if maxFinalizedBlockNumber == unfetchedInitialMaxFinalizedBlockNumber {
 		return nil, errors.New("initial maxFinalizedBlockNumber has not yet been fetched")
 	} else if obs.CurrentBlockNum < maxFinalizedBlockNumber {
-		rp.logger.Debugw("curent block number < max finalized block number; ignoring observation for out-of-date RPC", "currentBlockNum", obs.CurrentBlockNum, "maxFinalizedBlockNumber", maxFinalizedBlockNumber)
-		return nil, nil
-	} else if obs.CurrentBlockNum == maxFinalizedBlockNumber {
-		rp.logger.Debugw("curent block number == max finalized block number; ignoring observation, we already have a report for this block number", "currentBlockNum", obs.CurrentBlockNum, "maxFinalizedBlockNumber", maxFinalizedBlockNumber)
-		return nil, nil
+		return nil, pkgerrors.Errorf("curent block number %d (hash: 0x%x) < max finalized block number %d; ignoring observation for out-of-date RPC", obs.CurrentBlockNum, obs.CurrentBlockHash, maxFinalizedBlockNumber)
 	}
+	// NOTE: obs.CurrentBlockNum == maxFinalizedBlockNumber is ok here
+	// (multiple observations for the same block number) since it will be
+	// de-duplicated in the Report stage
 
 	benchmarkPrice, bpErr := EncodeValueInt192(obs.BenchmarkPrice)
 	bid, bidErr := EncodeValueInt192(obs.Bid)
@@ -316,7 +316,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	err = multierr.Combine(bpErr, bidErr, askErr)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "encode failed")
+		return nil, pkgerrors.Wrap(err, "encode failed")
 	}
 
 	return proto.Marshal(&MercuryObservationProto{
@@ -347,33 +347,34 @@ type ParsedAttributedObservation struct {
 }
 
 func parseAttributedObservation(ao ocrtypes.AttributedObservation) (ParsedAttributedObservation, error) {
-	var observationProto MercuryObservationProto
-	if err := proto.Unmarshal(ao.Observation, &observationProto); err != nil {
-		return ParsedAttributedObservation{}, errors.Errorf("attributed observation cannot be unmarshaled: %s", err)
+	var obs MercuryObservationProto
+	if err := proto.Unmarshal(ao.Observation, &obs); err != nil {
+		return ParsedAttributedObservation{}, pkgerrors.Errorf("attributed observation cannot be unmarshaled: %s", err)
 	}
-	benchmarkPrice, err := DecodeValueInt192(observationProto.BenchmarkPrice)
+	benchmarkPrice, err := DecodeValueInt192(obs.BenchmarkPrice)
 	if err != nil {
-		return ParsedAttributedObservation{}, errors.Errorf("benchmarkPrice cannot be converted to big.Int: %s", err)
+		return ParsedAttributedObservation{}, pkgerrors.Errorf("benchmarkPrice cannot be converted to big.Int: %s", err)
 	}
-	bid, err := DecodeValueInt192(observationProto.Bid)
+	bid, err := DecodeValueInt192(obs.Bid)
 	if err != nil {
-		return ParsedAttributedObservation{}, errors.Errorf("bid cannot be converted to big.Int: %s", err)
+		return ParsedAttributedObservation{}, pkgerrors.Errorf("bid cannot be converted to big.Int: %s", err)
 	}
-	ask, err := DecodeValueInt192(observationProto.Ask)
+	ask, err := DecodeValueInt192(obs.Ask)
 	if err != nil {
-		return ParsedAttributedObservation{}, errors.Errorf("ask cannot be converted to big.Int: %s", err)
+		return ParsedAttributedObservation{}, pkgerrors.Errorf("ask cannot be converted to big.Int: %s", err)
 	}
-	if len(observationProto.CurrentBlockHash) == 0 {
-		return ParsedAttributedObservation{}, errors.Errorf("wrong len for hash: %d", len(observationProto.CurrentBlockHash))
+	if len(obs.CurrentBlockHash) == 0 {
+		return ParsedAttributedObservation{}, pkgerrors.Errorf("wrong len for hash: %d", len(obs.CurrentBlockHash))
 	}
+
 	return ParsedAttributedObservation{
-		observationProto.Timestamp,
+		obs.Timestamp,
 		benchmarkPrice,
 		bid,
 		ask,
-		observationProto.CurrentBlockNum,
-		observationProto.CurrentBlockHash,
-		observationProto.ValidFromBlockNum,
+		obs.CurrentBlockNum,
+		obs.CurrentBlockHash,
+		obs.ValidFromBlockNum,
 		ao.Observer,
 	}, nil
 }
@@ -397,14 +398,14 @@ func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedOb
 
 func (rp *reportingPlugin) Report(ctx context.Context, repts types.ReportTimestamp, query types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
 	if len(query) != 0 {
-		return false, nil, errors.Errorf("expected empty query")
+		return false, nil, pkgerrors.Errorf("expected empty query")
 	}
 
 	paos := parseAttributedObservations(rp.logger, aos)
 
 	// By assumption, we have at most f malicious oracles, so there should be at least f+1 valid paos
 	if !(rp.f+1 <= len(paos)) {
-		return false, nil, errors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
+		return false, nil, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
 
 	should, err := rp.shouldReport(ctx, repts, paos)
@@ -419,15 +420,15 @@ func (rp *reportingPlugin) Report(ctx context.Context, repts types.ReportTimesta
 		return false, nil, err
 	}
 	if !(len(report) <= rp.maxReportLength) {
-		return false, nil, errors.Errorf("report violates MaxReportLength limit set by ReportCodec (%v vs %v)", len(report), rp.maxReportLength)
+		return false, nil, pkgerrors.Errorf("report violates MaxReportLength limit set by ReportCodec (%v vs %v)", len(report), rp.maxReportLength)
 	}
 
 	return true, report, nil
 }
 
 func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportTimestamp, paos []ParsedAttributedObservation) (bool, error) {
-	if len(paos) == 0 {
-		return false, errors.Errorf("cannot handle empty attributed observations")
+	if !(rp.f+1 <= len(paos)) {
+		return false, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
 
 	if err := multierr.Combine(
@@ -436,11 +437,11 @@ func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportT
 		rp.checkAsk(paos),
 		rp.checkBlockValues(paos),
 	); err != nil {
-		rp.logger.Warnw("shouldReport: no", "err", err)
+		rp.logger.Debugw("shouldReport: no", "err", err)
 		return false, nil
 	}
 
-	rp.logger.Infow("shouldReport: yes",
+	rp.logger.Debugw("shouldReport: yes",
 		"timestamp", repts,
 	)
 	return true, nil
@@ -483,7 +484,7 @@ func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, rept
 
 	currentBlockNum, err := rp.reportCodec.CurrentBlockNumFromReport(report)
 	if err != nil {
-		return false, errors.Wrap(err, "error during CurrentBlockNumFromReport")
+		return false, pkgerrors.Wrap(err, "error during CurrentBlockNumFromReport")
 	}
 
 	rp.logger.Debugw("ShouldAcceptFinalizedReport() = true",
