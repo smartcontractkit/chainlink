@@ -52,7 +52,7 @@ type UpkeepExecuter struct {
 	config                 Config
 	executionQueue         chan struct{}
 	headBroadcaster        httypes.HeadBroadcasterRegistry
-	gasEstimator           txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	gasEstimator           txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	job                    job.Job
 	mailbox                *utils.Mailbox[*evmtypes.Head]
 	orm                    ORM
@@ -70,7 +70,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	gasEstimator txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
+	gasEstimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	logger logger.Logger,
 	config Config,
 	effectiveKeeperAddress common.Address,

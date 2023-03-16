@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -74,12 +75,12 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
-	txmgrtypes.HeadTrackable[txmgrtypes.Head]
+	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error)
-	GetGasEstimator() txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	RegisterResumeCallback(fn ResumeCallback)
 	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
 	Reset(f func(), addr common.Address, abandon bool) error
@@ -104,11 +105,11 @@ type Txm struct {
 	config           Config
 	keyStore         KeyStore
 	eventBroadcaster pg.EventBroadcaster
-	gasEstimator     txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
 
-	chHeads        chan txmgrtypes.Head
+	chHeads        chan *evmtypes.Head
 	trigger        chan common.Address
 	reset          chan reset
 	resumeCallback ResumeCallback
@@ -136,7 +137,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
-	estimator := gas.NewEstimator(lggr, ethClient, cfg).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash])
+	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -150,7 +151,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		gasEstimator:     estimator,
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
-		chHeads:          make(chan txmgrtypes.Head),
+		chHeads:          make(chan *evmtypes.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
@@ -431,7 +432,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *Txm) OnNewLongestChain(ctx context.Context, head txmgrtypes.Head) {
+func (b *Txm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.BlockNumber())
@@ -523,7 +524,7 @@ func (b *Txm) checkEnabled(addr common.Address) error {
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
-func (b *Txm) GetGasEstimator() txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
+func (b *Txm) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	return b.gasEstimator
 }
 
@@ -626,7 +627,7 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, txmgrtypes.Head) {}
+func (n *NullTxManager) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
 // Start does noop for NullTxManager.
 func (n *NullTxManager) Start(context.Context) error { return nil }
@@ -654,7 +655,7 @@ func (n *NullTxManager) Healthy() error                 { return nil }
 func (n *NullTxManager) Ready() error                   { return nil }
 func (n *NullTxManager) Name() string                   { return "" }
 func (n *NullTxManager) HealthReport() map[string]error { return nil }
-func (n *NullTxManager) GetGasEstimator() txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
+func (n *NullTxManager) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	return nil
 }
 func (n *NullTxManager) RegisterResumeCallback(fn ResumeCallback) {}

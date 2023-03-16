@@ -118,12 +118,12 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
+	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
 
-	mb        *utils.Mailbox[txmgrtypes.Head]
+	mb        *utils.Mailbox[*evmtypes.Head]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
@@ -133,7 +133,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -151,7 +151,7 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		estimator,
 		resumeCallback,
 		keyStates,
-		utils.NewSingleMailbox[txmgrtypes.Head](),
+		utils.NewSingleMailbox[*evmtypes.Head](),
 		ctx,
 		cancel,
 		sync.WaitGroup{},

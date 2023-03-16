@@ -16,7 +16,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -36,7 +35,7 @@ type arbitrumEstimator struct {
 
 	cfg ArbConfig
 
-	EvmEstimator[*evmtypes.Head] // *l2SuggestedPriceEstimator
+	EvmEstimator // *l2SuggestedPriceEstimator
 
 	client     ethClient
 	pollPeriod time.Duration
@@ -52,7 +51,7 @@ type arbitrumEstimator struct {
 	chDone         chan struct{}
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator[*evmtypes.Head] {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,

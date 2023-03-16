@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -1560,9 +1559,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		keys := []ethkey.State{state}
 		kst := ksmocks.NewEth(t)
 
-		estimator := gasmocks.NewEvmEstimator[*evmtypes.Head](t)
+		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash])
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
 		// Create confirmer with necessary state
 		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
 		currentHead := int64(30)
@@ -1600,10 +1599,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		keys := []ethkey.State{state}
 		kst := ksmocks.NewEth(t)
 
-		estimator := gasmocks.NewEvmEstimator[*evmtypes.Head](t)
+		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash])
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
 		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)

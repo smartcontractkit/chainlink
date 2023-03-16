@@ -42,7 +42,6 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -205,7 +204,7 @@ func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, 
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash])
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
 		keyStates, estimator, nil, lggr,
 		checkerFactory, nonceAutoSync)
@@ -219,7 +218,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config).(txmgrtypes.FeeEstimator[txmgrtypes.Head, gas.EvmFee, *assets.Wei, common.Hash])
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 
 	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, estimator, fn, lggr)
 	return ec

@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	_ EvmEstimator[*evmtypes.Head] = &l2SuggestedPriceEstimator{}
+	_ EvmEstimator = &l2SuggestedPriceEstimator{}
 )
 
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
@@ -44,7 +44,7 @@ type l2SuggestedPriceEstimator struct {
 }
 
 // NewL2SuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator[*evmtypes.Head] {
+func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
 	return &l2SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,

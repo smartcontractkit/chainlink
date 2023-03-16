@@ -11,20 +11,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-var _ EvmEstimator[*evmtypes.Head] = &fixedPriceEstimator[*evmtypes.Head]{}
+var _ EvmEstimator = &fixedPriceEstimator{}
 
-type fixedPriceEstimator[H txmgrtypes.Head] struct {
+type fixedPriceEstimator struct {
 	config Config
 	lggr   logger.SugaredLogger
 }
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) EvmEstimator[*evmtypes.Head] {
-	return &fixedPriceEstimator[*evmtypes.Head]{cfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
+func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) EvmEstimator {
+	return &fixedPriceEstimator{cfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 
-func (f *fixedPriceEstimator[H]) Start(context.Context) error {
+func (f *fixedPriceEstimator) Start(context.Context) error {
 	if f.config.EvmGasBumpThreshold() == 0 && f.config.GasEstimatorMode() == "FixedPrice" {
 		// EvmGasFeeCapDefault is ignored if fixed estimator mode is on and gas bumping is disabled
 		if f.config.EvmGasFeeCapDefault().Cmp(f.config.EvmMaxGasPriceWei()) != 0 {
@@ -33,21 +33,21 @@ func (f *fixedPriceEstimator[H]) Start(context.Context) error {
 	}
 	return nil
 }
-func (f *fixedPriceEstimator[H]) Close() error                             { return nil }
-func (f *fixedPriceEstimator[H]) OnNewLongestChain(_ context.Context, _ H) {}
+func (f *fixedPriceEstimator) Close() error                                          { return nil }
+func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (f *fixedPriceEstimator[H]) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()
 	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EvmGasLimitMultiplier())
 	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, f.config)
 	return
 }
 
-func (f *fixedPriceEstimator[H]) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (gasPrice *assets.Wei, gasLimit uint32, err error) {
+func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (gasPrice *assets.Wei, gasLimit uint32, err error) {
 	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit, maxGasPriceWei)
 }
 
-func (f *fixedPriceEstimator[H]) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
 	gasTipCap := f.config.EvmGasTipCapDefault()
 	if gasTipCap == nil {
 		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
@@ -69,6 +69,6 @@ func (f *fixedPriceEstimator[H]) GetDynamicFee(_ context.Context, originalGasLim
 	}, chainSpecificGasLimit, nil
 }
 
-func (f *fixedPriceEstimator[H]) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (f *fixedPriceEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
 }
