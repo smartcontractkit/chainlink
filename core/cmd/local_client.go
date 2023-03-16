@@ -521,11 +521,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
-	defer func() {
-		if serr := app.Stop(); serr != nil {
-			err = multierr.Append(err, serr)
-		}
-	}()
 	pwd, err := utils.PasswordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
