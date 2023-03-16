@@ -58,6 +58,25 @@ var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 //	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
 
+type QOptsKey struct{}
+
+// Returns copy of parent in which []pg.QOpts value is associated with pg.QOptsKey{} key
+func CtxSetQOpts(parent context.Context, qopts ...QOpt) context.Context {
+	return context.WithValue(parent, QOptsKey{}, qopts)
+}
+
+func CtxQOpts(ctx context.Context) ([]QOpt, error) {
+	var raw any = ctx.Value(QOptsKey{})
+	if raw == nil {
+		return []QOpt{}, nil
+	}
+	qopts, ok := raw.([]QOpt)
+	if !ok {
+		return []QOpt{}, errors.Errorf("Could not convert []pg.QOpt: %v", raw)
+	}
+	return qopts, nil
+}
+
 // WithQueryer sets the queryer
 func WithQueryer(queryer Queryer) QOpt {
 	return func(q *Q) {
@@ -158,6 +177,20 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 
 func (q Q) WithOpts(qopts ...QOpt) Q {
 	return NewQ(q.db, q.originalLogger(), q.config, qopts...)
+}
+
+// Returns a new pg.Queryer with specified parent context and applied QOpt functions (if any)
+// that are found in the context.
+// See pg.WithQOpts to create a context with QOpt values.
+// Note that if any QOpt also modifies the parent context, it will supercede the
+// original parent context passed in
+func (q Q) WithContextAndOpts(parent context.Context) (Q, error) {
+	qopts, err := CtxQOpts(parent)
+	if err != nil {
+		return Q{}, err
+	}
+	qopts = append(qopts, WithParentCtx(parent))
+	return NewQ(q.db, q.originalLogger(), q.config, qopts...), nil
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {

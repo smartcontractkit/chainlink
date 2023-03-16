@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 
@@ -19,7 +20,7 @@ type TransactionsController struct {
 
 // Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.TxmORM().EthTransactionsWithAttempts(offset, size)
+	txs, count, err := tc.App.TxmORM().EthTransactionsWithAttempts(context.Background(), offset, size)
 	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
 		tx.EthTxAttempts[0].EthTx = tx
@@ -30,7 +31,8 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 
 // Show returns the details of a Ethereum Transaction details.
 // Example:
-//  "<application>/transactions/:TxHash"
+//
+//	"<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 

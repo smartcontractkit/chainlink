@@ -464,7 +464,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.TxmORM().EthTransactions(offset, limit)
+	txs, count, err := r.App.TxmORM().EthTransactions(context.Background(), offset, limit)
 	if err != nil {
 		return nil, err
 	}

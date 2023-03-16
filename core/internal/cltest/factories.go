@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -371,13 +372,13 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 
 func MustInsertEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
-	require.NoError(t, borm.InsertEthReceipt(&r))
+	require.NoError(t, borm.InsertEthReceipt(context.Background(), &r))
 	return r
 }
 
 func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
-	require.NoError(t, borm.InsertEthReceipt(&r))
+	require.NoError(t, borm.InsertEthReceipt(context.Background(), &r))
 	return r
 }
 
@@ -396,7 +397,7 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, borm txmgr.ORM,
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	borm.SaveFetchedReceipts([]evmtypes.Receipt{receipt}, chainID)
+	borm.SaveFetchedReceipts(testutils.Context(t), []evmtypes.Receipt{receipt}, chainID)
 	return etx
 }
 

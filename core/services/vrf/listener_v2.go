@@ -817,7 +817,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+				ctx = pg.CtxSetQOpts(ctx, pg.WithQueryer(tx))
+				ethTX, err = lsn.txm.CreateEthTransaction(ctx, txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -834,7 +835,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
 					},
-				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+				})
 				return err
 			})
 			if err != nil {

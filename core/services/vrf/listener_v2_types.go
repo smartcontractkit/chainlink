@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"context"
 	"math/big"
 	"time"
 
@@ -158,7 +159,8 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+		ctx := pg.CtxSetQOpts(context.Background(), pg.WithQueryer(tx))
+		ethTX, err = lsn.txm.CreateEthTransaction(ctx, txmgr.NewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
@@ -170,7 +172,7 @@ func (lsn *listenerV2) processBatch(
 				SubID:           &subID,
 				RequestTxHashes: txHashes,
 			},
-		}, pg.WithQueryer(tx))
+		})
 
 		return errors.Wrap(err, "create batch fulfillment eth transaction")
 	})

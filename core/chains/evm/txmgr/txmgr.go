@@ -76,7 +76,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	services.ServiceCtx
 	Trigger(addr common.Address)
-	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
+	CreateEthTransaction(ctx context.Context, newTx NewTx) (etx EthTx, err error)
 	GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error)
 	GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	RegisterResumeCallback(fn ResumeCallback)
@@ -474,7 +474,7 @@ type NewTx struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+func (b *Txm) CreateEthTransaction(ctx context.Context, newTx NewTx) (etx EthTx, err error) {
 	if err = b.checkEnabled(newTx.FromAddress); err != nil {
 		return etx, err
 	}
@@ -497,12 +497,12 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		}
 	}
 
-	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, ToAnys(qs)...)
+	err = b.orm.CheckEthTxQueueCapacity(ctx, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, ToAnys(qs)...)
+	etx, err = b.orm.CreateEthTransaction(ctx, newTx, b.chainID)
 	return
 }
 
@@ -634,7 +634,7 @@ func (n *NullTxManager) Close() error { return nil }
 
 // Trigger does noop for NullTxManager.
 func (n *NullTxManager) Trigger(common.Address) { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
+func (n *NullTxManager) CreateEthTransaction(context.Context, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) GetForwarderForEOA(addr common.Address) (fwdr common.Address, err error) {

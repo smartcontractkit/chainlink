@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -41,7 +42,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 
-	_, count, err := borm.EthTransactionsWithAttempts(0, 100)
+	_, count, err := borm.EthTransactionsWithAttempts(context.Background(), 0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 

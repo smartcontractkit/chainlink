@@ -68,9 +68,10 @@ func (s DropOldestStrategy) PruneQueue(pruneService any, opt any) (n int64, err 
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
+	ctx = pg.CtxSetQOpts(ctx, qopt)
 
 	defer cancel()
-	n, err = orm.PruneUnstartedEthTxQueue(s.queueSize, s.subject, pg.WithParentCtx(ctx), qopt)
+	n, err = orm.PruneUnstartedEthTxQueue(ctx, s.queueSize, s.subject)
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}

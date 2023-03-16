@@ -37,6 +37,8 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
+	ctx := context.Background()
+
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 1, 2, from) // tx2
 
@@ -59,7 +61,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
-	txs, count, err := orm.EthTransactionsWithAttempts(0, 100) // should omit tx3
+	txs, count, err := orm.EthTransactionsWithAttempts(ctx, 0, 100) // should omit tx3
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
@@ -70,7 +72,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 
-	txs, count, err = orm.EthTransactionsWithAttempts(0, 1, pg.WithQueryer(db))
+	txs, count, err = orm.EthTransactionsWithAttempts(pg.CtxSetQOpts(ctx, pg.WithQueryer(db)), 0, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
@@ -107,7 +109,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
-	txs, count, err := orm.EthTransactions(0, 100, pg.WithParentCtx(context.Background()))
+	txs, count, err := orm.EthTransactions(context.Background(), 0, 100)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
@@ -155,7 +157,7 @@ func TestORM(t *testing.T) {
 	var r txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
-		err = orm.InsertEthReceipt(&r)
+		err = orm.InsertEthReceipt(context.Background(), &r)
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
 		cltest.AssertCount(t, db, "eth_receipts", 1)
@@ -209,7 +211,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	require.NoError(t, orm.InsertEthReceipt(&r))
+	require.NoError(t, orm.InsertEthReceipt(context.Background(), &r))
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
@@ -530,7 +532,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 		TransactionIndex: uint(1),
 	}
 
-	err := borm.SaveFetchedReceipts([]evmtypes.Receipt{txmReceipt}, *ethClient.ChainID())
+	err := borm.SaveFetchedReceipts(testutils.Context(t), []evmtypes.Receipt{txmReceipt}, *ethClient.ChainID())
 
 	require.NoError(t, err)
 	etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
@@ -857,8 +859,9 @@ func TestORM_DeleteInProgressAttempt(t *testing.T) {
 	t.Run("deletes in_progress attempt", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
+		dctx := pg.CtxSetQOpts(context.Background(), pg.WithParentCtx(context.Background()))
 
-		err := borm.DeleteInProgressAttempt(etx.EthTxAttempts[0], pg.WithParentCtx(context.Background()))
+		err := borm.DeleteInProgressAttempt(dctx, etx.EthTxAttempts[0])
 		require.NoError(t, err)
 
 		nilResult, err := borm.FindEthTxAttempt(attempt.Hash)
@@ -1333,7 +1336,7 @@ func TestORM_CountUnconfirmedTransactions(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	count, err := borm.CountUnconfirmedTransactions(fromAddress, cltest.FixtureChainID)
+	count, err := borm.CountUnconfirmedTransactions(context.Background(), fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 3)
 }
@@ -1354,7 +1357,7 @@ func TestORM_CountUnstartedTransactions(t *testing.T) {
 	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	count, err := borm.CountUnstartedTransactions(fromAddress, cltest.FixtureChainID)
+	count, err := borm.CountUnstartedTransactions(context.Background(), fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 2)
 }
@@ -1372,8 +1375,10 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 
 	var maxUnconfirmedTransactions uint64 = 2
 
+	ctx := context.Background()
+
 	t.Run("with no eth_txes returns nil", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1383,7 +1388,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1392,7 +1397,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1403,7 +1408,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	n++
 
 	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, 1, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, 1, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1414,7 +1419,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1423,30 +1428,30 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
 	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
 
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-		err = borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
+		err = borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
 	})
 
 	t.Run("with different chain ID ignores txes", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, *big.NewInt(42))
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, maxUnconfirmedTransactions, *big.NewInt(42))
 		require.NoError(t, err)
 	})
 
 	t.Run("disables check with 0 limit", func(t *testing.T) {
-		err := borm.CheckEthTxQueueCapacity(fromAddress, 0, cltest.FixtureChainID)
+		err := borm.CheckEthTxQueueCapacity(ctx, fromAddress, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 }
@@ -1471,7 +1476,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
-		etx, err := borm.CreateEthTransaction(txmgr.NewTx{
+		etx, err := borm.CreateEthTransaction(context.Background(), txmgr.NewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -1513,10 +1518,10 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			PipelineTaskRunID: &id,
 			Strategy:          txmgr.SendEveryStrategy{},
 		}
-		tx1, err := borm.CreateEthTransaction(newTx, *ethClient.ChainID())
+		tx1, err := borm.CreateEthTransaction(context.Background(), newTx, *ethClient.ChainID())
 		assert.NoError(t, err)
 
-		tx2, err := borm.CreateEthTransaction(newTx, *ethClient.ChainID())
+		tx2, err := borm.CreateEthTransaction(context.Background(), newTx, *ethClient.ChainID())
 		assert.NoError(t, err)
 
 		assert.Equal(t, tx1.ID, tx2.ID)
@@ -1532,6 +1537,7 @@ func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	ctx := testutils.Context(t)
 
 	subject1 := uuid.NewV4()
 	for i := 0; i < 5; i++ {
@@ -1543,59 +1549,14 @@ func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
 	}
 
 	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
-		n, err := borm.PruneUnstartedEthTxQueue(uint32(5), subject1)
+		n, err := borm.PruneUnstartedEthTxQueue(ctx, uint32(5), subject1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), n)
 	})
 
 	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
-		n, err := borm.PruneUnstartedEthTxQueue(uint32(3), subject1)
+		n, err := borm.PruneUnstartedEthTxQueue(ctx, uint32(3), subject1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
-	})
-}
-
-func TestORM_ConvertArgs(t *testing.T) {
-	t.Parallel()
-
-	var compareTo pg.QOpt = func(*pg.Q) {}
-	var opt any = pg.WithParentCtx(context.Background())
-
-	t.Run("ToQOpt succeeds any -> QOpt", func(t *testing.T) {
-		qopt, err := txmgr.ToQOpt(opt)
-		require.NoError(t, err)
-		require.IsType(t, compareTo, qopt)
-	})
-
-	t.Run("ToQOpt fails any -> QOpt", func(t *testing.T) {
-		var err error
-		// pass []any instead of any
-		_, err = txmgr.ToQOpt([]any{opt})
-		require.Error(t, err)
-		_, err = txmgr.ToQOpt(8)
-		require.Error(t, err)
-	})
-
-	t.Run("ToQOpts succeeds []any -> []QOpt", func(t *testing.T) {
-		qopts, err := txmgr.ToQOpts([]any{opt})
-		require.NoError(t, err)
-		require.IsType(t, compareTo, qopts[0])
-	})
-
-	t.Run("ToQOpts fails []any -> []QOpt", func(t *testing.T) {
-		var opts = make([]any, 1)
-		opts[0] = 42
-		_, err := txmgr.ToQOpts(opts)
-		require.Error(t, err)
-	})
-
-	t.Run("can convert variadic function", func(t *testing.T) {
-		convertFx1 := func(opts ...any) ([]pg.QOpt, error) {
-			return txmgr.ToQOpts(opts)
-		}
-
-		qopts, err := convertFx1(pg.WithParentCtx(context.Background()))
-		require.NoError(t, err)
-		require.IsType(t, pg.WithParentCtx(context.Background()), qopts[0])
 	})
 }

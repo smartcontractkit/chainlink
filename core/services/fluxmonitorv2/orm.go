@@ -1,6 +1,7 @@
 package fluxmonitorv2
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,7 +16,7 @@ import (
 )
 
 type transmitter interface {
-	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
+	CreateEthTransaction(ctx context.Context, newTx txmgr.NewTx) (etx txmgr.EthTx, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -120,13 +121,15 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint32,
 	qopts ...pg.QOpt,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Strategy:       o.strategy,
-		Checker:        o.checker,
-	}, qopts...)
+	_, err = o.txm.CreateEthTransaction(
+		pg.CtxSetQOpts(context.Background(), qopts...),
+		txmgr.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Strategy:       o.strategy,
+			Checker:        o.checker,
+		})
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }

@@ -356,12 +356,12 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
-			nUnconfirmed, err := eb.orm.CountUnconfirmedTransactions(fromAddress, eb.chainID)
+			nUnconfirmed, err := eb.orm.CountUnconfirmedTransactions(context.Background(), fromAddress, eb.chainID)
 			if err != nil {
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed"), true
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				nUnstarted, err := eb.orm.CountUnstartedTransactions(fromAddress, eb.chainID)
+				nUnstarted, err := eb.orm.CountUnstartedTransactions(context.Background(), fromAddress, eb.chainID)
 				if err != nil {
 					return errors.Wrap(err, "CountUnstartedTransactions failed"), true
 				}

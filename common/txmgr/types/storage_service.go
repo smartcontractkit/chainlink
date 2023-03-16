@@ -9,15 +9,15 @@ import (
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
 type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
-	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, opts ...any) (err error)
-	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, opts ...any) (count uint32, err error)
-	CountUnstartedTransactions(fromAddress ADDR, chainID CHAINID, opts ...any) (count uint32, err error)
-	CreateEthTransaction(newTx NEWTX, chainID CHAINID, opts ...any) (tx TX, err error)
-	DeleteInProgressAttempt(attempt TXATTEMPT, opts ...any) error
-	EthTransactions(offset, limit int, opts ...any) ([]TX, int, error)
-	EthTransactionsWithAttempts(offset, limit int, opts ...any) ([]TX, int, error)
+	CheckEthTxQueueCapacity(ctx context.Context, fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID) (err error)
+	CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAINID) (count uint32, err error)
+	CountUnstartedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAINID) (count uint32, err error)
+	CreateEthTransaction(ctx context.Context, newTx NEWTX, chainID CHAINID) (tx TX, err error)
+	DeleteInProgressAttempt(ctx context.Context, attempt TXATTEMPT) error
+	EthTransactions(ctx context.Context, offset, limit int) ([]TX, int, error)
+	EthTransactionsWithAttempts(ctx context.Context, offset, limit int) ([]TX, int, error)
 	// EthTxAttempts(offset, limit int, opts ...any) ([]TXATTEMPT, int, error)
-	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID, opts ...any) (receipts []ReceiptPlus[R], err error)
+	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID) (receipts []ReceiptPlus[R], err error)
 	// FindEthTxAttempt(hash HASH, opts ...any) (*TXATTEMPT, error)
 	// FindEthTxAttemptConfirmedByEthTxIDs(ids []TXID, opts ...any) ([]TXATTEMPT, error)
 	// FindEthTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAINID, opts ...any) (etxs []*TX, err error)
@@ -35,7 +35,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	// GetInProgressEthTxAttempts(ctx context.Context, address ADDR, chainID CHAINID, opts ...any) (attempts []TXATTEMPT, err error)
 	// HasInProgressTransaction(account ADDR, chainID CHAINID, opts ...any) (exists bool, err error)
 	// // InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-	InsertEthReceipt(receipt *Receipt[R, HASH], opts ...any) error
+	InsertEthReceipt(ctx context.Context, receipt *Receipt[R, HASH]) error
 	// InsertEthTx(etx *TX, opts ...any) error
 	// InsertEthTxAttempt(attempt *TXATTEMPT, opts ...any) error
 	// LoadEthTxAttempts(etx *TX, opts ...any) error
@@ -43,9 +43,9 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	// MarkAllConfirmedMissingReceipt(chainID CHAINID, opts ...any) (err error)
 	// MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID CHAINID, opts ...any) error
 	// PreloadEthTxes(attempts []TXATTEMPT, opts ...any) error
-	PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, opts ...any) (n int64, err error)
+	PruneUnstartedEthTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error)
 	// SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time, opts ...any) error
-	SaveFetchedReceipts(receipts []R, chainID CHAINID, opts ...any) (err error)
+	SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAINID) (err error)
 	// SaveInProgressAttempt(attempt *TXATTEMPT, opts ...any) error
 	// SaveInsufficientEthAttempt(timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time, opts ...any) error
 	// SaveReplacementInProgressAttempt(oldAttempt TXATTEMPT, replacementAttempt *TXATTEMPT, opts ...any) error
