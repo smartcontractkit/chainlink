@@ -80,7 +80,7 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
 
 .PHONY: generate
-generate: abigen ## Execute all go:generate commands.
+generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testdb
