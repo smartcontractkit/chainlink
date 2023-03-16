@@ -310,6 +310,7 @@ const (
 type OCR2OracleSpec struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
+	FeedID                            string          `toml:"feedID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
 	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`

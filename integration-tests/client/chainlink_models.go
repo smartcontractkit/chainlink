@@ -935,6 +935,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		JobType                  string
 		MaxTaskDuration          string
 		ContractID               string
+		FeedID                   string
 		Relay                    string
 		PluginType               string
 		RelayConfig              map[string]interface{}
@@ -954,6 +955,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		JobType:                  o.JobType,
 		MaxTaskDuration:          o.MaxTaskDuration,
 		ContractID:               o.OCR2OracleSpec.ContractID,
+		FeedID:                   o.OCR2OracleSpec.FeedID,
 		Relay:                    string(o.OCR2OracleSpec.Relay),
 		PluginType:               string(o.OCR2OracleSpec.PluginType),
 		RelayConfig:              o.OCR2OracleSpec.RelayConfig,
@@ -978,6 +980,9 @@ pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
+{{if .FeedID}}
+feedID                                 = {{.FeedID}} 
+{{end}}
 {{if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}

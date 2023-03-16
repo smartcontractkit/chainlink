@@ -59,7 +59,6 @@ type TestEnv struct {
 	Env                   *environment.Environment
 	ChainlinkNodes        []*client.Chainlink
 	MockserverClient      *ctfClient.MockserverClient
-	FeedIds               []string              // feed id configured in Mercury
 	MSClient              *client.MercuryServer // Mercury server client authenticated with admin role
 	MSInfo                mercuryServerInfo
 	IsExistingEnv         bool // true if config in MERCURY_ENV_CONFIG_PATH contains namespace
@@ -85,7 +84,6 @@ type TestEnvConfig struct {
 	Id            string            `json:"id"`
 	K8Namespace   string            `json:"k8Namespace"`
 	ChainId       int64             `json:"chainId"`
-	FeedIds       []string          `json:"feedIds"`
 	ContractsInfo map[string]string `json:"contracts"`
 	MSInfo        mercuryServerInfo `json:"mercuryServer"`
 }
@@ -171,7 +169,6 @@ func NewEnv(testEnvId string, namespacePrefix string) (TestEnv, error) {
 			os.Getenv("MERCURY_ENV_CONFIG_PATH"), c.Json())
 
 		te.Namespace = c.K8Namespace
-		te.FeedIds = c.FeedIds
 		te.MSInfo = c.MSInfo
 		te.IsExistingEnv = true
 		// Load contract addresses
@@ -183,7 +180,6 @@ func NewEnv(testEnvId string, namespacePrefix string) (TestEnv, error) {
 		}
 	} else {
 		// Feed id can have max 32 characters
-		te.FeedIds = []string{"feed-1", "feed-2"}
 		te.MSInfo = mercuryServerInfo{
 			AdminId:           os.Getenv("MS_DATABASE_FIRST_ADMIN_ID"),
 			AdminKey:          os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY"),
@@ -378,7 +374,6 @@ func (te *TestEnv) Config() *TestEnvConfig {
 		Id:            te.Id,
 		K8Namespace:   k8namespace,
 		ChainId:       te.ChainId,
-		FeedIds:       te.FeedIds,
 		ContractsInfo: contractsInfo,
 		MSInfo:        te.MSInfo,
 	}
@@ -428,13 +423,17 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds []string) error {
 		case <-to.C:
 			return fmt.Errorf("no reports found in mercury db after %s", timeout)
 		case <-ticker.C:
+			var notFound = false
 			for _, feedId := range feedIds {
 				report, _, _ := te.MSClient.GetReports(feedId, latestBlockNum)
 				if report == nil || report.ChainlinkBlob == "" {
-					break
+					notFound = true
 				}
 			}
-			return nil
+			// Stop if at least one report found for each feed
+			if !notFound {
+				return nil
+			}
 		}
 	}
 }
@@ -581,9 +580,9 @@ func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feed
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: contractID,
 			Relay:      "evm",
+			FeedID:     fmt.Sprintf("\"0x%x\"", StringToByte32(feedId)),
 			RelayConfig: map[string]interface{}{
 				"chainID":   int(chainID),
-				"feedID":    fmt.Sprintf("\"0x%x\"", StringToByte32(feedId)),
 				"fromBlock": fromBlock,
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
@@ -641,14 +640,11 @@ func buildOCRSpec(
 			Relay: "evm",
 			RelayConfig: map[string]interface{}{
 				"chainID":   int(chainID),
-				"feedID":    fmt.Sprintf("\"0x%x\"", StringToByte32(feedId)),
 				"fromBlock": fromBlock,
 			},
-			// RelayConfigMercuryConfig: map[string]interface{}{
-			// 	"clientPrivKeyID": csaKeyId,
-			// },
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 			ContractID:                        contractID,
+			FeedID:                            fmt.Sprintf("\"0x%x\"", StringToByte32(feedId)),
 			OCRKeyBundleID:                    null.StringFrom(nodeOCRKey),
 			TransmitterID:                     null.StringFrom(csaPubKey),
 			P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},
