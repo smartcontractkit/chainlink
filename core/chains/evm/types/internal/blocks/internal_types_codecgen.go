@@ -7,13 +7,12 @@ package blocks
 
 import (
 	"errors"
-	"runtime"
-	"sort"
-	"strconv"
-
 	pkg2_common "github.com/ethereum/go-ethereum/common"
 	pkg1_hexutil "github.com/ethereum/go-ethereum/common/hexutil"
 	codec1978 "github.com/ugorji/go/codec"
+	"runtime"
+	"sort"
+	"strconv"
 )
 
 const (
@@ -67,10 +66,10 @@ func (p codecSelfer1709float64Slice) Swap(i, j int)      { p[uint(i)], p[uint(j)
 func (p codecSelfer1709float64Slice) Less(i, j int) bool { return p[uint(i)] < p[uint(j)] }
 
 func init() {
-	if codec1978.GenVersion != 26 {
+	if codec1978.GenVersion != 28 {
 		_, file, _, _ := runtime.Caller(0)
 		ver := strconv.FormatInt(int64(codec1978.GenVersion), 10)
-		panic(errors.New("codecgen version mismatch: current: 26, need " + ver + ". Re-generate file: " + file))
+		panic(errors.New("codecgen version mismatch: current: 28, need " + ver + ". Re-generate file: " + file))
 	}
 	if false { // reference the types, but skip this branch at build/run time
 		var _ pkg2_common.Hash
@@ -636,7 +635,7 @@ func (x *TransactionInternal) codecDecodeSelfFromArray(l int, d *codec1978.Decod
 		z.F.DecSliceUint8N(([]uint8)(x.Hash[:]), d)
 	}
 	yyj16++
-	for yyj16++; z.DecContainerNext(yyj16, l, yyhl16); yyj16++ {
+	for ; z.DecContainerNext(yyj16, l, yyhl16); yyj16++ {
 		z.DecReadArrayElem()
 		z.DecStructFieldNotFound(yyj16-1, "")
 	}
@@ -1012,7 +1011,7 @@ func (x *BlockInternal) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
 	z.DecReadArrayElem()
 	h.decSliceTransactionInternal((*[]TransactionInternal)(&x.Transactions), d)
 	yyj15++
-	for yyj15++; z.DecContainerNext(yyj15, l, yyhl15); yyj15++ {
+	for ; z.DecContainerNext(yyj15, l, yyhl15); yyj15++ {
 		z.DecReadArrayElem()
 		z.DecStructFieldNotFound(yyj15-1, "")
 	}
