@@ -103,6 +103,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		clientConn, err := wsrpc.DialWithContext(conn.ctx, opts.URI,
 			wsrpc.WithTransportCreds(opts.Privkey, ed25519.PublicKey(opts.Pubkey)),
 			wsrpc.WithBlock(),
+			wsrpc.WithLogger(mgr.lggr),
 		)
 		if err != nil {
 			// We only want to log if there was an error that did not occur
