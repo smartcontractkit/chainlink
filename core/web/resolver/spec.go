@@ -90,6 +90,16 @@ func (r *SpecResolver) ToBlockhashStoreSpec() (*BlockhashStoreSpecResolver, bool
 	return &BlockhashStoreSpecResolver{spec: *r.j.BlockhashStoreSpec}, true
 }
 
+// ToTransmissionSpec returns the TransmissionSpec from the SpecResolver if the job is a
+// Transmission job.
+func (r *SpecResolver) ToTransmissionSpec() (*TransmissionSpecResolver, bool) {
+	if r.j.Type != job.Transmission {
+		return nil, false
+	}
+
+	return &TransmissionSpecResolver{spec: *r.j.TransmissionSpec}, true
+}
+
 // ToBootstrapSpec resolves to the Booststrap Spec Resolver
 func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	if r.j.Type != job.Bootstrap {
@@ -784,6 +794,39 @@ func (b *BlockhashStoreSpecResolver) FromAddresses() *[]string {
 
 // CreatedAt resolves the spec's created at timestamp.
 func (b *BlockhashStoreSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: b.spec.CreatedAt}
+}
+
+// TransmissionSpecResolver exposes the job parameters for a TransmissionSpec.
+type TransmissionSpecResolver struct {
+	spec job.TransmissionSpec
+}
+
+// RPCPort returns the job's RPCPort param.
+func (b *TransmissionSpecResolver) RPCPort() int32 {
+	return int32(b.spec.RPCPort)
+}
+
+// EVMChainID returns the job's EVMChainID param.
+func (b *TransmissionSpecResolver) EVMChainID() *string {
+	chainID := b.spec.EVMChainID.String()
+	return &chainID
+}
+
+// FromAddress returns the job's FromAddress param, if any.
+func (b *TransmissionSpecResolver) FromAddresses() *[]string {
+	if b.spec.FromAddresses == nil {
+		return nil
+	}
+	var addresses []string
+	for _, a := range b.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (b *TransmissionSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: b.spec.CreatedAt}
 }
 

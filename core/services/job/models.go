@@ -36,9 +36,9 @@ const (
 	Keeper             Type = (Type)(pipeline.KeeperJobType)
 	VRF                Type = (Type)(pipeline.VRFJobType)
 	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
+	Transmission       Type = (Type)(pipeline.TransmissionJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
-	Transmission       Type = (Type)(pipeline.TransmissionJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -95,6 +95,7 @@ var (
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
+		Transmission:       1,
 		Bootstrap:          1,
 	}
 )
@@ -120,6 +121,8 @@ type Job struct {
 	WebhookSpec          *WebhookSpec
 	BlockhashStoreSpecID *int32
 	BlockhashStoreSpec   *BlockhashStoreSpec
+	TransmissionSpecID   *int32
+	TransmissionSpec     *TransmissionSpec
 	BootstrapSpec        *BootstrapSpec
 	BootstrapSpecID      *int32
 	PipelineSpecID       int32
@@ -524,11 +527,12 @@ type BlockhashStoreSpec struct {
 }
 
 // TransmissionSpec
+// TODO: Add more fields here
 type TransmissionSpec struct {
 	ID int32
 
-	// Entrypoint contract address
-	EntrypointAddress *ethkey.EIP55Address `toml:"entrypointAddress"`
+	// RPC port number
+	RPCPort uint16 `toml:"rpcPort"`
 
 	// EVMChainID defines the source chain ID for transactions
 	EVMChainID *utils.Big `toml:"evmChainID"`

@@ -8,6 +8,7 @@ union JobSpec =
     VRFSpec |
     WebhookSpec |
     BlockhashStoreSpec |
+    TransmissionSpec |
     BootstrapSpec
 
 type CronSpec {
@@ -123,6 +124,13 @@ type BlockhashStoreSpec {
     blockhashStoreAddress: String!
     pollPeriod: String!
     runTimeout: String!
+    evmChainID: String
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type TransmissionSpec {
+    rpcPort: Int!
     evmChainID: String
     fromAddresses: [String!]
     createdAt: Time!

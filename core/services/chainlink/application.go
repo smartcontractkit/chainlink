@@ -53,6 +53,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/transmission"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -326,6 +327,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
+			job.Transmission: transmission.NewDelegate(
+				globalLogger,
+			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)

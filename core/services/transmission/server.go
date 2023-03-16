@@ -2,52 +2,62 @@ package transmission
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net"
+	"net/http"
 
-	"github.com/pkg/errors"
+	"github.com/gorilla/mux"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/transmission/wsrpc/proto"
+	"github.com/smartcontractkit/chainlink/core/services/transmission/handler"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/wsrpc"
-	"golang.org/x/sync/errgroup"
 )
 
-type Config interface {
-	RPCPort() int
-}
-
-type server struct {
+type Server struct {
 	utils.StartStopOnce
-	serverConn *wsrpc.Server
-	config     Config
 	lggr       logger.Logger
+	httpServer http.Server
+	rpcPort    uint16
 }
 
-func (s *server) Start(ctx context.Context) error {
-	g, gCtx := errgroup.WithContext(ctx)
+func NewServer(handler handler.HttpHandler, rpcPort uint16, lggr logger.Logger) *Server {
+	r := mux.NewRouter()
 
-	err := s.StartOnce("WSRPC Server", func() error {
-		addr := fmt.Sprintf(":%d", s.config.RPCPort())
-		lis, err := net.Listen("tcp", addr)
-		if err != nil {
-			return errors.Wrap(err, "failed to listen to rpc server")
+	r.HandleFunc("/get_nonce", handler.GetNonce).Methods("POST")
+
+	addr := fmt.Sprintf(":%d", rpcPort)
+
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: r,
+	}
+
+	return &Server{
+		httpServer: *httpServer,
+		lggr:       lggr,
+		rpcPort:    rpcPort,
+	}
+}
+
+func (s *Server) Start(ctx context.Context) error {
+	err := s.StartOnce("TransmissionServer", func() error {
+		go func() {
+			err := s.httpServer.ListenAndServe()
+			if !errors.Is(err, http.ErrServerClosed) {
+				s.lggr.Warnf("server closed with err: %v", err)
+			}
+			s.lggr.Info("Stopped serving new connections.")
+		}()
+
+		shutdownServer := func() {
+			<-ctx.Done()
+			err := s.httpServer.Close()
+			if err != nil {
+				s.lggr.Errorf("error while closing server: %v", err)
+			}
 		}
+		go shutdownServer()
 
-		s.serverConn = wsrpc.NewServer()
-
-		go s.serverConn.Serve(lis)
-		proto.RegisterTransmissionServer(s.serverConn, NewHandler(s.lggr))
-
-		g.Go(func() error {
-			<-gCtx.Done()
-
-			s.serverConn.Stop()
-
-			return nil
-		})
-
-		s.lggr.Infof("Listening and serving RPC on port %d", s.config.RPCPort())
+		s.lggr.Infof("Listening and serving RPC on port %d", s.rpcPort)
 
 		return nil
 	})
@@ -56,5 +66,16 @@ func (s *server) Start(ctx context.Context) error {
 		return err
 	}
 
-	return errors.WithStack(g.Wait())
+	return nil
+}
+
+func (s *Server) Close() error {
+	return s.StopOnce("TransmissionServer", func() error {
+		err := s.httpServer.Close()
+		if err != nil {
+			return err
+		}
+		s.lggr.Infof("closed http server")
+		return nil
+	})
 }

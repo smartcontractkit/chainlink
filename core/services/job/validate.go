@@ -21,6 +21,7 @@ var (
 		VRF:                {},
 		Webhook:            {},
 		BlockhashStore:     {},
+		Transmission:       {},
 		Bootstrap:          {},
 	}
 )
