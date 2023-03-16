@@ -132,20 +132,6 @@ func (_m *TxManager) HealthReport() map[string]error {
 	return r0
 }
 
-// Healthy provides a mock function with given fields:
-func (_m *TxManager) Healthy() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Name provides a mock function with given fields:
 func (_m *TxManager) Name() string {
 	ret := _m.Called()

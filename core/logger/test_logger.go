@@ -42,5 +42,5 @@ func testLogger(tb testing.TB, core zapcore.Core) SugaredLogger {
 		level:         a,
 		SugaredLogger: zaptest.NewLogger(tb, opts...).Sugar(),
 	}
-	return Sugared(l.Named("TestLogger"))
+	return Sugared(l)
 }
