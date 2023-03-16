@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"math/rand"
 	"sync/atomic"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -13,15 +14,15 @@ type MercuryHTTPGun struct {
 	BaseURL   string
 	client    *client.MercuryServer
 	netclient blockchain.EVMClient
-	feedID    string
+	feeds     []string
 	Bn        atomic.Uint64
 }
 
-func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn uint64) *MercuryHTTPGun {
+func NewHTTPGun(baseURL string, client *client.MercuryServer, feeds []string, bn uint64) *MercuryHTTPGun {
 	g := &MercuryHTTPGun{
 		BaseURL: baseURL,
 		client:  client,
-		feedID:  feedID,
+		feeds:   feeds,
 	}
 	g.Bn.Store(bn)
 	return g
@@ -29,7 +30,7 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feedID string, bn 
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
-	answer, res, err := m.client.GetReports(m.feedID, m.Bn.Load())
+	answer, res, err := m.client.GetReports(m.feeds[rand.Intn(len(m.feeds))], m.Bn.Load())
 	if err != nil {
 		return loadgen.CallResult{Error: "connection error", Failed: true}
 	}
