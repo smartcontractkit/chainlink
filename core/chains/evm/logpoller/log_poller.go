@@ -54,6 +54,7 @@ type LogPoller interface {
 type LogPollerTest interface {
 	LogPoller
 	PollAndSaveLogs(ctx context.Context, currentBlockNumber int64)
+	BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64)
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
 }
@@ -483,49 +484,52 @@ func (lp *logPoller) run() {
 				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
 				continue
 			}
-
-			if lp.backupPollerNextBlock == 0 {
-				lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
-				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						lp.lggr.Warnw("backup log poller ran before first successful log poller run, skipping")
-					} else {
-						lp.lggr.Errorw("unable to get starting block", "err", err)
-					}
-					continue
-				}
-
-				// If this is our first run, start max(finalityDepth+1, backupPollerBlockDelay) blocks behind the last processed
-				// (or at block 0 if whole blockchain is too short)
-				lp.backupPollerNextBlock = lastProcessed.BlockNumber - mathutil.Max(lp.finalityDepth+1, backupPollerBlockDelay)
-				if lastProcessed.BlockNumber > backupPollerBlockDelay {
-					lp.backupPollerNextBlock = lastProcessed.BlockNumber - backupPollerBlockDelay
-				}
-			}
-
-			latestBlock, err := lp.ec.HeadByNumber(lp.ctx, nil)
-			if err != nil {
-				lp.lggr.Warnw("backup logpoller failed to get latest block", "err", err)
-				continue
-			}
-
-			lastSafeBackfillBlock := latestBlock.Number - lp.finalityDepth - 1
-			if lastSafeBackfillBlock >= lp.backupPollerNextBlock {
-				lp.lggr.Infow("Backup poller backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
-				if err = lp.backfill(lp.ctx, lp.backupPollerNextBlock, lastSafeBackfillBlock); err != nil {
-					// If there's an error backfilling, we can just return and retry from the last block saved
-					// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
-					lp.lggr.Warnw("Backup poller failed", "err", err)
-					continue
-				}
-				lp.backupPollerNextBlock = lastSafeBackfillBlock + 1
-			}
+			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(lp.pollPeriod * 1000)
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
 				lp.lggr.Errorw("unable to prune old blocks", "err", err)
 			}
 		}
+	}
+}
+
+func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64) {
+	if lp.backupPollerNextBlock == 0 {
+		lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				lp.lggr.Warnw("Backup log poller ran before first successful log poller run, skipping")
+			} else {
+				lp.lggr.Errorw("Backup log poller unable to get starting block", "err", err)
+			}
+			return
+		}
+
+		// If this is our first run, start max(finalityDepth+1, backupPollerBlockDelay) blocks behind the last processed
+		// (or at block 0 if whole blockchain is too short)
+		lp.backupPollerNextBlock = lastProcessed.BlockNumber - mathutil.Max(lp.finalityDepth+1, backupPollerBlockDelay)
+		if lastProcessed.BlockNumber > backupPollerBlockDelay {
+			lp.backupPollerNextBlock = lastProcessed.BlockNumber - backupPollerBlockDelay
+		}
+	}
+
+	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
+	if err != nil {
+		lp.lggr.Warnw("Backup logpoller failed to get latest block", "err", err)
+		return
+	}
+
+	lastSafeBackfillBlock := latestBlock.Number - lp.finalityDepth - 1
+	if lastSafeBackfillBlock >= lp.backupPollerNextBlock {
+		lp.lggr.Infow("Backup poller backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
+		if err = lp.backfill(ctx, lp.backupPollerNextBlock, lastSafeBackfillBlock); err != nil {
+			// If there's an error backfilling, we can just return and retry from the last block saved
+			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
+			lp.lggr.Warnw("Backup poller failed", "err", err)
+			return
+		}
+		lp.backupPollerNextBlock = lastSafeBackfillBlock + 1
 	}
 }
 

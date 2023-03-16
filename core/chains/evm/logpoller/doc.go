@@ -4,7 +4,7 @@
 // of eth_getLogs https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getlogs.
 // Having a local table of relevant, continually canonical logs allows us to 2 main advantages:
 //   - Have hundreds of jobs/clients querying for logs without overloading the underlying RPC provider.
-//   - Do more sophisticated querying (Filter by confirmations/time/log contents, efficiently join between the logs table
+//   - Do more sophisticated querying (filter by confirmations/time/log contents, efficiently join between the logs table
 //     and other tables on the node, etc.)
 //
 // Guarantees provided by the poller:
@@ -13,8 +13,8 @@
 //     The threshold between unfinalized and finalized logs is the finalityDepth parameter, chosen such that with
 //     exceedingly high probability logs finalityDepth deep cannot be reorged.
 //   - After calling RegisterFilter with a particular event, it will never miss logs for that event
-//     despite node crashes and reorgs. The granularity of the Filter is always at least one block (more when backfilling).
+//     despite node crashes and reorgs. The granularity of the filter is always at least one block (more when backfilling).
 //   - After calling Replay(fromBlock), all blocks including that one to the latest chain tip will be polled
-//     with the current Filter. This can be used on first time job add to specify a start block from which you wish to capture
+//     with the current filter. This can be used on first time job add to specify a start block from which you wish to capture
 //     existing logs.
 package logpoller
