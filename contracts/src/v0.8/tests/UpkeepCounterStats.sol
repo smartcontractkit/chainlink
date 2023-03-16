@@ -42,14 +42,13 @@ contract UpkeepCounterStats {
   mapping(uint256 => uint256[]) private upkeepIdsToDelay;
   EnumerableSet.UintSet internal s_upkeepIDs;
   KeeperRegistrar2_0 public registrar;
-  AutomationRegistryBaseInterface public registry;
   LinkTokenInterface public linkToken;
-  uint256 public lastTransmitterCheckBlock;
+  KeeperRegistry2_0 public registry;
 
   constructor(address registrarAddress) {
     registrar = KeeperRegistrar2_0(registrarAddress);
     (,,, address registryAddress,) = registrar.getRegistrationConfig();
-    registry = AutomationRegistryBaseInterface(registryAddress);
+    registry = KeeperRegistry2_0(payable(address(registryAddress)));
     linkToken = registrar.LINK();
   }
 
@@ -60,7 +59,7 @@ contract UpkeepCounterStats {
   function setRegistrar(KeeperRegistrar2_0 newRegistrar) external {
     registrar = newRegistrar;
     (,,, address registryAddress,) = registrar.getRegistrationConfig();
-    registry = AutomationRegistryBaseInterface(registryAddress);
+    registry = KeeperRegistry2_0(payable(address(registryAddress)));
     linkToken = registrar.LINK();
 
     emit RegistrarSet(address(registrar));
@@ -151,12 +150,7 @@ contract UpkeepCounterStats {
   }
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
-    // one upkeep to add funds for transmitters
-    if (checkData.length == 0 && block.number - lastTransmitterCheckBlock > 5000) {
-      return (true, checkData);
-    }
     uint256 startGas = gasleft();
-
     (uint256 upkeepId) = abi.decode(
       checkData,
       (uint256)
@@ -177,36 +171,6 @@ contract UpkeepCounterStats {
   }
 
   function performUpkeep(bytes calldata performData) external {
-//    if (performData.length == 0 && block.number - lastTransmitterCheckBlock > 5000) {
-
-//      uint256 len = s_upkeepIDs.length();
-//      for (uint256 i = 0; i < len; i++) {
-//        uint256 upkeepId = s_upkeepIDs.at(i);
-//        UpkeepInfo memory info = registry.getUpkeep(upkeepId);
-//        uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
-//        if (info.balance / 20 < minBalance) {
-//          this.addFunds(upkeepId, 20 * minBalance);
-//        }
-//      }
-
-//      (,,, address[] memory transmitters, ) = registry.getState();
-//      uint256 len = transmitters.length;
-//      uint256 blockNum = block.number;
-//      for (uint256 i = 0; i < len; i++) {
-//        if (transmitters[i].balance < 20000000000000000000) { // less than 20 native tokens
-//          if (address(this).balance < 20000000000000000000) {
-//            emit InsufficientFunds(address(this).balance, blockNum);
-//          } else {
-//            transmitters[i].call{value: 20000000000000000000}(""); // send 20 native tokens
-//            emit TransmitterTopUp(transmitters[i], 20000000000000000000, blockNum);
-//          }
-//        }
-//      }
-//
-//      lastTransmitterCheckBlock = block.number;
-//      return;
-//    }
-
     uint256 startGas = gasleft();
     (uint256 upkeepId, ) = abi.decode(
       performData,
@@ -233,10 +197,11 @@ contract UpkeepCounterStats {
     // every upkeep adds funds for themselves
     if (blockNum - upkeepIdsToLastTopUpBlock[upkeepId] > 2000) {
       UpkeepInfo memory info = registry.getUpkeep(upkeepId);
-      if (info.balance < 5000000000000000000) { // less than 5 LINK, send 20 LINK, cannot use getMinBalance bc it's not in the interface
-        this.addFunds(upkeepId, 20000000000000000000);
+      uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
+      if (info.balance / 20 < minBalance) {
+        this.addFunds(upkeepId, 20 * minBalance);
         upkeepIdsToLastTopUpBlock[upkeepId] = blockNum;
-        emit UpkeepTopUp(upkeepId, 20000000000000000000, blockNum);
+        emit UpkeepTopUp(upkeepId, 20 * minBalance, blockNum);
       }
     }
 
@@ -351,5 +316,29 @@ contract UpkeepCounterStats {
     }
     if (left < j) quickSort(arr, left, j);
     if (i < right) quickSort(arr, i, right);
+  }
+
+  function batchUpdateCheckData() external {
+    uint256 len = s_upkeepIDs.length();
+    for (uint256 i = 0; i < len; i++) {
+      uint256 upkeepId = s_upkeepIDs.at(i);
+      this.updateCheckData(upkeepId, abi.encode(upkeepId));
+    }
+  }
+
+  function topUpTransmitters() external {
+    (,,, address[] memory transmitters, ) = registry.getState();
+    uint256 len = transmitters.length;
+    uint256 blockNum = block.number;
+    for (uint256 i = 0; i < len; i++) {
+      if (transmitters[i].balance < 5000000000000000000) { // less than 20 native tokens
+        if (address(this).balance < 20000000000000000000) {
+          emit InsufficientFunds(address(this).balance, blockNum);
+        } else {
+          transmitters[i].call{value: 20000000000000000000}(""); // send 20 native tokens
+          emit TransmitterTopUp(transmitters[i], 20000000000000000000, blockNum);
+        }
+      }
+    }
   }
 }
