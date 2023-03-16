@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -676,6 +677,27 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 
 func (d DiskCookieStore) cookiePath() string {
 	return path.Join(d.Config.RootDir(), "cookie")
+}
+
+type UserCache struct {
+	dir string
+}
+
+func NewUserCache(subdir string) (*UserCache, error) {
+
+	cd, err := os.UserCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Join(cd, "chainlink", subdir)
+
+	return &UserCache{
+		dir: dir,
+	}, nil
+}
+
+func (cs *UserCache) RootDir() string {
+	return cs.dir
 }
 
 // SessionRequestBuilder is an interface that returns a SessionRequest,

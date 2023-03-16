@@ -82,7 +82,7 @@ func NewApp(client *Client) *cli.App {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieJar, err := newCookieStore()
+		cookieJar, err := NewUserCache("cookies")
 		if err != nil {
 			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
@@ -260,25 +260,4 @@ func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
 		}
 	}
 	return nil
-}
-
-type cookieStore struct {
-	dir string
-}
-
-func newCookieStore() (*cookieStore, error) {
-
-	cd, err := os.UserCacheDir()
-	if err != nil {
-		return nil, err
-	}
-	cookieDir := filepath.Join(cd, "chainlink", "cookies")
-
-	return &cookieStore{
-		dir: cookieDir,
-	}, nil
-}
-
-func (cs *cookieStore) RootDir() string {
-	return cs.dir
 }
