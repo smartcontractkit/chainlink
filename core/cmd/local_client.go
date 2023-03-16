@@ -377,14 +377,16 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil && !errors.Is(err, ErrNoCredentialFile) {
-		return errors.Wrap(err, "error creating api initializer")
-	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
-		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
-			return errors.WithStack(err)
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil {
+		if !errors.Is(err, ErrNoCredentialFile) {
+			return errors.Wrap(err, "error creating api initializer")
 		}
-		return errors.Wrap(err, "error creating fallback initializer")
+		if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
+			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
+				return errors.WithStack(err)
+			}
+			return errors.Wrap(err, "error creating fallback initializer")
+		}
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
@@ -519,11 +521,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
-	defer func() {
-		if serr := app.Stop(); serr != nil {
-			err = multierr.Append(err, serr)
-		}
-	}()
 	pwd, err := utils.PasswordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
