@@ -288,6 +288,12 @@ func (r *EvmRegistry) setCachesOnAPIErr(upkeepId *big.Int) {
 	if ok {
 		errCount = e.(int) + 1
 	}
+
+	// With a 10m Error Cache Window every error sets the error count and resets the TTL to 10m
+	// On every error that hits during this rolling 10m the error count is increased and the cooldown period by associate is increased
+	// This means the user will suffer a max cooldown of 17m on the 10th error at which point the error cache will have expired since its window is 10m
+	// After that the user will reset to 0 and start over after a combined total of 34m in cooldown state.
+
 	// increment error count and reset expiration to shift window with last seen error
 	r.apiErrCache.Set(cacheKey, errCount, cache.DefaultExpiration)
 	// put upkeep in cooldown state for 2^errors seconds.

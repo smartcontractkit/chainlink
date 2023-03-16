@@ -38,10 +38,6 @@ contract UpkeepAPIFetch {
     string[] calldata values,
     uint256 statusCode
   ) external view returns (bool, bytes memory) {
-    //    if (statusCode > 299) {
-    //      // pass true here with msg to perform to trigger changes when a url sees an error
-    //      return (true, abi.encode("error", "error", "error", "error"));
-    //    }
     string memory pid = values[0];
     string memory name = values[1];
     string memory ability = values[2];
@@ -68,14 +64,10 @@ contract UpkeepAPIFetch {
       performData,
       (string, string, string, string)
     );
-    //    if (keccak256(abi.encodePacked(pid)) == keccak256(abi.encodePacked("error"))) {
-    //      counter = 0;
-    //    } else {
     id = pid;
     pokemon = name;
     abilities = ability;
     types = typeArrayString;
-    //    }
     emit PokemonUpkeep(tx.origin, id, pokemon, abilities, types);
     previousPerformBlock = lastBlock;
   }
