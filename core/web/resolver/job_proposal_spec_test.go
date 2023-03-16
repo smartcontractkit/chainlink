@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
 func TestResolver_ApproveJobProposalSpec(t *testing.T) {
