@@ -1,6 +1,10 @@
 package types
 
-import "context"
+import (
+	"context"
+
+	"github.com/smartcontractkit/chainlink/core/services"
+)
 
 // Opt is an option for a gas estimator
 type Opt int
@@ -22,10 +26,10 @@ type PriorAttempt[FEE any, HASH any] interface {
 // FeeEstimator provides a generic interface for fee estimation
 //
 //go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
+
 type FeeEstimator[H Head, FEE any, MAXPRICE any, HASH any] interface {
+	services.ServiceCtx
 	HeadTrackable[H]
-	Start(context.Context) error
-	Close() error
 
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice MAXPRICE, opts ...Opt) (fee FEE, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee FEE, feeLimit uint32, maxFeePrice MAXPRICE, attempts []PriorAttempt[FEE, HASH]) (bumpedFee FEE, chainSpecificFeeLimit uint32, err error)
