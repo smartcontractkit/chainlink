@@ -14,7 +14,7 @@ type Head interface {
 	ChainLength() uint32
 
 	// EarliestInChain traverses through parents until it finds the earliest one
-	EarliestInChain() Head
+	EarliestHeadInChain() Head
 
 	// Hash is the head's block hash
 	BlockHash() common.Hash

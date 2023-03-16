@@ -71,11 +71,16 @@ func (h *Head) GetParent() txmgrtypes.Head {
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (h *Head) EarliestInChain() txmgrtypes.Head {
+func (h *Head) EarliestInChain() *Head {
 	for h.Parent != nil {
 		h = h.Parent
 	}
 	return h
+}
+
+// EarliestHeadInChain recurses through parents until it finds the earliest one
+func (h *Head) EarliestHeadInChain() txmgrtypes.Head {
+	return h.EarliestInChain()
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain

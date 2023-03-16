@@ -159,7 +159,7 @@ func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Hea
 		baseHeight = 0
 	}
 
-	return ht.backfill(ctx, headWithChain.EarliestInChain().(*evmtypes.Head), baseHeight)
+	return ht.backfill(ctx, headWithChain.EarliestInChain(), baseHeight)
 }
 
 func (ht *headTracker) LatestChain() *evmtypes.Head {
