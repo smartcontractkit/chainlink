@@ -555,9 +555,6 @@ b1 -> bhash_lookup;`, mockserverClient.Config.ClusterURL+"/variable")
 					"feedID":    fmt.Sprintf("\"0x%x\"", feedId),
 					"fromBlock": fromBlock,
 				},
-				// RelayConfigMercuryConfig: map[string]interface{}{
-				// 	"clientPrivKeyID": csaKeyId,
-				// },
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        contractID,
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[keyIndex]),
