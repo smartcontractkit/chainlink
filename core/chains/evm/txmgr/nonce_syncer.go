@@ -91,7 +91,7 @@ func (s NonceSyncer) Sync(ctx context.Context, keyState ethkey.State) (err error
 func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
 	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
 	if err != nil {
-		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
+		return errors.Wrap(err, "GetNextMetadata failed to loadInitialNonceFromEthClient")
 	}
 	if chainNonce == 0 {
 		return nil

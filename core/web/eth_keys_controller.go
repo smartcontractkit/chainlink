@@ -325,7 +325,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 // resource.
 func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
 	var bal *big.Int
-	chainID := state.EVMChainID.ToInt()
+	chainID := state.ChainID.ToInt()
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
@@ -346,7 +346,7 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 // resource.
 func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
 	var bal *assets.Link
-	chainID := state.EVMChainID.ToInt()
+	chainID := state.ChainID.ToInt()
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
@@ -368,7 +368,7 @@ func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.S
 // resource.
 func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) presenters.NewETHKeyOption {
 	var price *assets.Wei
-	chainID := state.EVMChainID.ToInt()
+	chainID := state.ChainID.ToInt()
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {

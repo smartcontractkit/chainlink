@@ -82,7 +82,7 @@ func newKeyStates() *keyStates {
 // warning: not thread-safe! caller must sync
 // adds or replaces a state
 func (ks *keyStates) add(state *ethkey.State) {
-	cid := state.EVMChainID.String()
+	cid := state.ChainID.String()
 	kid := state.KeyID()
 
 	keyStates, exists := ks.KeyIDChainID[kid]
@@ -132,7 +132,7 @@ func (ks *keyStates) delete(addr common.Address) {
 	var chainIDs []*big.Int
 	for i := len(ks.All) - 1; i >= 0; i-- {
 		if ks.All[i].Address.Address() == addr {
-			chainIDs = append(chainIDs, ks.All[i].EVMChainID.ToInt())
+			chainIDs = append(chainIDs, ks.All[i].ChainID.ToInt())
 			ks.All = append(ks.All[:i], ks.All[i+1:]...)
 		}
 	}

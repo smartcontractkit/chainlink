@@ -41,8 +41,8 @@ type NewETHKeyOption func(*ETHKeyResource)
 func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) *ETHKeyResource {
 	r := &ETHKeyResource{
 		JAID:        NewJAID(k.Address.Hex()),
-		EVMChainID:  state.EVMChainID,
-		NextNonce:   state.NextNonce,
+		EVMChainID:  state.ChainID,
+		NextNonce:   state.NextMetadata,
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,
