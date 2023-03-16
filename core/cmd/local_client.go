@@ -135,7 +135,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
-					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
+					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Hidden: !devMode,
 					Action: client.ResetDatabase,
 					Flags: []cli.Flag{
@@ -611,13 +611,15 @@ func (cli *Client) Status(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
-// ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
-// This is useful to setup the database for testing
+var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+// ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
+// in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+		return cli.errorOut(errDBURLMissing)
 	}
 
 	dangerMode := c.Bool("dangerWillRobinson")
@@ -737,7 +739,7 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+		return cli.errorOut(errDBURLMissing)
 	}
 
 	cli.Logger.Infof("Migrating database: %#v", parsed.String())
@@ -830,7 +832,7 @@ type dbConfig interface {
 func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+		return nil, errDBURLMissing
 	}
 	return pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
 }
