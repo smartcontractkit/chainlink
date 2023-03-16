@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/maps"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -291,12 +292,12 @@ func (b *Txm) HealthReport() map[string]error {
 
 	// only query if txm started properly
 	b.IfStarted(func() {
-		utils.MergeMaps(report, b.ethBroadcaster.HealthReport())
-		utils.MergeMaps(report, b.ethConfirmer.HealthReport())
+		maps.Copy(report, b.ethBroadcaster.HealthReport())
+		maps.Copy(report, b.ethConfirmer.HealthReport())
 	})
 
 	if b.config.EvmUseForwarders() {
-		utils.MergeMaps(report, b.fwdMgr.HealthReport())
+		maps.Copy(report, b.fwdMgr.HealthReport())
 	}
 	return report
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -243,13 +244,13 @@ func (c *chain) HealthReport() map[string]error {
 	report := map[string]error{
 		c.Name(): c.StartStopOnce.Healthy(),
 	}
-	utils.MergeMaps(report, c.txm.HealthReport())
-	utils.MergeMaps(report, c.headBroadcaster.HealthReport())
-	utils.MergeMaps(report, c.headTracker.HealthReport())
-	utils.MergeMaps(report, c.logBroadcaster.HealthReport())
+	maps.Copy(report, c.txm.HealthReport())
+	maps.Copy(report, c.headBroadcaster.HealthReport())
+	maps.Copy(report, c.headTracker.HealthReport())
+	maps.Copy(report, c.logBroadcaster.HealthReport())
 
 	if c.balanceMonitor != nil {
-		utils.MergeMaps(report, c.balanceMonitor.HealthReport())
+		maps.Copy(report, c.balanceMonitor.HealthReport())
 	}
 
 	return report

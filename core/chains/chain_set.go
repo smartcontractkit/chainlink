@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -183,7 +184,7 @@ func (c *chainSet[I, C, N, S]) HealthReport() map[string]error {
 	c.chainsMu.RLock()
 	defer c.chainsMu.RUnlock()
 	for _, c := range c.chains {
-		utils.MergeMaps(report, c.HealthReport())
+		maps.Copy(report, c.HealthReport())
 	}
 	return report
 }

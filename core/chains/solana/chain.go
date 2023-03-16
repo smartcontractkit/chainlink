@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -318,6 +319,6 @@ func (c *chain) Ready() error {
 
 func (c *chain) HealthReport() map[string]error {
 	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
-	utils.MergeMaps(report, c.txm.HealthReport())
+	maps.Copy(report, c.txm.HealthReport())
 	return report
 }

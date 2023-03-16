@@ -12,6 +12,8 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -332,13 +334,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 
 	g.Eventually(func() bool {
 		report := ht.headTracker.HealthReport()
-		for _, v := range report {
-			if v != nil {
-				return false
-			}
-		}
-		return true
-
+		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
 	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 
 	// trigger reconnect loop
@@ -403,13 +399,8 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	gomega.NewWithT(t).Eventually(func() bool {
 		report := ht.headTracker.HealthReport()
-		utils.MergeMaps(report, ht.headBroadcaster.HealthReport())
-		for _, v := range report {
-			if v != nil {
-				return false
-			}
-		}
-		return true
+		maps.Copy(report, ht.headBroadcaster.HealthReport())
+		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
 	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 
 	h, err := orm.LatestHead(testutils.Context(t))
@@ -1047,12 +1038,7 @@ func (u *headTrackerUniverse) Start(t *testing.T) {
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		report := u.headBroadcaster.HealthReport()
-		for _, v := range report {
-			if v != nil {
-				return false
-			}
-		}
-		return true
+		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
 	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 
 	t.Cleanup(func() {

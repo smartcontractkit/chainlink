@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -100,7 +101,7 @@ func (cll *chainSet) Name() string {
 func (cll *chainSet) HealthReport() map[string]error {
 	report := map[string]error{}
 	for _, c := range cll.Chains() {
-		utils.MergeMaps(report, c.HealthReport())
+		maps.Copy(report, c.HealthReport())
 	}
 	return report
 }

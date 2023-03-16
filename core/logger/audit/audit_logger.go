@@ -295,9 +295,7 @@ func (l *AuditLoggerService) HealthReport() map[string]error {
 	var err error
 	if !l.enabled {
 		err = errors.New("the audit logger is not enabled")
-	}
-
-	if len(l.loggingChannel) == bufferCapacity {
+	} else if len(l.loggingChannel) == bufferCapacity {
 		err = errors.New("buffer is full")
 	}
 	return map[string]error{l.Name(): err}

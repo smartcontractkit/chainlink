@@ -17,6 +17,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -444,7 +445,7 @@ func (p *medianProvider) Healthy() error {
 
 func (p *medianProvider) HealthReport() map[string]error {
 	report := p.configWatcher.HealthReport()
-	utils.MergeMaps(report, p.contractTransmitter.HealthReport())
+	maps.Copy(report, p.contractTransmitter.HealthReport())
 	return report
 }
 

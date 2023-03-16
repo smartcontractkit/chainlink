@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -144,7 +145,7 @@ func (ht *headTracker) HealthReport() map[string]error {
 	report := map[string]error{
 		ht.Name(): ht.StartStopOnce.Healthy(),
 	}
-	utils.MergeMaps(report, ht.headListener.HealthReport())
+	maps.Copy(report, ht.headListener.HealthReport())
 	return report
 }
 

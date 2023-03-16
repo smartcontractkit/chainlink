@@ -1178,13 +1178,3 @@ func UnwrapError(err error) []error {
 	}
 	return joined.Unwrap()
 }
-
-func MergeMaps[K comparable, V any](m1 map[K]V, m2 map[K]V) {
-	for key, value := range m2 {
-		// don't override main map keys.
-		if _, ok := m1[key]; ok {
-			continue
-		}
-		m1[key] = value
-	}
-}
