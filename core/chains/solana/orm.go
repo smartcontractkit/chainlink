@@ -14,14 +14,8 @@ type DBChain = chains.DBChain[string, *soldb.ChainCfg]
 
 // ORM manages solana chains and nodes.
 type ORM interface {
-	Chain(string, ...pg.QOpt) (DBChain, error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	GetChainsByIDs(ids []string) (chains []DBChain, err error)
-
-	GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []soldb.Node, err error)
-	NodeNamed(string, ...pg.QOpt) (soldb.Node, error)
-	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
-	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
+	chains.ChainsORM[string, *soldb.ChainCfg, DBChain]
+	chains.NodesORM[string, soldb.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
 }
