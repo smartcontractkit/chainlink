@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"

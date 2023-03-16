@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
 )
 
 type mockSubscription struct {
