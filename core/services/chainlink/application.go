@@ -484,8 +484,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	for _, service := range app.srvcs {
 		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
+		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
 			return nil, err
+		}
+	}
+
+	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
+	// If it's enabled, they are going to be registered with relayers by default.
+	if !cfg.FeatureOffchainReporting2() {
+		for _, service := range app.Chains.services() {
+			checkable := service.(services.Checkable)
+			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
+				return nil, err
+			}
 		}
 	}
 
