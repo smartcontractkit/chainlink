@@ -27,7 +27,7 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 		feedIds = []string{"feed-1"}
 	)
 
-	testEnv, err := mercury.NewEnv(t.Name(), "lukaszf-smoke")
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
 
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)

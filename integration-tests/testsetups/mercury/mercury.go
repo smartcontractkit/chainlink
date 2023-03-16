@@ -391,6 +391,7 @@ func (te *TestEnv) AddVerifierProxyContract(contractId string) (contracts.Verifi
 		if err != nil {
 			return nil, err
 		}
+		te.EvmClient.WaitForEvents()
 		te.Contracts[contractId] = contractInfo{
 			Address:  c.Address(),
 			Contract: c,
@@ -413,6 +414,10 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 		return c, nil
 	} else {
 		c, err := te.ContractDeployer.DeployVerifier(verifierProxyAddr)
+		if err != nil {
+			return nil, err
+		}
+		te.EvmClient.WaitForEvents()
 		te.Contracts[contractId] = contractInfo{
 			Address:  c.Address(),
 			Contract: c,
@@ -435,6 +440,10 @@ func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr str
 		return c, nil
 	} else {
 		c, err := te.ContractDeployer.DeployExchanger(verifierProxyAddr, lookupURL, maxDelay)
+		if err != nil {
+			return nil, err
+		}
+		te.EvmClient.WaitForEvents()
 		te.Contracts[contractId] = contractInfo{
 			Address:  c.Address(),
 			Contract: c,
