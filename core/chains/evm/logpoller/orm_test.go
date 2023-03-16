@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,22 +21,6 @@ type block struct {
 	number    int64
 	hash      common.Hash
 	timestamp int64
-}
-
-var (
-	chainID1 = big.NewInt(137)
-	chainID2 = big.NewInt(138)
-)
-
-// Setup creates two orms representing logs from different chains.
-func setup(t testing.TB) (*logpoller.ORM, *logpoller.ORM) {
-	db := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
-	o1 := logpoller.NewORM(chainID1, db, lggr, pgtest.NewQConfig(true))
-	o2 := logpoller.NewORM(chainID2, db, lggr, pgtest.NewQConfig(true))
-	return o1, o2
 }
 
 func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address) logpoller.Log {
@@ -169,7 +151,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, b.BlockNumber, int64(10))
 	assert.Equal(t, b.BlockHash.Bytes(), common.HexToHash("0x1234").Bytes())
-	assert.Equal(t, b.EvmChainId.String(), "137")
+	assert.Equal(t, b.EvmChainId.String(), th.ChainID.String())
 
 	// Insert blocks from a different chain
 	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 11, time.Now()))
@@ -178,7 +160,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, b2.BlockNumber, int64(11))
 	assert.Equal(t, b2.BlockHash.Bytes(), common.HexToHash("0x1234").Bytes())
-	assert.Equal(t, b2.EvmChainId.String(), "138")
+	assert.Equal(t, b2.EvmChainId.String(), th.ChainID.String())
 
 	latest, err := o1.SelectLatestBlock()
 	require.NoError(t, err)
@@ -209,7 +191,7 @@ func TestORM(t *testing.T) {
 	topic2 := common.HexToHash("0x1600")
 	require.NoError(t, o1.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
@@ -220,7 +202,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    2,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(11),
@@ -231,7 +213,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    3,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(12),
@@ -242,7 +224,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    4,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(13),
@@ -253,7 +235,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    5,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(14),
@@ -264,7 +246,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello2"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    6,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(15),
@@ -360,11 +342,11 @@ func TestORM(t *testing.T) {
 	require.Equal(t, 0, len(logs))
 }
 
-func insertLogsTopicValueRange(t *testing.T, o *logpoller.ORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {
+func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o *logpoller.ORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {
 	var lgs []logpoller.Log
 	for i := start; i <= stop; i++ {
 		lgs = append(lgs, logpoller.Log{
-			EvmChainId:  utils.NewBig(chainID1),
+			EvmChainId:  utils.NewBig(chainID),
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(blockNumber),
@@ -384,8 +366,8 @@ func TestORM_IndexedLogs(t *testing.T) {
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
-	insertLogsTopicValueRange(t, o1, addr, 1, eventSig, 1, 3)
-	insertLogsTopicValueRange(t, o1, addr, 2, eventSig, 4, 4) // unconfirmed
+	insertLogsTopicValueRange(t, th.ChainID, o1, addr, 1, eventSig, 1, 3)
+	insertLogsTopicValueRange(t, th.ChainID, o1, addr, 2, eventSig, 4, 4) // unconfirmed
 
 	lgs, err := o1.SelectIndexedLogs(addr, eventSig, 1, []common.Hash{logpoller.EvmWord(1)}, 0)
 	require.NoError(t, err)
@@ -428,7 +410,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
 	require.NoError(t, o1.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:  utils.NewBig(chainID1),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    int64(0),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: int64(1),
@@ -440,7 +422,7 @@ func TestORM_DataWords(t *testing.T) {
 		},
 		{
 			// In block 2, unconfirmed to start
-			EvmChainId:  utils.NewBig(chainID1),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    int64(1),
 			BlockHash:   common.HexToHash("0x2"),
 			BlockNumber: int64(2),
@@ -495,7 +477,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	sourceAddr := common.HexToAddress("0x12345")
 	inputLogs := []logpoller.Log{
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
@@ -506,7 +488,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello1"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    2,
 			BlockHash:   common.HexToHash("0x1235"),
 			BlockNumber: int64(11),
@@ -517,7 +499,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello2"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    3,
 			BlockHash:   common.HexToHash("0x1236"),
 			BlockNumber: int64(12),
@@ -528,7 +510,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello3"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    4,
 			BlockHash:   common.HexToHash("0x1237"),
 			BlockNumber: int64(13),
@@ -539,7 +521,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello4"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    5,
 			BlockHash:   common.HexToHash("0x1238"),
 			BlockNumber: int64(14),
@@ -550,7 +532,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello5"),
 		},
 		{
-			EvmChainId:  utils.NewBigI(137),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    6,
 			BlockHash:   common.HexToHash("0x1239"),
 			BlockNumber: int64(15),
@@ -655,7 +637,7 @@ func BenchmarkLogs(b *testing.B) {
 	addr := common.HexToAddress("0x1234")
 	for i := 0; i < 10_000; i++ {
 		lgs = append(lgs, logpoller.Log{
-			EvmChainId:  utils.NewBig(chainID1),
+			EvmChainId:  utils.NewBig(th.ChainID),
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: 1,

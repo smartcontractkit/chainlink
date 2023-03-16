@@ -28,40 +28,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//	func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
-//		lp.PollAndSaveLogs(ctx, currentBlockNumber)
-//		lastProcessed, _ := lp.orm.SelectLatestBlock()
-//		return lastProcessed.BlockNumber + 1
-//	}
-//
-// // Similar to lp.Start(), but works after it's already been run once
-//
-//	func (lp *logPoller) Restart(parentCtx context.Context) error {
-//		lp.StartStopOnce = utils.StartStopOnce{}
-//		lp.done = make(chan struct{})
-//		return lp.Start(parentCtx)
-//	}
-//
-//	func (lp *logPoller) Filter() ethereum.FilterQuery {
-//		return lp.Filter(nil, nil, nil)
-//	}
-//
-//	func (lp *logPoller) ConvertLogs(gethLogs []types.Log, blocks []LogPollerBlock) []Log {
-//		return convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID())
-//	}
-//
-//	func (lp *logPoller) BlocksFromLogs(ctx context.Context, logs []types.Log) (blocks []LogPollerBlock, err error) {
-//		return lp.blocksFromLogs(ctx, logs)
-//	}
 var (
 	EmitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
 )
 
 type TestHarness struct {
-	Lggr                             logger.Logger
-	ChainID                          *big.Int
-	ORM                              *logpoller.ORM
-	ORM2                             *logpoller.ORM // Dummy second chain
+	Lggr logger.Logger
+	// Chain2/ORM2 is just a dummy second chain, doesn't have a client.
+	ChainID, ChainID2                *big.Int
+	ORM, ORM2                        *logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
 	Client                           *backends.SimulatedBackend
 	Owner                            *bind.TransactOpts
@@ -89,7 +64,8 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	}, 10e6)
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
+	esc := client.NewSimulatedBackendClient(t, ec, chainID)
+	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
@@ -98,6 +74,7 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	return TestHarness{
 		Lggr:            lggr,
 		ChainID:         chainID,
+		ChainID2:        chainID2,
 		ORM:             o,
 		ORM2:            o2,
 		LogPoller:       lp,
@@ -117,18 +94,18 @@ func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber i
 	return latest + 1
 }
 
-func assertDontHave(t *testing.T, start, end int, orm *logpoller.ORM) {
+func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
-		_, err := orm.SelectBlockByNumber(int64(i))
+		_, err := th.ORM.SelectBlockByNumber(int64(i))
 		assert.True(t, errors.Is(err, sql.ErrNoRows))
 	}
 }
 
-func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBackend, orm *logpoller.ORM) {
+func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
-		blk, err := orm.SelectBlockByNumber(int64(i))
+		blk, err := th.ORM.SelectBlockByNumber(int64(i))
 		require.NoError(t, err, "block %v", i)
-		chainBlk, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
+		chainBlk, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
 		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}

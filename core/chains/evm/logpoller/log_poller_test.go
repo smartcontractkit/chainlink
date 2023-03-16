@@ -360,40 +360,19 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, gethLogs, 2)
 
-	lg1, err := th.LogPoller.Logs(0, 10, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	lb, _ := th.LogPoller.LatestBlock()
+	th.PollAndSaveLogs(context.Background(), lb+1)
+	lg1, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
-	lg2, err := th.LogPoller.Logs(0, 10, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
+	lg2, err := th.LogPoller.Logs(0, 20, EmitterABI.Events["Log2"].ID, th.EmitterAddress2)
 	require.NoError(t, err)
-	t.Log(lg1)
-	t.Log(lg2)
 
-	//blocks, err := th.LogPoller.BlocksFromLogs(ctx, gethLogs)
-	//require.NoError(t, err)
-	//require.Len(t, blocks, 2)
-	//
-	//logs := th.LogPoller.ConvertLogs(gethLogs, blocks)
-	//require.Len(t, logs, 2)
-	//
-	//val, err := logs[0].Topics.Value()
-	//require.NoError(t, err)
-	//s, ok := val.(string)
-	//require.True(t, ok)
-	//var topics0 evmtypes.HashArray
-	//require.NoError(t, topics0.Scan(s))
-	//
-	//val, err = logs[1].Topics.Value()
-	//require.NoError(t, err)
-	//s, ok = val.(string)
-	//require.True(t, ok)
-	//var topics1 evmtypes.HashArray
-	//require.NoError(t, topics1.Scan(s))
-	//
-	//assert.Equal(t, time.Unix(big.NewInt(int64(time1)).Int64(), 0).UTC(), logs[0].BlockTimestamp)
-	//assert.Equal(t, addresses[0], logs[0].Address)
-	//assert.Equal(t, topics[0], topics0[0])
-	//assert.Equal(t, time.Unix(big.NewInt(int64(time2)).Int64(), 0).UTC(), logs[1].BlockTimestamp)
-	//assert.Equal(t, addresses[1], logs[1].Address)
-	//assert.Equal(t, topics[1], topics1[0])
+	// Logs should have correct timestamps
+	b, _ := th.Client.BlockByHash(context.Background(), lg1[0].BlockHash)
+	t.Log(len(lg1), lg1[0].BlockTimestamp)
+	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
+	b2, _ := th.Client.BlockByHash(context.Background(), lg2[0].BlockHash)
+	assert.Equal(t, int64(b2.Time()), lg2[0].BlockTimestamp.UTC().Unix(), time2)
 }
 
 func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
@@ -524,7 +503,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lgs, err := th.ORM.SelectLogsByBlockRange(1, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
-	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
+	th.assertHaveCanonical(t, 1, 1)
 
 	// Polling again should be a noop, since we are at the latest.
 	newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
@@ -532,7 +511,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	latest, err := th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), latest.BlockNumber)
-	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
+	th.assertHaveCanonical(t, 1, 1)
 
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
@@ -586,7 +565,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
-	assertHaveCanonical(t, 1, 3, th.Client, th.ORM)
+	th.assertHaveCanonical(t, 1, 3)
 
 	// Test scenario: reorg back to previous tip.
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
@@ -611,9 +590,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 	assert.Equal(t, int64(3), lgs[1].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000003`), lgs[1].Data)
-	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
-	assertHaveCanonical(t, 3, 4, th.Client, th.ORM)
-	assertDontHave(t, 2, 2, th.ORM) // 2 gets backfilled
+	th.assertHaveCanonical(t, 1, 1)
+	th.assertHaveCanonical(t, 3, 4)
+	th.assertDontHave(t, 2, 2) // 2 gets backfilled
 
 	// Test scenario: multiple logs per block for many blocks (also after reorg).
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6)
@@ -643,9 +622,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, th.EmitterAddress2, lgs[1].Address)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000006`), lgs[2].Data)
 	assert.Equal(t, th.EmitterAddress1, lgs[2].Address)
-	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
-	assertDontHave(t, 2, 2, th.ORM) // 2 gets backfilled
-	assertHaveCanonical(t, 3, 6, th.Client, th.ORM)
+	th.assertHaveCanonical(t, 1, 1)
+	th.assertDontHave(t, 2, 2) // 2 gets backfilled
+	th.assertHaveCanonical(t, 3, 6)
 
 	// Test scenario: node down for exactly finality + 2 blocks
 	// Note we only backfill up to finalized - 1 blocks, because we need to save the
@@ -670,8 +649,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, int64(8), lgs[1].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
 	assert.Equal(t, int64(9), lgs[2].BlockNumber)
-	assertDontHave(t, 7, 7, th.ORM) // Do not expect to save backfilled blocks.
-	assertHaveCanonical(t, 8, 10, th.Client, th.ORM)
+	th.assertDontHave(t, 7, 7) // Do not expect to save backfilled blocks.
+	th.assertHaveCanonical(t, 8, 10)
 
 	// Test scenario large backfill (multiple batches)
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
@@ -690,8 +669,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lgs, err = th.ORM.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)
 	assert.Equal(t, 7, len(lgs))
-	assertHaveCanonical(t, 15, 16, th.Client, th.ORM)
-	assertDontHave(t, 11, 14, th.ORM) // Do not expect to save backfilled blocks.
+	th.assertHaveCanonical(t, 15, 16)
+	th.assertDontHave(t, 11, 14) // Do not expect to save backfilled blocks.
 
 	// Verify that a custom block timestamp will get written to db correctly also
 	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
@@ -858,17 +837,6 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	cancel()
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums, qopts)
 	require.NoError(t, err)
-
-	// getBlocksRange returns blocks with a nil client
-	// TODO
-	//th.LogPoller.ec = nil
-	//blockNums = []uint64{1, 2}
-	//blocks, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
-	//require.NoError(t, err)
-	//assert.Equal(t, 1, int(blocks[0].BlockNumber))
-	//assert.NotEmpty(t, blocks[0].BlockHash)
-	//assert.Equal(t, 2, int(blocks[1].BlockNumber))
-	//assert.NotEmpty(t, blocks[1].BlockHash)
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
