@@ -73,12 +73,12 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
-  - https://github.com/NethermindEth/nethermind/issues/4384
+  - ~https://github.com/NethermindEth/nethermind/issues/4384~
 - [Besu](https://github.com/hyperledger/besu)
   Blocking issues:
   - https://github.com/hyperledger/besu/issues/4212
-  - https://github.com/hyperledger/besu/issues/4192
-  - https://github.com/hyperledger/besu/issues/4114
+  - ~https://github.com/hyperledger/besu/issues/4192~
+  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946

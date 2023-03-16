@@ -161,6 +161,7 @@ var FeedsManager_ServiceDesc = wsrpc.ServiceDesc{
 type NodeServiceClient interface {
 	ProposeJob(ctx context.Context, in *ProposeJobRequest) (*ProposeJobResponse, error)
 	DeleteJob(ctx context.Context, in *DeleteJobRequest) (*DeleteJobResponse, error)
+	RevokeJob(ctx context.Context, in *RevokeJobRequest) (*RevokeJobResponse, error)
 }
 
 type nodeServiceClient struct {
@@ -189,10 +190,20 @@ func (c *nodeServiceClient) DeleteJob(ctx context.Context, in *DeleteJobRequest)
 	return out, nil
 }
 
+func (c *nodeServiceClient) RevokeJob(ctx context.Context, in *RevokeJobRequest) (*RevokeJobResponse, error) {
+	out := new(RevokeJobResponse)
+	err := c.cc.Invoke(ctx, "RevokeJob", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeServiceServer is the server API for NodeService service.
 type NodeServiceServer interface {
 	ProposeJob(context.Context, *ProposeJobRequest) (*ProposeJobResponse, error)
 	DeleteJob(context.Context, *DeleteJobRequest) (*DeleteJobResponse, error)
+	RevokeJob(context.Context, *RevokeJobRequest) (*RevokeJobResponse, error)
 }
 
 func RegisterNodeServiceServer(s wsrpc.ServiceRegistrar, srv NodeServiceServer) {
@@ -215,6 +226,14 @@ func _NodeService_DeleteJob_Handler(srv interface{}, ctx context.Context, dec fu
 	return srv.(NodeServiceServer).DeleteJob(ctx, in)
 }
 
+func _NodeService_RevokeJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(RevokeJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	return srv.(NodeServiceServer).RevokeJob(ctx, in)
+}
+
 // NodeService_ServiceDesc is the wsrpc.ServiceDesc for NodeService service.
 // It's only intended for direct use with wsrpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -229,6 +248,10 @@ var NodeService_ServiceDesc = wsrpc.ServiceDesc{
 		{
 			MethodName: "DeleteJob",
 			Handler:    _NodeService_DeleteJob_Handler,
+		},
+		{
+			MethodName: "RevokeJob",
+			Handler:    _NodeService_RevokeJob_Handler,
 		},
 	},
 }
