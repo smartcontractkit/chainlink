@@ -446,15 +446,11 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
-	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
-
-	client := app.NewAuthenticatingClient(prompter)
-
 	// we want to test tht the before func of the profile cmd is
 	// behaving correctly. to do that, we need to initialize a cli app,
 	// find the profile command and then run it.
+	client := &cmd.Client{}
+
 	var opts chainlink.GeneralConfigOpts
 	cmds := cmd.InitLocalSubCmds(client, true, &opts)
 	var profileCmd cli.Command
