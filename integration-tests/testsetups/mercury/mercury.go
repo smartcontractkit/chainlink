@@ -287,7 +287,10 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds []string) error {
 	for {
 		select {
 		case <-to.C:
-			return fmt.Errorf("no reports found in mercury db after %s", timeout)
+			return fmt.Errorf(
+				"did not found reports for one of the %s feeds in the mercury db. Tried for %s",
+				feedIds, timeout,
+			)
 		case <-ticker.C:
 			var notFound = false
 			for _, feedId := range feedIds {
