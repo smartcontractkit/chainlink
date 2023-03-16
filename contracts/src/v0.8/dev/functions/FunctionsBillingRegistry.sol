@@ -91,7 +91,6 @@ contract FunctionsBillingRegistry is
 
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error IncorrectRequestID();
   error PaymentTooLarge();
   error Reentrant();
 
@@ -438,10 +437,10 @@ contract FunctionsBillingRegistry is
     uint8 signerCount,
     uint256 reportValidationGas,
     uint256 initialGas
-  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bool success) {
+  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (FulfillResult) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
-      revert IncorrectRequestID();
+      return FulfillResult.INVALID_REQUEST_ID;
     }
     delete s_requestCommitments[requestId];
 
@@ -458,7 +457,7 @@ contract FunctionsBillingRegistry is
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
+    bool success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -496,6 +495,7 @@ contract FunctionsBillingRegistry is
       bill.totalCost,
       success
     );
+    return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
   // Determine the cost breakdown for payment

@@ -98,7 +98,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	auditLoggerTestConfig := Config{}
 
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(logger, &auditLoggerTestConfig)
+	auditLogger, err := audit.NewAuditLogger(logger.Named("AuditLogger"), &auditLoggerTestConfig)
 	assert.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals
