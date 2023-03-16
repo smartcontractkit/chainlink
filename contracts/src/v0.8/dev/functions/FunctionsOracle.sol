@@ -28,12 +28,12 @@ contract FunctionsOracle is
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
   event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
+  event InvalidRequestID(bytes32 indexed requestId);
 
   error EmptyRequestData();
   error InconsistentReportData();
   error EmptyPublicKey();
   error EmptyBillingRegistry();
-  error InvalidRequestID();
   error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
@@ -237,11 +237,13 @@ contract FunctionsOracle is
           reportValidationGasShare,
           gasleft()
         )
-      returns (bool success) {
-        if (success) {
+      returns (FunctionsBillingRegistryInterface.FulfillResult result) {
+        if (result == FunctionsBillingRegistryInterface.FulfillResult.USER_SUCCESS) {
           emit OracleResponse(requestIds[i]);
-        } else {
+        } else if (result == FunctionsBillingRegistryInterface.FulfillResult.USER_ERROR) {
           emit UserCallbackError(requestIds[i], "error in callback");
+        } else if (result == FunctionsBillingRegistryInterface.FulfillResult.INVALID_REQUEST_ID) {
+          emit InvalidRequestID(requestIds[i]);
         }
       } catch (bytes memory reason) {
         emit UserCallbackRawError(requestIds[i], reason);
