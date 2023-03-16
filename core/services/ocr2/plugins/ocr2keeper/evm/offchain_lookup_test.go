@@ -516,7 +516,7 @@ func TestEvmRegistry_setCachesOnAPIErr(t *testing.T) {
 }
 
 func TestOffchainLookup_parseJson(t *testing.T) {
-	content, e := os.ReadFile("poke_api.json")
+	content, e := os.ReadFile("test.json")
 	assert.Nil(t, e)
 	tests := []struct {
 		name           string
