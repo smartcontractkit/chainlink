@@ -12,7 +12,7 @@ require (
 	github.com/rs/zerolog v1.29.0
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/slack-go/slack v0.12.1
-	github.com/smartcontractkit/chainlink v1.10.0
+	github.com/smartcontractkit/chainlink v1.12.0
 	github.com/smartcontractkit/chainlink-env v0.3.17
 	github.com/smartcontractkit/chainlink-testing-framework v1.10.9-0.20230301123015-fa17d1a4dc61
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
@@ -26,6 +26,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 	nhooyr.io/websocket v1.8.7
 )
+
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -301,7 +303,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
+	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d // indirect
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

@@ -286,6 +286,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
+		log.Debug().Msg("DEPLOYING")
 		return ethereum.DeployLinkToken(auth, backend)
 	})
 	if err != nil {
