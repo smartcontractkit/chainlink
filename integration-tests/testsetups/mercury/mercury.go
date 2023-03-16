@@ -615,7 +615,6 @@ func (te *TestEnv) AddOCRJobs(actionId string, contractId string, fromBlock uint
 		return te.errorIfActionNotDone(actionId)
 	}
 
-	te.GetBootstrapNode().RemoteIP()
 	bootstrapP2PIds, err := te.GetBootstrapNode().MustReadP2PKeys()
 	if err != nil {
 		return err
