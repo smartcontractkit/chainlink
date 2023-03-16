@@ -358,7 +358,7 @@ func (lp *logPoller) Name() string {
 }
 
 func (lp *logPoller) HealthReport() map[string]error {
-	return map[string]error{lp.Name(): lp.Healthy()}
+	return map[string]error{lp.Name(): lp.StartStopOnce.Healthy()}
 }
 
 func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
@@ -844,7 +844,9 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 		}
 	}
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
-	return nil, errors.New("Reorg greater than finality depth")
+	rerr := errors.New("Reorg greater than finality depth")
+	lp.SvcErrBuffer.Append(rerr)
+	return nil, rerr
 }
 
 // pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.

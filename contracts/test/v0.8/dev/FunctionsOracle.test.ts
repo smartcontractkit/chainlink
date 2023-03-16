@@ -328,7 +328,7 @@ describe('FunctionsOracle', () => {
 
       await expect(oracle.callReport(report)).to.emit(
         oracle,
-        'UserCallbackRawError',
+        'InvalidRequestID',
       )
     })
 
@@ -448,8 +448,8 @@ describe('FunctionsOracle', () => {
 
       // for second fulfill the requestId becomes invalid
       await expect(oracle.connect(roles.oracleNode).callReport(report))
-        .to.emit(oracle, 'UserCallbackRawError')
-        .withArgs(requestId, '0xda7aa3e1')
+        .to.emit(oracle, 'InvalidRequestID')
+        .withArgs(requestId)
     })
 
     it('#_report reverts for inconsistent encoding', async () => {

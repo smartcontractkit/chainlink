@@ -189,7 +189,7 @@ func (ec *EthConfirmer) Name() string {
 }
 
 func (ec *EthConfirmer) HealthReport() map[string]error {
-	return map[string]error{ec.Name(): ec.Healthy()}
+	return map[string]error{ec.Name(): ec.StartStopOnce.Healthy()}
 }
 
 func (ec *EthConfirmer) runLoop() {
@@ -885,6 +885,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
 			"blockHeight", blockHeight,
 		)
+		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
 	}
@@ -926,6 +927,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+		ec.SvcErrBuffer.Append(sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.orm.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	}
