@@ -152,13 +152,15 @@ var (
 )
 
 // New mercury env
+//
 // Required envs:
-// MS_DATABASE_FIRST_ADMIN_ID: mercury server admin id
-// MS_DATABASE_FIRST_ADMIN_KEY: mercury server admin key
-// MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY: mercury server admin encrypted key
+// MS_DATABASE_FIRST_ADMIN_ID: Mercury server admin id
+// MS_DATABASE_FIRST_ADMIN_KEY: Mercury server admin key
+// MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY: Mercury server admin encrypted key
 // Optional envs:
-// MERCURY_ENV_CONFIG_PATH: path to saved mercury test env config
-// MERCURY_ENV_TTL_MINS: Env ttl in min
+// MERCURY_ENV_CONFIG_PATH: Path to saved test env config
+// MERCURY_ENV_SAVE: List of test env ids separated by comma that should be saved
+// MERCURY_ENV_TTL_MINS: Env ttl in mins
 func NewEnv(testEnvId string, namespacePrefix string) (TestEnv, error) {
 	te := TestEnv{}
 	te.Id = testEnvId
