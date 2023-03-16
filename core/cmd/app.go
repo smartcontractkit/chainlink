@@ -68,14 +68,19 @@ func NewApp(client *Client) *cli.App {
 	}
 	app.Before = func(c *cli.Context) error {
 
-		// handle config and secrets flags here for backward compatibility
-		err := setOptsFromFlags(&opts, c)
+		// setup a default config and logger
+		// these will be overwritten later if a config is specified
+		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+			return err
+		} else {
+			client.Config = cfg
+			client.Logger = lggr
+			client.CloseLogger = closeLggr
+		}
+
+		err := client.setConfigFromFlags(&opts, c)
 		if err != nil {
 			return err
-		}
-		err = setClientConfig(opts, client)
-		if err != nil {
-			return nil
 		}
 
 		if c.Bool("json") {
@@ -223,41 +228,6 @@ var whitespace = regexp.MustCompile(`\s+`)
 // format returns result of replacing all whitespace in s with a single space
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
-}
-
-// setOptsFromFlags is a help that modifies the given opts if the cli context contains
-// -config or -secrets flags.
-// calling for multiple contexts has the effect of upserting toml configuration into opts
-func setOptsFromFlags(opts *chainlink.GeneralConfigOpts, cliCtx *cli.Context) error {
-	fileNames := cliCtx.StringSlice("config")
-	if err := loadOpts(opts, fileNames...); err != nil {
-		return err
-	}
-
-	secretsTOML := ""
-	if cliCtx.IsSet("secrets") {
-		secretsFileName := cliCtx.String("secrets")
-		b, err := os.ReadFile(secretsFileName)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
-		}
-		secretsTOML = string(b)
-	}
-	return opts.ParseSecrets(secretsTOML)
-}
-
-// setClientConfig derives and sets new configuration based on the opts
-func setClientConfig(opts chainlink.GeneralConfigOpts, client *Client) error {
-
-	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
-		return err
-	} else {
-		client.Config = cfg
-		client.Logger = lggr
-		client.CloseLogger = closeLggr
-	}
-	return nil
-
 }
 
 // loadOpts applies file configs and then overlays env config

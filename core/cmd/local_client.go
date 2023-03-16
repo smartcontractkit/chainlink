@@ -80,11 +80,7 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 			},
 			Usage: "Run the Chainlink node",
 			Before: func(c *cli.Context) error {
-				err := setOptsFromFlags(opts, c)
-				if err != nil {
-					return err
-				}
-				return setClientConfig(*opts, client)
+				return client.setConfigFromFlags(opts, c)
 			},
 			Action: client.RunNode,
 		},
@@ -228,12 +224,6 @@ const (
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	/*
-		err := cli.Config.Validate()
-		if err != nil {
-			return err
-		}
-	*/
 	if err := cli.runNode(c); err != nil {
 		return cli.errorOut(err)
 	}
