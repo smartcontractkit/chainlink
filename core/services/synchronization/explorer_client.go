@@ -58,7 +58,7 @@ type ExplorerClient interface {
 type NoopExplorerClient struct{}
 
 func (NoopExplorerClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopExplorerClient) Name() string                   { return "" }
+func (NoopExplorerClient) Name() string                   { return "NoopExplorerClient" }
 
 // Url always returns underlying url.
 func (NoopExplorerClient) Url() url.URL { return url.URL{} }
@@ -71,9 +71,6 @@ func (NoopExplorerClient) Start(context.Context) error { return nil }
 
 // Close is a no-op
 func (NoopExplorerClient) Close() error { return nil }
-
-// Healthy is a no-op
-func (NoopExplorerClient) Healthy() error { return nil }
 
 // Ready is a no-op
 func (NoopExplorerClient) Ready() error { return nil }
