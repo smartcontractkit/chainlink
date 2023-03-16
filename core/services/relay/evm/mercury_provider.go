@@ -53,6 +53,12 @@ func (p *mercuryProvider) Ready() error {
 	return errors.Join(p.configWatcher.Ready(), p.transmitter.Ready())
 }
 
+// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
+// https://smartcontract-it.atlassian.net/browse/BCF-2140
+func (p *mercuryProvider) Healthy() error {
+	return nil
+}
+
 func (p *mercuryProvider) Name() string {
 	return p.logger.Name()
 }
