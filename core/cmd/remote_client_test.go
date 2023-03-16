@@ -446,41 +446,30 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
-	// we want to test tht the before func of the profile cmd is
-	// behaving correctly. to do that, we need to initialize a cli app,
-	// find the profile command and then run it.
-	client := &cmd.Client{}
+	app := startNewApplicationV2(t, nil)
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
-	var opts chainlink.GeneralConfigOpts
-	cmds := cmd.InitLocalSubCmds(client, true, &opts)
-	var profileCmd cli.Command
-	found := false
-	for _, c := range cmds {
-		t.Logf("cmd name %s", c.Name)
-		if c.Name == "profile" {
-			profileCmd = c
-			found = true
-		}
-	}
-	require.True(t, found)
-
-	clCli := cmd.NewApp(client)
-
-	// we have to declare and parse the profile flags in order for the
-	// cli context to be handled correctly when parseCmd.Run is called
-	tDir := t.TempDir()
+	client := app.NewAuthenticatingClient(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	err := set.Parse([]string{"profile", "-seconds", "150", "-o", tDir})
+	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	ctx := cli.NewContext(clCli, set, nil)
-	err = profileCmd.Run(ctx)
-	require.ErrorIs(t, err, cmd.ErrProfileTooLong)
-
-	ents, err := os.ReadDir(tDir)
-	require.NoError(t, err)
-	require.Len(t, ents, 0, "ents %+v", ents)
+	// pick a value larger than the default http service write timeout
+	d := app.Config.HTTPServerWriteTimeout() + 2*time.Second
+	set.Uint("seconds", uint(d.Seconds()), "")
+	tDir := t.TempDir()
+	set.String("output_dir", tDir, "")
+	err = client.Profile(cli.NewContext(nil, set, nil))
+	wantErr := cmd.ErrProfileTooLong
+	require.ErrorAs(t, err, &wantErr)
 
 }
 
@@ -503,7 +492,7 @@ func TestClient_Profile(t *testing.T) {
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	set.Uint("seconds", 1, "")
+	set.Uint("seconds", 10, "")
 	tDir := t.TempDir()
 	set.String("output_dir", tDir, "")
 

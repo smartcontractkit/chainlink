@@ -85,6 +85,7 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 var (
 	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
+	errBadRequest   = errors.New(http.StatusText(http.StatusBadRequest))
 )
 
 // CreateExternalInitiator adds an external initiator
@@ -287,13 +288,35 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 					err = fmt.Errorf("server timeout after %s. try shorting the collection time (%d seconds): %w", time.Since(start), seconds, err)
 				}
 				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
+
 				return
 			}
+			defer func() {
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}()
 			if resp.StatusCode == http.StatusUnauthorized {
 				errs <- fmt.Errorf("error collecting %s: %w", vt, errUnauthorized)
 				return
 			}
-			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusBadRequest {
+				// best effort to interpret the underlying problem
+				pprofVersion := resp.Header.Get("X-Go-Pprof")
+				if pprofVersion == "1" {
+					b, _ := io.ReadAll(resp.Body)
+					s := string(b)
+					// taken from pprof.Profile https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/pprof/pprof.go#L133
+					if strings.Contains(s, "profile duration exceeds server's WriteTimeout") {
+						errs <- fmt.Errorf("%w: %s", ErrProfileTooLong, s)
+					} else {
+						errs <- fmt.Errorf("error collecting %s: %w: %s", vt, errBadRequest, s)
+					}
+				} else {
+					errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
+				}
+				return
+			}
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
