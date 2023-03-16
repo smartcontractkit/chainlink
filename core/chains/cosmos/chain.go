@@ -2,9 +2,10 @@ package cosmos
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"github.com/pkg/errors"
@@ -103,8 +104,11 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 		if cnt == 0 {
 			return nil, errors.New("no nodes available")
 		}
-		// #nosec
-		node = nodes[rand.Intn(len(nodes))]
+		nodeIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(nodes))))
+		if err != nil {
+			return nil, errors.Wrap(err, "could not generate a random node index")
+		}
+		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
 		node, err = c.orm.NodeNamed(name)
