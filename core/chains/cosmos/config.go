@@ -319,10 +319,6 @@ func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
 }
 
-func (c *CosmosConfig) Update(cfg db.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
-}
-
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 	i := d.Shift(sdk.Precision)
 	return sdk.NewDecFromBigIntWithPrec(i.BigInt(), sdk.Precision)
