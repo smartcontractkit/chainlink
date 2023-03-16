@@ -272,7 +272,7 @@ func (te *TestEnv) Cleanup(t *testing.T) error {
 
 // Wait for the DON to start generating reports and storing them in mercury server db
 func (te *TestEnv) WaitForReportsInMercuryDb(feedIds []string) error {
-	log.Info().Msg("Wait for mercury server to have at least one report in the db..")
+	log.Info().Msgf("Wait for mercury server to have at least one report in the db for feeds %s..", feedIds)
 
 	latestBlockNum, err := te.EvmClient.LatestBlockNumber(context.Background())
 	if err != nil {

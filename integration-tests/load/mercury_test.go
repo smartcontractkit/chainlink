@@ -2,6 +2,7 @@ package load
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -32,34 +33,63 @@ var (
 			"memory": "2048Mi",
 		},
 	}
+
+	feedId = "feed-1"
 )
 
 func setupMercuryLoadEnv(
 	t *testing.T,
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
-) (*mercury.TestEnv, uint64) {
-	testEnv, err := mercury.SetupMercuryTestEnv("load", dbSettings, serverResources)
-	require.NoError(t, err)
+) (mercury.TestEnv, uint64) {
+	testEnv, err := mercury.NewEnv(t.Name(), "load")
 
 	t.Cleanup(func() {
-		//nolint
 		testEnv.Cleanup(t)
 	})
+	require.NoError(t, err)
 
-	latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
-	require.NoError(t, err, "Err getting latest block number")
-	report, _, err := testEnv.MSClient.GetReports(testEnv.FeedId, latestBlockNum-5)
-	require.NoError(t, err, "Error getting report from Mercury Server")
-	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
+	testEnv.AddEvmNetwork()
 
-	return testEnv, latestBlockNum
+	err = testEnv.AddDON()
+	require.NoError(t, err)
+
+	ocrConfig, err := testEnv.BuildOCRConfig()
+	require.NoError(t, err)
+
+	err = testEnv.AddMercuryServer(dbSettings, serverResources)
+	require.NoError(t, err)
+
+	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
+	require.NoError(t, err)
+	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
+	require.NoError(t, err)
+
+	blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
+		fmt.Sprintf("setAndInitialize%sVerifier", feedId),
+		"verifier1",
+		"verifierProxy1",
+		feedId,
+		*ocrConfig,
+	)
+	require.NoError(t, err)
+
+	err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
+	require.NoError(t, err)
+
+	err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
+	require.NoError(t, err)
+
+	err = testEnv.WaitForReportsInMercuryDb([]string{feedId})
+	require.NoError(t, err)
+
+	return testEnv, uint64(blockNumber)
 }
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	testEnv, latestBlockNumber := setupMercuryLoadEnv(t, dbSettings, serverResources)
+	testEnv, blockNumber := setupMercuryLoadEnv(t, dbSettings, serverResources)
 
-	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.FeedId, latestBlockNumber)
+	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, feedId, blockNumber)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
