@@ -490,7 +490,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ChainlinkApplication: app,
 		Logger:               lggr,
 	}
-	ta.Server = httptest.NewServer(web.Router(t, app, nil))
+
+	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
+	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Start()
+	ta.Server = srvr
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
