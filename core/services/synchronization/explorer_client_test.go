@@ -114,9 +114,8 @@ func TestWebSocketClient_Send_Unsupported(t *testing.T) {
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 
-	assert.PanicsWithValue(t, "send on explorer client received unsupported message type -1", func() {
-		explorerClient.Send(testutils.Context(t), []byte(`{"hello": "world"}`), -1)
-	})
+	explorerClient.Send(testutils.Context(t), []byte(`{"hello": "world"}`), -1)
+	require.Contains(t, explorerClient.HealthReport()[explorerClient.Name()].Error(), "send on explorer client received unsupported message type -1")
 	require.NoError(t, explorerClient.Close())
 }
 

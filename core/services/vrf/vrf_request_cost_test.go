@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 func TestMeasureRandomnessRequestGasCost(t *testing.T) {
