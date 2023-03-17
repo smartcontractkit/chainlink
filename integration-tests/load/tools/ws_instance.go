@@ -1,15 +1,13 @@
-package load
+package tools
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -19,20 +17,31 @@ type WSConfig struct {
 }
 
 type WSInstance struct {
-	srv *client.MercuryServer
+	srv  *client.MercuryServer
+	stop chan struct{}
+}
+
+func (m *WSInstance) Stop(l *loadgen.Generator) {
+	m.stop <- struct{}{}
+}
+
+func (m *WSInstance) Clone(l *loadgen.Generator) loadgen.Instance {
+	return &WSInstance{
+		srv:  m.srv,
+		stop: make(chan struct{}, 1),
+	}
 }
 
 func NewWSInstance(srv *client.MercuryServer) *WSInstance {
 	return &WSInstance{
-		srv: srv,
+		srv:  srv,
+		stop: make(chan struct{}, 1),
 	}
 }
 
 // Run create an instance firing read requests against mock ws server
 func (m *WSInstance) Run(l *loadgen.Generator) {
-	c, _, err := websocket.Dial(context.Background(), fmt.Sprintf("%s/ws", m.srv.URL), &websocket.DialOptions{
-		HTTPHeader: http.Header{"Authorization": []string{"Basic Y2xpZW50OmNsaWVudHBhc3M="}},
-	})
+	c, _, err := m.srv.DialWS()
 	if err != nil {
 		l.Log.Error().Err(err).Msg("failed to connect from instance")
 		//nolint
@@ -40,12 +49,14 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 	}
 	l.ResponsesWaitGroup.Add(1)
 	go func() {
+		//nolint
 		defer l.ResponsesWaitGroup.Done()
+		defer c.Close(websocket.StatusNormalClosure, "")
 		for {
 			select {
 			case <-l.ResponsesCtx.Done():
-				//nolint
-				c.Close(websocket.StatusNormalClosure, "")
+				return
+			case <-m.stop:
 				return
 			default:
 				startedAt := time.Now()
@@ -55,22 +66,17 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 					l.Log.Error().Err(err).Msg("failed read ws msg from instance")
 					l.ResponsesChan <- loadgen.CallResult{StartedAt: &startedAt, Failed: true, Error: "ws read error"}
 				}
-				log.Debug().Interface("Results", v).Msg("Report results")
+				log.Info().Interface("Results", v).Msg("Report results")
 				if v["report"] == "" {
 					log.Error().Msg("report is empty")
 					continue
 				}
 				reportElements := map[string]interface{}{}
-				if err = ReportTypes.UnpackIntoMap(reportElements, []byte(v["report"])); err != nil {
-					l.Log.Error().Err(err).Msg("failed to unpack report")
-					l.ResponsesChan <- loadgen.CallResult{Error: "blob unpacking error"}
+				if err := mercury.ValidateReport([]byte(v["report"])); err != nil {
+					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error", Failed: true}
 					continue
 				}
-				if err := testsetups.ValidateReport(reportElements); err != nil {
-					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error"}
-					continue
-				}
-				log.Debug().Interface("Report", reportElements).Msg("Decoded report")
+				log.Info().Interface("Report", reportElements).Msg("Decoded report")
 				l.ResponsesChan <- loadgen.CallResult{StartedAt: &startedAt}
 			}
 		}

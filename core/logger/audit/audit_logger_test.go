@@ -8,14 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 type MockedHTTPEvent struct {
@@ -98,7 +99,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	auditLoggerTestConfig := Config{}
 
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(logger, &auditLoggerTestConfig)
+	auditLogger, err := audit.NewAuditLogger(logger.Named("AuditLogger"), &auditLoggerTestConfig)
 	assert.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals

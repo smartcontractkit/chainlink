@@ -80,6 +80,11 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.abi ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.bin OCR2DROracle ocr2dr_oracle
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin OCR2DRRegistry ocr2dr_registry
 
+// Mercury
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/Verifier.abi ../../contracts/solc/v0.8.6/Verifier.bin MercuryVerifier mercury_verifier
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VerifierProxy.abi ../../contracts/solc/v0.8.6/VerifierProxy.bin MercuryVerifierProxy mercury_verifier_proxy
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/ExposedVerifier.abi ../../contracts/solc/v0.8.6/ExposedVerifier.bin MercuryExposedVerifier mercury_exposed_verifier
+
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:
 //

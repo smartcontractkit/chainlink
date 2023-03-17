@@ -157,11 +157,18 @@ describe('FunctionsClientTestHelper', () => {
       const args = await parseOracleRequestEventArgs(tx)
       assert.equal(5, args.length)
       const decoded = await decodeDietCBOR(args[4])
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+        },
+      )
     })
   })
 

@@ -2,6 +2,7 @@ package fluxmonitorv2
 
 import (
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 

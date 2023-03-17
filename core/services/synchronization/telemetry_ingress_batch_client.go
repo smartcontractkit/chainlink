@@ -43,9 +43,8 @@ func (NoopTelemetryIngressBatchClient) Close() error { return nil }
 func (NoopTelemetryIngressBatchClient) Send(TelemPayload) {}
 
 // Healthy is a no-op
-func (NoopTelemetryIngressBatchClient) Healthy() error                 { return nil }
 func (NoopTelemetryIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopTelemetryIngressBatchClient) Name() string                   { return "" }
+func (NoopTelemetryIngressBatchClient) Name() string                   { return "NoopTelemetryIngressBatchClient" }
 
 // Ready is a no-op
 func (NoopTelemetryIngressBatchClient) Ready() error { return nil }
@@ -136,7 +135,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 				}()
 			} else {
 				// Spawns a goroutine that will eventually connect
-				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
 				if err != nil {
 					return fmt.Errorf("could not start TelemIngressBatchClient, Dial returned error: %v", err)
 				}

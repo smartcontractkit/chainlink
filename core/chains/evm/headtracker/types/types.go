@@ -70,4 +70,6 @@ type HeadListener interface {
 	ReceivingHeads() bool
 	// Connected returns true if the listener is connected (thread safe)
 	Connected() bool
+	// HealthReport returns report of errors within HeadListener
+	HealthReport() map[string]error
 }
