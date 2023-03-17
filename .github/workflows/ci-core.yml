@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         if: needs.init.outputs.on_trigger_lint == 'true'
         with:
           go-version-file: 'go.mod'
