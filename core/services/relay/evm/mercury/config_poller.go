@@ -123,7 +123,8 @@ func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(FeedScopedConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
+	// TODO: figure out the topic index... Use 1 for now...
+	logs, err := lp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, lp.addr, 1, []common.Hash{*lp.feedId}, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
@@ -131,6 +132,7 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
+	latest := logs[len(logs)-1]
 	latestConfigSet, err := configFromLog(latest.Data)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
@@ -140,7 +142,8 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, pg.WithParentCtx(ctx))
+	// TODO: figure out the topic index... Use 1 for now...
+	lgs, err := lp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, 1, []common.Hash{*lp.feedId}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}

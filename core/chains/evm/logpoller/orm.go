@@ -368,3 +368,23 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 	}
 	return logs, nil
 }
+
+// SelectIndexedLogsByBlockRangeFilter finds the indexed logs in a given block range.
+func (o *ORM) SelectIndexedLogsByBlockRangeFilter(start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	var topicValuesBytes [][]byte
+	for _, topicValue := range topicValues {
+		topicValuesBytes = append(topicValuesBytes, topicValue.Bytes())
+	}
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs, `
+		SELECT * FROM evm_logs 
+			WHERE evm_logs.block_number >= $1 AND evm_logs.block_number <= $2 AND evm_logs.evm_chain_id = $3 
+			AND address = $4 AND event_sig = $5
+			AND topics[$6] = ANY($7)
+			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, pq.ByteaArray(topicValuesBytes))
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}

@@ -356,6 +356,18 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 
+	lgs, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 1, addr, eventSig, 1, []common.Hash{EvmWord(1)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	lgs, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 2, addr, eventSig, 1, []common.Hash{EvmWord(2)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	lgs, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 2, addr, eventSig, 1, []common.Hash{EvmWord(1)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
 	lgs, err = o1.SelectIndexLogsTopicGreaterThan(addr, eventSig, 1, EvmWord(2), 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
