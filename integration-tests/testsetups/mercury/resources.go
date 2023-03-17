@@ -1,8 +1,11 @@
 package mercury
 
+// ResourcesConfig used to configure different CPU/MEM settings for load/chaos/smoke
 type ResourcesConfig struct {
-	DONResources       map[string]interface{}
-	DONDBResources     map[string]interface{}
+	/* Chainlink nodes resources */
+	DONResources   map[string]interface{}
+	DONDBResources map[string]interface{}
+	/* Mercury server resources */
 	MercuryResources   map[string]interface{}
 	MercuryDBResources map[string]interface{}
 }

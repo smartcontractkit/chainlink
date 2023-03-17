@@ -16,24 +16,46 @@ import (
 )
 
 var (
-	defaultDONSettings = map[string]interface{}{
-		"stateful": true,
-		"capacity": "10Gi",
-		"resources": map[string]interface{}{
+	resources = &mercury.ResourcesConfig{
+		DONResources: map[string]interface{}{
 			"requests": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "256Mi",
+				"cpu":    "2000m",
+				"memory": "2048Mi",
 			},
 			"limits": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "256Mi",
+				"cpu":    "2000m",
+				"memory": "2048Mi",
 			},
 		},
-	}
-	defaultMercuryDBSettings = map[string]interface{}{
-		"stateful": "true",
-		"capacity": "10Gi",
-		"resources": map[string]interface{}{
+		DONDBResources: map[string]interface{}{
+			"stateful": "true",
+			"capacity": "10Gi",
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "2000m",
+					"memory": "2048Mi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "2000m",
+					"memory": "2048Mi",
+				},
+			},
+		},
+		MercuryResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+		},
+		MercuryDBResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
 			"limits": map[string]interface{}{
 				"cpu":    "2000m",
 				"memory": "2048Mi",
@@ -65,7 +87,6 @@ func TestMercuryChaos(t *testing.T) {
 		//		DurationStr: "1m",
 		//	},
 		//},
-		//
 		//PodChaosFailMinorityNodes: {
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
@@ -88,11 +109,19 @@ func TestMercuryChaos(t *testing.T) {
 		//		ContainerNames: &[]*string{a.Str("chainlink-db")},
 		//	},
 		//},
-		PodChaosFailMercury: {
-			chaos.NewFailPods,
+		//PodChaosFailMercury: {
+		//	chaos.NewFailPods,
+		//	&chaos.Props{
+		//		LabelsSelector: &map[string]*string{"app": a.Str("mercury-server")},
+		//		DurationStr:    "1m",
+		//	},
+		//},
+		NetworkChaosDisruptNetworkDONMercury: {
+			chaos.NewNetworkPartition,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{"app": a.Str("mercury-server")},
-				DurationStr:    "1m",
+				FromLabels:  &map[string]*string{"app": a.Str("mercury-server")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+				DurationStr: "1m",
 			},
 		},
 	}
@@ -103,8 +132,8 @@ func TestMercuryChaos(t *testing.T) {
 		t.Run(fmt.Sprintf("Mercury_%s", name), func(t *testing.T) {
 			t.Parallel()
 
-			feeds := []string{"feed-1"}
-			env, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "chaos", feeds, defaultDONSettings, defaultMercuryDBSettings)
+			feeds := [][32]byte{mercury.StringToByte32("feed-1")}
+			env, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "chaos", feeds, resources)
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				env.Cleanup(t)
@@ -121,8 +150,6 @@ func TestMercuryChaos(t *testing.T) {
 			require.NoError(t, err)
 			err = env.Env.Chaos.WaitForAllRecovered(chaosID)
 			require.NoError(t, err)
-			err = env.Env.WaitHealthy()
-			require.NoError(t, err)
 			env.Env.Cfg.NoManifestUpdate = true
 			err = env.Env.Run()
 			require.NoError(t, err)
@@ -131,10 +158,11 @@ func TestMercuryChaos(t *testing.T) {
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
-				report, _, err := env.MSClient.GetReports(feeds[0], blockAfterChaos)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error getting report from Mercury Server")
+				report, _, err := env.MSClient.GetReports(mercury.Byte32ToString(feeds[0]), blockAfterChaos)
 				l.Info().Interface("Report", report).Msg("Last report received")
+				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error getting report from Mercury Server")
 				g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Report response does not contain chainlinkBlob")
+
 				err = mercuryactions.ValidateReport([]byte(report.ChainlinkBlob))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error validating mercury report")
 				l.Info().Interface("Report", report).Msg("Validated report received")

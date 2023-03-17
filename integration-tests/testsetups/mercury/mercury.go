@@ -974,7 +974,7 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 func SetupMercuryMultiFeedEnv(
 	name string,
 	prefix string,
-	feedIDs []string,
+	feedIDs [][32]byte,
 	r *ResourcesConfig,
 ) (TestEnv, error) {
 	testEnv, err := NewEnv(name, prefix, r)
