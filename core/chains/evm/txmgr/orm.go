@@ -209,52 +209,33 @@ func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
 
 // EthTransactions returns all eth transactions without loaded relations
 // limited by passed parameters.
-func (o *orm) EthTransactions(offset, limit int, opts ...any) (txs []EthTx, count int, err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		err = errors.Wrap(err, "EthTransactions failed")
+func (o *orm) EthTransactions(offset, limit int) (txs []EthTx, count int, err error) {
+	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
+	if err = o.q.Get(&count, sql); err != nil {
 		return
 	}
-	qq := o.q.WithOpts(qopts...)
 
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
-		if err = o.q.Get(&count, sql); err != nil {
-			return err
-		}
-
-		sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
-		return o.q.Select(&txs, sql, limit, offset)
-	})
-	err = errors.Wrap(err, "EthTransactions failed")
+	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
+		return
+	}
 	return
 }
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
-func (o *orm) EthTransactionsWithAttempts(offset, limit int, opts ...any) (txs []EthTx, count int, err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		err = errors.Wrap(err, "EthTransactions failed")
+func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
+	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
+	if err = o.q.Get(&count, sql); err != nil {
 		return
 	}
 
-	qq := o.q.WithOpts(qopts...)
+	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
+		return
+	}
 
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
-		if err = tx.Get(&count, sql); err != nil {
-			return err
-		}
-
-		sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
-		if err = tx.Select(&txs, sql, limit, offset); err != nil {
-			return err
-		}
-
-		return o.preloadTxAttempts(txs, pg.WithQueryer(tx))
-	})
-	err = errors.Wrap(err, "EthTransactionsWithAttempts failed")
+	err = o.preloadTxAttempts(txs)
 	return
 }
 
@@ -333,7 +314,7 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
-func (o *orm) InsertEthReceipt(receipt *txmgrtypes.Receipt[evmtypes.Receipt, common.Hash], opts ...any) error {
+func (o *orm) InsertEthReceipt(receipt *txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]) error {
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
@@ -528,7 +509,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int, opts ...any) (err error) {
+func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error) {
 	if len(receipts) == 0 {
 		return nil
 	}
@@ -672,7 +653,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int, opts ...any) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
+func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
 	err = o.q.SelectContext(ctx, &receiptsPlus, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
@@ -811,12 +792,8 @@ func (o *orm) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout ti
 	return errors.Wrap(err, "SaveConfirmedMissingReceiptAttempt failed")
 }
 
-func (o *orm) DeleteInProgressAttempt(attempt EthTxAttempt, opts ...any) error {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		return errors.Wrap(err, "DeleteInProgressAttempt failed")
-	}
-	qq := o.q.WithOpts(qopts...)
+func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error {
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
@@ -824,7 +801,7 @@ func (o *orm) DeleteInProgressAttempt(attempt EthTxAttempt, opts ...any) error {
 	if attempt.ID == 0 {
 		return errors.New("DeleteInProgressAttempt: expected attempt to have an id")
 	}
-	_, err = qq.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
+	_, err := qq.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
 	return errors.Wrap(err, "DeleteInProgressAttempt failed")
 }
 
@@ -1182,30 +1159,16 @@ func (o *orm) countTransactionsWithState(fromAddress common.Address, state EthTx
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func (o *orm) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, opts ...any) (count uint32, err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		err = errors.Wrap(err, "CountUnconfirmedTransactions failed")
-		return
-	}
+func (o *orm) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	return o.countTransactionsWithState(fromAddress, EthTxUnconfirmed, chainID, qopts...)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func (o *orm) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, opts ...any) (count uint32, err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		err = errors.Wrap(err, "CountUnstartedTransactions failed")
-		return
-	}
+func (o *orm) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	return o.countTransactionsWithState(fromAddress, EthTxUnstarted, chainID, qopts...)
 }
 
-func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, opts ...any) (err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		return errors.Wrap(err, "CheckEthTxQueueCapacity failure")
-	}
+func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error) {
 	qq := o.q.WithOpts(qopts...)
 	if maxQueuedTransactions == 0 {
 		return nil
@@ -1223,13 +1186,7 @@ func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTrans
 	return
 }
 
-func (o *orm) CreateEthTransaction(newTx NewTx, chainID big.Int, opts ...any) (etx EthTx, err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		err = errors.Wrap(err, "CreateEthTransaction failed")
-		return
-	}
-
+func (o *orm) CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error) {
 	qq := o.q.WithOpts(qopts...)
 	value := 0
 	err = qq.Transaction(func(tx pg.Queryer) error {
@@ -1267,12 +1224,7 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (o *orm) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, opts ...any) (n int64, err error) {
-	qopts, err := ToQOpts(opts)
-	if err != nil {
-		return 0, errors.Wrap(err, "PruneUnstartedEthTxQueue failed")
-	}
-
+func (o *orm) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`

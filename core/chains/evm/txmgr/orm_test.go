@@ -70,7 +70,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 
-	txs, count, err = orm.EthTransactionsWithAttempts(0, 1, pg.WithQueryer(db))
+	txs, count, err = orm.EthTransactionsWithAttempts(0, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
@@ -107,7 +107,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
-	txs, count, err := orm.EthTransactions(0, 100, pg.WithParentCtx(context.Background()))
+	txs, count, err := orm.EthTransactions(0, 100)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
@@ -858,7 +858,7 @@ func TestORM_DeleteInProgressAttempt(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 
-		err := borm.DeleteInProgressAttempt(etx.EthTxAttempts[0], pg.WithParentCtx(context.Background()))
+		err := borm.DeleteInProgressAttempt(testutils.Context(t), etx.EthTxAttempts[0])
 		require.NoError(t, err)
 
 		nilResult, err := borm.FindEthTxAttempt(attempt.Hash)

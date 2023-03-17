@@ -869,7 +869,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"blockHeight", blockHeight,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return ec.orm.DeleteInProgressAttempt(attempt, pg.WithParentCtx(ctx))
+		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
 	}
 
 	if sendError.Fatal() {
@@ -887,7 +887,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		)
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
-		return ec.orm.DeleteInProgressAttempt(attempt, pg.WithParentCtx(ctx))
+		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
 	}
 
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {

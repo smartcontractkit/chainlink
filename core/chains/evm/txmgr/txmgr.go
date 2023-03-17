@@ -515,12 +515,12 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		}
 	}
 
-	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, ToAnys(qs)...)
+	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, ToAnys(qs)...)
+	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, qs...)
 	return
 }
 
