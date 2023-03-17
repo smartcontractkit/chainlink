@@ -130,7 +130,7 @@ func buildRevertBytesHelper(r *EvmRegistry, baseURL string) []byte {
 func TestEvmRegistry_offchainLookup(t *testing.T) {
 	setupRegistry := setupEVMRegistry(t)
 	// load json response for testing
-	content, e := os.ReadFile("poke_api.json")
+	content, e := os.ReadFile("test.json")
 	assert.Nil(t, e)
 	// mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
