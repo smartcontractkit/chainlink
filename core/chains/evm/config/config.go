@@ -14,6 +14,7 @@ import (
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
+	AutoCreateKey() bool
 	BalanceMonitorEnabled() bool
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool

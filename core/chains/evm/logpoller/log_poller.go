@@ -215,9 +215,9 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 			// Nothing new in this filter
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "filter.Name", filter.Name)
+		lp.lggr.Warnw("Updating existing filter with more events or addresses", "filter", filter)
 	} else {
-		lp.lggr.Debugf("Creating new filter %s", filter.Name)
+		lp.lggr.Debugw("Creating new filter", "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(filter); err != nil {
@@ -349,7 +349,7 @@ func (lp *logPoller) Name() string {
 }
 
 func (lp *logPoller) HealthReport() map[string]error {
-	return map[string]error{lp.Name(): lp.Healthy()}
+	return map[string]error{lp.Name(): lp.StartStopOnce.Healthy()}
 }
 
 func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
@@ -832,7 +832,9 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 		}
 	}
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
-	return nil, errors.New("Reorg greater than finality depth")
+	rerr := errors.New("Reorg greater than finality depth")
+	lp.SvcErrBuffer.Append(rerr)
+	return nil, rerr
 }
 
 // pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.

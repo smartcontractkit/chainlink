@@ -226,20 +226,6 @@ func (_m *ChainSet) HealthReport() map[string]error {
 	return r0
 }
 
-// Healthy provides a mock function with given fields:
-func (_m *ChainSet) Healthy() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Index provides a mock function with given fields: offset, limit
 func (_m *ChainSet) Index(offset int, limit int) ([]chains.DBChain[utils.Big, *types.ChainCfg], int, error) {
 	ret := _m.Called(offset, limit)

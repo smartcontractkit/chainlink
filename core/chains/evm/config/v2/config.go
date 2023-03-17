@@ -283,6 +283,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 }
 
 type Chain struct {
+	AutoCreateKey            *bool
 	BlockBackfillDepth       *uint32
 	BlockBackfillSkip        *bool
 	ChainType                *string

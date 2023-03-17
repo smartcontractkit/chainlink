@@ -182,6 +182,14 @@ func (eb *EthBroadcaster) Close() error {
 	})
 }
 
+func (eb *EthBroadcaster) Name() string {
+	return eb.logger.Name()
+}
+
+func (eb *EthBroadcaster) HealthReport() map[string]error {
+	return map[string]error{eb.Name(): eb.StartStopOnce.Healthy()}
+}
+
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
 func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
@@ -319,6 +327,7 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 				if err := syncer.Sync(ctx, k); err != nil {
 					if attempt > 5 {
 						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+						eb.SvcErrBuffer.Append(err)
 					} else {
 						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
 					}
@@ -476,6 +485,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 
 	if sendError.Fatal() {
 		lgr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", etx)
+		eb.SvcErrBuffer.Append(sendError)
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
@@ -562,6 +572,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.Hash, attempt.TxType, sendError.Error(), etx.FromAddress,
 		), "err", sendError)
+		eb.SvcErrBuffer.Append(sendError)
 		// NOTE: This bails out of the entire cycle and essentially "blocks" on
 		// any transaction that gets insufficient_eth. This is OK if a
 		// transaction with a large VALUE blocks because this always comes last
@@ -610,6 +621,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
 		)
+		eb.SvcErrBuffer.Append(sendError)
 		// Note that we may have broadcast to multiple nodes and had it
 		// accepted by one of them! It is not guaranteed that all nodes share
 		// the same tx fee cap. That is why we must treat this as an unknown
@@ -620,6 +632,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// forever until the issue is resolved.
 	} else {
 		lgr.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions", "err", sendError, "etx", etx, "attempt", attempt)
+		eb.SvcErrBuffer.Append(sendError)
 	}
 
 	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, etx.FromAddress)
