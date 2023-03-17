@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -129,10 +130,8 @@ func (c *chain) Ready() error {
 	return c.StartStopOnce.Ready()
 }
 
-func (c *chain) Healthy() error {
-	return c.StartStopOnce.Healthy()
-}
-
 func (c *chain) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
+	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	maps.Copy(report, c.txm.HealthReport())
+	return report
 }

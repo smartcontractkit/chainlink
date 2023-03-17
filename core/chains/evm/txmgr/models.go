@@ -302,6 +302,10 @@ type EthTxAttempt struct {
 	TxType                  int
 }
 
+func (a EthTxAttempt) String() string {
+	return fmt.Sprintf("EthTxAttempt(ID:%d,EthTxID:%d,GasPrice:%v,GasTipCap:%v,GasFeeCap:%v,TxType:%d", a.ID, a.EthTxID, a.GasPrice, a.GasTipCap, a.GasFeeCap, a.TxType)
+}
+
 // GetSignedTx decodes the SignedRawTx into a types.Transaction struct
 func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)

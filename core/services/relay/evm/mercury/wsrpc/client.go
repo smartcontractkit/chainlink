@@ -2,21 +2,22 @@ package wsrpc
 
 import (
 	"context"
-	"net/url"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/report"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type Client interface {
 	services.ServiceCtx
-	report.ReportClient
+	pb.MercuryClient
 }
 
 type client struct {
@@ -24,17 +25,19 @@ type client struct {
 
 	csaKey       csakey.KeyV2
 	serverPubKey []byte
-	serverURL    *url.URL
+	serverURL    string
 
+	logger logger.Logger
 	conn   *wsrpc.ClientConn
-	client report.ReportClient
+	client pb.MercuryClient
 }
 
-func NewClient(privKey csakey.KeyV2, serverPubKey []byte, serverURL *url.URL) Client {
+func NewClient(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
 	return &client{
 		csaKey:       privKey,
 		serverPubKey: serverPubKey,
 		serverURL:    serverURL,
+		logger:       lggr.Named("WSRPC"),
 	}
 }
 
@@ -46,14 +49,15 @@ func (w *client) Start(_ context.Context) error {
 		//
 		// Any transmits made while client is still trying to dial will fail
 		// with error.
-		conn, err := wsrpc.DialWithContext(context.Background(), w.serverURL.String(),
+		conn, err := wsrpc.DialWithContext(context.Background(), w.serverURL,
 			wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
+			wsrpc.WithLogger(w.logger),
 		)
 		if err != nil {
 			return errors.Wrap(err, "failed to dial wsrpc client")
 		}
 		w.conn = conn
-		w.client = report.NewReportClient(conn)
+		w.client = pb.NewMercuryClient(conn)
 		return nil
 	})
 }
@@ -73,16 +77,6 @@ func (w *client) HealthReport() map[string]error {
 	return map[string]error{w.Name(): w.Healthy()}
 }
 
-func (w *client) Transmit(ctx context.Context, in *report.ReportRequest) (rr *report.ReportResponse, err error) {
-	ok := w.IfStarted(func() {
-		rr, err = w.client.Transmit(ctx, in)
-	})
-	if !ok {
-		return nil, errors.New("client is not started")
-	}
-	return
-}
-
 // Healthy if connected
 func (w *client) Healthy() (err error) {
 	if err = w.StartStopOnce.Healthy(); err != nil {
@@ -93,4 +87,52 @@ func (w *client) Healthy() (err error) {
 		return errors.Errorf("client state should be %s; got %s", connectivity.Ready, state)
 	}
 	return nil
+}
+
+func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
+	lggr := w.logger.With("req.Payload", hexutil.Encode(req.Payload))
+	lggr.Debug("Transmit")
+	ok := w.IfStarted(func() {
+		if ready := w.conn.WaitForReady(ctx); !ready {
+			err = errors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
+			return
+		}
+
+		resp, err = w.client.Transmit(ctx, req)
+	})
+	if !ok {
+		return nil, errors.New("client is not started")
+	}
+	if err != nil {
+		lggr.Errorw("Transmit failed", "err", err, "req", req, "resp", resp)
+	} else if resp.Error != "" {
+		lggr.Errorw("Transmit failed; mercury server returned error", "err", resp.Error, "req", req, "resp", resp)
+	} else {
+		lggr.Debugw("Transmit succeeded", "resp", resp)
+	}
+	return
+}
+
+func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
+	lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
+	lggr.Debug("LatestReport")
+	ok := w.IfStarted(func() {
+		if ready := w.conn.WaitForReady(ctx); !ready {
+			err = errors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
+			return
+		}
+
+		resp, err = w.client.LatestReport(ctx, req)
+	})
+	if !ok {
+		return nil, errors.Errorf("client is not started; state=%v", w.StartStopOnce.State())
+	}
+	if err != nil {
+		lggr.Errorw("LatestReport failed", "err", err, "req", req, "resp", resp)
+	} else if resp.Error != "" {
+		lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "req", req, "resp", resp)
+	} else {
+		lggr.Debugw("LatestReport succeeded", "resp", resp)
+	}
+	return
 }

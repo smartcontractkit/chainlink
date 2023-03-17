@@ -71,6 +71,10 @@ func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogP
 	return &fwdMgr
 }
 
+func (f *FwdMgr) Name() string {
+	return f.logger.Name()
+}
+
 // Start starts Forwarder Manager.
 func (f *FwdMgr) Start(ctx context.Context) error {
 	return f.StartOnce("EVMForwarderManager", func() error {
@@ -135,6 +139,7 @@ func (f *FwdMgr) GetForwardedPayload(dest common.Address, origPayload []byte) ([
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
 				"err", err, "to", dest, "payload", origPayload)
+			f.SvcErrBuffer.Append(err)
 		}
 	}
 	return databytes, nil
@@ -314,4 +319,8 @@ func (f *FwdMgr) Close() error {
 		f.wg.Wait()
 		return nil
 	})
+}
+
+func (f *FwdMgr) HealthReport() map[string]error {
+	return map[string]error{f.Name(): f.StartStopOnce.Healthy()}
 }

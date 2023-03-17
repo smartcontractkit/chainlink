@@ -466,6 +466,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
+	require.Len(t, sendingKeys, 1)
 
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
@@ -1077,7 +1078,6 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
 		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, fmt.Sprintf("b_%d", 1), b, ocrnetworking.NetworkingStackV2, nil)
-		// bootstrapCfg.Overrides.GlobalEvmUseForwarders = null.BoolFrom(true)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra

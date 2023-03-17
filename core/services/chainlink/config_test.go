@@ -406,6 +406,7 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
+				AutoCreateKey: ptr(false),
 				BalanceMonitor: evmcfg.BalanceMonitor{
 					Enabled: ptr(true),
 				},
@@ -773,6 +774,7 @@ Release = 'v1.2.3'
 		{"EVM", Config{EVM: full.EVM}, `[[EVM]]
 ChainID = '1'
 Enabled = false
+AutoCreateKey = false
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -1207,17 +1209,6 @@ URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
 			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
-		{name: "duplicate-mercury-credentials-disallowed",
-			toml: `
-[Mercury]
-[[Mercury.Credentials]]
-URL = "http://example.com/foo"
-[[Mercury.Credentials]]
-URL = "http://example.COM/foo"`,
-			exp: `invalid secrets: 3 errors:
-	- Database.URL: empty: must be provided and non-empty
-	- Password.Keystore: empty: must be provided and non-empty
-	- Mercury.Credentials: may not contain duplicate URLs`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
@@ -1250,16 +1241,15 @@ func TestConfig_setDefaults(t *testing.T) {
 func Test_validateEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set`)
+	assert.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
+	- environment variable DATABASE_URL must not be set: unsupported with config v2
+	- environment variable LOG_LEVEL must not be set: unsupported with config v2`)
 
-	t.Setenv("CL_DATABASE_URL", "foo")
-	assert.NoError(t, validateEnv())
-
-	t.Setenv("CL_DATABASE_URL", "bar")
 	t.Setenv("GAS_UPDATER_ENABLED", "true")
 	t.Setenv("ETH_GAS_BUMP_TX_DEPTH", "7")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: 3 errors:
-	- environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set
+	assert.ErrorContains(t, validateEnv(), `invalid environment: 4 errors:
+	- environment variable DATABASE_URL must not be set: unsupported with config v2
+	- environment variable LOG_LEVEL must not be set: unsupported with config v2
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
 }
@@ -1290,3 +1280,5 @@ func TestConfig_SetFrom(t *testing.T) {
 		})
 	}
 }
+
+func ptr[T any](t T) *T { return &t }

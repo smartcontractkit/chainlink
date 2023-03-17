@@ -938,7 +938,6 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		Relay                    string
 		PluginType               string
 		RelayConfig              map[string]interface{}
-		RelayConfigMercuryConfig map[string]interface{}
 		PluginConfig             map[string]interface{}
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
@@ -950,23 +949,22 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		ContractConfirmations    uint16
 		ObservationSource        string
 	}{
-		Name:                     o.Name,
-		JobType:                  o.JobType,
-		MaxTaskDuration:          o.MaxTaskDuration,
-		ContractID:               o.OCR2OracleSpec.ContractID,
-		Relay:                    string(o.OCR2OracleSpec.Relay),
-		PluginType:               string(o.OCR2OracleSpec.PluginType),
-		RelayConfig:              o.OCR2OracleSpec.RelayConfig,
-		RelayConfigMercuryConfig: o.OCR2OracleSpec.RelayConfigMercuryConfig,
-		PluginConfig:             o.OCR2OracleSpec.PluginConfig,
-		P2PV2Bootstrappers:       o.OCR2OracleSpec.P2PV2Bootstrappers,
-		OCRKeyBundleID:           o.OCR2OracleSpec.OCRKeyBundleID.String,
-		MonitoringEndpoint:       o.OCR2OracleSpec.MonitoringEndpoint.String,
-		TransmitterID:            o.OCR2OracleSpec.TransmitterID.String,
-		BlockchainTimeout:        o.OCR2OracleSpec.BlockchainTimeout.Duration(),
-		ContractConfirmations:    o.OCR2OracleSpec.ContractConfigConfirmations,
-		TrackerPollInterval:      o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
-		ObservationSource:        o.ObservationSource,
+		Name:                  o.Name,
+		JobType:               o.JobType,
+		MaxTaskDuration:       o.MaxTaskDuration,
+		ContractID:            o.OCR2OracleSpec.ContractID,
+		Relay:                 string(o.OCR2OracleSpec.Relay),
+		PluginType:            string(o.OCR2OracleSpec.PluginType),
+		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
+		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
+		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
+		MonitoringEndpoint:    o.OCR2OracleSpec.MonitoringEndpoint.String,
+		TransmitterID:         o.OCR2OracleSpec.TransmitterID.String,
+		BlockchainTimeout:     o.OCR2OracleSpec.BlockchainTimeout.Duration(),
+		ContractConfirmations: o.OCR2OracleSpec.ContractConfigConfirmations,
+		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
+		ObservationSource:     o.ObservationSource,
 	}
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
@@ -1008,10 +1006,6 @@ observationSource                      = """
 {{end}}
 [relayConfig]{{range $key, $value := .RelayConfig}}
 {{$key}} = {{$value}}{{end}}
-{{if .RelayConfigMercuryConfig}}
-[relayConfig.MercuryConfig]{{range $key, $value := .RelayConfigMercuryConfig}}
-{{$key}} = "{{$value}}"{{end}}
-{{end}}
 `
 	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
@@ -1024,7 +1018,7 @@ type VRFV2JobSpec struct {
 	ExternalJobID            string        `toml:"externalJobID"`
 	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddress              string        `toml:"fromAddress"`
+	FromAddresses            []string      `toml:"fromAddresses"`
 	EVMChainID               string        `toml:"evmChainID"`
 	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
 	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
@@ -1041,7 +1035,7 @@ type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
-fromAddress              = "{{.FromAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"

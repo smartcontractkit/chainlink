@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/stretchr/testify/require"
+
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/stretchr/testify/require"
 )
 
 var (

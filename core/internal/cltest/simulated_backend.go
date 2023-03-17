@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -27,12 +27,34 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32)
 	})
 	return backend
 }
+func NewApplicationWithConfigV2OnSimulatedBlockchain(
+	t testing.TB,
+	cfg chainlink.GeneralConfig,
+	backend *backends.SimulatedBackend,
+	flagsAndDeps ...interface{},
+) *TestApplication {
+	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
+		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
+	}
+	defID := cfg.DefaultChainID()
+	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
+	chainID := utils.NewBig(testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
+
+	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
+
+	//  app.Stop() will call client.Close on the simulated backend
+	app := NewApplicationWithConfig(t, cfg, flagsAndDeps...)
+
+	return app
+}
 
 // NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain is like NewApplicationWithConfigAndKeyOnSimulatedBlockchain
 // but cfg should be v2, and configtest.NewGeneralConfigSimulated used to include the simulated chain (testutils.SimulatedChainID).
 func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
-	cfg coreconfig.GeneralConfig,
+	cfg chainlink.GeneralConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
