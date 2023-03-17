@@ -39,8 +39,6 @@ type HeadTracker interface {
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
-//
-//go:generate mockery --quiet --name HeadTrackable --output ../mocks/ --case=underscore
 type HeadTrackable = types.HeadTrackable[*evmtypes.Head]
 
 type HeadBroadcasterRegistry interface {
