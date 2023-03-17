@@ -12,9 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/config"
-	config2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -426,21 +423,6 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 	return NewETHKeysPayload(ethKeys), nil
 }
 
-// Config retrieves the Chainlink node's configuration
-func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
-		return nil, err
-	}
-
-	cfg := r.App.GetConfig()
-	if _, ok := cfg.(chainlink.ConfigV2); ok {
-		return nil, config2.ErrUnsupported
-	}
-
-	printer := config.NewConfigPrinter(cfg)
-	return NewConfigPayload(printer.EnvPrinter), nil
-}
-
 // ConfigV2 retrieves the Chainlink node's configuration (V2 mode)
 func (r *Resolver) ConfigV2(ctx context.Context) (*ConfigV2PayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
@@ -448,16 +430,7 @@ func (r *Resolver) ConfigV2(ctx context.Context) (*ConfigV2PayloadResolver, erro
 	}
 
 	cfg := r.App.GetConfig()
-	if v2, ok := cfg.(chainlink.ConfigV2); ok {
-		return NewConfigV2Payload(v2.ConfigTOML()), nil
-	}
-	// Legacy config mode
-	userToml, err := r.App.ConfigDump(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to dump application V2 config")
-	}
-
-	return NewConfigV2Payload(userToml, "N/A"), nil
+	return NewConfigV2Payload(cfg.ConfigTOML()), nil
 }
 
 func (r *Resolver) EthTransaction(ctx context.Context, args struct {

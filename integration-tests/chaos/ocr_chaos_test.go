@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rs/zerolog/log"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -62,6 +61,7 @@ func TestMain(m *testing.M) {
 
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
+	l := actions.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -201,7 +201,7 @@ func TestOCRChaos(t *testing.T) {
 				}
 				round, err := ocrInstances[0].GetLatestRound(context.Background())
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				log.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
+				l.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
 					chaosApplied = true
 					_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))

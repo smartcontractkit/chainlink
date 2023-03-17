@@ -296,6 +296,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				*jb.PipelineSpec,
 				lggr,
 				runResults,
+				d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA),
 			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
@@ -314,6 +315,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		oracleCtx := job.NewServiceAdapter(oracle)
 		services = append(services, oracleCtx)
 
+		if !jb.OCROracleSpec.CaptureEATelemetry {
+			lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
+		}
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.

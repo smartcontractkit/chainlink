@@ -85,7 +85,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return(nil)
-		ethClient.On("HeadByNumber", mock.AnythingOfType("*context.timerCtx"), (*big.Int)(nil)).Return(&h, nil)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&h, nil)
 
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
@@ -122,7 +122,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return(nil)
 		err := errors.New("foo")
-		ethClient.On("HeadByNumber", mock.AnythingOfType("*context.timerCtx"), (*big.Int)(nil)).Return(nil, err)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, err)
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
 		assert.Equal(t, pipeline.Result(pipeline.Result{Value: interface{}(nil), Error: err}), res)
