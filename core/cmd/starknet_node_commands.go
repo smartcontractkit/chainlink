@@ -23,13 +23,11 @@ func (p *StarkNetNodePresenter) ToRow() []string {
 		p.Name,
 		p.ChainID,
 		p.URL,
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
 
-var starknetNodeHeaders = []string{"ID", "Name", "Chain ID", "URL", "Created", "Updated"}
+var starknetNodeHeaders = []string{"ID", "Name", "Chain ID", "URL"}
 
 // RenderTable implements TableRenderer
 func (p StarkNetNodePresenter) RenderTable(rt RendererTable) error {
