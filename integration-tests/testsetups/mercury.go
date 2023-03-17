@@ -15,6 +15,10 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
 	cl_env_config "github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -28,15 +32,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 )
 
 type csaKey struct {
@@ -128,7 +130,7 @@ func SetupMercuryServer(
 		nodeName := fmt.Sprint(i)
 		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err)
-		csaKeys, resp, err := chainlinkNode.ReadCSAKeys()
+		csaKeys, _, err := chainlinkNode.ReadCSAKeys()
 		require.NoError(t, err)
 		csaKeyId := csaKeys.Data[0].ID
 		ocr2Keys, resp, err := chainlinkNode.ReadOCR2Keys()
@@ -403,7 +405,7 @@ func BuildMercuryOCR2Config(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 ) contracts.OCRConfig {
-	onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{median.MinValue(), median.MaxValue()})
+	onchainConfig, err := (median.StandardOnchainConfigCodec{}).Encode(median.OnchainConfig{Min: median.MinValue(), Max: median.MaxValue()})
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
 	alphaPPB := uint64(1000)
@@ -419,11 +421,11 @@ func BuildMercuryOCR2Config(
 		100,                  // rMax uint8,
 		[]int{len(chainlinkNodes)},
 		median.OffchainConfig{
-			false,
-			alphaPPB,
-			false,
-			alphaPPB,
-			0,
+			AlphaReportInfinite: false,
+			AlphaReportPPB:      alphaPPB,
+			AlphaAcceptInfinite: false,
+			AlphaAcceptPPB:      alphaPPB,
+			DeltaC:              0,
 		}.Encode(),
 		0*time.Millisecond,   // maxDurationQuery time.Duration,
 		250*time.Millisecond, // maxDurationObservation time.Duration,

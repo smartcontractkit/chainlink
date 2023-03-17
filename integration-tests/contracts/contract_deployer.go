@@ -97,6 +97,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &RSKContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.PolygonClient:
 		return &PolygonContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.CeloClient:
+		return &CeloContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -132,6 +134,10 @@ type RSKContractDeployer struct {
 }
 
 type PolygonContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type CeloContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -286,7 +292,6 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		log.Debug().Msg("DEPLOYING")
 		return ethereum.DeployLinkToken(auth, backend)
 	})
 	if err != nil {
