@@ -12,14 +12,14 @@ type ormImmut[I ID, C Config, N Node] struct {
 	*nodesORMImmut[I, N]
 }
 
-type ChainConfig[I ID, C Config, N Node] interface {
+type Configs[I ID, C Config, N Node] interface {
 	chainData[I, C]
 	nodeData[I, N]
 }
 
 // NewORMImmut returns an ORM backed by q, for the tables <prefix>_chains and <prefix>_nodes with column <prefix>_chain_id.
 // Additional Node fields should be included in nodeCols.
-func NewORMImmut[I ID, C Config, N Node](chainConfigs ChainConfig[I, C, N]) ORM[I, C, N] {
+func NewORMImmut[I ID, C Config, N Node](chainConfigs Configs[I, C, N]) ORM[I, C, N] {
 	return ormImmut[I, C, N]{
 		newChainsORMImmut[I, C](chainConfigs),
 		newNodesORMImmut[I, N](chainConfigs),
@@ -36,8 +36,8 @@ type chainsORMImmut[I ID, C Config] struct {
 }
 
 type chainData[I ID, C Config] interface {
-	// Chains returns a slice of DBChain for ids, or all if none are provided.
-	Chains(ids ...I) []DBChain[I, C]
+	// Chains returns a slice of ChainConfig for ids, or all if none are provided.
+	Chains(ids ...I) []ChainConfig[I, C]
 }
 
 // newChainsORMImmut returns an chainsORM backed by q, for the table <prefix>_chains.
@@ -45,7 +45,7 @@ func newChainsORMImmut[I ID, C Config](d chainData[I, C]) *chainsORMImmut[I, C] 
 	return &chainsORMImmut[I, C]{data: d}
 }
 
-func (o *chainsORMImmut[I, C]) Chain(id I, _ ...pg.QOpt) (dbchain DBChain[I, C], err error) {
+func (o *chainsORMImmut[I, C]) Chain(id I, _ ...pg.QOpt) (cc ChainConfig[I, C], err error) {
 	chains := o.data.Chains(id)
 	if len(chains) == 0 {
 		err = errors.Errorf("chain not found: %v", id)
@@ -54,15 +54,15 @@ func (o *chainsORMImmut[I, C]) Chain(id I, _ ...pg.QOpt) (dbchain DBChain[I, C],
 		err = errors.Errorf("more than one chain found: %v", id)
 		return
 	}
-	dbchain = chains[0]
+	cc = chains[0]
 	return
 }
 
-func (o *chainsORMImmut[I, C]) GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error) {
+func (o *chainsORMImmut[I, C]) GetChainsByIDs(ids []I) (chains []ChainConfig[I, C], err error) {
 	return o.data.Chains(ids...), nil
 }
 
-func (o *chainsORMImmut[I, C]) Chains(offset, limit int, _ ...pg.QOpt) (chains []DBChain[I, C], count int, err error) {
+func (o *chainsORMImmut[I, C]) Chains(offset, limit int, _ ...pg.QOpt) (chains []ChainConfig[I, C], count int, err error) {
 	chains = o.data.Chains()
 	count = len(chains)
 	if offset < len(chains) {
