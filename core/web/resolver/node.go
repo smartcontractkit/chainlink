@@ -67,16 +67,6 @@ func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
 	return NewChain(*chain), nil
 }
 
-// CreatedAt resolves the node's created at field.
-func (r *NodeResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.node.CreatedAt}
-}
-
-// UpdatedAt resolves the node's updated at field.
-func (r *NodeResolver) UpdatedAt() graphql.Time {
-	return graphql.Time{Time: r.node.UpdatedAt}
-}
-
 // -- Node Query --
 
 type NodePayloadResolver struct {

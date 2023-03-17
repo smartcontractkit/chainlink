@@ -74,12 +74,7 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Equal(t, "chain not found", results[2].Error.Error())
 }
 
-func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
-
-	evmChainSet := evmmocks.NewChainSet(t)
-	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, evmChainSet)

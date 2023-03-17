@@ -62,8 +62,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 // ChainSet extends solana.ChainSet with mutability.
 type ChainSet interface {
 	solana.ChainSet
-	chains.DBChainSet[string, *db.ChainCfg]
-	chains.DBNodeSet[string, db.Node]
+	chains.ChainsConfig[string, *db.ChainCfg]
+	chains.NodesConfig[string, db.Node]
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs SolanaConfigs) (ChainSet, error) {
