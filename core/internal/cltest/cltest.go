@@ -281,7 +281,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case evmtypes.DBChain:
+		case evmtypes.ChainConfig:
 			chainID = v.ID
 		case *utils.Big:
 			chainID = *v

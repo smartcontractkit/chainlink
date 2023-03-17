@@ -29,7 +29,6 @@ func TestResolver_Chains(t *testing.T) {
 					results {
 						id
 						enabled
-						createdAt
 						nodes {
 							id
 						}
@@ -70,10 +69,9 @@ func TestResolver_Chains(t *testing.T) {
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 
-				f.Mocks.evmORM.PutChains(types.DBChain{
-					ID:        chainID,
-					Enabled:   true,
-					CreatedAt: f.Timestamp(),
+				f.Mocks.evmORM.PutChains(types.ChainConfig{
+					ID:      chainID,
+					Enabled: true,
 					Cfg: &types.ChainCfg{
 						BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
 						EthTxReaperThreshold:            &threshold,
@@ -107,7 +105,6 @@ func TestResolver_Chains(t *testing.T) {
 					"results": [{
 						"id": "1",
 						"enabled": true,
-						"createdAt": "2021-01-01T00:00:00Z",
 						"config": {
 							"blockHistoryEstimatorBlockDelay": 1,
 							"ethTxReaperThreshold": "1m0s",
@@ -150,7 +147,6 @@ func TestResolver_Chain(t *testing.T) {
 					... on Chain {
 						id
 						enabled
-						createdAt
 						nodes {
 							id
 						}
@@ -191,10 +187,9 @@ func TestResolver_Chain(t *testing.T) {
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.evmORM.PutChains(types.DBChain{
-					ID:        chainID,
-					Enabled:   true,
-					CreatedAt: f.Timestamp(),
+				f.Mocks.evmORM.PutChains(types.ChainConfig{
+					ID:      chainID,
+					Enabled: true,
 					Cfg: &types.ChainCfg{
 						BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
 						EthTxReaperThreshold:            &threshold,
@@ -225,7 +220,6 @@ func TestResolver_Chain(t *testing.T) {
 					"chain": {
 						"id": "1",
 						"enabled": true,
-						"createdAt": "2021-01-01T00:00:00Z",
 						"config": {
 							"blockHistoryEstimatorBlockDelay": 1,
 							"ethTxReaperThreshold": "1m0s",
