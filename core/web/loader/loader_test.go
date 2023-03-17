@@ -50,15 +50,15 @@ func TestLoader_Chains(t *testing.T) {
 	err = chainId3.UnmarshalText([]byte("3"))
 	require.NoError(t, err)
 
-	chain := evmtypes.DBChain{
+	chain := evmtypes.ChainConfig{
 		ID:      id,
 		Enabled: true,
 	}
-	chain2 := evmtypes.DBChain{
+	chain2 := evmtypes.ChainConfig{
 		ID:      id2,
 		Enabled: true,
 	}
-	evmORM := evmtest.NewMockORM([]evmtypes.DBChain{chain, chain2}, nil)
+	evmORM := evmtest.NewMockORM([]evmtypes.ChainConfig{chain, chain2}, nil)
 	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}
@@ -67,14 +67,19 @@ func TestLoader_Chains(t *testing.T) {
 	results := batcher.loadByIDs(ctx, keys)
 
 	assert.Len(t, results, 3)
-	assert.Equal(t, chain2, results[0].Data.(evmtypes.DBChain))
-	assert.Equal(t, chain, results[1].Data.(evmtypes.DBChain))
+	assert.Equal(t, chain2, results[0].Data.(evmtypes.ChainConfig))
+	assert.Equal(t, chain, results[1].Data.(evmtypes.ChainConfig))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.Equal(t, "chain not found", results[2].Error.Error())
 }
 
+func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
+
+	evmChainSet := evmmocks.NewChainSet(t)
+	app := coremocks.NewApplication(t)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, evmChainSet)
