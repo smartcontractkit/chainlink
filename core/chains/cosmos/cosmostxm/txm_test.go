@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration && wasmd
 
 package cosmostxm_test
 
@@ -36,7 +36,6 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	t.Skip("requires wasmd")
 	chainID := cosmotest.RandomChainID()
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	chain := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: coscfg.Chain{

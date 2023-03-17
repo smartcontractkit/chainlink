@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration && wasmd
 
 package cmd_test
 
@@ -28,7 +28,6 @@ import (
 )
 
 func TestClient_SendCosmosCoins(t *testing.T) {
-	t.Skip("requires wasmd")
 	chainID := cosmostest.RandomChainID()
 	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
 	require.Greater(t, len(accounts), 1)
