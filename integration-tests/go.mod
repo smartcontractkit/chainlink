@@ -14,7 +14,7 @@ require (
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/slack-go/slack v0.12.1
 	github.com/smartcontractkit/chainlink v1.12.0
-	github.com/smartcontractkit/chainlink-env v0.3.19
+	github.com/smartcontractkit/chainlink-env v0.3.20
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230315152308-58f7fae0fe5f
 	github.com/smartcontractkit/chainlink-testing-framework v1.10.10
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
