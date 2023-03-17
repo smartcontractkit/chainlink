@@ -91,9 +91,11 @@ type EthBroadcaster struct {
 	logger    logger.Logger
 	orm       ORM
 	ethClient evmclient.Client
-	ChainKeyStore
+	AttemptBuilder
 	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
+	chainID        big.Int
+	config         Config
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
 	// when Start is called
@@ -102,6 +104,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
+	ks        KeyStore
 	keyStates []ethkey.State
 
 	checkerFactory TransmitCheckerFactory
@@ -129,14 +132,17 @@ func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keyst
 		logger:    logger,
 		orm:       orm,
 		ethClient: ethClient,
-		ChainKeyStore: ChainKeyStore{
+		AttemptBuilder: &ChainKeyStore{
 			chainID:  *ethClient.ChainID(),
 			config:   config,
 			keystore: keystore,
 		},
 		estimator:        estimator,
 		resumeCallback:   resumeCallback,
+		chainID:          *ethClient.ChainID(),
+		config:           config,
 		eventBroadcaster: eventBroadcaster,
+		ks:               keystore,
 		keyStates:        keyStates,
 		checkerFactory:   checkerFactory,
 		triggers:         triggers,
@@ -311,7 +317,7 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 		eb.logger.Infow("Skipping nonce sync for disabled key", "address", k.Address)
 		return
 	}
-	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ChainKeyStore.keystore)
+	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ks)
 	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
 	if err := syncer.Sync(ctx, k); err != nil {
 		// Enter retry loop with backoff
@@ -535,7 +541,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 
 	// L2-specific cases
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if eb.ChainKeyStore.config.ChainType().IsL2() {
+		if eb.config.ChainType().IsL2() {
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}
 		return errors.Wrap(sendError, "this error type only handled for L2s"), false
@@ -761,11 +767,11 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 }
 
 func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
-	return eb.ChainKeyStore.keystore.GetNextNonce(address, &eb.chainID)
+	return eb.ks.GetNextNonce(address, &eb.chainID)
 }
 
 func (eb *EthBroadcaster) incrementNextNonce(address gethCommon.Address, currentNonce int64, qopts ...pg.QOpt) error {
-	return eb.ChainKeyStore.keystore.IncrementNextNonce(address, &eb.chainID, currentNonce, qopts...)
+	return eb.ks.IncrementNextNonce(address, &eb.chainID, currentNonce, qopts...)
 }
 
 func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {

@@ -13,6 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+type AttemptBuilder interface {
+	NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error)
+	NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, err error, retryable bool)
+}
+
 func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error) {
 	txType := 0x0
 	if c.config.EvmEIP1559DynamicFees() {

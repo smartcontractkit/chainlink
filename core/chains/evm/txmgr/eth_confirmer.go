@@ -117,10 +117,13 @@ type EthConfirmer struct {
 	orm       ORM
 	lggr      logger.Logger
 	ethClient evmclient.Client
-	ChainKeyStore
+	AttemptBuilder
 	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
+	config         Config
+	chainID        big.Int
 
+	ks        KeyStore
 	keyStates []ethkey.State
 
 	mb        *utils.Mailbox[*evmtypes.Head]
@@ -139,23 +142,25 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 	lggr = lggr.Named("EthConfirmer")
 
 	return &EthConfirmer{
-		utils.StartStopOnce{},
-		orm,
-		lggr,
-		ethClient,
-		ChainKeyStore{
-			*ethClient.ChainID(),
-			config,
-			keystore,
+		orm:       orm,
+		lggr:      lggr,
+		ethClient: ethClient,
+		AttemptBuilder: &ChainKeyStore{
+			chainID:  *ethClient.ChainID(),
+			config:   config,
+			keystore: keystore,
 		},
-		estimator,
-		resumeCallback,
-		keyStates,
-		utils.NewSingleMailbox[*evmtypes.Head](),
-		ctx,
-		cancel,
-		sync.WaitGroup{},
-		0,
+		estimator:                       estimator,
+		resumeCallback:                  resumeCallback,
+		config:                          config,
+		chainID:                         *ethClient.ChainID(),
+		ks:                              keystore,
+		keyStates:                       keyStates,
+		mb:                              utils.NewSingleMailbox[*evmtypes.Head](),
+		ctx:                             ctx,
+		ctxCancel:                       cancel,
+		wg:                              sync.WaitGroup{},
+		nConsecutiveBlocksChainTooShort: 0,
 	}
 }
 
@@ -1092,7 +1097,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.keystore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
+	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.ks, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
