@@ -65,7 +65,8 @@ func (c *Chainlink) URL() string {
 // CreateJobRaw creates a Chainlink job based on the provided spec string
 func (c *Chainlink) CreateJobRaw(spec string) (*Job, *http.Response, error) {
 	job := &Job{}
-	log.Info().Str("Node URL", c.Config.URL).Str("Job Body", spec).Msg("Creating Job")
+	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Job")
+	log.Trace().Str("Full", spec).Msg("Job Spec")
 	resp, err := c.APIClient.R().
 		SetBody(&JobForm{
 			TOML: spec,
