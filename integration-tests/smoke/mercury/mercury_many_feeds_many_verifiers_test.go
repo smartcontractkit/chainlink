@@ -23,7 +23,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 	l := actions.GetTestLogger(t)
 
 	var (
-		feedIds = []string{"feed-1", "feed-2"}
+		feedIds = [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
 	)
 
 	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
@@ -50,13 +50,13 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 		"", 255)
 	require.NoError(t, err)
 
-	for _, feedId := range feedIds {
-		verifierContractId := fmt.Sprintf("verifier_%s", feedId)
+	for i, feedId := range feedIds {
+		verifierContractId := fmt.Sprintf("verifier_%d", i)
 		verifierContract, err := testEnv.AddVerifierContract(verifierContractId, verifierProxyContract.Address())
 		require.NoError(t, err)
 
 		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
-			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
+			fmt.Sprintf("setAndInitializeVerifier%d", i),
 			verifierContractId,
 			"verifierProxy1",
 			feedId,
@@ -64,10 +64,10 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
+		err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrap%d", i), verifierContract.Address(), uint64(blockNumber), feedId)
 		require.NoError(t, err)
 
-		err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
+		err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobs%d", i), verifierContract.Address(), uint64(blockNumber), feedId)
 		require.NoError(t, err)
 	}
 
@@ -75,24 +75,24 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, feedId := range feedIds {
+		feedIdStr := mercury.Byte32ToString(feedId)
 
-		t.Run(fmt.Sprintf("test mercury server has report for the latest block number, feedId: %s", feedId),
+		t.Run(fmt.Sprintf("test mercury server has report for the latest block number, feedId: %s", feedIdStr),
 			func(t *testing.T) {
 				latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 				require.NoError(t, err, "Err getting latest block number")
 
-				report, _, err := testEnv.MSClient.GetReports(feedId, latestBlockNum-5)
+				report, _, err := testEnv.MSClient.GetReports(feedIdStr, latestBlockNum-5)
 				require.NoError(t, err, "Error getting report from Mercury Server")
 				require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 				err = mercuryactions.ValidateReport([]byte(report.ChainlinkBlob))
 				require.NoError(t, err, "Error validating mercury report")
 			})
 
-		t.Run(fmt.Sprintf("test report verfification using Exchanger.ResolveTradeWithReport call, feedId: %s", feedId),
+		t.Run(fmt.Sprintf("test report verfification using Exchanger.ResolveTradeWithReport call, feedId: %s", feedIdStr),
 			func(t *testing.T) {
-				feedIdBytes := mercury.StringToByte32(feedId)
 				order := mercury.Order{
-					FeedID:       feedIdBytes,
+					FeedID:       feedId,
 					CurrencySrc:  mercury.StringToByte32("1"),
 					CurrencyDst:  mercury.StringToByte32("2"),
 					AmountSrc:    big.NewInt(1),

@@ -37,7 +37,7 @@ var (
 
 func setupMercuryLoadEnv(
 	t *testing.T,
-	feedIDs []string,
+	feedIDs [][32]byte,
 	dbSettings map[string]interface{},
 	serverResources map[string]interface{},
 ) mercury.TestEnv {
@@ -63,9 +63,9 @@ func setupMercuryLoadEnv(
 	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
 	require.NoError(t, err)
 
-	for _, feedId := range feedIDs {
+	for i, feedId := range feedIDs {
 		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
-			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
+			fmt.Sprintf("setAndInitializeVerifier%d", i),
 			"verifier1",
 			"verifierProxy1",
 			feedId,
@@ -73,10 +73,10 @@ func setupMercuryLoadEnv(
 		)
 		require.NoError(t, err)
 
-		err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
+		err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrap%d", i), verifierContract.Address(), uint64(blockNumber), feedId)
 		require.NoError(t, err)
 
-		err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
+		err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobs%d", i), verifierContract.Address(), uint64(blockNumber), feedId)
 		require.NoError(t, err)
 	}
 
@@ -86,7 +86,7 @@ func setupMercuryLoadEnv(
 }
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	feeds := []string{"feed-1"}
+	feeds := [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
 	testEnv := setupMercuryLoadEnv(t, feeds, dbSettings, serverResources)
 	bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
 
@@ -121,7 +121,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	feeds := []string{"feed-1"}
+	feeds := [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
 	testEnv := setupMercuryLoadEnv(t, feeds, dbSettings, serverResources)
 
 	gen, err := loadgen.NewLoadGenerator(&loadgen.Config{

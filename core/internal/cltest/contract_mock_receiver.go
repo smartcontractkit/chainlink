@@ -9,9 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 )
 
 // funcSigLength is the length of the function signature (including the 0x)
