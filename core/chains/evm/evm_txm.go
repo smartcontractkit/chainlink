@@ -1,31 +1,16 @@
 package evm
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
-
-var _ httypes.HeadTrackable = &evmTxm{}
-
-// evmTxm is an evm wrapper over the generic TxManager interface
-type evmTxm struct {
-	httypes.HeadTrackable
-	txmgr.TxManager
-}
-
-func (e evmTxm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	e.TxManager.OnNewLongestChain(ctx, head)
-}
 
 func newEvmTxm(
 	db *sqlx.DB,
@@ -34,7 +19,7 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) *evmTxm {
+) txmgr.TxManager {
 	chainID := cfg.ChainID()
 	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
@@ -45,5 +30,5 @@ func newEvmTxm(
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-	return &evmTxm{TxManager: txm}
+	return txm
 }
