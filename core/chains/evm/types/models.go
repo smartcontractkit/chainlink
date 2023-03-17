@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -41,6 +42,8 @@ type Head struct {
 	TotalDifficulty  *utils.Big
 }
 
+var _ txmgrtypes.Head = &Head{}
+
 // NewHead returns a Head instance.
 func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
 	return Head{
@@ -52,12 +55,32 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
+func (h *Head) BlockNumber() int64 {
+	return h.Number
+}
+
+func (h *Head) BlockHash() common.Hash {
+	return h.Hash
+}
+
+func (h *Head) GetParent() txmgrtypes.Head {
+	if h.Parent == nil {
+		return nil
+	}
+	return h.Parent
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
 	for h.Parent != nil {
 		h = h.Parent
 	}
 	return h
+}
+
+// EarliestHeadInChain recurses through parents until it finds the earliest one
+func (h *Head) EarliestHeadInChain() txmgrtypes.Head {
+	return h.EarliestInChain()
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
@@ -150,7 +173,7 @@ func (h *Head) ChainString() string {
 }
 
 // String returns a string representation of this head
-func (h Head) String() string {
+func (h *Head) String() string {
 	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
 }
 
