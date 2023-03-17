@@ -17,6 +17,6 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) types.ORM {
 	return chains.NewORM[string, *starknetdb.ChainCfg, starknetdb.Node](q, "starknet", "url")
 }
 
-func NewORMImmut(cfgs chains.ChainConfig[string, *starknetdb.ChainCfg, starknetdb.Node]) types.ORM {
+func NewORMImmut(cfgs chains.Configs[string, *starknetdb.ChainCfg, starknetdb.Node]) types.ORM {
 	return chains.NewORMImmut(cfgs)
 }

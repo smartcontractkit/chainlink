@@ -119,15 +119,15 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 
 type MockORM struct {
 	mu     sync.RWMutex
-	chains map[string]evmtypes.DBChain
+	chains map[string]evmtypes.ChainConfig
 	nodes  map[string][]evmtypes.Node
 }
 
 var _ evmtypes.ORM = &MockORM{}
 
-func NewMockORM(chains []evmtypes.DBChain, nodes []evmtypes.Node) *MockORM {
+func NewMockORM(chains []evmtypes.ChainConfig, nodes []evmtypes.Node) *MockORM {
 	mo := &MockORM{
-		chains: make(map[string]evmtypes.DBChain),
+		chains: make(map[string]evmtypes.ChainConfig),
 		nodes:  make(map[string][]evmtypes.Node),
 	}
 	mo.PutChains(chains...)
@@ -135,7 +135,7 @@ func NewMockORM(chains []evmtypes.DBChain, nodes []evmtypes.Node) *MockORM {
 	return mo
 }
 
-func (mo *MockORM) PutChains(cs ...evmtypes.DBChain) {
+func (mo *MockORM) PutChains(cs ...evmtypes.ChainConfig) {
 	for _, c := range cs {
 		mo.chains[c.ID.String()] = c
 	}
@@ -148,17 +148,17 @@ func (mo *MockORM) AddNodes(ns ...evmtypes.Node) {
 	}
 }
 
-func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.DBChain, error) {
+func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.ChainConfig, error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	c, ok := mo.chains[id.String()]
 	if !ok {
-		return evmtypes.DBChain{}, sql.ErrNoRows
+		return evmtypes.ChainConfig{}, sql.ErrNoRows
 	}
 	return c, nil
 }
 
-func (mo *MockORM) Chains(offset int, limit int, qopts ...pg.QOpt) (chains []evmtypes.DBChain, count int, err error) {
+func (mo *MockORM) Chains(offset int, limit int, qopts ...pg.QOpt) (chains []evmtypes.ChainConfig, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	chains = maps.Values(mo.chains)
@@ -166,7 +166,7 @@ func (mo *MockORM) Chains(offset int, limit int, qopts ...pg.QOpt) (chains []evm
 	return
 }
 
-func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.DBChain, err error) {
+func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.ChainConfig, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	for _, id := range ids {
