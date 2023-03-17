@@ -30,7 +30,8 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 
 // Show returns the details of a Ethereum Transaction details.
 // Example:
-//  "<application>/transactions/:TxHash"
+//
+//	"<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 

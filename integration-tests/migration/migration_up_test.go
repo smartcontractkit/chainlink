@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
 type Data struct {
@@ -29,6 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMigrationDatabase(t *testing.T) {
+	l := actions.GetTestLogger(t)
 	testEnvironment, err := testsetups.DBMigration(&testsetups.DBMigrationSpec{
 		FromSpec: testsetups.FromVersionSpec{
 			Image: "public.ecr.aws/chainlink/chainlink",
@@ -46,7 +48,7 @@ func TestMigrationDatabase(t *testing.T) {
 	var d []Data
 	err = db.Select(&d, "select * from evm_chains;")
 	require.NoError(t, err, "Error running SELECT")
-	log.Info().Interface("Rows", d).Send()
+	l.Info().Interface("Rows", d).Send()
 }
 
 func getDB(t *testing.T, testEnvironment *environment.Environment) *ctfClient.PostgresConnector {

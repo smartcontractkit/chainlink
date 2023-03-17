@@ -761,6 +761,21 @@ describe('FunctionsRegistry', () => {
       ).to.emit(registry, 'BillingEnd')
     })
 
+    it('validates request ID', async () => {
+      const unknown =
+        '0x67c6a2e151d4352a55021b5d0028c18121cfc24c7d73b179d22b17eeeeeeeeee'
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(unknown, 32),
+        stringToHex('hello world'),
+        stringToHex(''),
+      )
+      await expect(
+        oracle
+          .connect(roles.oracleNode)
+          .callReport(report, { gasLimit: 500_000 }),
+      ).to.emit(oracle, 'InvalidRequestID')
+    })
+
     it('pays the transmitter the expected amount', async () => {
       const oracleBalanceBefore = await linkToken.balanceOf(
         await roles.oracleNode.getAddress(),

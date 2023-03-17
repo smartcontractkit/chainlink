@@ -16,6 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -279,7 +280,7 @@ func (e EthTx) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ gas.PriorAttempt = EthTxAttempt{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt{}
 
 type EthTxAttempt struct {
 	ID      int64
@@ -301,6 +302,10 @@ type EthTxAttempt struct {
 	TxType                  int
 }
 
+func (a EthTxAttempt) String() string {
+	return fmt.Sprintf("EthTxAttempt(ID:%d,EthTxID:%d,GasPrice:%v,GasTipCap:%v,GasFeeCap:%v,TxType:%d", a.ID, a.EthTxID, a.GasPrice, a.GasTipCap, a.GasFeeCap, a.TxType)
+}
+
 // GetSignedTx decodes the SignedRawTx into a types.Transaction struct
 func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)
@@ -311,7 +316,18 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
-func (a EthTxAttempt) DynamicFee() gas.DynamicFee {
+func (a EthTxAttempt) Fee() (fee gas.EvmFee) {
+	fee.Legacy = a.getGasPrice()
+
+	dynamic := a.dynamicFee()
+	// add dynamic struct only if values are not nil
+	if dynamic.FeeCap != nil && dynamic.TipCap != nil {
+		fee.Dynamic = &dynamic
+	}
+	return fee
+}
+
+func (a EthTxAttempt) dynamicFee() gas.DynamicFee {
 	return gas.DynamicFee{
 		FeeCap: a.GasFeeCap,
 		TipCap: a.GasTipCap,
@@ -326,7 +342,7 @@ func (a EthTxAttempt) GetChainSpecificGasLimit() uint32 {
 	return a.ChainSpecificGasLimit
 }
 
-func (a EthTxAttempt) GetGasPrice() *assets.Wei {
+func (a EthTxAttempt) getGasPrice() *assets.Wei {
 	return a.GasPrice
 }
 

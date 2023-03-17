@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/common/txmgr/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services"
 )
@@ -38,11 +39,7 @@ type HeadTracker interface {
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
-//
-//go:generate mockery --quiet --name HeadTrackable --output ../mocks/ --case=underscore
-type HeadTrackable interface {
-	OnNewLongestChain(ctx context.Context, head *evmtypes.Head)
-}
+type HeadTrackable = types.HeadTrackable[*evmtypes.Head]
 
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *evmtypes.Head, unsubscribe func())
@@ -70,4 +67,6 @@ type HeadListener interface {
 	ReceivingHeads() bool
 	// Connected returns true if the listener is connected (thread safe)
 	Connected() bool
+	// HealthReport returns report of errors within HeadListener
+	HealthReport() map[string]error
 }

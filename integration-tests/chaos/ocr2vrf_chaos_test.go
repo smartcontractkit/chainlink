@@ -24,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -46,6 +44,7 @@ var (
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
+	l := actions.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -187,17 +186,17 @@ func TestOCR2VRFChaos(t *testing.T) {
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
-				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
+				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 			}
 
 			id, err := testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
 			require.NoError(t, err, "Error running Chaos Experiment")
-			log.Info().Msg("Chaos Applied")
+			l.Info().Msg("Chaos Applied")
 
 			err = testEnvironment.Chaos.WaitForAllRecovered(id)
 			require.NoError(t, err, "Error waiting for Chaos Experiment to end")
-			log.Info().Msg("Chaos Recovered")
+			l.Info().Msg("Chaos Recovered")
 
 			//Request and Redeem Randomness again to see that after Chaos Experiment whole process is still working
 			requestID = ocr2vrf_actions.RequestAndRedeemRandomness(
@@ -213,7 +212,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
-				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
+				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 			}
 		})
