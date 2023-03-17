@@ -273,7 +273,7 @@ func (te *TestEnv) Cleanup(t *testing.T) error {
 }
 
 // Wait for the DON to start generating reports and storing them in mercury server db
-func (te *TestEnv) WaitForReportsInMercuryDb(feedIds []string) error {
+func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 	log.Info().Msgf("Wait for mercury server to have at least one report in the db for feeds %s..", feedIds)
 
 	latestBlockNum, err := te.EvmClient.LatestBlockNumber(context.Background())
@@ -296,7 +296,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds []string) error {
 		case <-ticker.C:
 			var notFound = false
 			for _, feedId := range feedIds {
-				report, _, _ := te.MSClient.GetReports(feedId, latestBlockNum)
+				report, _, _ := te.MSClient.GetReports(Byte32ToString(feedId), latestBlockNum)
 				if report == nil || report.ChainlinkBlob == "" {
 					notFound = true
 				}
@@ -463,19 +463,18 @@ func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr str
 
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 	actionId string, verifierContractId string, verifierProxyContractId string,
-	feedId string, ocrConfig contracts.MercuryOCRConfig) (uint32, error) {
+	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint32, error) {
 	if te.IsExistingEnv {
 		return uint32(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
 	} else {
-		feedIdBytes := StringToByte32(feedId)
 		verifierContract := te.Contracts[verifierContractId].Contract.(contracts.Verifier)
 		verifierProxyContract := te.Contracts[verifierProxyContractId].Contract.(contracts.VerifierProxy)
 
-		err := verifierContract.SetConfig(feedIdBytes, ocrConfig)
+		err := verifierContract.SetConfig(feedId, ocrConfig)
 		if err != nil {
 			return 0, err
 		}
-		configDetails, err := verifierContract.LatestConfigDetails(feedIdBytes)
+		configDetails, err := verifierContract.LatestConfigDetails(feedId)
 		if err != nil {
 			return 0, err
 		}
@@ -511,7 +510,7 @@ func (te *TestEnv) saveAction(actionId string, envAction *envAction) {
 	te.ActionLog[actionId] = envAction
 }
 
-func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feedId string) *client.OCR2TaskJobSpec {
+func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feedId [32]byte) *client.OCR2TaskJobSpec {
 	uuid, _ := uuid.NewV4()
 	return &client.OCR2TaskJobSpec{
 		Name:    fmt.Sprintf("bootstrap-%s", uuid),
@@ -519,7 +518,7 @@ func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feed
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: contractID,
 			Relay:      "evm",
-			FeedID:     fmt.Sprintf("\"0x%x\"", StringToByte32(feedId)),
+			FeedID:     common.BytesToHash(feedId[:]),
 			RelayConfig: map[string]interface{}{
 				"chainID":   int(chainID),
 				"fromBlock": fromBlock,
@@ -531,7 +530,7 @@ func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feed
 
 func buildOCRSpec(
 	contractID string, chainID int64, fromBlock uint32,
-	feedId string, mockserverUrl string,
+	feedId [32]byte, mockserverUrl string,
 	csaPubKey string, msRemoteUrl string, msPubKey string,
 	nodeOCRKey string, p2pV2Bootstrapper string) *client.OCR2TaskJobSpec {
 	observationSource := fmt.Sprintf(`
@@ -583,7 +582,7 @@ func buildOCRSpec(
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 			ContractID:                        contractID,
-			FeedID:                            fmt.Sprintf("\"0x%x\"", StringToByte32(feedId)),
+			FeedID:                            common.BytesToHash(feedId[:]),
 			OCRKeyBundleID:                    null.StringFrom(nodeOCRKey),
 			TransmitterID:                     null.StringFrom(csaPubKey),
 			P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},
@@ -596,7 +595,7 @@ func (te *TestEnv) GetBootstrapNode() *client.Chainlink {
 	return te.ChainlinkNodes[0]
 }
 
-func (te *TestEnv) AddBootstrapJob(actionId, contractId string, fromBlock uint64, feedId string) error {
+func (te *TestEnv) AddBootstrapJob(actionId, contractId string, fromBlock uint64, feedId [32]byte) error {
 	if te.IsExistingEnv {
 		return te.errorIfActionNotDone(actionId)
 	} else {
@@ -614,7 +613,7 @@ func (te *TestEnv) AddBootstrapJob(actionId, contractId string, fromBlock uint64
 // Setup node jobs for Mercury OCR
 // For 'fromBlock', use the block number in which the config was set. Or latest block number if
 // the config is not set yet
-func (te *TestEnv) AddOCRJobs(actionId string, contractId string, fromBlock uint64, feedId string) error {
+func (te *TestEnv) AddOCRJobs(actionId string, contractId string, fromBlock uint64, feedId [32]byte) error {
 	if te.IsExistingEnv {
 		return te.errorIfActionNotDone(actionId)
 	}
@@ -1031,4 +1030,13 @@ func StringToByte32(str string) [32]byte {
 	var b [32]byte
 	copy(b[:], str)
 	return b
+}
+
+// [32]byte to string without trailing zeros (x00) if byte array not fully filled
+func Byte32ToString(b [32]byte) string {
+	n := bytes.IndexByte(b[:], 0)
+	if n == -1 {
+		return string(b[:])
+	}
+	return string(b[:n])
 }

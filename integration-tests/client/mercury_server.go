@@ -121,9 +121,9 @@ func (s *MercuryServer) GetUsers() (*[]User, *http.Response, error) {
 	return &result, resp.RawResponse, err
 }
 
-func (s *MercuryServer) GetReports(feedIDStr string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
+func (s *MercuryServer) GetReports(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
-	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedIDStr, blockNumber)
+	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber)
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	resp, err := s.APIClient.R().
@@ -133,6 +133,9 @@ func (s *MercuryServer) GetReports(feedIDStr string, blockNumber uint64) (*GetRe
 		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
 		SetResult(&result).
 		Get(path)
+	if err != nil && resp == nil {
+		return nil, nil, err
+	}
 	if err != nil {
 		return nil, resp.RawResponse, err
 	}

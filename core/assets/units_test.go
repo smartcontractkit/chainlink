@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 )
 
 func TestAssets_Units(t *testing.T) {

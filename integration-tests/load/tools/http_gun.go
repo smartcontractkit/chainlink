@@ -7,6 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
+	mercurysetup "github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
@@ -14,11 +16,11 @@ type MercuryHTTPGun struct {
 	BaseURL   string
 	client    *client.MercuryServer
 	netclient blockchain.EVMClient
-	feeds     []string
+	feeds     [][32]byte
 	Bn        atomic.Uint64
 }
 
-func NewHTTPGun(baseURL string, client *client.MercuryServer, feeds []string, bn uint64) *MercuryHTTPGun {
+func NewHTTPGun(baseURL string, client *client.MercuryServer, feeds [][32]byte, bn uint64) *MercuryHTTPGun {
 	g := &MercuryHTTPGun{
 		BaseURL: baseURL,
 		client:  client,
@@ -30,7 +32,8 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feeds []string, bn
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
-	answer, res, err := m.client.GetReports(m.feeds[rand.Intn(len(m.feeds))], m.Bn.Load())
+	randFeedIdStr := mercurysetup.Byte32ToString(m.feeds[rand.Intn(len(m.feeds))])
+	answer, res, err := m.client.GetReports(randFeedIdStr, m.Bn.Load())
 	if err != nil {
 		return loadgen.CallResult{Error: "connection error", Failed: true}
 	}

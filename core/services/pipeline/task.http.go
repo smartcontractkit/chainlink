@@ -14,10 +14,9 @@ import (
 	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
-//
 // Return types:
-//     string
 //
+//	string
 type HTTPTask struct {
 	BaseTask                       `mapstructure:",squash"`
 	Method                         string

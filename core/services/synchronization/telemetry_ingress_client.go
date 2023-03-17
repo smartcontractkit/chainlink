@@ -122,7 +122,7 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
 		if err != nil {
 			if ctx.Err() != nil {
 				tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)

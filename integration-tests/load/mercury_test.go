@@ -64,7 +64,7 @@ var (
 )
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	feeds := []string{"feed-1"}
+	feeds := [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
 	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -103,7 +103,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	feeds := []string{"feed-1"}
+	feeds := [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
 	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
