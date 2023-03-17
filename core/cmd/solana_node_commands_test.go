@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -30,13 +31,17 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
-	node := solcfg.Node{
+	node1 := solcfg.Node{
+		Name: ptr("first"),
+		URL:  utils.MustParseURL("https://solana.example"),
+	}
+	node2 := solcfg.Node{
 		Name: ptr("second"),
 		URL:  utils.MustParseURL("https://solana.example"),
 	}
 	chain := solana.SolanaConfig{
 		ChainID: &id,
-		Nodes:   solana.SolanaNodes{&node},
+		Nodes:   solana.SolanaNodes{&node1, &node2},
 	}
 	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
@@ -44,10 +49,14 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	require.Nil(t, cmd.NewSolanaNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.SolanaNodePresenters)
-	require.Len(t, nodes, 1)
-	n := nodes[0]
-	assert.Equal(t, "0", n.ID)
-	assert.Equal(t, *node.Name, n.Name)
-	assert.Equal(t, (*url.URL)(node.URL).String(), n.SolanaURL)
+	require.Len(t, nodes, 2)
+	n1 := nodes[0]
+	n2 := nodes[1]
+	assert.Equal(t, "0", n1.ID)
+	assert.Equal(t, *node1.Name, n1.Name)
+	assert.Equal(t, (*url.URL)(node1.URL).String(), n1.SolanaURL)
+	assert.Equal(t, "1", n2.ID)
+	assert.Equal(t, *node2.Name, n2.Name)
+	assert.Equal(t, (*url.URL)(node2.URL).String(), n2.SolanaURL)
 	assertTableRenders(t, r)
 }
