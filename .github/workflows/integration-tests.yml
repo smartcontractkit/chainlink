@@ -13,7 +13,7 @@ concurrency:
 env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
   CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  SOLANA_REF: d415eda78bff21711c41639e7cfa66bb6716d7c4
+  SOLANA_REF: 6270bc7c445f9e5631cefba2584b70caad9758d4
 
 jobs:
   changes:
