@@ -37,8 +37,8 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	chains.DBChainSet[utils.Big, *types.ChainCfg]
-	chains.DBNodeSet[utils.Big, types.Node]
+	chains.ChainsConfig[utils.Big, *types.ChainCfg]
+	chains.NodesConfig[utils.Big, types.Node]
 
 	Get(id *big.Int) (Chain, error)
 
@@ -131,11 +131,11 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	return nil, errors.Errorf("chain not found with id %v", id.String())
 }
 
-func (cll *chainSet) Show(id utils.Big) (types.DBChain, error) {
+func (cll *chainSet) Show(id utils.Big) (types.ChainConfig, error) {
 	return cll.opts.ORM.Chain(id)
 }
 
-func (cll *chainSet) Index(offset, limit int) ([]types.DBChain, int, error) {
+func (cll *chainSet) Index(offset, limit int) ([]types.ChainConfig, int, error) {
 	return cll.opts.ORM.Chains(offset, limit)
 }
 

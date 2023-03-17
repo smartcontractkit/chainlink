@@ -227,20 +227,20 @@ func (_m *ChainSet) HealthReport() map[string]error {
 }
 
 // Index provides a mock function with given fields: offset, limit
-func (_m *ChainSet) Index(offset int, limit int) ([]chains.DBChain[utils.Big, *types.ChainCfg], int, error) {
+func (_m *ChainSet) Index(offset int, limit int) ([]chains.ChainConfig[utils.Big, *types.ChainCfg], int, error) {
 	ret := _m.Called(offset, limit)
 
-	var r0 []chains.DBChain[utils.Big, *types.ChainCfg]
+	var r0 []chains.ChainConfig[utils.Big, *types.ChainCfg]
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int) ([]chains.DBChain[utils.Big, *types.ChainCfg], int, error)); ok {
+	if rf, ok := ret.Get(0).(func(int, int) ([]chains.ChainConfig[utils.Big, *types.ChainCfg], int, error)); ok {
 		return rf(offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(int, int) []chains.DBChain[utils.Big, *types.ChainCfg]); ok {
+	if rf, ok := ret.Get(0).(func(int, int) []chains.ChainConfig[utils.Big, *types.ChainCfg]); ok {
 		r0 = rf(offset, limit)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]chains.DBChain[utils.Big, *types.ChainCfg])
+			r0 = ret.Get(0).([]chains.ChainConfig[utils.Big, *types.ChainCfg])
 		}
 	}
 
@@ -304,18 +304,18 @@ func (_m *ChainSet) Ready() error {
 }
 
 // Show provides a mock function with given fields: id
-func (_m *ChainSet) Show(id utils.Big) (chains.DBChain[utils.Big, *types.ChainCfg], error) {
+func (_m *ChainSet) Show(id utils.Big) (chains.ChainConfig[utils.Big, *types.ChainCfg], error) {
 	ret := _m.Called(id)
 
-	var r0 chains.DBChain[utils.Big, *types.ChainCfg]
+	var r0 chains.ChainConfig[utils.Big, *types.ChainCfg]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(utils.Big) (chains.DBChain[utils.Big, *types.ChainCfg], error)); ok {
+	if rf, ok := ret.Get(0).(func(utils.Big) (chains.ChainConfig[utils.Big, *types.ChainCfg], error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(utils.Big) chains.DBChain[utils.Big, *types.ChainCfg]); ok {
+	if rf, ok := ret.Get(0).(func(utils.Big) chains.ChainConfig[utils.Big, *types.ChainCfg]); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(chains.DBChain[utils.Big, *types.ChainCfg])
+		r0 = ret.Get(0).(chains.ChainConfig[utils.Big, *types.ChainCfg])
 	}
 
 	if rf, ok := ret.Get(1).(func(utils.Big) error); ok {
