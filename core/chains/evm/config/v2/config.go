@@ -150,6 +150,11 @@ func (cs EVMConfigs) Nodes() (ns []types.Node) {
 			ns = append(ns, legacyNode(n, cs[i].ChainID))
 		}
 	}
+	//Add unique ID to prevent overwriting nodes during unmarshalling since this will be transformed into JAID
+	for i := range ns {
+		ns[i].ID = int32(i)
+	}
+
 	return
 }
 
