@@ -570,13 +570,9 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-		if err != nil {
-			l.Errorw("Couldn't get next from address", "err", err)
-			continue
-		}
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 
 		// Cases:
 		// 1. Never simulated: in this case, we want to observe the time until simulated
@@ -593,7 +589,6 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
 				"maxGasPrice", maxGasPriceWei.String(),
-				"fromAddress", fromAddress,
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
@@ -647,7 +642,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		var processedRequestIDs []string
 		for _, batch := range batches.fulfillments {
 			l.Debugw("Processing batch", "batchSize", len(batch.proofs))
-			p := lsn.processBatch(l, subID, fromAddress, startBalanceNoReserveLink, batchMaxGas, batch)
+			p := lsn.processBatch(l, subID, startBalanceNoReserveLink, batchMaxGas, batch)
 			processedRequestIDs = append(processedRequestIDs, p...)
 		}
 
@@ -752,22 +747,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-		if err != nil {
-			l.Errorw("Couldn't get next from address", "err", err)
-			continue
-		}
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
-
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
-
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
 				"maxGasPrice", maxGasPriceWei.String(),
-				"fromAddress", fromAddress,
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
@@ -808,6 +796,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Infow("Insufficient link balance to fulfill a request, returning")
 				return processed
 			}
+
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			if err != nil {
+				l.Errorw("Couldn't get next from address", "err", err)
+				continue
+			}
+			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
 			var ethTX txmgr.EthTx

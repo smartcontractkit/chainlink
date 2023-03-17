@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -100,27 +101,15 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	var maxGasPriceGWei int64
 	if c.Query("maxGasPriceGWei") != "" {
-		maxGasPriceGWei, err = strconv.ParseInt(c.Query("maxGasPriceGWei"), 10, 64)
-		if err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, err)
-			return
-		}
+		jsonAPIError(c, http.StatusBadRequest, v2.ErrUnsupported)
+		return
 	}
 
 	key, err := ethKeyStore.Create(chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
-	}
-	if maxGasPriceGWei > 0 {
-		maxGasPriceWei := assets.GWei(maxGasPriceGWei)
-		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
-		if err = ekc.app.GetChains().EVM.UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
 	}
 
 	state, err := ethKeyStore.GetState(key.ID(), chain.ID())
@@ -140,66 +129,6 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	})
 
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusCreated)
-}
-
-// Update an ETH key's parameters
-// Example:
-// "PUT <application>/keys/eth/:keyID?maxGasPriceGWei=12345"
-func (ekc *ETHKeysController) Update(c *gin.Context) {
-	ethKeyStore := ekc.app.GetKeyStore().Eth()
-
-	if c.Query("maxGasPriceGWei") == "" {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("no parameters passed to update"))
-		return
-	}
-
-	maxGasPriceGWei, err := strconv.ParseInt(c.Query("maxGasPriceGWei"), 10, 64)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	chain, err := getChain(ekc.app.GetChains().EVM, c.Query("evmChainID"))
-	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	keyID := c.Param("keyID")
-	state, err := ethKeyStore.GetState(keyID, chain.ID())
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	key, err := ethKeyStore.Get(keyID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	maxGasPriceWei := assets.GWei(maxGasPriceGWei)
-	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
-	if err = ekc.app.GetChains().EVM.UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	r := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(c.Request.Context(), state),
-		ekc.setKeyMaxGasPriceWei(state, key.Address),
-	)
-
-	ekc.app.GetAuditLogger().Audit(audit.KeyUpdated, map[string]interface{}{
-		"type": "ethereum",
-		"id":   keyID,
-	})
-
-	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
 }
 
 // Delete an ETH key bundle (irreversible!)

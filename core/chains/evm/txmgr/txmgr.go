@@ -13,7 +13,9 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/maps"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -77,7 +79,7 @@ type TxManager interface {
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error)
-	GetGasEstimator() gas.Estimator
+	GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	RegisterResumeCallback(fn ResumeCallback)
 	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
 	Reset(f func(), addr common.Address, abandon bool) error
@@ -102,7 +104,7 @@ type Txm struct {
 	config           Config
 	keyStore         KeyStore
 	eventBroadcaster pg.EventBroadcaster
-	gasEstimator     gas.Estimator
+	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
 
@@ -115,9 +117,11 @@ type Txm struct {
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper      *Reaper
-	ethResender *EthResender
-	fwdMgr      *forwarders.FwdMgr
+	reaper         *Reaper
+	ethResender    *EthResender
+	ethBroadcaster *EthBroadcaster
+	ethConfirmer   *EthConfirmer
+	fwdMgr         *forwarders.FwdMgr
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -153,6 +157,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
 	}
+
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
@@ -188,12 +193,12 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		var ms services.MultiStart
-		eb := NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		ec := NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err = ms.Start(ctx, eb); err != nil {
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err = ms.Start(ctx, ec); err != nil {
+		if err = ms.Start(ctx, b.ethConfirmer); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
@@ -202,7 +207,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(eb, ec, keyStates)
+		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, keyStates)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -283,7 +288,18 @@ func (b *Txm) Name() string {
 }
 
 func (b *Txm) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+	report := map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+
+	// only query if txm started properly
+	b.IfStarted(func() {
+		maps.Copy(report, b.ethBroadcaster.HealthReport())
+		maps.Copy(report, b.ethConfirmer.HealthReport())
+	})
+
+	if b.config.EvmUseForwarders() {
+		maps.Copy(report, b.fwdMgr.HealthReport())
+	}
+	return report
 }
 
 func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
@@ -342,6 +358,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 				case <-time.After(backoff.Duration()):
 					if err := eb.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
+						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
@@ -360,6 +377,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 				case <-time.After(backoff.Duration()):
 					if err := ec.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
+						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
@@ -418,6 +436,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			keyStates, err = b.keyStore.GetStatesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
+				b.SvcErrBuffer.Append(err)
 				continue
 			}
 			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
@@ -520,7 +539,7 @@ func (b *Txm) checkEnabled(addr common.Address) error {
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
-func (b *Txm) GetGasEstimator() gas.Estimator {
+func (b *Txm) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
 	return b.gasEstimator
 }
 
@@ -647,9 +666,10 @@ func (n *NullTxManager) Reset(f func(), addr common.Address, abandon bool) error
 func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error                           { return nil }
-func (n *NullTxManager) Ready() error                             { return nil }
-func (n *NullTxManager) Name() string                             { return "" }
-func (n *NullTxManager) HealthReport() map[string]error           { return nil }
-func (n *NullTxManager) GetGasEstimator() gas.Estimator           { return nil }
+func (n *NullTxManager) Ready() error                   { return nil }
+func (n *NullTxManager) Name() string                   { return "NullTxManager" }
+func (n *NullTxManager) HealthReport() map[string]error { return map[string]error{} }
+func (n *NullTxManager) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
+	return nil
+}
 func (n *NullTxManager) RegisterResumeCallback(fn ResumeCallback) {}

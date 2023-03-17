@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -488,13 +489,15 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			switch v := elem.Result.(type) {
 			case *evmtypes.Head:
 				b[i].Result = &evmtypes.Head{
-					Number: header.Number.Int64(),
-					Hash:   header.Hash(),
+					Number:    header.Number.Int64(),
+					Hash:      header.Hash(),
+					Timestamp: time.Unix(int64(header.Time), 0).UTC(),
 				}
 			case *evmtypes.Block:
 				b[i].Result = &evmtypes.Block{
-					Number: header.Number.Int64(),
-					Hash:   header.Hash(),
+					Number:    header.Number.Int64(),
+					Hash:      header.Hash(),
+					Timestamp: time.Unix(int64(header.Time), 0),
 				}
 			default:
 				return errors.Errorf("SimulatedBackendClient Unexpected Type %T", v)

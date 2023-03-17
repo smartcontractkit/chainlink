@@ -8,10 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+### Changed
+
+- TOML configuration and secrets are now scoped to `chainlink node start` command rather than being global flags
+
+### Removed
+
+- Configuration with legacy environment variables is no longer supported. TOML is required.
+
+## 1.13.0 - UNRELEASED
+
 ### Added
 
 - Support for sending OCR2 job specs to the feeds manager
 - Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
+- Add support for new job type `mercury` (low-latency oracle)
+- New config option for EVM-based chains `AutoCreateKey`. If set to false, chainlink will not automatically create any keys for this chain. This can be used in conjunction with mercury to prevent creating useless keys. Example:
+```
+[[EVM]]
+ChainID = "1"
+AutoCreateKey = false
+```
+- Add new option for relayConfig `feedID` that handles multi-config contracts. Can be applied to any OCR2 job.
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
 
 ### Changed
 
@@ -19,18 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Terra is no longer supported
+- Terra is no longer supported 
 
-...
-
-## 1.12.1 - UNRELEASED
-
-### Updated
-
-- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
-of any values provided via configuration files.
-
-...
+<!-- unreleasedstop -->
 
 ## 1.12.0 - 2023-02-15
 
