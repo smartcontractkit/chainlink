@@ -69,7 +69,6 @@ type ORM interface {
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
-var ErrInvalidNewTx = errors.New("orm: Invalid NewTx")
 var ErrInvalidQOpt = errors.New("orm: Invalid QOpt")
 
 type QueryerFunc func(tx pg.Queryer) error
@@ -95,26 +94,6 @@ func ToQOpt(opt any) (pg.QOpt, error) {
 	return qopt, nil
 }
 
-func ToQOpts(opts []any) ([]pg.QOpt, error) {
-	qopts := make([]pg.QOpt, len(opts))
-	for i, opt := range opts {
-		qopt, err := ToQOpt(opt)
-		if err != nil {
-			return []pg.QOpt{}, err
-		}
-		qopts[i] = qopt
-	}
-	return qopts, nil
-}
-
-func ToAnys(qopts []pg.QOpt) []any {
-	opts := make([]any, len(qopts))
-	for i, qopt := range qopts {
-		opts[i] = qopt
-	}
-	return opts
-}
-
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
@@ -127,14 +106,6 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
-}
-
-func ToNewTx(x any) (NewTx, error) {
-	newTx, ok := x.(NewTx)
-	if !ok {
-		return NewTx{}, ErrInvalidNewTx
-	}
-	return newTx, nil
 }
 
 const insertIntoEthTxAttemptsQuery = `

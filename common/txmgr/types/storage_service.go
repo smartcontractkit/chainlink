@@ -66,19 +66,22 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 //
 //go:generate mockery --quiet --name TxStrategy --output ./mocks/ --case=underscore --structname TxStrategy --filename tx_strategy.go
 type TxStrategy interface {
-	// Subject will be saved to eth_txes.subject if not null
+	// Subject will be saved txes.subject if not null
 	Subject() uuid.NullUUID
-	// PruneQueue is called after eth_tx insertion
+	// PruneQueue is called after tx insertion
+	// It accepts the service responsible for deleting
+	// unstated txs and deletion options
 	PruneQueue(pruneService any, opt any) (n int64, err error)
 }
 
-// R is the raw transaction receipt
+// R is the raw unparsed transaction receipt
 type ReceiptPlus[R any] struct {
 	ID           uuid.UUID `db:"id"`
 	Receipt      R         `db:"receipt"`
 	FailOnRevert bool      `db:"FailOnRevert"`
 }
 
+// R is the raw unparsed transaction receipt
 type Receipt[R any, HASH any] struct {
 	ID               int64
 	TxHash           HASH
@@ -92,5 +95,3 @@ type Receipt[R any, HASH any] struct {
 type TxAttemptState string
 
 type TxState string
-
-type CallbackFunc func(opts ...any) error

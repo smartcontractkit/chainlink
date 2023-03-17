@@ -1575,27 +1575,4 @@ func TestORM_ConvertArgs(t *testing.T) {
 		_, err = txmgr.ToQOpt(8)
 		require.Error(t, err)
 	})
-
-	t.Run("ToQOpts succeeds []any -> []QOpt", func(t *testing.T) {
-		qopts, err := txmgr.ToQOpts([]any{opt})
-		require.NoError(t, err)
-		require.IsType(t, compareTo, qopts[0])
-	})
-
-	t.Run("ToQOpts fails []any -> []QOpt", func(t *testing.T) {
-		var opts = make([]any, 1)
-		opts[0] = 42
-		_, err := txmgr.ToQOpts(opts)
-		require.Error(t, err)
-	})
-
-	t.Run("can convert variadic function", func(t *testing.T) {
-		convertFx1 := func(opts ...any) ([]pg.QOpt, error) {
-			return txmgr.ToQOpts(opts)
-		}
-
-		qopts, err := convertFx1(pg.WithParentCtx(context.Background()))
-		require.NoError(t, err)
-		require.IsType(t, pg.WithParentCtx(context.Background()), qopts[0])
-	})
 }
