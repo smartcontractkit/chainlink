@@ -394,16 +394,9 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			return errors.Wrap(err, "failed to get fee"), true
 		}
 
-		if eb.config.EvmEIP1559DynamicFees() {
-			a, err = eb.NewDynamicFeeAttempt(*etx, *fee.Dynamic, gasLimit)
-			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed on NewDynamicFeeAttempt"), true
-			}
-		} else {
-			a, err = eb.NewLegacyAttempt(*etx, fee.Legacy, gasLimit)
-			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed on NewLegacyAttempt"), true
-			}
+		a, err = eb.NewAttempt(*etx, fee, gasLimit, eb.logger)
+		if err != nil {
+			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), true
 		}
 
 		if err := eb.orm.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
@@ -702,22 +695,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 		return errors.Wrap(err, "tryAgainBumpFee failed"), true
 	}
 
-	switch attempt.TxType {
-	case 0x0:
-		return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, bumpedFee.Legacy, bumpedFeeLimit)
-	case 0x2:
-		if bumpedFee.Dynamic == nil {
-			err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", attempt.ID)
-			logger.Sugared(eb.logger).AssumptionViolation(err.Error())
-			return err, false
-		}
-		return eb.tryAgainWithNewDynamicFeeGas(ctx, lgr, etx, attempt, initialBroadcastAt, *bumpedFee.Dynamic, bumpedFeeLimit)
-	default:
-		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", attempt.ID, attempt.TxType)
-		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
-		return err, false
-	}
+	return eb.tryAgainWithNewFee(ctx, lgr, etx, attempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, attempt.TxType)
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
@@ -735,32 +713,20 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 
 	// TODO: nil handling for gasPrice.Legacy? will this ever be reached where EIP1559 is enabled on a L2 but a legacy tx?
-	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice.Legacy, gasLimit)
+	return eb.tryAgainWithNewFee(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice, gasLimit, 0x0)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *assets.Wei, newGasLimit uint32) (err error, retyrable bool) {
-	replacementAttempt, err := eb.NewLegacyAttempt(etx, newGasPrice, newGasLimit)
+func (eb *EthBroadcaster) tryAgainWithNewFee(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32, txType int) (err error, retyrable bool) {
+	replacementAttempt, err, retryable := eb.NewAttemptWithType(etx, newFee, newFeeLimit, txType, lgr)
 	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
+		return errors.Wrap(err, "tryAgainWithNewFee failed"), retryable
 	}
 
 	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
-		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
-	}
-	lgr.Debugw("Bumped legacy gas on initial send", "oldGasPrice", attempt.GasPrice, "newGasPrice", newGasPrice)
-	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
-}
-
-func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newDynamicFee gas.DynamicFee, newGasLimit uint32) (err error, retyrable bool) {
-	replacementAttempt, err := eb.NewDynamicFeeAttempt(etx, newDynamicFee, newGasLimit)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
+		return errors.Wrap(err, "tryAgainWithNewFee failed"), true
 	}
 
-	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
-		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
-	}
-	lgr.Debugw("Bumped dynamic fee gas on initial send", "oldFee", gas.MakeEvmPriorAttempt(attempt).DynamicFee(), "newFee", newDynamicFee)
+	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.Fee().String(), "newFee", newFee.String())
 	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 

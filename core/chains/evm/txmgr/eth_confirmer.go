@@ -776,20 +776,14 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 
 	if err == nil {
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		switch previousAttempt.TxType {
-		case 0x0: // Legacy
-			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedFee.Legacy.String())...)
-			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedFeeLimit)
-		case 0x2: // EIP1559
-			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.Dynamic.TipCap.String(), "bumpedFeeCap", bumpedFee.Dynamic.FeeCap.String())...)
-			if bumpedFee.Dynamic == nil {
-				err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", previousAttempt.ID)
-			} else {
-				return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedFeeLimit)
-			}
-		default:
-			err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-				"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
+
+		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String())...)
+		bumpedAttempt, err, _ = ec.NewAttemptWithType(etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, ec.lggr)
+
+		// if no error, return attempt
+		// if err, continue below
+		if err == nil {
+			return bumpedAttempt, err
 		}
 	}
 
@@ -1078,7 +1072,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := ec.NewLegacyAttempt(*etx, assets.NewWeiI(int64(gasPriceWei)), etx.GasLimit)
+			attempt, err, _ := ec.NewAttemptWithType(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue

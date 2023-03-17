@@ -10,9 +10,41 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error) {
+	txType := 0x0
+	if c.config.EvmEIP1559DynamicFees() {
+		txType = 0x2
+	}
+	attempt, err, _ = c.NewAttemptWithType(etx, fee, gasLimit, txType, lggr)
+
+	return attempt, err
+}
+
+func (c *ChainKeyStore) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, err error, retryable bool) {
+	switch txType {
+	case 0x0: // legacy
+		attempt, err = c.newLegacyAttempt(etx, fee.Legacy, gasLimit)
+		return attempt, err, true
+	case 0x2: // dynamic, EIP1559
+		if fee.Dynamic == nil {
+			err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", attempt.ID)
+			logger.Sugared(lggr).AssumptionViolation(err.Error())
+			return attempt, err, false // not retryable
+		}
+		attempt, err = c.newDynamicFeeAttempt(etx, *fee.Dynamic, gasLimit)
+		return attempt, err, true
+	default:
+		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
+			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", attempt.ID, attempt.TxType)
+		logger.Sugared(lggr).AssumptionViolation(err.Error())
+		return attempt, err, false // not retryable
+	}
+}
+
+func (c *ChainKeyStore) newDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -97,7 +129,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth
 	}
 }
 
-func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore) newLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}

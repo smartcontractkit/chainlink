@@ -134,9 +134,15 @@ type EvmEstimator interface {
 	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
 }
 
+var _ txmgrtypes.Fee = (*EvmFee)(nil)
+
 type EvmFee struct {
 	Legacy  *assets.Wei
 	Dynamic *DynamicFee
+}
+
+func (fee EvmFee) String() string {
+	return fmt.Sprintf("{Legacy: %s, Dynamic: %+v}", fee.Legacy, fee.Dynamic)
 }
 
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator

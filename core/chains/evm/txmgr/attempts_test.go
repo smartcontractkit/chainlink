@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
@@ -26,12 +27,14 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	kst := ksmocks.NewEth(t)
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
 	var n int64
+	lggr := logger.TestLogger(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		gcfg := configtest.NewGeneralConfig(t, nil)
 		cfg := evmtest.NewChainScopedConfig(t, gcfg)
 		cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
-		a, err := cks.NewDynamicFeeAttempt(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}, 100)
+		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
+		a, err, _ := cks.NewAttemptWithType(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x2, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
 		assert.Nil(t, a.GasPrice)
@@ -69,7 +72,8 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 				gcfg := configtest.NewGeneralConfig(t, test.setCfg)
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
 				cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
-				_, err := cks.NewDynamicFeeAttempt(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}, 100)
+				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
+				_, err, _ := cks.NewAttemptWithType(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x2, lggr)
 				if test.expectError == "" {
 					require.NoError(t, err)
 				} else {
@@ -91,10 +95,11 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	tx := types.NewTx(&types.LegacyTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
 	cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+	lggr := logger.TestLogger(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var n int64
-		a, err := cks.NewLegacyAttempt(txmgr.EthTx{Nonce: &n, FromAddress: addr}, assets.NewWeiI(25), 100)
+		a, err, _ := cks.NewAttemptWithType(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
 		assert.NotNil(t, a.GasPrice)
@@ -104,7 +109,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	})
 
 	t.Run("verifies max gas price", func(t *testing.T) {
-		_, err := cks.NewLegacyAttempt(txmgr.EthTx{FromAddress: addr}, assets.NewWeiI(100), 100)
+		_, err, _ := cks.NewAttemptWithType(txmgr.EthTx{FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(100)}, 100, 0x0, lggr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 wei would exceed max configured gas price of 50 wei for key %s", addr.Hex()))
 	})
