@@ -257,12 +257,27 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Get the sha from go mod
-        id: getsha
+        id: getshortsha
         run: |
           sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
-          sha="${sol_ver##*-}"
-          echo "sha is: ${sha}"
-          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          short_sha="${sol_ver##*-}"
+          echo "short sha is: ${short_sha}"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+      - name: Checkout solana
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          repository: smartcontractkit/chainlink-solana
+          ref: develop
+          fetch-depth: 0
+          path: solanapath
+      - name: Get long sha
+        id: getsha
+        run: |
+          cd solanapath
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          echo "sha is: ${full_sha}"
+          echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
+
   get_projectserum_version:
     name: Get ProjectSerum Version
     environment: integration
