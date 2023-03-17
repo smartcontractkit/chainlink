@@ -28,16 +28,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CheckEthTxQueueCapacity provides a mock function with given fields: fromAddress, maxQueuedTransactions, chainID, opts
-func (_m *ORM) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, opts ...interface{}) error {
+// CheckEthTxQueueCapacity provides a mock function with given fields: fromAddress, maxQueuedTransactions, chainID, qopts
+func (_m *ORM) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
 	var _ca []interface{}
 	_ca = append(_ca, fromAddress, maxQueuedTransactions, chainID)
-	_ca = append(_ca, opts...)
+	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, uint64, big.Int, ...interface{}) error); ok {
-		r0 = rf(fromAddress, maxQueuedTransactions, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(common.Address, uint64, big.Int, ...pg.QOpt) error); ok {
+		r0 = rf(fromAddress, maxQueuedTransactions, chainID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -50,26 +54,30 @@ func (_m *ORM) Close() {
 	_m.Called()
 }
 
-// CountUnconfirmedTransactions provides a mock function with given fields: fromAddress, chainID, opts
-func (_m *ORM) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, opts ...interface{}) (uint32, error) {
+// CountUnconfirmedTransactions provides a mock function with given fields: fromAddress, chainID, qopts
+func (_m *ORM) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (uint32, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
 	var _ca []interface{}
 	_ca = append(_ca, fromAddress, chainID)
-	_ca = append(_ca, opts...)
+	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) (uint32, error)); ok {
-		return rf(fromAddress, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) (uint32, error)); ok {
+		return rf(fromAddress, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) uint32); ok {
-		r0 = rf(fromAddress, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) uint32); ok {
+		r0 = rf(fromAddress, chainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...interface{}) error); ok {
-		r1 = rf(fromAddress, chainID, opts...)
+	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...pg.QOpt) error); ok {
+		r1 = rf(fromAddress, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -77,26 +85,30 @@ func (_m *ORM) CountUnconfirmedTransactions(fromAddress common.Address, chainID 
 	return r0, r1
 }
 
-// CountUnstartedTransactions provides a mock function with given fields: fromAddress, chainID, opts
-func (_m *ORM) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, opts ...interface{}) (uint32, error) {
+// CountUnstartedTransactions provides a mock function with given fields: fromAddress, chainID, qopts
+func (_m *ORM) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (uint32, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
 	var _ca []interface{}
 	_ca = append(_ca, fromAddress, chainID)
-	_ca = append(_ca, opts...)
+	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) (uint32, error)); ok {
-		return rf(fromAddress, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) (uint32, error)); ok {
+		return rf(fromAddress, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...interface{}) uint32); ok {
-		r0 = rf(fromAddress, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(common.Address, big.Int, ...pg.QOpt) uint32); ok {
+		r0 = rf(fromAddress, chainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...interface{}) error); ok {
-		r1 = rf(fromAddress, chainID, opts...)
+	if rf, ok := ret.Get(1).(func(common.Address, big.Int, ...pg.QOpt) error); ok {
+		r1 = rf(fromAddress, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -104,26 +116,30 @@ func (_m *ORM) CountUnstartedTransactions(fromAddress common.Address, chainID bi
 	return r0, r1
 }
 
-// CreateEthTransaction provides a mock function with given fields: newTx, chainID, opts
-func (_m *ORM) CreateEthTransaction(newTx txmgr.NewTx, chainID big.Int, opts ...interface{}) (txmgr.EthTx, error) {
+// CreateEthTransaction provides a mock function with given fields: newTx, chainID, qopts
+func (_m *ORM) CreateEthTransaction(newTx txmgr.NewTx, chainID big.Int, qopts ...pg.QOpt) (txmgr.EthTx, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
 	var _ca []interface{}
 	_ca = append(_ca, newTx, chainID)
-	_ca = append(_ca, opts...)
+	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 txmgr.EthTx
 	var r1 error
-	if rf, ok := ret.Get(0).(func(txmgr.NewTx, big.Int, ...interface{}) (txmgr.EthTx, error)); ok {
-		return rf(newTx, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(txmgr.NewTx, big.Int, ...pg.QOpt) (txmgr.EthTx, error)); ok {
+		return rf(newTx, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(txmgr.NewTx, big.Int, ...interface{}) txmgr.EthTx); ok {
-		r0 = rf(newTx, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(txmgr.NewTx, big.Int, ...pg.QOpt) txmgr.EthTx); ok {
+		r0 = rf(newTx, chainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(txmgr.EthTx)
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgr.NewTx, big.Int, ...interface{}) error); ok {
-		r1 = rf(newTx, chainID, opts...)
+	if rf, ok := ret.Get(1).(func(txmgr.NewTx, big.Int, ...pg.QOpt) error); ok {
+		r1 = rf(newTx, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -131,16 +147,13 @@ func (_m *ORM) CreateEthTransaction(newTx txmgr.NewTx, chainID big.Int, opts ...
 	return r0, r1
 }
 
-// DeleteInProgressAttempt provides a mock function with given fields: attempt, opts
-func (_m *ORM) DeleteInProgressAttempt(attempt txmgr.EthTxAttempt, opts ...interface{}) error {
-	var _ca []interface{}
-	_ca = append(_ca, attempt)
-	_ca = append(_ca, opts...)
-	ret := _m.Called(_ca...)
+// DeleteInProgressAttempt provides a mock function with given fields: ctx, attempt
+func (_m *ORM) DeleteInProgressAttempt(ctx context.Context, attempt txmgr.EthTxAttempt) error {
+	ret := _m.Called(ctx, attempt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(txmgr.EthTxAttempt, ...interface{}) error); ok {
-		r0 = rf(attempt, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgr.EthTxAttempt) error); ok {
+		r0 = rf(ctx, attempt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -148,35 +161,32 @@ func (_m *ORM) DeleteInProgressAttempt(attempt txmgr.EthTxAttempt, opts ...inter
 	return r0
 }
 
-// EthTransactions provides a mock function with given fields: offset, limit, opts
-func (_m *ORM) EthTransactions(offset int, limit int, opts ...interface{}) ([]txmgr.EthTx, int, error) {
-	var _ca []interface{}
-	_ca = append(_ca, offset, limit)
-	_ca = append(_ca, opts...)
-	ret := _m.Called(_ca...)
+// EthTransactions provides a mock function with given fields: offset, limit
+func (_m *ORM) EthTransactions(offset int, limit int) ([]txmgr.EthTx, int, error) {
+	ret := _m.Called(offset, limit)
 
 	var r0 []txmgr.EthTx
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int, ...interface{}) ([]txmgr.EthTx, int, error)); ok {
-		return rf(offset, limit, opts...)
+	if rf, ok := ret.Get(0).(func(int, int) ([]txmgr.EthTx, int, error)); ok {
+		return rf(offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(int, int, ...interface{}) []txmgr.EthTx); ok {
-		r0 = rf(offset, limit, opts...)
+	if rf, ok := ret.Get(0).(func(int, int) []txmgr.EthTx); ok {
+		r0 = rf(offset, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]txmgr.EthTx)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(int, int, ...interface{}) int); ok {
-		r1 = rf(offset, limit, opts...)
+	if rf, ok := ret.Get(1).(func(int, int) int); ok {
+		r1 = rf(offset, limit)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
-	if rf, ok := ret.Get(2).(func(int, int, ...interface{}) error); ok {
-		r2 = rf(offset, limit, opts...)
+	if rf, ok := ret.Get(2).(func(int, int) error); ok {
+		r2 = rf(offset, limit)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -184,35 +194,32 @@ func (_m *ORM) EthTransactions(offset int, limit int, opts ...interface{}) ([]tx
 	return r0, r1, r2
 }
 
-// EthTransactionsWithAttempts provides a mock function with given fields: offset, limit, opts
-func (_m *ORM) EthTransactionsWithAttempts(offset int, limit int, opts ...interface{}) ([]txmgr.EthTx, int, error) {
-	var _ca []interface{}
-	_ca = append(_ca, offset, limit)
-	_ca = append(_ca, opts...)
-	ret := _m.Called(_ca...)
+// EthTransactionsWithAttempts provides a mock function with given fields: offset, limit
+func (_m *ORM) EthTransactionsWithAttempts(offset int, limit int) ([]txmgr.EthTx, int, error) {
+	ret := _m.Called(offset, limit)
 
 	var r0 []txmgr.EthTx
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int, ...interface{}) ([]txmgr.EthTx, int, error)); ok {
-		return rf(offset, limit, opts...)
+	if rf, ok := ret.Get(0).(func(int, int) ([]txmgr.EthTx, int, error)); ok {
+		return rf(offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(int, int, ...interface{}) []txmgr.EthTx); ok {
-		r0 = rf(offset, limit, opts...)
+	if rf, ok := ret.Get(0).(func(int, int) []txmgr.EthTx); ok {
+		r0 = rf(offset, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]txmgr.EthTx)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(int, int, ...interface{}) int); ok {
-		r1 = rf(offset, limit, opts...)
+	if rf, ok := ret.Get(1).(func(int, int) int); ok {
+		r1 = rf(offset, limit)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
-	if rf, ok := ret.Get(2).(func(int, int, ...interface{}) error); ok {
-		r2 = rf(offset, limit, opts...)
+	if rf, ok := ret.Get(2).(func(int, int) error); ok {
+		r2 = rf(offset, limit)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -253,28 +260,25 @@ func (_m *ORM) EthTxAttempts(offset int, limit int) ([]txmgr.EthTxAttempt, int, 
 	return r0, r1, r2
 }
 
-// FindEthReceiptsPendingConfirmation provides a mock function with given fields: ctx, blockNum, chainID, opts
-func (_m *ORM) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int, opts ...interface{}) ([]types.ReceiptPlus[evmtypes.Receipt], error) {
-	var _ca []interface{}
-	_ca = append(_ca, ctx, blockNum, chainID)
-	_ca = append(_ca, opts...)
-	ret := _m.Called(_ca...)
+// FindEthReceiptsPendingConfirmation provides a mock function with given fields: ctx, blockNum, chainID
+func (_m *ORM) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) ([]types.ReceiptPlus[evmtypes.Receipt], error) {
+	ret := _m.Called(ctx, blockNum, chainID)
 
 	var r0 []types.ReceiptPlus[evmtypes.Receipt]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int, ...interface{}) ([]types.ReceiptPlus[evmtypes.Receipt], error)); ok {
-		return rf(ctx, blockNum, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) ([]types.ReceiptPlus[evmtypes.Receipt], error)); ok {
+		return rf(ctx, blockNum, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int, ...interface{}) []types.ReceiptPlus[evmtypes.Receipt]); ok {
-		r0 = rf(ctx, blockNum, chainID, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) []types.ReceiptPlus[evmtypes.Receipt]); ok {
+		r0 = rf(ctx, blockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.ReceiptPlus[evmtypes.Receipt])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, big.Int, ...interface{}) error); ok {
-		r1 = rf(ctx, blockNum, chainID, opts...)
+	if rf, ok := ret.Get(1).(func(context.Context, int64, big.Int) error); ok {
+		r1 = rf(ctx, blockNum, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -710,16 +714,13 @@ func (_m *ORM) HasInProgressTransaction(account common.Address, chainID big.Int,
 	return r0, r1
 }
 
-// InsertEthReceipt provides a mock function with given fields: receipt, opts
-func (_m *ORM) InsertEthReceipt(receipt *types.Receipt[evmtypes.Receipt, common.Hash], opts ...interface{}) error {
-	var _ca []interface{}
-	_ca = append(_ca, receipt)
-	_ca = append(_ca, opts...)
-	ret := _m.Called(_ca...)
+// InsertEthReceipt provides a mock function with given fields: receipt
+func (_m *ORM) InsertEthReceipt(receipt *types.Receipt[evmtypes.Receipt, common.Hash]) error {
+	ret := _m.Called(receipt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.Receipt[evmtypes.Receipt, common.Hash], ...interface{}) error); ok {
-		r0 = rf(receipt, opts...)
+	if rf, ok := ret.Get(0).(func(*types.Receipt[evmtypes.Receipt, common.Hash]) error); ok {
+		r0 = rf(receipt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -846,26 +847,30 @@ func (_m *ORM) PreloadEthTxes(attempts []txmgr.EthTxAttempt) error {
 	return r0
 }
 
-// PruneUnstartedEthTxQueue provides a mock function with given fields: queueSize, subject, opts
-func (_m *ORM) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, opts ...interface{}) (int64, error) {
+// PruneUnstartedEthTxQueue provides a mock function with given fields: queueSize, subject, qopts
+func (_m *ORM) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (int64, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
 	var _ca []interface{}
 	_ca = append(_ca, queueSize, subject)
-	_ca = append(_ca, opts...)
+	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(uint32, uuid.UUID, ...interface{}) (int64, error)); ok {
-		return rf(queueSize, subject, opts...)
+	if rf, ok := ret.Get(0).(func(uint32, uuid.UUID, ...pg.QOpt) (int64, error)); ok {
+		return rf(queueSize, subject, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(uint32, uuid.UUID, ...interface{}) int64); ok {
-		r0 = rf(queueSize, subject, opts...)
+	if rf, ok := ret.Get(0).(func(uint32, uuid.UUID, ...pg.QOpt) int64); ok {
+		r0 = rf(queueSize, subject, qopts...)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(uint32, uuid.UUID, ...interface{}) error); ok {
-		r1 = rf(queueSize, subject, opts...)
+	if rf, ok := ret.Get(1).(func(uint32, uuid.UUID, ...pg.QOpt) error); ok {
+		r1 = rf(queueSize, subject, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -887,16 +892,13 @@ func (_m *ORM) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout t
 	return r0
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: receipts, chainID, opts
-func (_m *ORM) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int, opts ...interface{}) error {
-	var _ca []interface{}
-	_ca = append(_ca, receipts, chainID)
-	_ca = append(_ca, opts...)
-	ret := _m.Called(_ca...)
+// SaveFetchedReceipts provides a mock function with given fields: receipts, chainID
+func (_m *ORM) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) error {
+	ret := _m.Called(receipts, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]evmtypes.Receipt, big.Int, ...interface{}) error); ok {
-		r0 = rf(receipts, chainID, opts...)
+	if rf, ok := ret.Get(0).(func([]evmtypes.Receipt, big.Int) error); ok {
+		r0 = rf(receipts, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
