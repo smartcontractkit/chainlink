@@ -214,18 +214,18 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
-		latestHeadNumber := int64(200)
+		latestHeadNumber := uint64(200)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(5)
+		lookbackBlocks := uint64(5)
 		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -248,8 +248,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -273,18 +273,18 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
-		latestHeadNumber := int64(200)
+		latestHeadNumber := uint64(200)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(5)
+		lookbackBlocks := uint64(5)
 		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -307,8 +307,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -332,18 +332,18 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
-		latestHeadNumber := int64(200)
+		latestHeadNumber := uint64(200)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(5)
+		lookbackBlocks := uint64(5)
 		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -374,8 +374,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -399,20 +399,20 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
-		latestHeadNumber := int64(200)
+		latestHeadNumber := uint64(200)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(5)
+		lookbackBlocks := uint64(5)
 		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
 		// Both RandomWordsFulfilled and NewTransmission events are emitted
 		// when a VRF fulfillment happens on chain.
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -445,8 +445,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -470,18 +470,18 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
-		latestHeadNumber := int64(200)
+		latestHeadNumber := uint64(200)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(5)
+		lookbackBlocks := uint64(5)
 		lp := getLogPoller(t, []uint64{}, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -507,8 +507,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -532,13 +532,13 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
-		latestHeadNumber := int64(200)
+		latestHeadNumber := uint64(200)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(5)
+		lookbackBlocks := uint64(5)
 		// Do not include latestHeadNumber in "GetBlocksRange" call for initial "ReportWillBeTransmitted."
 		// Do not include recent blockhashes in range either.
 		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, false, false /* includeLatestHeadInRange */, 0)
@@ -551,8 +551,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -591,8 +591,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		c.lp = lp
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -636,9 +636,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(400)
-		lookbackBlocks := int64(400)
-		blockhashLookback := int64(256)
+		latestHeadNumber := uint64(400)
+		lookbackBlocks := uint64(400)
+		blockhashLookback := uint64(256)
 
 		tp := newTopics()
 
@@ -653,8 +653,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, blockhashLookback)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -673,8 +673,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        blockhashLookback,
 		}
@@ -703,8 +703,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(200)
-		lookbackBlocks := int64(5)
+		latestHeadNumber := uint64(200)
+		lookbackBlocks := uint64(5)
 
 		tp := newTopics()
 
@@ -712,8 +712,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -737,8 +737,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -767,8 +767,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(200)
-		lookbackBlocks := int64(5)
+		latestHeadNumber := uint64(200)
+		lookbackBlocks := uint64(5)
 
 		tp := newTopics()
 
@@ -776,8 +776,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -801,8 +801,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -830,8 +830,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(200)
-		lookbackBlocks := int64(5)
+		latestHeadNumber := uint64(200)
+		lookbackBlocks := uint64(5)
 
 		tp := newTopics()
 
@@ -839,8 +839,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -865,8 +865,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -896,8 +896,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(1000)
-		lookbackBlocks := int64(256)
+		latestHeadNumber := uint64(1000)
+		lookbackBlocks := uint64(256)
 
 		tp := newTopics()
 
@@ -905,8 +905,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -925,8 +925,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -953,8 +953,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(100)
-		lookbackBlocks := int64(100)
+		latestHeadNumber := uint64(100)
+		lookbackBlocks := uint64(100)
 
 		tp := newTopics()
 
@@ -962,8 +962,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true, true, lookbackBlocks)
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -982,8 +982,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -1010,22 +1010,22 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
-		latestHeadNumber := int64(200)
-		lookbackBlocks := int64(5)
+		latestHeadNumber := uint64(200)
+		lookbackBlocks := uint64(5)
 
 		tp := newTopics()
 
 		requestedBlocks := []uint64{195, 196}
 		lp := lp_mocks.NewLogPoller(t)
 		lp.On("LatestBlock", mock.Anything).
-			Return(latestHeadNumber, nil)
+			Return(int64(latestHeadNumber), nil)
 
 		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber-lookbackBlocks+1), uint64(latestHeadNumber)), mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
 		lp.On(
 			"LogsWithSigs",
-			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber,
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -1050,8 +1050,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			blockhashLookback:        lookbackBlocks,
 		}
@@ -1076,13 +1076,13 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	evmClient := evm_mocks.NewClient(t)
 	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
-		lookbackBlocks := int64(0)
+		lookbackBlocks := uint64(0)
 		lp := getLogPoller(t, []uint64{199}, 200, false, false, 0)
 		c := &coordinator{
 			lp:                       lp,
 			lggr:                     logger.TestLogger(t),
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			evmClient:                evmClient,
 		}
@@ -1093,13 +1093,13 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	})
 
 	t.Run("re-org", func(t *testing.T) {
-		lookbackBlocks := int64(0)
+		lookbackBlocks := uint64(0)
 		lp := getLogPoller(t, []uint64{199}, 200, false, false, 0)
 		c := &coordinator{
 			lp:                       lp,
 			lggr:                     logger.TestLogger(t),
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 			evmClient:                evmClient,
 		}
@@ -1415,7 +1415,7 @@ func Test_SetOffchainConfig(t *testing.T) {
 	})
 }
 
-func newCoordinatorConfig(lookbackBlocks int64) *ocr2vrftypes.CoordinatorConfig {
+func newCoordinatorConfig(lookbackBlocks uint64) *ocr2vrftypes.CoordinatorConfig {
 	return &ocr2vrftypes.CoordinatorConfig{
 		CacheEvictionWindowSeconds: 60,
 		BatchGasLimit:              5_000_000,
@@ -1727,26 +1727,26 @@ func newAddress(t *testing.T) common.Address {
 func getLogPoller(
 	t *testing.T,
 	requestedBlocks []uint64,
-	latestHeadNumber int64,
+	latestHeadNumber uint64,
 	needsLatestBlock bool,
 	includeLatestHeadInRange bool,
-	blockhashLookback int64,
+	blockhashLookback uint64,
 ) *lp_mocks.LogPoller {
 	lp := lp_mocks.NewLogPoller(t)
 	if needsLatestBlock {
 		lp.On("LatestBlock", mock.Anything).
-			Return(latestHeadNumber, nil)
+			Return(int64(latestHeadNumber), nil)
 	}
 	var logPollerBlocks []logpoller.LogPollerBlock
 
 	// If provided, ajust the blockhash range such that it starts at the most recent head.
 	if includeLatestHeadInRange {
-		requestedBlocks = append(requestedBlocks, uint64(latestHeadNumber))
+		requestedBlocks = append(requestedBlocks, latestHeadNumber)
 	}
 
 	// If provided, adjust the blockhash range such that it includes all recent available blockhashes.
 	if blockhashLookback != 0 {
-		requestedBlocks = append(requestedBlocks, uint64(latestHeadNumber-blockhashLookback+1))
+		requestedBlocks = append(requestedBlocks, latestHeadNumber-blockhashLookback+1)
 	}
 
 	// Sort the blocks to match the coordinator's calls.
