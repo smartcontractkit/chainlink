@@ -26,6 +26,11 @@ func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, l
 func (c *ChainKeyStore) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, err error, retryable bool) {
 	switch txType {
 	case 0x0: // legacy
+		if fee.Legacy == nil {
+			err = errors.Errorf("Attempt %v is a type 0 transaction but estimator did not return legacy fee bump", attempt.ID)
+			logger.Sugared(lggr).AssumptionViolation(err.Error())
+			return attempt, err, false // not retryable
+		}
 		attempt, err = c.newLegacyAttempt(etx, fee.Legacy, gasLimit)
 		return attempt, err, true
 	case 0x2: // dynamic, EIP1559
