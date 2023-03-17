@@ -3,8 +3,6 @@ type Chain {
     enabled: Boolean!
     config: ChainConfig!
     nodes: [Node!]!
-    createdAt: Time!
-    updatedAt: Time!
 }
 
 union ChainPayload = Chain | NotFoundError
