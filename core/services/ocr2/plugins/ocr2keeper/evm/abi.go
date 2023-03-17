@@ -192,7 +192,7 @@ type KeeperRegistryInterface interface {
 	GetLinkNativeFeedAddress(opts *bind.CallOpts) (common.Address, error)
 	GetMaxPaymentForGas(opts *bind.CallOpts, gasLimit uint32) (*big.Int, error)
 	GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
-	GetMode(opts *bind.CallOpts) (uint8, error)
+	// GetMode(opts *bind.CallOpts) (uint8, error)
 	GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error)
 	GetSignerInfo(opts *bind.CallOpts, query common.Address) (keeper_registry_wrapper2_0.GetSignerInfo, error)
 	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
