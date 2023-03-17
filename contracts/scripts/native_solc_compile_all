@@ -102,3 +102,8 @@ $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsOracle.sol
 $SCRIPTPATH/native_solc8_6_compile tests/FunctionsOracleWithInit.sol
 $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsBillingRegistry.sol
 $SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
+
+# Mercury
+$SCRIPTPATH/native_solc8_6_compile Verifier.sol
+$SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
+$SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
