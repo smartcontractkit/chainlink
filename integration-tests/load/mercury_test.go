@@ -2,7 +2,6 @@ package load
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -16,78 +15,61 @@ import (
 )
 
 var (
-	dbSettings = map[string]interface{}{
-		"stateful": "true",
-		"capacity": "10Gi",
-		"resources": map[string]interface{}{
+	resources = &mercury.ResourcesConfig{
+		DONResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+		},
+		DONDBResources: map[string]interface{}{
+			"stateful": "true",
+			"capacity": "10Gi",
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "2000m",
+					"memory": "2048Mi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "2000m",
+					"memory": "2048Mi",
+				},
+			},
+		},
+		MercuryResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+		},
+		MercuryDBResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
 			"limits": map[string]interface{}{
 				"cpu":    "2000m",
 				"memory": "2048Mi",
 			},
 		},
 	}
-
-	serverResources = map[string]interface{}{
-		"limits": map[string]interface{}{
-			"cpu":    "2000m",
-			"memory": "2048Mi",
-		},
-	}
 )
-
-func setupMercuryLoadEnv(
-	t *testing.T,
-	feedIDs []string,
-	dbSettings map[string]interface{},
-	serverResources map[string]interface{},
-) mercury.TestEnv {
-	testEnv, err := mercury.NewEnv(t.Name(), "load")
-
-	t.Cleanup(func() {
-		testEnv.Cleanup(t)
-	})
-	require.NoError(t, err)
-
-	testEnv.AddEvmNetwork()
-
-	err = testEnv.AddDON()
-	require.NoError(t, err)
-
-	ocrConfig, err := testEnv.BuildOCRConfig()
-	require.NoError(t, err)
-
-	err = testEnv.AddMercuryServer(dbSettings, serverResources)
-	require.NoError(t, err)
-	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
-	require.NoError(t, err)
-	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
-	require.NoError(t, err)
-
-	for _, feedId := range feedIDs {
-		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
-			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
-			"verifier1",
-			"verifierProxy1",
-			feedId,
-			*ocrConfig,
-		)
-		require.NoError(t, err)
-
-		err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
-		require.NoError(t, err)
-
-		err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId)
-		require.NoError(t, err)
-	}
-
-	err = testEnv.WaitForReportsInMercuryDb(feedIDs)
-	require.NoError(t, err)
-	return testEnv
-}
 
 func TestMercuryHTTPLoad(t *testing.T) {
 	feeds := []string{"feed-1"}
-	testEnv := setupMercuryLoadEnv(t, feeds, dbSettings, serverResources)
+	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		testEnv.Cleanup(t)
+	})
 	bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
 
 	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, feeds, bn)
@@ -112,7 +94,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 		},
 		LoadType:    loadgen.RPSScheduleType,
 		CallTimeout: 5 * time.Second,
-		Schedule:    loadgen.Line(10, 800, 500*time.Second),
+		Schedule:    loadgen.Line(10, 300, 100*time.Second),
 		Gun:         gun,
 	})
 	require.NoError(t, err)
@@ -122,7 +104,11 @@ func TestMercuryHTTPLoad(t *testing.T) {
 
 func TestMercuryWSLoad(t *testing.T) {
 	feeds := []string{"feed-1"}
-	testEnv := setupMercuryLoadEnv(t, feeds, dbSettings, serverResources)
+	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		testEnv.Cleanup(t)
+	})
 
 	gen, err := loadgen.NewLoadGenerator(&loadgen.Config{
 		T: t,

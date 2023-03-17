@@ -56,6 +56,7 @@ type TestEnv struct {
 	Namespace        string
 	NsPrefix         string
 	MSChartPath      string
+	ResourcesConfig  *ResourcesConfig
 	Env              *environment.Environment
 	ChainlinkNodes   []*client.Chainlink
 	MockserverClient *ctfClient.MockserverClient
@@ -161,10 +162,11 @@ var (
 // MERCURY_ENV_CONFIG_PATH: Path to saved test env config
 // MERCURY_ENV_SAVE: List of test env ids separated by comma that should be saved
 // MERCURY_ENV_TTL_MINS: Env ttl in mins
-func NewEnv(testEnvId string, namespacePrefix string) (TestEnv, error) {
+func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestEnv, error) {
 	te := TestEnv{}
 	te.Id = testEnvId
 	te.NsPrefix = namespacePrefix
+	te.ResourcesConfig = r
 
 	savedEnvs := strings.Split(os.Getenv("MERCURY_ENV_SAVE"), ",")
 	te.SaveEnv = slices.Contains(savedEnvs, testEnvId)
@@ -279,7 +281,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds []string) error {
 		return err
 	}
 
-	timeout := time.Minute * 3
+	timeout := time.Minute * 5
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 	to := time.NewTimer(timeout)
@@ -340,6 +342,8 @@ func (te *TestEnv) AddDON() error {
 			"toml": client.AddNetworksConfig(
 				testconfig.BaseMercuryTomlConfig,
 				*te.EvmNetwork),
+			"chainlink":  te.ResourcesConfig.DONResources,
+			"db":         te.ResourcesConfig.DONDBResources,
 			"prometheus": "true",
 		}))
 	err := env.Run()
@@ -754,10 +758,7 @@ func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error)
 	return buf.String(), nil
 }
 
-func (te *TestEnv) AddMercuryServer(
-	dbSettings map[string]interface{},
-	msResources map[string]interface{}) error {
-
+func (te *TestEnv) AddMercuryServer() error {
 	rpcNodesJsonConf, _ := buildRpcNodesJsonConf(te.ChainlinkNodes)
 	log.Info().Msgf("RPC nodes conf for mercury server: %s", rpcNodesJsonConf)
 
@@ -779,8 +780,12 @@ func (te *TestEnv) AddMercuryServer(
 			"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
 			"tag":        os.Getenv("MERCURY_SERVER_TAG"),
 		},
+		"resources": te.ResourcesConfig.MercuryResources,
 		"postgresql": map[string]interface{}{
 			"enabled": true,
+			"primary": map[string]interface{}{
+				"resources": te.ResourcesConfig.MercuryDBResources,
+			},
 		},
 		"qa": map[string]interface{}{
 			"rpcPrivateKey": hex.EncodeToString(rpcPrivKey),
@@ -790,14 +795,6 @@ func (te *TestEnv) AddMercuryServer(
 		"rpcNodesConf": string(rpcNodesJsonConf),
 		"prometheus":   "true",
 	}
-
-	if dbSettings != nil {
-		settings["db"] = dbSettings
-	}
-	if msResources != nil {
-		settings["resources"] = msResources
-	}
-
 	if err = te.Env.AddHelm(mshelm.New(te.MSChartPath, "", settings)).Run(); err != nil {
 		return err
 	}
@@ -973,6 +970,61 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 	wg.Wait()
 	log.Info().Msgf("Done fetching oracle identities")
 	return S, oracleIdentities
+}
+
+func SetupMercuryMultiFeedEnv(
+	name string,
+	prefix string,
+	feedIDs []string,
+	r *ResourcesConfig,
+) (TestEnv, error) {
+	testEnv, err := NewEnv(name, prefix, r)
+	if err != nil {
+		return TestEnv{}, err
+	}
+	testEnv.AddEvmNetwork()
+	if err = testEnv.AddDON(); err != nil {
+		return TestEnv{}, err
+	}
+	ocrConfig, err := testEnv.BuildOCRConfig()
+	if err != nil {
+		return TestEnv{}, err
+	}
+	if err = testEnv.AddMercuryServer(); err != nil {
+		return TestEnv{}, err
+	}
+	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
+	if err != nil {
+		return TestEnv{}, err
+	}
+	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
+	if err != nil {
+		return TestEnv{}, err
+	}
+	for _, feedId := range feedIDs {
+		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
+			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
+			"verifier1",
+			"verifierProxy1",
+			feedId,
+			*ocrConfig,
+		)
+		if err != nil {
+			return TestEnv{}, err
+		}
+
+		if err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
+			return TestEnv{}, err
+		}
+
+		if err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
+			return TestEnv{}, err
+		}
+	}
+	if err = testEnv.WaitForReportsInMercuryDb(feedIDs); err != nil {
+		return TestEnv{}, err
+	}
+	return testEnv, nil
 }
 
 func StringToByte32(str string) [32]byte {

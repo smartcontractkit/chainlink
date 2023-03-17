@@ -13,4 +13,5 @@ const (
 	PodChaosFailMajorityDB          = "pod-chaos-fail-majority-db"
 	NetworkChaosFailMajorityNetwork = "network-chaos-fail-majority-network"
 	NetworkChaosFailBlockchainNode  = "network-chaos-fail-blockchain-node"
+	PodChaosFailMercury             = "pod-chaos-fail-mercury-server"
 )
