@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -24,9 +25,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	txmmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -424,7 +425,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	checker := htmocks.NewHeadTrackable(t)
+	checker := txmmocks.NewHeadTrackable[*evmtypes.Head](t)
 	orm := headtracker.NewORM(db, logger, config, *config.DefaultChainID())
 	ht := createHeadTrackerWithChecker(t, ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
@@ -555,7 +556,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	checker := htmocks.NewHeadTrackable(t)
+	checker := txmmocks.NewHeadTrackable[*evmtypes.Head](t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg, orm, checker)
