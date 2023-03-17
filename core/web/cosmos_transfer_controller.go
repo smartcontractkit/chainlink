@@ -18,6 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+// ErrCosmosNotEnabled is returned when COSMOS_ENABLED is not true.
+var errCosmosNotEnabled = errChainDisabled{name: "Cosmos"}
+
 // maxGasUsedTransfer is an upper bound on how much gas we expect a MsgSend for a single coin to use.
 const maxGasUsedTransfer = 100_000
 
@@ -30,7 +33,7 @@ type CosmosTransfersController struct {
 func (tc *CosmosTransfersController) Create(c *gin.Context) {
 	cosmosChains := tc.App.GetChains().Cosmos
 	if cosmosChains == nil {
-		jsonAPIError(c, http.StatusBadRequest, ErrCosmosNotEnabled)
+		jsonAPIError(c, http.StatusBadRequest, errCosmosNotEnabled)
 		return
 	}
 
