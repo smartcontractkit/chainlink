@@ -111,7 +111,7 @@ func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, common.Hash]) EvmPrio
 //
 //go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
-	OnNewLongestChain(context.Context, *evmtypes.Head)
+	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	Start(context.Context) error
 	Close() error
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
@@ -145,7 +145,6 @@ type WrappedEvmEstimator struct {
 	EIP1559Enabled bool
 }
 
-// var _ FeeEstimator = (*WrappedEvmEstimator)(nil)
 var _ txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] = (*WrappedEvmEstimator)(nil)
 
 func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
