@@ -33,14 +33,9 @@ type OffchainLookup struct {
 	callbackFunction [4]byte
 }
 
-type OffchainLookupBody struct {
-	sender string
-	data   string
-}
-
 // offchainLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
-	for i, _ := range upkeepResults {
+	for i := range upkeepResults {
 		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
@@ -74,7 +69,7 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 			continue
 		}
 		// need upkeep info for offchainConfig and to hit callback
-		upkeepInfo, err := r.getUpkeepInfo(upkeepId, err, opts)
+		upkeepInfo, err := r.getUpkeepInfo(upkeepId, opts)
 		if err != nil {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_OFFCHAIN_LOOKUP_ERROR
 			r.lggr.Error("[OffchainLookup] GetUpkeep:", err)
@@ -120,8 +115,9 @@ func (r *EvmRegistry) offchainLookup(ctx context.Context, upkeepResults []types.
 	return upkeepResults, nil
 }
 
-func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, err error, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
+func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
 	zero := common.Address{}
+	var err error
 	var upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo
 	u, found := r.upkeepCache.Get(upkeepId.String())
 	if found {
@@ -164,15 +160,15 @@ func (r *EvmRegistry) offchainLookupCallback(ctx context.Context, offchainLookup
 	// call to the contract function specified by the 4-byte selector callbackFunction
 	typBytes, err := abi.NewType("bytes", "", nil)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "abi new bytes type error:")
+		return false, nil, errors.Wrapf(err, "abi new bytes type error")
 	}
 	typStrings, err := abi.NewType("string[]", "", nil)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "abi new strings type error:")
+		return false, nil, errors.Wrapf(err, "abi new strings type error")
 	}
 	typUint, err := abi.NewType("uint256", "", nil)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "abi new uint256 type error:")
+		return false, nil, errors.Wrapf(err, "abi new uint256 type error")
 	}
 	callbackArgs := abi.Arguments{
 		{Name: "extraData", Type: typBytes},
@@ -181,7 +177,7 @@ func (r *EvmRegistry) offchainLookupCallback(ctx context.Context, offchainLookup
 	}
 	pack, err := callbackArgs.Pack(offchainLookup.extraData, values, big.NewInt(int64(statusCode)))
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "callback args pack error:")
+		return false, nil, errors.Wrapf(err, "callback args pack error")
 	}
 
 	var callbackPayload []byte
@@ -198,17 +194,20 @@ func (r *EvmRegistry) offchainLookupCallback(ctx context.Context, offchainLookup
 
 	callbackResp, err := r.client.CallContract(ctx, callbackMsg, opts.BlockNumber)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "call contract callback error:")
+		return false, nil, errors.Wrapf(err, "call contract callback error")
 	}
 
 	boolTyp, err := abi.NewType("bool", "", nil)
+	if err != nil {
+		return false, nil, errors.Wrapf(err, "abi new bool type error")
+	}
 	callbackOutput := abi.Arguments{
 		{Name: "upkeepNeeded", Type: boolTyp},
 		{Name: "performData", Type: typBytes},
 	}
 	unpack, err := callbackOutput.Unpack(callbackResp)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "callback ouput unpack error:")
+		return false, nil, errors.Wrapf(err, "callback output unpack error")
 	}
 
 	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
@@ -228,12 +227,12 @@ func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int, offchainCon
 
 	apiKeys, err := getAPIKeys(upkeepId, offchainConfig)
 	if err != nil {
-		r.lggr.Debug("[OffchainLookup] offchain api keys error:", err)
+		r.lggr.Debug("[OffchainLookup] offchain api keys error", err)
 	}
 
 	req, err = http.NewRequest("GET", o.url, nil)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "get request error:")
+		return nil, 0, errors.Wrapf(err, "get request error")
 	}
 
 	for _, key := range apiKeys.Keys {
@@ -262,13 +261,13 @@ func (r *EvmRegistry) doRequest(o OffchainLookup, upkeepId *big.Int, offchainCon
 	resp, err := client.Do(req)
 	if err != nil {
 		r.setCachesOnAPIErr(upkeepId)
-		return nil, 0, errors.Wrapf(err, "do request error:")
+		return nil, 0, errors.Wrapf(err, "do request error")
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		r.setCachesOnAPIErr(upkeepId)
-		return nil, 0, errors.Wrapf(err, "read body error:")
+		return nil, 0, errors.Wrapf(err, "read body error")
 	}
 
 	// if http response code is 4xx/5xx then put in cool down
@@ -306,7 +305,7 @@ func (o *OffchainLookup) parseJson(body []byte) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	results := make([]string, len(o.fields), len(o.fields))
+	results := make([]string, len(o.fields))
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	for i, field := range o.fields {

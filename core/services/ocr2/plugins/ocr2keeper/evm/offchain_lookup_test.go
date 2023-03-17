@@ -450,7 +450,7 @@ func TestEvmRegistry_offchainLookupCallback(t *testing.T) {
 			},
 			callbackResp: []byte{},
 
-			wantErr: errors.New("callback ouput unpack error:: abi: attempting to unmarshall an empty string while arguments are expected"),
+			wantErr: errors.New("callback output unpack error:: abi: attempting to unmarshall an empty string while arguments are expected"),
 		},
 	}
 	for _, tt := range tests {
