@@ -22,14 +22,14 @@ var (
 	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
 )
 
-// DBChainSet is a generic interface for DBChain[I, C] configuration.
-type DBChainSet[I ID, C Config] interface {
-	Show(id I) (DBChain[I, C], error)
-	Index(offset, limit int) ([]DBChain[I, C], int, error)
+// ChainsConfig is a generic interface for ChainConfig[I, C] configuration.
+type ChainsConfig[I ID, C Config] interface {
+	Show(id I) (ChainConfig[I, C], error)
+	Index(offset, limit int) ([]ChainConfig[I, C], int, error)
 }
 
-// DBNodeSet is a generic interface for Node configuration.
-type DBNodeSet[I ID, N Node] interface {
+// NodesConfig is a generic interface for Node configuration.
+type NodesConfig[I ID, N Node] interface {
 	GetNodes(ctx context.Context, offset, limit int) (nodes []N, count int, err error)
 	GetNodesForChain(ctx context.Context, chainID I, offset, limit int) (nodes []N, count int, err error)
 }
@@ -45,9 +45,9 @@ type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
 	// https://smartcontract-it.atlassian.net/browse/BCF-2140
 	Healthy() error
 
-	DBChainSet[I, C]
+	ChainsConfig[I, C]
 
-	DBNodeSet[I, N]
+	NodesConfig[I, N]
 
 	// Chain returns the ChainService for this ID (if a configuration is available), creating one if necessary.
 	Chain(context.Context, I) (S, error)
@@ -113,11 +113,11 @@ func (c *chainSet[I, C, N, S]) Chain(ctx context.Context, id I) (s S, err error)
 	return ch, nil
 }
 
-func (c *chainSet[I, C, N, S]) Show(id I) (DBChain[I, C], error) {
+func (c *chainSet[I, C, N, S]) Show(id I) (ChainConfig[I, C], error) {
 	return c.orm.Chain(id)
 }
 
-func (c *chainSet[I, C, N, S]) Index(offset, limit int) ([]DBChain[I, C], int, error) {
+func (c *chainSet[I, C, N, S]) Index(offset, limit int) ([]ChainConfig[I, C], int, error) {
 	return c.orm.Chains(offset, limit)
 }
 
