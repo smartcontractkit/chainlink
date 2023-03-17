@@ -49,12 +49,12 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
-func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starkchain.Chain, error) {
-	if !dbchain.Enabled {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
+func (o *ChainSetOpts) NewChain(cc types.ChainConfig) (starkchain.Chain, error) {
+	if !cc.Enabled {
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", cc.ID)
 	}
-	cfg := config.NewConfig(*dbchain.Cfg, o.Logger)
-	return newChain(dbchain.ID, cfg, o.KeyStore, o.ORM, o.Logger)
+	cfg := config.NewConfig(*cc.Cfg, o.Logger)
+	return newChain(cc.ID, cfg, o.KeyStore, o.ORM, o.Logger)
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, error) {
@@ -71,8 +71,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 
 type ChainSet interface {
 	starkchain.ChainSet
-	chains.DBChainSet[string, *db.ChainCfg]
-	chains.DBNodeSet[string, db.Node]
+	chains.ChainsConfig[string, *db.ChainCfg]
+	chains.NodesConfig[string, db.Node]
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {
