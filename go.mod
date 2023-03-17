@@ -87,7 +87,7 @@ require (
 	golang.org/x/text v0.8.0
 	golang.org/x/tools v0.7.0
 	gonum.org/v1/gonum v0.12.0
-	google.golang.org/protobuf v1.29.0
+	google.golang.org/protobuf v1.29.1
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
