@@ -56,7 +56,7 @@ func setupMercuryLoadEnv(
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	require.NoError(t, err)
 
-	err = testEnv.AddMercuryServer(dbSettings, serverResources)
+	err = testEnv.AddMercuryServer(dbSettings, serverResources, nil)
 	require.NoError(t, err)
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
 	require.NoError(t, err)

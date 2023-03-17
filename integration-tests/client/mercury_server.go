@@ -103,7 +103,7 @@ func (s *MercuryServer) AddUser(newUserSecret string, newUserRole string, newUse
 }
 
 // Need admin role
-func (s *MercuryServer) GetUsers() (*[]User, *http.Response, error) {
+func (s *MercuryServer) GetUsers() ([]User, *http.Response, error) {
 	var result []User
 	path := "/admin/user"
 	timestamp := genReqTimestamp()
@@ -118,7 +118,7 @@ func (s *MercuryServer) GetUsers() (*[]User, *http.Response, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &result, resp.RawResponse, err
+	return result, resp.RawResponse, err
 }
 
 func (s *MercuryServer) GetReports(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
