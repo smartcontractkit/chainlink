@@ -21,10 +21,10 @@ type ChainsController interface {
 
 type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struct {
 	resourceName  string
-	chainSet      chains.DBChainSet[I, C]
+	chainSet      chains.ChainsConfig[I, C]
 	errNotEnabled error
 	parseChainID  func(string) (I, error)
-	newResource   func(chains.DBChain[I, C]) R
+	newResource   func(chains.ChainConfig[I, C]) R
 	lggr          logger.Logger
 	auditLogger   audit.AuditLogger
 }
@@ -38,8 +38,8 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.envVar)
 }
 
-func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.DBChainSet[I, C], errNotEnabled error,
-	parseChainID func(string) (I, error), newResource func(chains.DBChain[I, C]) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[I, C, R] {
+func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.ChainsConfig[I, C], errNotEnabled error,
+	parseChainID func(string) (I, error), newResource func(chains.ChainConfig[I, C]) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[I, C, R] {
 	return &chainsController[I, C, R]{
 		resourceName:  prefix + "_chain",
 		chainSet:      chainSet,

@@ -26,7 +26,6 @@ func TestResolver_Nodes(t *testing.T) {
 					results {
 						id
 						name
-						createdAt
 						chain {
 							id
 						}
@@ -51,11 +50,10 @@ func TestResolver_Nodes(t *testing.T) {
 						ID:         nodeID,
 						Name:       "node-name",
 						EVMChainID: chainID,
-						CreatedAt:  f.Timestamp(),
 					},
 				}, 1, nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
+				f.Mocks.evmORM.PutChains(types.ChainConfig{ID: chainID})
 			},
 			query: query,
 			result: `
@@ -64,7 +62,6 @@ func TestResolver_Nodes(t *testing.T) {
 					"results": [{
 						"id": "node-name",
 						"name": "node-name",
-						"createdAt": "2021-01-01T00:00:00Z",
 						"chain": {
 							"id": "1"
 						}

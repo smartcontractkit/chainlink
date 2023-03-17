@@ -219,7 +219,7 @@ type mockORM struct {
 	nodesForChain []db.Node
 }
 
-func (m *mockORM) GetChainsByIDs(ids []string) (chains []DBChain, err error) {
+func (m *mockORM) GetChainsByIDs(ids []string) (chains []ChainConfig, err error) {
 	panic("implement me")
 }
 
@@ -231,9 +231,9 @@ func (m *mockORM) NodesForChain(chainID string, offset, limit int, qopts ...pg.Q
 	return m.nodesForChain, len(m.nodesForChain), nil
 }
 
-func (m *mockORM) Chain(s string, opt ...pg.QOpt) (DBChain, error) { panic("unimplemented") }
+func (m *mockORM) Chain(s string, opt ...pg.QOpt) (ChainConfig, error) { panic("unimplemented") }
 
-func (m *mockORM) Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error) {
+func (m *mockORM) Chains(offset, limit int, qopts ...pg.QOpt) ([]ChainConfig, int, error) {
 	panic("unimplemented")
 }
 
