@@ -281,7 +281,7 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 		return txmtypes.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
 	}
 	if sendError.IsTxFeeExceedsCap() {
-		client.logger.Criticalw(fmt.Sprintf("Sending transaction failed(treating this error as of type Unknown); %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+		client.logger.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"etx", tx,
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
