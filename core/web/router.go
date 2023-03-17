@@ -376,6 +376,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
+			{"cosmos", NewCosmosChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
@@ -389,6 +390,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
+			{"cosmos", NewCosmosNodesController(app)},
 		} {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
