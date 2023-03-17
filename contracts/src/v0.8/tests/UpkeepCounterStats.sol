@@ -5,8 +5,12 @@ import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/Enumerabl
 import "../automation/2_0/KeeperRegistrar2_0.sol";
 import "../automation/2_0/KeeperRegistry2_0.sol";
 
-// this contract must have lots of LINKs bc it will check for every active upkeeps and top up 20 LINKs if their balance is lower than 5 LINK
-// if it does not have enough LINKs, upkeeps won't perform due to low LINK balance.
+/**
+ * @notice this contract must have plenty LINKs bc it will check for every active upkeeps and top up
+ * addFundsMinBalanceMultiplier * min balance if their balance is lower than minBalanceThresholdMultiplier * min.
+ * if it does not have enough LINKs, upkeeps won't perform due to low LINK balance of this contract.
+ * this contract also must have plenty native tokens if we want to use the topUpTransmitters function.
+ */
 contract UpkeepCounterStats {
   error IndexOutOfRange();
 
@@ -18,8 +22,6 @@ contract UpkeepCounterStats {
   event UpkeepTopUp(uint256 upkeepId, uint256 amount, uint256 blockNum);
   event InsufficientFunds(uint256 balance, uint256 blockNum);
   event Received(address sender, uint256 value);
-
-  using EnumerableSet for EnumerableSet.UintSet;
   event PerformingUpkeep(
     uint256 initialBlock,
     uint256 lastBlock,
@@ -27,6 +29,8 @@ contract UpkeepCounterStats {
     uint256 counter,
     bytes performData
   );
+
+  using EnumerableSet for EnumerableSet.UintSet;
 
   mapping(uint256 => uint256) public upkeepIdsToLastTopUpBlock;
   mapping(uint256 => uint256) public upkeepIdsToIntervals;
@@ -39,11 +43,18 @@ contract UpkeepCounterStats {
   mapping(uint256 => uint256) public upkeepIdsToGasLimit;
   mapping(uint256 => bytes) public upkeepIdsToCheckData;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
-  mapping(uint256 => uint256[]) private upkeepIdsToDelay;
+  mapping(uint256 => uint256[]) public upkeepIdsToDelay;
   EnumerableSet.UintSet internal s_upkeepIDs;
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
   KeeperRegistry2_0 public registry;
+  uint256 public lastTransmittersTopUpBlock;
+  uint256 public upkeepTopUpCheckInterval = 2000;
+  uint256 public transmitterTopUpCheckInterval = 2000;
+  uint96 public transmitterMinBalance = 5000000000000000000;
+  uint96 public transmitterAddBalance = 20000000000000000000;
+  uint8 public minBalanceThresholdMultiplier = 50;
+  uint8 public addFundsMinBalanceMultiplier = 100;
 
   constructor(address registrarAddress) {
     registrar = KeeperRegistrar2_0(registrarAddress);
@@ -63,22 +74,6 @@ contract UpkeepCounterStats {
     linkToken = registrar.LINK();
 
     emit RegistrarSet(address(registrar));
-  }
-
-  function getInterval(uint256 upkeepId) external view returns (uint256) {
-    return upkeepIdsToIntervals[upkeepId];
-  }
-
-  function getPreviousPerformBlock(uint256 upkeepId) external view returns (uint256) {
-    return upkeepIdsToPreviousPerformBlock[upkeepId];
-  }
-
-  function getCounter(uint256 upkeepId) external view returns (uint256) {
-    return upkeepIdsToCounter[upkeepId];
-  }
-
-  function getGasLimit(uint256 upkeepId) external view returns (uint256) {
-    return upkeepIdsToGasLimit[upkeepId];
   }
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
@@ -195,13 +190,13 @@ contract UpkeepCounterStats {
     upkeepIdsToPreviousPerformBlock[upkeepId] = blockNum;
 
     // every upkeep adds funds for themselves
-    if (blockNum - upkeepIdsToLastTopUpBlock[upkeepId] > 2000) {
+    if (blockNum - upkeepIdsToLastTopUpBlock[upkeepId] > upkeepTopUpCheckInterval) {
       UpkeepInfo memory info = registry.getUpkeep(upkeepId);
       uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
-      if (info.balance / 20 < minBalance) {
-        this.addFunds(upkeepId, 20 * minBalance);
+      if (info.balance < minBalanceThresholdMultiplier * minBalance) {
+        this.addFunds(upkeepId, addFundsMinBalanceMultiplier * minBalance);
         upkeepIdsToLastTopUpBlock[upkeepId] = blockNum;
-        emit UpkeepTopUp(upkeepId, 20 * minBalance, blockNum);
+        emit UpkeepTopUp(upkeepId, addFundsMinBalanceMultiplier * minBalance, blockNum);
       }
     }
 
@@ -217,6 +212,24 @@ contract UpkeepCounterStats {
       return true;
     }
     return (block.number - upkeepIdsToPreviousPerformBlock[upkeepId]) >= upkeepIdsToIntervals[upkeepId];
+  }
+
+  function setUpkeepTopUpCheckInterval(uint256 newInterval) external {
+    upkeepTopUpCheckInterval = newInterval;
+  }
+
+  function setTransmitterTopUpCheckInterval(uint256 newInterval) external {
+    transmitterTopUpCheckInterval = newInterval;
+  }
+
+  function setMinBalanceMultipliers(uint8 newMinBalanceThresholdMultiplier, uint8 newAddFundsMinBalanceMultiplier) external {
+    minBalanceThresholdMultiplier = newMinBalanceThresholdMultiplier;
+    addFundsMinBalanceMultiplier = newAddFundsMinBalanceMultiplier;
+  }
+
+  function setTransmitterBalanceLimit(uint96 newTransmitterMinBalance, uint96 newTransmitterAddBalance) external {
+    transmitterMinBalance = newTransmitterMinBalance;
+    transmitterAddBalance = newTransmitterAddBalance;
   }
 
   function setPerformGasToBurn(uint256 upkeepId, uint256 value) public {
@@ -236,12 +249,28 @@ contract UpkeepCounterStats {
     upkeepIdsToGasLimit[upkeepId] = gasLimit;
   }
 
-  function setSpread(uint256 upkeepId, uint256 _interval) external {
+  function setInterval(uint256 upkeepId, uint256 _interval) external {
     upkeepIdsToIntervals[upkeepId] = _interval;
     upkeepIdsToInitialBlock[upkeepId] = 0;
     upkeepIdsToCounter[upkeepId] = 0;
 
     delete upkeepIdsToDelay[upkeepId];
+  }
+
+  function batchSetIntervals(uint32 interval) external {
+    uint256 len = s_upkeepIDs.length();
+    for (uint256 i = 0; i < len; i++) {
+      uint256 upkeepId = s_upkeepIDs.at(i);
+      this.setInterval(upkeepId, interval);
+    }
+  }
+
+  function batchUpdateCheckData() external {
+    uint256 len = s_upkeepIDs.length();
+    for (uint256 i = 0; i < len; i++) {
+      uint256 upkeepId = s_upkeepIDs.at(i);
+      this.updateCheckData(upkeepId, abi.encode(upkeepId));
+    }
   }
 
   function getDelaysLength(uint256 upkeepId) public view returns (uint256) {
@@ -318,25 +347,18 @@ contract UpkeepCounterStats {
     if (i < right) quickSort(arr, i, right);
   }
 
-  function batchUpdateCheckData() external {
-    uint256 len = s_upkeepIDs.length();
-    for (uint256 i = 0; i < len; i++) {
-      uint256 upkeepId = s_upkeepIDs.at(i);
-      this.updateCheckData(upkeepId, abi.encode(upkeepId));
-    }
-  }
-
   function topUpTransmitters() external {
     (,,, address[] memory transmitters, ) = registry.getState();
     uint256 len = transmitters.length;
     uint256 blockNum = block.number;
     for (uint256 i = 0; i < len; i++) {
-      if (transmitters[i].balance < 5000000000000000000) { // less than 20 native tokens
-        if (address(this).balance < 20000000000000000000) {
+      if (transmitters[i].balance < transmitterMinBalance) {
+        if (address(this).balance < transmitterAddBalance) {
           emit InsufficientFunds(address(this).balance, blockNum);
         } else {
-          transmitters[i].call{value: 20000000000000000000}(""); // send 20 native tokens
-          emit TransmitterTopUp(transmitters[i], 20000000000000000000, blockNum);
+          lastTransmittersTopUpBlock = blockNum;
+          transmitters[i].call{value: transmitterAddBalance}("");
+          emit TransmitterTopUp(transmitters[i], transmitterAddBalance, blockNum);
         }
       }
     }
