@@ -723,7 +723,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewFee(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32, txType int) (err error, retyrable bool) {
-	replacementAttempt, err, retryable := eb.NewAttemptWithType(etx, newFee, newFeeLimit, txType, lgr)
+	replacementAttempt, retryable, err := eb.NewAttemptWithType(etx, newFee, newFeeLimit, txType, lgr)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewFee failed"), retryable
 	}

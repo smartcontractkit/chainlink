@@ -15,7 +15,7 @@ import (
 
 type AttemptBuilder interface {
 	NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error)
-	NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, err error, retryable bool)
+	NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error)
 }
 
 func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error) {
@@ -23,34 +23,34 @@ func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, l
 	if c.config.EvmEIP1559DynamicFees() {
 		txType = 0x2
 	}
-	attempt, err, _ = c.NewAttemptWithType(etx, fee, gasLimit, txType, lggr)
+	attempt, _, err = c.NewAttemptWithType(etx, fee, gasLimit, txType, lggr)
 
 	return attempt, err
 }
 
-func (c *ChainKeyStore) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, err error, retryable bool) {
+func (c *ChainKeyStore) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error) {
 	switch txType {
 	case 0x0: // legacy
 		if fee.Legacy == nil {
 			err = errors.Errorf("Attempt %v is a type 0 transaction but estimator did not return legacy fee bump", attempt.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
-			return attempt, err, false // not retryable
+			return attempt, false, err // not retryable
 		}
 		attempt, err = c.newLegacyAttempt(etx, fee.Legacy, gasLimit)
-		return attempt, err, true
+		return attempt, true, err
 	case 0x2: // dynamic, EIP1559
 		if fee.Dynamic == nil {
 			err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", attempt.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
-			return attempt, err, false // not retryable
+			return attempt, false, err // not retryable
 		}
 		attempt, err = c.newDynamicFeeAttempt(etx, *fee.Dynamic, gasLimit)
-		return attempt, err, true
+		return attempt, true, err
 	default:
 		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", attempt.ID, attempt.TxType)
 		logger.Sugared(lggr).AssumptionViolation(err.Error())
-		return attempt, err, false // not retryable
+		return attempt, false, err // not retryable
 	}
 }
 

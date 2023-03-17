@@ -783,7 +783,7 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 
 		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String())...)
-		bumpedAttempt, err, _ = ec.NewAttemptWithType(etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, ec.lggr)
+		bumpedAttempt, _, err = ec.NewAttemptWithType(etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, ec.lggr)
 
 		// if no error, return attempt
 		// if err, continue below
@@ -1077,7 +1077,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err, _ := ec.NewAttemptWithType(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
+			attempt, _, err := ec.NewAttemptWithType(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
