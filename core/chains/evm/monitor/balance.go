@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -41,7 +40,7 @@ type (
 		ethClient      evmclient.Client
 		chainID        *big.Int
 		chainIDStr     string
-		ethKeyStore    txmgr.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
+		ethKeyStore    txmgr.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64]
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -51,7 +50,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore txmgr.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore txmgr.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64], logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
@@ -172,7 +171,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.EnabledKeysForChain(w.bm.chainID)
+	keys, err := w.bm.ethKeyStore.GetStatesForChain(w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
@@ -181,7 +180,7 @@ func (w *worker) WorkCtx(ctx context.Context) {
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k ethkey.KeyV2) {
+		go func(k ethkey.State) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
 		}(key)
@@ -192,11 +191,11 @@ func (w *worker) WorkCtx(ctx context.Context) {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
+func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.State) {
 	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
-	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address, nil)
+	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address.Address(), nil)
 	if err != nil {
 		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
 			"error", err,
@@ -209,7 +208,7 @@ func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		w.bm.updateBalance(ethBal, k.Address)
+		w.bm.updateBalance(ethBal, k.Address.Address())
 	}
 }
 

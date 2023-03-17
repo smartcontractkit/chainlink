@@ -53,7 +53,7 @@ type Config interface {
 // KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore[ADDR any, ID any, TX any, META any] interface {
 	CheckEnabled(address ADDR, chainID ID) error
-	EnabledKeysForChain(chainID ID) (keys []ethkey.KeyV2, err error) //TODO:remove it and follow GetStatesForChain
+	//EnabledKeysForChain(chainID ID) (keys []ethkey.KeyV2, err error) //TODO:remove it and follow GetStatesForChain
 	GetNextMetadata(address ADDR, chainID ID, qopts ...pg.QOpt) (META, error)
 	GetStatesForChain(chainID ID) ([]ethkey.State, error)
 	IncrementNextMetadata(address ADDR, chainID ID, currentNonce META, qopts ...pg.QOpt) error

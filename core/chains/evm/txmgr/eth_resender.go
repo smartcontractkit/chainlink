@@ -98,7 +98,7 @@ func (er *EthResender) runLoop() {
 }
 
 func (er *EthResender) resendUnconfirmed() error {
-	keys, err := er.ks.EnabledKeysForChain(&er.chainID)
+	keys, err := er.ks.GetStatesForChain(&er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}
@@ -108,7 +108,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	var allAttempts []EthTxAttempt
 	for _, k := range keys {
 		var attempts []EthTxAttempt
-		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
+		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address.Address())
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
