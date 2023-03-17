@@ -87,7 +87,6 @@ func (c *ChainCfg) Value() (driver.Value, error) {
 
 type ChainConfig = chains.ChainConfig[utils.Big, *ChainCfg]
 
-// TODO: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type Node struct {
 	ID         int32
 	Name       string
