@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
@@ -930,6 +931,10 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
+	var feedID string
+	if o.OCR2OracleSpec.FeedID != (common.Hash{}) {
+		feedID = o.OCR2OracleSpec.FeedID.Hex()
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
@@ -954,7 +959,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		JobType:               o.JobType,
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
-		FeedID:                o.OCR2OracleSpec.FeedID.Hex(),
+		FeedID:                feedID,
 		Relay:                 string(o.OCR2OracleSpec.Relay),
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
 		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
