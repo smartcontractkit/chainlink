@@ -10,11 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-type DBChain = chains.DBChain[string, *soldb.ChainCfg]
+type ChainConfig = chains.ChainConfig[string, *soldb.ChainCfg]
 
 // ORM manages solana chains and nodes.
 type ORM interface {
-	chains.ChainsORM[string, *soldb.ChainCfg, DBChain]
+	chains.ChainsORM[string, *soldb.ChainCfg, ChainConfig]
 	chains.NodesORM[string, soldb.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
@@ -29,6 +29,6 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	return chains.NewORM[string, *soldb.ChainCfg, soldb.Node](q, "solana", "solana_url")
 }
 
-func NewORMImmut(cfgs chains.ChainConfig[string, *soldb.ChainCfg, soldb.Node]) ORM {
+func NewORMImmut(cfgs chains.Configs[string, *soldb.ChainCfg, soldb.Node]) ORM {
 	return chains.NewORMImmut(cfgs)
 }
