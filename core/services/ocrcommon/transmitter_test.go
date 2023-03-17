@@ -37,7 +37,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewTxManager(t)
-	strategy := txmmocks.NewTxStrategy(t)
+	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
 		txm,
