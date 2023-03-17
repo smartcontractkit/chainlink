@@ -109,6 +109,7 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 }
 
 // Notify noop method
+// TODO: implement this, see: https://smartcontract-it.atlassian.net/browse/MERC-302
 func (lp *ConfigPoller) Notify() <-chan struct{} {
 	return nil
 }
