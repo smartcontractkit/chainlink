@@ -338,7 +338,3 @@ func (c *SolanaConfig) ComputeUnitPriceDefault() uint64 {
 func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
 }
-
-func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
-}
