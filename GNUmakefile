@@ -69,6 +69,11 @@ go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their 
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
 
+.PHONY: go-solidity-wrappers-transmission
+go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_transmission
+	go generate ./core/gethwrappers/transmission
+
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf

@@ -1,0 +1,6 @@
+GETH_VERSION: 1.10.26
+entry_point: ../../../contracts/solc/v0.8.15/EntryPoint.abi ../../../contracts/solc/v0.8.15/EntryPoint.bin 2cb4bb2ba3efa8df3dfb0a57eb3727d17b68fe202682024fa7cfb4faf026833e
+greeter: ../../../contracts/solc/v0.8.15/Greeter.abi ../../../contracts/solc/v0.8.15/Greeter.bin 653dcba5c33a46292073939ce1e639372cf521c0ec2814d4c9f20c72f796f18c
+sca: ../../../contracts/solc/v0.8.15/SCA.abi ../../../contracts/solc/v0.8.15/SCA.bin 49636b5b896773dd12b354d86eb27c14b98188068e87bc93bb6b798f161e17fc
+smart_contract_account_factory: ../../../contracts/solc/v0.8.15/SmartContractAccountFactory.abi ../../../contracts/solc/v0.8.15/SmartContractAccountFactory.bin a44d6fa2dbf9cb3441d6d637d89e1cd656f28b6bf4146f58d508067474bf845b
+smart_contract_account_helper: ../../../contracts/solc/v0.8.15/SmartContractAccountHelper.abi ../../../contracts/solc/v0.8.15/SmartContractAccountHelper.bin 292ae49d99d922e1ec13ad5e716b500e9449802f0cb212a08a56d9b70f6eb7bc

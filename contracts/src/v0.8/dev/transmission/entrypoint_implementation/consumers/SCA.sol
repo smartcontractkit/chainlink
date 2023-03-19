@@ -2,7 +2,7 @@ import "../interfaces/IAccount.sol";
 import "./SCALibrary.sol";
 
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity 0.8.15;
 
 // Smart Contract Account, a contract deployed for a single user and that allows
 // them to invoke meta-transactions.
@@ -10,6 +10,10 @@ contract SCA is IAccount {
   uint256 s_nonce;
   address public immutable s_owner;
   address public immutable s_entryPoint;
+
+  error NotAuthorized(address sender);
+  error TransactionExpired(uint256 deadline, uint256 currentTimestamp);
+  error InvalidSignature(bytes32 operationHash, address owner);
 
   // Assign the owner of this contract upon deployment.
   constructor(address owner, address entryPoint) {
@@ -36,7 +40,9 @@ contract SCA is IAccount {
       s := mload(add(signature, 0x40))
     }
     uint8 v = uint8(signature[64]);
-    require(ecrecover(fullHash, v + 27, r, s) == s_owner, "Invalid signature.");
+    if (ecrecover(fullHash, v + 27, r, s) != s_owner) {
+      revert InvalidSignature(fullHash, s_owner);
+    }
 
     s_nonce++;
     return 0; // TOOD: add validationData for billing.
@@ -44,10 +50,13 @@ contract SCA is IAccount {
 
   /// @dev Execute a transaction on behalf of the owner. This function can only
   /// @dev be called by the EntryPoint contract, and assumes that `validateUserOp` has succeeded.
-  ///
-  /// TODO: Replace naive to.call with a lower-level call. Introduce gas limit for call.
-  function executeTransactionFromEntryPoint(address to, uint256 value, bytes calldata data) external {
-    require(msg.sender == s_entryPoint, "not authorized");
+  function executeTransactionFromEntryPoint(address to, uint256 value, uint256 deadline, bytes calldata data) external {
+    if (msg.sender != s_entryPoint) {
+      revert NotAuthorized(msg.sender);
+    }
+    if (block.timestamp > deadline) {
+      revert TransactionExpired(deadline, block.timestamp);
+    }
     to.call{value: value}(data);
   }
 }

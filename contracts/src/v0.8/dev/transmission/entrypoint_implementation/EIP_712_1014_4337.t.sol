@@ -2,7 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "./consumers/Create2Factory.sol";
+import "./consumers/SmartContractAccountFactory.sol";
+import "./utils/SmartContractAccountHelper.sol";
 import "./consumers/SCA.sol";
 import "./consumers/Greeter.sol";
 import "./interfaces/UserOperation.sol";
@@ -61,19 +62,16 @@ contract EIP_712_1014_4337 is Test {
     Greeter greeter;
     EntryPoint entryPoint;
 
-    bytes initailizeCode = // Bytecode for SCA.sol (Smart Contract Account). Does not include constructor arguments.
-        hex"60c060405234801561001057600080fd5b5060405161088138038061088183398101604081905261002f91610062565b6001600160a01b039182166080521660a052610095565b80516001600160a01b038116811461005d57600080fd5b919050565b6000806040838503121561007557600080fd5b61007e83610046565b915061008c60208401610046565b90509250929050565b60805160a0516107b46100cd600039600081816056015261040401526000818160dd0152818161013f01526102bf01526107b46000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80631a4e75de146100515780633a871cdd146100a25780639e045e45146100c3578063e3978240146100d8575b600080fd5b6100787f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b6100b56100b03660046104fe565b6100ff565b604051908152602001610099565b6100d66100d1366004610552565b6103ec565b005b6100787f000000000000000000000000000000000000000000000000000000000000000081565b6000807f23d294a3e6e5266ba3b17997d1a601816663066087b37cad4f06b4d4e30655d961013060608701876105f4565b600054604051610169949392917f0000000000000000000000000000000000000000000000000000000000000000914690602001610660565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe081840301815282825280516020918201207f1900000000000000000000000000000000000000000000000000000000000000828501527f010000000000000000000000000000000000000000000000000000000000000060218501527f47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a7946921860228501526042808501829052835180860390910181526062909401909252825192019190912090915060006102456101408801886105f4565b8080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920182905250602085015160408087015187519798509196919550919350869250811061029e5761029e6106e2565b016020015160f81c905073ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000166001866102ed84601b610740565b6040805160008152602081018083529390935260ff90911690820152606081018690526080810185905260a0016020604051602081039080840390855afa15801561033c573d6000803e3d6000fd5b5050506020604051035173ffffffffffffffffffffffffffffffffffffffff16146103c8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601260248201527f496e76616c6964207369676e61747572652e000000000000000000000000000060448201526064015b60405180910390fd5b6000805490806103d78361075f565b9091555060009b9a5050505050505050505050565b3373ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000161461048b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600e60248201527f6e6f7420617574686f72697a656400000000000000000000000000000000000060448201526064016103bf565b8373ffffffffffffffffffffffffffffffffffffffff168383836040516104b3929190610797565b60006040518083038185875af1925050503d80600081146104f0576040519150601f19603f3d011682016040523d82523d6000602084013e6104f5565b606091505b50505050505050565b60008060006060848603121561051357600080fd5b833567ffffffffffffffff81111561052a57600080fd5b8401610160818703121561053d57600080fd5b95602085013595506040909401359392505050565b6000806000806060858703121561056857600080fd5b843573ffffffffffffffffffffffffffffffffffffffff8116811461058c57600080fd5b935060208501359250604085013567ffffffffffffffff808211156105b057600080fd5b818701915087601f8301126105c457600080fd5b8135818111156105d357600080fd5b8860208285010111156105e557600080fd5b95989497505060200194505050565b60008083357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe184360301811261062957600080fd5b83018035915067ffffffffffffffff82111561064457600080fd5b60200191503681900382131561065957600080fd5b9250929050565b86815260a060208201528460a0820152848660c0830137600060c08683010152600060c07fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f880116830101905073ffffffffffffffffffffffffffffffffffffffff85166040830152836060830152826080830152979650505050505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60ff818116838216019081111561075957610759610711565b92915050565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff820361079057610790610711565b5060010190565b818382376000910190815291905056fea164736f6c6343000811000a";
-
     bytes signature = // Signature by LINK_WHALE. Signs off on "hi" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"fb78470345e472d2362a178a557ed060f3d94cece6d3557862a185ef1317f6ee65c95ca7c9c6a1dfd50899410a7fc5c5c6f3ccc0c0ccfcfc18dce70542d2215700";
+        hex"9592963958d10564828261355f09f9dcefed6c19b8e198c7bae8e1b9057bda89447eeb655380d8bffe38b4290430699ea242bbe673ec52517abf8516f33c4f9501";
 
     bytes signature2 = // Signature by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"f027ddd24c5bd68c87f3dc665e9e51f39fc246d80d00948d4fb0bdcdd2de722f6e8bbc920d0bc746ea2070498a6f37928ae9831f2790136e59b3de9d9f6ca51701";
-
+        hex"a9cff7e4e3effde9b7be48d218140e23d356448b51c0a9d2adced4ae507c28891a1fc549addba491956518b45bec00bd3cb992888afe30ecfc033aabcd04337f01";
+ 
     function setUp() public {
         // Fork Goerli.
         uint256 mainnetFork = vm.createFork(
-            "ETH_RPC_URL_GOERLI"
+            "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161" // public ETH Goerli RPC URL
         );
         vm.selectFork(mainnetFork);
         vm.rollFork(8598894);
@@ -92,58 +90,47 @@ contract EIP_712_1014_4337 is Test {
     /// @dev Test case for user that already has a Smart Contract Account.
     /// @dev EntryPoint.sol should use the existing SCA to execute the meta transaction.
     function testEIP712EIP4337WithExistingSmartContractAccount() public {
-        // Use forked Create2Factory contract.
-        Create2Factory factory = Create2Factory(CREATE2_FACTORY);
+        SmartContractAccountFactory factory = new SmartContractAccountFactory();
 
         // Pre-calculate user smart contract account address.
-        bytes32 salt = bytes32(uint256(uint160(LINK_WHALE)) << 96);
-        bytes memory fullInitializeCode = bytes.concat(
-            initailizeCode,
-            abi.encode(LINK_WHALE, ENTRY_POINT)
-        );
-        bytes32 initializeCodeHash = keccak256(fullInitializeCode);
-        address toDeployAddress = factory.findCreate2Address(
-            salt,
-            initializeCodeHash
-        );
+        address toDeployAddress = SmartContractAccountHelper.calculateSmartContractAccountAddress(LINK_WHALE, ENTRY_POINT, address(factory));
 
         // Deploy the end-contract.
         changePrank(SENDER_CREATOR);
-        factory.callCreate2(salt, fullInitializeCode);
+        bytes32 salt = bytes32(uint256(uint160(LINK_WHALE)) << 96);
+        bytes memory fullInitializeCode = SmartContractAccountHelper.getSCAInitCodeWithConstructor(LINK_WHALE, ENTRY_POINT);
+        factory.deploySmartContractAccount(salt, fullInitializeCode);
         changePrank(LINK_WHALE);
 
         // Ensure a correct deployment and a functioning end-contract.
-        address deployedAddress = factory.findCreate2Address(
-            salt,
-            initializeCodeHash
-        );
-        assertEq(deployedAddress, address(0));
+        uint256 contractCodeSize;
+        assembly {
+            contractCodeSize := extcodesize(toDeployAddress)
+        }
+        assertTrue(contractCodeSize > 0);
         assertEq(LINK_WHALE, SCA(toDeployAddress).s_owner());
 
         // Create the calldata for a setGreeting call.
         string memory greeting = "hi";
-        bytes memory encodedGreetingCall = abi.encodeWithSelector(
+        bytes memory encodedGreetingCall = bytes.concat( // abi.encodeWithSelector equivalent
             Greeter.setGreeting.selector,
-            greeting
+            abi.encode(greeting)
+        );
+
+        // Produce the final full end-tx encoding, to be used as calldata in the user operation.
+        bytes memory fullEncoding = SmartContractAccountHelper.getFullEndTxEncoding(
+            address(greeter),
+            uint256(0),
+            1000,
+            encodedGreetingCall
         );
 
         // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
-        bytes memory fullEncoding = abi.encodeWithSelector(
-            SCA.executeTransactionFromEntryPoint.selector,
-            address(greeter),
-            uint256(0),
-            encodedGreetingCall
+        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(
+            fullEncoding,
+            LINK_WHALE,
+            0
         );
-        bytes32 hashOfEncoding = keccak256(
-            abi.encode(
-                SCALibrary.TYPEHASH,
-                fullEncoding,
-                LINK_WHALE,
-                uint256(0),
-                block.chainid
-            )
-        );
-        bytes32 fullHash = keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), SCALibrary.DOMAIN_SEPARATOR, hashOfEncoding));
         console.logBytes32(fullHash);
 
         // Construct the user operation.
@@ -180,53 +167,33 @@ contract EIP_712_1014_4337 is Test {
         changePrank(LINK_WHALE);
 
         // Pre-calculate user smart contract account address.
-        bytes32 salt = bytes32(uint256(uint160(LINK_WHALE_2)) << 96);
-        bytes memory initializeCodeWithConstructor = bytes.concat(
-            initailizeCode,
-            abi.encode(LINK_WHALE_2, ENTRY_POINT)
-        );
-        bytes32 initializeCodeHash = keccak256(initializeCodeWithConstructor);
-        Create2Factory factory = Create2Factory(CREATE2_FACTORY);
-        address toDeployAddress = factory.findCreate2Address(
-            salt,
-            initializeCodeHash
-        );
+        SmartContractAccountFactory factory = new SmartContractAccountFactory();
+        address toDeployAddress = SmartContractAccountHelper.calculateSmartContractAccountAddress(LINK_WHALE_2, ENTRY_POINT, address(factory));
 
         // Construct initCode byte array.
-        bytes memory fullInitializeCode = bytes.concat(
-            bytes20(CREATE2_FACTORY),
-            abi.encodeWithSelector(
-                Create2Factory.callCreate2.selector,
-                salt,
-                initializeCodeWithConstructor
-            )
-        );
+        bytes memory fullInitializeCode = SmartContractAccountHelper.getInitCode(address(factory), LINK_WHALE_2, ENTRY_POINT);
 
         // Create the calldata for a setGreeting call.
         string memory greeting = "bye";
-        bytes memory encodedGreetingCall = abi.encodeWithSelector(
+        bytes memory encodedGreetingCall = bytes.concat(
             Greeter.setGreeting.selector,
-            greeting
+            abi.encode(greeting)
         );
 
-        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
-        bytes memory fullEncoding = abi.encodeWithSelector(
-            SCA.executeTransactionFromEntryPoint.selector,
+        // Produce the final full end-tx encoding, to be used as calldata in the user operation.
+        bytes memory fullEncoding = SmartContractAccountHelper.getFullEndTxEncoding(
             address(greeter),
             uint256(0),
+            1000,
             encodedGreetingCall
         );
 
-        bytes32 hashOfEncoding = keccak256(
-            abi.encode(
-                SCALibrary.TYPEHASH,
-                fullEncoding,
-                LINK_WHALE_2,
-                uint256(0),
-                block.chainid
-            )
+        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
+        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(
+            fullEncoding,
+            LINK_WHALE_2,
+            0
         );
-        bytes32 fullHash = keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), SCALibrary.DOMAIN_SEPARATOR, hashOfEncoding));
         console.logBytes32(fullHash);
 
         // Construct the user opeartion.
@@ -255,19 +222,4 @@ contract EIP_712_1014_4337 is Test {
         // Assert that the greeting was set.
         assertEq("bye", Greeter(greeter).getGreeting());
     }
-}
-
-/*----------------------------+
-| HELPER FUNCTIONS            |
-| ________________            |
-|                             |
-+----------------------------*/
-
-function bytesToBytes32(bytes memory b, uint256 offset) pure returns (bytes32) {
-    bytes32 out;
-
-    for (uint256 i = 0; i < 32; i++) {
-        out |= bytes32(b[offset + i] & 0xFF) >> (i * 8);
-    }
-    return out;
 }
