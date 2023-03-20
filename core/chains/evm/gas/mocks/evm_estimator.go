@@ -170,9 +170,9 @@ func (_m *EvmEstimator) GetLegacyGas(ctx context.Context, calldata []byte, gasLi
 	return r0, r1, r2
 }
 
-// OnNewLongestChain provides a mock function with given fields: _a0, _a1
-func (_m *EvmEstimator) OnNewLongestChain(_a0 context.Context, _a1 *evmtypes.Head) {
-	_m.Called(_a0, _a1)
+// OnNewLongestChain provides a mock function with given fields: ctx, head
+func (_m *EvmEstimator) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	_m.Called(ctx, head)
 }
 
 // Start provides a mock function with given fields: _a0

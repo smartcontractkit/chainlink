@@ -63,11 +63,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     /// @notice This event is emitted when a new report is verified.
     /// It is used to keep a historical record of verified reports.
-    event ReportVerified(bytes32 feedId, bytes32 reportHash, address requester);
+    event ReportVerified(bytes32 indexed feedId, bytes32 reportHash, address requester);
 
     /// @notice This event is emitted whenever a new configuration is set for a feed.  It triggers a new run of the offchain reporting protocol.
     event ConfigSet(
-        bytes32 feedId,
+        bytes32 indexed feedId,
         uint32 previousConfigBlockNumber,
         bytes32 configDigest,
         uint64 configCount,
@@ -80,10 +80,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     );
 
     /// @notice This event is emitted whenever a configuration is deactivated
-    event ConfigDeactivated(bytes32 feedId, bytes32 configDigest);
+    event ConfigDeactivated(bytes32 indexed feedId, bytes32 configDigest);
 
     /// @notice This event is emitted whenever a configuration is activated
-    event ConfigActivated(bytes32 feedId, bytes32 configDigest);
+    event ConfigActivated(bytes32 indexed feedId, bytes32 configDigest);
 
     /// @notice This error is thrown whenever an address tries
     /// to exeecute a transaction that it is not authorized to do so
