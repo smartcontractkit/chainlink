@@ -21,6 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic1_3"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic2_0"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
@@ -555,7 +557,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistry11(
+			return keeper_registry_wrapper1_1.DeployKeeperRegistry(
 				auth,
 				backend,
 				common.HexToAddress(opts.LinkAddr),
@@ -587,13 +589,13 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistry12(
+			return keeper_registry_wrapper1_2.DeployKeeperRegistry(
 				auth,
 				backend,
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
-				ethereum.Config1_2{
+				keeper_registry_wrapper1_2.Config{
 					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
 					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
 					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
@@ -625,7 +627,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistryLogic13(
+			return keeper_registry_logic1_3.DeployKeeperRegistryLogic(
 				auth,
 				backend,
 				paymentModel,        // Default payment model
@@ -647,11 +649,11 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistry13(
+			return keeper_registry_wrapper1_3.DeployKeeperRegistry(
 				auth,
 				backend,
 				*logicAddress,
-				ethereum.Config1_3{
+				keeper_registry_wrapper1_3.Config{
 					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
 					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
 					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
@@ -683,7 +685,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistryLogic20(
+			return keeper_registry_logic2_0.DeployKeeperRegistryLogic(
 				auth,
 				backend,
 				paymentModel, // Default payment model
@@ -705,7 +707,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
-			return ethereum.DeployKeeperRegistry20(
+			return keeper_registry_wrapper2_0.DeployKeeperRegistry(
 				auth,
 				backend,
 				*logicAddress,
