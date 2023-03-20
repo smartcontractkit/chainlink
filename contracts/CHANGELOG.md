@@ -10,6 +10,7 @@
 - Fix Functions cost estimation not correctly using registry fee
 - Fix Functions transmitter NOP fee payment (#8557)
 - Functions library uses solidty-cborutils CBOR v2.0.0 and ENS Buffer v0.1.0(#8485)
+- Allow defining aggregation method to a Functions request
 
 ## 0.6.1 - 2023-02-06
 

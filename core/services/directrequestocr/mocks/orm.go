@@ -5,6 +5,7 @@ package mocks
 import (
 	common "github.com/ethereum/go-ethereum/common"
 	directrequestocr "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
@@ -17,20 +18,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateRequest provides a mock function with given fields: requestID, receivedAt, requestTxHash, qopts
-func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+// CreateRequest provides a mock function with given fields: requestID, receivedAt, requestTxHash, aggregationMethod, qopts
+func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, receivedAt time.Time, requestTxHash *common.Hash, aggregationMethod config.AggregationMethod, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, receivedAt, requestTxHash)
+	_ca = append(_ca, requestID, receivedAt, requestTxHash, aggregationMethod)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, time.Time, *common.Hash, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, receivedAt, requestTxHash, qopts...)
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, time.Time, *common.Hash, config.AggregationMethod, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, receivedAt, requestTxHash, aggregationMethod, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

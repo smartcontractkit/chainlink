@@ -258,7 +258,6 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		}
 	}
 
-	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
 	var allAggregated []*ProcessedRequest
 	var allIdStrs []string
 	for _, reqId := range uniqueQueryIds {
@@ -273,9 +272,16 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			continue
 		}
 
-		// TODO: support per-request aggregation method
-		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
-		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
+		request, err := r.pluginORM.FindById(sliceToByte32(observations[0].RequestID), pg.WithParentCtx(ctx))
+		if err != nil {
+			r.logger.Debug("FunctionsReporting Observation can't find request from query", commontypes.LogFields{
+				"requestID": reqId,
+				"err":       err,
+			})
+			continue
+		}
+
+		aggregated, errAgg := Aggregate(*request.AggregationMethod, observations)
 		if errAgg != nil {
 			r.logger.Error("FunctionsReporting Report: error when aggregating reqId", commontypes.LogFields{
 				"epoch":     ts.Epoch,

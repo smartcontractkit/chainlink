@@ -21,10 +21,17 @@ library Functions {
     // In future version we may add other languages
   }
 
+  enum AggregationMethod {
+    Mode,
+    Median
+    // In future version we may add other methods (e.g. Mean, Custom)
+  }
+
   struct Request {
     Location codeLocation;
     Location secretsLocation;
     CodeLanguage language;
+    AggregationMethod aggregationMethod;
     string source; // Source code for Location.Inline or url for Location.Remote
     bytes secrets; // Encrypted secrets blob for Location.Inline or url for Location.Remote
     string[] args;
@@ -49,6 +56,9 @@ library Functions {
 
     CBOR.writeString(buffer, "language");
     CBOR.writeUInt256(buffer, uint256(self.language));
+
+    CBOR.writeString(buffer, "aggregationMethod");
+    CBOR.writeUInt256(buffer, uint256(self.aggregationMethod));
 
     CBOR.writeString(buffer, "source");
     CBOR.writeString(buffer, self.source);
@@ -84,12 +94,14 @@ library Functions {
     Request memory self,
     Location location,
     CodeLanguage language,
+    AggregationMethod aggregationMethod,
     string memory source
   ) internal pure {
     if (bytes(source).length == 0) revert EmptySource();
 
     self.codeLocation = location;
     self.language = language;
+    self.aggregationMethod = aggregationMethod;
     self.source = source;
   }
 
@@ -100,7 +112,7 @@ library Functions {
    * @param javaScriptSource The user provided JS code (must not be empty)
    */
   function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
-    initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
+    initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, AggregationMethod.Median ,javaScriptSource);
   }
 
   /**

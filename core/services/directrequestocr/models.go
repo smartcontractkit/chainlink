@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
 const RequestIDLength int = 32
@@ -18,6 +19,7 @@ type Request struct {
 	RunID             *int64
 	ReceivedAt        time.Time
 	RequestTxHash     *common.Hash
+	AggregationMethod *config.AggregationMethod
 	State             RequestState
 	ResultReadyAt     *time.Time
 	Result            []byte

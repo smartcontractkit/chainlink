@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	"reflect"
 	"sync"
 	"time"
@@ -313,14 +314,57 @@ func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId in
 	}
 }
 
+func (l *DRListener) parseRequestData(request *ocr2dr_oracle.OCR2DROracleOracleRequest) pipeline.FinalResult {
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+
+	spec := pipeline.Spec{DotDagSource: `
+	decode_log	[type="ethabidecodelog"
+				 abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)"
+				 data="$(jobRun.logData)"
+				 topics="$(jobRun.logTopics)"]
+
+	decode_cbor [type="cborparse"
+				 data="$(decode_log.data)"
+				 mode=diet]
+
+	decode_log -> decode_cbor;
+	`}
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    l.job.ID,
+			"externalJobID": l.job.ExternalJobID,
+			"name":          l.job.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"logBlockHash":   request.Raw.BlockHash,
+			"logBlockNumber": request.Raw.BlockNumber,
+			"logTxHash":      request.Raw.TxHash,
+			"logAddress":     request.Raw.Address,
+			"logTopics":      request.Raw.Topics,
+			"logData":        request.Raw.Data,
+		},
+	})
+
+	_, results, err := l.pipelineRunner.ExecuteRun(ctx, spec, vars, l.logger)
+	if err != nil {
+		l.logger.Errorw("failed to parse request data", "requestID", formatRequestId(request.RequestId), "err", err)
+	}
+	return results.FinalResult(l.logger)
+}
+
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
 	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
+	rawRequestData := l.parseRequestData(request).Values[0].(map[string]interface{})
+	aggregationMethod := config.AggregationMethod(rawRequestData["aggregationMethod"].(*big.Int).Int64())
 	requestData := make(map[string]interface{})
 	requestData["requestId"] = formatRequestId(request.RequestId)
+	requestData["aggregationMethod"] = aggregationMethod
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = requestData
 
@@ -353,7 +397,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 
-	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
+	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, aggregationMethod, pg.WithParentCtx(ctx))
 	if err != nil {
 		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return

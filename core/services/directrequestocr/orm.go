@@ -9,13 +9,14 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error
+	CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, aggregationMethod config.AggregationMethod, qopts ...pg.QOpt) error
 
 	SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error
 	SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error
@@ -37,7 +38,7 @@ var _ ORM = (*orm)(nil)
 
 const requestFields = "request_id, run_id, received_at, request_tx_hash, " +
 	"state, result_ready_at, result, error_type, error, " +
-	"transmitted_result, transmitted_error"
+	"transmitted_result, transmitted_error, aggregation_method"
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, contractAddress common.Address) ORM {
 	return &orm{
@@ -46,12 +47,12 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, contractAddress com
 	}
 }
 
-func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, aggregationMethod config.AggregationMethod, qopts ...pg.QOpt) error {
 	stmt := `
-		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state)
-		VALUES ($1,$2,$3,$4,$5);
+		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state, aggregation_method)
+		VALUES ($1,$2,$3,$4,$5,$6);
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS, aggregationMethod)
 }
 
 func (o orm) setWithStateTransitionCheck(requestID RequestID, newState RequestState, setter func(pg.Queryer) error, qopts ...pg.QOpt) error {

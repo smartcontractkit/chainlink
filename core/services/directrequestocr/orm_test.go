@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
 func setupORM(t *testing.T) directrequestocr.ORM {
@@ -39,7 +40,7 @@ func createRequest(t *testing.T, orm directrequestocr.ORM) (directrequestocr.Req
 func createRequestWithTimestamp(t *testing.T, orm directrequestocr.ORM, ts time.Time) (directrequestocr.RequestID, common.Hash) {
 	id := newRequestID()
 	txHash := testutils.NewAddress().Hash()
-	err := orm.CreateRequest(id, ts, &txHash)
+	err := orm.CreateRequest(id, ts, &txHash, config.AggregationMethod_AGGREGATION_MEDIAN)
 	require.NoError(t, err)
 	return id, txHash
 }
@@ -72,9 +73,9 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	})
 
 	t.Run("duplicated", func(t *testing.T) {
-		err := orm.CreateRequest(id1, ts1, &txHash1)
+		err := orm.CreateRequest(id1, ts1, &txHash1, config.AggregationMethod_AGGREGATION_MEDIAN)
 		require.Error(t, err)
-		err = orm.CreateRequest(id1, ts1, &txHash1)
+		err = orm.CreateRequest(id1, ts1, &txHash1, config.AggregationMethod_AGGREGATION_MEDIAN)
 		require.Error(t, err)
 	})
 }
