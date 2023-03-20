@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -116,7 +117,7 @@ func ResetUpkeeps(
 	predeployedContracts []contracts.KeeperConsumerBenchmark,
 	upkeepResetterAddr string,
 ) {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	contractLoader, err := contracts.NewContractLoader(client)
 	require.NoError(t, err, "Error loading upkeep contract")
 	upkeepChunkSize := 500
@@ -174,7 +175,7 @@ func DeployKeeperConsumersBenchmark(
 	predeployedContracts []string,
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
 	firstEligibleBuffer = 10000
 

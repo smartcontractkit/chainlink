@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	
+
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
@@ -75,7 +76,7 @@ func NewKeeperBenchmarkTest(inputs KeeperBenchmarkTestInputs) *KeeperBenchmarkTe
 
 // Setup prepares contracts for the test
 func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues(t)
@@ -153,7 +154,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 
 // Run runs the keeper benchmark test
 func (k *KeeperBenchmarkTest) Run(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	k.TestReporter.Summary.Load.TotalCheckGasPerBlock = int64(k.Inputs.NumberOfContracts) * k.Inputs.CheckGasToBurn
 	k.TestReporter.Summary.Load.TotalPerformGasPerBlock = int64((float64(k.Inputs.NumberOfContracts) / float64(k.Inputs.BlockInterval)) * float64(k.Inputs.PerformGasToBurn))
 	k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock = float64(k.Inputs.NumberOfContracts) / float64(k.Inputs.BlockInterval)
@@ -264,7 +265,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	rIndex int,
 ) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	require.NoError(t, err, "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
