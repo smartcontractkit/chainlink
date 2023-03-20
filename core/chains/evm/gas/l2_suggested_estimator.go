@@ -56,6 +56,10 @@ func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstim
 	}
 }
 
+func (o *l2SuggestedPriceEstimator) Name() string {
+	return o.logger.Name()
+}
+
 func (o *l2SuggestedPriceEstimator) Start(context.Context) error {
 	return o.StartOnce("L2SuggestedEstimator", func() error {
 		go o.run()
@@ -69,6 +73,10 @@ func (o *l2SuggestedPriceEstimator) Close() error {
 		<-o.chDone
 		return nil
 	})
+}
+
+func (o *l2SuggestedPriceEstimator) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
 }
 
 func (o *l2SuggestedPriceEstimator) run() {
@@ -112,7 +120,7 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
+func (o *l2SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
 func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")

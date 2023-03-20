@@ -20,8 +20,8 @@ import (
 )
 
 type ORM interface {
-	chains.ChainsORM[utils.Big, *ChainCfg, ChainConfig]
-	chains.NodesORM[utils.Big, Node]
+	chains.ChainConfigs[utils.Big, *ChainCfg, ChainConfig]
+	chains.NodeConfigs[utils.Big, Node]
 
 	EnsureChains([]utils.Big, ...pg.QOpt) error
 }

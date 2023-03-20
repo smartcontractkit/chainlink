@@ -16,7 +16,7 @@ type NodesController interface {
 }
 
 type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
-	nodeSet       chains.NodesConfig[I, N]
+	nodeSet       chains.Nodes[I, N]
 	parseChainID  func(string) (I, error)
 	errNotEnabled error
 	newResource   func(N) R
@@ -24,7 +24,7 @@ type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
 }
 
 func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
-	nodeSet chains.NodesConfig[I, N],
+	nodeSet chains.Nodes[I, N],
 	errNotEnabled error,
 	parseChainID func(string) (I, error),
 	newResource func(N) R,

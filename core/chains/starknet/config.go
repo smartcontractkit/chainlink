@@ -280,7 +280,3 @@ func (c *StarknetConfig) OCR2CacheTTL() time.Duration {
 func (c *StarknetConfig) RequestTimeout() time.Duration {
 	return c.Chain.RequestTimeout.Duration()
 }
-
-func (c *StarknetConfig) Update(cfg db.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
-}

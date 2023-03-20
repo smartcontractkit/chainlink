@@ -5,18 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
-	envConf "github.com/smartcontractkit/chainlink-env/config"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -235,7 +232,7 @@ func TeardownSuite(
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
@@ -273,7 +270,7 @@ func TeardownRemoteSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	var err error
 	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
@@ -338,16 +335,4 @@ func EncodeOnChainExternalJobID(jobID uuid.UUID) [32]byte {
 	var ji [32]byte
 	copy(ji[:], strings.Replace(jobID.String(), "-", "", 4))
 	return ji
-}
-
-// GetTestLogger instantiates a logger that takes into account the test context and the log level
-func GetTestLogger(t *testing.T) zerolog.Logger {
-	lvlStr := os.Getenv(envConf.EnvVarLogLevel)
-	if lvlStr == "" {
-		lvlStr = "info"
-	}
-	lvl, err := zerolog.ParseLevel(lvlStr)
-	require.NoError(t, err, "error parsing log level")
-	l := zerolog.New(zerolog.NewTestWriter(t)).Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(lvl).With().Timestamp().Logger()
-	return l
 }
