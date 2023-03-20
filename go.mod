@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.2.0
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ava-labs/coreth v0.11.0-rc.4
 	github.com/btcsuite/btcd v0.23.4
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -96,6 +97,8 @@ require (
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
@@ -155,7 +158,9 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/holiman/uint256 v1.2.0 // indirect
+	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-datastore v0.4.5 // indirect
@@ -220,8 +225,10 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
