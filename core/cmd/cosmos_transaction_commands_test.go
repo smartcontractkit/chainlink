@@ -28,6 +28,7 @@ import (
 )
 
 func TestClient_SendCosmosCoins(t *testing.T) {
+	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()
 	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
 	require.Greater(t, len(accounts), 1)
