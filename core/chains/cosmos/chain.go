@@ -33,6 +33,7 @@ import (
 // requests can be delayed significantly (https://github.com/tendermint/tendermint/issues/6899),
 // however there's nothing we can do but wait until the block is processed.
 // So we set a fairly high timeout here.
+// TODO(BCI-979): Remove this, or make this configurable with the updated client.
 const DefaultRequestTimeout = 30 * time.Second
 
 //go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
@@ -94,7 +95,6 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 
 // getClient returns a client, optionally requiring a specific node by name.
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
-	//TODO cache clients?
 	var node db.Node
 	if name == "" { // Any node
 		nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
