@@ -21,7 +21,6 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -2367,9 +2366,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 
 	// add eth_receipts
-	receipts := []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]{}
+	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]{
+		receipts = append(receipts, txmgr.EvmReceipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,

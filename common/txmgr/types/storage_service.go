@@ -71,7 +71,7 @@ type TxStrategy interface {
 	Subject() uuid.NullUUID
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
-	// unstated txs and deletion options
+	// unstarted txs and deletion options
 	PruneQueue(pruneService any, opt any) (n int64, err error)
 }
 

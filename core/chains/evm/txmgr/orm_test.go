@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -152,7 +150,7 @@ func TestORM(t *testing.T) {
 		assert.Greater(t, int(attemptL.ID), 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
 	})
-	var r txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)

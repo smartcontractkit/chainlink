@@ -26,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+
 // EthTxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present
 type EthTxMeta struct {
@@ -298,7 +300,7 @@ type EthTxAttempt struct {
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   EthTxAttemptState
-	EthReceipts             []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash] `json:"-"`
+	EthReceipts             []EvmReceipt `json:"-"`
 	TxType                  int
 }
 

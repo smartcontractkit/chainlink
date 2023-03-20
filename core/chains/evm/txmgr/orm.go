@@ -89,7 +89,7 @@ type orm struct {
 func ToQOpt(opt any) (pg.QOpt, error) {
 	qopt, ok := opt.(pg.QOpt)
 	if !ok {
-		return func(*pg.Q) {}, ErrInvalidQOpt
+		return nil, ErrInvalidQOpt
 	}
 	return qopt, nil
 }
@@ -121,37 +121,33 @@ func (o *orm) Close() {
 }
 
 func (o *orm) preloadTxAttempts(txs []EthTx, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
-
-	return qq.Transaction(func(tx pg.Queryer) error {
-		// Preload TxAttempts
-		var ids []int64
-		for _, tx := range txs {
-			ids = append(ids, tx.ID)
-		}
-		if len(ids) == 0 {
-			return nil
-		}
-		var attempts []EthTxAttempt
-		sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
-		query, args, err := sqlx.In(sql, ids)
-		if err != nil {
-			return err
-		}
-		query = tx.Rebind(query)
-		if err = tx.Select(&attempts, query, args...); err != nil {
-			return err
-		}
-		// fill in attempts
-		for _, attempt := range attempts {
-			for i, tx := range txs {
-				if tx.ID == attempt.EthTxID {
-					txs[i].EthTxAttempts = append(txs[i].EthTxAttempts, attempt)
-				}
+	// Preload TxAttempts
+	var ids []int64
+	for _, tx := range txs {
+		ids = append(ids, tx.ID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var attempts []EthTxAttempt
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
+	query, args, err := sqlx.In(sql, ids)
+	if err != nil {
+		return err
+	}
+	query = o.q.Rebind(query)
+	if err = o.q.Select(&attempts, query, args...); err != nil {
+		return err
+	}
+	// fill in attempts
+	for _, attempt := range attempts {
+		for i, tx := range txs {
+			if tx.ID == attempt.EthTxID {
+				txs[i].EthTxAttempts = append(txs[i].EthTxAttempts, attempt)
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
@@ -363,7 +359,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
-	var receipts []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+	var receipts []EvmReceipt
 	if err = q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
@@ -381,7 +377,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 		byHash[attempt.Hash] = &attempts[i]
 		hashes = append(hashes, attempt.Hash.Bytes())
 	}
-	var receipts []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+	var receipts []EvmReceipt
 	if err := q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}

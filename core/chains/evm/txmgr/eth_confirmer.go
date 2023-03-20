@@ -1026,7 +1026,7 @@ func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head txmgrtypes.Head) erro
 
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.EthTxAttempts[0]
-	var receipt txmgrtypes.Receipt[evmtypes.Receipt, gethCommon.Hash]
+	var receipt EvmReceipt
 	if len(attempt.EthReceipts) > 0 {
 		receipt = attempt.EthReceipts[0]
 	}

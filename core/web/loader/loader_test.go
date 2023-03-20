@@ -4,14 +4,12 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/dataloader"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
@@ -437,7 +435,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	ethTxID := int64(3)
 	ethTxHash := utils.NewHash()
 
-	receipt := txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]{
+	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
 		TxHash: ethTxHash,
 	}
@@ -446,7 +444,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		ID:          int64(1),
 		EthTxID:     ethTxID,
 		Hash:        ethTxHash,
-		EthReceipts: []txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]{receipt},
+		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 
 	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EthTxAttempt{
