@@ -183,7 +183,7 @@ func setupOCRTest(t *testing.T) (
 		ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
 	}
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
+		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
 		"replicas": 6,
 	})
 

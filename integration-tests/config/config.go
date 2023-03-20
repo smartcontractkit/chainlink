@@ -57,4 +57,11 @@ Enabled = true
 [P2P.V2]
 Enabled = true
 ListenAddresses = ['0.0.0.0:6690']`
+
+	DefaultOCRNetworkDetailTomlConfig = `FinalityDepth = 5
+[EVM.GasEstimator]
+LimitDefault = 3_500_000
+PriceMax = 100000000000
+PriceMin = 0
+FeeCapDefault = 100000000000`
 )
