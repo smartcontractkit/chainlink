@@ -72,7 +72,10 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(pruneService any, opt any) (n int64, err error)
+	// Params:
+	// pruneService: The service object responsible for deleting
+	// opt: The storage layer specific options (example, pg.QOpt for Postgres)
+	PruneQueue(pruneService any, qopt pg.QOpt) (n int64, err error)
 }
 
 // R is the raw unparsed transaction receipt

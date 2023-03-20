@@ -33,8 +33,8 @@ func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 // SendEveryStrategy will always send the tx
 type SendEveryStrategy struct{}
 
-func (SendEveryStrategy) Subject() uuid.NullUUID                              { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(pruneService any, opt any) (int64, error) { return 0, nil }
+func (SendEveryStrategy) Subject() uuid.NullUUID                                   { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(pruneService any, qopt pg.QOpt) (int64, error) { return 0, nil }
 
 var _ types.TxStrategy = DropOldestStrategy{}
 
@@ -56,12 +56,7 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(pruneService any, opt any) (n int64, err error) {
-	qopt, err := ToQOpt(opt)
-	if err != nil {
-		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
-	}
-
+func (s DropOldestStrategy) PruneQueue(pruneService any, qopt pg.QOpt) (n int64, err error) {
 	orm, ok := pruneService.(ORM)
 	if !ok {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed invalid pruneService")

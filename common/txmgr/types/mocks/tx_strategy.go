@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
 	uuid "github.com/satori/go.uuid"
@@ -13,23 +14,23 @@ type TxStrategy struct {
 	mock.Mock
 }
 
-// PruneQueue provides a mock function with given fields: pruneService, opt
-func (_m *TxStrategy) PruneQueue(pruneService interface{}, opt interface{}) (int64, error) {
-	ret := _m.Called(pruneService, opt)
+// PruneQueue provides a mock function with given fields: pruneService, qopt
+func (_m *TxStrategy) PruneQueue(pruneService interface{}, qopt pg.QOpt) (int64, error) {
+	ret := _m.Called(pruneService, qopt)
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(interface{}, interface{}) (int64, error)); ok {
-		return rf(pruneService, opt)
+	if rf, ok := ret.Get(0).(func(interface{}, pg.QOpt) (int64, error)); ok {
+		return rf(pruneService, qopt)
 	}
-	if rf, ok := ret.Get(0).(func(interface{}, interface{}) int64); ok {
-		r0 = rf(pruneService, opt)
+	if rf, ok := ret.Get(0).(func(interface{}, pg.QOpt) int64); ok {
+		r0 = rf(pruneService, qopt)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(interface{}, interface{}) error); ok {
-		r1 = rf(pruneService, opt)
+	if rf, ok := ret.Get(1).(func(interface{}, pg.QOpt) error); ok {
+		r1 = rf(pruneService, qopt)
 	} else {
 		r1 = ret.Error(1)
 	}
