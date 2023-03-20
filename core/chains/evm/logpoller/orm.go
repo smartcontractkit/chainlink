@@ -316,9 +316,14 @@ func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig common.
 }
 
 func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	err := validateTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
-	err := q.Select(&logs,
+	err = q.Select(&logs,
 		`SELECT * FROM evm_logs 
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
@@ -332,9 +337,14 @@ func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig c
 }
 
 func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	err := validateTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
-	err := q.Select(&logs,
+	err = q.Select(&logs,
 		`SELECT * FROM evm_logs 
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
@@ -349,6 +359,11 @@ func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig common.
 }
 
 func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	err := validateTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	q := o.q.WithOpts(qopts...)
 	var logs []Log
 	var topicValuesBytes [][]byte
@@ -356,7 +371,7 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 		topicValuesBytes = append(topicValuesBytes, topicValue.Bytes())
 	}
 	// Add 1 since postgresql arrays are 1-indexed.
-	err := q.Select(&logs, `
+	err = q.Select(&logs, `
 		SELECT * FROM evm_logs 
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
@@ -371,13 +386,18 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 
 // SelectIndexedLogsByBlockRangeFilter finds the indexed logs in a given block range.
 func (o *ORM) SelectIndexedLogsByBlockRangeFilter(start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	err := validateTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	var topicValuesBytes [][]byte
 	for _, topicValue := range topicValues {
 		topicValuesBytes = append(topicValuesBytes, topicValue.Bytes())
 	}
 	q := o.q.WithOpts(qopts...)
-	err := q.Select(&logs, `
+	err = q.Select(&logs, `
 		SELECT * FROM evm_logs 
 			WHERE evm_logs.block_number >= $1 AND evm_logs.block_number <= $2 AND evm_logs.evm_chain_id = $3 
 			AND address = $4 AND event_sig = $5
@@ -387,4 +407,12 @@ func (o *ORM) SelectIndexedLogsByBlockRangeFilter(start, end int64, address comm
 		return nil, err
 	}
 	return logs, nil
+}
+
+func validateTopicIndex(index int) error {
+	// Only topicIndex 1 through 3 is valid. 0 is the event sig and only 4 total topics are allowed
+	if !(index == 1 || index == 2 || index == 3) {
+		return errors.Errorf("invalid index for topic: %d", index)
+	}
+	return nil
 }
