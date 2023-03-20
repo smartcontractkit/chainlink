@@ -2483,7 +2483,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt1_2.State)
 	})
 
-	t.Run("resubmitting due to insufficient eth is not limited by ETH_GAS_BUMP_TX_DEPTH", func(t *testing.T) {
+	t.Run("resubmitting due to insufficient eth is not limited by EVM.GasEstimator.BumpTxDepth", func(t *testing.T) {
 		depth := 2
 		etxCount := 4
 

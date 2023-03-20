@@ -804,7 +804,7 @@ func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
 		b.logger.Warnw(fmt.Sprintf("Calculated gas price of %s exceeds EVM.GasEstimator.PriceMax=%[2]s, setting gas price to the maximum allowed value of %[2]s instead", gasPrice.String(), max.String()), "gasPriceWei", gasPrice, "maxGasPriceWei", max)
 		b.gasPrice = max
 	} else if gasPrice.Cmp(min) < 0 {
-		b.logger.Warnw(fmt.Sprintf("Calculated gas price of %s falls below ETH_MIN_GAS_PRICE_WEI=%[2]s, setting gas price to the minimum allowed value of %[2]s instead", gasPrice.String(), min.String()), "gasPriceWei", gasPrice, "minGasPriceWei", min)
+		b.logger.Warnw(fmt.Sprintf("Calculated gas price of %s falls below EVM.Transactions.PriceMin=%[2]s, setting gas price to the minimum allowed value of %[2]s instead", gasPrice.String(), min.String()), "gasPriceWei", gasPrice, "minGasPriceWei", min)
 		b.gasPrice = min
 	} else {
 		b.gasPrice = gasPrice

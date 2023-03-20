@@ -752,7 +752,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		require.Equal(t, maxGasPrice, price)
 	})
 
-	t.Run("sets gas price to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
+	t.Run("sets gas price to EVM.Transactions.PriceMin if the calculation would otherwise fall below it", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesDisabled(t)
 
@@ -1042,7 +1042,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		require.Equal(t, tipCap.Int64(), maxGasPrice.Int64())
 	})
 
-	t.Run("sets tip cap to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
+	t.Run("sets tip cap to EVM.Transactions.PriceMin if the calculation would otherwise fall below it", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
 
