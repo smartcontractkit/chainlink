@@ -63,6 +63,10 @@ export default {
         version: '0.8.15',
         settings: COMPILER_SETTINGS,
       },
+      {
+        version: '0.8.16',
+        settings: COMPILER_SETTINGS,
+      },
     ],
   },
   contractSizer: {
