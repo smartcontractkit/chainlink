@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"time"
 
@@ -138,14 +138,14 @@ func (e *EthereumContractDeployer) DeployVRFv2Consumer(coordinatorAddr string) (
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return int_ethereum.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
+		return eth_contracts.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumVRFv2Consumer{
 		client:   e.client,
-		consumer: instance.(*int_ethereum.VRFv2Consumer),
+		consumer: instance.(*eth_contracts.VRFv2Consumer),
 		address:  address,
 	}, err
 }
@@ -410,7 +410,7 @@ type EthereumVRFConsumerV2 struct {
 type EthereumVRFv2Consumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
-	consumer *int_ethereum.VRFv2Consumer
+	consumer *eth_contracts.VRFv2Consumer
 }
 
 // CurrentSubscription get current VRFv2 subscription
