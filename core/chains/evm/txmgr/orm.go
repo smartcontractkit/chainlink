@@ -281,7 +281,7 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
-func (o *orm) InsertEthReceipt(receipt *txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]) error {
+func (o *orm) InsertEthReceipt(receipt *EvmReceipt) error {
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
