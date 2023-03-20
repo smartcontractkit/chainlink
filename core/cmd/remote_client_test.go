@@ -470,11 +470,15 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	set.Uint("seconds", 10, "")
-
+	// pick a value larger than the default http service write timeout
+	d := app.Config.HTTPServerWriteTimeout() + 2*time.Second
+	set.Uint("seconds", uint(d.Seconds()), "")
+	tDir := t.TempDir()
+	set.String("output_dir", tDir, "")
 	err = client.Profile(cli.NewContext(nil, set, nil))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout")
+	wantErr := cmd.ErrProfileTooLong
+	require.ErrorAs(t, err, &wantErr)
+
 }
 
 func TestClient_Profile(t *testing.T) {
@@ -497,10 +501,17 @@ func TestClient_Profile(t *testing.T) {
 	require.NoError(t, err)
 
 	set.Uint("seconds", 1, "")
-	set.String("output_dir", t.TempDir(), "")
+	tDir := t.TempDir()
+	set.String("output_dir", tDir, "")
 
+	// we don't care about the cli behavior, i.e. the before func,
+	// so call the client func directly
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
+
+	ents, err := os.ReadDir(tDir)
+	require.NoError(t, err)
+	require.Greater(t, len(ents), 0, "ents %+v", ents)
 }
 
 func TestClient_Profile_Unauthenticated(t *testing.T) {

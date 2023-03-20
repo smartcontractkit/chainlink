@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+### Changed
+
+- TOML configuration and secrets are now scoped to `chainlink node start` command rather than being global flags
+
 ### Removed
+
 - Configuration with legacy environment variables is no longer supported. TOML is required.
 
 ## 1.13.0 - UNRELEASED

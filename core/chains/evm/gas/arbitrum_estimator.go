@@ -31,8 +31,6 @@ type ethClient interface {
 
 // arbitrumEstimator is an Estimator which extends l2SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
 type arbitrumEstimator struct {
-	utils.StartStopOnce
-
 	cfg ArbConfig
 
 	EvmEstimator // *l2SuggestedPriceEstimator
@@ -49,6 +47,8 @@ type arbitrumEstimator struct {
 	chInitialised  chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
+
+	utils.StartStopOnce
 }
 
 func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
@@ -64,6 +64,10 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 		chStop:         make(chan struct{}),
 		chDone:         make(chan struct{}),
 	}
+}
+
+func (a *arbitrumEstimator) Name() string {
+	return a.logger.Name()
 }
 
 func (a *arbitrumEstimator) Start(ctx context.Context) error {
@@ -83,6 +87,12 @@ func (a *arbitrumEstimator) Close() error {
 		<-a.chDone
 		return
 	})
+}
+
+func (a *arbitrumEstimator) Ready() error { return a.StartStopOnce.Ready() }
+
+func (a *arbitrumEstimator) HealthReport() map[string]error {
+	return map[string]error{a.Name(): a.StartStopOnce.Healthy()}
 }
 
 // GetLegacyGas estimates both the gas price and the gas limit.

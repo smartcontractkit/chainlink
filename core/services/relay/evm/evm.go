@@ -79,12 +79,6 @@ func (r *Relayer) Ready() error {
 	return nil
 }
 
-// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
-// https://smartcontract-it.atlassian.net/browse/BCF-2140
-func (r *Relayer) Healthy() error {
-	return nil
-}
-
 func (r *Relayer) HealthReport() map[string]error {
 	return r.chainSet.HealthReport()
 }
@@ -445,12 +439,6 @@ func (p *medianProvider) Close() error {
 
 func (p *medianProvider) Ready() error {
 	return multierr.Combine(p.configWatcher.Ready(), p.contractTransmitter.Ready())
-}
-
-// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
-// https://smartcontract-it.atlassian.net/browse/BCF-2140
-func (p *medianProvider) Healthy() error {
-	return nil
 }
 
 func (p *medianProvider) HealthReport() map[string]error {
