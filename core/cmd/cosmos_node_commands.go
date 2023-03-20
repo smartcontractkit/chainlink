@@ -24,13 +24,11 @@ func (p *CosmosNodePresenter) ToRow() []string {
 		p.Name,
 		p.CosmosChainID,
 		p.TendermintURL,
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
 
-var cosmosNodeHeaders = []string{"ID", "Name", "Chain ID", "Tendermint URL", "Created", "Updated"}
+var cosmosNodeHeaders = []string{"ID", "Name", "Chain ID", "Tendermint URL"}
 
 // RenderTable implements TableRenderer
 func (p CosmosNodePresenter) RenderTable(rt RendererTable) error {

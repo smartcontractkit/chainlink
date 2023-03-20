@@ -79,8 +79,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 // ChainSet extends adapters.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {
 	adapters.ChainSet
-	chains.DBNodeSet[string, db.Node]
-	chains.DBChainSet[string, *db.ChainCfg]
+	chains.NodesConfig[string, db.Node]
+	chains.ChainsConfig[string, *db.ChainCfg]
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {

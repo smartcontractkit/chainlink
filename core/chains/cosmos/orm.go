@@ -7,6 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
 )
 
-func NewORMImmut(cfgs chains.ChainConfig[string, *cosmosdb.ChainCfg, cosmosdb.Node]) types.ORM {
+func NewORMImmut(cfgs chains.Configs[string, *cosmosdb.ChainCfg, cosmosdb.Node]) types.ORM {
 	return chains.NewORMImmut(cfgs)
 }

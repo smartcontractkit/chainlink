@@ -65,7 +65,7 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) {
 	}
 }
 
-func (cs CosmosConfigs) Chains(ids ...string) (chains []types.DBChain) {
+func (cs CosmosConfigs) Chains(ids ...string) (chains []types.ChainConfig) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -220,7 +220,7 @@ func setFromChain(c, f *coscfg.Chain) {
 	}
 }
 
-func (c *CosmosConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
+func (c *CosmosConfig) SetFromDB(ch types.ChainConfig, nodes []db.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
 
@@ -251,8 +251,8 @@ func (c *CosmosConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *CosmosConfig) AsV1() types.DBChain {
-	return types.DBChain{
+func (c *CosmosConfig) AsV1() types.ChainConfig {
+	return types.ChainConfig{
 		ID:      *c.ChainID,
 		Enabled: c.IsEnabled(),
 		Cfg: &db.ChainCfg{

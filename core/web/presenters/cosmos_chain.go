@@ -1,8 +1,6 @@
 package presenters
 
 import (
-	"time"
-
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
@@ -19,24 +17,20 @@ func (r CosmosChainResource) GetName() string {
 }
 
 // NewCosmosChainResource returns a new CosmosChainResource for chain.
-func NewCosmosChainResource(chain types.DBChain) CosmosChainResource {
+func NewCosmosChainResource(chain types.ChainConfig) CosmosChainResource {
 	return CosmosChainResource{chainResource[*db.ChainCfg]{
-		JAID:      NewJAID(chain.ID),
-		Config:    chain.Cfg,
-		Enabled:   chain.Enabled,
-		CreatedAt: chain.CreatedAt,
-		UpdatedAt: chain.UpdatedAt,
+		JAID:    NewJAID(chain.ID),
+		Config:  chain.Cfg,
+		Enabled: chain.Enabled,
 	}}
 }
 
 // CosmosNodeResource is a Cosmos node JSONAPI resource.
 type CosmosNodeResource struct {
 	JAID
-	Name          string    `json:"name"`
-	CosmosChainID string    `json:"cosmosChainID"`
-	TendermintURL string    `json:"tendermintURL"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	Name          string `json:"name"`
+	CosmosChainID string `json:"cosmosChainID"`
+	TendermintURL string `json:"tendermintURL"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -51,7 +45,5 @@ func NewCosmosNodeResource(node db.Node) CosmosNodeResource {
 		Name:          node.Name,
 		CosmosChainID: node.CosmosChainID,
 		TendermintURL: node.TendermintURL,
-		CreatedAt:     node.CreatedAt,
-		UpdatedAt:     node.UpdatedAt,
 	}
 }

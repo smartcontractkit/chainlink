@@ -9,13 +9,13 @@ import (
 
 // ORM manages cosmos chains and nodes.
 type ORM interface {
-	chains.ChainsORM[string, *db.ChainCfg, DBChain]
+	chains.ChainsORM[string, *db.ChainCfg, ChainConfig]
 	chains.NodesORM[string, db.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
 }
 
-type DBChain = chains.DBChain[string, *db.ChainCfg]
+type ChainConfig = chains.ChainConfig[string, *db.ChainCfg]
 
 // NewNode defines a new node to create.
 type NewNode struct {
