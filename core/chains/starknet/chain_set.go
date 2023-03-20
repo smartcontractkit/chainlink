@@ -71,8 +71,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 
 type ChainSet interface {
 	starkchain.ChainSet
-	chains.ChainsConfig[string, *db.ChainCfg]
-	chains.NodesConfig[string, db.Node]
+	chains.Chains[string, *db.ChainCfg]
+	chains.Nodes[string, db.Node]
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {

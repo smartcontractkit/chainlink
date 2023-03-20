@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -61,14 +60,6 @@ func (c *chain) Name() string {
 
 func (c *chain) Config() config.Config {
 	return c.cfg
-}
-
-func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
-	if c.cfgImmutable {
-		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
-		return
-	}
-	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() txm.TxManager {
