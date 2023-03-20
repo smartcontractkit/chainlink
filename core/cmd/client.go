@@ -734,7 +734,10 @@ func NewUserCache(subdir string) (*UserCache, error) {
 		return nil, err
 	}
 	dir := filepath.Join(cd, "chainlink", subdir)
-
+	err = os.MkdirAll(dir, 0700)
+	if err != nil {
+		return nil, err
+	}
 	return &UserCache{
 		dir: dir,
 	}, nil
