@@ -49,7 +49,7 @@ func TestClient_IndexCosmosNodes(t *testing.T) {
 	nodes := *r.Renders[0].(*cmd.CosmosNodePresenters)
 	require.Len(t, nodes, 1)
 	n := nodes[0]
-	assert.Equal(t, "0", n.ID)
+	assert.Equal(t, "second", n.ID)
 	assert.Equal(t, *node.Name, n.Name)
 	assert.Equal(t, *chain.ChainID, n.CosmosChainID)
 	assert.Equal(t, (*url.URL)(node.TendermintURL).String(), n.TendermintURL)

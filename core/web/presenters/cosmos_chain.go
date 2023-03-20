@@ -41,7 +41,7 @@ func (r CosmosNodeResource) GetName() string {
 // NewCosmosNodeResource returns a new CosmosNodeResource for node.
 func NewCosmosNodeResource(node db.Node) CosmosNodeResource {
 	return CosmosNodeResource{
-		JAID:          NewJAIDInt32(node.ID),
+		JAID:          NewJAID(node.Name),
 		Name:          node.Name,
 		CosmosChainID: node.CosmosChainID,
 		TendermintURL: node.TendermintURL,
