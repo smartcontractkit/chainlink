@@ -3,12 +3,13 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"go.uber.org/zap/zapcore"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,7 @@ func TestVRFv2Basic(t *testing.T) {
 	numberOfWords := uint32(3)
 
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFv2Test(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

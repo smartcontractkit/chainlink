@@ -12,6 +12,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func BuildAutoOCR2ConfigVars(
 	registrar string,
 	deltaStage time.Duration,
 ) contracts.OCRConfig {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -97,7 +98,7 @@ func CreateOCRKeeperJobs(
 	chainID int64,
 	keyIndex int,
 ) {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
