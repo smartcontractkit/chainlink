@@ -122,6 +122,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err
+			}
+
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
 				return nil, err
 			}
@@ -183,6 +187,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	return nil, errors.New("invalid job spec expected a vrf task")
+}
+
+// CheckFromAddressesExist returns an error if and only if one of the addresses
+// in the VRF spec's fromAddresses field does not exist in the keystore.
+func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+	for _, a := range jb.VRFSpec.FromAddresses {
+		_, err2 := gethks.Get(a.Hex())
+		err = multierr.Append(err, err2)
+	}
+	return
 }
 
 // CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
