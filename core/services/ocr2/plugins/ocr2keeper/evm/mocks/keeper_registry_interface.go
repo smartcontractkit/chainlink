@@ -1158,30 +1158,6 @@ func (_m *KeeperRegistryInterface) GetMinBalanceForUpkeep(opts *bind.CallOpts, i
 	return r0, r1
 }
 
-// GetMode provides a mock function with given fields: opts
-func (_m *KeeperRegistryInterface) GetMode(opts *bind.CallOpts) (uint8, error) {
-	ret := _m.Called(opts)
-
-	var r0 uint8
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (uint8, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) uint8); ok {
-		r0 = rf(opts)
-	} else {
-		r0 = ret.Get(0).(uint8)
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetPeerRegistryMigrationPermission provides a mock function with given fields: opts, peer
 func (_m *KeeperRegistryInterface) GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error) {
 	ret := _m.Called(opts, peer)
