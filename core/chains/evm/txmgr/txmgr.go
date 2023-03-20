@@ -521,7 +521,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm) GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error) {
 	if !b.config.EvmUseForwarders() {
-		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set ETH_USE_FORWARDERS=true")
+		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.GetForwarderForEOA(eoa)
 	return
