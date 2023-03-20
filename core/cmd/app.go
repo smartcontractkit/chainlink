@@ -32,6 +32,9 @@ func NewApp(client *Client) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
+	// TOML
+	var opts chainlink.GeneralConfigOpts
+
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
@@ -54,34 +57,18 @@ func NewApp(client *Client) *cli.App {
 			Name:  "config, c",
 			Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
 			// Note: we cannot use the EnvVar field since it will combine with the flags.
+			Hidden: true,
 		},
 		cli.StringFlag{
-			Name:  "secrets, s",
-			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Name:   "secrets, s",
+			Usage:  "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Hidden: true,
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		// TOML
-		var opts chainlink.GeneralConfigOpts
 
-		fileNames := c.StringSlice("config")
-		if err := loadOpts(&opts, fileNames...); err != nil {
-			return err
-		}
-
-		secretsTOML := ""
-		if c.IsSet("secrets") {
-			secretsFileName := c.String("secrets")
-			b, err := os.ReadFile(secretsFileName)
-			if err != nil {
-				return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
-			}
-			secretsTOML = string(b)
-		}
-		if err := opts.ParseSecrets(secretsTOML); err != nil {
-			return err
-		}
-
+		// setup a default config and logger
+		// these will be overwritten later if a TOML config is specified
 		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 			return err
 		} else {
@@ -89,17 +76,30 @@ func NewApp(client *Client) *cli.App {
 			client.Logger = lggr
 			client.CloseLogger = closeLggr
 		}
+
+		err := client.setConfigFromFlags(&opts, c)
+		if err != nil {
+			return err
+		}
+
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
+
+		cookieJar, err := NewUserCache("cookies")
+		if err != nil {
+			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
+		}
+
 		urlStr := c.String("remote-node-url")
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
 			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
 		}
+
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
 		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
-		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: cookieJar}, client.Logger)
 		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
 
 		credentialsFile := c.String("admin-credentials-file")
@@ -112,6 +112,7 @@ func NewApp(client *Client) *cli.App {
 		client.CookieAuthenticator = cookieAuth
 		client.FileSessionRequestBuilder = sessionRequestBuilder
 		return nil
+
 	}
 	app.After = func(c *cli.Context) error {
 		if client.CloseLogger != nil {
@@ -145,7 +146,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:        "config",
 			Usage:       "Commands for the node's configuration",
-			Subcommands: initRemoteConfigSubCmds(client),
+			Subcommands: initRemoteConfigSubCmds(client, &opts),
 		},
 		{
 			Name:        "jobs",
@@ -177,7 +178,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode),
+			Subcommands: initLocalSubCmds(client, devMode, &opts),
 		},
 		{
 			Name:        "initiators",

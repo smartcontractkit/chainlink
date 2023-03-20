@@ -115,15 +115,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		}
 	}
 
-	var txm txmgr.TxManager
-	if !cfg.EVMRPCEnabled() {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-	} else if opts.GenTxManager == nil {
-		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker, logPoller)
-	} else {
-		txm = opts.GenTxManager(chainID)
-	}
+	txm := newEvmTxm(db, cfg, client, l, logPoller, opts)
 
 	headBroadcaster.Subscribe(txm)
 
@@ -213,7 +205,7 @@ func (c *chain) Close() error {
 		merr = multierr.Combine(merr, c.headTracker.Close())
 		c.logger.Debug("Chain: stopping headBroadcaster")
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
-		c.logger.Debug("Chain: stopping txm")
+		c.logger.Debug("Chain: stopping evmTxm")
 		merr = multierr.Combine(merr, c.txm.Close())
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
