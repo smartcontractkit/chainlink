@@ -293,6 +293,8 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 # KeyBundleID is a sha256 hexadecimal hash identifier.
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
+# CaptureEATelemetry toggles collecting extra information from External Adaptares
+CaptureEATelemetry = false # Default
 
 # This section applies only if you are running off-chain reporting jobs.
 [OCR]
@@ -323,6 +325,8 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = false # Default
 # TransmitterAddress is the default sending address to use for OCR. If you have an OCR job that does not explicitly specify a transmitter address, it will fall back to this value.
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
+# CaptureEATelemetry toggles collecting extra information from External Adaptares
+CaptureEATelemetry = false # Default
 
 # P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
 # If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will

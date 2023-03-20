@@ -24,14 +24,12 @@ func (p *EVMNodePresenter) ToRow() []string {
 		p.EVMChainID.ToInt().String(),
 		p.WSURL.ValueOrZero(),
 		p.HTTPURL.ValueOrZero(),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 		p.State,
 	}
 	return row
 }
 
-var evmNodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated", "State"}
+var evmNodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "State"}
 
 // RenderTable implements TableRenderer
 func (p EVMNodePresenter) RenderTable(rt RendererTable) error {

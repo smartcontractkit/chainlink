@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
+
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -21,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -1531,6 +1535,94 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Equal(t, *etxWithoutAttempts.Nonce, *(etxs[0].Nonce))
 		assert.Equal(t, etx4.ID, etxs[1].ID)
 		assert.Equal(t, *etx4.Nonce, *(etxs[1].Nonce))
+	})
+}
+
+func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+
+	db := pgtest.NewSqlxDB(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+	t.Run("should retry previous attempt if connectivity check failed for legacy transactions", func(t *testing.T) {
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(false)
+			c.EVM[0].GasEstimator.BlockHistory.BlockHistorySize = ptr[uint16](2)
+			c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](4)
+		})
+		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+		borm := cltest.NewTxmORM(t, db, cfg)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		keys := []ethkey.State{state}
+		kst := ksmocks.NewEth(t)
+
+		estimator := gasmocks.NewEvmEstimator(t)
+		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		// Create confirmer with necessary state
+		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
+		currentHead := int64(30)
+		oldEnough := int64(15)
+		nonce := int64(0)
+		originalBroadcastAt := time.Unix(1616509100, 0)
+
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, nonce, fromAddress, originalBroadcastAt)
+		attempt1 := etx.EthTxAttempts[0]
+		require.NoError(t, db.Get(&attempt1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
+		var err error
+
+		// Send transaction and assume success.
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+
+		err = ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
+		require.NoError(t, err)
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 1)
+	})
+
+	t.Run("should retry previous attempt if connectivity check failed for dynamic transactions", func(t *testing.T) {
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.BlockHistory.BlockHistorySize = ptr[uint16](2)
+			c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](4)
+		})
+		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+		borm := cltest.NewTxmORM(t, db, cfg)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		keys := []ethkey.State{state}
+		kst := ksmocks.NewEth(t)
+
+		estimator := gasmocks.NewEvmEstimator(t)
+		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
+		// Create confirmer with necessary state
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
+		currentHead := int64(30)
+		oldEnough := int64(15)
+		nonce := int64(0)
+		originalBroadcastAt := time.Unix(1616509100, 0)
+
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, borm, nonce, fromAddress, originalBroadcastAt)
+		attempt1 := etx.EthTxAttempts[0]
+		require.NoError(t, db.Get(&attempt1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
+		var err error
+
+		// Send transaction and assume success.
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+
+		err = ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
+		require.NoError(t, err)
+
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 1)
 	})
 }
 

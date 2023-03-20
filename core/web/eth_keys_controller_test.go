@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
@@ -230,46 +229,4 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func TestETHKeysController_UpdateSuccess(t *testing.T) {
-	t.Parallel()
-
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
-
-	sub := evmMocks.NewSubscription(t)
-	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
-
-	ethBalanceInt := big.NewInt(100)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
-	linkBalance := assets.NewLinkFromJuels(42)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
-
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	resp, cleanup := client.Post("/v2/keys/eth", nil)
-	defer cleanup()
-
-	cltest.AssertServerResponse(t, resp, http.StatusCreated)
-
-	keys, err := app.KeyStore.Eth().GetAll()
-	require.NoError(t, err)
-	require.NotEmpty(t, keys)
-
-	key := keys[0]
-	resp, cleanup = client.Put("/v2/keys/eth/"+key.Address.Hex()+"?maxGasPriceGWei=777", nil)
-	defer cleanup()
-
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-	chain, err := app.Chains.EVM.Get(&cltest.FixtureChainID)
-	require.NoError(t, err)
-
-	require.Equal(t, assets.GWei(777), chain.Config().KeySpecificMaxGasPriceWei(key.Address))
 }

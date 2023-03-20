@@ -633,6 +633,210 @@ func Test_Service_ProposeJob(t *testing.T) {
 	}
 }
 
+func Test_Service_DeleteJob(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteUUID = uuid.NewV4()
+		args       = &feeds.DeleteJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUID,
+		}
+
+		approved = feeds.JobProposal{
+			ID:             1,
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUID,
+			Status:         feeds.JobProposalStatusApproved,
+		}
+
+		httpTimeout = models.MustMakeDuration(1 * time.Second)
+	)
+
+	testCases := []struct {
+		name    string
+		args    *feeds.DeleteJobArgs
+		before  func(svc *TestService)
+		wantID  int64
+		wantErr string
+	}{
+		{
+			name: "Delete success",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Job proposal being deleted belongs to the feeds manager",
+			before: func(svc *TestService) {
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", approved.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: 2,
+						RemoteUUID:     approved.RemoteUUID,
+						Status:         feeds.JobProposalStatusApproved,
+					}, nil)
+			},
+			args:    args,
+			wantErr: "cannot delete a job proposal belonging to another feeds manager",
+		},
+		{
+			name: "Get proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(nil, errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID failed",
+		},
+		{
+			name: "No proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(nil, sql.ErrNoRows)
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID did not find any proposals to delete",
+		},
+		{
+			name: "Delete proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "DeleteProposal failed",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
+			})
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			_, err := svc.DeleteJob(testutils.Context(t), tc.args)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_Service_RevokeJob(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteUUID = uuid.NewV4()
+		args       = &feeds.RevokeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUID,
+		}
+
+		pendingProposal = feeds.JobProposal{
+			ID:             1,
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUID,
+			Status:         feeds.JobProposalStatusPending,
+		}
+
+		httpTimeout = models.MustMakeDuration(1 * time.Second)
+	)
+
+	testCases := []struct {
+		name    string
+		args    *feeds.RevokeJobArgs
+		before  func(svc *TestService)
+		wantID  int64
+		wantErr string
+	}{
+		{
+			name: "Revoke success",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
+				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(nil)
+			},
+			args:   args,
+			wantID: pendingProposal.ID,
+		},
+		{
+			name: "Job proposal being deleted belongs to the feeds manager",
+			before: func(svc *TestService) {
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: 2,
+						RemoteUUID:     pendingProposal.RemoteUUID,
+						Status:         feeds.JobProposalStatusApproved,
+					}, nil)
+			},
+			args:    args,
+			wantErr: "cannot revoke a job proposal belonging to another feeds manager",
+		},
+		{
+			name: "Get proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(nil, errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID failed",
+		},
+		{
+			name: "No proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(nil, sql.ErrNoRows)
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID did not find any proposals to revoke",
+		},
+		{
+			name: "Revoke proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
+				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "RevokeProposal failed",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
+			})
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			_, err := svc.RevokeJob(testutils.Context(t), tc.args)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func Test_Service_ProposeJob_OCR2(t *testing.T) {
 	t.Parallel()
 
@@ -990,13 +1194,13 @@ func Test_Service_CancelSpec(t *testing.T) {
 			wantErr: "orm: job proposal spec: Not Found",
 		},
 		{
-			name: "must be an approved job proposal",
+			name: "must be an approved job proposal spec",
 			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
+				pspec := &feeds.JobProposalSpec{
 					ID:     spec.ID,
 					Status: feeds.SpecStatusPending,
 				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetSpec", pspec.ID, mock.Anything).Return(pspec, nil)
 			},
 			specID:  spec.ID,
 			wantErr: "must be an approved job proposal spec",
@@ -1301,9 +1505,61 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
+			name: "revoked proposal fail",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(&feeds.JobProposal{
+					ID:     1,
+					Status: feeds.JobProposalStatusRevoked,
+				}, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve spec for a revoked job proposal",
+		},
+		{
+			name: "deleted proposal fail",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(&feeds.JobProposal{
+					ID:     jp.ID,
+					Status: feeds.JobProposalStatusDeleted,
+				}, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve spec for a deleted job proposal",
+		},
+		{
+			name: "approved spec fail",
+			before: func(svc *TestService) {
+				aspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: jp.ID,
+				}
+				svc.orm.On("GetSpec", aspec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve an approved spec",
+		},
+		{
+			name: "rejected spec fail",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      rejectedSpec.ID,
+			force:   false,
+			wantErr: "cannot approve a rejected spec",
+		},
+		{
 			name: "cancelled spec failed not latest spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
 					ID:            21,
 					Status:        feeds.SpecStatusPending,
@@ -1315,15 +1571,6 @@ answer1 [type=median index=0];
 			id:      cancelledSpec.ID,
 			force:   false,
 			wantErr: "cannot approve a cancelled spec",
-		},
-		{
-			name: "rejected spec failed cannot be approved",
-			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
-			},
-			id:      rejectedSpec.ID,
-			force:   false,
-			wantErr: "cannot approve a rejected spec",
 		},
 		{
 			name:        "already existing job replacement error",
@@ -1427,32 +1674,6 @@ answer1 [type=median index=0];
 			id:      spec.ID,
 			force:   false,
 			wantErr: "orm: job proposal spec: Not Found",
-		},
-		{
-			name: "cannot approve an approved spec",
-			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusApproved,
-				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-			},
-			id:      spec.ID,
-			force:   false,
-			wantErr: "cannot approve an approved spec",
-		},
-		{
-			name: "cannot approved an rejected spec",
-			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusRejected,
-				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-			},
-			id:      spec.ID,
-			force:   false,
-			wantErr: "cannot approve a rejected spec",
 		},
 		{
 			name: "job proposal does not exist",
@@ -1787,6 +2008,7 @@ answer1      [type=median index=0];
 			name: "cancelled spec failed not latest spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
 					ID:            21,
 					Status:        feeds.SpecStatusPending,
@@ -1803,6 +2025,7 @@ answer1      [type=median index=0];
 			name: "rejected spec failed cannot be approved",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 			},
 			id:      rejectedSpec.ID,
 			force:   false,
@@ -1816,7 +2039,6 @@ answer1      [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 			},
 			id:      spec.ID,
@@ -1912,24 +2134,28 @@ answer1      [type=median index=0];
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusApproved,
+				aspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					JobProposalID: jp.ID,
+					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 			},
 			id:      spec.ID,
 			force:   false,
 			wantErr: "cannot approve an approved spec",
 		},
 		{
-			name: "cannot approved an rejected spec",
+			name: "cannot approved a rejected spec",
 			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusRejected,
+				rspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					JobProposalID: jp.ID,
+					Status:        feeds.SpecStatusRejected,
 				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetSpec", rspec.ID, mock.Anything).Return(rspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 			},
 			id:      spec.ID,
 			force:   false,
@@ -2133,7 +2359,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 			wantErr: "failure",
 		},
 		{
-			name: "Must be a pending spec",
+			name: "Cannot be a rejected proposal",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(&feeds.JobProposalSpec{
 					Status: feeds.SpecStatusRejected,
