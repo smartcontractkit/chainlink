@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/hex"
 	"math/rand"
 	"sync/atomic"
 
@@ -40,7 +41,13 @@ func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	if res.Status != "200 OK" {
 		return loadgen.CallResult{Error: "not 200", Failed: true}
 	}
-	if err := mercury.ValidateReport([]byte(answer.ChainlinkBlob)); err != nil {
+	reportBytes, err := hex.DecodeString(answer.ChainlinkBlob[2:])
+	if err != nil {
+		return loadgen.CallResult{Error: "report validation error", Failed: true}
+	}
+	report, err := mercury.DecodeReport(reportBytes)
+	_ = report
+	if err != nil {
 		return loadgen.CallResult{Error: "report validation error", Failed: true}
 	}
 	return loadgen.CallResult{}
