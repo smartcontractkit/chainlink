@@ -224,7 +224,7 @@ func TestSendEATelemetry(t *testing.T) {
 	wg.Add(1)
 	collectEATelemetry(&ds, &trrs, &fr)
 
-	expectedTelemetry := telem.TelemEnhancedEA{
+	expectedTelemetry := telem.EnhancedEA{
 		DataSource:                    "data_source_test",
 		Value:                         1234567890,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
