@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -90,7 +91,7 @@ func ProcessNewEvent(
 	contractABI *abi.ABI,
 	chainClient blockchain.EVMClient,
 ) {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	errorChan := make(chan error)
 	eventConfirmed := make(chan bool)
 	err := chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
@@ -137,7 +138,7 @@ func SubscribeOperatorFactoryEvents(
 	chainClient blockchain.EVMClient,
 	operatorFactoryInstance contracts.OperatorFactory,
 ) {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	contractABI, err := operator_factory.OperatorFactoryMetaData.GetAbi()
 	require.NoError(t, err, "Getting contract abi for OperatorFactory shouldn't fail")
 	latestBlockNum, err := chainClient.LatestBlockNumber(context.Background())
@@ -185,7 +186,7 @@ func TrackForwarder(
 	authorizedForwarder common.Address,
 	node *client.Chainlink,
 ) {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	chainID := chainClient.GetChainID()
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder track should be created")
