@@ -4590,7 +4590,7 @@ FallbackGasPriceUAtom sets a fallback gas price to use when the estimator is not
 ```toml
 FCDURL = 'http://cosmos.com' # Example
 ```
-FCDURL sets the FCD URL.
+FCDURL sets the FCD (Full Client Daemon) URL.
 
 ### GasLimitMultiplier
 ```toml
