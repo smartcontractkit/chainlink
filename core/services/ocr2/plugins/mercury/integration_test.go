@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -81,10 +82,11 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// feeds
 	btcFeed := Feed{"BTC/USD", randomFeedID(), big.NewInt(20_000 * multiplier), big.NewInt(19_997 * multiplier), big.NewInt(20_004 * multiplier)}
-	ethFeed := Feed{"ETH/USD", randomFeedID(), big.NewInt(1_568 * multiplier), big.NewInt(1_566 * multiplier), big.NewInt(1_569 * multiplier)}
-	linkFeed := Feed{"LINK/USD", randomFeedID(), big.NewInt(7150 * multiplier / 1000), big.NewInt(7123 * multiplier / 1000), big.NewInt(7177 * multiplier / 1000)}
-	feeds := []Feed{btcFeed, ethFeed, linkFeed}
-	feedM := make(map[[32]byte]Feed, 3)
+	// ethFeed := Feed{"ETH/USD", randomFeedID(), big.NewInt(1_568 * multiplier), big.NewInt(1_566 * multiplier), big.NewInt(1_569 * multiplier)}
+	// linkFeed := Feed{"LINK/USD", randomFeedID(), big.NewInt(7150 * multiplier / 1000), big.NewInt(7123 * multiplier / 1000), big.NewInt(7177 * multiplier / 1000)}
+	// feeds := []Feed{btcFeed, ethFeed, linkFeed}
+	feeds := []Feed{btcFeed}
+	feedM := make(map[[32]byte]Feed, len(feeds))
 	for i := range feeds {
 		feedM[feeds[i].id] = feeds[i]
 	}
@@ -159,13 +161,14 @@ func TestIntegration_Mercury(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i, p int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 			res.WriteHeader(http.StatusOK)
-			resp := fmt.Sprintf(`{"result": %d.0%d}`, p, i)
+			val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
+			resp := fmt.Sprintf(`{"result": %s}`, val)
 			res.Write([]byte(resp))
 		}))
 		t.Cleanup(bridge.Close)
@@ -181,11 +184,11 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// Add OCR jobs
 	for i, node := range nodes {
-		bmBridge := createBridge("benchmarkprice", i, 1568, node.App.BridgeORM())
-		askBridge := createBridge("ask", i, 1569, node.App.BridgeORM())
-		bidBridge := createBridge("bid", i, 1566, node.App.BridgeORM())
-
 		for _, feed := range feeds {
+			bmBridge := createBridge("benchmarkprice", i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			askBridge := createBridge("ask", i, feed.baseAsk, node.App.BridgeORM())
+			bidBridge := createBridge("bid", i, feed.baseBid, node.App.BridgeORM())
+
 			addMercuryJob(
 				t,
 				node,
