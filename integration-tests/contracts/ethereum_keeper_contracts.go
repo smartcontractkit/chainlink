@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_transcoder"
 	"math/big"
 	"strconv"
 	"strings"
@@ -1766,7 +1767,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 // of upkeeps from one registry to another.
 type EthereumUpkeepTranscoder struct {
 	client     blockchain.EVMClient
-	transcoder *ethereum.UpkeepTranscoder
+	transcoder *upkeep_transcoder.UpkeepTranscoder
 	address    *common.Address
 }
 

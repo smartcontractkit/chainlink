@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_transcoder"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -479,7 +480,7 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 		opts *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum2.DeployUpkeepTranscoder(opts, backend)
+		return upkeep_transcoder.DeployUpkeepTranscoder(opts, backend)
 	})
 
 	if err != nil {
@@ -488,7 +489,7 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 
 	return &EthereumUpkeepTranscoder{
 		client:     e.client,
-		transcoder: instance.(*ethereum2.UpkeepTranscoder),
+		transcoder: instance.(*upkeep_transcoder.UpkeepTranscoder),
 		address:    address,
 	}, err
 }
