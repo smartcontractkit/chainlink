@@ -3,7 +3,6 @@ package contracts
 import (
 	"errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -120,7 +119,7 @@ func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Addr
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return ethereum.NewKeeperConsumerBenchmark(address, backend)
+		return ethereum2.NewKeeperConsumerBenchmark(address, backend)
 	})
 	if err != nil {
 		return nil, err
