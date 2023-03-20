@@ -1552,25 +1552,3 @@ func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
 		assert.Equal(t, int64(2), n)
 	})
 }
-
-func TestORM_ConvertArgs(t *testing.T) {
-	t.Parallel()
-
-	var compareTo pg.QOpt = func(*pg.Q) {}
-	var opt any = pg.WithParentCtx(context.Background())
-
-	t.Run("ToQOpt succeeds any -> QOpt", func(t *testing.T) {
-		qopt, err := txmgr.ToQOpt(opt)
-		require.NoError(t, err)
-		require.IsType(t, compareTo, qopt)
-	})
-
-	t.Run("ToQOpt fails any -> QOpt", func(t *testing.T) {
-		var err error
-		// pass []any instead of any
-		_, err = txmgr.ToQOpt([]any{opt})
-		require.Error(t, err)
-		_, err = txmgr.ToQOpt(8)
-		require.Error(t, err)
-	})
-}

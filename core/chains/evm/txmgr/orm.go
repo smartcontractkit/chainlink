@@ -86,14 +86,6 @@ type orm struct {
 	ctxCancel context.CancelFunc
 }
 
-func ToQOpt(opt any) (pg.QOpt, error) {
-	qopt, ok := opt.(pg.QOpt)
-	if !ok {
-		return nil, ErrInvalidQOpt
-	}
-	return qopt, nil
-}
-
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
