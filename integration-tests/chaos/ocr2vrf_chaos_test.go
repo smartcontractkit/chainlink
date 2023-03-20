@@ -44,7 +44,7 @@ var (
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart

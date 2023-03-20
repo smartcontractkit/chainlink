@@ -215,9 +215,9 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 			// Nothing new in this filter
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter %s with more events or addresses", "filter.Name", filter.Name)
+		lp.lggr.Warnw("Updating existing filter with more events or addresses", "filter", filter)
 	} else {
-		lp.lggr.Debugf("Creating new filter %s", filter.Name)
+		lp.lggr.Debugw("Creating new filter", "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(filter); err != nil {

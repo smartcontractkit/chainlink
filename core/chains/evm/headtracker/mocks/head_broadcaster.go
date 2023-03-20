@@ -5,8 +5,9 @@ package mocks
 import (
 	context "context"
 
-	headtrackertypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	mock "github.com/stretchr/testify/mock"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
@@ -94,15 +95,15 @@ func (_m *HeadBroadcaster) Start(_a0 context.Context) error {
 }
 
 // Subscribe provides a mock function with given fields: callback
-func (_m *HeadBroadcaster) Subscribe(callback headtrackertypes.HeadTrackable) (*types.Head, func()) {
+func (_m *HeadBroadcaster) Subscribe(callback txmgrtypes.HeadTrackable[*types.Head]) (*types.Head, func()) {
 	ret := _m.Called(callback)
 
 	var r0 *types.Head
 	var r1 func()
-	if rf, ok := ret.Get(0).(func(headtrackertypes.HeadTrackable) (*types.Head, func())); ok {
+	if rf, ok := ret.Get(0).(func(txmgrtypes.HeadTrackable[*types.Head]) (*types.Head, func())); ok {
 		return rf(callback)
 	}
-	if rf, ok := ret.Get(0).(func(headtrackertypes.HeadTrackable) *types.Head); ok {
+	if rf, ok := ret.Get(0).(func(txmgrtypes.HeadTrackable[*types.Head]) *types.Head); ok {
 		r0 = rf(callback)
 	} else {
 		if ret.Get(0) != nil {
@@ -110,7 +111,7 @@ func (_m *HeadBroadcaster) Subscribe(callback headtrackertypes.HeadTrackable) (*
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(headtrackertypes.HeadTrackable) func()); ok {
+	if rf, ok := ret.Get(1).(func(txmgrtypes.HeadTrackable[*types.Head]) func()); ok {
 		r1 = rf(callback)
 	} else {
 		if ret.Get(1) != nil {

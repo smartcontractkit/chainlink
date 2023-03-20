@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-var chainHeaders = []string{"ID", "Enabled", "Config", "Created", "Updated"}
+var chainHeaders = []string{"ID", "Enabled", "Config"}
 
 // chainCommand returns a cli.Command with subcommands for the given ChainClient.
 // The chainId cli.Flag must be named "id", but may be String or Int.

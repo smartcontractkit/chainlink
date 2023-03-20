@@ -29,7 +29,7 @@ import (
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupRunLogTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
