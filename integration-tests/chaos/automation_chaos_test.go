@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -106,6 +105,8 @@ const (
 )
 
 func TestAutomationChaos(t *testing.T) {
+	t.Parallel()
+	l := actions.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -166,7 +167,7 @@ func TestAutomationChaos(t *testing.T) {
 	for n, tst := range testCases {
 		name := n
 		testCase := tst
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
 			network := networks.SelectedNetwork
 
@@ -174,6 +175,7 @@ func TestAutomationChaos(t *testing.T) {
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf("chaos-automation-%s", name),
 					TTL:             time.Hour * 1,
+					Test:            t,
 				}).
 				AddHelm(testCase.networkChart).
 				AddHelm(testCase.clChart).
@@ -184,6 +186,9 @@ func TestAutomationChaos(t *testing.T) {
 				}))
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
+			if testEnvironment.WillUseRemoteRunner() {
+				return
+			}
 
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
@@ -246,7 +251,7 @@ func TestAutomationChaos(t *testing.T) {
 				defaultUpkeepGasLimit,
 			)
 
-			log.Info().Msg("Waiting for all upkeeps to be performed")
+			l.Info().Msg("Waiting for all upkeeps to be performed")
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -255,7 +260,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
-					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
@@ -270,7 +275,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10
-					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}

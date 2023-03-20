@@ -24,7 +24,7 @@ func GenerateProofResponseFromProof(p vrfkey.Proof, s proof.PreSeedData) (
 
 func createAndStartBHSJob(
 	t *testing.T,
-	fromAddress string,
+	fromAddresses []string,
 	app *cltest.TestApplication,
 	bhsAddress, coordinatorV1Address, coordinatorV2Address string,
 ) job.Job {
@@ -40,7 +40,7 @@ func createAndStartBHSJob(
 		PollPeriod:            time.Second,
 		RunTimeout:            100 * time.Millisecond,
 		EVMChainID:            1337,
-		FromAdress:            fromAddress,
+		FromAddresses:         fromAddresses,
 	})
 	jb, err := blockhashstore.ValidatedSpec(s.Toml())
 	require.NoError(t, err)

@@ -127,6 +127,14 @@ func (backup *databaseBackup) Close() error {
 	})
 }
 
+func (backup *databaseBackup) Name() string {
+	return backup.logger.Name()
+}
+
+func (backup *databaseBackup) HealthReport() map[string]error {
+	return map[string]error{backup.Name(): backup.StartStopOnce.Healthy()}
+}
+
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }
@@ -137,7 +145,8 @@ func (backup *databaseBackup) RunBackup(version string) error {
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Errorw("Backup failed", "duration", duration, "err", err)
+		backup.logger.Criticalw("Backup failed", "duration", duration, "err", err)
+		backup.SvcErrBuffer.Append(err)
 		return err
 	}
 	backup.logger.Infow("Backup completed successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)

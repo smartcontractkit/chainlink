@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -66,7 +67,7 @@ func NewOCRContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                lggr,
+		lggr:                lggr.Named("OCRContractTransmitter"),
 	}, nil
 }
 
@@ -165,12 +166,15 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 
 // FromAccount returns the account from which the transmitter invokes the contract
 func (oc *contractTransmitter) FromAccount() ocrtypes.Account {
-	return ocrtypes.Account(oc.transmitter.FromAddress().String())
+	return ocrtypes.Account(fmt.Sprintf("0x%x", oc.transmitter.FromAddress()))
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
 func (oc *contractTransmitter) Close() error                    { return nil }
 
 // Has no state/lifecycle so it's always healthy and ready
-func (oc *contractTransmitter) Healthy() error { return nil }
-func (oc *contractTransmitter) Ready() error   { return nil }
+func (oc *contractTransmitter) Ready() error { return nil }
+func (oc *contractTransmitter) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): nil}
+}
+func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }

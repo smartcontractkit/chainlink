@@ -40,8 +40,8 @@ func (NoopTelemetryIngressClient) Close() error { return nil }
 // Send is a no-op
 func (NoopTelemetryIngressClient) Send(TelemPayload) {}
 
-// Healthy is a no-op
-func (NoopTelemetryIngressClient) Healthy() error { return nil }
+func (NoopTelemetryIngressClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopTelemetryIngressClient) Name() string                   { return "NoopTelemetryIngressClient" }
 
 // Ready is a no-op
 func (NoopTelemetryIngressClient) Ready() error { return nil }
@@ -106,6 +106,14 @@ func (tc *telemetryIngressClient) Close() error {
 	})
 }
 
+func (tc *telemetryIngressClient) Name() string {
+	return tc.lggr.Name()
+}
+
+func (tc *telemetryIngressClient) HealthReport() map[string]error {
+	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
+}
+
 func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
 	tc.wgDone.Add(1)
 
@@ -114,10 +122,14 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
 		if err != nil {
-			tc.lggr.Errorf("Error connecting to telemetry ingress server: %v", err)
-			return
+			if ctx.Err() != nil {
+				tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
+			} else {
+				tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+				tc.SvcErrBuffer.Append(err)
+			}
 		}
 		defer conn.Close()
 

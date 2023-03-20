@@ -920,6 +920,7 @@ observationSource                      = """
 type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
+	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
 	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
@@ -932,6 +933,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	specWrap := struct {
 		Name                     string
 		JobType                  string
+		MaxTaskDuration          string
 		ContractID               string
 		Relay                    string
 		PluginType               string
@@ -949,6 +951,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}{
 		Name:                  o.Name,
 		JobType:               o.JobType,
+		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
 		Relay:                 string(o.OCR2OracleSpec.Relay),
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
@@ -966,6 +969,8 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
+{{if .MaxTaskDuration}}
+maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
 {{if .PluginType}}
 pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
@@ -975,10 +980,18 @@ contractID                             = "{{.ContractID}}"
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}
 transmitterID                          = "{{.TransmitterID}}" {{end}}
-blockchainTimeout                      ={{if not .BlockchainTimeout}} "20s" {{else}} "{{.BlockchainTimeout}}" {{end}}
-contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{else}} {{.ContractConfirmations}} {{end}}
-contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} "{{.TrackerPollInterval}}" {{end}}
-contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} "{{.TrackerSubscribeInterval}}" {{end}}
+{{if .BlockchainTimeout}}
+blockchainTimeout                      = "{{.BlockchainTimeout}}" 
+{{end}}
+{{if .ContractConfirmations}}
+contractConfigConfirmations            = {{.ContractConfirmations}} 
+{{end}}
+{{if .TrackerPollInterval}}
+contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"
+{{end}}
+{{if .TrackerSubscribeInterval}}
+contractConfigTrackerSubscribeInterval = "{{.TrackerSubscribeInterval}}"
+{{end}}
 {{if .P2PV2Bootstrappers}}
 p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
 {{if .MonitoringEndpoint}}
@@ -1005,7 +1018,7 @@ type VRFV2JobSpec struct {
 	ExternalJobID            string        `toml:"externalJobID"`
 	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddress              string        `toml:"fromAddress"`
+	FromAddresses            []string      `toml:"fromAddresses"`
 	EVMChainID               string        `toml:"evmChainID"`
 	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
 	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
@@ -1022,7 +1035,7 @@ type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
-fromAddress              = "{{.FromAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"

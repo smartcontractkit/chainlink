@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 )
 
@@ -15,8 +16,17 @@ type evmRegistryPackerV2_0 struct {
 	abi abi.ABI
 }
 
+func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
+	return &evmRegistryPackerV2_0{abi: abi}
+}
+
 func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
-	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return types.UpkeepResult{}, err
+	}
+
+	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return types.UpkeepResult{}, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
@@ -56,8 +66,13 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 }
 
 func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return false, err
+	}
+
 	out, err := rp.abi.Methods["simulatePerformUpkeep"].
-		Outputs.UnpackValues(hexutil.MustDecode(raw))
+		Outputs.UnpackValues(b)
 	if err != nil {
 		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
 	}
@@ -66,7 +81,12 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 }
 
 func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
-	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return activeUpkeep{}, err
+	}
+
+	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return activeUpkeep{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
@@ -92,6 +112,22 @@ func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (ac
 	}
 
 	return au, nil
+}
+
+func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]types.UpkeepResult, error) {
+	out, err := rp.abi.Methods["transmit"].Inputs.UnpackValues(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unpack TransmitTxInput return: %s", err, raw)
+	}
+
+	if len(out) < 2 {
+		return nil, fmt.Errorf("invalid unpacking of TransmitTxInput in %s", raw)
+	}
+	decodedReport, err := chain.NewEVMReportEncoder().DecodeReport(out[1].([]byte))
+	if err != nil {
+		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
+	}
+	return decodedReport, nil
 }
 
 var (

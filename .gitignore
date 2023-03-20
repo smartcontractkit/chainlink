@@ -62,8 +62,14 @@ tests-*.xml
 *.test
 tmp-manifest-*.yaml
 ztarrepo.tar.gz
+**/test-ledger/*
 
 # goreleaser builds
 cosign.*
 dist/
 MacOSX*
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out

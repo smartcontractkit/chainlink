@@ -4,7 +4,7 @@ RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 
 [Feature]
-FeedsManager = false
+FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 
@@ -113,6 +113,7 @@ ContractSubscribeInterval = '2m0s'
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
 
 [OCR]
 Enabled = true
@@ -124,6 +125,7 @@ DefaultTransactionQueueDepth = 1
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
+CaptureEATelemetry = false
 
 [P2P]
 IncomingMessageBufferSize = 999
@@ -193,6 +195,7 @@ Release = ''
 
 [[EVM]]
 ChainID = '1'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 26
@@ -276,6 +279,7 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -354,6 +358,7 @@ WSURL = 'wss://web.socket/test'
 
 [[EVM]]
 ChainID = '137'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500

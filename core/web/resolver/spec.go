@@ -771,12 +771,15 @@ func (b *BlockhashStoreSpecResolver) EVMChainID() *string {
 }
 
 // FromAddress returns the job's FromAddress param, if any.
-func (b *BlockhashStoreSpecResolver) FromAddress() *string {
-	if b.spec.FromAddress == nil {
+func (b *BlockhashStoreSpecResolver) FromAddresses() *[]string {
+	if b.spec.FromAddresses == nil {
 		return nil
 	}
-	addr := b.spec.FromAddress.String()
-	return &addr
+	var addresses []string
+	for _, a := range b.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
 }
 
 // CreatedAt resolves the spec's created at timestamp.

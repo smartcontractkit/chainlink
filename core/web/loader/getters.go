@@ -19,7 +19,7 @@ import (
 var ErrInvalidType = errors.New("invalid type")
 
 // GetChainByID fetches the chain by it's id.
-func GetChainByID(ctx context.Context, id string) (*types.DBChain, error) {
+func GetChainByID(ctx context.Context, id string) (*types.ChainConfig, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -28,7 +28,7 @@ func GetChainByID(ctx context.Context, id string) (*types.DBChain, error) {
 		return nil, err
 	}
 
-	chain, ok := result.(types.DBChain)
+	chain, ok := result.(types.ChainConfig)
 	if !ok {
 		return nil, ErrInvalidType
 	}

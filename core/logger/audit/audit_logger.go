@@ -16,7 +16,6 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -155,15 +154,6 @@ func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 	return []byte(serialized), nil
 }
 
-var AuditLoggerHeaders = envvar.New("AuditLoggerHeaders", func(s string) (ServiceHeaders, error) {
-	sh := make(ServiceHeaders, 0)
-	err := sh.UnmarshalText([]byte(s))
-	if err != nil {
-		return nil, err
-	}
-	return sh, nil
-})
-
 type Config interface {
 	AuditLoggerEnabled() bool
 	AuditLoggerForwardToUrl() (models.URL, error)
@@ -297,16 +287,18 @@ func (l *AuditLoggerService) Close() error {
 	return nil
 }
 
-func (l *AuditLoggerService) Healthy() error {
+func (l *AuditLoggerService) Name() string {
+	return l.logger.Name()
+}
+
+func (l *AuditLoggerService) HealthReport() map[string]error {
+	var err error
 	if !l.enabled {
-		return errors.New("the audit logger is not enabled")
+		err = errors.New("the audit logger is not enabled")
+	} else if len(l.loggingChannel) == bufferCapacity {
+		err = errors.New("buffer is full")
 	}
-
-	if len(l.loggingChannel) == bufferCapacity {
-		return errors.New("buffer is full")
-	}
-
-	return nil
+	return map[string]error{l.Name(): err}
 }
 
 func (l *AuditLoggerService) Ready() error {

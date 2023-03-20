@@ -64,3 +64,43 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func Test_RPCHandlers_DeleteJob(t *testing.T) {
+	var (
+		ctx   = testutils.Context(t)
+		jobID = uuid.NewV4()
+	)
+	h := setupTestHandlers(t)
+
+	h.svc.
+		On("DeleteJob", ctx, &feeds.DeleteJobArgs{
+			FeedsManagerID: h.feedsManagerID,
+			RemoteUUID:     jobID,
+		}).
+		Return(int64(1), nil)
+
+	_, err := h.DeleteJob(ctx, &pb.DeleteJobRequest{
+		Id: jobID.String(),
+	})
+	require.NoError(t, err)
+}
+
+func Test_RPCHandlers_RevokeJob(t *testing.T) {
+	var (
+		ctx   = testutils.Context(t)
+		jobID = uuid.NewV4()
+	)
+	h := setupTestHandlers(t)
+
+	h.svc.
+		On("RevokeJob", ctx, &feeds.RevokeJobArgs{
+			FeedsManagerID: h.feedsManagerID,
+			RemoteUUID:     jobID,
+		}).
+		Return(int64(1), nil)
+
+	_, err := h.RevokeJob(ctx, &pb.RevokeJobRequest{
+		Id: jobID.String(),
+	})
+	require.NoError(t, err)
+}

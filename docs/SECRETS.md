@@ -16,16 +16,7 @@ URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable' # Required
 Keystore = 'keystore_pass' # Required
 ```
 
-## Table of contents
-
-- [Database](#Database)
-- [Explorer](#Explorer)
-- [Password](#Password)
-- [Pyroscope](#Pyroscope)
-- [Mercury](#Mercury)
-	- [Credentials](#Mercury-Credentials)
-
-## Database<a id='Database'></a>
+## Database
 ```toml
 [Database]
 URL = "postgresql://user:pass@localhost:5432/dbname?sslmode=disable" # Example
@@ -34,7 +25,7 @@ AllowSimplePasswords = false # Default
 ```
 
 
-### URL<a id='Database-URL'></a>
+### URL
 ```toml
 URL = "postgresql://user:pass@localhost:5432/dbname?sslmode=disable" # Example
 ```
@@ -43,7 +34,7 @@ URL is the PostgreSQL URI to connect to your database. Chainlink nodes require P
 
 Environment variable: `CL_DATABASE_URL`
 
-### BackupURL<a id='Database-BackupURL'></a>
+### BackupURL
 ```toml
 BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
 ```
@@ -52,7 +43,7 @@ to set this value to a read replica if you have one to avoid excessive load on t
 
 Environment variable: `CL_DATABASE_BACKUP_URL`
 
-### AllowSimplePasswords<a id='Database-AllowSimplePasswords'></a>
+### AllowSimplePasswords
 ```toml
 AllowSimplePasswords = false # Default
 ```
@@ -60,7 +51,7 @@ AllowSimplePasswords skips the password complexity check normally enforced on UR
 
 Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
-## Explorer<a id='Explorer'></a>
+## Explorer
 ```toml
 [Explorer]
 AccessKey = "access_key" # Example
@@ -68,7 +59,7 @@ Secret = "secret" # Example
 ```
 
 
-### AccessKey<a id='Explorer-AccessKey'></a>
+### AccessKey
 ```toml
 AccessKey = "access_key" # Example
 ```
@@ -76,7 +67,7 @@ AccessKey is the access key for authenticating with the Explorer.
 
 Environment variable: `CL_EXPLORER_ACCESS_KEY`
 
-### Secret<a id='Explorer-Secret'></a>
+### Secret
 ```toml
 Secret = "secret" # Example
 ```
@@ -84,7 +75,7 @@ Secret is the secret for authenticating with the Explorer.
 
 Environment variable: `CL_EXPLORER_SECRET`
 
-## Password<a id='Password'></a>
+## Password
 ```toml
 [Password]
 Keystore = "keystore_pass" # Example
@@ -92,7 +83,7 @@ VRF = "VRF_pass" # Example
 ```
 
 
-### Keystore<a id='Password-Keystore'></a>
+### Keystore
 ```toml
 Keystore = "keystore_pass" # Example
 ```
@@ -100,7 +91,7 @@ Keystore is the password for the node's account.
 
 Environment variable: `CL_PASSWORD_KEYSTORE`
 
-### VRF<a id='Password-VRF'></a>
+### VRF
 ```toml
 VRF = "VRF_pass" # Example
 ```
@@ -108,14 +99,14 @@ VRF is the password for the vrf keys.
 
 Environment variable: `CL_PASSWORD_VRF`
 
-## Pyroscope<a id='Pyroscope'></a>
+## Pyroscope
 ```toml
 [Pyroscope]
 AuthToken = "pyroscope-token" # Example
 ```
 
 
-### AuthToken<a id='Pyroscope-AuthToken'></a>
+### AuthToken
 ```toml
 AuthToken = "pyroscope-token" # Example
 ```
@@ -123,37 +114,18 @@ AuthToken is the API key for the Pyroscope server.
 
 Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 
-## Mercury<a id='Mercury'></a>
+## Prometheus
 ```toml
-[Mercury]
-```
-Mercury credentials are needed if running OCR2 jobs in mercury mode. 0 or
-more Mercury credentials may be specified. URLs must be unique.
-
-## Mercury.Credentials<a id='Mercury-Credentials'></a>
-```toml
-[[Mercury.Credentials]]
-URL = "http://example.com/reports" # Example
-Username = "exampleusername" # Example
-Password = "examplepassword" # Example
+[Prometheus]
+AuthToken = "prometheus-token" # Example
 ```
 
 
-### URL<a id='Mercury-Credentials-URL'></a>
+### AuthToken
 ```toml
-URL = "http://example.com/reports" # Example
+AuthToken = "prometheus-token" # Example
 ```
-URL is the URL of the mercury endpoint
+AuthToken is the authorization key for the Prometheus metrics endpoint.
 
-### Username<a id='Mercury-Credentials-Username'></a>
-```toml
-Username = "exampleusername" # Example
-```
-Username is used for basic auth with the mercury endpoint
-
-### Password<a id='Mercury-Credentials-Password'></a>
-```toml
-Password = "examplepassword" # Example
-```
-Password is used for basic auth with the mercury endpoint
+Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 

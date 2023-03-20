@@ -77,7 +77,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
-	unauthenticatedDevOnlyMetricRoutes(app, api)
+	debugRoutes(app, api)
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
@@ -170,14 +170,9 @@ func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 
-func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
+func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
-
-	if app.GetConfig().Dev() {
-		// No authentication because `go tool pprof` doesn't support it
-		metricRoutes(r, true)
-	}
 }
 
 func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
@@ -267,9 +262,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
-		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/dump-v1-as-v2", cc.Dump)
-		authv2.GET("/config/v2", cc.Show2)
+		authv2.GET("/config/v2", cc.Show)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -293,7 +286,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
-		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
 		authv2.DELETE("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/eth/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
@@ -301,7 +293,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		// legacy ones remain for backwards compatibility
 		authv2.GET("/keys/evm", ekc.Index)
 		authv2.POST("/keys/evm", auth.RequiresEditRole(ekc.Create))
-		authv2.PUT("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Update))
 		authv2.DELETE("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/evm/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/evm/export/:address", auth.RequiresAdminRole(ekc.Export))
@@ -384,10 +375,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"starknet", NewStarkNetChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
-			chains.POST(chain.path, auth.RequiresEditRole(chain.cc.Create))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
-			chains.PATCH(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Update))
-			chains.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Delete))
 		}
 
 		nodes := authv2.Group("nodes")
@@ -402,13 +390,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
 				nodes.GET("", paginatedRequest(chain.nc.Index))
-				nodes.POST("", auth.RequiresEditRole(chain.nc.Create))
-				nodes.DELETE("/:ID", auth.RequiresEditRole(chain.nc.Delete))
 			}
 			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
 			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
-			nodes.POST(chain.path, auth.RequiresEditRole(chain.nc.Create))
-			nodes.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.nc.Delete))
 		}
 
 		efc := EVMForwardersController{app}
@@ -420,7 +404,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, false)
+		metricRoutes(authv2, app.GetConfig().Dev())
 	}
 
 	ping := PingController{app}

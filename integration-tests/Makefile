@@ -98,21 +98,21 @@ test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_
 # Chaos
 .PHONY: test_chaos_pods_raw
 test_chaos_pods_raw:
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run Test/pod-chaos ./chaos
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*pod-chaos' ./chaos
 
 .PHONY: test_chaos_network_raw
 test_chaos_network_raw:
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run Test/network-chaos ./chaos
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*network-chaos' ./chaos
 
 .PHONY: test_chaos_pods
 test_chaos_pods: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run Test/pod-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestfmt
 
 .PHONY: test_chaos_network
 test_chaos_network: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run Test/network-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestfmt
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: ## Run all smoke tests with verbose logging

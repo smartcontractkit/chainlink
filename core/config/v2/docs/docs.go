@@ -73,18 +73,7 @@ func generateDocs(toml, header, example string) (string, error) {
 `)
 	sb.WriteString("```toml\n")
 	sb.WriteString(example)
-	sb.WriteString("```\n")
-	sb.WriteString(`
-## Table of contents
-
-`)
-	for _, item := range items {
-		switch t := item.(type) {
-		case interface{ tocEntry() string }:
-			sb.WriteString(t.tocEntry())
-		}
-	}
-	sb.WriteString("\n")
+	sb.WriteString("```\n\n")
 
 	for _, item := range items {
 		sb.WriteString(item.String())
@@ -159,21 +148,9 @@ func (t table) extended() string {
 	return ""
 }
 
-// tocEntry prints a table-of-contents entry with a link.
-func (t table) tocEntry() string {
-	indent := strings.Repeat("\t", strings.Count(t.name, "."))
-	name := t.name
-	if i := strings.LastIndex(name, "."); i > -1 {
-		name = name[i+1:]
-	}
-	link := strings.ReplaceAll(t.name, ".", "-")
-	return fmt.Sprintf("%s- [%s](#%s)\n", indent, name, link)
-}
-
 // String prints a table as an H2, followed by a code block and description.
 func (t *table) String() string {
-	link := strings.ReplaceAll(t.name, ".", "-")
-	return fmt.Sprint("## ", t.name, "<a id='", link, "'></a>\n",
+	return fmt.Sprint("## ", t.name, "\n",
 		t.advanced(),
 		t.code(),
 		t.desc,
@@ -214,8 +191,7 @@ func (k keyval) String() string {
 	if i := strings.LastIndex(name, "."); i > -1 {
 		name = name[i+1:]
 	}
-	link := strings.ReplaceAll(k.name, ".", "-")
-	return fmt.Sprint("### ", name, "<a id='", link, "'></a>\n",
+	return fmt.Sprint("### ", name, "\n",
 		k.advanced(),
 		"```toml\n",
 		k.code,

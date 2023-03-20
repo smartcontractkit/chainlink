@@ -42,6 +42,8 @@ type VRFCoordinatorV2 interface {
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+	CreateSubscription() error
+	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
 }
 
@@ -64,6 +66,13 @@ type VRFConsumerV2 interface {
 	GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error)
 	GasAvailable() (*big.Int, error)
 	Fund(ethAmount *big.Float) error
+}
+
+type VRFv2Consumer interface {
+	Address() string
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
 }
 
 type DKG interface {
@@ -131,4 +140,9 @@ type VRFBeaconConsumer interface {
 
 type BatchBlockhashStore interface {
 	Address() string
+}
+
+type RequestStatus struct {
+	Fulfilled   bool
+	RandomWords []*big.Int
 }

@@ -9,11 +9,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.dedis.ch/kyber/v3"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bm "github.com/smartcontractkit/chainlink/core/utils/big_math"
-	"go.dedis.ch/kyber/v3"
 )
 
 // SolidityProof contains precalculations which VRF.sol needs to verify proofs

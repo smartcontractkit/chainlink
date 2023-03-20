@@ -17,7 +17,7 @@ type TxStrategy interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
-	PruneQueue(q pg.Queryer) (n int64, err error)
+	PruneQueue(orm ORM, q pg.Queryer) (n int64, err error)
 }
 
 var _ TxStrategy = SendEveryStrategy{}
@@ -41,8 +41,8 @@ func NewSendEveryStrategy() TxStrategy {
 // SendEveryStrategy will always send the tx
 type SendEveryStrategy struct{}
 
-func (SendEveryStrategy) Subject() uuid.NullUUID               { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(pg.Queryer) (int64, error) { return 0, nil }
+func (SendEveryStrategy) Subject() uuid.NullUUID                          { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(orm ORM, q pg.Queryer) (int64, error) { return 0, nil }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -64,23 +64,12 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(q pg.Queryer) (n int64, err error) {
+func (s DropOldestStrategy) PruneQueue(orm ORM, q pg.Queryer) (n int64, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
 	defer cancel()
-	res, err := q.ExecContext(ctx, `
-DELETE FROM eth_txes
-WHERE state = 'unstarted' AND subject = $1 AND
-id < (
-	SELECT min(id) FROM (
-		SELECT id
-		FROM eth_txes
-		WHERE state = 'unstarted' AND subject = $2
-		ORDER BY id DESC
-		LIMIT $3
-	) numbers
-)`, s.subject, s.subject, s.queueSize)
+	n, err = orm.PruneUnstartedEthTxQueue(s.queueSize, s.subject, pg.WithQueryer(q), pg.WithParentCtx(ctx))
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}
-	return res.RowsAffected()
+	return
 }
