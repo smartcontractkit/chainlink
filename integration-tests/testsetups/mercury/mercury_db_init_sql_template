@@ -89,4 +89,6 @@ CREATE TABLE IF NOT EXISTS reports  (
     UPDATE users SET username = id; -- Copy the uuid for the user (id) to the username column so we can set a NOT NULL constraint
     ALTER TABLE users ALTER COLUMN username SET NOT NULL;
     CREATE INDEX IF NOT EXISTS users_username_idx ON users (username);
-    INSERT INTO users (id, secret, role, disabled, username) VALUES ('{{ .UserId }}', '{{ .EncryptedKey }}', '{{ .UserRole }}', false, '{{ .UserId }}');
+    {{range .}}
+    INSERT INTO users (id, secret, role, disabled, username) VALUES ('{{ .Id }}', '{{ .Secret }}', '{{ .Role }}', '{{ .Disabled }}', '{{ .Id }}');
+    {{end}}

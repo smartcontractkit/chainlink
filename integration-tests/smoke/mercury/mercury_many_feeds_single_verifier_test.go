@@ -24,7 +24,10 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 
 	// TODO: add more feeds when https://smartcontract-it.atlassian.net/browse/MERC-294 fixed
 	var (
-		feedIds = [][32]byte{mercury.StringToByte32("feed-1")}
+		feedIds = [][32]byte{
+			mercury.StringToByte32("feed-1"),
+			mercury.StringToByte32("feed-2"),
+		}
 	)
 
 	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)

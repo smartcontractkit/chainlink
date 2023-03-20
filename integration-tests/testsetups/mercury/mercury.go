@@ -677,9 +677,19 @@ type oracle struct {
 	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
 }
 
+func buildRpcNodesJsonConfMock() ([]byte, error) {
+	_, filename, _, _ := runtime.Caller(0)
+	p := path.Join(path.Dir(filename), "/rpc_nodes_conf_mock.json")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
 // Build config with nodes for Mercury server
 func buildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
-	var msRpcNodesConf []*oracle
+	var msRpcNodesConf []*oracle = []*oracle{}
 	for i, chainlinkNode := range chainlinkNodes {
 		nodeName := fmt.Sprint(i)
 		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
@@ -728,17 +738,17 @@ func buildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
 	return json.Marshal(msRpcNodesConf)
 }
 
-func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error) {
-	data := struct {
-		UserId       string
-		UserRole     string
-		EncryptedKey string
-	}{
-		UserId:       adminId,
-		UserRole:     "admin",
-		EncryptedKey: adminEncryptedKey,
-	}
+type User struct {
+	Id        string `json:"id"`
+	Key       string `json:"key"`
+	Secret    string `json:"secret"`
+	Role      string `json:"role"`
+	Disabled  bool   `json:"disabled"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
 
+func buildInitialDbSql(users []User) (string, error) {
 	// Get file path to the sql
 	_, filename, _, _ := runtime.Caller(0)
 	tmplPath := path.Join(path.Dir(filename), "/mercury_db_init_sql_template")
@@ -749,7 +759,7 @@ func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error)
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, data)
+	err = tmpl.Execute(&buf, users)
 	if err != nil {
 		return "", err
 	}
@@ -757,9 +767,30 @@ func buildInitialDbSql(adminId string, adminEncryptedKey string) (string, error)
 	return buf.String(), nil
 }
 
-func (te *TestEnv) AddMercuryServer() error {
-	rpcNodesJsonConf, _ := buildRpcNodesJsonConf(te.ChainlinkNodes)
-	log.Info().Msgf("RPC nodes conf for mercury server: %s", rpcNodesJsonConf)
+func (te *TestEnv) InitEnv() error {
+	env := environment.New(&environment.Config{
+		TTL:              te.EnvTTL,
+		NamespacePrefix:  fmt.Sprintf("%s-mercury", te.NsPrefix),
+		Namespace:        te.Namespace,
+		NoManifestUpdate: te.IsExistingEnv,
+	})
+	err := env.Run()
+	if err == nil {
+		te.Env = env
+	}
+	return err
+}
+
+func (te *TestEnv) AddMercuryServer(users *[]User) error {
+
+	var rpcNodesJsonConf []byte
+	if len(te.ChainlinkNodes) > 0 {
+		rpcNodesJsonConf, _ = buildRpcNodesJsonConf(te.ChainlinkNodes)
+	} else {
+		rpcNodesJsonConf, _ = buildRpcNodesJsonConfMock()
+		log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
+	}
+	log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
 
 	// Generate keys for Mercury RPC server
 	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
@@ -768,7 +799,20 @@ func (te *TestEnv) AddMercuryServer() error {
 	}
 	te.MSInfo.RpcPubKey = hex.EncodeToString(rpcPubKey)
 
-	initDbSql, err := buildInitialDbSql(te.MSInfo.AdminId, te.MSInfo.AdminEncryptedKey)
+	var initDbSql string
+	if users != nil {
+		initDbSql, err = buildInitialDbSql(*users)
+	} else {
+		defaultUsers := []User{
+			{
+				Id:       te.MSInfo.AdminId,
+				Secret:   te.MSInfo.AdminEncryptedKey,
+				Role:     "admin",
+				Disabled: false,
+			},
+		}
+		initDbSql, err = buildInitialDbSql(defaultUsers)
+	}
 	if err != nil {
 		return err
 	}
