@@ -1,5 +1,6 @@
 import "../interfaces/IAccount.sol";
 import "./SCALibrary.sol";
+import "../contracts/Helpers.sol";
 
 //SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.15;
@@ -25,13 +26,14 @@ contract SCA is IAccount {
   function validateUserOp(
     UserOperation calldata userOp,
     bytes32 userOpHash,
-    uint256 missingAccountFunds
+    uint256 /* missingAccountFunds - unused in favor of paymaster */
   ) external returns (uint256 validationData) {
-    // Construct hash, consisting of end-transaction details, domain seperators, nonce, and chain ID.
-    bytes32 txHash = keccak256(abi.encode(SCALibrary.TYPEHASH, userOp.callData, s_owner, s_nonce, block.chainid));
-    bytes32 fullHash = keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), SCALibrary.DOMAIN_SEPARATOR, txHash));
+    if (userOp.nonce != s_nonce) {
+      return _packValidationData(true, 0, 0); // incorrect nonce
+    }
 
     // Verify signature on hash.
+    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash);
     bytes memory signature = userOp.signature;
     bytes32 r;
     bytes32 s;
@@ -41,11 +43,11 @@ contract SCA is IAccount {
     }
     uint8 v = uint8(signature[64]);
     if (ecrecover(fullHash, v + 27, r, s) != s_owner) {
-      revert InvalidSignature(fullHash, s_owner);
+      return _packValidationData(true, 0, 0); // signature error
     }
 
     s_nonce++;
-    return 0; // TOOD: add validationData for billing.
+    return _packValidationData(false, 0, 0); // success, with indefinite validity
   }
 
   /// @dev Execute a transaction on behalf of the owner. This function can only

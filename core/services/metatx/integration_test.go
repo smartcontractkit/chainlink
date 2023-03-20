@@ -3,7 +3,6 @@ package metatx_test
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -87,7 +86,7 @@ func TestSCA(t *testing.T) {
 		factoryAddress,
 	)
 	require.NoError(t, err)
-	fmt.Println(toDeployAddress)
+	t.Log("Smart Contrac Account Address:", holder1Key.String())
 
 	// Get the initialization code for the Smart Contract Account.
 	fullInitializeCode, err := helper.GetInitCode(nil, factoryAddress, holder1.From, entryPointAddress)
@@ -102,7 +101,7 @@ func TestSCA(t *testing.T) {
 	encodedGreetingCall := append(abi.Methods["setGreeting"].ID, greeting...)
 	t.Log("Encoded greeting call:", common.Bytes2Hex(encodedGreetingCall))
 
-	// Construct encoding, hash, and signature.
+	// Construct the calldata to be passed in the user operation.
 	var (
 		value    = big.NewInt(0)
 		nonce    = big.NewInt(0)
@@ -111,12 +110,6 @@ func TestSCA(t *testing.T) {
 	fullEncoding, err := helper.GetFullEndTxEncoding(nil, greeterAddress, value, deadline, encodedGreetingCall)
 	require.NoError(t, err)
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
-	signingHash, err := helper.GetFullHashForSigning(nil, fullEncoding, holder1.From, nonce)
-	require.NoError(t, err)
-	t.Log("Full hash for signing:", common.Bytes2Hex(signingHash[:]))
-	sig, err := metatx.SignMessage(holder1Key.ToEcdsaPrivKey(), signingHash[:])
-	require.NoError(t, err)
-	t.Log("Signature:", common.Bytes2Hex(sig))
 
 	// Construct and execute user operation.
 	userOp := entry_point.UserOperation{
@@ -130,8 +123,19 @@ func TestSCA(t *testing.T) {
 		MaxFeePerGas:         big.NewInt(100),
 		MaxPriorityFeePerGas: big.NewInt(200),
 		PaymasterAndData:     []byte(""),
-		Signature:            sig,
+		Signature:            []byte(""),
 	}
+
+	// Generate hash from user operation, sign it, and include it in the user operation.
+	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
+	require.NoError(t, err)
+	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
+	require.NoError(t, err)
+	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
+	sig, err := metatx.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	require.NoError(t, err)
+	t.Log("Signature:", common.Bytes2Hex(sig))
+	userOp.Signature = sig
 
 	// Deposit to the SCA's account to pay for this transaction.
 	holder1.Value = assets.Ether(10).ToInt()

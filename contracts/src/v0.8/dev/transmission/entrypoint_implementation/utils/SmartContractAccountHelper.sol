@@ -19,13 +19,8 @@ library SmartContractAccountHelper {
     );
   }
 
-  function getFullHashForSigning(
-    bytes memory fullEndTxEncoding,
-    address owner,
-    uint256 nonce
-  ) public view returns (bytes32 fullHash) {
-    bytes32 hashOfEncoding = keccak256(abi.encode(SCALibrary.TYPEHASH, fullEndTxEncoding, owner, nonce, block.chainid));
-    fullHash = keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), SCALibrary.DOMAIN_SEPARATOR, hashOfEncoding));
+  function getFullHashForSigning(bytes32 userOpHash) public pure returns (bytes32) {
+    return SCALibrary.getUserOpFullHash(userOpHash);
   }
 
   function getSCAInitCodeWithConstructor(

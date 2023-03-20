@@ -6,6 +6,7 @@ import "./consumers/SmartContractAccountFactory.sol";
 import "./utils/SmartContractAccountHelper.sol";
 import "./consumers/SCA.sol";
 import "./consumers/Greeter.sol";
+import "./consumers/Paymaster.sol";
 import "./interfaces/UserOperation.sol";
 import "./contracts/EntryPoint.sol";
 import "./interfaces/IEntryPoint.sol";
@@ -63,11 +64,14 @@ contract EIP_712_1014_4337 is Test {
     EntryPoint entryPoint;
 
     bytes signature = // Signature by LINK_WHALE. Signs off on "hi" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"9592963958d10564828261355f09f9dcefed6c19b8e198c7bae8e1b9057bda89447eeb655380d8bffe38b4290430699ea242bbe673ec52517abf8516f33c4f9501";
+        hex"3b8fc44066576110ba9b3f77b479fdec9cc6a3bba5d25f80f27a7dd40e4ece550becaeca8473b82a208bcfe1bf1ad89a32fc2dd5fa642f931f748fd62a8717e601";
 
     bytes signature2 = // Signature by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"a9cff7e4e3effde9b7be48d218140e23d356448b51c0a9d2adced4ae507c28891a1fc549addba491956518b45bec00bd3cb992888afe30ecfc033aabcd04337f01";
- 
+        hex"cd6317fd718037261501fce54cd7355d646b39f5b75e91d5f01b2c032a56035e43eba05c4da914511fdcb806d75596f1b7a9a762a47f1eb5711168be6f3355ac01";
+
+    bytes signature3 = // Signature #2 by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
+        hex"24e58a624236d33dbd46162752090eb10b3bf2b46e291cb3ea362b92b6da4e833fddb7512ae43ecdefc645cf6f105cb98d73625e44a35db5a57f151f2608fea501";
+
     function setUp() public {
         // Fork Goerli.
         uint256 mainnetFork = vm.createFork(
@@ -125,14 +129,6 @@ contract EIP_712_1014_4337 is Test {
             encodedGreetingCall
         );
 
-        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
-        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(
-            fullEncoding,
-            LINK_WHALE,
-            0
-        );
-        console.logBytes32(fullHash);
-
         // Construct the user operation.
         UserOperation memory op = UserOperation({
             sender: toDeployAddress,
@@ -147,6 +143,11 @@ contract EIP_712_1014_4337 is Test {
             paymasterAndData: "",
             signature: signature
         });
+
+        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
+        bytes32 userOpHash = entryPoint.getUserOpHash(op);
+        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(userOpHash);
+        console.logBytes32(fullHash);
 
         // Deposit funds for the transaction.
         entryPoint.depositTo{value: 10 ether}(toDeployAddress);
@@ -188,28 +189,25 @@ contract EIP_712_1014_4337 is Test {
             encodedGreetingCall
         );
 
-        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
-        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(
-            fullEncoding,
-            LINK_WHALE_2,
-            0
-        );
-        console.logBytes32(fullHash);
-
         // Construct the user opeartion.
         UserOperation memory op = UserOperation({
             sender: toDeployAddress,
             nonce: 0,
             initCode: fullInitializeCode,
             callData: fullEncoding,
-            callGasLimit: 10_000_000,
-            verificationGasLimit: 10_000_000,
-            preVerificationGas: 10_000_000,
+            callGasLimit: 1_000_000,
+            verificationGasLimit: 500_000,
+            preVerificationGas: 20_000,
             maxFeePerGas: 100,
             maxPriorityFeePerGas: 200,
             paymasterAndData: "",
             signature: signature2
         });
+
+        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
+        bytes32 userOpHash = entryPoint.getUserOpHash(op);
+        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(userOpHash);
+        console.logBytes32(fullHash);
 
         // Deposit funds for the transaction.
         entryPoint.depositTo{value: 10 ether}(toDeployAddress);
@@ -222,4 +220,68 @@ contract EIP_712_1014_4337 is Test {
         // Assert that the greeting was set.
         assertEq("bye", Greeter(greeter).getGreeting());
     }
+
+    /// @dev Test case for fresh user, EntryPoint.sol should generate a 
+    /// @dev Smart Contract Account for them and execute the meta transaction.
+    function testEIP712EIP4337AndCreateSmartContractAccountWithPaymaster() public {
+        // Impersonate a different LINK whale.
+        changePrank(LINK_WHALE);
+
+        // Pre-calculate user smart contract account address.
+        SmartContractAccountFactory factory = new SmartContractAccountFactory();
+        address toDeployAddress = SmartContractAccountHelper.calculateSmartContractAccountAddress(LINK_WHALE_2, ENTRY_POINT, address(factory));
+
+        // Construct initCode byte array.
+        bytes memory fullInitializeCode = SmartContractAccountHelper.getInitCode(address(factory), LINK_WHALE_2, ENTRY_POINT);
+
+        // Create the calldata for a setGreeting call.
+        string memory greeting = "good day";
+        bytes memory encodedGreetingCall = bytes.concat(
+            Greeter.setGreeting.selector,
+            abi.encode(greeting)
+        );
+
+        // Produce the final full end-tx encoding, to be used as calldata in the user operation.
+        bytes memory fullEncoding = SmartContractAccountHelper.getFullEndTxEncoding(
+            address(greeter),
+            uint256(0),
+            1000,
+            encodedGreetingCall
+        );
+
+        Paymaster paymaster = new Paymaster();
+        paymaster.deposit(1000 ether, toDeployAddress);
+
+        // Construct the user opeartion.
+        UserOperation memory op = UserOperation({
+            sender: toDeployAddress,
+            nonce: 0,
+            initCode: fullInitializeCode,
+            callData: fullEncoding,
+            callGasLimit: 1_000_000,
+            verificationGasLimit: 1_500_000,
+            preVerificationGas: 20_000,
+            maxFeePerGas: 100,
+            maxPriorityFeePerGas: 200,
+            paymasterAndData: abi.encodePacked(address(paymaster)),
+            signature: signature3
+        });
+
+        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
+        bytes32 userOpHash = entryPoint.getUserOpHash(op);
+        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(userOpHash);
+        console.logBytes32(fullHash);
+
+        // Deposit funds for the transaction.
+        entryPoint.depositTo{value: 10 ether}(address(paymaster));
+
+        // Execute the user operation.
+        UserOperation[] memory operations = new UserOperation[](1);
+        operations[0] = op;
+        entryPoint.handleOps(operations, payable(LINK_WHALE_2));
+
+        // Assert that the greeting was set.
+        assertEq("good day", Greeter(greeter).getGreeting());
+    }
+
 }
