@@ -7,48 +7,51 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	commontypes "github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // TxStrategy controls how txes are queued and sent
 //
 //go:generate mockery --quiet --name TxStrategy --output ./mocks/ --case=underscore --structname TxStrategy --filename tx_strategy.go
-type TxStrategy interface {
+type TxStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
-	PruneQueue(orm ORM, q pg.Queryer) (n int64, err error)
+	PruneQueue(orm ORM[ADDR, TX_HASH], q pg.Queryer) (n int64, err error)
 }
 
 var _ TxStrategy = SendEveryStrategy{}
 
 // NewQueueingTxStrategy creates a new TxStrategy that drops the oldest transactions after the
 // queue size is exceeded if a queue size is specified, and otherwise does not drop transactions.
-func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) (strategy TxStrategy) {
+func NewQueueingTxStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable](subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) (strategy TxStrategy[ADDR, TX_HASH]) {
 	if queueSize > 0 {
-		strategy = NewDropOldestStrategy(subject, queueSize, queryTimeout)
+		strategy = NewDropOldestStrategy[ADDR, TX_HASH](subject, queueSize, queryTimeout)
 	} else {
-		strategy = SendEveryStrategy{}
+		strategy = SendEveryStrategy[ADDR, TX_HASH]{}
 	}
 	return
 }
 
 // NewSendEveryStrategy creates a new TxStrategy that does not drop transactions.
-func NewSendEveryStrategy() TxStrategy {
-	return SendEveryStrategy{}
+func NewSendEveryStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable]() TxStrategy[ADDR, TX_HASH] {
+	return SendEveryStrategy[ADDR, TX_HASH]{}
 }
 
 // SendEveryStrategy will always send the tx
-type SendEveryStrategy struct{}
+type SendEveryStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct{}
 
-func (SendEveryStrategy) Subject() uuid.NullUUID                          { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(orm ORM, q pg.Queryer) (int64, error) { return 0, nil }
+func (SendEveryStrategy[ADDR, TX_HASH]) Subject() uuid.NullUUID { return uuid.NullUUID{} }
+func (SendEveryStrategy[ADDR, TX_HASH]) PruneQueue(orm ORM[ADDR, TX_HASH], q pg.Queryer) (int64, error) {
+	return 0, nil
+}
 
 var _ TxStrategy = DropOldestStrategy{}
 
 // DropOldestStrategy will send the newest N transactions, older ones will be
 // removed from the queue
-type DropOldestStrategy struct {
+type DropOldestStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	subject      uuid.UUID
 	queueSize    uint32
 	queryTimeout time.Duration
@@ -56,15 +59,15 @@ type DropOldestStrategy struct {
 
 // NewDropOldestStrategy creates a new TxStrategy that drops the oldest transactions after the
 // queue size is exceeded.
-func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) DropOldestStrategy {
-	return DropOldestStrategy{subject, queueSize, queryTimeout}
+func NewDropOldestStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable](subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) DropOldestStrategy[ADDR, TX_HASH] {
+	return DropOldestStrategy[ADDR, TX_HASH]{subject, queueSize, queryTimeout}
 }
 
-func (s DropOldestStrategy) Subject() uuid.NullUUID {
+func (s DropOldestStrategy[ADDR, TX_HASH]) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(orm ORM, q pg.Queryer) (n int64, err error) {
+func (s DropOldestStrategy[ADDR, TX_HASH]) PruneQueue(orm ORM[ADDR, TX_HASH], q pg.Queryer) (n int64, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
 	defer cancel()
 	n, err = orm.PruneUnstartedEthTxQueue(s.queueSize, s.subject, pg.WithQueryer(q), pg.WithParentCtx(ctx))

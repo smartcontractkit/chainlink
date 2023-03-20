@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
@@ -30,7 +31,7 @@ func IsBumpErr(err error) bool {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
+func NewEstimator[TX_HASH types.Hashable](lggr logger.Logger, ethClient evmclient.Client, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, TX_HASH] {
 	s := cfg.GasEstimatorMode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
 		"estimatorMode", s,

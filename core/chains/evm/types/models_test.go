@@ -378,7 +378,7 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	al := gethTypes.AccessList{{Address: addr, StorageKeys: []common.Hash{storageKey}}}
 	alb, err := json.Marshal(al)
 	require.NoError(t, err)
-	jsonStr := fmt.Sprintf(`[{"address":"0x%s","storageKeys":["%s"]}]`, hex.EncodeToString(addr.Bytes()), storageKey.Hex())
+	jsonStr := fmt.Sprintf(`[{"Address":"0x%s","storageKeys":["%s"]}]`, hex.EncodeToString(addr.Bytes()), storageKey.Hex())
 	require.Equal(t, jsonStr, string(alb))
 
 	nNull := txmgr.NullableEIP2930AccessList{}
