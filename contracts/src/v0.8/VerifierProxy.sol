@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "./ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
