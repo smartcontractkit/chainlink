@@ -22,7 +22,10 @@ var FeedScopedConfigSet common.Hash
 
 var verifierABI abi.ABI
 
-const configSetEventName = "ConfigSet"
+const (
+	configSetEventName = "ConfigSet"
+	feedIdTopicIndex   = 1
+)
 
 func init() {
 	var err error
@@ -123,14 +126,16 @@ func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	// TODO: figure out the topic index... Use 1 for now...
-	logs, err := lp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, lp.addr, 1, []common.Hash{*lp.feedId}, 1, pg.WithParentCtx(ctx))
+	logs, err := lp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{*lp.feedId}, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, ocrtypes.ConfigDigest{}, nil
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
+	}
+	if len(logs) == 0 {
+		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 	latest := logs[len(logs)-1]
 	latestConfigSet, err := configFromLog(latest.Data)
@@ -142,10 +147,12 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	// TODO: figure out the topic index... Use 1 for now...
-	lgs, err := lp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, 1, []common.Hash{*lp.feedId}, pg.WithParentCtx(ctx))
+	lgs, err := lp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{*lp.feedId}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
+	}
+	if len(lgs) == 0 {
+		return ocrtypes.ContractConfig{}, nil
 	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
 	if err != nil {
