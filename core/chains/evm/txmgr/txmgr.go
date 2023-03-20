@@ -479,7 +479,7 @@ type NewTx struct {
 	MinConfirmations  null.Uint32
 	PipelineTaskRunID *uuid.UUID
 
-	Strategy TxStrategy
+	Strategy txmgrtypes.TxStrategy
 
 	// Checker defines the check that should be run before a transaction is submitted on chain.
 	Checker TransmitCheckerSpec
