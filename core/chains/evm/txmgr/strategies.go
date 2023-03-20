@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/common/txmgr/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -38,7 +37,7 @@ func (SendEveryStrategy) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePrun
 	return 0, nil
 }
 
-var _ types.TxStrategy = DropOldestStrategy{}
+var _ txmgrtypes.TxStrategy = DropOldestStrategy{}
 
 // DropOldestStrategy will send the newest N transactions, older ones will be
 // removed from the queue

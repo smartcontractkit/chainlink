@@ -847,8 +847,8 @@ func (_m *ORM) PreloadEthTxes(attempts []txmgr.EthTxAttempt) error {
 	return r0
 }
 
-// PruneUnstartedEthTxQueue provides a mock function with given fields: queueSize, subject, qopts
-func (_m *ORM) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (int64, error) {
+// PruneUnstartedTxQueue provides a mock function with given fields: queueSize, subject, qopts
+func (_m *ORM) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (int64, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
