@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-// ErrSolanaNotEnabled is returned when SOLANA_ENABLED is not true.
+// ErrSolanaNotEnabled is returned when Solana.Enabled is not true.
 var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", envVar: "SOLANA_ENABLED"}
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {

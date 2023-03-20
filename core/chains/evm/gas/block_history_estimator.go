@@ -787,7 +787,7 @@ func (b *BlockHistoryEstimator) setPercentileTipCap(tipCap *assets.Wei) {
 		b.logger.Warnw(fmt.Sprintf("Calculated gas tip cap of %s exceeds ETH_MAX_GAS_PRICE_WEI=%[2]s, setting gas tip cap to the maximum allowed value of %[2]s instead", tipCap.String(), max.String()), "tipCapWei", tipCap, "minTipCapWei", min, "maxTipCapWei", max)
 		b.tipCap = max
 	} else if tipCap.Cmp(min) < 0 {
-		b.logger.Warnw(fmt.Sprintf("Calculated gas tip cap of %s falls below EVM_GAS_TIP_CAP_MINIMUM=%[2]s, setting gas tip cap to the minimum allowed value of %[2]s instead", tipCap.String(), min.String()), "tipCapWei", tipCap, "minTipCapWei", min, "maxTipCapWei", max)
+		b.logger.Warnw(fmt.Sprintf("Calculated gas tip cap of %s falls below EVM.GasEstimator.TipCapMin=%[2]s, setting gas tip cap to the minimum allowed value of %[2]s instead", tipCap.String(), min.String()), "tipCapWei", tipCap, "minTipCapWei", min, "maxTipCapWei", max)
 		b.tipCap = min
 	} else {
 		b.tipCap = tipCap
