@@ -63,7 +63,7 @@ func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 		filter.Name, utils.NewBig(o.chainID), addresses, events)
 }
 
-// DeleteFilter removes all events,address pairs associated with the filter
+// DeleteFilter removes all events,address pairs associated with the Filter
 func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	return q.ExecQ(`DELETE FROM evm_log_poller_filters WHERE name = $1 AND evm_chain_id = $2`, name, utils.NewBig(o.chainID))
@@ -170,7 +170,7 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {
+func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
 	var logs []Log
 	err := o.q.Select(&logs, `
         SELECT * FROM evm_logs 
