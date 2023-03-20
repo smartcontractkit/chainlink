@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -136,7 +136,7 @@ func (e *EthereumAPIConsumer) CreateRequestTo(
 // EthereumStaking
 type EthereumStaking struct {
 	client  blockchain.EVMClient
-	staking *ethereum2.Staking
+	staking *eth_contracts.Staking
 	address *common.Address
 }
 
@@ -224,7 +224,7 @@ func (f *EthereumStaking) SetMerkleRoot(newMerkleRoot [32]byte) error {
 // EthereumAtlasFunctions
 type EthereumAtlasFunctions struct {
 	client         blockchain.EVMClient
-	atlasFunctions *ethereum2.AtlasFunctions
+	atlasFunctions *eth_contracts.AtlasFunctions
 	address        *common.Address
 }
 

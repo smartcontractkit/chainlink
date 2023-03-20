@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -44,7 +45,9 @@ import (
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+var ErrProfileTooLong = errors.New("requested profile duration too large")
+
+func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfigOpts) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -66,8 +69,19 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:  "vrfpassword, vp",
 					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
 				},
+				cli.StringSliceFlag{
+					Name:  "config, c",
+					Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
+				},
+				cli.StringFlag{
+					Name:  "secrets, s",
+					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+				},
 			},
-			Usage:  "Run the Chainlink node",
+			Usage: "Run the Chainlink node",
+			Before: func(c *cli.Context) error {
+				return client.setConfigFromFlags(opts, c)
+			},
 			Action: client.RunNode,
 		},
 		{
@@ -135,7 +149,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
-					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
+					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Hidden: !devMode,
 					Action: client.ResetDatabase,
 					Flags: []cli.Flag{
@@ -329,9 +343,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
-			if err2 != nil {
-				return errors.Wrap(err2, "failed to ensure keystore keys")
+			if ch.Config().AutoCreateKey() {
+				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
+				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+				if err2 != nil {
+					return errors.Wrap(err2, "failed to ensure keystore keys")
+				}
+			} else {
+				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", ch.ID())
 			}
 		}
 	}
@@ -521,11 +540,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
-	defer func() {
-		if serr := app.Stop(); serr != nil {
-			err = multierr.Append(err, serr)
-		}
-	}()
 	pwd, err := utils.PasswordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
@@ -616,13 +630,15 @@ func (cli *Client) Status(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
-// ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
-// This is useful to setup the database for testing
+var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+// ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
+// in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+		return cli.errorOut(errDBURLMissing)
 	}
 
 	dangerMode := c.Bool("dangerWillRobinson")
@@ -742,7 +758,7 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+		return cli.errorOut(errDBURLMissing)
 	}
 
 	cli.Logger.Infof("Migrating database: %#v", parsed.String())
@@ -835,7 +851,7 @@ type dbConfig interface {
 func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+		return nil, errDBURLMissing
 	}
 	return pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
 }

@@ -114,37 +114,18 @@ AuthToken is the API key for the Pyroscope server.
 
 Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 
-## Mercury
+## Prometheus
 ```toml
-[Mercury]
-```
-Mercury credentials are needed if running OCR2 jobs in mercury mode. 0 or
-more Mercury credentials may be specified. URLs must be unique.
-
-## Mercury.Credentials
-```toml
-[[Mercury.Credentials]]
-URL = "http://example.com/reports" # Example
-Username = "exampleusername" # Example
-Password = "examplepassword" # Example
+[Prometheus]
+AuthToken = "prometheus-token" # Example
 ```
 
 
-### URL
+### AuthToken
 ```toml
-URL = "http://example.com/reports" # Example
+AuthToken = "prometheus-token" # Example
 ```
-URL is the URL of the mercury endpoint
+AuthToken is the authorization key for the Prometheus metrics endpoint.
 
-### Username
-```toml
-Username = "exampleusername" # Example
-```
-Username is used for basic auth with the mercury endpoint
-
-### Password
-```toml
-Password = "examplepassword" # Example
-```
-Password is used for basic auth with the mercury endpoint
+Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 

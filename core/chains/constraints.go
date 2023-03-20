@@ -15,8 +15,7 @@ type Config interface {
 }
 
 // Node types should be a struct including these default fields:
-//  ID        int32
-//  Name      string
-//  CreatedAt time.Time
-//  UpdatedAt time.Time
+//
+//	ID        int32
+//	Name      string
 type Node any
