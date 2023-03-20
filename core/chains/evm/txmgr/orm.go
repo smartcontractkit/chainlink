@@ -112,7 +112,7 @@ func (o *orm) Close() {
 	o.ctxCancel()
 }
 
-func (o *orm) preloadTxAttempts(txs []EthTx, qopts ...pg.QOpt) error {
+func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	// Preload TxAttempts
 	var ids []int64
 	for _, tx := range txs {
