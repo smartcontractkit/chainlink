@@ -157,10 +157,10 @@ func (rc *ReorgController) VerifyReorgComplete() error {
 		}
 		log.Info().
 			Int64("Number", bb.Number.Int64()).
-			Str("Hash before", bb.Hash().String()).
+			Str("Hash before", bb.Hash.String()).
 			Str("Hash after", h).
 			Msg("Comparing block")
-		if bb.Hash().String() != h {
+		if bb.Hash.String() != h {
 			rc.currentVerifiedBlocks++
 		}
 	}
@@ -194,7 +194,7 @@ func (rc *ReorgController) compareBlocks(blk blockchain.NodeHeader) error {
 		rc.currentAltBlocks++
 		log.Info().
 			Int64("Number", blk.Number.Int64()).
-			Str("Hash", blk.Hash().String()).
+			Str("Hash", blk.Hash.String()).
 			Int("Node", blk.NodeID).
 			Int("BlocksLeft", rc.ReorgDepth-rc.currentAltBlocks).
 			Msg("Mined alternative block")
@@ -276,7 +276,7 @@ func (rc *ReorgController) appendBlockHeader(header blockchain.NodeHeader) {
 	if _, ok := rc.blockHashes[bn]; !ok {
 		rc.blockHashes[bn] = []common.Hash{}
 	}
-	rc.blockHashes[bn] = append(rc.blockHashes[bn], header.Hash())
+	rc.blockHashes[bn] = append(rc.blockHashes[bn], header.Hash)
 
 	if _, ok := rc.blocksByNode[header.NodeID]; !ok {
 		rc.blocksByNode[header.NodeID] = make(map[int64]blockchain.NodeHeader)

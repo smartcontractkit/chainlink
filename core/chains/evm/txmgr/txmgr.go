@@ -20,8 +20,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -72,9 +70,12 @@ var _ TxManager = &Txm{}
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
+// TxManager is the main component of the transaction manager.
+// It is also the interface to external callers.
+//
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
-	httypes.HeadTrackable
+	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
@@ -129,15 +130,10 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm {
-	lggr = lggr.Named("Txm")
-	lggr.Infow("Initializing EVM transaction manager",
-		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
-		"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
-		"maxQueuedTransactions", cfg.EvmMaxQueuedTransactions(),
-		"nonceAutoSync", cfg.EvmNonceAutoSync(),
-		"gasLimitDefault", cfg.EvmGasLimitDefault(),
-	)
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
+	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
+	fwdMgr *forwarders.FwdMgr,
+) *Txm {
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -148,7 +144,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
-		gasEstimator:     gas.NewEstimator(lggr, ethClient, cfg),
+		gasEstimator:     estimator,
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
@@ -156,6 +152,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
+		fwdMgr:           fwdMgr,
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
@@ -167,11 +164,6 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
-	}
-	if cfg.EvmUseForwarders() {
-		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
-	} else {
-		b.logger.Info("EvmForwarderManager: Disabled")
 	}
 
 	return &b
@@ -294,6 +286,7 @@ func (b *Txm) HealthReport() map[string]error {
 	b.IfStarted(func() {
 		maps.Copy(report, b.ethBroadcaster.HealthReport())
 		maps.Copy(report, b.ethConfirmer.HealthReport())
+		maps.Copy(report, b.gasEstimator.HealthReport())
 	})
 
 	if b.config.EvmUseForwarders() {
@@ -450,13 +443,13 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 func (b *Txm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
-			b.reaper.SetLatestBlockNum(head.Number)
+			b.reaper.SetLatestBlockNum(head.BlockNumber())
 		}
 		b.gasEstimator.OnNewLongestChain(ctx, head)
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
-			b.logger.Errorw("Timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
+			b.logger.Errorw("Timed out handling head", "blockNum", head.BlockNumber(), "ctxErr", ctx.Err())
 		}
 	})
 	if !ok {
@@ -485,7 +478,7 @@ type NewTx struct {
 	MinConfirmations  null.Uint32
 	PipelineTaskRunID *uuid.UUID
 
-	Strategy TxStrategy
+	Strategy txmgrtypes.TxStrategy
 
 	// Checker defines the check that should be run before a transaction is submitted on chain.
 	Checker TransmitCheckerSpec

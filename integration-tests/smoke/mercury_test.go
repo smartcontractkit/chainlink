@@ -10,9 +10,9 @@ import (
 
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
@@ -20,7 +20,7 @@ import (
 )
 
 func TestMercurySmoke(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 
 	testEnv, err := mercury.SetupMercuryTestEnv("smoke", nil, nil)
 	require.NoError(t, err)

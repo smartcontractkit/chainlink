@@ -14,8 +14,8 @@ type ChainConfig = chains.ChainConfig[string, *soldb.ChainCfg]
 
 // ORM manages solana chains and nodes.
 type ORM interface {
-	chains.ChainsORM[string, *soldb.ChainCfg, ChainConfig]
-	chains.NodesORM[string, soldb.Node]
+	chains.ChainConfigs[string, *soldb.ChainCfg, ChainConfig]
+	chains.NodeConfigs[string, soldb.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
 }
