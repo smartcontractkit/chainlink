@@ -31,8 +31,7 @@ contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
             ),
             abi.encode(true)
         );
-        vm.prank(ADMIN);
-        s_verifierProxy.initializeVerifier(maliciousDigest, maliciousVerifier);
+                s_verifierProxy.initializeVerifier(maliciousDigest, maliciousVerifier);
         vm.expectRevert(
             abi.encodeWithSelector(
                 VerifierProxy.ConfigDigestAlreadySet.selector,
@@ -40,13 +39,13 @@ contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
                 address(s_verifier)
             )
         );
-        vm.prank(address(maliciousVerifier));
+        changePrank(address(maliciousVerifier));
         s_verifierProxy.setVerifier(maliciousDigest, takenDigest);
     }
 
     function test_updatesVerifierIfVerifier() public {
         (, , bytes32 prevDigest) = s_verifier.latestConfigDetails(FEED_ID);
-        vm.prank(address(s_verifier));
+        changePrank(address(s_verifier));
         s_verifierProxy.setVerifier(prevDigest, bytes32("new-config"));
         assertEq(
             s_verifierProxy.getVerifier(bytes32("new-config")),

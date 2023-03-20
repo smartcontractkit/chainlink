@@ -7,14 +7,12 @@ import {VerifierProxy} from "../../../../src/v0.8/VerifierProxy.sol";
 
 contract VerifierConstructorTest is BaseTest {
     function test_revertsIfInitializedWithEmptyVerifierProxy() public {
-        vm.prank(ADMIN);
-        vm.expectRevert(abi.encodeWithSelector(Verifier.ZeroAddress.selector));
+                vm.expectRevert(abi.encodeWithSelector(Verifier.ZeroAddress.selector));
         new Verifier(address(0));
     }
 
     function test_setsTheCorrectProperties() public {
-        vm.prank(ADMIN);
-        Verifier v = new Verifier(address(s_verifierProxy));
+                Verifier v = new Verifier(address(s_verifierProxy));
         assertEq(v.owner(), ADMIN);
 
         (bool scanLogs, bytes32 configDigest, uint32 epoch) = v

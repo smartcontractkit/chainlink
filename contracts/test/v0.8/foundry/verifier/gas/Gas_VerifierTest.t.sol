@@ -10,14 +10,12 @@ contract Gas_SetConfigTest is BaseTest {
 
     function setUp() public override {
         BaseTest.setUp();
-        vm.prank(ADMIN);
-        Signer[] memory signers = _getSigners(MAX_ORACLES);
+                Signer[] memory signers = _getSigners(MAX_ORACLES);
         s_signerAddrs = _getSignerAddresses(signers);
     }
 
     function testSetConfigSuccess() public {
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID,
             s_signerAddrs,
             s_offchaintransmitters,
@@ -54,11 +52,10 @@ contract Gas_VerifyTest is BaseTestWithConfiguredVerifier {
             reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
-        vm.prank(ADMIN);
-    }
+            }
 
     function testVerifySuccess() public {
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(s_signedReport, msg.sender);
     }
 
@@ -96,16 +93,13 @@ contract GasAccessControlledVerifyTest is BaseTestWithConfiguredVerifier {
             reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
-        vm.prank(ADMIN);
-        s_accessController = new SimpleWriteAccessController();
-        vm.prank(ADMIN);
-        s_verifierProxy.setAccessController(s_accessController);
-        vm.prank(ADMIN);
-        s_accessController.addAccess(CLIENT);
+                s_accessController = new SimpleWriteAccessController();
+                s_verifierProxy.setAccessController(s_accessController);
+                s_accessController.addAccess(CLIENT);
     }
 
     function testVerifyWithAccessControl() public {
-        vm.prank(CLIENT);
+        changePrank(CLIENT);
         s_verifierProxy.verify(s_signedReport);
     }
 }

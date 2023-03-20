@@ -87,7 +87,7 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
         AccessControllerInterface accessController = AccessControllerInterface(
             ACCESS_CONTROLLER_ADDRESS
         );
-        vm.prank(ADMIN);
+        
         s_verifierProxy.setAccessController(accessController);
     }
 
@@ -96,7 +96,7 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
             ACCESS_CONTROLLER_ADDRESS,
             abi.encodeWithSelector(
                 AccessControllerInterface.hasAccess.selector,
-                address(this)
+                USER
             ),
             abi.encode(false)
         );
@@ -108,6 +108,8 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
         vm.expectRevert(
             abi.encodeWithSelector(VerifierProxy.AccessForbidden.selector)
         );
+
+        changePrank(USER);
         s_verifierProxy.verify(signedReport);
     }
 
@@ -116,7 +118,7 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
             ACCESS_CONTROLLER_ADDRESS,
             abi.encodeWithSelector(
                 AccessControllerInterface.hasAccess.selector,
-                address(this)
+                USER
             ),
             abi.encode(true)
         );
@@ -126,6 +128,8 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
             s_reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
+
+        changePrank(USER);
         bytes memory response = s_verifierProxy.verify(signedReport);
         assertReportsEqual(response, s_testReportOne);
     }
@@ -152,7 +156,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
             s_reportContext,
             signers
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         vm.expectRevert(
             abi.encodeWithSelector(Verifier.AccessForbidden.selector)
         );
@@ -170,7 +174,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
             ss,
             rawVs
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         vm.expectRevert(
             abi.encodeWithSelector(
                 Verifier.MismatchedSignatures.selector,
@@ -196,7 +200,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
                 reportContext[0]
             )
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
     }
 
@@ -223,7 +227,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
                 s_reportContext[0]
             )
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
     }
 
@@ -240,7 +244,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
                 FAULT_TOLERANCE + 1
             )
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
     }
 
@@ -256,7 +260,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
         vm.expectRevert(
             abi.encodeWithSelector(Verifier.NonUniqueSignatures.selector)
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
     }
 
@@ -266,7 +270,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
             s_reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         bytes memory response = s_verifier.verify(signedReport, msg.sender);
 
         assertReportsEqual(response, s_testReportOne);
@@ -279,7 +283,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
             s_reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
 
         (, , uint32 latestEpoch) = s_verifier.latestConfigDigestAndEpoch(FEED_ID);
@@ -298,7 +302,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
             keccak256(abi.encode(s_testReportOne)),
             msg.sender
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
     }
 }
@@ -312,8 +316,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
     function setUp() public override {
         VerifierVerifyTest.setUp();
         (, , s_oldConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(_getSigners(20)),
             s_offchaintransmitters,
@@ -326,15 +329,14 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
     }
 
     function test_revertsIfVerifyingWithAnUnsetDigest() public {
-        vm.prank(ADMIN);
-        s_verifier.deactivateConfig(FEED_ID, (s_oldConfigDigest));
+                s_verifier.deactivateConfig(FEED_ID, (s_oldConfigDigest));
 
         bytes memory signedReport = _generateEncodedBlob(
             s_testReportOne,
             s_reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         vm.expectRevert(
             abi.encodeWithSelector(
                 Verifier.DigestInactive.selector,
@@ -351,7 +353,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
             s_reportContext,
             _getSigners(FAULT_TOLERANCE + 1)
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         bytes memory response = s_verifier.verify(signedReport, msg.sender);
         assertReportsEqual(response, s_testReportOne);
     }
@@ -363,7 +365,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
             s_reportContext,
             _getSigners(FAULT_TOLERANCE_TWO + 1)
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         bytes memory response = s_verifier.verify(signedReport, msg.sender);
         assertReportsEqual(response, s_testReportOne);
     }
@@ -385,7 +387,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
                 FAULT_TOLERANCE + 1
             )
         );
-        vm.prank(address(s_verifierProxy));
+        changePrank(address(s_verifierProxy));
         s_verifier.verify(signedReport, msg.sender);
     }
 }

@@ -9,6 +9,8 @@ contract VerifierSetConfigTest is BaseTest {
     function test_revertsIfCalledByNonOwner() public {
         vm.expectRevert("Only callable by owner");
         Signer[] memory signers = _getSigners(MAX_ORACLES);
+
+        changePrank(USER);
         s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(signers),
@@ -85,8 +87,7 @@ contract VerifierSetConfigTest is BaseTest {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
         signerAddrs[0] = signerAddrs[1];
-        vm.prank(ADMIN);
-        vm.expectRevert(
+                vm.expectRevert(
             abi.encodeWithSelector(Verifier.NonUniqueSignatures.selector)
         );
         s_verifier.setConfig(
@@ -104,8 +105,7 @@ contract VerifierSetConfigTest is BaseTest {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
         signerAddrs[0] = address(0);
-        vm.prank(ADMIN);
-        vm.expectRevert(abi.encodeWithSelector(Verifier.ZeroAddress.selector));
+                vm.expectRevert(abi.encodeWithSelector(Verifier.ZeroAddress.selector));
         s_verifier.setConfig(
             FEED_ID,
             signerAddrs,
@@ -118,8 +118,7 @@ contract VerifierSetConfigTest is BaseTest {
     }
 
     function test_correctlyUpdatesTheConfig() public {
-        vm.prank(ADMIN);
-        Signer[] memory signers = _getSigners(MAX_ORACLES);
+                Signer[] memory signers = _getSigners(MAX_ORACLES);
         s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(signers),
@@ -164,8 +163,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is
 {
     function test_correctlyUpdatesTheDigestInTheProxy() public {
         Signer[] memory newSigners = _getSigners(15);
-        vm.prank(ADMIN);
-
+        
         s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(newSigners),
@@ -184,8 +182,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is
     function test_correctlyUpdatesDigestsOnMultipleVerifiersInTheProxy() public {
         Signer[] memory newSigners = _getSigners(15);
 
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID_2,
             _getSignerAddresses(newSigners),
             s_offchaintransmitters,
@@ -199,8 +196,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is
         address verifierAddr = s_verifierProxy.getVerifier(configDigest);
         assertEq(verifierAddr, address(s_verifier));
 
-        vm.prank(ADMIN);
-        s_verifier_2.setConfig(
+                s_verifier_2.setConfig(
             FEED_ID_3,
             _getSignerAddresses(newSigners),
             s_offchaintransmitters,
@@ -216,12 +212,10 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is
     }
 
     function test_correctlySetsConfigWhenDigestsAreRemoved() public {
-        vm.prank(ADMIN);
-        s_verifier.deactivateConfig(FEED_ID, s_configDigestTwo);
+                s_verifier.deactivateConfig(FEED_ID, s_configDigestTwo);
 
         Signer[] memory newSigners = _getSigners(15);
-        vm.prank(ADMIN);
-
+        
         s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(newSigners),

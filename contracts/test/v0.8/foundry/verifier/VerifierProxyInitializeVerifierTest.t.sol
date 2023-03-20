@@ -12,7 +12,6 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
     function setUp() public override {
         BaseTest.setUp();
         Signer[] memory signers = _getSigners(MAX_ORACLES);
-        vm.prank(ADMIN);
         s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(signers),
@@ -26,6 +25,7 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
     }
 
     function test_revertsIfNotOwner() public {
+        changePrank(USER);
         vm.expectRevert("Only callable by owner");
         s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
     }
@@ -34,12 +34,10 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
         vm.expectRevert(
             abi.encodeWithSelector(VerifierProxy.ZeroAddress.selector)
         );
-        vm.prank(ADMIN);
         s_verifierProxy.initializeVerifier(latestDigest, address(0));
     }
 
     function test_revertsIfDigestAlreadySet() public {
-        vm.prank(ADMIN);
         s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -48,12 +46,10 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
                 address(s_verifier)
             )
         );
-        vm.prank(ADMIN);
         s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
     }
 
     function test_correctlySetsVerifier() public {
-        vm.prank(ADMIN);
         s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
         address verifier = s_verifierProxy.getVerifier(latestDigest);
         assertEq(verifier, address(s_verifier));

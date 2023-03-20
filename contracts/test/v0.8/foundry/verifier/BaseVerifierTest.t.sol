@@ -13,6 +13,7 @@ import {AccessControllerInterface} from "../../../../src/v0.8/interfaces/AccessC
 contract BaseTest is Test {
     uint256 internal constant MAX_ORACLES = 31;
     address internal constant ADMIN = address(1);
+    address internal constant USER = address(2);
     address internal constant MOCK_VERIFIER_ADDRESS = address(100);
     address internal constant MOCK_VERIFIER_ADDRESS_TWO = address(200);
     address internal constant ACCESS_CONTROLLER_ADDRESS = address(300);
@@ -68,7 +69,7 @@ contract BaseTest is Test {
     bytes32[] internal s_offchaintransmitters;
 
     function setUp() public virtual {
-        vm.prank(ADMIN);
+        changePrank(ADMIN);
         vm.mockCall(
             MOCK_VERIFIER_ADDRESS,
             abi.encodeWithSelector(
@@ -81,14 +82,11 @@ contract BaseTest is Test {
             AccessControllerInterface(address(0))
         );
 
-        vm.prank(ADMIN);
-        s_verifier = new Verifier(address(s_verifierProxy));
-        vm.prank(ADMIN);
-        s_verifier_2 = new Verifier(address(s_verifierProxy));
+                s_verifier = new Verifier(address(s_verifierProxy));
+                s_verifier_2 = new Verifier(address(s_verifierProxy));
         s_erroredVerifier = new ErroredVerifier();
 
-        vm.prank(ADMIN);
-
+        
         for (uint256 i; i < MAX_ORACLES; i++) {
             uint256 mockPK = i + 1;
             s_signers[i].mockPrivateKey = mockPK;
@@ -245,8 +243,7 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
 
         // Verifier 1, Feed 1, Config 1
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(signers),
             s_offchaintransmitters,
@@ -256,8 +253,7 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
             bytes("")
         );
         (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
-        vm.prank(ADMIN);
-        s_verifierProxy.initializeVerifier(configDigest, address(s_verifier));
+                s_verifierProxy.initializeVerifier(configDigest, address(s_verifier));
     }
 }
 
@@ -283,8 +279,7 @@ contract BaseTestWithMultipleConfiguredDigests is
 
         // Verifier 1, Feed 1, Config 2
         Signer[] memory secondSetOfSigners = _getSigners(8);
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(secondSetOfSigners),
             s_offchaintransmitters,
@@ -297,8 +292,7 @@ contract BaseTestWithMultipleConfiguredDigests is
 
         // Verifier 1, Feed 1, Config 3
         Signer[] memory thirdSetOfSigners = _getSigners(5);
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID,
             _getSignerAddresses(thirdSetOfSigners),
             s_offchaintransmitters,
@@ -310,8 +304,7 @@ contract BaseTestWithMultipleConfiguredDigests is
         (s_numConfigsSet, , s_configDigestThree) = s_verifier.latestConfigDetails(FEED_ID);
 
         // Verifier 1, Feed 2, Config 1
-        vm.prank(ADMIN);
-        s_verifier.setConfig(
+                s_verifier.setConfig(
             FEED_ID_2,
             _getSignerAddresses(signers),
             s_offchaintransmitters,
@@ -321,12 +314,10 @@ contract BaseTestWithMultipleConfiguredDigests is
             bytes("")
         );
         (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
-        vm.prank(ADMIN);
-        s_verifierProxy.initializeVerifier(s_configDigestFour, address(s_verifier));
+                s_verifierProxy.initializeVerifier(s_configDigestFour, address(s_verifier));
 
         // Verifier 2, Feed 3, Config 1
-        vm.prank(ADMIN);
-        s_verifier_2.setConfig(
+                s_verifier_2.setConfig(
             FEED_ID_3,
             _getSignerAddresses(signers),
             s_offchaintransmitters,
@@ -336,7 +327,6 @@ contract BaseTestWithMultipleConfiguredDigests is
             bytes("")
         );
         (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
-        vm.prank(ADMIN);
-        s_verifierProxy.initializeVerifier(s_configDigestFive, address(s_verifier_2));
+                s_verifierProxy.initializeVerifier(s_configDigestFive, address(s_verifier_2));
     }
 }

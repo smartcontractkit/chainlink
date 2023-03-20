@@ -12,14 +12,15 @@ contract VerifierProxySetAccessControllerTest is BaseTest {
 
     function test_revertsIfCalledByNonOwner() public {
         vm.expectRevert("Only callable by owner");
+
+        changePrank(USER);
         s_verifierProxy.setAccessController(
             AccessControllerInterface(ACCESS_CONTROLLER_ADDRESS)
         );
     }
 
     function test_successfullySetsNewAccessController() public {
-        vm.prank(ADMIN);
-        s_verifierProxy.setAccessController(
+                s_verifierProxy.setAccessController(
             AccessControllerInterface(ACCESS_CONTROLLER_ADDRESS)
         );
         AccessControllerInterface ac = s_verifierProxy.getAccessController();
@@ -27,8 +28,7 @@ contract VerifierProxySetAccessControllerTest is BaseTest {
     }
 
     function test_successfullySetsNewAccessControllerIsEmpty() public {
-        vm.prank(ADMIN);
-        s_verifierProxy.setAccessController(
+                s_verifierProxy.setAccessController(
             AccessControllerInterface(address(0))
         );
         AccessControllerInterface ac = s_verifierProxy.getAccessController();
@@ -36,8 +36,7 @@ contract VerifierProxySetAccessControllerTest is BaseTest {
     }
 
     function test_emitsTheCorrectEvent() public {
-        vm.prank(ADMIN);
-        vm.expectEmit(true, false, false, false);
+                vm.expectEmit(true, false, false, false);
         emit AccessControllerSet(address(0), ACCESS_CONTROLLER_ADDRESS);
         s_verifierProxy.setAccessController(
             AccessControllerInterface(ACCESS_CONTROLLER_ADDRESS)

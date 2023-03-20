@@ -8,6 +8,8 @@ import {VerifierProxy} from "../../../../src/v0.8/VerifierProxy.sol";
 contract VerifierProxyUnsetVerifierTest is BaseTest {
     function test_revertsIfNotAdmin() public {
         vm.expectRevert("Only callable by owner");
+
+        changePrank(USER);
         s_verifierProxy.unsetVerifier(bytes32(""));
     }
 
@@ -18,8 +20,7 @@ contract VerifierProxyUnsetVerifierTest is BaseTest {
                 bytes32("")
             )
         );
-        vm.prank(ADMIN);
-        s_verifierProxy.unsetVerifier(bytes32(""));
+                s_verifierProxy.unsetVerifier(bytes32(""));
     }
 }
 
@@ -33,12 +34,10 @@ contract VerifierProxyUnsetVerifierWithPreviouslySetVerifierTest is
     function setUp() public override {
         BaseTestWithConfiguredVerifier.setUp();
         (, , s_configDigest) = s_verifier.latestConfigDetails(FEED_ID);
-        vm.prank(ADMIN);
-    }
+            }
 
     function test_correctlyUnsetsVerifier() public {
-        vm.prank(ADMIN);
-        s_verifierProxy.unsetVerifier(s_configDigest);
+                s_verifierProxy.unsetVerifier(s_configDigest);
         address verifierAddr = s_verifierProxy.getVerifier(s_configDigest);
         assertEq(verifierAddr, address(0));
     }
@@ -46,7 +45,6 @@ contract VerifierProxyUnsetVerifierWithPreviouslySetVerifierTest is
     function test_emitsAnEventAfterUnsettingVerifier() public {
         vm.expectEmit(true, false, false, false);
         emit VerifierUnset(s_configDigest, address(s_verifier));
-        vm.prank(ADMIN);
-        s_verifierProxy.unsetVerifier(s_configDigest);
+                s_verifierProxy.unsetVerifier(s_configDigest);
     }
 }

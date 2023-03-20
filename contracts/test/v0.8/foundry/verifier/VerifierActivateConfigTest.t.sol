@@ -8,18 +8,18 @@ import {VerifierProxy} from "../../../../src/v0.8/VerifierProxy.sol";
 contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifier {
     function test_revertsIfNotOwner() public {
         vm.expectRevert("Only callable by owner");
+
+        changePrank(address(s_verifierProxy));
         s_verifier.activateConfig(FEED_ID, bytes32("mock"));
     }
 
     function test_revertsIfDigestIsEmpty() public {
-        vm.prank(ADMIN);
-        vm.expectRevert(abi.encodeWithSelector(Verifier.DigestEmpty.selector));
+                vm.expectRevert(abi.encodeWithSelector(Verifier.DigestEmpty.selector));
         s_verifier.activateConfig(FEED_ID, bytes32(""));
     }
 
     function test_revertsIfDigestNotSet() public {
-        vm.prank(ADMIN);
-        vm.expectRevert(
+                vm.expectRevert(
             abi.encodeWithSelector(
                 Verifier.DigestNotSet.selector,
                 FEED_ID,
@@ -54,14 +54,12 @@ contract VerifierActivateConfigWithDeactivatedConfigTest is
             uint64(block.number + 3)
         );
 
-        vm.prank(ADMIN);
-        s_verifier.deactivateConfig(FEED_ID, s_configDigestTwo);
+                s_verifier.deactivateConfig(FEED_ID, s_configDigestTwo);
     }
 
     function test_allowsVerification() public {
-        vm.prank(ADMIN);
-        s_verifier.activateConfig(FEED_ID, s_configDigestTwo);
-        vm.prank(address(s_verifierProxy));
+                s_verifier.activateConfig(FEED_ID, s_configDigestTwo);
+        changePrank(address(s_verifierProxy));
 
         bytes memory signedReport = _generateEncodedBlob(
             s_testReportOne,

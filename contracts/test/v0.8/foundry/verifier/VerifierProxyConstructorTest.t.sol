@@ -8,8 +8,7 @@ import {AccessControllerInterface} from "../../../../src/v0.8/interfaces/AccessC
 
 contract VerifierProxyConstructorTest is BaseTest {
     function test_correctlySetsTheOwner() public {
-        vm.prank(ADMIN);
-        VerifierProxy proxy = new VerifierProxy(
+                VerifierProxy proxy = new VerifierProxy(
             AccessControllerInterface(address(0))
         );
         assertEq(proxy.owner(), ADMIN);
@@ -17,8 +16,7 @@ contract VerifierProxyConstructorTest is BaseTest {
 
     function test_correctlySetsTheCorrectAccessControllerInterface() public {
         address accessControllerAddr = address(1234);
-        vm.prank(ADMIN);
-        VerifierProxy proxy = new VerifierProxy(
+                VerifierProxy proxy = new VerifierProxy(
             AccessControllerInterface(accessControllerAddr)
         );
         assertEq(address(proxy.getAccessController()), accessControllerAddr);
