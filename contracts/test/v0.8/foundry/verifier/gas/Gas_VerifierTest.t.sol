@@ -5,7 +5,7 @@ import {BaseTest, BaseTestWithConfiguredVerifier} from "../BaseVerifierTest.t.so
 import {Verifier} from "../../../../../src/v0.8/Verifier.sol";
 import {SimpleWriteAccessController} from "../../../../../src/v0.8/SimpleWriteAccessController.sol";
 
-contract Gas_SetConfigTest is BaseTest {
+contract Verifier_setConfig is BaseTest {
     address[] internal s_signerAddrs;
 
     function setUp() public override {
@@ -14,8 +14,8 @@ contract Gas_SetConfigTest is BaseTest {
         s_signerAddrs = _getSignerAddresses(signers);
     }
 
-    function testSetConfigSuccess() public {
-                s_verifier.setConfig(
+    function testSetConfigSuccess_gas() public {
+            s_verifier.setConfig(
             FEED_ID,
             s_signerAddrs,
             s_offchaintransmitters,
@@ -27,7 +27,7 @@ contract Gas_SetConfigTest is BaseTest {
     }
 }
 
-contract Gas_VerifyTest is BaseTestWithConfiguredVerifier {
+contract Verifier_verify is BaseTestWithConfiguredVerifier {
     bytes internal s_signedReport;
     bytes32 internal s_configDigest;
 
@@ -54,17 +54,17 @@ contract Gas_VerifyTest is BaseTestWithConfiguredVerifier {
         );
             }
 
-    function testVerifySuccess() public {
+    function testVerifySuccess_gas() public {
         changePrank(address(s_verifierProxy));
         s_verifier.verify(s_signedReport, msg.sender);
     }
 
-    function testVerifyProxySuccess() public {
+    function testVerifyProxySuccess_gas() public {
         s_verifierProxy.verify(s_signedReport);
     }
 }
 
-contract GasAccessControlledVerifyTest is BaseTestWithConfiguredVerifier {
+contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifier {
     bytes internal s_signedReport;
     bytes32 internal s_configDigest;
     SimpleWriteAccessController s_accessController;
@@ -98,7 +98,7 @@ contract GasAccessControlledVerifyTest is BaseTestWithConfiguredVerifier {
                 s_accessController.addAccess(CLIENT);
     }
 
-    function testVerifyWithAccessControl() public {
+    function testVerifyWithAccessControl_gas() public {
         changePrank(CLIENT);
         s_verifierProxy.verify(s_signedReport);
     }
