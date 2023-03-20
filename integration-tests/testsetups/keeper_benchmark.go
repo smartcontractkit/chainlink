@@ -14,7 +14,6 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -261,19 +266,19 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 	rIndex int,
 ) {
 	l := utils.GetTestLogger(t)
-	contractABI, err := ethereum.KeeperRegistry11MetaData.GetAbi()
+	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	require.NoError(t, err, "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
-		contractABI, err = ethereum.KeeperRegistry11MetaData.GetAbi()
+		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	case ethereum.RegistryVersion_1_2:
-		contractABI, err = ethereum.KeeperRegistry12MetaData.GetAbi()
+		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
 	case ethereum.RegistryVersion_1_3:
-		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
+		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
 	case ethereum.RegistryVersion_2_0:
-		contractABI, err = ethereum.KeeperRegistry20MetaData.GetAbi()
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	default:
-		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	}
 
 	require.NoError(t, err, "Getting contract abi for registry shouldn't fail")
