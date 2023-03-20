@@ -1521,7 +1521,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	})
 }
 
-func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
+func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1541,13 +1541,13 @@ func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
 	}
 
 	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
-		n, err := borm.PruneUnstartedEthTxQueue(uint32(5), subject1)
+		n, err := borm.PruneUnstartedTxQueue(uint32(5), subject1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), n)
 	})
 
 	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
-		n, err := borm.PruneUnstartedEthTxQueue(uint32(3), subject1)
+		n, err := borm.PruneUnstartedTxQueue(uint32(3), subject1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 	})

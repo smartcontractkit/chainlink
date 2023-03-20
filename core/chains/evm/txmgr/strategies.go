@@ -33,8 +33,10 @@ func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 // SendEveryStrategy will always send the tx
 type SendEveryStrategy struct{}
 
-func (SendEveryStrategy) Subject() uuid.NullUUID                                   { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(pruneService any, qopt pg.QOpt) (int64, error) { return 0, nil }
+func (SendEveryStrategy) Subject() uuid.NullUUID { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(pruneService txmgrtypes.PruneService, qopt pg.QOpt) (int64, error) {
+	return 0, nil
+}
 
 var _ types.TxStrategy = DropOldestStrategy{}
 
@@ -56,16 +58,11 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(pruneService any, qopt pg.QOpt) (n int64, err error) {
-	orm, ok := pruneService.(ORM)
-	if !ok {
-		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed invalid pruneService")
-	}
-
+func (s DropOldestStrategy) PruneQueue(pruneService txmgrtypes.PruneService, qopt pg.QOpt) (n int64, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
 
 	defer cancel()
-	n, err = orm.PruneUnstartedEthTxQueue(s.queueSize, s.subject, pg.WithParentCtx(ctx), qopt)
+	n, err = pruneService.PruneUnstartedTxQueue(s.queueSize, s.subject, pg.WithParentCtx(ctx), qopt)
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}

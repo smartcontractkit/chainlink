@@ -11,6 +11,7 @@ import (
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
 type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
+	PruneService
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
@@ -45,7 +46,6 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	// MarkAllConfirmedMissingReceipt(chainID CHAINID, opts ...any) (err error)
 	// MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID CHAINID, opts ...any) error
 	// PreloadEthTxes(attempts []TXATTEMPT, opts ...any) error
-	PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
 	// SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time, opts ...any) error
 	SaveFetchedReceipts(receipts []R, chainID CHAINID) (err error)
 	// SaveInProgressAttempt(attempt *TXATTEMPT, opts ...any) error
@@ -72,10 +72,11 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	// Params:
-	// pruneService: The service object responsible for deleting
-	// opt: The storage layer specific options (example, pg.QOpt for Postgres)
-	PruneQueue(pruneService any, qopt pg.QOpt) (n int64, err error)
+	PruneQueue(pruneService PruneService, qopt pg.QOpt) (n int64, err error)
+}
+
+type PruneService interface {
+	PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
 }
 
 // R is the raw unparsed transaction receipt
