@@ -34,7 +34,7 @@ func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 type SendEveryStrategy struct{}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(pruneService txmgrtypes.PruneService, qopt pg.QOpt) (int64, error) {
+func (SendEveryStrategy) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePruner, qopt pg.QOpt) (int64, error) {
 	return 0, nil
 }
 
@@ -58,7 +58,7 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(pruneService txmgrtypes.PruneService, qopt pg.QOpt) (n int64, err error) {
+func (s DropOldestStrategy) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
 
 	defer cancel()

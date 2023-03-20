@@ -16,21 +16,21 @@ type TxStrategy struct {
 }
 
 // PruneQueue provides a mock function with given fields: pruneService, qopt
-func (_m *TxStrategy) PruneQueue(pruneService types.PruneService, qopt pg.QOpt) (int64, error) {
+func (_m *TxStrategy) PruneQueue(pruneService types.UnstartedTxQueuePruner, qopt pg.QOpt) (int64, error) {
 	ret := _m.Called(pruneService, qopt)
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.PruneService, pg.QOpt) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.UnstartedTxQueuePruner, pg.QOpt) (int64, error)); ok {
 		return rf(pruneService, qopt)
 	}
-	if rf, ok := ret.Get(0).(func(types.PruneService, pg.QOpt) int64); ok {
+	if rf, ok := ret.Get(0).(func(types.UnstartedTxQueuePruner, pg.QOpt) int64); ok {
 		r0 = rf(pruneService, qopt)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(types.PruneService, pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(types.UnstartedTxQueuePruner, pg.QOpt) error); ok {
 		r1 = rf(pruneService, qopt)
 	} else {
 		r1 = ret.Error(1)

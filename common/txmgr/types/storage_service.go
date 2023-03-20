@@ -11,7 +11,7 @@ import (
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
 type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
-	PruneService
+	UnstartedTxQueuePruner
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
@@ -72,10 +72,10 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(pruneService PruneService, qopt pg.QOpt) (n int64, err error)
+	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
 }
 
-type PruneService interface {
+type UnstartedTxQueuePruner interface {
 	PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
 }
 
