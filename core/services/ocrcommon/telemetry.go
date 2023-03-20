@@ -145,7 +145,7 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 		}
 		value := getParsedValue(ds, trrs, trr)
 
-		t := &telem.TelemEnhancedEA{
+		t := &telem.EnhancedEA{
 			DataSource:                    eaTelemetry.DataSource,
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
