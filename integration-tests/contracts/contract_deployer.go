@@ -733,7 +733,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployKeeperConsumer(auth, backend, updateInterval)
+		return ethereum2.DeployKeeperConsumer(auth, backend, updateInterval)
 	})
 	if err != nil {
 		return nil, err
@@ -750,7 +750,7 @@ func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, inter
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployUpkeepCounter(auth, backend, testRange, interval)
+		return ethereum2.DeployUpkeepCounter(auth, backend, testRange, interval)
 	})
 	if err != nil {
 		return nil, err
@@ -767,7 +767,7 @@ func (e *EthereumContractDeployer) DeployUpkeepPerformCounterRestrictive(testRan
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
+		return ethereum2.DeployUpkeepPerformCounterRestrictive(auth, backend, testRange, averageEligibilityCadence)
 	})
 	if err != nil {
 		return nil, err
@@ -789,7 +789,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployKeeperConsumerPerformance(
+		return ethereum2.DeployKeeperConsumerPerformance(
 			auth,
 			backend,
 			testBlockRange,
@@ -819,7 +819,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployKeeperConsumerBenchmark(
+		return ethereum2.DeployKeeperConsumerBenchmark(
 			auth,
 			backend,
 			testBlockRange,
@@ -844,7 +844,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployPerformDataChecker(
+		return ethereum2.DeployPerformDataChecker(
 			auth,
 			backend,
 			expectedData,
