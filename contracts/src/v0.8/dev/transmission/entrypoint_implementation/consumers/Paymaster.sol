@@ -10,9 +10,18 @@ import "../contracts/Helpers.sol";
  * a paymaster must hold a stake to cover the required entrypoint stake and also the gas for the transaction.
  */
 contract Paymaster is IPaymaster {
+  error OnlyCallableFromLink();
+  error InvalidCalldata();
+
+  address public LINK;
+  uint256 weiPerUnitLink = 5000000000000000;
+
   mapping(bytes32 => bool) userOpHashMapping;
   mapping(address => uint256) subscriptions;
-  uint256 weiPerUnitLink = 5000000000000000;
+
+  constructor(address linkToken) {
+    LINK = linkToken;
+  }
 
   function validatePaymasterUserOp(
     UserOperation calldata userOp,
@@ -38,7 +47,15 @@ contract Paymaster is IPaymaster {
     subscriptions[sender] -= costJuels;
   }
 
-  function deposit(uint256 amount, address subscription) external {
-    subscriptions[subscription] += amount;
+  function onTokenTransfer(address /* _sender */, uint256 _amount, bytes calldata _data) external {
+    if (msg.sender != address(LINK)) {
+      revert OnlyCallableFromLink();
+    }
+    if (_data.length != 32) {
+      revert InvalidCalldata();
+    }
+
+    address subscription = abi.decode(_data, (address));
+    subscriptions[subscription] += _amount;
   }
 }

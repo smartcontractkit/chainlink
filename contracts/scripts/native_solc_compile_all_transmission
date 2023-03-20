@@ -10,6 +10,7 @@ solc-select install 0.8.15
 # Transmission
 $SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/Greeter.sol
 $SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/SCA.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/Paymaster.sol
 $SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/SmartContractAccountFactory.sol
 $SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/EntryPoint.sol
 $SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/utils/SmartContractAccountHelper.sol

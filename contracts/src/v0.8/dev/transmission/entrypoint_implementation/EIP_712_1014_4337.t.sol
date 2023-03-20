@@ -11,6 +11,7 @@ import "./interfaces/UserOperation.sol";
 import "./contracts/EntryPoint.sol";
 import "./interfaces/IEntryPoint.sol";
 import "./consumers/SCALibrary.sol";
+import "../../../mocks/MockLinkToken.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
 | EIP 712 + 1014 + 4337                                                                                               |
@@ -70,7 +71,7 @@ contract EIP_712_1014_4337 is Test {
         hex"cd6317fd718037261501fce54cd7355d646b39f5b75e91d5f01b2c032a56035e43eba05c4da914511fdcb806d75596f1b7a9a762a47f1eb5711168be6f3355ac01";
 
     bytes signature3 = // Signature #2 by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"24e58a624236d33dbd46162752090eb10b3bf2b46e291cb3ea362b92b6da4e833fddb7512ae43ecdefc645cf6f105cb98d73625e44a35db5a57f151f2608fea501";
+        hex"9895b844224797d1d5caf20862c182032b3dfcb901840aa91ae08478d422daa43f6ccdf8f7c862c2c03364fcf181ca019242dc265a841b6c0c6c1f80d13e05b800";
 
     function setUp() public {
         // Fork Goerli.
@@ -249,8 +250,10 @@ contract EIP_712_1014_4337 is Test {
             encodedGreetingCall
         );
 
-        Paymaster paymaster = new Paymaster();
-        paymaster.deposit(1000 ether, toDeployAddress);
+        // Create Link token, and deposit into paymaster.
+        MockLinkToken linkToken = new MockLinkToken();
+        Paymaster paymaster = new Paymaster(address(linkToken));        
+        linkToken.transferAndCall(address(paymaster), 1000 ether, abi.encode(address(toDeployAddress)));
 
         // Construct the user opeartion.
         UserOperation memory op = UserOperation({
