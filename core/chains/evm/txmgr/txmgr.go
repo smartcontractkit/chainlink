@@ -298,6 +298,7 @@ func (b *Txm) HealthReport() map[string]error {
 	b.IfStarted(func() {
 		maps.Copy(report, b.ethBroadcaster.HealthReport())
 		maps.Copy(report, b.ethConfirmer.HealthReport())
+		maps.Copy(report, b.gasEstimator.HealthReport())
 	})
 
 	if b.config.EvmUseForwarders() {
