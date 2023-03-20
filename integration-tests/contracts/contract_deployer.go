@@ -502,7 +502,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 			opts *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistrar20(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+			return keeper_registrar_wrapper2_0.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
 				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
 		})
 
@@ -521,7 +521,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 		opts *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+		return keeper_registrar_wrapper1_2.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
 			registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
 	})
 
