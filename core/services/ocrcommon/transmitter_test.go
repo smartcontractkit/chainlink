@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commontxmgrmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
+	commontxmmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
 
-func newMockTxStrategy(t *testing.T) *commontxmgrmocks.TxStrategy {
-	return commontxmgrmocks.NewTxStrategy(t)
+func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
+	return commontxmmocks.NewTxStrategy(t)
 }
 
 func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {

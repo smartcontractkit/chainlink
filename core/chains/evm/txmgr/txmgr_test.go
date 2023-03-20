@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commontxmgrmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
+	commontxmmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -305,8 +305,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	})
 }
 
-func newMockTxStrategy(t *testing.T) *commontxmgrmocks.TxStrategy {
-	return commontxmgrmocks.NewTxStrategy(t)
+func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
+	return commontxmmocks.NewTxStrategy(t)
 }
 
 func newMockConfig(t *testing.T) *txmmocks.Config {
