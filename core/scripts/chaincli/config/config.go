@@ -63,6 +63,8 @@ type Config struct {
 
 	// Node config verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
+	AutomationURL string `mapstructure:"AUTOMATION_URL"`
+	LookBackDepth uint64 `mapstructure:"LOOK_BACK_DEPTH"`
 
 	// Feeds config
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`

@@ -47,6 +47,65 @@ type NodeInfo struct {
 	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey,omitempty"`
 }
 
+type ContractInfo struct {
+	ContractAddress string                    `json:"contractAddress"`
+	Environment     string                    `json:"environment"`
+	Name            string                    `json:"name"`
+	Version         string                    `json:"version"`
+	RegistryConfig  *AutomationRegistryConfig `json:"registryConfig"`
+}
+
+type AutomationRegistryConfig struct {
+	OnChainConfig AutomationOnChainConfig        `json:"onChainConfig"`
+	PublicConfig  AutomationRegistryPublicConfig `json:"publicConfig"`
+	Nodes         []string                       `json:"nodes"`
+}
+
+type AutomationOnChainConfig struct {
+	PaymentPremiumPPB    int    `json:"paymentPremiumPPB"`
+	FlatFeeMicroLink     int    `json:"flatFeeMicroLink"`
+	CheckGasLimit        int    `json:"checkGasLimit"`
+	StalenessSeconds     int    `json:"stalenessSeconds"`
+	GasCeilingMultiplier int    `json:"gasCeilingMultiplier"`
+	MinUpkeepSpend       string `json:"minUpkeepSpend"`
+	MaxPerformGas        int    `json:"maxPerformGas"`
+	MaxCheckDataSize     int    `json:"maxCheckDataSize"`
+	MaxPerformDataSize   int    `json:"maxPerformDataSize"`
+	FallbackGasPrice     string `json:"fallbackGasPrice"`
+	FallbackLinkPrice    string `json:"fallbackLinkPrice"`
+	Transcoder           string `json:"transcoder"`
+	Registrar            string `json:"registrar"`
+}
+
+type AutomationRegistryPublicConfig struct {
+	DeltaProgress                           string                `json:"deltaProgress"`
+	DeltaResend                             string                `json:"deltaResend"`
+	DeltaRound                              string                `json:"deltaRound"`
+	DeltaGrace                              string                `json:"deltaGrace"`
+	DeltaStage                              string                `json:"deltaStage"`
+	F                                       uint32                `json:"f"`
+	S                                       []int                 `json:"s"`
+	MaxDurationQuery                        string                `json:"maxDurationQuery"`
+	MaxDurationObservation                  string                `json:"maxDurationObservation"`
+	MaxDurationReport                       string                `json:"maxDurationReport"`
+	MaxDurationShouldAcceptFinalizedReport  string                `json:"maxDurationShouldAcceptFinalizedReport"`
+	MaxDurationShouldTransmitAcceptedReport string                `json:"maxDurationShouldTransmitAcceptedReport"`
+	RMax                                    uint32                `json:"rMax"`
+	ReportingPluginConfig                   ReportingPluginConfig `json:"reportingPluginConfig"`
+}
+
+type ReportingPluginConfig struct {
+	PerformLockoutWindow int    `json:"performLockoutWindow"`
+	TargetProbability    string `json:"targetProbability"`
+	TargetInRounds       int    `json:"targetInRounds"`
+	SamplingJobDuration  int    `json:"samplingJobDuration"`
+	MinConfirmations     int    `json:"minConfirmations"`
+	GasLimitPerReport    int    `json:"gasLimitPerReport"`
+	GasOverheadPerUpkeep int    `json:"gasOverheadPerUpkeep"`
+	MaxUpkeepBatchSize   int    `json:"maxUpkeepBatchSize"`
+	ReportBlockLag       int    `json:"reportBlockLag"`
+}
+
 func (h *baseHandler) Verify() {
 	log, closeLggr := logger.NewLogger()
 	logger.Sugared(log).ErrorIfFn(closeLggr, "Failed to close logger")
@@ -57,13 +116,46 @@ func (h *baseHandler) Verify() {
 }
 
 func (h *baseHandler) verifyOnchain(ctx context.Context, oracleIdentities []ocr2config.OracleIdentityExtra, log logger.Logger) {
+	contractInfos := fetchContractInfos(ctx, h.cfg.AutomationURL, log)
+	var ci *ContractInfo
+	for _, c := range contractInfos {
+		if c.ContractAddress == h.cfg.RegistryAddress {
+			ci = &c
+			break
+		}
+	}
+	if ci == nil {
+		log.Fatalf("Failed to find a registry contract at %s in Automation contract URL provided %s", h.cfg.RegistryAddress, h.cfg.AutomationURL)
+	}
+
+	blockNum, err := h.client.BlockNumber(ctx)
+	if err != nil {
+		log.Fatalf("Failed to get block number: %v", err)
+	}
+
 	registryAddr := common.HexToAddress(h.cfg.RegistryAddress)
 	keeperRegistry20, err := registry20.NewKeeperRegistry(
 		registryAddr,
 		h.client,
 	)
 	if err != nil {
-		log.Fatal("Registry failed: ", err)
+		log.Fatal("Registry failed: %v", err)
+	}
+
+	log.Warn(blockNum)
+	log.Warn(blockNum - h.cfg.LookBackDepth)
+	iter, err := keeperRegistry20.FilterConfigSet(&bind.FilterOpts{
+		Start:   blockNum - h.cfg.LookBackDepth,
+		End:     &blockNum,
+		Context: ctx,
+	})
+	if err != nil {
+		log.Fatal("failed to retrieve ConfigSet events: %v", err)
+	}
+
+	if iter.Next() {
+		log.Warn(iter.Event.F)
+		log.Warn(iter.Event.PreviousConfigBlockNumber)
 	}
 
 	gs, err := keeperRegistry20.GetState(&bind.CallOpts{
@@ -73,7 +165,65 @@ func (h *baseHandler) verifyOnchain(ctx context.Context, oracleIdentities []ocr2
 		log.Fatalf("failed to call GetState on %s", registryAddr.Hex())
 	}
 
-	gs.Config
+	rddCfg := ci.RegistryConfig.OnChainConfig
+	onchainCfg := gs.Config
+	diffs := 0
+	if onchainCfg.PaymentPremiumPPB != uint32(rddCfg.PaymentPremiumPPB) {
+		diffs++
+		log.Errorf("PaymentPremiumPPB differs. The onchain config has %d but RDD has %d", onchainCfg.PaymentPremiumPPB, rddCfg.PaymentPremiumPPB)
+	}
+	if onchainCfg.FlatFeeMicroLink != uint32(rddCfg.FlatFeeMicroLink) {
+		diffs++
+		log.Errorf("FlatFeeMicroLink differs. The onchain config has %d but RDD has %d", onchainCfg.FlatFeeMicroLink, rddCfg.FlatFeeMicroLink)
+	}
+	if onchainCfg.CheckGasLimit != uint32(rddCfg.CheckGasLimit) {
+		diffs++
+		log.Errorf("CheckGasLimit differs. The onchain config has %d but RDD has %d", onchainCfg.CheckGasLimit, rddCfg.CheckGasLimit)
+	}
+	if onchainCfg.StalenessSeconds.Uint64() != uint64(rddCfg.StalenessSeconds) {
+		diffs++
+		log.Errorf("StalenessSeconds differs. The onchain config has %d but RDD has %d", onchainCfg.StalenessSeconds.Uint64(), rddCfg.StalenessSeconds)
+	}
+	if onchainCfg.GasCeilingMultiplier != uint16(rddCfg.GasCeilingMultiplier) {
+		diffs++
+		log.Errorf("GasCeilingMultiplier differs. The onchain config has %d but RDD has %d", onchainCfg.GasCeilingMultiplier, rddCfg.GasCeilingMultiplier)
+	}
+	if onchainCfg.MinUpkeepSpend.String() != rddCfg.MinUpkeepSpend {
+		diffs++
+		log.Errorf("MinUpkeepSpend differs. The onchain config has %s but RDD has %s", onchainCfg.MinUpkeepSpend.String(), rddCfg.MinUpkeepSpend)
+	}
+	if onchainCfg.MaxPerformGas != uint32(rddCfg.MaxPerformGas) {
+		diffs++
+		log.Errorf("MaxPerformGas differs. The onchain config has %d but RDD has %d", onchainCfg.MaxPerformGas, rddCfg.MaxPerformGas)
+	}
+	if onchainCfg.MaxCheckDataSize != uint32(rddCfg.MaxCheckDataSize) {
+		diffs++
+		log.Errorf("MaxCheckDataSize differs. The onchain config has %d but RDD has %d", onchainCfg.MaxCheckDataSize, rddCfg.MaxCheckDataSize)
+	}
+	if onchainCfg.MaxPerformDataSize != uint32(rddCfg.MaxPerformDataSize) {
+		diffs++
+		log.Errorf("MaxPerformDataSize differs. The onchain config has %d but RDD has %d", onchainCfg.MaxPerformDataSize, rddCfg.MaxPerformDataSize)
+	}
+	if onchainCfg.FallbackGasPrice.String() != rddCfg.FallbackGasPrice {
+		diffs++
+		log.Errorf("FallbackGasPrice differs. The onchain config has %s but RDD has %s", onchainCfg.FallbackGasPrice, rddCfg.FallbackGasPrice)
+	}
+	if onchainCfg.FallbackLinkPrice.String() != rddCfg.FallbackLinkPrice {
+		diffs++
+		log.Errorf("FallbackLinkPrice differs. The onchain config has %s but RDD has %s", onchainCfg.FallbackLinkPrice.String(), rddCfg.FallbackLinkPrice)
+	}
+	if onchainCfg.Transcoder.String() != rddCfg.Transcoder {
+		diffs++
+		log.Errorf("Transcoder differs. The onchain config has %s but RDD has %s", onchainCfg.Transcoder.String(), rddCfg.Transcoder)
+	}
+	if onchainCfg.Registrar.String() != rddCfg.Registrar {
+		diffs++
+		log.Errorf("Registrar differs. The onchain config has %d but RDD has %d", onchainCfg.Registrar.String(), rddCfg.Registrar)
+	}
+
+	if diffs == 0 {
+		log.Infof("Onchain config for contract at %s matches the RDD file.", h.cfg.RegistryAddress)
+	}
 }
 
 func (h *baseHandler) verifyNodes(ctx context.Context, log logger.Logger) []ocr2config.OracleIdentityExtra {
@@ -233,10 +383,15 @@ func (h *baseHandler) verifyNodes(ctx context.Context, log logger.Logger) []ocr2
 			log.Errorf("Node address differs. The node returns %s but weiwatcher has %s", node.NodeAddress, ni.NodeAddress)
 		}
 
-		//if !reflect.DeepEqual(node.PeerId, ni.PeerId) {
-		//	diffs++
-		//	log.Errorf("Peer Id differs. The node returns %s but weiwatcher has %s", node.PeerId, ni.PeerId)
-		//}
+		// preprocess the Peer ID from node bc it has p2p_ prefix
+		var peerIds []string
+		for _, pid := range node.PeerId {
+			peerIds = append(peerIds, pid[4:])
+		}
+		if !reflect.DeepEqual(peerIds, ni.PeerId) {
+			diffs++
+			log.Errorf("Peer Id differs. The node returns %s but weiwatcher has %s", node.PeerId, ni.PeerId)
+		}
 
 		if !reflect.DeepEqual(node.Ocr2OffchainPublicKey, ni.Ocr2OffchainPublicKey) {
 			diffs++
@@ -291,6 +446,17 @@ func fetchNodeInfos(ctx context.Context, automationNodesConfigURL string, log lo
 	}
 
 	return nodeInfos
+}
+
+func fetchContractInfos(ctx context.Context, automationContractsConfigURL string, log logger.Logger) []ContractInfo {
+	contractBytes := fetchRawBytes(ctx, automationContractsConfigURL, log)
+
+	var contractInfos []ContractInfo
+	if err := json.Unmarshal(contractBytes, &contractInfos); err != nil {
+		log.Fatalf("failed to unmarshal response: %s", err)
+	}
+
+	return contractInfos
 }
 
 func fetchRawBytes(ctx context.Context, url string, log logger.Logger) []byte {
