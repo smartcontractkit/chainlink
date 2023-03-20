@@ -37,17 +37,11 @@ type NodesConfig[I ID, N Node] interface {
 // ChainSet manages a live set of ChainService instances.
 type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
 	services.ServiceCtx
+	ChainsConfig[I, C]
+	NodesConfig[I, N]
 
 	Name() string
 	HealthReport() map[string]error
-
-	// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
-	// https://smartcontract-it.atlassian.net/browse/BCF-2140
-	Healthy() error
-
-	ChainsConfig[I, C]
-
-	NodesConfig[I, N]
 
 	// Chain returns the ChainService for this ID (if a configuration is available), creating one if necessary.
 	Chain(context.Context, I) (S, error)
@@ -167,12 +161,6 @@ func (c *chainSet[I, C, N, S]) Ready() (err error) {
 		err = multierr.Combine(err, c.Ready())
 	}
 	return
-}
-
-// FIXME: for backward compat we will leave this until relayer libs remove Healthy refs
-// https://smartcontract-it.atlassian.net/browse/BCF-2140
-func (c *chainSet[I, C, N, S]) Healthy() error {
-	return nil
 }
 
 func (c *chainSet[I, C, N, S]) Name() string {
