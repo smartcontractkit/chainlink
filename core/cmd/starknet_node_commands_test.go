@@ -32,11 +32,11 @@ func TestClient_IndexStarkNetNodes(t *testing.T) {
 	id := "starknet chain ID"
 	node1 := config.Node{
 		Name: ptr("first"),
-		URL:  utils.MustParseURL("https://starknet.example"),
+		URL:  utils.MustParseURL("https://starknet1.example"),
 	}
 	node2 := config.Node{
 		Name: ptr("second"),
-		URL:  utils.MustParseURL("https://starknet.example"),
+		URL:  utils.MustParseURL("https://starknet2.example"),
 	}
 	chain := starknet.StarknetConfig{
 		ChainID: &id,
@@ -51,10 +51,10 @@ func TestClient_IndexStarkNetNodes(t *testing.T) {
 	require.Len(t, nodes, 2)
 	n1 := nodes[0]
 	n2 := nodes[1]
-	assert.Equal(t, "0", n1.ID)
+	assert.Equal(t, "first", n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
 	assert.Equal(t, (*url.URL)(node1.URL).String(), n1.URL)
-	assert.Equal(t, "1", n2.ID)
+	assert.Equal(t, "second", n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
 	assert.Equal(t, (*url.URL)(node2.URL).String(), n2.URL)
 	assertTableRenders(t, r)

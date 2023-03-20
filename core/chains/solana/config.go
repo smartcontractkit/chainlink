@@ -106,10 +106,6 @@ func (cs SolanaConfigs) Nodes() (ns []soldb.Node) {
 			ns = append(ns, legacySolNode(n, *cs[i].ChainID))
 		}
 	}
-	//Add unique ID to prevent overwriting nodes during unmarshalling since this will be transformed into JAID
-	for i := range ns {
-		ns[i].ID = int32(i)
-	}
 	return
 }
 

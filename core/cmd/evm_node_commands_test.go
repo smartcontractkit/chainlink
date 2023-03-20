@@ -55,11 +55,11 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	require.Len(t, nodes, 2)
 	n1 := nodes[0]
 	n2 := nodes[1]
-	assert.Equal(t, "0", n1.ID)
+	assert.Equal(t, "Test node 1", n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
 	assert.Equal(t, node1.WSURL.String(), n1.WSURL.String)
 	assert.Equal(t, node1.HTTPURL.String(), n1.HTTPURL.String)
-	assert.Equal(t, "1", n2.ID)
+	assert.Equal(t, "Test node 2", n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
 	assert.Equal(t, node2.WSURL.String(), n2.WSURL.String)
 	assert.Equal(t, node2.HTTPURL.String(), n2.HTTPURL.String)

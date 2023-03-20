@@ -47,7 +47,7 @@ func (r SolanaNodeResource) GetName() string {
 // NewSolanaNodeResource returns a new SolanaNodeResource for node.
 func NewSolanaNodeResource(node db.Node) SolanaNodeResource {
 	return SolanaNodeResource{
-		JAID:          NewJAIDInt32(node.ID),
+		JAID:          NewJAID(node.Name),
 		Name:          node.Name,
 		SolanaChainID: node.SolanaChainID,
 		SolanaURL:     node.SolanaURL,

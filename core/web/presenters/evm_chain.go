@@ -50,7 +50,7 @@ func (r EVMNodeResource) GetName() string {
 // NewEVMNodeResource returns a new EVMNodeResource for node.
 func NewEVMNodeResource(node evmtypes.Node) EVMNodeResource {
 	return EVMNodeResource{
-		JAID:       NewJAIDInt32(node.ID),
+		JAID:       NewJAID(node.Name),
 		Name:       node.Name,
 		EVMChainID: node.EVMChainID,
 		WSURL:      node.WSURL,
