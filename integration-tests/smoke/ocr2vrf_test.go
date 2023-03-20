@@ -26,7 +26,7 @@ import (
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -86,7 +86,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
