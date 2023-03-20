@@ -1790,8 +1790,8 @@ github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230316183824-9f1e5e11e2b7
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230317181219-4334c233b581 h1:3I+/UdaDU2o0hcMzTLEhcxF7uvwVhCKgcciuzV1E9nw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230317132141-3038a5ec45a1 h1:K5OvP64RJgJa8OGbsle5jzt6V/Mpqzl5sbx9wZH8oGE=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230317132141-3038a5ec45a1/go.mod h1:3xUS0kadHzpEM7JtoTHUJkSkByHCU+LbxnQVgCaLNJA=
-github.com/smartcontractkit/chainlink-testing-framework v1.10.9 h1:F3b1xkXM/iRJX4PSlb3MxqtjfqwqCAfQsSddRtdeHf0=
-github.com/smartcontractkit/chainlink-testing-framework v1.10.9/go.mod h1:fofuQ/GhaV1dRA4wyF4ZSwpvLsqJE4vvk7Ei5rcL4SA=
+github.com/smartcontractkit/chainlink-testing-framework v1.11.0 h1:IyBUuEfWN7IJpQD2PmCHBXp63IEyXVVsw1rKGfSeRFM=
+github.com/smartcontractkit/chainlink-testing-framework v1.11.0/go.mod h1:LgVtlLXWsClw4AkYXMMu4q7feVPfJfXQOC+rWYPwV2E=
 github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407 h1:P3dhh6UkjA6Fxj39y4vQflv7GoDCa+QC/Du7CCDxjfQ=
 github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.6.14 h1:Rg+SYd8PCyd4CcCetwnRKjVEQsHVsV6QOaWcLhi+6sg=
