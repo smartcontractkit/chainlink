@@ -97,9 +97,53 @@ func (_m *FeeEstimator[H, FEE, MAXPRICE, HASH]) GetFee(ctx context.Context, call
 	return r0, r1, r2
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *FeeEstimator[H, FEE, MAXPRICE, HASH]) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
+// Name provides a mock function with given fields:
+func (_m *FeeEstimator[H, FEE, MAXPRICE, HASH]) Name() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // OnNewLongestChain provides a mock function with given fields: ctx, head
 func (_m *FeeEstimator[H, FEE, MAXPRICE, HASH]) OnNewLongestChain(ctx context.Context, head H) {
 	_m.Called(ctx, head)
+}
+
+// Ready provides a mock function with given fields:
+func (_m *FeeEstimator[H, FEE, MAXPRICE, HASH]) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Start provides a mock function with given fields: _a0
