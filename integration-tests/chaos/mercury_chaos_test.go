@@ -72,51 +72,51 @@ func TestMercuryChaos(t *testing.T) {
 		chaosFunc  chaos.ManifestFunc
 		chaosProps *chaos.Props
 	}{
-		//NetworkChaosFailMajorityNetwork: {
-		//	chaos.NewNetworkPartition,
-		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
-		//		DurationStr: "1m",
-		//	},
-		//},
-		//NetworkChaosFailBlockchainNode: {
-		//	chaos.NewNetworkPartition,
-		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
-		//		DurationStr: "1m",
-		//	},
-		//},
-		//PodChaosFailMinorityNodes: {
-		//	chaos.NewFailPods,
-		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
-		//		DurationStr:    "1m",
-		//	},
-		//},
-		//PodChaosFailMajorityNodes: {
-		//	chaos.NewFailPods,
-		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-		//		DurationStr:    "1m",
-		//	},
-		//},
-		//PodChaosFailMajorityDB: {
-		//	chaos.NewFailPods,
-		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-		//		DurationStr:    "1m",
-		//		ContainerNames: &[]*string{a.Str("chainlink-db")},
-		//	},
-		//},
-		//PodChaosFailMercury: {
-		//	chaos.NewFailPods,
-		//	&chaos.Props{
-		//		LabelsSelector: &map[string]*string{"app": a.Str("mercury-server")},
-		//		DurationStr:    "1m",
-		//	},
-		//},
+		NetworkChaosFailMajorityNetwork: {
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+		NetworkChaosFailBlockchainNode: {
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{"app": a.Str("geth")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+		PodChaosFailMinorityNodes: {
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				DurationStr:    "1m",
+			},
+		},
+		PodChaosFailMajorityNodes: {
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				DurationStr:    "1m",
+			},
+		},
+		PodChaosFailMajorityDB: {
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				DurationStr:    "1m",
+				ContainerNames: &[]*string{a.Str("chainlink-db")},
+			},
+		},
+		PodChaosFailMercury: {
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{"app": a.Str("mercury-server")},
+				DurationStr:    "1m",
+			},
+		},
 		NetworkChaosDisruptNetworkDONMercury: {
 			chaos.NewNetworkPartition,
 			&chaos.Props{
