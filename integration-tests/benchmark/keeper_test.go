@@ -20,12 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	eth_contracts "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
