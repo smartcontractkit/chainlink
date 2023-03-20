@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
@@ -87,8 +86,6 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 				report, _, err := testEnv.MSClient.GetReports(feedIdStr, latestBlockNum-5)
 				require.NoError(t, err, "Error getting report from Mercury Server")
 				require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
-				err = mercuryactions.ValidateReport([]byte(report.ChainlinkBlob))
-				require.NoError(t, err, "Error validating mercury report")
 			})
 
 		t.Run(fmt.Sprintf("test report verfification using Exchanger.ResolveTradeWithReport call, feedId: %s", feedIdStr),

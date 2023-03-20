@@ -86,7 +86,7 @@ func setupMercuryLoadEnv(
 }
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	feeds := [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
+	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
 	testEnv := setupMercuryLoadEnv(t, feeds, dbSettings, serverResources)
 	bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
 

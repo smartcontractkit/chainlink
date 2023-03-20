@@ -66,17 +66,12 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 					l.Log.Error().Err(err).Msg("failed read ws msg from instance")
 					l.ResponsesChan <- loadgen.CallResult{StartedAt: &startedAt, Failed: true, Error: "ws read error"}
 				}
-				log.Info().Interface("Results", v).Msg("Report results")
-				if v["report"] == "" {
-					log.Error().Msg("report is empty")
-					continue
-				}
-				reportElements := map[string]interface{}{}
-				if err := mercury.ValidateReport([]byte(v["report"])); err != nil {
+				report, err := mercury.DecodeReport([]byte(v["report"]))
+				if err != nil {
 					l.ResponsesChan <- loadgen.CallResult{Error: "report validation error", Failed: true}
 					continue
 				}
-				log.Info().Interface("Report", reportElements).Msg("Decoded report")
+				log.Info().Interface("Report", report).Msg("Decoded report")
 				l.ResponsesChan <- loadgen.CallResult{StartedAt: &startedAt}
 			}
 		}
