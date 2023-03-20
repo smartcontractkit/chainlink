@@ -314,6 +314,10 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 func TestNewUserCache(t *testing.T) {
 
 	r, err := rand.Int(rand.Reader, big.NewInt(256*1024*1024))
+	require.NoError(t, err)
+	// NewUserCache owns it's Dir.
+	// invent a unique subdir that we can cleanup
+	// because test.TempDir and ioutil.TempDir don't work well here
 	subDir := filepath.Base(fmt.Sprintf("%s-%d", t.Name(), r.Int64()))
 	c, err := cmd.NewUserCache(subDir)
 	require.NoError(t, err)
