@@ -18,6 +18,4 @@ type Config interface {
 //
 //	ID        int32
 //	Name      string
-//	CreatedAt time.Time
-//	UpdatedAt time.Time
 type Node any

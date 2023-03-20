@@ -33,6 +33,9 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 	}
 	return nil
 }
+func (f *fixedPriceEstimator) Name() string                                          { return f.lggr.Name() }
+func (f *fixedPriceEstimator) Ready() error                                          { return nil }
+func (f *fixedPriceEstimator) HealthReport() map[string]error                        { return map[string]error{} }
 func (f *fixedPriceEstimator) Close() error                                          { return nil }
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 

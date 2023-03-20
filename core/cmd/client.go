@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -78,11 +80,54 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
+
+	configInitialized bool
 }
 
 func (cli *Client) errorOut(err error) error {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
+	}
+	return nil
+}
+
+func (cli *Client) setConfigFromFlags(opts *chainlink.GeneralConfigOpts, ctx *cli.Context) error {
+
+	configToProcess := ctx.IsSet("config") || ctx.IsSet("secrets")
+	if !configToProcess {
+		return nil
+	}
+
+	if cli.configInitialized && configToProcess {
+		return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+	}
+
+	cli.configInitialized = true
+
+	fileNames := ctx.StringSlice("config")
+	if err := loadOpts(opts, fileNames...); err != nil {
+		return err
+	}
+
+	secretsTOML := ""
+	if ctx.IsSet("secrets") {
+		secretsFileName := ctx.String("secrets")
+		b, err := os.ReadFile(secretsFileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+		}
+		secretsTOML = string(b)
+	}
+	err := opts.ParseSecrets(secretsTOML)
+	if err != nil {
+		return err
+	}
+	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		return err
+	} else {
+		cli.Config = cfg
+		cli.Logger = lggr
+		cli.CloseLogger = closeLggr
 	}
 	return nil
 }
@@ -676,6 +721,30 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 
 func (d DiskCookieStore) cookiePath() string {
 	return path.Join(d.Config.RootDir(), "cookie")
+}
+
+type UserCache struct {
+	dir string
+}
+
+func NewUserCache(subdir string) (*UserCache, error) {
+
+	cd, err := os.UserCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Join(cd, "chainlink", subdir)
+	err = os.MkdirAll(dir, 0700)
+	if err != nil {
+		return nil, err
+	}
+	return &UserCache{
+		dir: dir,
+	}, nil
+}
+
+func (cs *UserCache) RootDir() string {
+	return cs.dir
 }
 
 // SessionRequestBuilder is an interface that returns a SessionRequest,

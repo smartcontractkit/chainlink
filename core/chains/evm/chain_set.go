@@ -32,13 +32,11 @@ var ErrNoChains = errors.New("no EVM chains loaded")
 
 var _ ChainSet = &chainSet{}
 
-type ChainConfigUpdater func(*types.ChainCfg) error
-
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	chains.ChainsConfig[utils.Big, *types.ChainCfg]
-	chains.NodesConfig[utils.Big, types.Node]
+	chains.Chains[utils.Big, *types.ChainCfg]
+	chains.Nodes[utils.Big, types.Node]
 
 	Get(id *big.Int) (Chain, error)
 
