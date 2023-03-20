@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -128,7 +128,7 @@ func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Addr
 	return &EthereumKeeperConsumerBenchmark{
 		address:  &address,
 		client:   e.client,
-		consumer: instance.(*ethereum.KeeperConsumerBenchmark),
+		consumer: instance.(*ethereum2.KeeperConsumerBenchmark),
 	}, err
 }
 
@@ -138,7 +138,7 @@ func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (Upk
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return int_ethereum.NewUpkeepResetter(address, backend)
+		return ethereum2.NewUpkeepResetter(address, backend)
 	})
 	if err != nil {
 		return nil, err
@@ -146,6 +146,6 @@ func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (Upk
 	return &EthereumUpkeepResetter{
 		address:  &address,
 		client:   e.client,
-		consumer: instance.(*int_ethereum.UpkeepResetter),
+		consumer: instance.(*ethereum2.UpkeepResetter),
 	}, err
 }
