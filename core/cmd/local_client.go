@@ -111,7 +111,7 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 				},
 				cli.StringFlag{
 					Name:  "evmChainID",
-					Usage: "Chain ID for which to rebroadcast transactions. If left blank, ETH_CHAIN_ID will be used.",
+					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
 				},
 				cli.Uint64Flag{
 					Name:  "gasLimit",
@@ -446,7 +446,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
-	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -474,7 +474,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 		}
 	}
 
-	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	// Ensure {secret,cookie} files' permissions are <= `ownerPermsMask``
 	protectedFiles := []string{"secret", "cookie", ".password", ".env", ".api"}
 	for _, fileName := range protectedFiles {
 		path := filepath.Join(rootDir, fileName)
