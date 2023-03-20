@@ -314,7 +314,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 		}
 	)
 
-	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
 
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
@@ -329,7 +329,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	require.NoError(t, err)
 
-	err = testEnv.AddMercuryServer(nil, nil, nil)
+	err = testEnv.AddMercuryServer(nil)
 	require.NoError(t, err)
 
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")

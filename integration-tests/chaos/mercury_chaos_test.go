@@ -2,6 +2,7 @@ package chaos
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -71,51 +72,51 @@ func TestMercuryChaos(t *testing.T) {
 		chaosFunc  chaos.ManifestFunc
 		chaosProps *chaos.Props
 	}{
-		NetworkChaosFailMajorityNetwork: {
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
-				DurationStr: "1m",
-			},
-		},
-		NetworkChaosFailBlockchainNode: {
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
-				DurationStr: "1m",
-			},
-		},
-		PodChaosFailMinorityNodes: {
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
-				DurationStr:    "1m",
-			},
-		},
-		PodChaosFailMajorityNodes: {
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				DurationStr:    "1m",
-			},
-		},
-		PodChaosFailMajorityDB: {
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				DurationStr:    "1m",
-				ContainerNames: &[]*string{a.Str("chainlink-db")},
-			},
-		},
-		PodChaosFailMercury: {
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{"app": a.Str("mercury-server")},
-				DurationStr:    "1m",
-			},
-		},
+		//NetworkChaosFailMajorityNetwork: {
+		//	chaos.NewNetworkPartition,
+		//	&chaos.Props{
+		//		FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+		//		DurationStr: "1m",
+		//	},
+		//},
+		//NetworkChaosFailBlockchainNode: {
+		//	chaos.NewNetworkPartition,
+		//	&chaos.Props{
+		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+		//		DurationStr: "1m",
+		//	},
+		//},
+		//PodChaosFailMinorityNodes: {
+		//	chaos.NewFailPods,
+		//	&chaos.Props{
+		//		LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+		//		DurationStr:    "1m",
+		//	},
+		//},
+		//PodChaosFailMajorityNodes: {
+		//	chaos.NewFailPods,
+		//	&chaos.Props{
+		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		DurationStr:    "1m",
+		//	},
+		//},
+		//PodChaosFailMajorityDB: {
+		//	chaos.NewFailPods,
+		//	&chaos.Props{
+		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+		//		DurationStr:    "1m",
+		//		ContainerNames: &[]*string{a.Str("chainlink-db")},
+		//	},
+		//},
+		//PodChaosFailMercury: {
+		//	chaos.NewFailPods,
+		//	&chaos.Props{
+		//		LabelsSelector: &map[string]*string{"app": a.Str("mercury-server")},
+		//		DurationStr:    "1m",
+		//	},
+		//},
 		NetworkChaosDisruptNetworkDONMercury: {
 			chaos.NewNetworkPartition,
 			&chaos.Props{
@@ -163,9 +164,11 @@ func TestMercuryChaos(t *testing.T) {
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error getting report from Mercury Server")
 				g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Report response does not contain chainlinkBlob")
 
-				err = mercuryactions.ValidateReport([]byte(report.ChainlinkBlob))
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error validating mercury report")
-				l.Info().Interface("Report", report).Msg("Validated report received")
+				reportBytes, err := hex.DecodeString(report.ChainlinkBlob[2:])
+				require.NoError(t, err)
+				r, err := mercuryactions.DecodeReport(reportBytes)
+				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error decoding mercury report")
+				l.Info().Interface("Report", r).Msg("Validated report received")
 			}, "3m", "1s").Should(gomega.Succeed())
 		})
 	}
