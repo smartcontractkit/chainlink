@@ -16,7 +16,7 @@ func genUuid() string {
 }
 
 func TestMercuryServerAdminAPI(t *testing.T) {
-	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
 	testEnv.InitEnv()
 
 	t.Cleanup(func() {
@@ -39,7 +39,7 @@ func TestMercuryServerAdminAPI(t *testing.T) {
 		Disabled: false,
 	}
 	initUsers := []mercury.User{admin, user}
-	err = testEnv.AddMercuryServer(nil, nil, &initUsers)
+	err = testEnv.AddMercuryServer(&initUsers)
 	require.NoError(t, err)
 	msUrl := testEnv.MSInfo.LocalUrl
 

@@ -1033,7 +1033,7 @@ func SetupMercuryMultiFeedEnv(
 	if err != nil {
 		return TestEnv{}, err
 	}
-	if err = testEnv.AddMercuryServer(); err != nil {
+	if err = testEnv.AddMercuryServer(nil); err != nil {
 		return TestEnv{}, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
