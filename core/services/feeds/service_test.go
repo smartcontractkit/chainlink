@@ -44,7 +44,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-const TestSpec = `
+const FluxMonitorTestSpec = `
 type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
@@ -67,10 +67,44 @@ answer1 [type=median index=0];
 """
 `
 
+const OCR1TestSpec = `
+type               = "offchainreporting"
+schemaVersion      = 1
+name              = "example OCR1 spec"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pBootstrapPeers  = [
+	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+p2pv2Bootstrappers = []
+keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
+transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer		= false
+observationSource = """
+	// data source 1
+	ds1          [type=memo value=<"{\\"USD\\": 1}">];
+	ds1_parse    [type=jsonparse path="USD"];
+	ds1_multiply [type=multiply times=3];
+
+	ds2          [type=memo value=<"{\\"USD\\": 1}">];
+	ds2_parse    [type=jsonparse path="USD"];
+	ds2_multiply [type=multiply times=3];
+
+	ds3          [type=fail msg="uh oh"];
+
+	ds1 -> ds1_parse -> ds1_multiply -> answer;
+	ds2 -> ds2_parse -> ds2_multiply -> answer;
+	ds3 -> answer;
+
+	answer [type=median index=0];
+"""
+`
+
 const OCR2TestSpec = `
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
+name              = "example OCR2 spec"
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID      = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
@@ -92,9 +126,10 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `
-const BootstrapTemplateSpec = `
+const BootstrapTestSpec = `
 type				= "bootstrap"
 schemaVersion		= 1
+name              = "example Bootstrap spec"
 contractID			= "0x613a38AC1659769640aaE063C651F48E0250454C"
 relay				= "evm"
 [relayConfig]
@@ -493,26 +528,90 @@ func Test_Service_ProposeJob(t *testing.T) {
 	t.Parallel()
 
 	var (
-		id         = int64(1)
-		remoteUUID = uuid.NewV4()
-		args       = &feeds.ProposeJobArgs{
+		idFluxMonitor         = int64(1)
+		remoteUUIDFluxMonitor = uuid.NewV4()
+		argsFluxMonitor       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
-			Spec:           TestSpec,
+			RemoteUUID:     remoteUUIDFluxMonitor,
+			Spec:           FluxMonitorTestSpec,
 			Version:        1,
 		}
-		jp = feeds.JobProposal{
+		jpFluxMonitor = feeds.JobProposal{
 			FeedsManagerID: 1,
 			Name:           null.StringFrom("example flux monitor spec"),
-			RemoteUUID:     remoteUUID,
+			RemoteUUID:     remoteUUIDFluxMonitor,
 			Status:         feeds.JobProposalStatusPending,
 		}
-		spec = feeds.JobProposalSpec{
-			Definition:    TestSpec,
+		specFluxMonitor = feeds.JobProposalSpec{
+			Definition:    FluxMonitorTestSpec,
 			Status:        feeds.SpecStatusPending,
-			Version:       args.Version,
-			JobProposalID: id,
+			Version:       argsFluxMonitor.Version,
+			JobProposalID: idFluxMonitor,
 		}
+
+		idOCR1         = int64(2)
+		remoteUUIDOCR1 = uuid.NewV4()
+		argsOCR1       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDOCR1,
+			Spec:           OCR1TestSpec,
+			Version:        1,
+		}
+		jpOCR1 = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("example OCR1 spec"),
+			RemoteUUID:     remoteUUIDOCR1,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		specOCR1 = feeds.JobProposalSpec{
+			Definition:    OCR1TestSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       argsOCR1.Version,
+			JobProposalID: idOCR1,
+		}
+
+		idOCR2         = int64(3)
+		remoteUUIDOCR2 = uuid.NewV4()
+		argsOCR2       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDOCR2,
+			Spec:           OCR2TestSpec,
+			Version:        1,
+		}
+		jpOCR2 = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("example OCR2 spec"),
+			RemoteUUID:     remoteUUIDOCR2,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		specOCR2 = feeds.JobProposalSpec{
+			Definition:    OCR2TestSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       argsOCR2.Version,
+			JobProposalID: idOCR2,
+		}
+
+		idBootstrap         = int64(4)
+		remoteUUIDBootstrap = uuid.NewV4()
+		argsBootstrap       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDBootstrap,
+			Spec:           BootstrapTestSpec,
+			Version:        1,
+		}
+		jpBootstrap = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("example Bootstrap spec"),
+			RemoteUUID:     remoteUUIDBootstrap,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		specBootstrap = feeds.JobProposalSpec{
+			Definition:    BootstrapTestSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       argsBootstrap.Version,
+			JobProposalID: idBootstrap,
+		}
+
 		httpTimeout = models.MustMakeDuration(1 * time.Second)
 	)
 
@@ -524,33 +623,66 @@ func Test_Service_ProposeJob(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "Create success",
+			name: "Create success (Flux Monitor)",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(idFluxMonitor, nil)
+				svc.orm.On("CreateSpec", specFluxMonitor, mock.Anything).Return(int64(100), nil)
 				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
-			args:   args,
-			wantID: id,
+			args:   argsFluxMonitor,
+			wantID: idFluxMonitor,
+		},
+		{
+			name: "Create success (OCR1)",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", jpOCR1.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpOCR1, mock.Anything).Return(idOCR1, nil)
+				svc.orm.On("CreateSpec", specOCR1, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   argsOCR1,
+			wantID: idOCR1,
+		},
+		{
+			name: "Create success (OCR2)",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", jpOCR2.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpOCR2, mock.Anything).Return(idOCR2, nil)
+				svc.orm.On("CreateSpec", specOCR2, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   argsOCR2,
+			wantID: idOCR2,
+		},
+		{
+			name: "Create success (Bootstrap)",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", jpBootstrap.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpBootstrap, mock.Anything).Return(idBootstrap, nil)
+				svc.orm.On("CreateSpec", specBootstrap, mock.Anything).Return(int64(102), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   argsBootstrap,
+			wantID: idBootstrap,
 		},
 		{
 			name: "Update success",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).
 					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
+						FeedsManagerID: jpFluxMonitor.FeedsManagerID,
+						RemoteUUID:     jpFluxMonitor.RemoteUUID,
 						Status:         feeds.JobProposalStatusPending,
 					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(false, nil)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jpFluxMonitor.ID, argsFluxMonitor.Version).Return(false, nil)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(idFluxMonitor, nil)
+				svc.orm.On("CreateSpec", specFluxMonitor, mock.Anything).Return(int64(100), nil)
 				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
-			args:   args,
-			wantID: id,
+			args:   argsFluxMonitor,
+			wantID: idFluxMonitor,
 		},
 		{
 			name:    "contains invalid job spec",
@@ -561,7 +693,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name:   "must be an ocr job to include bootstraps",
 			before: func(svc *TestService) {},
 			args: &feeds.ProposeJobArgs{
-				Spec:       TestSpec,
+				Spec:       FluxMonitorTestSpec,
 				Multiaddrs: pq.StringArray{"/dns4/example.com"},
 			},
 			wantErr: "only OCR job type supports multiaddr",
@@ -570,47 +702,47 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: 2,
-						RemoteUUID:     jp.RemoteUUID,
+						RemoteUUID:     jpFluxMonitor.RemoteUUID,
 					}, nil)
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "cannot update a job proposal belonging to another feeds manager",
 		},
 		{
 			name: "spec version already exists",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).
 					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
+						FeedsManagerID: jpFluxMonitor.FeedsManagerID,
+						RemoteUUID:     jpFluxMonitor.RemoteUUID,
 						Status:         feeds.JobProposalStatusPending,
 					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(true, nil)
+				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jpFluxMonitor.ID, argsFluxMonitor.Version).Return(true, nil)
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "proposed job spec version already exists",
 		},
 		{
 			name: "upsert error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(int64(0), errors.New("orm error"))
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "failed to upsert job proposal",
 		},
 		{
 			name: "Create spec error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(idFluxMonitor, nil)
+				svc.orm.On("CreateSpec", specFluxMonitor, mock.Anything).Return(int64(0), errors.New("orm error"))
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "failed to create spec",
 		},
 	}
@@ -840,292 +972,6 @@ func Test_Service_RevokeJob(t *testing.T) {
 				assert.Contains(t, err.Error(), tc.wantErr)
 			} else {
 				require.NoError(t, err)
-			}
-		})
-	}
-}
-
-func Test_Service_ProposeJob_OCR2(t *testing.T) {
-	t.Parallel()
-
-	var (
-		id         = int64(1)
-		remoteUUID = uuid.NewV4()
-		args       = &feeds.ProposeJobArgs{
-			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
-			Spec:           OCR2TestSpec,
-			Version:        1,
-			Multiaddrs:     pq.StringArray{"/dns4/example.com"},
-		}
-		jp = feeds.JobProposal{
-			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
-			Status:         feeds.JobProposalStatusPending,
-			Multiaddrs:     pq.StringArray{"/dns4/example.com"},
-		}
-		spec = feeds.JobProposalSpec{
-			Definition:    OCR2TestSpec,
-			Status:        feeds.SpecStatusPending,
-			Version:       args.Version,
-			JobProposalID: id,
-		}
-		httpTimeout = models.MustMakeDuration(1 * time.Second)
-	)
-
-	testCases := []struct {
-		name    string
-		args    *feeds.ProposeJobArgs
-		before  func(svc *TestService)
-		wantID  int64
-		wantErr string
-	}{
-		{
-			name: "Create success",
-			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
-			},
-			args:   args,
-			wantID: id,
-		},
-		{
-			name: "Update success",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(false, nil)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
-			},
-			args:   args,
-			wantID: id,
-		},
-		{
-			name:    "contains invalid job spec",
-			args:    &feeds.ProposeJobArgs{},
-			wantErr: "invalid job type",
-		},
-		{
-			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: 2,
-						RemoteUUID:     jp.RemoteUUID,
-					}, nil)
-			},
-			args:    args,
-			wantErr: "cannot update a job proposal belonging to another feeds manager",
-		},
-		{
-			name: "spec version already exists",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(true, nil)
-			},
-			args:    args,
-			wantErr: "proposed job spec version already exists",
-		},
-		{
-			name: "upsert error",
-			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
-			},
-			args:    args,
-			wantErr: "failed to upsert job proposal",
-		},
-		{
-			name: "Create spec error",
-			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
-			},
-			args:    args,
-			wantErr: "failed to create spec",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
-			})
-			if tc.before != nil {
-				tc.before(svc)
-			}
-
-			actual, err := svc.ProposeJob(testutils.Context(t), tc.args)
-
-			if tc.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tc.wantID, actual)
-			}
-		})
-	}
-}
-
-func Test_Service_ProposeJob_Bootstrap(t *testing.T) {
-	t.Parallel()
-
-	var (
-		id         = int64(1)
-		remoteUUID = uuid.NewV4()
-		args       = &feeds.ProposeJobArgs{
-			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
-			Spec:           BootstrapTemplateSpec,
-			Version:        1,
-		}
-		jp = feeds.JobProposal{
-			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
-			Status:         feeds.JobProposalStatusPending,
-		}
-		spec = feeds.JobProposalSpec{
-			Definition:    BootstrapTemplateSpec,
-			Status:        feeds.SpecStatusPending,
-			Version:       args.Version,
-			JobProposalID: id,
-		}
-		httpTimeout = models.MustMakeDuration(1 * time.Second)
-	)
-
-	testCases := []struct {
-		name    string
-		args    *feeds.ProposeJobArgs
-		before  func(svc *TestService)
-		wantID  int64
-		wantErr string
-	}{
-		{
-			name: "Create success",
-			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
-			},
-			args:   args,
-			wantID: id,
-		},
-		{
-			name: "Update success",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(false, nil)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
-			},
-			args:   args,
-			wantID: id,
-		},
-		{
-			name:    "contains invalid job spec",
-			args:    &feeds.ProposeJobArgs{},
-			wantErr: "invalid job type",
-		},
-		{
-			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: 2,
-						RemoteUUID:     jp.RemoteUUID,
-					}, nil)
-			},
-			args:    args,
-			wantErr: "cannot update a job proposal belonging to another feeds manager",
-		},
-		{
-			name: "spec version already exists",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(true, nil)
-			},
-			args:    args,
-			wantErr: "proposed job spec version already exists",
-		},
-		{
-			name: "upsert error",
-			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
-			},
-			args:    args,
-			wantErr: "failed to upsert job proposal",
-		},
-		{
-			name: "Create spec error",
-			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
-			},
-			args:    args,
-			wantErr: "failed to create spec",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
-			})
-			if tc.before != nil {
-				tc.before(svc)
-			}
-
-			actual, err := svc.ProposeJob(testutils.Context(t), tc.args)
-
-			if tc.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tc.wantID, actual)
 			}
 		})
 	}
@@ -2474,7 +2320,7 @@ schemaVersion = 1
 contractID = '0x613a38AC1659769640aaE063C651F48E0250454C'
 externalJobID = '00000000-0000-0000-0000-000000000001'
 relay = 'evm'
-		
+
 [relayConfig]
 chainID = 0
 `
