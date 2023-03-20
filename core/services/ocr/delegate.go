@@ -339,7 +339,7 @@ func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Ch
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
 		if err != nil {
 			return nil, errors.Wrapf(err,
-				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",
+				"OCR: unable to create Flags contract instance, check address: %s or remove OCR.TransmitterAddress configuration variable",
 				flagsContractAddress,
 			)
 		}

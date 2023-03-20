@@ -914,7 +914,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		// order to bump again.
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
-			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
+			"Either you have set EVM.GasEstimator.BumpPercent (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
 			etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 

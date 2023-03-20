@@ -1430,12 +1430,12 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
 		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 		err = borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 	})
 
 	t.Run("with different chain ID ignores txes", func(t *testing.T) {
