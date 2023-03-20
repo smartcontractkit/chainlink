@@ -355,14 +355,14 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			stdErr.Close()
 		}
 
-		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, nil); err != nil {
+		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, container.StopOptions{}); err != nil {
 			log.Fatal("Failed to stop node container: ", err)
 		}
 		if err = dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
 			log.Fatal("Failed to remove node container: ", err)
 		}
 
-		if err = dockerClient.ContainerStop(ctx, dbContainerResp.ID, nil); err != nil {
+		if err = dockerClient.ContainerStop(ctx, dbContainerResp.ID, container.StopOptions{}); err != nil {
 			log.Fatal("Failed to stop DB container: ", err)
 		}
 		if err = dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
