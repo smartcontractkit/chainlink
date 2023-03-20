@@ -17,7 +17,6 @@ func genUuid() string {
 
 func TestMercuryServerAdminAPI(t *testing.T) {
 	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
-	testEnv.InitEnv()
 
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)

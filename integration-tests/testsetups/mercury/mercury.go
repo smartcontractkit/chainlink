@@ -214,13 +214,22 @@ func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestE
 		// Set default TTL for k8 environment
 		te.EnvTTL = 20 * time.Minute
 	}
+
 	mschart := os.Getenv("MERCURY_CHART")
 	if mschart == "" {
 		return te, errors.New("MERCURY_CHART must be provided, a local path or a name of a mercury-server helm chart")
 	} else {
 		te.MSChartPath = mschart
 	}
+
 	te.ChainId = networks.SelectedNetwork.ChainID
+
+	te.Env = environment.New(&environment.Config{
+		TTL:              te.EnvTTL,
+		NamespacePrefix:  fmt.Sprintf("%s-mercury", te.NsPrefix),
+		Namespace:        te.Namespace,
+		NoManifestUpdate: te.IsExistingEnv,
+	})
 
 	return te, nil
 }
@@ -315,12 +324,7 @@ func (te *TestEnv) AddDON() error {
 		return fmt.Errorf("setup evm network first")
 	}
 
-	env := environment.New(&environment.Config{
-		TTL:              te.EnvTTL,
-		NamespacePrefix:  fmt.Sprintf("%s-mercury-%s", te.NsPrefix, strings.ReplaceAll(strings.ToLower(te.EvmNetwork.Name), " ", "-")),
-		Namespace:        te.Namespace,
-		NoManifestUpdate: te.IsExistingEnv,
-	}).
+	te.Env.
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(map[string]interface{}{
 			"app": map[string]interface{}{
@@ -346,13 +350,12 @@ func (te *TestEnv) AddDON() error {
 			"db":         te.ResourcesConfig.DONDBResources,
 			"prometheus": "true",
 		}))
-	err := env.Run()
+	err := te.Env.Run()
 	if err != nil {
 		return err
 	}
-	te.Env = env
 
-	mockserverClient, err := ctfClient.ConnectMockServer(env)
+	mockserverClient, err := ctfClient.ConnectMockServer(te.Env)
 	if err != nil {
 		return err
 	}
@@ -362,13 +365,13 @@ func (te *TestEnv) AddDON() error {
 		return err
 	}
 
-	nodes, err := client.ConnectChainlinkNodes(env)
+	nodes, err := client.ConnectChainlinkNodes(te.Env)
 	if err != nil {
 		return err
 	}
 	te.ChainlinkNodes = nodes
 
-	evmClient, err := blockchain.NewEVMClient(*te.EvmNetwork, env)
+	evmClient, err := blockchain.NewEVMClient(*te.EvmNetwork, te.Env)
 	if err != nil {
 		return err
 	}
@@ -838,9 +841,9 @@ func (te *TestEnv) AddMercuryServer(users *[]User) error {
 		"rpcNodesConf": string(rpcNodesJsonConf),
 		"prometheus":   "true",
 	}
-	if err = te.Env.AddHelm(mshelm.New(te.MSChartPath, "", settings)).Run(); err != nil {
-		return err
-	}
+	te.Env.
+		AddHelm(mshelm.New(te.MSChartPath, "", settings)).
+		Run()
 
 	te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
 	te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
