@@ -56,6 +56,10 @@ func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstim
 	}
 }
 
+func (o *l2SuggestedPriceEstimator) Name() string {
+	return o.logger.Name()
+}
+
 func (o *l2SuggestedPriceEstimator) Start(context.Context) error {
 	return o.StartOnce("L2SuggestedEstimator", func() error {
 		go o.run()
@@ -69,6 +73,10 @@ func (o *l2SuggestedPriceEstimator) Close() error {
 		<-o.chDone
 		return nil
 	})
+}
+
+func (o *l2SuggestedPriceEstimator) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
 }
 
 func (o *l2SuggestedPriceEstimator) run() {
