@@ -9,8 +9,8 @@ import (
 
 // ORM manages cosmos chains and nodes.
 type ORM interface {
-	chains.ChainsORM[string, *db.ChainCfg, ChainConfig]
-	chains.NodesORM[string, db.Node]
+	chains.ChainConfigs[string, *db.ChainCfg, ChainConfig]
+	chains.NodeConfigs[string, db.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
 }
