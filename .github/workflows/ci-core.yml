@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         if: needs.init.outputs.on_trigger_lint == 'true'
         with:
           go-version-file: 'go.mod'
@@ -240,7 +240,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: sonarqube-scan
+          this-job-name: SonarQube Scan
         continue-on-error: true
 
   clean:
@@ -272,5 +272,5 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: clean
+          this-job-name: Clean Go Tidy & Generate
         continue-on-error: true
