@@ -25,7 +25,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 		feedIds = [][32]byte{mercury.StringToByte32("feed-1"), mercury.StringToByte32("feed-2")}
 	)
 
-	testEnv, err := mercury.NewEnv(t.Name(), "smoke")
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
 
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
@@ -40,7 +40,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	require.NoError(t, err)
 
-	err = testEnv.AddMercuryServer(nil, nil, nil)
+	err = testEnv.AddMercuryServer(nil)
 	require.NoError(t, err)
 
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
