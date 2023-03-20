@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
