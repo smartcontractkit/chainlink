@@ -49,6 +49,10 @@ func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Conf
 	}
 }
 
+func (hl *headListener) Name() string {
+	return hl.logger.Name()
+}
+
 func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, done func()) {
 	defer done()
 	defer hl.unsubscribe()
@@ -78,6 +82,17 @@ func (hl *headListener) ReceivingHeads() bool {
 
 func (hl *headListener) Connected() bool {
 	return hl.connected.Load()
+}
+
+func (hl *headListener) HealthReport() map[string]error {
+	var err error
+	if !hl.ReceivingHeads() {
+		err = errors.New("Listener is not receiving heads")
+	}
+	if !hl.Connected() {
+		err = errors.New("Listener is not connected")
+	}
+	return map[string]error{hl.Name(): err}
 }
 
 func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {

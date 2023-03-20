@@ -3,6 +3,7 @@ package logpoller
 import (
 	"database/sql"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -30,10 +31,10 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 }
 
 // InsertBlock is idempotent to support replays.
-func (o *ORM) InsertBlock(h common.Hash, n int64, qopts ...pg.QOpt) error {
+func (o *ORM) InsertBlock(h common.Hash, n int64, t time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`INSERT INTO evm_log_poller_blocks (evm_chain_id, block_hash, block_number, created_at) 
-      VALUES ($1, $2, $3, NOW()) ON CONFLICT DO NOTHING`, utils.NewBig(o.chainID), h[:], n)
+	err := q.ExecQ(`INSERT INTO evm_log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, created_at) 
+      VALUES ($1, $2, $3, $4, NOW()) ON CONFLICT DO NOTHING`, utils.NewBig(o.chainID), h[:], n, t)
 	return err
 }
 
@@ -62,7 +63,7 @@ func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 		filter.Name, utils.NewBig(o.chainID), addresses, events)
 }
 
-// DeleteFilter removes all events,address pairs associated with the filter
+// DeleteFilter removes all events,address pairs associated with the Filter
 func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	return q.ExecQ(`DELETE FROM evm_log_poller_filters WHERE name = $1 AND evm_chain_id = $2`, name, utils.NewBig(o.chainID))
@@ -158,8 +159,8 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 		}
 
 		err := q.ExecQNamed(`INSERT INTO evm_logs 
-(evm_chain_id, log_index, block_hash, block_number, address, event_sig, topics, tx_hash, data, created_at) VALUES 
-(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
+(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) VALUES 
+(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
 
 		if err != nil {
 			return err
@@ -169,7 +170,7 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {
+func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
 	var logs []Log
 	err := o.q.Select(&logs, `
         SELECT * FROM evm_logs 

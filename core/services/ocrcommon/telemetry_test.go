@@ -2,12 +2,15 @@ package ocrcommon
 
 import (
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -29,6 +32,57 @@ const bridgeResponse = `{
 				"provider_indicated_time":-123456789
 			}
 		}`
+
+var trrs = pipeline.TaskRunResults{
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: "123456",
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds2_parse", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: "12345678",
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds3_parse", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: "1234567890",
+		},
+	},
+}
 
 func TestShouldCollectTelemetry(t *testing.T) {
 	j := job.Job{
@@ -104,27 +158,9 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
-	trrs := pipeline.TaskRunResults{
-		pipeline.TaskRunResult{
-			Task: &pipeline.BridgeTask{
-				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
-			},
-			Result: pipeline.Result{
-				Value: bridgeResponse,
-			},
-		},
-		pipeline.TaskRunResult{
-			Task: &pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
-			},
-			Result: pipeline.Result{
-				Value: "1234567890",
-			},
-		},
-	}
 
 	resp := getJsonParsedValue(trrs[0], &trrs)
-	assert.Equal(t, "1234567890", resp.String())
+	assert.Equal(t, "123456", resp.String())
 
 	trrs[1].Result.Value = nil
 	resp = getJsonParsedValue(trrs[0], &trrs)
@@ -136,6 +172,7 @@ func TestGetJsonParsedValue(t *testing.T) {
 }
 
 func TestSendEATelemetry(t *testing.T) {
+	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
@@ -143,6 +180,7 @@ func TestSendEATelemetry(t *testing.T) {
 	var sentMessage []byte
 	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
 		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+		wg.Done()
 	})
 
 	feedAddress := utils.RandomAddress()
@@ -183,9 +221,10 @@ func TestSendEATelemetry(t *testing.T) {
 		FatalErrors: []error{nil},
 	}
 
+	wg.Add(1)
 	collectEATelemetry(&ds, &trrs, &fr)
 
-	expectedTelemetry := telem.TelemEnhancedEA{
+	expectedTelemetry := telem.EnhancedEA{
 		DataSource:                    "data_source_test",
 		Value:                         1234567890,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
@@ -204,5 +243,122 @@ func TestSendEATelemetry(t *testing.T) {
 	}
 
 	expectedMessage, _ := proto.Marshal(&expectedTelemetry)
+	wg.Wait()
 	assert.Equal(t, expectedMessage, sentMessage)
+}
+
+func TestGetObservation(t *testing.T) {
+	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
+	ds := &inMemoryDataSource{
+		jb: job.Job{
+			ID:   1234567890,
+			Type: job.Type(pipeline.OffchainReportingJobType),
+			OCROracleSpec: &job.OCROracleSpec{
+				CaptureEATelemetry: true,
+			},
+		},
+		lggr: lggr,
+	}
+
+	obs := getObservation(ds, &pipeline.FinalResult{})
+	assert.Equal(t, obs, int64(0))
+	assert.Equal(t, logs.Len(), 1)
+	assert.Contains(t, logs.All()[0].Message, "cannot get singular result")
+
+	finalResult := &pipeline.FinalResult{
+		Values:      []interface{}{"123456"},
+		AllErrors:   nil,
+		FatalErrors: []error{nil},
+	}
+	obs = getObservation(ds, finalResult)
+	assert.Equal(t, obs, int64(123456))
+}
+
+func TestCollectAndSend(t *testing.T) {
+	ingressClient := mocks.NewTelemetryIngressClient(t)
+	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return()
+
+	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
+	ds := &inMemoryDataSource{
+		jb: job.Job{
+			ID:   1234567890,
+			Type: job.Type(pipeline.OffchainReportingJobType),
+			OCROracleSpec: &job.OCROracleSpec{
+				CaptureEATelemetry: true,
+			},
+		},
+		lggr:               lggr,
+		monitoringEndpoint: monitoringEndpoint,
+	}
+
+	finalResult := &pipeline.FinalResult{
+		Values:      []interface{}{"123456"},
+		AllErrors:   nil,
+		FatalErrors: []error{nil},
+	}
+
+	badTrrs := &pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: nil,
+			},
+		}}
+
+	collectAndSend(ds, badTrrs, finalResult)
+	assert.Contains(t, logs.All()[0].Message, "cannot get bridge response from bridge task")
+
+	badTrrs = &pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: "[]",
+			},
+		}}
+	collectAndSend(ds, badTrrs, finalResult)
+	assert.Equal(t, logs.Len(), 3)
+	assert.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
+	assert.Contains(t, logs.All()[2].Message, "cannot get json parse value")
+}
+
+func BenchmarkCollectEATelemetry(b *testing.B) {
+	wg := sync.WaitGroup{}
+	ingressClient := mocks.NewTelemetryIngressClient(b)
+	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+
+	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
+		wg.Done()
+	})
+
+	ds := inMemoryDataSource{
+		jb: job.Job{
+			Type: job.Type(pipeline.OffchainReportingJobType),
+			OCROracleSpec: &job.OCROracleSpec{
+				ContractAddress:    ethkey.EIP55AddressFromAddress(utils.RandomAddress()),
+				CaptureEATelemetry: true,
+				EVMChainID:         (*utils.Big)(big.NewInt(9)),
+			},
+		},
+		lggr:               nil,
+		monitoringEndpoint: monitoringEndpoint,
+	}
+	finalResult := pipeline.FinalResult{
+		Values:      []interface{}{"123456"},
+		AllErrors:   nil,
+		FatalErrors: []error{nil},
+	}
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		wg.Add(1)
+		collectEATelemetry(&ds, &trrs, &finalResult)
+	}
+	wg.Wait()
 }

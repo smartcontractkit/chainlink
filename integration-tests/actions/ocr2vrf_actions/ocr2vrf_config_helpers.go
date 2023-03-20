@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -25,7 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -39,7 +38,7 @@ func CreateOCR2VRFJobs(
 	chainID int64,
 	keyIndex int,
 ) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	p2pV2Bootstrapper := createBootstrapJob(t, bootstrapNode, OCR2VRFPluginConfig.DKGConfig.DKGContractAddress, chainID)
 
 	createNonBootstrapJobs(t, nonBootstrapNodes, OCR2VRFPluginConfig, chainID, keyIndex, p2pV2Bootstrapper)
@@ -120,7 +119,7 @@ func BuildOCR2DKGConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRConfig {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -266,7 +265,7 @@ func BuildOCR2VRFConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRConfig {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))

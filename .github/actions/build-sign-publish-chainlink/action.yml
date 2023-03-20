@@ -88,7 +88,7 @@ runs:
     - if: inputs.publish == 'true'
       # Log in to AWS for publish to ECR
       name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
+      uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838 # v1.7.0
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}

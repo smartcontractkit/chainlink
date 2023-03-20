@@ -88,28 +88,46 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 	return nil
 }
 
+// getObservation checks pipeline.FinalResult and extracts the observation
+func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) int64 {
+	singularResult, err := finalResult.SingularResult()
+	if err != nil {
+		ds.lggr.Warnf("cannot get singular result, job %d", ds.jb.ID)
+		return 0
+	}
+
+	finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
+	if err != nil {
+		ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
+		return 0
+	}
+
+	return finalResultDecimal.BigInt().Int64()
+}
+
+func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) int64 {
+	parsedValue := getJsonParsedValue(trr, trrs)
+	if parsedValue == nil {
+		ds.lggr.Warnf("cannot get json parse value, job %d, id %s", ds.jb.ID, trr.Task.DotID())
+		return 0
+	}
+	return parsedValue.Int64()
+}
+
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
 func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
-	if !shouldCollectTelemetry(&ds.jb) {
+	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
+	go collectAndSend(ds, trrs, finalResult)
+}
+
+func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
 	chainID := getChainID(&ds.jb)
 	contract := getContract(&ds.jb)
 
-	observation := int64(0)
-	if finalResult != nil {
-		singularResult, err := finalResult.SingularResult()
-		if err != nil {
-			ds.lggr.Warnf("cannot get singular result, job %d, id %d", ds.jb.ID)
-		}
-
-		finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
-		if err != nil {
-			ds.lggr.Warnf("cannot parse singular result from bridge task, job %d", ds.jb.ID)
-		}
-		observation = finalResultDecimal.BigInt().Int64()
-	}
+	observation := getObservation(ds, finalResult)
 
 	for _, trr := range *trrs {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
@@ -118,20 +136,16 @@ func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, f
 
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 			continue
 		}
 		eaTelemetry, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %d", ds.jb.ID, trr.Task.DotID())
+			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		}
-		parsedValue := getJsonParsedValue(trr, trrs)
-		if parsedValue == nil {
-			ds.lggr.Warnf("cannot get json parse value, job %d, id %d", ds.jb.ID, trr.Task.DotID())
-		}
-		value := parsedValue.Int64()
+		value := getParsedValue(ds, trrs, trr)
 
-		t := &telem.TelemEnhancedEA{
+		t := &telem.EnhancedEA{
 			DataSource:                    eaTelemetry.DataSource,
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
@@ -145,6 +159,7 @@ func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, f
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,
+			ConfigDigest:                  "",
 			Round:                         0,
 			Epoch:                         0,
 		}

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMigrationDatabase(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	testEnvironment, err := testsetups.DBMigration(&testsetups.DBMigrationSpec{
 		FromSpec: testsetups.FromVersionSpec{
 			Image: "public.ecr.aws/chainlink/chainlink",

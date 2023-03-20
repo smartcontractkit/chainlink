@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -442,7 +442,7 @@ func BuildGeneralOCR2Config(
 	f int,
 	onchainConfig []byte,
 ) contracts.OCRConfig {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -489,7 +489,7 @@ func BuildGeneralOCR2Config(
 }
 
 func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))

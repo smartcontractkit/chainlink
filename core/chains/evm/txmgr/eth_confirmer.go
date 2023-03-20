@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
@@ -117,7 +118,7 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore
-	estimator      gas.Estimator
+	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
@@ -132,7 +133,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -188,7 +189,7 @@ func (ec *EthConfirmer) Name() string {
 }
 
 func (ec *EthConfirmer) HealthReport() map[string]error {
-	return map[string]error{ec.Name(): ec.Healthy()}
+	return map[string]error{ec.Name(): ec.StartStopOnce.Healthy()}
 }
 
 func (ec *EthConfirmer) runLoop() {
@@ -216,45 +217,44 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *evmtypes.Head) error {
+func (ec *EthConfirmer) ProcessHead(ctx context.Context, head txmgrtypes.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
-
 	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) error {
+func (ec *EthConfirmer) processHead(ctx context.Context, head txmgrtypes.Head) error {
 	mark := time.Now()
 
-	ec.lggr.Debugw("processHead start", "headNum", head.Number, "id", "eth_confirmer")
+	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
 
-	if err := ec.orm.SetBroadcastBeforeBlockNum(head.Number, ec.chainID); err != nil {
+	if err := ec.orm.SetBroadcastBeforeBlockNum(head.BlockNumber(), ec.chainID); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
 		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed")
 	}
 
-	if err := ec.CheckForReceipts(ctx, head.Number); err != nil {
+	if err := ec.CheckForReceipts(ctx, head.BlockNumber()); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
-	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	if err := ec.RebroadcastWhereNecessary(ctx, head.Number); err != nil {
+	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber()); err != nil {
 		return errors.Wrap(err, "RebroadcastWhereNecessary failed")
 	}
 
-	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
 	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
 		return errors.Wrap(err, "EnsureConfirmedTransactionsInLongestChain failed")
 	}
 
-	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
@@ -262,10 +262,10 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 			return errors.Wrap(err, "ResumePendingTaskRuns failed")
 		}
 
-		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
 	}
 
-	ec.lggr.Debugw("processHead finish", "headNum", head.Number, "id", "eth_confirmer")
+	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "eth_confirmer")
 
 	return nil
 }
@@ -758,7 +758,8 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 }
 
 func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
-	priorAttempts := make([]gas.PriorAttempt, len(previousAttempts))
+	// TODO: once generics are introduced at the top level struct (EthConfirmer) remove the chain-specific typings
+	priorAttempts := make([]txmgrtypes.PriorAttempt[gas.EvmFee, gethCommon.Hash], len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
 	// way to cast an array of structs to an array of interfaces
 	for i, attempt := range previousAttempts {
@@ -767,29 +768,28 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	switch previousAttempt.TxType {
-	case 0x0: // Legacy
-		var bumpedGasPrice *assets.Wei
-		var bumpedGasLimit uint32
-		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(ctx, previousAttempt.GasPrice, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
-		if err == nil {
-			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
-			return ec.NewLegacyAttempt(etx, bumpedGasPrice, bumpedGasLimit)
+
+	var bumpedFee gas.EvmFee
+	var bumpedFeeLimit uint32
+	bumpedFee, bumpedFeeLimit, err = ec.estimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+
+	if err == nil {
+		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+		switch previousAttempt.TxType {
+		case 0x0: // Legacy
+			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedFee.Legacy.String())...)
+			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedFeeLimit)
+		case 0x2: // EIP1559
+			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.Dynamic.TipCap.String(), "bumpedFeeCap", bumpedFee.Dynamic.FeeCap.String())...)
+			if bumpedFee.Dynamic == nil {
+				err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", previousAttempt.ID)
+			} else {
+				return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedFeeLimit)
+			}
+		default:
+			err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
+				"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
 		}
-	case 0x2: // EIP1559
-		var bumpedFee gas.DynamicFee
-		var bumpedGasLimit uint32
-		original := previousAttempt.DynamicFee()
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(ctx, original, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
-		if err == nil {
-			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
-			return ec.NewDynamicFeeAttempt(etx, bumpedFee, bumpedGasLimit)
-		}
-	default:
-		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
 	}
 
 	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
@@ -884,6 +884,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
 			"blockHeight", blockHeight,
 		)
+		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.orm.DeleteInProgressAttempt(ctx, attempt)
 	}
@@ -925,6 +926,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+		ec.SvcErrBuffer.Append(sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.orm.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	}
@@ -948,7 +950,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head *evmtypes.Head) error {
+func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head txmgrtypes.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
@@ -964,7 +966,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
-	etxs, err := ec.orm.FindTransactionsConfirmedInBlockRange(head.Number, head.EarliestInChain().Number, ec.chainID)
+	etxs, err := ec.orm.FindTransactionsConfirmedInBlockRange(head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 	}
@@ -985,7 +987,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	wg.Add(len(ec.keyStates))
 	for _, key := range ec.keyStates {
 		go func(fromAddress gethCommon.Address) {
-			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.Number); err != nil {
+			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()
 				errors = append(errors, err)
 				errMu.Unlock()
@@ -1001,23 +1003,23 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain(etx EthTx, head *evmtypes.Head) bool {
+func hasReceiptInLongestChain(etx EthTx, head txmgrtypes.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
-				if receipt.BlockHash == head.Hash && receipt.BlockNumber == head.Number {
+				if receipt.BlockHash == head.BlockHash() && receipt.BlockNumber == head.BlockNumber() {
 					return true
 				}
 			}
 		}
-		if head.Parent == nil {
+		if head.GetParent() == nil {
 			return false
 		}
-		head = head.Parent
+		head = head.GetParent()
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *evmtypes.Head) error {
+func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head txmgrtypes.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1031,8 +1033,8 @@ func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *evmtypes.Head) error
 
 	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.Hex()),
 		"txhash", attempt.Hash.Hex(),
-		"currentBlockNum", head.Number,
-		"currentBlockHash", head.Hash.Hex(),
+		"currentBlockNum", head.BlockNumber(),
+		"currentBlockHash", head.BlockHash().Hex(),
 		"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.BlockNumber),
 		"confirmedInBlockNum", receipt.BlockNumber,
 		"confirmedInBlockHash", receipt.BlockHash,
@@ -1103,9 +1105,9 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes.Head) error {
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head txmgrtypes.Head) error {
 
-	receiptsPlus, err := ec.orm.FindEthReceiptsPendingConfirmation(ctx, head.Number, ec.chainID)
+	receiptsPlus, err := ec.orm.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 
 	if err != nil {
 		return err

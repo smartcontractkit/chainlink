@@ -37,12 +37,15 @@ $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 $SCRIPTPATH/native_solc8_6_compile automation/upkeeps/CronUpkeepFactory.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistrar1_2.sol
 $SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistry1_2.sol
 $SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
 $SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistry1_3.sol
 $SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -102,3 +105,8 @@ $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsOracle.sol
 $SCRIPTPATH/native_solc8_6_compile tests/FunctionsOracleWithInit.sol
 $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsBillingRegistry.sol
 $SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
+
+# Mercury
+$SCRIPTPATH/native_solc8_6_compile Verifier.sol
+$SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
+$SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol

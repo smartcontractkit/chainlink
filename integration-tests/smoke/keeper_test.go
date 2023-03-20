@@ -11,14 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 const (
@@ -92,7 +91,7 @@ var (
 
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_1_1": ethereum.RegistryVersion_1_1,
 		"registry_1_2": ethereum.RegistryVersion_1_2,
@@ -170,7 +169,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_1_1": ethereum.RegistryVersion_1_1,
 		"registry_1_2": ethereum.RegistryVersion_1_2,
@@ -349,7 +348,7 @@ func TestKeeperSimulation(t *testing.T) {
 
 func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_1_2": ethereum.RegistryVersion_1_2,
 		"registry_1_3": ethereum.RegistryVersion_1_3,
@@ -463,7 +462,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_1_1": ethereum.RegistryVersion_1_1,
 		"registry_1_2": ethereum.RegistryVersion_1_2,
@@ -617,7 +616,7 @@ func TestKeeperAddFunds(t *testing.T) {
 
 func TestKeeperRemove(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_1_1": ethereum.RegistryVersion_1_1,
 		"registry_1_2": ethereum.RegistryVersion_1_2,
@@ -848,7 +847,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 
 func TestKeeperNodeDown(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_1_1": ethereum.RegistryVersion_1_1,
 		"registry_1_2": ethereum.RegistryVersion_1_2,
@@ -956,7 +955,7 @@ func TestKeeperNodeDown(t *testing.T) {
 
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
 	if onlyStartRunner {
 		return
@@ -1046,7 +1045,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
 	if onlyStartRunner {
 		return

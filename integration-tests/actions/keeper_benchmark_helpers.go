@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // DeployBenchmarkKeeperContracts deploys a set amount of keeper Benchmark contracts registered to a single registry
@@ -117,7 +117,7 @@ func ResetUpkeeps(
 	predeployedContracts []contracts.KeeperConsumerBenchmark,
 	upkeepResetterAddr string,
 ) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	contractLoader, err := contracts.NewContractLoader(client)
 	require.NoError(t, err, "Error loading upkeep contract")
 	upkeepChunkSize := 500
@@ -175,7 +175,7 @@ func DeployKeeperConsumersBenchmark(
 	predeployedContracts []string,
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
 	firstEligibleBuffer = 10000
 
