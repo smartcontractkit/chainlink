@@ -162,7 +162,7 @@ func NewFromJobSpec(
 
 	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(cfg), fmSpec.PollTimerPeriod) {
 		return nil, fmt.Errorf(
-			"PollTimerPeriod (%s), must be equal or greater than DEFAULT_HTTP_TIMEOUT (%s) ",
+			"PollTimerPeriod (%s), must be equal or greater than JobPipeline.HTTPRequest.DefaultTimeout (%s) ",
 			fmSpec.PollTimerPeriod,
 			MinimumPollingInterval(cfg),
 		)
