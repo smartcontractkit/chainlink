@@ -8,7 +8,7 @@ import (
 
 // CosmosChainResource is an Cosmos chain JSONAPI resource.
 type CosmosChainResource struct {
-	chainResource[*db.ChainCfg]
+	ChainResource[*db.ChainCfg]
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -18,7 +18,7 @@ func (r CosmosChainResource) GetName() string {
 
 // NewCosmosChainResource returns a new CosmosChainResource for chain.
 func NewCosmosChainResource(chain types.ChainConfig) CosmosChainResource {
-	return CosmosChainResource{chainResource[*db.ChainCfg]{
+	return CosmosChainResource{ChainResource[*db.ChainCfg]{
 		JAID:    NewJAID(chain.ID),
 		Config:  chain.Cfg,
 		Enabled: chain.Enabled,

@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
-
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -26,8 +24,6 @@ func (p *CosmosChainPresenter) ToRow() []string {
 		p.GetID(),
 		strconv.FormatBool(p.Enabled),
 		string(config),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
@@ -60,5 +56,5 @@ func (ps CosmosChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func CosmosChainClient(client *Client) ChainClient {
-	return newChainClient[*db.ChainCfg, presenters.CosmosChainResource, CosmosChainPresenter, CosmosChainPresenters](client, "cosmos")
+	return newChainClient[CosmosChainPresenters](client, "cosmos")
 }
