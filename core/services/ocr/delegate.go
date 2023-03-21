@@ -156,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		// ParseBootstrapPeers() does not distinguish between no p2pv2Bootstrappers field
 		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
 		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
-		//  in P2PV2_BOOTSTRAPPERS config var.  Only a non-empty list will override the default list.
+		//  in P2P.V2.DefaultBootstrappers config var.  Only a non-empty list will override the default list.
 		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
 	}
 
@@ -340,7 +340,7 @@ func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Ch
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
 		if err != nil {
 			return nil, errors.Wrapf(err,
-				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",
+				"OCR: unable to create Flags contract instance, check address: %s or remove EVM.FlagsContractAddress configuration variable",
 				flagsContractAddress,
 			)
 		}

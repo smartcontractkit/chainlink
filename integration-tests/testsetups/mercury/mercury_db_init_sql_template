@@ -82,4 +82,13 @@ CREATE TABLE IF NOT EXISTS reports  (
     EXECUTE PROCEDURE notify_kill_customer_connections();
     CREATE INDEX users_created_at_idx ON users (created_at);
     CREATE INDEX users_updated_at_idx ON users (updated_at);
-    INSERT INTO users (id, secret, role, disabled) VALUES ('{{ .UserId }}', '{{ .EncryptedKey }}', '{{ .UserRole }}', false);
+    ALTER TABLE reports ADD COLUMN current_block_hash bytea;
+    UPDATE reports SET current_block_hash = ''::bytea;
+    ALTER TABLE reports ALTER COLUMN current_block_hash SET NOT NULL;
+    ALTER TABLE USERS ADD COLUMN username VARCHAR(255) UNIQUE;
+    UPDATE users SET username = id; -- Copy the uuid for the user (id) to the username column so we can set a NOT NULL constraint
+    ALTER TABLE users ALTER COLUMN username SET NOT NULL;
+    CREATE INDEX IF NOT EXISTS users_username_idx ON users (username);
+    {{range .}}
+    INSERT INTO users (id, secret, role, disabled, username) VALUES ('{{ .Id }}', '{{ .Secret }}', '{{ .Role }}', '{{ .Disabled }}', '{{ .Id }}');
+    {{end}}

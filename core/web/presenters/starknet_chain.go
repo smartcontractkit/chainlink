@@ -8,7 +8,7 @@ import (
 
 // StarkNetChainResource is an StarkNet chain JSONAPI resource.
 type StarkNetChainResource struct {
-	chainResource[*db.ChainCfg]
+	ChainResource[*db.ChainCfg]
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -18,7 +18,7 @@ func (r StarkNetChainResource) GetName() string {
 
 // NewStarkNetChainResource returns a new StarkNetChainResource for chain.
 func NewStarkNetChainResource(chain starknet.ChainConfig) StarkNetChainResource {
-	return StarkNetChainResource{chainResource[*db.ChainCfg]{
+	return StarkNetChainResource{ChainResource[*db.ChainCfg]{
 		JAID:    NewJAID(chain.ID),
 		Config:  chain.Cfg,
 		Enabled: chain.Enabled,

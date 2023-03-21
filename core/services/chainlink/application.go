@@ -238,7 +238,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil && cfg.TelemetryIngressURL() != nil {
-		globalLogger.Warn("Both EXPLORER_URL and TELEMETRY_INGRESS_URL are set, defaulting to Explorer")
+		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
 	if cfg.ExplorerURL() != nil {
@@ -270,7 +270,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		srvcs = append(srvcs, databaseBackup)
 	} else {
-		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
+		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
