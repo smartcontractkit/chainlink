@@ -99,7 +99,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			}))
 		} else {
 			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, "EIP1559DynamicFees = true", network),
+				"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, "[EVM.GasEstimator]\nEIP1559DynamicFees = true", network),
 				"db": map[string]any{
 					"stateful": "true",
 					"capacity": "20Gi",
