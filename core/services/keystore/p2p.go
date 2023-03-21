@@ -179,7 +179,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if id != "" {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
-		ks.logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
+		ks.logger.Warn("No P2P.PeerID set, defaulting to first key in database")
 		for _, key := range ks.keyRing.P2P {
 			return key, nil
 		}
@@ -187,7 +187,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 		return p2pkey.KeyV2{}, ErrNoP2PKey
 	}
 	return p2pkey.KeyV2{}, errors.New(
-		"multiple p2p keys found but peer ID was not set - you must specify a P2P_PEER_ID " +
+		"multiple p2p keys found but peer ID was not set - you must specify a P2P.PeerID " +
 			"env var if you have more than one key, or delete the keys you aren't using",
 	)
 }

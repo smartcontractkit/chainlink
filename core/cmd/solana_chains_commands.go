@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -26,8 +24,6 @@ func (p *SolanaChainPresenter) ToRow() []string {
 		p.GetID(),
 		strconv.FormatBool(p.Enabled),
 		string(config),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
@@ -60,5 +56,5 @@ func (ps SolanaChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func SolanaChainClient(client *Client) ChainClient {
-	return newChainClient[*db.ChainCfg, presenters.SolanaChainResource, SolanaChainPresenter, SolanaChainPresenters](client, "solana")
+	return newChainClient[SolanaChainPresenters](client, "solana")
 }

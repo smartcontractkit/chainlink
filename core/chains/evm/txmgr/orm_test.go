@@ -150,7 +150,7 @@ func TestORM(t *testing.T) {
 		assert.Greater(t, int(attemptL.ID), 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
 	})
-	var r txmgr.EthReceipt
+	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)
@@ -856,7 +856,7 @@ func TestORM_DeleteInProgressAttempt(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, borm, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 
-		err := borm.DeleteInProgressAttempt(context.Background(), etx.EthTxAttempts[0])
+		err := borm.DeleteInProgressAttempt(testutils.Context(t), etx.EthTxAttempts[0])
 		require.NoError(t, err)
 
 		nilResult, err := borm.FindEthTxAttempt(attempt.Hash)
@@ -1430,12 +1430,12 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
 		err := borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 		err = borm.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 	})
 
 	t.Run("with different chain ID ignores txes", func(t *testing.T) {
@@ -1468,7 +1468,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		subject := uuid.NewV4()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.orm"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		etx, err := borm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -1521,7 +1521,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	})
 }
 
-func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
+func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1541,13 +1541,13 @@ func TestORM_PruneUnstartedEthTxQueue(t *testing.T) {
 	}
 
 	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
-		n, err := borm.PruneUnstartedEthTxQueue(uint32(5), subject1)
+		n, err := borm.PruneUnstartedTxQueue(uint32(5), subject1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), n)
 	})
 
 	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
-		n, err := borm.PruneUnstartedEthTxQueue(uint32(3), subject1)
+		n, err := borm.PruneUnstartedTxQueue(uint32(3), subject1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 	})

@@ -304,7 +304,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			head := cltest.Head(i)
 			err := bhe.FetchBlocks(testutils.Context(t), head)
 			require.Error(t, err)
-			require.EqualError(t, err, fmt.Sprintf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY=3", i))
+			require.EqualError(t, err, fmt.Sprintf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than EVM.RPCBlockQueryDelay=3", i))
 		}
 	})
 
@@ -417,7 +417,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Len(t, gas.GetRollingBlockHistory(bhe)[2].Transactions, 1)
 	})
 
-	t.Run("does not refetch blocks below ETH_FINALITY_DEPTH", func(t *testing.T) {
+	t.Run("does not refetch blocks below EVM.FinalityDepth", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
 		var blockDelay uint16
@@ -476,7 +476,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Equal(t, 3, int(gas.GetRollingBlockHistory(bhe)[2].Number))
 	})
 
-	t.Run("replaces blocks on re-org within ETH_FINALITY_DEPTH", func(t *testing.T) {
+	t.Run("replaces blocks on re-org within EVM.FinalityDepth", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
 		var blockDelay uint16
@@ -721,7 +721,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		bhe.Recalculate(cltest.Head(1))
 	})
 
-	t.Run("sets gas price to ETH_MAX_GAS_PRICE_WEI if the calculation would otherwise exceed it", func(t *testing.T) {
+	t.Run("sets gas price to EVM.GasEstimator.PriceMax if the calculation would otherwise exceed it", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesDisabled(t)
 
@@ -752,7 +752,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		require.Equal(t, maxGasPrice, price)
 	})
 
-	t.Run("sets gas price to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
+	t.Run("sets gas price to EVM.Transactions.PriceMin if the calculation would otherwise fall below it", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesDisabled(t)
 
@@ -1008,7 +1008,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		bhe.Recalculate(cltest.Head(1))
 	})
 
-	t.Run("does not set tip higher than ETH_MAX_GAS_PRICE_WEI", func(t *testing.T) {
+	t.Run("does not set tip higher than EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
 
@@ -1042,7 +1042,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		require.Equal(t, tipCap.Int64(), maxGasPrice.Int64())
 	})
 
-	t.Run("sets tip cap to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
+	t.Run("sets tip cap to EVM.Transactions.PriceMin if the calculation would otherwise fall below it", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
 

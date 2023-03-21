@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	types "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
@@ -15,23 +15,23 @@ type TxStrategy struct {
 	mock.Mock
 }
 
-// PruneQueue provides a mock function with given fields: orm, q
-func (_m *TxStrategy) PruneQueue(orm txmgr.ORM, q pg.Queryer) (int64, error) {
-	ret := _m.Called(orm, q)
+// PruneQueue provides a mock function with given fields: pruneService, qopt
+func (_m *TxStrategy) PruneQueue(pruneService types.UnstartedTxQueuePruner, qopt pg.QOpt) (int64, error) {
+	ret := _m.Called(pruneService, qopt)
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(txmgr.ORM, pg.Queryer) (int64, error)); ok {
-		return rf(orm, q)
+	if rf, ok := ret.Get(0).(func(types.UnstartedTxQueuePruner, pg.QOpt) (int64, error)); ok {
+		return rf(pruneService, qopt)
 	}
-	if rf, ok := ret.Get(0).(func(txmgr.ORM, pg.Queryer) int64); ok {
-		r0 = rf(orm, q)
+	if rf, ok := ret.Get(0).(func(types.UnstartedTxQueuePruner, pg.QOpt) int64); ok {
+		r0 = rf(pruneService, qopt)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgr.ORM, pg.Queryer) error); ok {
-		r1 = rf(orm, q)
+	if rf, ok := ret.Get(1).(func(types.UnstartedTxQueuePruner, pg.QOpt) error); ok {
+		r1 = rf(pruneService, qopt)
 	} else {
 		r1 = ret.Error(1)
 	}
