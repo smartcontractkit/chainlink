@@ -111,7 +111,7 @@ func (f *FwdMgr) filterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
-func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Address, err error) {
+func (f *FwdMgr) GetForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {

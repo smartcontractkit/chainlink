@@ -55,16 +55,15 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
-	// build forwarder manager for evm txm
-	var fwdMgr *forwarders.FwdMgr
 	if cfg.EvmUseForwarders() {
-		fwdMgr = forwarders.NewFwdMgr(db, ethClient, lp, lggr, cfg)
+		fwdMgr := forwarders.NewFwdMgr(db, ethClient, lp, lggr, cfg)
+		return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, fwdMgr)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
+		return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, nil)
 	}
 	// --------------------
 
-	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, fwdMgr)
 }
 
 func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {

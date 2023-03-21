@@ -36,19 +36,19 @@ func newEvmTxm(
 			"gasLimitDefault", cfg.EvmGasLimitDefault(),
 		)
 
+		checker := &txmgr.CheckerFactory{Client: client}
+
 		// build estimator from factory
 		estimator := gas.NewEstimator(lggr, client, cfg)
 
-		// build forwarder manager for evm txm
-		var fwdMgr *forwarders.FwdMgr
 		if cfg.EvmUseForwarders() {
-			fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
+			fwdMgr := forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
+			txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr)
 		} else {
 			lggr.Info("EvmForwarderManager: Disabled")
+			txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, nil)
 		}
 
-		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
