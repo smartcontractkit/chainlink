@@ -145,19 +145,6 @@ func registerCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordi
 	)
 }
 
-// decreasingBlockRange creates a continugous block range starting with
-// block `start` and ending at block `end`.
-func decreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
-	if start.Cmp(end) == -1 {
-		return nil, fmt.Errorf("start (%s) must be greater than end (%s)", start.String(), end.String())
-	}
-	ret = []*big.Int{}
-	for i := new(big.Int).Set(start); i.Cmp(end) >= 0; i.Sub(i, big.NewInt(1)) {
-		ret = append(ret, new(big.Int).Set(i))
-	}
-	return
-}
-
 func getRlpHeaders(env helpers.Environment, blockNumbers []*big.Int) (headers [][]byte, err error) {
 	headers = [][]byte{}
 	for _, blockNum := range blockNumbers {

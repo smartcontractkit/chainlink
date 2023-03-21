@@ -113,3 +113,31 @@ func (c *BulletproofBHS) sendingKeys() []common.Address {
 	}
 	return keys
 }
+
+func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
+	payload, err := c.abi.Pack("storeEarliest")
+	if err != nil {
+		return errors.Wrap(err, "packing args")
+	}
+
+	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	if err != nil {
+		return errors.Wrap(err, "getting next from address")
+	}
+
+	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      c.bhs.Address(),
+		EncodedPayload: payload,
+		GasLimit:       c.config.EvmGasLimitDefault(),
+
+		// Set a queue size of 256. At most we store the blockhash of every block, and only the
+		// latest 256 can possibly be stored.
+		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256, c.config.DatabaseDefaultQueryTimeout()),
+	}, pg.WithParentCtx(ctx))
+	if err != nil {
+		return errors.Wrap(err, "creating transaction")
+	}
+
+	return nil
+}

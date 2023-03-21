@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -323,6 +324,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
+				globalLogger,
+				chains.EVM,
+				keyStore.Eth()),
+			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),

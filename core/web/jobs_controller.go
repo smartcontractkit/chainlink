@@ -242,6 +242,8 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 		jb, err = webhook.ValidatedWebhookSpec(tomlString, jc.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(tomlString)
+	case job.BlockHeaderFeeder:
+		jb, err = blockhashstore.ValidatedSpec(tomlString)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
 	default:

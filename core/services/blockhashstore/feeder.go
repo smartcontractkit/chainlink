@@ -9,35 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// Event contains metadata about a VRF randomness request or fulfillment.
-type Event struct {
-	// ID of the relevant VRF request. For a VRF V1 request, this will an encoded 32 byte array.
-	// For VRF V2, it will be an integer in string form.
-	ID string
-
-	// Block that the request or fulfillment was included in.
-	Block uint64
-}
-
-// Coordinator defines an interface for fetching request and fulfillment metadata from a VRF
-// coordinator.
-type Coordinator interface {
-	// Requests fetches VRF requests that occurred within the specified blocks.
-	Requests(ctx context.Context, fromBlock uint64, toBlock uint64) ([]Event, error)
-
-	// Fulfillments fetches VRF fulfillments that occurred since the specified block.
-	Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error)
-}
-
-// BHS defines an interface for interacting with a BlockhashStore contract.
-type BHS interface {
-	// Store the hash associated with blockNum.
-	Store(ctx context.Context, blockNum uint64) error
-
-	// IsStored checks whether the hash associated with blockNum is already stored.
-	IsStored(ctx context.Context, blockNum uint64) (bool, error)
-}
-
 // NewFeeder creates a new Feeder instance.
 func NewFeeder(
 	logger logger.Logger,
