@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"time"
 
@@ -16,13 +15,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
+
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // DeployVRFContract deploy VRF contract
@@ -906,12 +906,12 @@ func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, err
 	return subscriptionIterator.Event.SubId, nil
 }
 
-func (coordinator *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
+func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := coordinator.coordinator.AddConsumer(
+	tx, err := v.coordinator.AddConsumer(
 		opts,
 		subId,
 		common.HexToAddress(consumerAddress),
@@ -919,7 +919,7 @@ func (coordinator *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerA
 	if err != nil {
 		return err
 	}
-	return coordinator.client.ProcessTransaction(tx)
+	return v.client.ProcessTransaction(tx)
 }
 
 func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consumerAddress string) error {

@@ -11,9 +11,8 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -144,6 +143,16 @@ type OffchainAggregator interface {
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)
+}
+
+type OffchainAggregatorV2 interface {
+	Address() string
+	Fund(nativeAmount *big.Float) error
+	RequestNewRound() error
+	SetPayees(transmitters, payees []string) error
+	GetLatestAnswer(ctx context.Context) (*big.Int, error)
+	GetLatestRound(ctx context.Context) (*RoundData, error)
+	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 }
 
 type Oracle interface {

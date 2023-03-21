@@ -18,13 +18,15 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -38,15 +40,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 )
 
 type TestEnv struct {
@@ -130,9 +130,8 @@ func (c *TestConfig) Save() (string, error) {
 	// Save mercury env config to disk
 	confPath := fmt.Sprintf("%s/%s.json", confDir, c.K8Namespace)
 	f, _ := json.MarshalIndent(c, "", " ")
-	err = ioutil.WriteFile(confPath, f, 0644)
 
-	return confPath, err
+	return confPath, ioutil.WriteFile(confPath, f, 0644)
 }
 
 // Setup new mercury env
@@ -265,8 +264,7 @@ func SetupMercuryTestEnv(
 
 		// Deploy contracts
 		feedId := StringToByte32(feedId)
-		verifierContract, verifierProxyContract, exchangerContract, _, err = DeployMercuryContracts(
-			evmClient, "", *ocrConfig)
+		verifierContract, verifierProxyContract, exchangerContract, _, err = DeployMercuryContracts(evmClient, "", *ocrConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -750,8 +748,7 @@ func buildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.Mercu
 	if err != nil {
 		return nil, err
 	}
-	signerOnchainPublicKeys, _, f, onchainConfig,
-		offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signerOnchainPublicKeys, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress time.Duration,
 		20*time.Second,       // deltaResend time.Duration,
 		100*time.Millisecond, // deltaRound time.Duration,
@@ -821,86 +818,6 @@ func setupEvmNetwork() (blockchain.EVMNetwork, environment.ConnectedChart) {
 	}
 
 	return network, evmChart
-}
-
-func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
-	S := make([]int, len(chainlinkNodes))
-	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
-	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
-	var wg sync.WaitGroup
-	for i, cl := range chainlinkNodes {
-		wg.Add(1)
-		go func(i int, cl *client.Chainlink) error {
-			defer wg.Done()
-
-			ocr2Keys, err := cl.MustReadOCR2Keys()
-			if err != nil {
-				return err
-			}
-			var ocr2Config client.OCR2KeyAttributes
-			for _, key := range ocr2Keys.Data {
-				if key.Attributes.ChainType == string(chaintype.EVM) {
-					ocr2Config = key.Attributes
-					break
-				}
-			}
-
-			keys, err := cl.MustReadP2PKeys()
-			if err != nil {
-				return err
-			}
-			p2pKeyID := keys.Data[0].Attributes.PeerID
-
-			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-			if err != nil {
-				return err
-			}
-
-			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			copy(offchainPkBytesFixed[:], offchainPkBytes)
-			if err != nil {
-				return err
-			}
-
-			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-			if err != nil {
-				return err
-			}
-
-			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			copy(configPkBytesFixed[:], configPkBytes)
-			if err != nil {
-				return err
-			}
-
-			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-			if err != nil {
-				return err
-			}
-
-			csaKeys, _, err := cl.ReadCSAKeys()
-			if err != nil {
-				return err
-			}
-
-			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
-			oracleIdentities[i] = confighelper.OracleIdentityExtra{
-				OracleIdentity: confighelper.OracleIdentity{
-					OnchainPublicKey:  onchainPkBytes,
-					OffchainPublicKey: offchainPkBytesFixed,
-					PeerID:            p2pKeyID,
-					TransmitAccount:   types.Account(csaKeys.Data[0].Attributes.PublicKey),
-				},
-				ConfigEncryptionPublicKey: configPkBytesFixed,
-			}
-			S[i] = 1
-
-			return nil
-		}(i, cl)
-	}
-	wg.Wait()
-	log.Info().Msgf("Done fetching oracle identities")
-	return S, oracleIdentities
 }
 
 func StringToByte32(str string) [32]byte {

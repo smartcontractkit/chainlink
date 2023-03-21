@@ -10,7 +10,7 @@ Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
 
-	BaseOCR2VRFTomlConfig = `[Feature]
+	BaseOCR2TomlConfig = `[Feature]
 LogPoller = true
 
 [OCR2]

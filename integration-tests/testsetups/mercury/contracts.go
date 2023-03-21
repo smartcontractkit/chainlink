@@ -6,7 +6,9 @@ import (
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -77,10 +79,12 @@ func CreateCommitmentHash(order Order) common.Hash {
 	return crypto.Keccak256Hash(bytes)
 }
 
-func LoadMercuryContracts(evmClient blockchain.EVMClient,
-	verifierAddr string, verifierProxyAddr string, exchangerAddr string) (
-	contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, error) {
-
+func LoadMercuryContracts(
+	evmClient blockchain.EVMClient,
+	verifierAddr string,
+	verifierProxyAddr string,
+	exchangerAddr string,
+) (contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, error) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	if err != nil {
 		return nil, nil, nil, err
@@ -101,8 +105,11 @@ func LoadMercuryContracts(evmClient blockchain.EVMClient,
 	return verifier, verifierProxy, exchanger, nil
 }
 
-func DeployMercuryContracts(evmClient blockchain.EVMClient, lookupUrl string, ocrConfig contracts.MercuryOCRConfig) (
-	contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, contracts.ReadAccessController, error) {
+func DeployMercuryContracts(
+	evmClient blockchain.EVMClient,
+	lookupUrl string,
+	ocrConfig contracts.MercuryOCRConfig,
+) (contracts.Verifier, contracts.VerifierProxy, contracts.Exchanger, contracts.ReadAccessController, error) {
 	contractDeployer, err := contracts.NewContractDeployer(evmClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
