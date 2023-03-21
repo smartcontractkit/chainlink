@@ -467,15 +467,15 @@ func (_m *ORM) FindEthTxWithAttempts(etxID int64) (txmgr.EthTx, error) {
 }
 
 // FindEthTxWithNonce provides a mock function with given fields: fromAddress, nonce
-func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (*txmgr.EthTx, error) {
+func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint64) (*txmgr.EthTx, error) {
 	ret := _m.Called(fromAddress, nonce)
 
 	var r0 *txmgr.EthTx
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, uint) (*txmgr.EthTx, error)); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, uint64) (*txmgr.EthTx, error)); ok {
 		return rf(fromAddress, nonce)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, uint) *txmgr.EthTx); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, uint64) *txmgr.EthTx); ok {
 		r0 = rf(fromAddress, nonce)
 	} else {
 		if ret.Get(0) != nil {
@@ -483,7 +483,7 @@ func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (*txmg
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, uint) error); ok {
+	if rf, ok := ret.Get(1).(func(common.Address, uint64) error); ok {
 		r1 = rf(fromAddress, nonce)
 	} else {
 		r1 = ret.Error(1)
@@ -1019,7 +1019,7 @@ func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint6
 }
 
 // UpdateEthTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextNonceCallback, qopts
-func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt txmgr.EthTxAttempt, NewAttemptState txmgr.EthTxAttemptState, incrNextNonceCallback txmgr.QueryerFunc, qopts ...pg.QOpt) error {
+func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt txmgr.EthTxAttempt, NewAttemptState string, incrNextNonceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -1030,7 +1030,7 @@ func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgr.EthTx, txmgr.EthTxAttempt, txmgr.EthTxAttemptState, txmgr.QueryerFunc, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*txmgr.EthTx, txmgr.EthTxAttempt, string, func(pg.Queryer) error, ...pg.QOpt) error); ok {
 		r0 = rf(etx, attempt, NewAttemptState, incrNextNonceCallback, qopts...)
 	} else {
 		r0 = ret.Error(0)

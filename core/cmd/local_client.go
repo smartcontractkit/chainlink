@@ -507,8 +507,8 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
-	beginningNonce := c.Uint("beginningNonce")
-	endingNonce := c.Uint("endingNonce")
+	beginningNonce := c.Uint64("beginningNonce")
+	endingNonce := c.Uint64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint("gasLimit")
 	addressHex := c.String("address")

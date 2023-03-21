@@ -28,56 +28,10 @@ import (
 
 type ORM interface {
 	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64]
-	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
-	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
-	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
-	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error)
-	FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error)
-	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
-	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
-	FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error)
-	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
-	FindEthTxByHash(hash common.Hash) (*EthTx, error)
-	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
-	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error)
-	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error)
-	GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error)
-	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
-	HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error)
-	InsertEthTx(etx *EthTx) error
-	InsertEthTxAttempt(attempt *EthTxAttempt) error
-	LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error
-	LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error
-	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
-	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
-	PreloadEthTxes(attempts []EthTxAttempt) error
-	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SaveInProgressAttempt(attempt *EthTxAttempt) error
-	SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error
-	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
-	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
-	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error
-	UpdateEthTxsUnconfirmed(ids []int64) error
-	UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error
-	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
-	UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error
-	Close()
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
 var ErrInvalidQOpt = errors.New("orm: Invalid QOpt")
-
-type QueryerFunc func(tx pg.Queryer) error
-
-type EthReceiptsPlus struct {
-	ID           uuid.UUID        `db:"id"`
-	Receipt      evmtypes.Receipt `db:"receipt"`
-	FailOnRevert bool             `db:"FailOnRevert"`
-}
 
 type orm struct {
 	q         pg.Q
@@ -625,7 +579,7 @@ func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum i
 }
 
 // FindEthTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error) {
+func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce uint64) (etx *EthTx, err error) {
 	etx = new(EthTx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Get(etx, `
@@ -990,7 +944,7 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error {
+func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.BroadcastAt == nil {
