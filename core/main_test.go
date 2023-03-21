@@ -432,7 +432,9 @@ func ExampleRun_node() {
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:
-	//    --help, -h  show help
+	//    --config value, -c value   TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
+	//    --secrets value, -s value  TOML configuration file for secrets. Must be set if and only if config is set.
+	//    --help, -h                 show help
 }
 
 func ExampleRun_node_start() {
@@ -449,8 +451,6 @@ func ExampleRun_node_start() {
 	//    --debug, -d                      set logger level to debug
 	//    --password value, -p value       text file holding the password for the node's account
 	//    --vrfpassword value, --vp value  text file holding the password for the vrf keys; enables Chainlink VRF oracle
-	//    --config value, -c value         TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
-	//    --secrets value, -s value        TOML configuration file for secrets. Must be set if and only if config is set.
 }
 
 func ExampleRun_node_db() {
