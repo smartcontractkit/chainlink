@@ -48,7 +48,7 @@ func newEvmTxm(
 		}
 
 		// create attempt builder
-		attemptBuilder := txmgr.NewEvmAttemptBuilder(*client.ChainID(), cfg, opts.KeyStore)
+		attemptBuilder := txmgr.NewEvmAttemptBuilder(*client.ChainID(), cfg, opts.KeyStore, estimator)
 
 		checker := &txmgr.CheckerFactory{Client: client}
 		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr, attemptBuilder)

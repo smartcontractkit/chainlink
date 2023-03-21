@@ -118,7 +118,6 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	AttemptBuilder
-	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
 	config         Config
 	chainID        big.Int
@@ -136,7 +135,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback,
+	keyStates []ethkey.State, resumeCallback ResumeCallback,
 	attemptBuilder AttemptBuilder, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -148,7 +147,6 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		lggr,
 		ethClient,
 		attemptBuilder,
-		estimator,
 		resumeCallback,
 		config,
 		*ethClient.ChainID(),
@@ -770,23 +768,17 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	}
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 
 	var bumpedFee gas.EvmFee
 	var bumpedFeeLimit uint32
-	bumpedFee, bumpedFeeLimit, err = ec.estimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpAttempt(ctx, etx, previousAttempt, previousAttempt.TxType, priorAttempts, ec.lggr)
 
+	// if no error, return attempt
+	// if err, continue below
 	if err == nil {
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-
-		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String())...)
-		bumpedAttempt, _, err = ec.NewAttemptWithType(etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, ec.lggr)
-
-		// if no error, return attempt
-		// if err, continue below
-		if err == nil {
-			return bumpedAttempt, err
-		}
+		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String(), "bumpedFeeLimit", bumpedFeeLimit)...)
+		return bumpedAttempt, err
 	}
 
 	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
@@ -1074,7 +1066,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, _, err := ec.NewAttemptWithType(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
+			attempt, _, err := ec.NewCustomAttempt(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue

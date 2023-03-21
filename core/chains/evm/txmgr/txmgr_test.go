@@ -63,7 +63,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	}
 
 	// build evm tx attempt builder
-	attemptBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), cfg, keyStore)
+	attemptBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), cfg, keyStore, estimator)
 
 	// --------------------
 

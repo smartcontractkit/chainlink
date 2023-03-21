@@ -18,11 +18,9 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -92,7 +90,6 @@ type EthBroadcaster struct {
 	orm       ORM
 	ethClient evmclient.Client
 	AttemptBuilder
-	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
 	chainID        big.Int
 	config         Config
@@ -123,7 +120,7 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback,
+	keyStates []ethkey.State, resumeCallback ResumeCallback,
 	attemptBuilder AttemptBuilder,
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
@@ -134,7 +131,6 @@ func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keyst
 		orm:              orm,
 		ethClient:        ethClient,
 		AttemptBuilder:   attemptBuilder,
-		estimator:        estimator,
 		resumeCallback:   resumeCallback,
 		chainID:          *ethClient.ChainID(),
 		config:           config,
@@ -391,15 +387,10 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		}
 		n++
 		var a EthTxAttempt
-		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-		fee, gasLimit, err := eb.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
+		var retryable bool
+		a, _, _, retryable, err = eb.NewAttempt(ctx, *etx, eb.logger)
 		if err != nil {
-			return errors.Wrap(err, "failed to get fee"), true
-		}
-
-		a, err = eb.NewAttempt(*etx, fee, gasLimit, eb.logger)
-		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), true
+			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), retryable
 		}
 
 		if err := eb.orm.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
@@ -692,13 +683,12 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 		"Consider increasing ETH_GAS_PRICE_DEFAULT (current value: %s)",
 		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
 
-	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	bumpedFee, bumpedFeeLimit, err := eb.estimator.BumpFee(ctx, attempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, nil)
+	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpAttempt(ctx, etx, attempt, attempt.TxType, nil, lgr)
 	if err != nil {
-		return errors.Wrap(err, "tryAgainBumpFee failed"), true
+		return errors.Wrap(err, "tryAgainBumpFee failed"), retryable
 	}
 
-	return eb.tryAgainWithNewFee(ctx, lgr, etx, attempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, attempt.TxType)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit)
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
@@ -707,29 +697,24 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
 		return err, false
 	}
-	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	gasPrice, gasLimit, err := eb.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, txmgrtypes.OptForceRefetch)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas"), true
-	}
-	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
-		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 
 	// TODO: nil handling for gasPrice.Legacy? will this ever be reached where EIP1559 is enabled on a L2 but a legacy tx?
-	return eb.tryAgainWithNewFee(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice, gasLimit, 0x0)
+	replacementAttempt, fee, feeLimit, retryable, err := eb.NewAttemptWithType(ctx, etx, lgr, attempt.TxType, txmgrtypes.OptForceRefetch)
+	if err != nil {
+		return errors.Wrap(err, "tryAgainWithNewEstimation failed to build new attempt"), retryable
+	}
+	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
+		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
+
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewFee(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32, txType int) (err error, retyrable bool) {
-	replacementAttempt, retryable, err := eb.NewAttemptWithType(etx, newFee, newFeeLimit, txType, lgr)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewFee failed"), retryable
-	}
-
+func (eb *EthBroadcaster) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, replacementAttempt EthTxAttempt, initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32) (err error, retyrable bool) {
 	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewFee failed"), true
 	}
 
-	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.Fee().String(), "newFee", newFee.String())
+	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.Fee().String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
 	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 
