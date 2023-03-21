@@ -12,6 +12,7 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
@@ -63,7 +64,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
 	}
 }
 
-func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
+func (cs SolanaConfigs) Chains(ids ...string) (chains []ChainConfig) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -218,7 +219,7 @@ func setFromChain(c, f *solcfg.Chain) {
 	}
 }
 
-func (c *SolanaConfig) SetFromDB(ch DBChain, nodes []soldb.Node) error {
+func (c *SolanaConfig) SetFromDB(ch ChainConfig, nodes []soldb.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
 
@@ -248,8 +249,8 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *SolanaConfig) AsV1() DBChain {
-	return DBChain{
+func (c *SolanaConfig) AsV1() ChainConfig {
+	return ChainConfig{
 		ID:      *c.ChainID,
 		Enabled: c.IsEnabled(),
 		Cfg: &soldb.ChainCfg{
@@ -336,8 +337,4 @@ func (c *SolanaConfig) ComputeUnitPriceDefault() uint64 {
 
 func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
-}
-
-func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
 }

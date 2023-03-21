@@ -29,7 +29,7 @@ var (
 
 	promOldHead = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_very_old_head",
-		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
+		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is EVM.FinalityDepth or greater below the highest seen head)",
 	}, []string{"evmChainID"})
 )
 

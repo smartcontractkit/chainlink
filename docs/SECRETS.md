@@ -129,37 +129,3 @@ AuthToken is the authorization key for the Prometheus metrics endpoint.
 
 Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 
-## Mercury
-```toml
-[Mercury]
-```
-Mercury credentials are needed if running OCR2 jobs in mercury mode. 0 or
-more Mercury credentials may be specified. URLs must be unique.
-
-## Mercury.Credentials
-```toml
-[[Mercury.Credentials]]
-URL = "http://example.com/reports" # Example
-Username = "exampleusername" # Example
-Password = "examplepassword" # Example
-```
-
-
-### URL
-```toml
-URL = "http://example.com/reports" # Example
-```
-URL is the URL of the mercury endpoint
-
-### Username
-```toml
-Username = "exampleusername" # Example
-```
-Username is used for basic auth with the mercury endpoint
-
-### Password
-```toml
-Password = "examplepassword" # Example
-```
-Password is used for basic auth with the mercury endpoint
-

@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -34,7 +35,7 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func initRemoteConfigSubCmds(client *Client) []cli.Command {
+func initRemoteConfigSubCmds(client *Client, opts *chainlink.GeneralConfigOpts) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "show",
@@ -77,6 +78,18 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 			Name:   "validate",
 			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
 			Action: client.ConfigFileValidate,
+			Flags: []cli.Flag{cli.StringSliceFlag{
+				Name:  "config, c",
+				Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
+			},
+				cli.StringFlag{
+					Name:  "secrets, s",
+					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+				},
+			},
+			Before: func(c *cli.Context) error {
+				return client.setConfigFromFlags(opts, c)
+			},
 		},
 	}
 }
@@ -84,6 +97,7 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 var (
 	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
+	errBadRequest   = errors.New(http.StatusText(http.StatusBadRequest))
 )
 
 // CreateExternalInitiator adds an external initiator
@@ -251,10 +265,6 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
 
-	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
-		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
-	}
-
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
 	err := os.Mkdir(genDir, 0o755)
@@ -284,18 +294,43 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				errs <- errors.Wrapf(err, "error collecting %s", vt)
+				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
 				return
 			}
+			defer func() {
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}()
 			if resp.StatusCode == http.StatusUnauthorized {
-				errs <- errors.Wrapf(errUnauthorized, "error collecting %s", vt)
+				errs <- fmt.Errorf("error collecting %s: %w", vt, errUnauthorized)
 				return
 			}
-			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusBadRequest {
+				// best effort to interpret the underlying problem
+				pprofVersion := resp.Header.Get("X-Go-Pprof")
+				if pprofVersion == "1" {
+					b, err := io.ReadAll(resp.Body)
+					if err != nil {
+						errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
+						return
+					}
+					respContent := string(b)
+					// taken from pprof.Profile https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/pprof/pprof.go#L133
+					if strings.Contains(respContent, "profile duration exceeds server's WriteTimeout") {
+						errs <- fmt.Errorf("%w: %s", ErrProfileTooLong, respContent)
+					} else {
+						errs <- fmt.Errorf("error collecting %s: %w: %s", vt, errBadRequest, respContent)
+					}
+				} else {
+					errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
+				}
+				return
+			}
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
-				errs <- errors.Wrapf(err, "error creating file for %s", vt)
+				errs <- fmt.Errorf("error creating file for %s: %w", vt, err)
 				return
 			}
 			wc := utils.NewDeferableWriteCloser(f)
@@ -303,12 +338,12 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 
 			_, err = io.Copy(wc, resp.Body)
 			if err != nil {
-				errs <- errors.Wrapf(err, "error writing to file for %s", vt)
+				errs <- fmt.Errorf("error writing to file for %s: %w", vt, err)
 				return
 			}
 			err = wc.Close()
 			if err != nil {
-				errs <- errors.Wrapf(err, "error closing file for %s", vt)
+				errs <- fmt.Errorf("error closing file for %s: %w", vt, err)
 				return
 			}
 		}(vt)

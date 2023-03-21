@@ -56,6 +56,10 @@ func (c *ChainScoped) Validate() (err error) {
 	return
 }
 
+func (c *ChainScoped) AutoCreateKey() bool {
+	return *c.cfg.AutoCreateKey
+}
+
 func (c *ChainScoped) BlockBackfillDepth() uint64 {
 	return uint64(*c.cfg.BlockBackfillDepth)
 }

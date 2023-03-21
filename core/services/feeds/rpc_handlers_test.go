@@ -43,7 +43,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
 		ctx     = testutils.Context(t)
 		jobID   = uuid.NewV4()
-		spec    = TestSpec
+		spec    = FluxMonitorTestSpec
 		version = int64(1)
 	)
 	h := setupTestHandlers(t)

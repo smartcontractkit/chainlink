@@ -68,6 +68,10 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
+	if spec.FeedID != nil {
+		spec.RelayConfig["feedID"] = *spec.FeedID
+	}
+
 	configProvider, err := relayer.NewConfigProvider(types.RelayArgs{
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
@@ -82,7 +86,13 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
-	d.lggr.Infow("OCR2 job using local config",
+	lggr := d.lggr.With(
+		"contractID", spec.ContractID,
+		"jobName", jobSpec.Name.ValueOrZero(),
+		"jobID", jobSpec.ID,
+		"feedID", spec.FeedID,
+	)
+	lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
 		"ContractConfigConfirmations", lc.ContractConfigConfirmations,
 		"ContractConfigTrackerPollInterval", lc.ContractConfigTrackerPollInterval,
@@ -94,15 +104,12 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
 		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
 		LocalConfig:           lc,
-		Logger: logger.NewOCRWrapper(d.lggr.Named("OCR").With(
-			"contractID", spec.ContractID,
-			"jobName", jobSpec.Name.ValueOrZero(),
-			"jobID", jobSpec.ID), true, func(msg string) {
+		Logger: logger.NewOCRWrapper(d.lggr.Named("OCRBootstrap"), true, func(msg string) {
 			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
-	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
+	lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")

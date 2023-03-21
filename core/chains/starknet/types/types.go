@@ -8,10 +8,10 @@ import (
 )
 
 type ORM interface {
-	chains.ChainsORM[string, *db.ChainCfg, DBChain]
-	chains.NodesORM[string, db.Node]
+	chains.ChainConfigs[string, *db.ChainCfg, ChainConfig]
+	chains.NodeConfigs[string, db.Node]
 
 	EnsureChains([]string, ...pg.QOpt) error
 }
 
-type DBChain = chains.DBChain[string, *db.ChainCfg]
+type ChainConfig = chains.ChainConfig[string, *db.ChainCfg]

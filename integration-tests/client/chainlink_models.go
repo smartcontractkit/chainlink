@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
@@ -930,15 +931,19 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
+	var feedID string
+	if o.OCR2OracleSpec.FeedID != (common.Hash{}) {
+		feedID = o.OCR2OracleSpec.FeedID.Hex()
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
 		MaxTaskDuration          string
 		ContractID               string
+		FeedID                   string
 		Relay                    string
 		PluginType               string
 		RelayConfig              map[string]interface{}
-		RelayConfigMercuryConfig map[string]interface{}
 		PluginConfig             map[string]interface{}
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
@@ -950,23 +955,23 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		ContractConfirmations    uint16
 		ObservationSource        string
 	}{
-		Name:                     o.Name,
-		JobType:                  o.JobType,
-		MaxTaskDuration:          o.MaxTaskDuration,
-		ContractID:               o.OCR2OracleSpec.ContractID,
-		Relay:                    string(o.OCR2OracleSpec.Relay),
-		PluginType:               string(o.OCR2OracleSpec.PluginType),
-		RelayConfig:              o.OCR2OracleSpec.RelayConfig,
-		RelayConfigMercuryConfig: o.OCR2OracleSpec.RelayConfigMercuryConfig,
-		PluginConfig:             o.OCR2OracleSpec.PluginConfig,
-		P2PV2Bootstrappers:       o.OCR2OracleSpec.P2PV2Bootstrappers,
-		OCRKeyBundleID:           o.OCR2OracleSpec.OCRKeyBundleID.String,
-		MonitoringEndpoint:       o.OCR2OracleSpec.MonitoringEndpoint.String,
-		TransmitterID:            o.OCR2OracleSpec.TransmitterID.String,
-		BlockchainTimeout:        o.OCR2OracleSpec.BlockchainTimeout.Duration(),
-		ContractConfirmations:    o.OCR2OracleSpec.ContractConfigConfirmations,
-		TrackerPollInterval:      o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
-		ObservationSource:        o.ObservationSource,
+		Name:                  o.Name,
+		JobType:               o.JobType,
+		MaxTaskDuration:       o.MaxTaskDuration,
+		ContractID:            o.OCR2OracleSpec.ContractID,
+		FeedID:                feedID,
+		Relay:                 string(o.OCR2OracleSpec.Relay),
+		PluginType:            string(o.OCR2OracleSpec.PluginType),
+		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
+		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
+		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
+		MonitoringEndpoint:    o.OCR2OracleSpec.MonitoringEndpoint.String,
+		TransmitterID:         o.OCR2OracleSpec.TransmitterID.String,
+		BlockchainTimeout:     o.OCR2OracleSpec.BlockchainTimeout.Duration(),
+		ContractConfirmations: o.OCR2OracleSpec.ContractConfigConfirmations,
+		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
+		ObservationSource:     o.ObservationSource,
 	}
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
@@ -978,6 +983,9 @@ pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
+{{if .FeedID}}
+feedID                                 = "{{.FeedID}}" 
+{{end}}
 {{if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}
@@ -1008,10 +1016,6 @@ observationSource                      = """
 {{end}}
 [relayConfig]{{range $key, $value := .RelayConfig}}
 {{$key}} = {{$value}}{{end}}
-{{if .RelayConfigMercuryConfig}}
-[relayConfig.MercuryConfig]{{range $key, $value := .RelayConfigMercuryConfig}}
-{{$key}} = "{{$value}}"{{end}}
-{{end}}
 `
 	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
