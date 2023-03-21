@@ -104,7 +104,6 @@ type Txm struct {
 	config           Config
 	keyStore         KeyStore
 	eventBroadcaster pg.EventBroadcaster
-	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
 
@@ -131,7 +130,6 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
-	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	fwdMgr *forwarders.FwdMgr,
 	attemptBuilder AttemptBuilder,
 ) *Txm {
@@ -145,7 +143,6 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
-		gasEstimator:     estimator,
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
@@ -196,7 +193,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err = ms.Start(ctx, b.gasEstimator); err != nil {
+		if err = ms.Start(ctx, b.attemptBuilder); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
@@ -271,7 +268,7 @@ func (b *Txm) Close() (merr error) {
 
 		b.wg.Wait()
 
-		b.gasEstimator.Close()
+		b.attemptBuilder.Close()
 
 		return nil
 	})
@@ -288,7 +285,7 @@ func (b *Txm) HealthReport() map[string]error {
 	b.IfStarted(func() {
 		maps.Copy(report, b.ethBroadcaster.HealthReport())
 		maps.Copy(report, b.ethConfirmer.HealthReport())
-		maps.Copy(report, b.gasEstimator.HealthReport())
+		maps.Copy(report, b.attemptBuilder.HealthReport())
 	})
 
 	if b.config.EvmUseForwarders() {
@@ -447,7 +444,7 @@ func (b *Txm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.BlockNumber())
 		}
-		b.gasEstimator.OnNewLongestChain(ctx, head)
+		b.attemptBuilder.OnNewLongestChain(ctx, head)
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
@@ -535,7 +532,7 @@ func (b *Txm) checkEnabled(addr common.Address) error {
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
 func (b *Txm) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
-	return b.gasEstimator
+	return b.attemptBuilder.FeeEstimator()
 }
 
 // SendEther creates a transaction that transfers the given value of ether

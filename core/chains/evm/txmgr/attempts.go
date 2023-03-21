@@ -13,13 +13,19 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 )
 
 // AttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)
 // and returns a signed TxAttempt
 // it is able to estimate fees and sign transactions
 type AttemptBuilder interface {
+	// interfaces for running the underlying estimator
+	services.ServiceCtx
+	txmgrtypes.HeadTrackable[*evmtypes.Head]
+
 	// NewAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
 	NewAttempt(ctx context.Context, etx EthTx, lggr logger.Logger, opts ...txmgrtypes.Opt) (attempt EthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error)
 
@@ -32,19 +38,26 @@ type AttemptBuilder interface {
 
 	// NewCustomAttempt builds a transaction using the passed in fee + tx type
 	NewCustomAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error)
+
+	// FeeEstimator returns the underlying gas estimator
+	FeeEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 }
 
 var _ AttemptBuilder = (*evmAttemptBuilder)(nil)
 
 type evmAttemptBuilder struct {
-	chainID   big.Int
-	config    Config
-	keystore  KeyStore
-	estimator gas.EvmFeeEstimator
+	chainID  big.Int
+	config   Config
+	keystore KeyStore
+	gas.EvmFeeEstimator
 }
 
 func NewEvmAttemptBuilder(chainID big.Int, config Config, keystore KeyStore, estimator gas.EvmFeeEstimator) *evmAttemptBuilder {
 	return &evmAttemptBuilder{chainID, config, keystore, estimator}
+}
+
+func (c *evmAttemptBuilder) FeeEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
+	return c.EvmFeeEstimator
 }
 
 func (c *evmAttemptBuilder) SignTx(address common.Address, tx *gethTypes.Transaction) (common.Hash, []byte, error) {
@@ -69,7 +82,7 @@ func (c *evmAttemptBuilder) NewAttempt(ctx context.Context, etx EthTx, lggr logg
 
 func (c *evmAttemptBuilder) NewAttemptWithType(ctx context.Context, etx EthTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	fee, feeLimit, err = c.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
+	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
 		return attempt, fee, feeLimit, true, errors.Wrap(err, "failed to get fee") // estimator errors are retryable
 	}
@@ -80,7 +93,7 @@ func (c *evmAttemptBuilder) NewAttemptWithType(ctx context.Context, etx EthTx, l
 
 func (c *evmAttemptBuilder) NewBumpAttempt(ctx context.Context, etx EthTx, previousAttempt EthTxAttempt, txType int, priorAttempts []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash], lggr logger.Logger) (attempt EthTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	bumpedFee, bumpedFeeLimit, err = c.estimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, errors.Wrap(err, "failed to bump fee") // estimator errors are retryable
 	}
