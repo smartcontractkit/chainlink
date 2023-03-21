@@ -2,8 +2,6 @@ package smoke
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"testing"
 
@@ -12,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
@@ -63,15 +60,15 @@ func TestMercuryServerAPI(t *testing.T) {
 	initUsers := []mercury.User{admin, user}
 
 	// Setup mercury server with mocked rpc conf
-	rpcNodeConf, csaKey := genMockedRpcNodeConf()
-	err = testEnv.AddMercuryServer(&initUsers, rpcNodeConf)
+	rpcPubKey, nodesCsaKeys, err := testEnv.AddMercuryServer(&initUsers)
 	require.NoError(t, err)
 	msUrl := testEnv.MSInfo.LocalUrl
+	csaKey := nodesCsaKeys[0]
 
 	// Setup wsrpc client for one of the rpc nodes defined in the conf
 	wsrpcLggr, _ := logger.NewLogger()
 	wsrpcUrl := testEnv.MSInfo.LocalWsrpcUrl[6:len(testEnv.MSInfo.LocalWsrpcUrl)]
-	wsrpcClient := wsrpc.NewClient(wsrpcLggr, csaKey, testEnv.MSInfo.RpcPubKey, wsrpcUrl)
+	wsrpcClient := wsrpc.NewClient(wsrpcLggr, csaKey.KeyV2, rpcPubKey, wsrpcUrl)
 	err = wsrpcClient.Start(context.Background())
 	require.NoError(t, err)
 
@@ -158,32 +155,6 @@ func mustHexToConfigDigest(s string) (cd ocrtypes.ConfigDigest) {
 		panic(err)
 	}
 	return
-}
-
-func genMockedRpcNodeConf() (*[]mercury.RpcNode, csakey.KeyV2) {
-	_, privKey, _ := ed25519.GenerateKey(rand.Reader)
-	csaKey := csakey.Raw(privKey).Key()
-
-	rpcNodeConf := &[]mercury.RpcNode{
-		{
-			Id:            "0",
-			Status:        "active",
-			NodeAddress:   []string{"0x9aF03D0296F21f59aB956e83f9d969F544a021Fa"},
-			OracleAddress: "0x0000000000000000000000000000000000000000",
-			CsaKeys: []mercury.CsaKey{
-				{
-					NodeName:    "0",
-					NodeAddress: "0x9aF03D0296F21f59aB956e83f9d969F544a021Fa",
-					PublicKey:   csaKey.PublicKeyString(),
-				},
-			},
-			Ocr2ConfigPublicKey:   []string{"fdff12ced64d6419b432f5096aa9b3de04531cf923b0142095f3e40014e81305"},
-			Ocr2OffchainPublicKey: []string{"93400913aedd411ed6ec5d13c83ca7d666636a43dfd1195d62b3f4c0e1e6ce49"},
-			Ocr2OnchainPublicKey:  []string{"01f2b0776f613604149579c8aebcf6ccf091b765"},
-		},
-	}
-
-	return rpcNodeConf, csaKey
 }
 
 func genUuid() string {

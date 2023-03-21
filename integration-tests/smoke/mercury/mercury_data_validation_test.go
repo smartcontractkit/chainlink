@@ -332,7 +332,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	require.NoError(t, err)
 
-	err = testEnv.AddMercuryServer(nil, nil)
+	_, _, err = testEnv.AddMercuryServer(nil)
 	require.NoError(t, err)
 
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")

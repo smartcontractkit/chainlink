@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -87,37 +88,6 @@ type contractInfo struct {
 	Contract interface{}
 }
 
-type TestEnvConfig struct {
-	Id            string                `json:"id"`
-	K8Namespace   string                `json:"k8Namespace"`
-	ChainId       int64                 `json:"chainId"`
-	ContractsInfo map[string]string     `json:"contracts"`
-	MSInfo        mercuryServerInfo     `json:"mercuryServer"`
-	Actions       map[string]*envAction `json:"actions"`
-}
-
-func (c *TestEnvConfig) Save() (string, error) {
-	// Create mercury env log dir if necessary
-	pwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	confDir := fmt.Sprintf("%s/logs", pwd)
-	if _, err := os.Stat(confDir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(confDir, os.ModePerm)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	// Save mercury env config to disk
-	confPath := fmt.Sprintf("%s/%s-%s.json", confDir, c.Id, c.K8Namespace)
-	f, _ := json.MarshalIndent(c, "", "   ")
-	err = ioutil.WriteFile(confPath, f, 0644)
-
-	return confPath, err
-}
-
 type mercuryServerInfo struct {
 	RemoteUrl         string `json:"remoteUrl"`
 	LocalUrl          string `json:"localUrl"`
@@ -128,6 +98,7 @@ type mercuryServerInfo struct {
 	AdminEncryptedKey string `json:"adminEncryptedKey"`
 	RpcPubKeyString   string `json:"rpcPubKey"`
 	RpcPubKey         ed25519.PublicKey
+	RpcNodesCsaKeys   []CsaKeyWrapper
 }
 
 // Fetch mercury environment config from local json file
@@ -184,7 +155,33 @@ func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestE
 		}
 
 		te.Namespace = c.K8Namespace
-		te.MSInfo = c.MSInfo
+
+		// Load keys for rpc nodes
+		var csaKeys []CsaKeyWrapper
+		for _, seedStr := range c.MSInfo.RpcNodesCsaPrivKeySeeds {
+			b, err := hex.DecodeString(seedStr)
+			if err != nil {
+				return te, nil
+			}
+			privKey := ed25519.NewKeyFromSeed(b)
+			csaKeys = append(csaKeys, CsaKeyWrapper{
+				PrivateKeySeed: seedStr,
+				KeyV2:          csakey.Raw(privKey).Key(),
+			})
+		}
+
+		te.MSInfo = mercuryServerInfo{
+			RemoteUrl:         c.MSInfo.RemoteUrl,
+			LocalUrl:          c.MSInfo.LocalUrl,
+			RemoteWsrpcUrl:    c.MSInfo.RemoteWsrpcUrl,
+			LocalWsrpcUrl:     c.MSInfo.LocalWsrpcUrl,
+			AdminId:           c.MSInfo.AdminId,
+			AdminKey:          c.MSInfo.AdminKey,
+			AdminEncryptedKey: c.MSInfo.AdminEncryptedKey,
+			RpcPubKey:         c.MSInfo.RpcPubKey,
+			RpcNodesCsaKeys:   csaKeys,
+		}
+
 		// Load contract addresses
 		te.Contracts = map[string]contractInfo{}
 		for k, addr := range c.ContractsInfo {
@@ -249,12 +246,30 @@ func (te *TestEnv) Config() *TestEnvConfig {
 		k8namespace = te.Env.Cfg.Namespace
 	}
 
+	var csaPrivKeySeeds []string
+	for _, key := range te.MSInfo.RpcNodesCsaKeys {
+		log.Info().Msgf("seed %s", key.PrivateKeySeed)
+		csaPrivKeySeeds = append(csaPrivKeySeeds, key.PrivateKeySeed)
+	}
+
+	msInfo := MSInfoConf{
+		RemoteUrl:               te.MSInfo.RemoteUrl,
+		LocalUrl:                te.MSInfo.LocalUrl,
+		RemoteWsrpcUrl:          te.MSInfo.RemoteWsrpcUrl,
+		LocalWsrpcUrl:           te.MSInfo.LocalWsrpcUrl,
+		AdminId:                 te.MSInfo.AdminId,
+		AdminKey:                te.MSInfo.AdminKey,
+		AdminEncryptedKey:       te.MSInfo.AdminEncryptedKey,
+		RpcPubKey:               te.MSInfo.RpcPubKey,
+		RpcNodesCsaPrivKeySeeds: csaPrivKeySeeds,
+	}
+
 	return &TestEnvConfig{
 		Id:            te.Id,
 		K8Namespace:   k8namespace,
 		ChainId:       te.ChainId,
 		ContractsInfo: contractsInfo,
-		MSInfo:        te.MSInfo,
+		MSInfo:        msInfo,
 		Actions:       te.ActionLog,
 	}
 }
@@ -693,8 +708,39 @@ func buildRpcNodesJsonConfMock() ([]byte, error) {
 	return b, nil
 }
 
+func buildMockedRpcNodesConf() ([]RpcNode, []CsaKeyWrapper) {
+	_, privKey, _ := ed25519.GenerateKey(rand.Reader)
+	csaKeys := []CsaKeyWrapper{
+		{
+			PrivateKeySeed: hex.EncodeToString(privKey.Seed()),
+			KeyV2:          csakey.Raw(privKey).Key(),
+		},
+	}
+
+	rpcNodeConf := []RpcNode{
+		{
+			Id:            "0",
+			Status:        "active",
+			NodeAddress:   []string{"0x9aF03D0296F21f59aB956e83f9d969F544a021Fa"},
+			OracleAddress: "0x0000000000000000000000000000000000000000",
+			CsaKeys: []CsaKeyInfo{
+				{
+					NodeName:    "0",
+					NodeAddress: "0x9aF03D0296F21f59aB956e83f9d969F544a021Fa",
+					PublicKey:   csaKeys[0].KeyV2.PublicKeyString(),
+				},
+			},
+			Ocr2ConfigPublicKey:   []string{"fdff12ced64d6419b432f5096aa9b3de04531cf923b0142095f3e40014e81305"},
+			Ocr2OffchainPublicKey: []string{"93400913aedd411ed6ec5d13c83ca7d666636a43dfd1195d62b3f4c0e1e6ce49"},
+			Ocr2OnchainPublicKey:  []string{"01f2b0776f613604149579c8aebcf6ccf091b765"},
+		},
+	}
+
+	return rpcNodeConf, csaKeys
+}
+
 // Build config with nodes for Mercury server
-func buildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
+func buildRpcNodesConf(chainlinkNodes []*client.Chainlink) ([]*oracle, error) {
 	var msRpcNodesConf []*oracle = []*oracle{}
 	for i, chainlinkNode := range chainlinkNodes {
 		nodeName := fmt.Sprint(i)
@@ -741,7 +787,7 @@ func buildRpcNodesJsonConf(chainlinkNodes []*client.Chainlink) ([]byte, error) {
 		}
 		msRpcNodesConf = append(msRpcNodesConf, node)
 	}
-	return json.Marshal(msRpcNodesConf)
+	return msRpcNodesConf, nil
 }
 
 type User struct {
@@ -773,45 +819,73 @@ func buildInitialDbSql(users []User) (string, error) {
 	return buf.String(), nil
 }
 
-type CsaKey struct {
+type CsaKeyWrapper struct {
+	csakey.KeyV2
+	PrivateKeySeed string // hex encoded
+}
+
+type RpcNode struct {
+	Id                    string       `json:"id"`
+	Website               string       `json:"website"`
+	Name                  string       `json:"name"`
+	Status                string       `json:"status"`
+	OracleAddress         string       `json:"oracleAddress"`
+	NodeAddress           []string     `json:"nodeAddress"`
+	Ocr2ConfigPublicKey   []string     `json:"ocr2ConfigPublicKey"`
+	Ocr2OffchainPublicKey []string     `json:"ocr2OffchainPublicKey"`
+	Ocr2OnchainPublicKey  []string     `json:"ocr2OnchainPublicKey"`
+	CsaKeys               []CsaKeyInfo `json:"csaKeys"`
+}
+
+type CsaKeyInfo struct {
 	NodeName    string `json:"nodeName"`
 	NodeAddress string `json:"nodeAddress"`
 	PublicKey   string `json:"publicKey"`
 }
 
-type RpcNode struct {
-	Id                    string   `json:"id"`
-	Website               string   `json:"website"`
-	Name                  string   `json:"name"`
-	Status                string   `json:"status"`
-	OracleAddress         string   `json:"oracleAddress"`
-	NodeAddress           []string `json:"nodeAddress"`
-	Ocr2ConfigPublicKey   []string `json:"ocr2ConfigPublicKey"`
-	Ocr2OffchainPublicKey []string `json:"ocr2OffchainPublicKey"`
-	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
-	CsaKeys               []CsaKey `json:"csaKeys"`
-}
+// Returns rpc pub key and list of node csa keys (when mock conf is used instead of DON)
+func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyWrapper, error) {
+	if te.IsExistingEnv {
+		// Connect to existing mercury server env and forward ports
+		te.Env.
+			AddHelm(mshelm.New(te.MSChartPath, "", nil)).
+			Run()
 
-func (te *TestEnv) AddMercuryServer(users *[]User, customRpcNodeConf *[]RpcNode) error {
-	var rpcNodesJsonConf []byte
+		te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
+		te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
+		te.MSInfo.RemoteWsrpcUrl = te.Env.URLs[mshelm.URLsKey][2]
+		te.MSInfo.LocalWsrpcUrl = te.Env.URLs[mshelm.URLsKey][3]
+
+		te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
+
+		return te.MSInfo.RpcPubKey, te.MSInfo.RpcNodesCsaKeys, nil
+	}
+
+	// Build conf for rpc nodes
+	var nodesCsaKeys []CsaKeyWrapper
+	var rpcNodesConf interface{}
 	var err error
-	if customRpcNodeConf != nil {
-		rpcNodesJsonConf, err = json.Marshal(customRpcNodeConf)
+	if len(te.ChainlinkNodes) > 0 {
+		rpcNodesConf, err = buildRpcNodesConf(te.ChainlinkNodes)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-	} else if len(te.ChainlinkNodes) > 0 {
-		rpcNodesJsonConf, _ = buildRpcNodesJsonConf(te.ChainlinkNodes)
 	} else {
-		rpcNodesJsonConf, _ = buildRpcNodesJsonConfMock()
+		rpcNodesConf, nodesCsaKeys = buildMockedRpcNodesConf()
+		te.MSInfo.RpcNodesCsaKeys = nodesCsaKeys
+
 		log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
+	}
+	rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
+	if err != nil {
+		return nil, nil, err
 	}
 	log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
 
 	// Generate keys for Mercury RPC server
 	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	te.MSInfo.RpcPubKey = rpcPubKey
 	te.MSInfo.RpcPubKeyString = hex.EncodeToString(rpcPubKey)
@@ -831,7 +905,7 @@ func (te *TestEnv) AddMercuryServer(users *[]User, customRpcNodeConf *[]RpcNode)
 		initDbSql, err = buildInitialDbSql(defaultUsers)
 	}
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
 
@@ -866,7 +940,7 @@ func (te *TestEnv) AddMercuryServer(users *[]User, customRpcNodeConf *[]RpcNode)
 
 	te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
 
-	return nil
+	return rpcPubKey, nodesCsaKeys, nil
 }
 
 func (te *TestEnv) BuildOCRConfig() (*contracts.MercuryOCRConfig, error) {
@@ -1053,7 +1127,8 @@ func SetupMercuryMultiFeedEnv(
 	if err != nil {
 		return TestEnv{}, err
 	}
-	if err = testEnv.AddMercuryServer(nil, nil); err != nil {
+	_, _, err = testEnv.AddMercuryServer(nil)
+	if err != nil {
 		return TestEnv{}, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
