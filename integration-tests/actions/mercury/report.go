@@ -8,6 +8,8 @@ import (
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func mustNewType(t string) abi.Type {
@@ -18,7 +20,7 @@ func mustNewType(t string) abi.Type {
 	return result
 }
 
-func getReportTypes() abi.Arguments {
+func GetReportTypes() abi.Arguments {
 	return []abi.Argument{
 		{Name: "feedId", Type: mustNewType("bytes32")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
@@ -31,7 +33,7 @@ func getReportTypes() abi.Arguments {
 	}
 }
 
-func getPayloadTypes() abi.Arguments {
+func GetPayloadTypes() abi.Arguments {
 	return []abi.Argument{
 		{Name: "reportContext", Type: mustNewType("bytes32[3]")},
 		{Name: "report", Type: mustNewType("bytes")},
@@ -41,8 +43,8 @@ func getPayloadTypes() abi.Arguments {
 	}
 }
 
-var ReportTypes = getReportTypes()
-var PayloadTypes = getPayloadTypes()
+var ReportTypes = GetReportTypes()
+var PayloadTypes = GetPayloadTypes()
 
 type ReportWithContext struct {
 	Report Report
@@ -198,4 +200,20 @@ func decodeBlobToReport(reportBlob []byte) (*Report, error) {
 	}
 
 	return report, nil
+}
+
+func BuildSampleReport(feedId [32]byte) []byte {
+	timestamp := uint32(42)
+	bp := big.NewInt(242)
+	bid := big.NewInt(243)
+	ask := big.NewInt(244)
+	currentBlockNumber := uint64(143)
+	currentBlockHash := utils.NewHash()
+	validFromBlockNum := uint64(142)
+
+	b, err := reportcodec.ReportTypes.Pack(feedId, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, validFromBlockNum)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

@@ -121,10 +121,13 @@ func (c *TestEnvConfig) Save() (string, error) {
 type mercuryServerInfo struct {
 	RemoteUrl         string `json:"remoteUrl"`
 	LocalUrl          string `json:"localUrl"`
+	RemoteWsrpcUrl    string `json:"remoteWsrpcUrl"`
+	LocalWsrpcUrl     string `json:"localWsrpcUrl"`
 	AdminId           string `json:"adminId"`
 	AdminKey          string `json:"adminKey"`
 	AdminEncryptedKey string `json:"adminEncryptedKey"`
-	RpcPubKey         string `json:"rpcPubKey"`
+	RpcPubKeyString   string `json:"rpcPubKey"`
+	RpcPubKey         ed25519.PublicKey
 }
 
 // Fetch mercury environment config from local json file
@@ -651,7 +654,7 @@ func (te *TestEnv) AddOCRJobs(actionId string, contractId string, fromBlock uint
 
 		js := buildOCRSpec(
 			contractId, te.ChainId, uint32(fromBlock), feedId, mockserverUrl,
-			csaPubKey, te.MSInfo.RemoteUrl, te.MSInfo.RpcPubKey, nodeOCRKeyId[0], p2pV2Bootstrapper)
+			csaPubKey, te.MSInfo.RemoteUrl, te.MSInfo.RpcPubKeyString, nodeOCRKeyId[0], p2pV2Bootstrapper)
 		_, err = te.ChainlinkNodes[nodeIndex].MustCreateJob(js)
 		if err != nil {
 			return err
@@ -770,24 +773,34 @@ func buildInitialDbSql(users []User) (string, error) {
 	return buf.String(), nil
 }
 
-func (te *TestEnv) InitEnv() error {
-	env := environment.New(&environment.Config{
-		TTL:              te.EnvTTL,
-		NamespacePrefix:  fmt.Sprintf("%s-mercury", te.NsPrefix),
-		Namespace:        te.Namespace,
-		NoManifestUpdate: te.IsExistingEnv,
-	})
-	err := env.Run()
-	if err == nil {
-		te.Env = env
-	}
-	return err
+type CsaKey struct {
+	NodeName    string `json:"nodeName"`
+	NodeAddress string `json:"nodeAddress"`
+	PublicKey   string `json:"publicKey"`
 }
 
-func (te *TestEnv) AddMercuryServer(users *[]User) error {
+type RpcNode struct {
+	Id                    string   `json:"id"`
+	Website               string   `json:"website"`
+	Name                  string   `json:"name"`
+	Status                string   `json:"status"`
+	OracleAddress         string   `json:"oracleAddress"`
+	NodeAddress           []string `json:"nodeAddress"`
+	Ocr2ConfigPublicKey   []string `json:"ocr2ConfigPublicKey"`
+	Ocr2OffchainPublicKey []string `json:"ocr2OffchainPublicKey"`
+	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey"`
+	CsaKeys               []CsaKey `json:"csaKeys"`
+}
 
+func (te *TestEnv) AddMercuryServer(users *[]User, customRpcNodeConf *[]RpcNode) error {
 	var rpcNodesJsonConf []byte
-	if len(te.ChainlinkNodes) > 0 {
+	var err error
+	if customRpcNodeConf != nil {
+		rpcNodesJsonConf, err = json.Marshal(customRpcNodeConf)
+		if err != nil {
+			return err
+		}
+	} else if len(te.ChainlinkNodes) > 0 {
 		rpcNodesJsonConf, _ = buildRpcNodesJsonConf(te.ChainlinkNodes)
 	} else {
 		rpcNodesJsonConf, _ = buildRpcNodesJsonConfMock()
@@ -800,7 +813,8 @@ func (te *TestEnv) AddMercuryServer(users *[]User) error {
 	if err != nil {
 		return err
 	}
-	te.MSInfo.RpcPubKey = hex.EncodeToString(rpcPubKey)
+	te.MSInfo.RpcPubKey = rpcPubKey
+	te.MSInfo.RpcPubKeyString = hex.EncodeToString(rpcPubKey)
 
 	var initDbSql string
 	if users != nil {
@@ -847,6 +861,9 @@ func (te *TestEnv) AddMercuryServer(users *[]User) error {
 
 	te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
 	te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
+	te.MSInfo.RemoteWsrpcUrl = te.Env.URLs[mshelm.URLsKey][2]
+	te.MSInfo.LocalWsrpcUrl = te.Env.URLs[mshelm.URLsKey][3]
+
 	te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
 
 	return nil
@@ -1036,7 +1053,7 @@ func SetupMercuryMultiFeedEnv(
 	if err != nil {
 		return TestEnv{}, err
 	}
-	if err = testEnv.AddMercuryServer(nil); err != nil {
+	if err = testEnv.AddMercuryServer(nil, nil); err != nil {
 		return TestEnv{}, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")

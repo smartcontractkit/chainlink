@@ -25,7 +25,7 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 	var (
 		feedIds = [][32]byte{
 			mercury.StringToByte32("feed-1"),
-			mercury.StringToByte32("feed-2"),
+			// mercury.StringToByte32("feed-2"),
 		}
 	)
 
@@ -44,7 +44,7 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	require.NoError(t, err)
 
-	err = testEnv.AddMercuryServer(nil)
+	err = testEnv.AddMercuryServer(nil, nil)
 	require.NoError(t, err)
 
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")

@@ -189,6 +189,9 @@ func validateNewReportsEveryBlock(
 				log.Warn().Msgf("No report for block: %d for %s", bn, validatorId)
 			} else {
 				reportBytes, err := hex.DecodeString(reportData.ChainlinkBlob[2:])
+				if err != nil {
+					resultChan <- testResult{Err: err}
+				}
 				reportCtx, err := mercuryactions.DecodeReport(reportBytes)
 				if err != nil {
 					resultChan <- testResult{Err: err}
@@ -329,7 +332,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	require.NoError(t, err)
 
-	err = testEnv.AddMercuryServer(nil)
+	err = testEnv.AddMercuryServer(nil, nil)
 	require.NoError(t, err)
 
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
