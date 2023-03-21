@@ -32,7 +32,12 @@ type client struct {
 	client pb.MercuryClient
 }
 
+// Consumers of wsrpc package should not usually call NewClient directly, but instead use the Pool
 func NewClient(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+	return newClient(lggr, privKey, serverPubKey, serverURL)
+}
+
+func newClient(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string) *client {
 	return &client{
 		csaKey:       privKey,
 		serverPubKey: serverPubKey,
@@ -41,6 +46,7 @@ func NewClient(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, se
 	}
 }
 
+// TODO: Actually the client can be started/stopped/started many times
 func (w *client) Start(_ context.Context) error {
 	return w.StartOnce("WSRPC Client", func() error {
 		// NOTE: Dial is non-blocking, and will retry on an exponential backoff

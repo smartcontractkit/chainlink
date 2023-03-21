@@ -43,20 +43,22 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db       *sqlx.DB
-	chainSet evm.ChainSet
-	lggr     logger.Logger
-	cfg      RelayerConfig
-	ks       keystore.Master
+	db          *sqlx.DB
+	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	cfg         RelayerConfig
+	ks          keystore.Master
+	mercuryPool wsrpc.Pool
 }
 
 func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master) *Relayer {
 	return &Relayer{
-		db:       db,
-		chainSet: chainSet,
-		lggr:     lggr.Named("Relayer"),
-		cfg:      cfg,
-		ks:       ks,
+		db:          db,
+		chainSet:    chainSet,
+		lggr:        lggr.Named("Relayer"),
+		cfg:         cfg,
+		ks:          ks,
+		mercuryPool: wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
 	}
 }
 
@@ -71,7 +73,7 @@ func (r *Relayer) Start(context.Context) error {
 
 // Close does noop: no persistent subservices to close on relay close
 func (r *Relayer) Close() error {
-	return nil
+	return r.mercuryPool.Close()
 }
 
 // Ready does noop: always ready
@@ -79,8 +81,11 @@ func (r *Relayer) Ready() error {
 	return nil
 }
 
-func (r *Relayer) HealthReport() map[string]error {
-	return r.chainSet.HealthReport()
+func (r *Relayer) HealthReport() (report map[string]error) {
+	report = make(map[string]error)
+	maps.Copy(report, r.chainSet.HealthReport())
+	maps.Copy(report, r.mercuryPool.HealthReport())
+	return
 }
 
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
@@ -113,7 +118,10 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
-	client := wsrpc.NewClient(r.lggr, privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
+	client, err := r.mercuryPool.Checkout(context.Background(), privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
+	if err != nil {
+		return nil, err
+	}
 	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr), nil

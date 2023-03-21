@@ -1178,3 +1178,10 @@ func UnwrapError(err error) []error {
 	}
 	return joined.Unwrap()
 }
+
+// UnstableRemove removes slice element at index i
+// It does no bounds checking and may re-order the slice
+func UnstableRemove[T any](s []T, i int) []T {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}
