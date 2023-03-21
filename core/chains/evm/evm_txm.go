@@ -47,8 +47,11 @@ func newEvmTxm(
 			lggr.Info("EvmForwarderManager: Disabled")
 		}
 
+		// create attempt builder
+		attemptBuilder := txmgr.NewEvmAttemptBuilder(*client.ChainID(), cfg, opts.KeyStore)
+
 		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr)
+		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr, attemptBuilder)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}

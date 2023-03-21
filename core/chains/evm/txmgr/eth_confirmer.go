@@ -136,31 +136,29 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback,
+	attemptBuilder AttemptBuilder, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 
 	return &EthConfirmer{
-		orm:       orm,
-		lggr:      lggr,
-		ethClient: ethClient,
-		AttemptBuilder: &ChainKeyStore{
-			chainID:  *ethClient.ChainID(),
-			config:   config,
-			keystore: keystore,
-		},
-		estimator:                       estimator,
-		resumeCallback:                  resumeCallback,
-		config:                          config,
-		chainID:                         *ethClient.ChainID(),
-		ks:                              keystore,
-		keyStates:                       keyStates,
-		mb:                              utils.NewSingleMailbox[*evmtypes.Head](),
-		ctx:                             ctx,
-		ctxCancel:                       cancel,
-		wg:                              sync.WaitGroup{},
-		nConsecutiveBlocksChainTooShort: 0,
+		utils.StartStopOnce{},
+		orm,
+		lggr,
+		ethClient,
+		attemptBuilder,
+		estimator,
+		resumeCallback,
+		config,
+		*ethClient.ChainID(),
+		keystore,
+		keyStates,
+		utils.NewSingleMailbox[*evmtypes.Head](),
+		ctx,
+		cancel,
+		sync.WaitGroup{},
+		0,
 	}
 }
 

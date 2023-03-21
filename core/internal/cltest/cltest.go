@@ -205,8 +205,9 @@ func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, 
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
+	txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), config, keyStore)
 	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, estimator, nil, lggr,
+		keyStates, estimator, nil, txBuilder, lggr,
 		checkerFactory, nonceAutoSync)
 }
 
@@ -219,8 +220,8 @@ func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, co
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
-
-	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, estimator, fn, lggr)
+	txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), config, ks)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, estimator, fn, txBuilder, lggr)
 	return ec
 }
 

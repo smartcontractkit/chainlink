@@ -573,6 +573,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, ethKeyStore)
 
 	chStartEstimate := make(chan struct{})
 	chBlock := make(chan struct{})
@@ -593,6 +594,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		[]ethkey.State{keyState},
 		estimator,
 		nil,
+		txBuilder,
 		logger.TestLogger(t),
 		&testCheckerFactory{},
 		false,
@@ -986,6 +988,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, ethKeyStore)
 
 	eb := cltest.NewEthBroadcaster(t, borm, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{}, false)
 
@@ -1143,7 +1146,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					lggr := logger.TestLogger(t)
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg)
 					eb = txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
-						[]ethkey.State{keyState}, estimator, fn, lggr,
+						[]ethkey.State{keyState}, estimator, fn, txBuilder, lggr,
 						&testCheckerFactory{}, false)
 
 					{
@@ -1897,8 +1900,9 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	t.Run("does nothing if nonce sync is disabled", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, kst)
 
-		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, false)
+		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, txBuilder, lggr, checkerFactory, false)
 
 		require.NoError(t, eb.Start(ctx))
 		defer func() { assert.NoError(t, eb.Close()) }()
@@ -1908,8 +1912,9 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	t.Run("when eth node returns nonce, successfully sets nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, kst)
 
-		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, true)
+		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, txBuilder, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
@@ -1937,8 +1942,9 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 	t.Run("when eth node returns error, retries and successfully sets nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, kst)
 
-		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, lggr, checkerFactory, true)
+		eb := txmgr.NewEthBroadcaster(borm, ethClient, evmcfg, kst, eventBroadcaster, keyStates, estimator, nil, txBuilder, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()

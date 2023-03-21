@@ -1562,8 +1562,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, kst)
 		// Create confirmer with necessary state
-		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
+		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, txBuilder, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)
@@ -1603,7 +1604,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
-		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
+		txBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), evmcfg, kst)
+		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, txBuilder, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)

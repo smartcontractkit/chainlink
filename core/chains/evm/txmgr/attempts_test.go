@@ -5,7 +5,9 @@ import (
 	"math/big"
 	"testing"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -14,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
+	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -21,6 +24,45 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
+
+func TestTxm_SignTx(t *testing.T) {
+	t.Parallel()
+
+	addr := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
+	to := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
+	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
+		Nonce:    42,
+		To:       &to,
+		Value:    big.NewInt(142),
+		Gas:      242,
+		GasPrice: big.NewInt(342),
+		Data:     []byte{1, 2, 3},
+	})
+
+	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		cfg := txmmocks.NewConfig(t)
+		kst := ksmocks.NewEth(t)
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		cks := txmgr.NewEvmAttemptBuilder(*chainID, cfg, kst)
+		hash, rawBytes, err := cks.SignTx(addr, tx)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
+	})
+	// okex used to have a custom hash but now this just verifies that is it the same
+	t.Run("returns correct hash for okex chains", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		cfg := txmmocks.NewConfig(t)
+		kst := ksmocks.NewEth(t)
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		cks := txmgr.NewEvmAttemptBuilder(*chainID, cfg, kst)
+		hash, rawBytes, err := cks.SignTx(addr, tx)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
+	})
+}
 
 func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	addr := testutils.NewAddress()
@@ -33,7 +75,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		gcfg := configtest.NewGeneralConfig(t, nil)
 		cfg := evmtest.NewChainScopedConfig(t, gcfg)
-		cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+		cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst)
 		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 		a, _, err := cks.NewAttemptWithType(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x2, lggr)
 		require.NoError(t, err)
@@ -72,7 +114,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				gcfg := configtest.NewGeneralConfig(t, test.setCfg)
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
-				cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+				cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst)
 				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
 				_, _, err := cks.NewAttemptWithType(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x2, lggr)
 				if test.expectError == "" {
@@ -95,7 +137,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	kst := ksmocks.NewEth(t)
 	tx := types.NewTx(&types.LegacyTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
-	cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+	cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst)
 	lggr := logger.TestLogger(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
@@ -122,7 +164,7 @@ func TestTxm_NewAttempt_NonRetryableErrors(t *testing.T) {
 	cfg := mocks.NewConfig(t)
 	kst := ksmocks.NewEth(t)
 	lggr := logger.TestLogger(t)
-	cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+	cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst)
 
 	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 	legacyFee := assets.NewWeiI(100)

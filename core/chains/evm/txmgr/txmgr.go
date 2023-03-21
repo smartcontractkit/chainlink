@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -123,6 +122,7 @@ type Txm struct {
 	ethBroadcaster *EthBroadcaster
 	ethConfirmer   *EthConfirmer
 	fwdMgr         *forwarders.FwdMgr
+	attemptBuilder AttemptBuilder
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -133,6 +133,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	fwdMgr *forwarders.FwdMgr,
+	attemptBuilder AttemptBuilder,
 ) *Txm {
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -153,6 +154,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
+		attemptBuilder:   attemptBuilder,
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
@@ -185,8 +187,8 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.attemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.attemptBuilder, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -328,8 +330,8 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.attemptBuilder, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.attemptBuilder, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -555,28 +557,6 @@ func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.
 ) RETURNING eth_txes.*`
 	err = b.q.GetNamed(query, &etx, etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
-}
-
-type ChainKeyStore struct {
-	chainID  big.Int
-	config   Config
-	keystore KeyStore
-}
-
-func NewChainKeyStore(chainID big.Int, config Config, keystore KeyStore) ChainKeyStore {
-	return ChainKeyStore{chainID, config, keystore}
-}
-
-func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction) (common.Hash, []byte, error) {
-	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
-	if err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
-	}
-	rlp := new(bytes.Buffer)
-	if err = signedTx.EncodeRLP(rlp); err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
-	}
-	return signedTx.Hash(), rlp.Bytes(), nil
 }
 
 // send broadcasts the transaction to the ethereum network, writes any relevant

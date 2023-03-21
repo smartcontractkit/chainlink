@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -13,12 +14,38 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+// AttemptBuilder takes the base unsigned transaction + gas parameters
+// and returns a signed TxAttempt
 type AttemptBuilder interface {
 	NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error)
 	NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error)
 }
 
-func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error) {
+var _ AttemptBuilder = (*evmAttemptBuilder)(nil)
+
+type evmAttemptBuilder struct {
+	chainID  big.Int
+	config   Config
+	keystore KeyStore
+}
+
+func NewEvmAttemptBuilder(chainID big.Int, config Config, keystore KeyStore) *evmAttemptBuilder {
+	return &evmAttemptBuilder{chainID, config, keystore}
+}
+
+func (c *evmAttemptBuilder) SignTx(address common.Address, tx *gethTypes.Transaction) (common.Hash, []byte, error) {
+	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
+	if err != nil {
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
+	}
+	rlp := new(bytes.Buffer)
+	if err = signedTx.EncodeRLP(rlp); err != nil {
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
+	}
+	return signedTx.Hash(), rlp.Bytes(), nil
+}
+
+func (c *evmAttemptBuilder) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, lggr logger.Logger) (attempt EthTxAttempt, err error) {
 	txType := 0x0
 	if c.config.EvmEIP1559DynamicFees() {
 		txType = 0x2
@@ -28,7 +55,7 @@ func (c *ChainKeyStore) NewAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, l
 	return attempt, err
 }
 
-func (c *ChainKeyStore) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error) {
+func (c *evmAttemptBuilder) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error) {
 	switch txType {
 	case 0x0: // legacy
 		if fee.Legacy == nil {
@@ -54,7 +81,7 @@ func (c *ChainKeyStore) NewAttemptWithType(etx EthTx, fee gas.EvmFee, gasLimit u
 	}
 }
 
-func (c *ChainKeyStore) newDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *evmAttemptBuilder) newDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -139,7 +166,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth
 	}
 }
 
-func (c *ChainKeyStore) newLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *evmAttemptBuilder) newLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -188,7 +215,7 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Et
 	return nil
 }
 
-func (c *ChainKeyStore) newSignedAttempt(etx EthTx, tx *types.Transaction) (attempt EthTxAttempt, err error) {
+func (c *evmAttemptBuilder) newSignedAttempt(etx EthTx, tx *types.Transaction) (attempt EthTxAttempt, err error) {
 	hash, signedTxBytes, err := c.signTx(etx.FromAddress, tx)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
@@ -214,7 +241,7 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	}
 }
 
-func (c *ChainKeyStore) signTx(address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
+func (c *evmAttemptBuilder) signTx(address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
 	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")

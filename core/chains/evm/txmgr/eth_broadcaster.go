@@ -124,19 +124,16 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback,
+	attemptBuilder AttemptBuilder,
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
 	return &EthBroadcaster{
-		logger:    logger,
-		orm:       orm,
-		ethClient: ethClient,
-		AttemptBuilder: &ChainKeyStore{
-			chainID:  *ethClient.ChainID(),
-			config:   config,
-			keystore: keystore,
-		},
+		logger:           logger,
+		orm:              orm,
+		ethClient:        ethClient,
+		AttemptBuilder:   attemptBuilder,
 		estimator:        estimator,
 		resumeCallback:   resumeCallback,
 		chainID:          *ethClient.ChainID(),
