@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
-...
+### Changed
+
+- TOML configuration and secrets are now scoped to `chainlink node start` command rather than being global flags
+
+### Removed
+
+- Configuration with legacy environment variables is no longer supported. TOML is required.
 
 <!-- unreleasedstop -->
 
@@ -43,7 +49,7 @@ of any values provided via configuration files.
 
 ### Removed
 
-- Terra is no longer supported 
+- Terra is no longer supported
 
 ## 1.12.0 - 2023-02-15
 

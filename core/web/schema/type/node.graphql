@@ -4,8 +4,6 @@ type Node {
     wsURL: String!
     httpURL: String!
     chain: Chain!
-    createdAt: Time!
-    updatedAt: Time!
     state: String!
     sendOnly: Boolean!
 }

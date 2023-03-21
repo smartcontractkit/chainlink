@@ -3,7 +3,6 @@ package chains
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -11,13 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-type ChainsORM[I ID, CFG Config, C DBChain[I, CFG]] interface {
+type ChainConfigs[I ID, CFG Config, C ChainConfig[I, CFG]] interface {
 	Chain(I, ...pg.QOpt) (C, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]C, int, error)
 	GetChainsByIDs(ids []I) (chains []C, err error)
 }
 
-type NodesORM[I ID, N Node] interface {
+type NodeConfigs[I ID, N Node] interface {
 	GetNodesByChainIDs(chainIDs []I, qopts ...pg.QOpt) (nodes []N, err error)
 	NodeNamed(string, ...pg.QOpt) (N, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
@@ -26,10 +25,12 @@ type NodesORM[I ID, N Node] interface {
 
 // ORM manages chains and nodes.
 type ORM[I ID, C Config, N Node] interface {
-	ChainsORM[I, C, DBChain[I, C]]
+	ChainConfigs[I, C, ChainConfig[I, C]]
 
-	NodesORM[I, N]
+	NodeConfigs[I, N]
 
+	// EnsureChains creates an entry for any chain IDs which don't already exist.
+	// TODO remove with https://smartcontract-it.atlassian.net/browse/BCF-1474
 	EnsureChains([]I, ...pg.QOpt) error
 }
 
@@ -48,17 +49,15 @@ func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) O
 	}
 }
 
-// DBChain is a generic DB chain for an ID and Config.
+// ChainConfig is a generic DB chain for an ID and Config.
 //
-// A DBChain type alias can be used for convenience:
+// A ChainConfig type alias can be used for convenience:
 //
-//	type DBChain = chains.DBChain[string, pkg.ChainCfg]
-type DBChain[I ID, C Config] struct {
-	ID        I
-	Cfg       C
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Enabled   bool
+//	type ChainConfig = chains.ChainConfig[string, pkg.ChainCfg]
+type ChainConfig[I ID, C Config] struct {
+	ID      I
+	Cfg     C
+	Enabled bool
 }
 
 // chainsORM is a generic ORM for chains.
@@ -72,14 +71,14 @@ func newChainsORM[I ID, C Config](q pg.Q, prefix string) *chainsORM[I, C] {
 	return &chainsORM[I, C]{q: q, prefix: prefix}
 }
 
-func (o *chainsORM[I, C]) Chain(id I, qopts ...pg.QOpt) (dbchain DBChain[I, C], err error) {
+func (o *chainsORM[I, C]) Chain(id I, qopts ...pg.QOpt) (cc ChainConfig[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	chainSQL := fmt.Sprintf(`SELECT * FROM %s_chains WHERE id = $1;`, o.prefix)
-	err = q.Get(&dbchain, chainSQL, id)
+	err = q.Get(&cc, chainSQL, id)
 	return
 }
 
-func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error) {
+func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []ChainConfig[I, C], err error) {
 	sql := fmt.Sprintf(`SELECT * FROM %s_chains WHERE id = ANY($1) ORDER BY created_at, id;`, o.prefix)
 
 	chainIDs := pq.Array(ids)
@@ -105,7 +104,7 @@ func (o *chainsORM[I, C]) EnsureChains(ids []I, qopts ...pg.QOpt) (err error) {
 	return nil
 }
 
-func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []DBChain[I, C], count int, err error) {
+func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []ChainConfig[I, C], count int, err error) {
 	err = o.q.WithOpts(qopts...).Transaction(func(q pg.Queryer) error {
 		if err = q.Get(&count, fmt.Sprintf("SELECT COUNT(*) FROM %s_chains", o.prefix)); err != nil {
 			return errors.Wrap(err, "failed to fetch chains count")

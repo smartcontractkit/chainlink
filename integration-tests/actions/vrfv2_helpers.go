@@ -3,9 +3,13 @@ package actions
 import (
 	"context"
 	"fmt"
-	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"math/big"
 	"testing"
+
+	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
@@ -52,7 +56,7 @@ func CreateVRFV2Jobs(
 	c blockchain.EVMClient,
 	minIncomingConfirmations int,
 ) []VRFV2JobInfo {
-	l := GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()

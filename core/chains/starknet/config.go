@@ -65,7 +65,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
 	}
 }
 
-func (cs StarknetConfigs) Chains(ids ...string) (chains []types.DBChain) {
+func (cs StarknetConfigs) Chains(ids ...string) (chains []types.ChainConfig) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -175,7 +175,7 @@ func setFromChain(c, f *stkcfg.Chain) {
 	}
 }
 
-func (c *StarknetConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
+func (c *StarknetConfig) SetFromDB(ch types.ChainConfig, nodes []db.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
 
@@ -207,8 +207,8 @@ func (c *StarknetConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *StarknetConfig) AsV1() types.DBChain {
-	return types.DBChain{
+func (c *StarknetConfig) AsV1() types.ChainConfig {
+	return types.ChainConfig{
 		ID:      *c.ChainID,
 		Enabled: c.IsEnabled(),
 		Cfg: &starknetdb.ChainCfg{
@@ -279,8 +279,4 @@ func (c *StarknetConfig) OCR2CacheTTL() time.Duration {
 
 func (c *StarknetConfig) RequestTimeout() time.Duration {
 	return c.Chain.RequestTimeout.Duration()
-}
-
-func (c *StarknetConfig) Update(cfg db.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
 }
