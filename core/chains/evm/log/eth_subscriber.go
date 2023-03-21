@@ -118,7 +118,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 
 			var elapsedMessage string
 			if elapsed > time.Minute {
-				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_SKIP configuration variable to \"true\")"
+				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the EVM.BlockBackfillSkip configuration variable to \"true\")"
 			}
 			if err != nil {
 				if ctx.Err() != nil {

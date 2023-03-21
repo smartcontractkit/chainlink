@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -39,7 +38,7 @@ func setupKeeperDB(t *testing.T) (
 	gcfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	orm := keeper.NewORM(db, logger.TestLogger(t), cfg, txmgr.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), cfg)
 	return db, cfg, orm
 }
 

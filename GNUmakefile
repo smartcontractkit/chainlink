@@ -33,6 +33,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: gomodtidy
 gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
+	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 
 .PHONY: install-chainlink

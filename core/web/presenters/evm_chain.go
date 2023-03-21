@@ -9,7 +9,7 @@ import (
 
 // EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {
-	chainResource[*evmtypes.ChainCfg]
+	ChainResource[*evmtypes.ChainCfg]
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -19,7 +19,7 @@ func (r EVMChainResource) GetName() string {
 
 // NewEVMChainResource returns a new EVMChainResource for chain.
 func NewEVMChainResource(chain evmtypes.ChainConfig) EVMChainResource {
-	return EVMChainResource{chainResource[*evmtypes.ChainCfg]{
+	return EVMChainResource{ChainResource[*evmtypes.ChainCfg]{
 		JAID:    NewJAIDInt64(chain.ID.ToInt().Int64()),
 		Config:  chain.Cfg,
 		Enabled: chain.Enabled,
@@ -44,7 +44,7 @@ func (r EVMNodeResource) GetName() string {
 // NewEVMNodeResource returns a new EVMNodeResource for node.
 func NewEVMNodeResource(node evmtypes.Node) EVMNodeResource {
 	return EVMNodeResource{
-		JAID:       NewJAIDInt32(node.ID),
+		JAID:       NewJAID(node.Name),
 		Name:       node.Name,
 		EVMChainID: node.EVMChainID,
 		WSURL:      node.WSURL,
