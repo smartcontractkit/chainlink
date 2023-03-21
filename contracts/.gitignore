@@ -7,6 +7,8 @@ coverage
 coverage.json
 typechain
 
+src/v0.8/mocks/EventsMock.sol
+
 # Foundry
 foundry-cache
 foundry-artifacts

@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/Masterminds/sprig"
 )
@@ -92,17 +90,6 @@ func getABIFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func randomString(length int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyz"
-	rand.Seed(time.Now().UnixNano())
-
-	result := make([]byte, length)
-	for i := 0; i < length; i++ {
-		result[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(result)
-}
-
 func extractEventsAndStructs(abiJSON []byte, fileName string) ([]SolEvent, []SolStruct, error) {
 	var parsedABI []AbiEvent
 	err := json.Unmarshal(abiJSON, &parsedABI)
@@ -118,9 +105,9 @@ func extractEventsAndStructs(abiJSON []byte, fileName string) ([]SolEvent, []Sol
 			eventName := fmt.Sprintf("%s_%s", fileName, item.Name)
 			var eventParams []SolEventParam
 
-			for _, input := range item.Inputs {
+			for i, input := range item.Inputs {
 				if input.Name == "" {
-					input.Name = randomString(8)
+					input.Name = "param" + fmt.Sprintf("%d", i+1)
 				}
 				if input.Type == "tuple" && strings.Contains(input.InternalType, "struct") {
 					internalType := strings.TrimPrefix(input.InternalType, "struct ")
