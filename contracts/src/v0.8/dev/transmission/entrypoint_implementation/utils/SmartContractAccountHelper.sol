@@ -58,4 +58,17 @@ library SmartContractAccountHelper {
     bytes32 initializeCodeHash = keccak256(initializeCodeWithConstructor);
     return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, initializeCodeHash)))));
   }
+
+  function getAbiEncodedDirectRequestData(
+    address recipient,
+    uint256 topupThreshold,
+    uint256 topupAmount
+  ) external view returns (bytes memory) {
+    SCALibrary.DirectFundingData memory data = SCALibrary.DirectFundingData({
+      recipient: recipient,
+      topupThreshold: topupThreshold,
+      topupAmount: topupAmount
+    });
+    return abi.encode(data);
+  }
 }

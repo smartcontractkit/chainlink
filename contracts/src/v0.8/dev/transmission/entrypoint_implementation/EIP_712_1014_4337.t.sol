@@ -12,6 +12,9 @@ import "./contracts/EntryPoint.sol";
 import "./interfaces/IEntryPoint.sol";
 import "./consumers/SCALibrary.sol";
 import "../../../mocks/MockLinkToken.sol";
+import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../mocks/VRFCoordinatorMock.sol";
+import "../../../tests/VRFConsumer.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
 | EIP 712 + 1014 + 4337                                                                                               |
@@ -44,6 +47,8 @@ import "../../../mocks/MockLinkToken.sol";
 +----------------------------*/
 
 contract EIP_712_1014_4337 is Test {
+    event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed, uint256 fee);
+
     address internal constant LINK_WHALE =
         0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
     address internal constant LINK_WHALE_2 =
@@ -72,7 +77,10 @@ contract EIP_712_1014_4337 is Test {
 
     bytes signature3 = // Signature #2 by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
         hex"9895b844224797d1d5caf20862c182032b3dfcb901840aa91ae08478d422daa43f6ccdf8f7c862c2c03364fcf181ca019242dc265a841b6c0c6c1f80d13e05b800";
-
+    
+    bytes signature4 = 
+        hex"09e5fe6c212e5fe7959c618362ff86621916618182fb8f117040d28f6f9ae541520bb9cba50a73b5b6167f7ebe7de0f9e357bf1c1c43a0d0c424b6ddeaac282500";
+    
     function setUp() public {
         // Fork Goerli.
         uint256 mainnetFork = vm.createFork(
@@ -222,8 +230,7 @@ contract EIP_712_1014_4337 is Test {
         assertEq("bye", Greeter(greeter).getGreeting());
     }
 
-    /// @dev Test case for fresh user, EntryPoint.sol should generate a 
-    /// @dev Smart Contract Account for them and execute the meta transaction.
+    /// @dev Test case for a user executing a setGreeting with a LINK token paymaster.
     function testEIP712EIP4337AndCreateSmartContractAccountWithPaymaster() public {
         // Impersonate a different LINK whale.
         changePrank(LINK_WHALE);
@@ -252,7 +259,7 @@ contract EIP_712_1014_4337 is Test {
 
         // Create Link token, and deposit into paymaster.
         MockLinkToken linkToken = new MockLinkToken();
-        Paymaster paymaster = new Paymaster(address(linkToken));        
+        Paymaster paymaster = new Paymaster(LinkTokenInterface(address(linkToken)));        
         linkToken.transferAndCall(address(paymaster), 1000 ether, abi.encode(address(toDeployAddress)));
 
         // Construct the user opeartion.
@@ -287,4 +294,90 @@ contract EIP_712_1014_4337 is Test {
         assertEq("good day", Greeter(greeter).getGreeting());
     }
 
+    /// @dev Test case for a VRF Request via LINK token paymaster and an SCA.
+    function testEIP712EIP4337AndCreateSmartContractAccountWithPaymasterForVRFRequest() public {
+        // Impersonate a different LINK whale.
+        changePrank(LINK_WHALE);
+
+        // Pre-calculate user smart contract account address.
+        SmartContractAccountFactory factory = new SmartContractAccountFactory();
+        address toDeployAddress = SmartContractAccountHelper.calculateSmartContractAccountAddress(LINK_WHALE_2, ENTRY_POINT, address(factory));
+
+        // Construct initCode byte array.
+        bytes memory fullInitializeCode = SmartContractAccountHelper.getInitCode(address(factory), LINK_WHALE_2, ENTRY_POINT);
+
+        // Create the calldata for a VRF request.
+        bytes32 keyhash = bytes32(uint256(123));
+        uint256 fee = 1 ether;
+        bytes memory encodedVRFRequestCallData = bytes.concat(
+            VRFConsumer.doRequestRandomness.selector,
+            abi.encode(keyhash, fee)
+        );
+
+        // Create the VRF Contracts
+        MockLinkToken linkToken = new MockLinkToken();
+        VRFCoordinatorMock vrfCoordinator = new VRFCoordinatorMock(address(linkToken));
+        VRFConsumer vrfConsumer = new VRFConsumer(address(vrfCoordinator), address(linkToken));
+ 
+        // Produce the final full end-tx encoding, to be used as calldata in the user operation.
+        bytes memory fullEncoding = SmartContractAccountHelper.getFullEndTxEncoding(
+            address(vrfConsumer), // end-contract
+            uint256(0), // value
+            1000, // timeout (seconds)
+            encodedVRFRequestCallData
+        );
+
+        // Create Link token, and deposit into paymaster.
+        Paymaster paymaster = new Paymaster(LinkTokenInterface(address(linkToken)));        
+        linkToken.transferAndCall(address(paymaster), 1000 ether, abi.encode(address(toDeployAddress)));
+
+        // Construct direct funding data.
+        SCALibrary.DirectFundingData memory directFundingData = SCALibrary.DirectFundingData({
+            recipient: address(vrfConsumer),
+            topupThreshold: 1,
+            topupAmount: 10 ether
+        });
+
+        // Construct the user opeartion.
+        UserOperation memory op = UserOperation({
+            sender: toDeployAddress,
+            nonce: 0,
+            initCode: fullInitializeCode,
+            callData: fullEncoding,
+            callGasLimit: 1_000_000,
+            verificationGasLimit: 1_500_000,
+            preVerificationGas: 20_000,
+            maxFeePerGas: 100,
+            maxPriorityFeePerGas: 200,
+            paymasterAndData: abi.encodePacked(address(paymaster), uint8(0), abi.encode(directFundingData)),
+            signature: signature4
+        });
+
+        // For developers: log the final hash of the SCA call to easily produce a signature off-chain.
+        bytes32 userOpHash = entryPoint.getUserOpHash(op);
+        bytes32 fullHash = SmartContractAccountHelper.getFullHashForSigning(userOpHash);
+        console.logBytes32(fullHash);
+
+        // Deposit funds for the transaction.
+        entryPoint.depositTo{value: 10 ether}(address(paymaster));
+
+        // Assert correct log is emmitted for the end-contract vrf request.
+        vm.expectEmit(
+            true,
+            true, 
+            true,
+            true
+        );
+        emit RandomnessRequest(
+            address(vrfConsumer),
+            keyhash,
+            0, // seed - we use a zero seed
+            fee
+        );
+
+        // Execute the user operation.
+        UserOperation[] memory operations = new UserOperation[](1);
+        operations[0] = op;
+        entryPoint.handleOps(operations, payable(LINK_WHALE_2));        
+    }
 }
