@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
-
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -26,8 +24,6 @@ func (p *StarkNetChainPresenter) ToRow() []string {
 		p.GetID(),
 		strconv.FormatBool(p.Enabled),
 		string(config),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
@@ -60,5 +56,5 @@ func (ps StarkNetChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func StarkNetChainClient(client *Client) ChainClient {
-	return newChainClient[*db.ChainCfg, presenters.StarkNetChainResource, StarkNetChainPresenter, StarkNetChainPresenters](client, "starknet")
+	return newChainClient[StarkNetChainPresenters](client, "starknet")
 }

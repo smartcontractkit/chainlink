@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -25,8 +24,6 @@ func (p *EVMChainPresenter) ToRow() []string {
 		p.GetID(),
 		strconv.FormatBool(p.Enabled),
 		string(config),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
@@ -59,5 +56,5 @@ func (ps EVMChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func EVMChainClient(client *Client) ChainClient {
-	return newChainClient[*evmtypes.ChainCfg, presenters.EVMChainResource, EVMChainPresenter, EVMChainPresenters](client, "evm")
+	return newChainClient[EVMChainPresenters](client, "evm")
 }
