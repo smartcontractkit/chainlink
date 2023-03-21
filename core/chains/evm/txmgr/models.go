@@ -73,7 +73,7 @@ type TransmitCheckerSpec struct {
 }
 
 type EthTxState string
-type EthTxAttemptState = string
+type EthTxAttemptState string
 
 // TransmitCheckerType describes the type of check that should be performed before a transaction is
 // executed on-chain.

@@ -17,5 +17,8 @@ type TxStrategy interface {
 	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
 }
 
-// No constants are defined because states may vary based on chain
-type TxAttemptState = string
+type TxAttemptState interface {
+	~string
+}
+
+// one chain may have more attempt states than the other

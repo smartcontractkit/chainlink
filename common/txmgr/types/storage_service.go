@@ -10,7 +10,7 @@ import (
 )
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
-type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
+type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any, S TxAttemptState] interface {
 	UnstartedTxQueuePruner
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
@@ -55,7 +55,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID CHAINID) error
 	UpdateBroadcastAts(now time.Time, etxIDs []TXID) error
 	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce TXMETA, address ADDR, chainID CHAINID, qopts ...pg.QOpt) error
-	UpdateEthTxAttemptInProgressToBroadcast(etx *TX, attempt TXATTEMPT, NewAttemptState TxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error
+	UpdateEthTxAttemptInProgressToBroadcast(etx *TX, attempt TXATTEMPT, NewAttemptState S, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error
 	UpdateEthTxsUnconfirmed(ids []int64) error
 	UpdateEthTxUnstartedToInProgress(etx *TX, attempt *TXATTEMPT, qopts ...pg.QOpt) error
 	UpdateEthTxFatalError(etx *TX, qopts ...pg.QOpt) error
