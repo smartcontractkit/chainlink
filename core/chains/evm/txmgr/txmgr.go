@@ -80,11 +80,11 @@ type TxManager[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
+	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH]
 	RegisterResumeCallback(fn ResumeCallback)
-	SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
+	SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error)
 	Reset(f func(), addr ADDR, abandon bool) error
 }
 
@@ -100,7 +100,7 @@ type reset struct {
 type Txm[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
-	orm              ORM
+	orm              ORM[ADDR, TX_HASH]
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
@@ -109,7 +109,7 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH]
 	chainID          big.Int
-	checkerFactory   TransmitCheckerFactory
+	checkerFactory   TransmitCheckerFactory[ADDR, TX_HASH]
 
 	chHeads        chan *evmtypes.Head
 	trigger        chan ADDR
@@ -123,7 +123,7 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	reaper         *Reaper
 	ethResender    *EthResender
 	ethBroadcaster *EthBroadcaster[ADDR, TX_HASH]
-	ethConfirmer   *EthConfirmer
+	ethConfirmer   *EthConfirmer[ADDR, TX_HASH]
 	fwdMgr         *forwarders.FwdMgr
 }
 
@@ -132,7 +132,7 @@ func (b *Txm[ADDR, TX_HASH]) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm[ADDR, TX_HASH] {
+func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH], logPoller logpoller.LogPoller) *Txm[ADDR, TX_HASH] {
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
@@ -145,7 +145,7 @@ func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient 
 	b := Txm[ADDR, TX_HASH]{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
-		orm:              NewORM(db, lggr, cfg),
+		orm:              NewORM[ADDR, TX_HASH](db, lggr, cfg),
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -399,7 +399,7 @@ func (b *Txm[ADDR, TX_HASH]) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keySt
 	for {
 		select {
 		case address := <-b.trigger:
-			eb.Trigger(address)
+			eb.Trigger(address.String())
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case reset := <-b.reset:
@@ -470,7 +470,7 @@ func (b *Txm[ADDR, TX_HASH]) OnNewLongestChain(ctx context.Context, head *evmtyp
 }
 
 // Trigger forces the EthBroadcaster to check early for the given address
-func (b *Txm[ADDR, TX_HASH]) Trigger(addr common.Address) {
+func (b *Txm[ADDR, TX_HASH]) Trigger(addr ADDR) {
 	select {
 	case b.trigger <- addr:
 	default:
@@ -530,7 +530,7 @@ func (b *Txm[ADDR, TX_HASH]) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (e
 }
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
-func (b *Txm[ADDR, TX_HASH]) GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error) {
+func (b *Txm[ADDR, TX_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
 	if !b.config.EvmUseForwarders() {
 		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set ETH_USE_FORWARDERS=true")
 	}
@@ -656,19 +656,19 @@ func (n *NullTxManager[ADDR, TX_HASH]) Start(context.Context) error { return nil
 func (n *NullTxManager[ADDR, TX_HASH]) Close() error { return nil }
 
 // Trigger does noop for NullTxManager.
-func (n *NullTxManager[ADDR, TX_HASH]) Trigger(common.Address) { panic(n.ErrMsg) }
-func (n *NullTxManager[ADDR, TX_HASH]) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
+func (n *NullTxManager[ADDR, TX_HASH]) Trigger(ADDR) { panic(n.ErrMsg) }
+func (n *NullTxManager[ADDR, TX_HASH]) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager[ADDR, TX_HASH]) GetForwarderForEOA(addr common.Address) (fwdr common.Address, err error) {
+func (n *NullTxManager[ADDR, TX_HASH]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
 	return fwdr, err
 }
-func (n *NullTxManager[ADDR, TX_HASH]) Reset(f func(), addr common.Address, abandon bool) error {
+func (n *NullTxManager[ADDR, TX_HASH]) Reset(f func(), addr ADDR, abandon bool) error {
 	return nil
 }
 
 // SendEther does nothing, null functionality
-func (n *NullTxManager[ADDR, TX_HASH]) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
+func (n *NullTxManager[ADDR, TX_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager[ADDR, TX_HASH]) Ready() error                   { return nil }

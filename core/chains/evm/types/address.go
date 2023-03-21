@@ -8,25 +8,27 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/common/types"
 )
 
+var _ commontypes.Hashable = &Address{}
+
 type Address struct {
 	commontypes.Hashable
 	nativeAddress common.Address
 }
 
-func (a *Address) ToBytes() []byte {
-	return a.nativeAddress.Bytes()
+func (a *Address) MarshalText() (text []byte, err error) {
+	return a.nativeAddress.MarshalText()
 }
 
-func (a *Address) ToString() string {
+func (a *Address) UnmarshalText(text []byte) error {
+	return a.nativeAddress.UnmarshalText(text)
+}
+
+func (a *Address) String() string {
 	return a.nativeAddress.String()
 }
 
-func (a *Address) FromString(str string) {
-	a.nativeAddress = common.HexToAddress(str)
-}
-
 func (a *Address) Equals(h commontypes.Hashable) bool {
-	return bytes.Equal(a.nativeAddress.Bytes(), h.ToBytes())
+	return bytes.Equal(a.nativeAddress.Bytes(), h.(*Address).nativeAddress.Bytes())
 }
 
 func (a *Address) NativeAddress() *common.Address {

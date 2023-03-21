@@ -60,19 +60,19 @@ var (
 var errEthTxRemoved = errors.New("eth_tx removed")
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
-type TransmitCheckerFactory interface {
+type TransmitCheckerFactory[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
-	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error)
+	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker[ADDR, TX_HASH], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker interface {
+type TransmitChecker[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
 	// should not be sent, other errors (for example connection or other unexpected errors) should
 	// be logged and swallowed.
-	Check(ctx context.Context, l logger.Logger, tx EthTx, a EthTxAttempt) error
+	Check(ctx context.Context, l logger.Logger, tx EthTx[ADDR, TX_HASH], a EthTxAttempt[ADDR, TX_HASH]) error
 }
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -90,7 +90,7 @@ type TransmitChecker interface {
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	logger    logger.Logger
-	orm       ORM
+	orm       ORM[ADDR, TX_HASH]
 	ethClient evmclient.Client
 	ChainKeyStore[ADDR, TX_HASH]
 	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH]
@@ -105,12 +105,12 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 
 	keyStates []ethkey.State
 
-	checkerFactory TransmitCheckerFactory
+	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH]
 
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
-	triggers map[ADDR]chan struct{}
+	triggers map[string]chan struct{}
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
@@ -119,12 +119,12 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, TX_HASH], ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH], resumeCallback ResumeCallback,
-	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster[ADDR, TX_HASH] {
+	logger logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH], autoSyncNonce bool) *EthBroadcaster[ADDR, TX_HASH] {
 
-	triggers := make(map[ADDR]chan struct{})
+	triggers := make(map[string]chan struct{})
 	logger = logger.Named("EthBroadcaster")
 	return &EthBroadcaster[ADDR, TX_HASH]{
 		logger:    logger,
@@ -159,7 +159,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) Start(ctx context.Context) error {
 		eb.wg.Add(len(eb.keyStates))
 		for _, k := range eb.keyStates {
 			triggerCh := make(chan struct{}, 1)
-			eb.triggers[k.Address.Address()] = triggerCh
+			eb.triggers[k.Address.String()] = triggerCh
 			go eb.monitorEthTxs(k, triggerCh)
 		}
 
@@ -193,9 +193,9 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) HealthReport() map[string]error {
 
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
-func (eb *EthBroadcaster[ADDR, TX_HASH]) Trigger(addr ADDR) {
+func (eb *EthBroadcaster[ADDR, TX_HASH]) Trigger(addrStr string) {
 	ok := eb.IfStarted(func() {
-		triggerCh, exists := eb.triggers[addr]
+		triggerCh, exists := eb.triggers[addrStr]
 		if !exists {
 			// ignoring trigger for address which is not registered with this EthBroadcaster
 			return
@@ -207,7 +207,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) Trigger(addr ADDR) {
 	})
 
 	if !ok {
-		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addr.Hex())
+		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addrStr)
 	}
 }
 
@@ -220,9 +220,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) ethTxInsertTriggerer() {
 				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
-			hexAddr := ev.Payload
-			address := evmtypes.NewAddress(gethCommon.HexToAddress(hexAddr))
-			eb.Trigger(address)
+			eb.Trigger(ev.Payload)
 		case <-eb.chStop:
 			return
 		}
@@ -388,7 +386,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) processUnstartedEthTxs(ctx context.Cont
 			return nil, false
 		}
 		n++
-		var a EthTxAttempt
+		var a EthTxAttempt[ADDR, TX_HASH]
 		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 		fee, gasLimit, err := eb.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
 		if err != nil {

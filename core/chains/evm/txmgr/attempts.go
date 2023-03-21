@@ -8,11 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	types2 "github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
 
-func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore[ADDR, TX_HASH]) NewDynamicFeeAttempt(etx EthTx[ADDR, TX_HASH], fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt[ADDR, TX_HASH], err error) {
 	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -48,7 +50,7 @@ var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EthTx) error {
+func validateDynamicFeeGas[ADDR types2.Hashable, TX_HASH types2.Hashable](cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EthTx[ADDR, TX_HASH]) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -97,7 +99,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth
 	}
 }
 
-func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore[ADDR, TX_HASH]) NewLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -137,16 +139,16 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Et
 	}
 	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	if gasPrice.Cmp(max) > 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.Hex())
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
 	}
 	min := cfg.EvmMinGasPriceWei()
 	if gasPrice.Cmp(min) < 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.Hex())
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.String())
 	}
 	return nil
 }
 
-func (c *ChainKeyStore) newSignedAttempt(etx EthTx, tx *types.Transaction) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore[ADDR, TX_HASH]) newSignedAttempt(etx EthTx[ADDR, TX_HASH], tx *types.Transaction) (attempt EthTxAttempt[ADDR, TX_HASH], err error) {
 	hash, signedTxBytes, err := c.signTx(etx.FromAddress, tx)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
@@ -172,14 +174,21 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	}
 }
 
-func (c *ChainKeyStore) signTx(address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
-	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
+func (c *ChainKeyStore[ADDR, TX_HASH]) signTx(address ADDR, tx *types.Transaction) (TX_HASH, []byte, error) {
+	// Native EVM types used here will be removed in later PRs.
+	signedTx, err := c.keystore.SignTx(*getEvmAddress(address).NativeAddress(), tx, &c.chainID)
 	if err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
+		return &evmtypes.TxHash{}, nil, errors.Wrap(err, "signTx failed")
 	}
 	rlp := new(bytes.Buffer)
 	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
+		return &evmtypes.TxHash{}, nil, errors.Wrap(err, "signTx failed")
 	}
-	return signedTx.Hash(), rlp.Bytes(), nil
+	var txHash TX_HASH = evmtypes.NewTxHash(signedTx.Hash())
+	return txHash, rlp.Bytes(), nil
+}
+
+func getEvmAddress(h types2.Hashable) *evmtypes.Address {
+	// The runtime cast here will be removed when the Config interface start implementing Hashable.
+	return h.(*evmtypes.Address)
 }

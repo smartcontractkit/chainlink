@@ -337,7 +337,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) CheckForReceipts(ctx context.Context, blo
 
 	attemptsByAddress := make(map[string][]EthTxAttempt[ADDR, TX_HASH])
 	for _, att := range attempts {
-		attemptsByAddress[att.EthTx.FromAddress.ToString()] = append(attemptsByAddress[att.EthTx.FromAddress.ToString()], att)
+		attemptsByAddress[att.EthTx.FromAddress.String()] = append(attemptsByAddress[att.EthTx.FromAddress.String()], att)
 	}
 
 	for from, attempts := range attemptsByAddress {

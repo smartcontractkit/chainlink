@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -15,7 +16,7 @@ import (
 )
 
 type (
-	NonceSyncerKeyStore interface {
+	NonceSyncerKeyStore[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 		GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	}
 	// NonceSyncer manages the delicate task of syncing the local nonce with the
@@ -50,24 +51,24 @@ type (
 	//
 	// This gives us re-org protection up to ETH_FINALITY_DEPTH deep in the
 	// worst case, which is in line with our other guarantees.
-	NonceSyncer struct {
-		orm       ORM
+	NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+		orm       ORM[ADDR, TX_HASH]
 		ethClient evmclient.Client
 		chainID   *big.Int
 		logger    logger.Logger
-		kst       NonceSyncerKeyStore
+		kst       NonceSyncerKeyStore[ADDR, TX_HASH]
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
-	NSinserttx struct {
-		Etx     EthTx
-		Attempt EthTxAttempt
+	NSinserttx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+		Etx     EthTx[ADDR, TX_HASH]
+		Attempt EthTxAttempt[ADDR, TX_HASH]
 	}
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(orm ORM, lggr logger.Logger, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
+func NewNonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, TX_HASH], lggr logger.Logger, ethClient evmclient.Client, kst NonceSyncerKeyStore[ADDR, TX_HASH]) *NonceSyncer[ADDR, TX_HASH] {
 	lggr = lggr.Named("NonceSyncer")
-	return &NonceSyncer{
+	return &NonceSyncer[ADDR, TX_HASH]{
 		orm,
 		ethClient,
 		ethClient.ChainID(),
@@ -80,7 +81,7 @@ func NewNonceSyncer(orm ORM, lggr logger.Logger, ethClient evmclient.Client, kst
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) Sync(ctx context.Context, keyState ethkey.State) (err error) {
+func (s NonceSyncer[ADDR, TX_HASH]) Sync(ctx context.Context, keyState ethkey.State) (err error) {
 	if keyState.Disabled {
 		return errors.Errorf("cannot sync disabled key state: %s", keyState.Address)
 	}
@@ -88,7 +89,7 @@ func (s NonceSyncer) Sync(ctx context.Context, keyState ethkey.State) (err error
 	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
-func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
+func (s NonceSyncer[ADDR, TX_HASH]) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
 	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
 	if err != nil {
 		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
@@ -139,7 +140,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	return err
 }
 
-func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
+func (s NonceSyncer[ADDR, TX_HASH]) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
 	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
 }

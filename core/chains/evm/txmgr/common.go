@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -20,10 +21,10 @@ const batchSendTransactionTimeout = 30 * time.Second
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-func batchSendTransactions(
+func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable](
 	ctx context.Context,
-	orm ORM,
-	attempts []EthTxAttempt,
+	orm ORM[ADDR, TX_HASH],
+	attempts []EthTxAttempt[ADDR, TX_HASH],
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {
@@ -33,10 +34,10 @@ func batchSendTransactions(
 
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
-	hashes := make([]common.Hash, len(attempts))
+	hashes := make([]string, len(attempts))
 	for i, attempt := range attempts {
 		ethTxIDs[i] = attempt.EthTxID
-		hashes[i] = attempt.Hash
+		hashes[i] = attempt.Hash.String()
 		req := rpc.BatchElem{
 			Method: "eth_sendRawTransaction",
 			Args:   []interface{}{hexutil.Encode(attempt.SignedRawTx)},

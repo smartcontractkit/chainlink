@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -27,8 +28,8 @@ const defaultResenderPollInterval = 5 * time.Second
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type EthResender struct {
-	orm       ORM
+type EthResender[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+	orm       ORM[ADDR, TX_HASH]
 	ethClient evmclient.Client
 	ks        KeyStore
 	chainID   big.Int
@@ -42,13 +43,13 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender[ADDR types.Hashable, TX_HASH types.Hashable](lggr logger.Logger, orm ORM[ADDR, TX_HASH], ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender[ADDR, TX_HASH] {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	// todo: add context to orm
 	ctx, cancel := context.WithCancel(context.Background())
-	return &EthResender{
+	return &EthResender[ADDR, TX_HASH]{
 		orm,
 		ethClient,
 		ks,
@@ -63,18 +64,18 @@ func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks 
 }
 
 // Start is a comment which satisfies the linter
-func (er *EthResender) Start() {
+func (er *EthResender[ADDR, TX_HASH]) Start() {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
 	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
-func (er *EthResender) Stop() {
+func (er *EthResender[ADDR, TX_HASH]) Stop() {
 	er.cancel()
 	<-er.chDone
 }
 
-func (er *EthResender) runLoop() {
+func (er *EthResender[ADDR, TX_HASH]) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
@@ -95,7 +96,7 @@ func (er *EthResender) runLoop() {
 	}
 }
 
-func (er *EthResender) resendUnconfirmed() error {
+func (er *EthResender[ADDR, TX_HASH]) resendUnconfirmed() error {
 	keys, err := er.ks.EnabledKeysForChain(&er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
@@ -103,9 +104,9 @@ func (er *EthResender) resendUnconfirmed() error {
 	ageThreshold := er.config.EthTxResendAfterThreshold()
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
-	var allAttempts []EthTxAttempt
+	var allAttempts []EthTxAttempt[ADDR, TX_HASH]
 	for _, k := range keys {
-		var attempts []EthTxAttempt
+		var attempts []EthTxAttempt[ADDR, TX_HASH]
 		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")

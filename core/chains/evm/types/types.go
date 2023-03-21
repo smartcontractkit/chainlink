@@ -264,7 +264,7 @@ func (r *Receipt) Value() (driver.Value, error) {
 // gencodec:"required" fields which cause unhelpful errors when unmarshalling
 // from an empty JSON object which can happen in the batch fetcher.
 type Log struct {
-	Address     common.Address `json:"Address"`
+	Address     common.Address `json:"address"`
 	Topics      []common.Hash  `json:"topics"`
 	Data        []byte         `json:"data"`
 	BlockNumber uint64         `json:"blockNumber"`
@@ -296,7 +296,7 @@ func FromGethLog(gl *gethTypes.Log) *Log {
 // MarshalJSON marshals as JSON.
 func (l Log) MarshalJSON() ([]byte, error) {
 	type Log struct {
-		Address     common.Address `json:"Address"`
+		Address     common.Address `json:"address"`
 		Topics      []common.Hash  `json:"topics"`
 		Data        hexutil.Bytes  `json:"data"`
 		BlockNumber hexutil.Uint64 `json:"blockNumber"`
@@ -322,7 +322,7 @@ func (l Log) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (l *Log) UnmarshalJSON(input []byte) error {
 	type Log struct {
-		Address     *common.Address `json:"Address"`
+		Address     *common.Address `json:"address"`
 		Topics      []common.Hash   `json:"topics"`
 		Data        *hexutil.Bytes  `json:"data"`
 		BlockNumber *hexutil.Uint64 `json:"blockNumber"`

@@ -13,20 +13,22 @@ type hash struct {
 	nativeHash common.Hash
 }
 
-func (a *hash) ToBytes() []byte {
-	return a.nativeHash.Bytes()
+var _ commontypes.Hashable = &hash{}
+
+func (a *hash) MarshalText() (text []byte, err error) {
+	return a.nativeHash.MarshalText()
 }
 
-func (a *hash) ToString() string {
+func (a *hash) UnmarshalText(text []byte) error {
+	return a.nativeHash.UnmarshalText(text)
+}
+
+func (a *hash) String() string {
 	return a.nativeHash.String()
 }
 
-func (a *hash) FromString(str string) {
-	a.nativeHash = common.HexToHash(str)
-}
-
 func (a *hash) Equals(h commontypes.Hashable) bool {
-	return bytes.Equal(a.nativeHash.Bytes(), h.ToBytes())
+	return bytes.Equal(a.nativeHash.Bytes(), h.(*Address).nativeAddress.Bytes())
 }
 
 func (a *hash) NativeHash() *common.Hash {
