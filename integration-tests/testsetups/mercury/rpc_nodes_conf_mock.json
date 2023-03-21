@@ -1,0 +1,132 @@
+[
+    {
+        "id": "0",
+        "website": "",
+        "name": "0",
+        "status": "active",
+        "nodeAddress": [
+            "0x9aF03D0296F21f59aB956e83f9d969F544a021Fa"
+        ],
+        "oracleAddress": "0x0000000000000000000000000000000000000000",
+        "csaKeys": [
+            {
+                "nodeName": "0",
+                "nodeAddress": "0x9aF03D0296F21f59aB956e83f9d969F544a021Fa",
+                "publicKey": "71bfb993ba2ff31f6f98cb47f760a3342467eda301fc3f395126b3132475e960"
+            }
+        ],
+        "ocr2ConfigPublicKey": [
+            "fdff12ced64d6419b432f5096aa9b3de04531cf923b0142095f3e40014e81305"
+        ],
+        "ocr2OffchainPublicKey": [
+            "93400913aedd411ed6ec5d13c83ca7d666636a43dfd1195d62b3f4c0e1e6ce49"
+        ],
+        "ocr2OnchainPublicKey": [
+            "01f2b0776f613604149579c8aebcf6ccf091b765"
+        ]
+    },
+    {
+        "id": "1",
+        "website": "",
+        "name": "1",
+        "status": "active",
+        "nodeAddress": [
+            "0x92666275bAC4e59Fed5741C3499220C3c6993E34"
+        ],
+        "oracleAddress": "0x0000000000000000000000000000000000000000",
+        "csaKeys": [
+            {
+                "nodeName": "1",
+                "nodeAddress": "0x92666275bAC4e59Fed5741C3499220C3c6993E34",
+                "publicKey": "d4733bd4dbfbb8c7c1a74aaa4cf9c58c16f60b9f8e2dd87f58863f34e4958adc"
+            }
+        ],
+        "ocr2ConfigPublicKey": [
+            "728ecceef20b786cd5280e9b18df48e39a919b0e0107feb329ea6d05c228bd08"
+        ],
+        "ocr2OffchainPublicKey": [
+            "ef8ae4f0ebc1a36a60b0b6a4ce859a9bace0f010f6c936b62122632a61ed640c"
+        ],
+        "ocr2OnchainPublicKey": [
+            "2bf3bb3cbd19721636a4f671957d54845d78baf6"
+        ]
+    },
+    {
+        "id": "2",
+        "website": "",
+        "name": "2",
+        "status": "active",
+        "nodeAddress": [
+            "0x55c3bc2b0C230582917C7d8b22592B595CF5d418"
+        ],
+        "oracleAddress": "0x0000000000000000000000000000000000000000",
+        "csaKeys": [
+            {
+                "nodeName": "2",
+                "nodeAddress": "0x55c3bc2b0C230582917C7d8b22592B595CF5d418",
+                "publicKey": "a5b741b0914d56e9eec6612c8f9a43fada97f6d7e44b757e3fc4fc498e9e62a3"
+            }
+        ],
+        "ocr2ConfigPublicKey": [
+            "aff9678acfad63897ec31935634444f828e9bdb89061d6005a915ab40d501941"
+        ],
+        "ocr2OffchainPublicKey": [
+            "702836fbcdda227a0579c3a1764245aec1c220536a58378dfd80b173ed64f15c"
+        ],
+        "ocr2OnchainPublicKey": [
+            "4b2036789bf0c8a2085ffd7e90d293c8d03450ec"
+        ]
+    },
+    {
+        "id": "3",
+        "website": "",
+        "name": "3",
+        "status": "active",
+        "nodeAddress": [
+            "0xdBee079441bC64CF5644D9b1B7D2CC76ba95e9bc"
+        ],
+        "oracleAddress": "0x0000000000000000000000000000000000000000",
+        "csaKeys": [
+            {
+                "nodeName": "3",
+                "nodeAddress": "0xdBee079441bC64CF5644D9b1B7D2CC76ba95e9bc",
+                "publicKey": "abcb040278748aae39aa6a65bc9aa689f6b7a0b96da9a679a11967b54d57fe05"
+            }
+        ],
+        "ocr2ConfigPublicKey": [
+            "bee97d14e7667d96f43b75aa86136ad966ffd801a53168321f56c9d844837d02"
+        ],
+        "ocr2OffchainPublicKey": [
+            "752542eb6741a5ca8496d57cf3d9299f08efd636d43a2c57542ada05488612f1"
+        ],
+        "ocr2OnchainPublicKey": [
+            "9f8129f356b18c568c673fcb65020ef4c2ab03b0"
+        ]
+    },
+    {
+        "id": "4",
+        "website": "",
+        "name": "4",
+        "status": "active",
+        "nodeAddress": [
+            "0x74FA748e75f2e8B4438671D2c6BB8a2dB8BEE878"
+        ],
+        "oracleAddress": "0x0000000000000000000000000000000000000000",
+        "csaKeys": [
+            {
+                "nodeName": "4",
+                "nodeAddress": "0x74FA748e75f2e8B4438671D2c6BB8a2dB8BEE878",
+                "publicKey": "858bf54b7918650980ab08fe3ff0235ca7fa7188b42bcd16a410ec24a215db6c"
+            }
+        ],
+        "ocr2ConfigPublicKey": [
+            "56f2ed0bda9489de61019eba814a652e437f8cb40bb588b037f7e1b734f17117"
+        ],
+        "ocr2OffchainPublicKey": [
+            "a435167671eea2fd41459d30e31e403f66ea3f79a8f0c5aa33daf65dfbeb731d"
+        ],
+        "ocr2OnchainPublicKey": [
+            "482142a5a7a3e638c9b377ba566ab4f22c4b555c"
+        ]
+    }
+]

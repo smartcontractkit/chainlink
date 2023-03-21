@@ -540,16 +540,16 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
-	var paymentModel uint8
+	var mode uint8
 	switch e.client.GetChainID() {
 	//Arbitrum payment model
 	case big.NewInt(421613):
-		paymentModel = uint8(1)
+		mode = uint8(1)
 	//Optimism payment model
 	case big.NewInt(420):
-		paymentModel = uint8(2)
+		mode = uint8(2)
 	default:
-		paymentModel = uint8(0)
+		mode = uint8(0)
 	}
 	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
@@ -631,7 +631,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return keeper_registry_logic1_3.DeployKeeperRegistryLogic(
 				auth,
 				backend,
-				paymentModel,        // Default payment model
+				mode,                // Default payment model
 				registryGasOverhead, // Registry gas overhead
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
@@ -689,7 +689,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return keeper_registry_logic2_0.DeployKeeperRegistryLogic(
 				auth,
 				backend,
-				paymentModel, // Default payment model
+				mode, // Default payment model
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),

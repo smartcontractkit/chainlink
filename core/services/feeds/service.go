@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -993,6 +994,19 @@ func (s *service) getAddressAndEVMChainIDFromJob(j *job.Job) (ethkey.EIP55Addres
 
 		evmChainID = utils.NewBig(evmChain.ID())
 		address = eipAddress
+	case job.Bootstrap:
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.BootstrapSpec.ContractID)
+		if addrErr != nil {
+			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from Bootstrap job spec")
+		}
+
+		evmChain, chainErr := job.EVMChainForBootstrapJob(j, s.chainSet)
+		if chainErr != nil {
+			return eipAddress, nil, errors.Wrap(chainErr, "failed to get evmChainID from Bootstrap job spec")
+		}
+
+		evmChainID = utils.NewBig(evmChain.ID())
+		address = eipAddress
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
 		evmChainID = j.FluxMonitorSpec.EVMChainID
@@ -1022,6 +1036,11 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 			return nil, ErrOCR2Disabled
 		}
 		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, spec)
+	case job.Bootstrap:
+		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting2() {
+			return nil, ErrOCR2Disabled
+		}
+		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:

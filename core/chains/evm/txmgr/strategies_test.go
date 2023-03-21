@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -69,7 +70,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.DatabaseDefaultQueryTimeout())
 
-		n, err := s.PruneQueue(borm, db)
+		n, err := s.PruneQueue(borm, pg.WithQueryer(db))
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 

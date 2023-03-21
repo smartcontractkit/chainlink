@@ -37,6 +37,9 @@ contract KeeperRegistry2_0 is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.0.2: pass revert bytes as performData when target contract reverts
+   *                       : fixes issue with arbitrum block number
+   *                       : does an early return in case of stale report instead of revert
    * - KeeperRegistry 2.0.1: implements workaround for buggy migrate function in 1.X
    * - KeeperRegistry 2.0.0: implement OCR interface
    * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
@@ -50,11 +53,12 @@ contract KeeperRegistry2_0 is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 2.0.1";
+  string public constant override typeAndVersion = "KeeperRegistry 2.0.2";
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
+
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
@@ -67,7 +71,7 @@ contract KeeperRegistry2_0 is
    */
   constructor(KeeperRegistryBase2_0 keeperRegistryLogic)
     KeeperRegistryBase2_0(
-      keeperRegistryLogic.getPaymentModel(),
+      keeperRegistryLogic.getMode(),
       keeperRegistryLogic.getLinkAddress(),
       keeperRegistryLogic.getLinkNativeFeedAddress(),
       keeperRegistryLogic.getFastGasFeedAddress()
@@ -140,7 +144,9 @@ contract KeeperRegistry2_0 is
       }
     }
     // No upkeeps to be performed in this report
-    if (numUpkeepsPassedChecks == 0) revert StaleReport();
+    if (numUpkeepsPassedChecks == 0) {
+      return;
+    }
 
     // Verify signatures
     if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
@@ -151,7 +157,7 @@ contract KeeperRegistry2_0 is
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         // Check if this upkeep was already performed in this report
-        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(block.number)) {
+        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(_blockNum())) {
           revert InvalidReport();
         }
 
@@ -165,7 +171,7 @@ contract KeeperRegistry2_0 is
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
         // Store last perform block number for upkeep
-        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(_blockNum());
       }
     }
 
@@ -358,7 +364,7 @@ contract KeeperRegistry2_0 is
     s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(block.number);
+    s_storage.latestConfigBlockNumber = uint32(_blockNum());
     s_storage.configCount += 1;
 
     s_latestConfigDigest = _configDigestFromConfigData(
@@ -655,7 +661,7 @@ contract KeeperRegistry2_0 is
       return false;
     }
 
-    if (blockhash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
+    if (_blockHash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
       // Can happen when the block on which report was generated got reorged
       // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber
@@ -663,7 +669,7 @@ contract KeeperRegistry2_0 is
       return false;
     }
 
-    if (upkeep.maxValidBlocknumber <= block.number) {
+    if (upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId);
