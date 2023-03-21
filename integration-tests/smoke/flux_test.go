@@ -31,7 +31,7 @@ import (
 
 func TestFluxBasic(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupFluxTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

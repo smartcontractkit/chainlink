@@ -10,13 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-type ChainsORM[I ID, CFG Config, C ChainConfig[I, CFG]] interface {
+type ChainConfigs[I ID, CFG Config, C ChainConfig[I, CFG]] interface {
 	Chain(I, ...pg.QOpt) (C, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]C, int, error)
 	GetChainsByIDs(ids []I) (chains []C, err error)
 }
 
-type NodesORM[I ID, N Node] interface {
+type NodeConfigs[I ID, N Node] interface {
 	GetNodesByChainIDs(chainIDs []I, qopts ...pg.QOpt) (nodes []N, err error)
 	NodeNamed(string, ...pg.QOpt) (N, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
@@ -25,10 +25,12 @@ type NodesORM[I ID, N Node] interface {
 
 // ORM manages chains and nodes.
 type ORM[I ID, C Config, N Node] interface {
-	ChainsORM[I, C, ChainConfig[I, C]]
+	ChainConfigs[I, C, ChainConfig[I, C]]
 
-	NodesORM[I, N]
+	NodeConfigs[I, N]
 
+	// EnsureChains creates an entry for any chain IDs which don't already exist.
+	// TODO remove with https://smartcontract-it.atlassian.net/browse/BCF-1474
 	EnsureChains([]I, ...pg.QOpt) error
 }
 

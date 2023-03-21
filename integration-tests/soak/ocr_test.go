@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -27,7 +28,7 @@ import (
 )
 
 func TestOCRSoak(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, network, testInputs := SetupOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

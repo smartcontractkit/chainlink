@@ -16,51 +16,64 @@ import (
 )
 
 var (
-	dbSettings = map[string]interface{}{
-		"stateful": "true",
-		"capacity": "10Gi",
-		"resources": map[string]interface{}{
+	resources = &mercury.ResourcesConfig{
+		DONResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+		},
+		DONDBResources: map[string]interface{}{
+			"stateful": "true",
+			"capacity": "10Gi",
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "2000m",
+					"memory": "2048Mi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "2000m",
+					"memory": "2048Mi",
+				},
+			},
+		},
+		MercuryResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
+		},
+		MercuryDBResources: map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "2000m",
+				"memory": "2048Mi",
+			},
 			"limits": map[string]interface{}{
 				"cpu":    "2000m",
 				"memory": "2048Mi",
 			},
 		},
 	}
-
-	serverResources = map[string]interface{}{
-		"limits": map[string]interface{}{
-			"cpu":    "2000m",
-			"memory": "2048Mi",
-		},
-	}
 )
 
-func setupMercuryLoadEnv(
-	t *testing.T,
-	dbSettings map[string]interface{},
-	serverResources map[string]interface{},
-) (*mercury.TestEnv, uint64) {
-	testEnv, err := mercury.SetupMercuryTestEnv("load", dbSettings, serverResources)
+func TestMercuryHTTPLoad(t *testing.T) {
+	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
+	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
-
 	t.Cleanup(func() {
-		//nolint
 		testEnv.Cleanup(t)
 	})
+	bn, _ := testEnv.EvmClient.LatestBlockNumber(context.Background())
 
-	latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
-	require.NoError(t, err, "Err getting latest block number")
-	report, _, err := testEnv.MSClient.GetReports(testEnv.FeedId, latestBlockNum-5)
-	require.NoError(t, err, "Error getting report from Mercury Server")
-	require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
-
-	return testEnv, latestBlockNum
-}
-
-func TestMercuryHTTPLoad(t *testing.T) {
-	testEnv, latestBlockNumber := setupMercuryLoadEnv(t, dbSettings, serverResources)
-
-	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, testEnv.FeedId, latestBlockNumber)
+	gun := tools.NewHTTPGun(testEnv.Env.URLs[mercuryserver.URLsKey][1], testEnv.MSClient, feeds, bn)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
@@ -82,7 +95,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 		},
 		LoadType:    loadgen.RPSScheduleType,
 		CallTimeout: 5 * time.Second,
-		Schedule:    loadgen.Line(10, 800, 500*time.Second),
+		Schedule:    loadgen.Line(10, 300, 100*time.Second),
 		Gun:         gun,
 	})
 	require.NoError(t, err)
@@ -91,7 +104,12 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	testEnv, _ := setupMercuryLoadEnv(t, dbSettings, serverResources)
+	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
+	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		testEnv.Cleanup(t)
+	})
 
 	gen, err := loadgen.NewLoadGenerator(&loadgen.Config{
 		T: t,

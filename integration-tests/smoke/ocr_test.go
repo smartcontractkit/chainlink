@@ -87,7 +87,7 @@ func setupOCRTest(t *testing.T) (
 	testEnvironment *environment.Environment,
 	testNetwork blockchain.EVMNetwork,
 ) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {

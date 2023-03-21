@@ -16,6 +16,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -28,7 +29,7 @@ import (
 )
 
 func TestDirectRequestPerformance(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment := setupDirectRequestTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

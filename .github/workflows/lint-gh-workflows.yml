@@ -7,9 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out Code
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Run actionlint
-        uses: reviewdog/action-actionlint@326cc761d95c903f29a111a44888be707f912684 # v1.35.0
+        uses: reviewdog/action-actionlint@b6feb003955cad286985c42e7047f4567a798f3f # v1.36.0
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
