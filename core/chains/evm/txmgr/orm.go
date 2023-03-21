@@ -27,7 +27,7 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64, txmgrtypes.TxAttemptState]
+	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, int64]
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
@@ -579,7 +579,7 @@ func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum i
 }
 
 // FindEthTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce uint64) (etx *EthTx, err error) {
+func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce int64) (etx *EthTx, err error) {
 	etx = new(EthTx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Get(etx, `
@@ -1044,7 +1044,7 @@ func (o *orm) HasInProgressTransaction(account common.Address, chainID big.Int, 
 	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
 }
 
-func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce int64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	return qq.Transaction(func(tx pg.Queryer) error {
 		//  We filter by next_nonce here as an optimistic lock to make sure it

@@ -1302,7 +1302,7 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 
 	t.Run("update next nonce", func(t *testing.T) {
 		assert.Equal(t, int64(0), ethKeyState.NextNonce)
-		err := borm.UpdateEthKeyNextNonce(uint64(24), uint64(0), fromAddress, *ethClient.ChainID())
+		err := borm.UpdateEthKeyNextNonce(int64(24), int64(0), fromAddress, *ethClient.ChainID())
 		require.NoError(t, err)
 
 		newNextNonce, err := ethKeyStore.GetNextNonce(fromAddress, ethClient.ChainID())
@@ -1311,7 +1311,7 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 	})
 
 	t.Run("no rows found", func(t *testing.T) {
-		err := borm.UpdateEthKeyNextNonce(uint64(100), uint64(123), fromAddress, *ethClient.ChainID())
+		err := borm.UpdateEthKeyNextNonce(int64(100), int64(123), fromAddress, *ethClient.ChainID())
 		require.Error(t, err)
 	})
 }
