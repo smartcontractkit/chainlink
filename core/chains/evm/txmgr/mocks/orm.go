@@ -467,15 +467,15 @@ func (_m *ORM) FindEthTxWithAttempts(etxID int64) (txmgr.EthTx, error) {
 }
 
 // FindEthTxWithNonce provides a mock function with given fields: fromAddress, nonce
-func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint64) (*txmgr.EthTx, error) {
+func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce int64) (*txmgr.EthTx, error) {
 	ret := _m.Called(fromAddress, nonce)
 
 	var r0 *txmgr.EthTx
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, uint64) (*txmgr.EthTx, error)); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, int64) (*txmgr.EthTx, error)); ok {
 		return rf(fromAddress, nonce)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, uint64) *txmgr.EthTx); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, int64) *txmgr.EthTx); ok {
 		r0 = rf(fromAddress, nonce)
 	} else {
 		if ret.Get(0) != nil {
@@ -483,7 +483,7 @@ func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint64) (*tx
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, uint64) error); ok {
+	if rf, ok := ret.Get(1).(func(common.Address, int64) error); ok {
 		r1 = rf(fromAddress, nonce)
 	} else {
 		r1 = ret.Error(1)
@@ -998,7 +998,7 @@ func (_m *ORM) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 }
 
 // UpdateEthKeyNextNonce provides a mock function with given fields: newNextNonce, currentNextNonce, address, chainID, qopts
-func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce int64, currentNextNonce int64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -1009,7 +1009,7 @@ func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint6
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, uint64, common.Address, big.Int, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(int64, int64, common.Address, big.Int, ...pg.QOpt) error); ok {
 		r0 = rf(newNextNonce, currentNextNonce, address, chainID, qopts...)
 	} else {
 		r0 = ret.Error(0)
