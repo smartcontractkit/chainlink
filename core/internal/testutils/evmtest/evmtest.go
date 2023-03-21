@@ -19,6 +19,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -50,6 +51,7 @@ func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainSc
 type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
+	LogPoller      logpoller.LogPoller
 	GeneralConfig  evm.GeneralConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
@@ -92,6 +94,11 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 	if testopts.LogBroadcaster != nil {
 		opts.GenLogBroadcaster = func(*big.Int) log.Broadcaster {
 			return testopts.LogBroadcaster
+		}
+	}
+	if testopts.LogPoller != nil {
+		opts.GenLogPoller = func(*big.Int) logpoller.LogPoller {
+			return testopts.LogPoller
 		}
 	}
 	if testopts.HeadTracker != nil {

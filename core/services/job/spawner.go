@@ -315,9 +315,6 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 			return pkgerrors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
 		}
 	}
-	lggr.Debugw("Callback: BeforeJobDeleted")
-	aj.delegate.BeforeJobDeleted(aj.spec)
-	lggr.Debugw("Callback: BeforeJobDeleted done")
 
 	err := q.Transaction(func(tx pg.Queryer) error {
 		err := js.orm.DeleteJob(jobID, pg.WithQueryer(q.Queryer))
@@ -328,7 +325,9 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if
 		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in BeforeJobDeleted()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
+		lggr.Debugw("Callback: BeforeJobDeleted")
 		aj.delegate.BeforeJobDeleted(aj.spec)
+		lggr.Debugw("Callback: BeforeJobDeleted done")
 
 		if exists {
 			// Stop the service and remove the job from memory, which will always happen even if closing the services fail.

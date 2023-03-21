@@ -130,7 +130,8 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 	}
 	chain, err := d.chainSet.Get(big.NewInt(chainID))
 	if err != nil {
-		d.lggr.Errorw("get chainset", err, "err")
+		d.lggr.Error(err)
+		return
 	}
 	lp := chain.LogPoller()
 
@@ -167,7 +168,10 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		lp.UnregisterFilter(filter)
+		err = lp.UnregisterFilter(filter)
+		if err != nil {
+			d.lggr.Errorw("Failed to unregister filter", "filter", filter, "err", err)
+		}
 	}
 }
 
