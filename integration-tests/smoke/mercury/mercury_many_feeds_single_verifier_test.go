@@ -12,14 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 )
 
 func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 
 	// TODO: add more feeds when https://smartcontract-it.atlassian.net/browse/MERC-294 fixed
 	var (

@@ -26,22 +26,3 @@ message TelemBatchRequest {
 message TelemResponse {
     string body = 1;
 }
-
-message TelemEnhancedEA {
-    string data_source=1;
-    int64 value=2;
-    int64 bridge_task_run_started_timestamp=3;
-    int64 bridge_task_run_ended_timestamp=4;
-    string provider_requested_protocol=5;
-    int64 provider_requested_timestamp=6;
-    int64 provider_received_timestamp=7;
-    int64 provider_data_stream_established=8;
-    int64 provider_data_received=9;
-    int64 provider_indicated_time=10;
-    string feed=11;
-    string chain_id=12;
-    int64 observation=13;
-    string config_digest = 14;
-    int64 round=15;
-    int64 epoch=16;
-}

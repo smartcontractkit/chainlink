@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -44,7 +45,9 @@ import (
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+var ErrProfileTooLong = errors.New("requested profile duration too large")
+
+func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfigOpts) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -66,8 +69,19 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:  "vrfpassword, vp",
 					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
 				},
+				cli.StringSliceFlag{
+					Name:  "config, c",
+					Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
+				},
+				cli.StringFlag{
+					Name:  "secrets, s",
+					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+				},
 			},
-			Usage:  "Run the Chainlink node",
+			Usage: "Run the Chainlink node",
+			Before: func(c *cli.Context) error {
+				return client.setConfigFromFlags(opts, c)
+			},
 			Action: client.RunNode,
 		},
 		{
@@ -97,7 +111,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 				},
 				cli.StringFlag{
 					Name:  "evmChainID",
-					Usage: "Chain ID for which to rebroadcast transactions. If left blank, ETH_CHAIN_ID will be used.",
+					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
 				},
 				cli.Uint64Flag{
 					Name:  "gasLimit",
@@ -432,7 +446,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
-	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -460,7 +474,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 		}
 	}
 
-	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	// Ensure {secret,cookie} files' permissions are <= `ownerPermsMask``
 	protectedFiles := []string{"secret", "cookie", ".password", ".env", ".api"}
 	for _, fileName := range protectedFiles {
 		path := filepath.Join(rootDir, fileName)

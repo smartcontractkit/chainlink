@@ -8,7 +8,7 @@ import (
 
 	"github.com/onsi/gomega"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
@@ -67,7 +67,7 @@ var (
 
 func TestMercuryChaos(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
 		chaosFunc  chaos.ManifestFunc
 		chaosProps *chaos.Props
