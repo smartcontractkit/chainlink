@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../vrf/VRFConsumerBase.sol";
+import "../VRFConsumerBase.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 
 /**
