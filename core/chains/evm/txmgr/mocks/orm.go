@@ -1019,7 +1019,7 @@ func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint6
 }
 
 // UpdateEthTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextNonceCallback, qopts
-func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt txmgr.EthTxAttempt, NewAttemptState txmgr.EthTxAttemptState, incrNextNonceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
+func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt txmgr.EthTxAttempt, NewAttemptState types.TxAttemptState, incrNextNonceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -1030,7 +1030,7 @@ func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgr.EthTx, txmgr.EthTxAttempt, txmgr.EthTxAttemptState, func(pg.Queryer) error, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*txmgr.EthTx, txmgr.EthTxAttempt, types.TxAttemptState, func(pg.Queryer) error, ...pg.QOpt) error); ok {
 		r0 = rf(etx, attempt, NewAttemptState, incrNextNonceCallback, qopts...)
 	} else {
 		r0 = ret.Error(0)

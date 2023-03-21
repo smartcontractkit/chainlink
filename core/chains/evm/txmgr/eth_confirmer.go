@@ -721,11 +721,11 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 		etx.EthTxAttempts[0].EthTx = etx
 		previousAttempt := etx.EthTxAttempts[0]
 		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-		if previousAttempt.State == EthTxAttemptInsufficientEth {
+		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientEth {
 			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
 			lggr.Debugw("Rebroadcast InsufficientEth", logFields...)
-			previousAttempt.State = EthTxAttemptInProgress
+			previousAttempt.State = txmgrtypes.TxAttemptInProgress
 			return previousAttempt, nil
 		}
 		attempt, err = ec.bumpGas(ctx, etx, etx.EthTxAttempts)
@@ -735,7 +735,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
 			previousAttempt.BroadcastBeforeBlockNum = nil
-			previousAttempt.State = EthTxAttemptInProgress
+			previousAttempt.State = txmgrtypes.TxAttemptInProgress
 			return previousAttempt, nil
 		}
 		return attempt, err
@@ -800,7 +800,7 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 }
 
 func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 

@@ -17,8 +17,11 @@ type TxStrategy interface {
 	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
 }
 
-type TxAttemptState interface {
-	~string
-}
+type TxAttemptState string
 
-// one chain may have more attempt states than the other
+const (
+	TxAttemptInProgress = TxAttemptState("in_progress")
+	// TODO: Make name chain-agnostic (https://smartcontract-it.atlassian.net/browse/BCI-981)
+	TxAttemptInsufficientEth = TxAttemptState("insufficient_eth")
+	TxAttemptBroadcast       = TxAttemptState("broadcast")
+)

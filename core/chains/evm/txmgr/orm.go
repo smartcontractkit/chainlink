@@ -27,7 +27,7 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64, EthTxAttemptState]
+	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64, txmgrtypes.TxAttemptState]
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
@@ -598,7 +598,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 }
 
 func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EthTxAttempt) error {
-	if attempt.State != EthTxAttemptBroadcast {
+	if attempt.State != txmgrtypes.TxAttemptBroadcast {
 		return errors.New("expected eth_tx_attempt to be broadcast")
 	}
 	_, err := q.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = NULL, state = 'in_progress' WHERE id = $1`, attempt.ID)
@@ -672,18 +672,18 @@ func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.
 }
 
 func (o *orm) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	if !(attempt.State == EthTxAttemptInProgress || attempt.State == EthTxAttemptInsufficientEth) {
+	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
-	attempt.State = EthTxAttemptInsufficientEth
+	attempt.State = txmgrtypes.TxAttemptInsufficientEth
 	return errors.Wrap(saveAttemptWithNewState(o.q, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
 func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
-	attempt.State = EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	return errors.Wrap(saveAttemptWithNewState(q, timeout, logger, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
@@ -708,7 +708,7 @@ func (o *orm) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout ti
 func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
 	if attempt.ID == 0 {
@@ -720,7 +720,7 @@ func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt)
 
 // SaveInProgressAttempt inserts or updates an attempt
 func (o *orm) SaveInProgressAttempt(attempt *EthTxAttempt) error {
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("SaveInProgressAttempt failed: attempt state must be in_progress")
 	}
 	// Insert is the usual mode because the attempt is new
@@ -895,7 +895,7 @@ GROUP BY e.id
 
 func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
-	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
+	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}
 	if oldAttempt.ID == 0 {
@@ -944,7 +944,7 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
+func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.BroadcastAt == nil {
@@ -956,10 +956,10 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	if NewAttemptState != EthTxAttemptBroadcast {
+	if NewAttemptState != txmgrtypes.TxAttemptBroadcast {
 		return errors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
 	etx.State = EthTxUnconfirmed
@@ -987,7 +987,7 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 	if etx.State != EthTxUnstarted {
 		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
 	etx.State = EthTxInProgress
@@ -1028,7 +1028,7 @@ func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (
 		if err = o.LoadEthTxAttempts(etx, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "GetEthTxInProgress failed while loading EthTxAttempts")
 		}
-		if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
+		if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
 			return errors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
 				"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", etx.ID)
 		}
