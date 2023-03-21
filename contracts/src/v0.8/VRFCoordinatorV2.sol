@@ -872,6 +872,7 @@ contract VRFCoordinatorV2 is
    * @return Type and version string
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
+    uint8 test = 1;
     return "VRFCoordinatorV2 1.0.0";
   }
 }
