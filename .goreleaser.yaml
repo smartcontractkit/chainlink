@@ -26,7 +26,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
     flags:
@@ -46,7 +46,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
     flags:
@@ -66,7 +66,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target aarch64-macos $ZIG_FLAGS_DARWIN
       - CCX=$ZIG_EXEC c++ -target aarch64-macos $ZIG_FLAGS_DARWIN
     flags:
@@ -86,7 +86,7 @@ builds:
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target x86_64-macos $ZIG_FLAGS_DARWIN
       - CCX=$ZIG_EXEC c++ -target x86_64-macos $ZIG_FLAGS_DARWIN
     flags:
