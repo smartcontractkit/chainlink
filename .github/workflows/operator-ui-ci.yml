@@ -32,39 +32,39 @@ jobs:
 
       - name: Get Github Token
         id: get-gh-token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       - name: Get Github Token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
