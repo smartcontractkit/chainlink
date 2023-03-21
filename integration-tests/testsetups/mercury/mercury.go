@@ -921,11 +921,10 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 				"resources": te.ResourcesConfig.MercuryDBResources,
 			},
 		},
-		"qa": map[string]interface{}{
-			"rpcPrivateKey": hex.EncodeToString(rpcPrivKey),
-			"enabled":       true,
-			"initDbSql":     initDbSql,
+		"envSecrets": map[string]interface{}{
+			"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
 		},
+		"initDbSql":    initDbSql,
 		"rpcNodesConf": string(rpcNodesJsonConf),
 		"prometheus":   "true",
 	}
