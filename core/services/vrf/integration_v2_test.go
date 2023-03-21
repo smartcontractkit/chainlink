@@ -2366,9 +2366,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 
 	// add eth_receipts
-	receipts := []txmgr.EthReceipt{}
+	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgr.EthReceipt{
+		receipts = append(receipts, txmgr.EvmReceipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,

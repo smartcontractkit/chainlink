@@ -150,7 +150,7 @@ func (v *EthereumVerifier) SetConfig(feedId [32]byte, config MercuryOCRConfig) e
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("Setting config, feedId: %x, config: %v", feedId, config)
+	log.Info().Msgf("Setting config, feedId: %s, config: %v", feedId, config)
 	for i, s := range config.Signers {
 		log.Info().Msgf("Signer %d: %x", i, s)
 	}

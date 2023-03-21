@@ -33,7 +33,7 @@ func initFowardersSubCmds(client *Client) []cli.Command {
 			Flags: []cli.Flag{
 				cli.Int64Flag{
 					Name:  "evmChainID, c",
-					Usage: "chain ID, if left empty, ETH_CHAIN_ID will be used",
+					Usage: "chain ID, if left empty, EVM.ChainID will be used",
 				},
 				cli.StringFlag{
 					Name:  "address, a",

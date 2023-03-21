@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for sending Bootstrap job specs to the feeds manager
 - Support for sending OCR2 job specs to the feeds manager
 - Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 - Add support for new job type `mercury` (low-latency oracle)
