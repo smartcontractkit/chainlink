@@ -554,6 +554,66 @@ decode_log->vrf->encode_tx->submit_tx
 	})
 }
 
+func Test_CheckFromAddressesExist(t *testing.T) {
+	t.Run("from addresses exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		lggr := logger.TestLogger(t)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		require.NoError(t, ks.Unlock(testutils.Password))
+
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			k, err := ks.Eth().Create(big.NewInt(1337))
+			assert.NoError(t, err)
+			fromAddresses = append(fromAddresses, k.Address.Hex())
+		}
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		assert.NoError(t, err)
+
+		assert.NoError(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+	})
+
+	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		lggr := logger.TestLogger(t)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		require.NoError(t, ks.Unlock(testutils.Password))
+
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			k, err := ks.Eth().Create(big.NewInt(1337))
+			assert.NoError(t, err)
+			fromAddresses = append(fromAddresses, k.Address.Hex())
+		}
+		// add an address that isn't in the keystore
+		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		assert.NoError(t, err)
+
+		assert.Error(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+	})
+}
+
 func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 	t.Run("all max gas prices equal", func(tt *testing.T) {
 		fromAddresses := []string{
