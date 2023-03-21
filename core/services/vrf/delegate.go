@@ -122,6 +122,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
 				return nil, err
 			}
@@ -199,6 +203,19 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
 						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
 			}
 		}
+	}
+	return
+}
+
+// FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
+// addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
+// gas price.
+func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg Config) (allEqual bool) {
+	allEqual = true
+	for i := range jb.VRFSpec.FromAddresses {
+		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		)
 	}
 	return
 }

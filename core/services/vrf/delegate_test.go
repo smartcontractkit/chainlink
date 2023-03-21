@@ -553,3 +553,60 @@ decode_log->vrf->encode_tx->submit_tx
 		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
 	})
 }
+
+func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
+	t.Run("all max gas prices equal", func(tt *testing.T) {
+		fromAddresses := []string{
+			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
+			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
+			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
+		}
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).Toml())
+		require.NoError(tt, err)
+
+		cfg := &vrf_mocks.Config{}
+		for _, a := range fromAddresses {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+		}
+		defer cfg.AssertExpectations(tt)
+
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+	})
+
+	t.Run("one max gas price not equal to others", func(tt *testing.T) {
+		fromAddresses := []string{
+			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
+			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
+			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
+			"0x86E7c45Bf013Bf1Df3C22c14d5fd6fc3051AC569",
+		}
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).Toml())
+		require.NoError(tt, err)
+
+		cfg := &vrf_mocks.Config{}
+		for _, a := range fromAddresses[:3] {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+		}
+		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+			Return(assets.GWei(200)) // doesn't match the rest
+		defer cfg.AssertExpectations(tt)
+
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+	})
+}
