@@ -82,10 +82,9 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// feeds
 	btcFeed := Feed{"BTC/USD", randomFeedID(), big.NewInt(20_000 * multiplier), big.NewInt(19_997 * multiplier), big.NewInt(20_004 * multiplier)}
-	// ethFeed := Feed{"ETH/USD", randomFeedID(), big.NewInt(1_568 * multiplier), big.NewInt(1_566 * multiplier), big.NewInt(1_569 * multiplier)}
-	// linkFeed := Feed{"LINK/USD", randomFeedID(), big.NewInt(7150 * multiplier / 1000), big.NewInt(7123 * multiplier / 1000), big.NewInt(7177 * multiplier / 1000)}
-	// feeds := []Feed{btcFeed, ethFeed, linkFeed}
-	feeds := []Feed{btcFeed}
+	ethFeed := Feed{"ETH/USD", randomFeedID(), big.NewInt(1_568 * multiplier), big.NewInt(1_566 * multiplier), big.NewInt(1_569 * multiplier)}
+	linkFeed := Feed{"LINK/USD", randomFeedID(), big.NewInt(7150 * multiplier / 1000), big.NewInt(7123 * multiplier / 1000), big.NewInt(7177 * multiplier / 1000)}
+	feeds := []Feed{btcFeed, ethFeed, linkFeed}
 	feedM := make(map[[32]byte]Feed, len(feeds))
 	for i := range feeds {
 		feedM[feeds[i].id] = feeds[i]
@@ -182,12 +181,12 @@ func TestIntegration_Mercury(t *testing.T) {
 		return bridgeName
 	}
 
-	// Add OCR jobs
+	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
-		for _, feed := range feeds {
-			bmBridge := createBridge("benchmarkprice", i, feed.baseBenchmarkPrice, node.App.BridgeORM())
-			askBridge := createBridge("ask", i, feed.baseAsk, node.App.BridgeORM())
-			bidBridge := createBridge("bid", i, feed.baseBid, node.App.BridgeORM())
+		for j, feed := range feeds {
+			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
+			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
 
 			addMercuryJob(
 				t,
