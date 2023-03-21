@@ -30,9 +30,9 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 	switch s {
 	case string(chaintype.EVM):
 		return OCR2ChainTypeEVM, nil
-	case "cosmos":
+	case string(chaintype.Cosmos):
 		return OCR2ChainTypeCosmos, nil
-	case "solana":
+	case string(chaintype.Solana):
 		return OCR2ChainTypeSolana, nil
 	case string(chaintype.StarkNet):
 		return OCR2ChainTypeStarkNet, nil
