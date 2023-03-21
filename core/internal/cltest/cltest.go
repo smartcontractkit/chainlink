@@ -204,8 +204,9 @@ func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, 
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config), nil, lggr,
+		keyStates, estimator, nil, lggr,
 		checkerFactory, nonceAutoSync)
 }
 
@@ -217,8 +218,9 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates,
-		gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config), fn, lggr)
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
+
+	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, estimator, fn, lggr)
 	return ec
 }
 
@@ -279,7 +281,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case evmtypes.DBChain:
+		case evmtypes.ChainConfig:
 			chainID = v.ID
 		case *utils.Big:
 			chainID = *v
@@ -488,7 +490,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ChainlinkApplication: app,
 		Logger:               lggr,
 	}
-	ta.Server = httptest.NewServer(web.Router(t, app, nil))
+
+	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
+	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Start()
+	ta.Server = srvr
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager

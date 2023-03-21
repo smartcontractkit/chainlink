@@ -10,6 +10,7 @@ import (
 
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -26,7 +27,7 @@ import (
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

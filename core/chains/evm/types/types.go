@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -21,8 +20,8 @@ import (
 )
 
 type ORM interface {
-	chains.ChainsORM[utils.Big, *ChainCfg, DBChain]
-	chains.NodesORM[utils.Big, Node]
+	chains.ChainConfigs[utils.Big, *ChainCfg, ChainConfig]
+	chains.NodeConfigs[utils.Big, Node]
 
 	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
@@ -86,9 +85,8 @@ func (c *ChainCfg) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-type DBChain = chains.DBChain[utils.Big, *ChainCfg]
+type ChainConfig = chains.ChainConfig[utils.Big, *ChainCfg]
 
-// TODO: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type Node struct {
 	ID         int32
 	Name       string
@@ -96,8 +94,6 @@ type Node struct {
 	WSURL      null.String `db:"ws_url"`
 	HTTPURL    null.String `db:"http_url"`
 	SendOnly   bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
 	// State doesn't exist in the DB, it's used to hold an in-memory state for
 	// rendering
 	State string `db:"-"`
