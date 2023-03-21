@@ -24,7 +24,7 @@ import (
 
 type expectedResult struct {
 	FeedId [32]byte
-	Value  big.Int
+	Value  *big.Int
 }
 
 type feedIdResult struct {
@@ -35,8 +35,8 @@ type feedIdResult struct {
 
 type numberResult struct {
 	Ok       bool
-	Expected big.Int
-	Actual   big.Int
+	Expected *big.Int
+	Actual   *big.Int
 }
 
 type blockNumberResult struct {
@@ -208,19 +208,19 @@ func validateNewReportsEveryBlock(
 				}
 				// Compare bid
 				result.Bid = numberResult{
-					Ok:       er.Value.Cmp(&report.Bid) == 0,
+					Ok:       er.Value.Cmp(report.Bid) == 0,
 					Expected: er.Value,
 					Actual:   report.Bid,
 				}
 				// Compare ask
 				result.Ask = numberResult{
-					Ok:       er.Value.Cmp(&report.Ask) == 0,
+					Ok:       er.Value.Cmp(report.Ask) == 0,
 					Expected: er.Value,
 					Actual:   report.Ask,
 				}
 				// Compare benchmark price
 				result.BenchmarkPrice = numberResult{
-					Ok:       er.Value.Cmp(&report.BenchmarkPrice) == 0,
+					Ok:       er.Value.Cmp(report.BenchmarkPrice) == 0,
 					Expected: er.Value,
 					Actual:   report.BenchmarkPrice,
 				}
@@ -248,7 +248,7 @@ func validateNewReportsEveryBlock(
 type SimulationRound struct {
 	Duration                      time.Duration
 	TimeBetweenNewBlockAndApiCall time.Duration
-	DataProviderValue             big.Int
+	DataProviderValue             *big.Int
 	ValidatorsCount               int
 	Results                       RoundResult
 	// Percentage of missing reports allowed in the round
@@ -265,42 +265,42 @@ var simulation = Simulation{
 		{
 			Duration:                      20 * time.Second,
 			TimeBetweenNewBlockAndApiCall: 500 * time.Millisecond,
-			DataProviderValue:             *big.NewInt(800),
+			DataProviderValue:             big.NewInt(800),
 			ValidatorsCount:               10,
 			MissingReportsThreshold:       0.7,
 		},
 		{
 			Duration:                      25 * time.Second,
 			TimeBetweenNewBlockAndApiCall: 700 * time.Millisecond,
-			DataProviderValue:             *big.NewInt(800),
+			DataProviderValue:             big.NewInt(800),
 			ValidatorsCount:               10,
 			MissingReportsThreshold:       0.5,
 		},
 		{
 			Duration:                      30 * time.Second,
 			TimeBetweenNewBlockAndApiCall: 1000 * time.Millisecond,
-			DataProviderValue:             *big.NewInt(800),
+			DataProviderValue:             big.NewInt(800),
 			ValidatorsCount:               10,
 			MissingReportsThreshold:       0.2,
 		},
 		{
 			Duration:                      40 * time.Second,
 			TimeBetweenNewBlockAndApiCall: 1500 * time.Millisecond,
-			DataProviderValue:             *big.NewInt(800),
+			DataProviderValue:             big.NewInt(800),
 			ValidatorsCount:               10,
 			MissingReportsThreshold:       0.0,
 		},
 		{
 			Duration:                      50 * time.Second,
 			TimeBetweenNewBlockAndApiCall: 2000 * time.Millisecond,
-			DataProviderValue:             *big.NewInt(800),
+			DataProviderValue:             big.NewInt(800),
 			ValidatorsCount:               10,
 			MissingReportsThreshold:       0.0,
 		},
 		{
 			Duration:                      60 * time.Second,
 			TimeBetweenNewBlockAndApiCall: 2500 * time.Millisecond,
-			DataProviderValue:             *big.NewInt(800),
+			DataProviderValue:             big.NewInt(800),
 			ValidatorsCount:               10,
 			MissingReportsThreshold:       0.0,
 		},
@@ -431,7 +431,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 	}
 }
 
-func setMockserver(t *testing.T, testEnv *mercury.TestEnv, value big.Int) {
+func setMockserver(t *testing.T, testEnv *mercury.TestEnv, value *big.Int) {
 	// Update job spec to not multiply the value by 10? Otherwise division is needed
 	err := testEnv.MockserverClient.SetValuePath("/variable", int(value.Int64()/10))
 	require.NoError(t, err)

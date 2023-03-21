@@ -3,6 +3,7 @@ package smoke
 import (
 	"context"
 	"encoding/base64"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -12,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
@@ -33,7 +35,24 @@ var (
 		},
 		ExtraHash: [32]uint8{27, 144, 106, 73, 166, 228, 123, 166, 179, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114},
 	}
+	rs, ss, vs = genRsSsVs()
 )
+
+func genRsSsVs() ([][32]byte, [][32]byte, [32]byte) {
+	var rs [][32]byte
+	var ss [][32]byte
+	var vs [32]byte
+	for i, as := range sampleSigs {
+		r, s, v, err := evmutil.SplitSignature(as.Signature)
+		if err != nil {
+			panic("eventTransmit(ev): error in SplitSignature")
+		}
+		rs = append(rs, r)
+		ss = append(ss, s)
+		vs[i] = v
+	}
+	return rs, ss, vs
+}
 
 func TestMercuryServerAPI(t *testing.T) {
 	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
@@ -97,7 +116,7 @@ func TestMercuryServerAPI(t *testing.T) {
 		require.Nil(t, resp.Report)
 	})
 
-	// TODO: test validFromBlockNum must be less or equal to currentBlockNumber
+	// TODO: test conflicting key value violates exclusion constraint "no_overlap"
 
 	t.Run("WSRPC LatestReport() returns newly created report", func(t *testing.T) {
 		var rs [][32]byte
@@ -133,6 +152,31 @@ func TestMercuryServerAPI(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, res2.Report)
 		// TODO: validate report fields
+	})
+
+	t.Run("WSRPC: validFromBlockNum must be less or equal to currentBlockNumber", func(t *testing.T) {
+		report := mercuryactions.Report{
+			FeedId:                feedID,
+			ObservationsTimestamp: uint32(42),
+			BenchmarkPrice:        big.NewInt(242),
+			Bid:                   big.NewInt(243),
+			Ask:                   big.NewInt(244),
+			CurrentBlockNum:       uint64(143),
+			CurrentBlockHash:      utils.NewHash(),
+			ValidFromBlockNum:     uint64(144),
+		}
+		reportBytes, err := report.Pack()
+		require.NoError(t, err)
+		rawReportCtx := evmutil.RawReportContext(sampleReportContext)
+		payload, err := PayloadTypes.Pack(rawReportCtx, reportBytes, rs, ss, vs)
+		require.NoError(t, err)
+
+		// Transmit report
+		req := &pb.TransmitRequest{
+			Payload: payload,
+		}
+		res, _ := wsrpcClient.Transmit(context.Background(), req)
+		require.Equal(t, "failed to store report", res.Error)
 	})
 }
 

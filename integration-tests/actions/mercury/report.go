@@ -53,15 +53,26 @@ type ReportWithContext struct {
 	Digest []byte
 }
 
+func (*ReportWithContext) Pack(reportWithContext *ReportWithContext,
+	report [32]byte, rs [][32]byte, ss [][32]byte, vs [32]byte) ([]byte, error) {
+	return PayloadTypes.Pack(reportWithContext, report, rs, ss, vs)
+}
+
 type Report struct {
 	FeedId                [32]byte
 	ObservationsTimestamp uint32
-	BenchmarkPrice        big.Int
-	Bid                   big.Int
-	Ask                   big.Int
+	BenchmarkPrice        *big.Int
+	Bid                   *big.Int
+	Ask                   *big.Int
 	CurrentBlockNum       uint64
 	CurrentBlockHash      [32]uint8
 	ValidFromBlockNum     uint64
+}
+
+// Use core report types
+func (r *Report) Pack() ([]byte, error) {
+	return reportcodec.ReportTypes.Pack(r.FeedId, r.ObservationsTimestamp, r.BenchmarkPrice,
+		r.Bid, r.Ask, r.CurrentBlockNum, r.CurrentBlockHash, r.ValidFromBlockNum)
 }
 
 func DecodeReport(r []byte) (*ReportWithContext, error) {
@@ -191,9 +202,9 @@ func decodeBlobToReport(reportBlob []byte) (*Report, error) {
 	report := &Report{
 		FeedId:                feedID,
 		ObservationsTimestamp: observationsTimestamp,
-		BenchmarkPrice:        *benchmarkPrice,
-		Bid:                   *bidPrice,
-		Ask:                   *askPrice,
+		BenchmarkPrice:        benchmarkPrice,
+		Bid:                   bidPrice,
+		Ask:                   askPrice,
 		CurrentBlockNum:       currentBlockNumber,
 		CurrentBlockHash:      currentBlockHash,
 		ValidFromBlockNum:     validFromBlockNum,
