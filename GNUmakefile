@@ -127,7 +127,7 @@ config-docs: ## Generate core node configuration documentation
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.51.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.52.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 .PHONY: snapshot
 snapshot:
