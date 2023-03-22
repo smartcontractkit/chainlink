@@ -21,6 +21,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -47,7 +47,7 @@ import (
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
 
-func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfigOpts) []cli.Command {
+func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -69,19 +69,8 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 					Name:  "vrfpassword, vp",
 					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
 				},
-				cli.StringSliceFlag{
-					Name:  "config, c",
-					Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
-				},
-				cli.StringFlag{
-					Name:  "secrets, s",
-					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
-				},
 			},
-			Usage: "Run the Chainlink node",
-			Before: func(c *cli.Context) error {
-				return client.setConfigFromFlags(opts, c)
-			},
+			Usage:  "Run the Chainlink node",
 			Action: client.RunNode,
 		},
 		{
@@ -106,8 +95,9 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 					Usage: "text file holding the password for the node's account",
 				},
 				cli.StringFlag{
-					Name:  "address, a",
-					Usage: "The address (in hex format) for the key which we want to rebroadcast transactions",
+					Name:     "address, a",
+					Usage:    "The address (in hex format) for the key which we want to rebroadcast transactions",
+					Required: true,
 				},
 				cli.StringFlag{
 					Name:  "evmChainID",
@@ -292,10 +282,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", cli.Config.ShutdownGracePeriod())
 		// LockedDB.Close() will release DB locks and close DB connection
 		// Executing this explicitly because defers are not executed in case of os.Exit()
-		if err = ldb.Close(); err != nil {
+		if err := ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
-		if err = cli.CloseLogger(); err != nil {
+		if err := cli.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
 		}
 
@@ -303,7 +293,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	})
 
 	// Try opening DB connection and acquiring DB locks at once
-	if err = ldb.Open(rootCtx); err != nil {
+	if err := ldb.Open(rootCtx); err != nil {
 		// If not successful, we know neither locks nor connection remains opened
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
@@ -546,10 +536,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
-	pwd, err := utils.PasswordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
+
 	chain, err := app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		return cli.errorOut(err)
@@ -563,7 +550,20 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return err
 	}
 
-	err = keyStore.Unlock(pwd)
+	if c.IsSet("password") {
+		pwd, err := utils.PasswordFromFile(c.String("password"))
+		if err != nil {
+			return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+		}
+		cli.Config.SetPasswords(&pwd, nil)
+	}
+
+	err = cli.Config.Validate()
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+	}
+
+	err = keyStore.Unlock(cli.Config.KeystorePassword())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
