@@ -335,7 +335,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		case <-ticker.C:
 			var notFound = false
 			for _, feedId := range feedIds {
-				report, _, _ := te.MSClient.GetReports(Byte32ToString(feedId), latestBlockNum)
+				report, _, _ := te.MSClient.GetReportsByFeedIdStr(Byte32ToString(feedId), latestBlockNum)
 				if report == nil || report.ChainlinkBlob == "" {
 					notFound = true
 				}

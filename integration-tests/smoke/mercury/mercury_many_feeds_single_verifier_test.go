@@ -83,7 +83,7 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 				latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 				require.NoError(t, err, "Err getting latest block number")
 
-				report, _, err := testEnv.MSClient.GetReports(feedIdStr, latestBlockNum-5)
+				report, _, err := testEnv.MSClient.GetReportsByFeedIdStr(feedIdStr, latestBlockNum-5)
 				require.NoError(t, err, "Error getting report from Mercury Server")
 				require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 			})
@@ -116,7 +116,8 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 				// Get report from mercury server
 				msClient := client.NewMercuryServerClient(
 					testEnv.MSInfo.LocalUrl, testEnv.MSInfo.UserId, testEnv.MSInfo.UserKey)
-				report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
+				r, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
+				report := r.(map[string]interface{})
 				l.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
 				require.NoError(t, err, "Error getting report from Mercury Server")
 				require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")

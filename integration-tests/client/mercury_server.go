@@ -59,7 +59,7 @@ func (s *MercuryServer) DialWS() (*websocket.Conn, *http.Response, error) {
 	})
 }
 
-func (s *MercuryServer) CallGet(path string) (map[string]interface{}, *http.Response, error) {
+func (s *MercuryServer) CallGet(path string) (interface{}, *http.Response, error) {
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	result := map[string]interface{}{}
@@ -104,42 +104,30 @@ func (s *MercuryServer) AddUser(newUserSecret string, newUserRole string, newUse
 
 // Need admin role
 func (s *MercuryServer) GetUsers() ([]User, *http.Response, error) {
-	var result []User
-	path := "/admin/user"
-	timestamp := genReqTimestamp()
-	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
-	resp, err := s.APIClient.R().
-		SetHeader("Accept", "application/json").
-		SetHeader("Authorization", s.UserId).
-		SetHeader("X-Authorization-Timestamp", timestamp).
-		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
-		SetResult(&result).
-		Get(path)
+	r, resp, err := s.CallGet("/admin/user")
 	if err != nil {
 		return nil, nil, err
 	}
-	return result, resp.RawResponse, err
+	result := r.([]User)
+	return result, resp, nil
 }
 
-func (s *MercuryServer) GetReports(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
-	result := &GetReportsResult{}
-	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber)
-	timestamp := genReqTimestamp()
-	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
-	resp, err := s.APIClient.R().
-		SetHeader("Accept", "application/json").
-		SetHeader("Authorization", s.UserId).
-		SetHeader("X-Authorization-Timestamp", timestamp).
-		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
-		SetResult(&result).
-		Get(path)
-	if err != nil && resp == nil {
+func (s *MercuryServer) GetReportsByFeedIdStr(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
+	r, resp, err := s.CallGet(fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber))
+	if err != nil {
 		return nil, nil, err
 	}
+	result := r.(GetReportsResult)
+	return &result, resp, nil
+}
+
+func (s *MercuryServer) GetReportsByFeedIdHex(feedIdHex string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
+	r, resp, err := s.CallGet(fmt.Sprintf("/client?feedIDHex=%s&L2Blocknumber=%d", feedIdHex, blockNumber))
 	if err != nil {
-		return nil, resp.RawResponse, err
+		return nil, nil, err
 	}
-	return result, resp.RawResponse, err
+	result := r.(GetReportsResult)
+	return &result, resp, nil
 }
 
 func genReqTimestamp() string {

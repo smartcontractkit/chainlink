@@ -159,7 +159,7 @@ func TestMercuryChaos(t *testing.T) {
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
-				report, _, err := env.MSClient.GetReports(mercury.Byte32ToString(feeds[0]), blockAfterChaos)
+				report, _, err := env.MSClient.GetReportsByFeedIdStr(mercury.Byte32ToString(feeds[0]), blockAfterChaos)
 				l.Info().Interface("Report", report).Msg("Last report received")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error getting report from Mercury Server")
 				g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Report response does not contain chainlinkBlob")
