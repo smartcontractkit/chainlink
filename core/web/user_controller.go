@@ -123,7 +123,7 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 	if request.NewRole == "" {
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("newrole flag is empty, must specify a new role, possible options are 'admin', 'edit', 'run', 'view'"))
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("new-role flag is empty, must specify a new role, possible options are 'admin', 'edit', 'run', 'view'"))
 		return
 	}
 	_, err := clsession.GetUserRole(request.NewRole)

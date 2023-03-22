@@ -124,7 +124,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewDKGEncryptKeysClient(client).ExportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
-		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c := cli.NewContext(nil, set, nil)
@@ -137,7 +137,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewDKGEncryptKeysClient(client).ExportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
-		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c = cli.NewContext(nil, set, nil)
@@ -153,7 +153,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewDKGEncryptKeysClient(client).ImportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
-		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(tt, cmd.NewDKGEncryptKeysClient(client).ImportKey(c))

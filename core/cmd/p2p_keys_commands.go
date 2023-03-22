@@ -50,7 +50,7 @@ func initP2PKeysSubCmd(client *Client) cli.Command {
 				Usage: format(`Imports a P2P key from a JSON file`),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "oldpassword, p",
+						Name:  "old-password, oldpassword, p",
 						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 					},
 				},
@@ -61,7 +61,7 @@ func initP2PKeysSubCmd(client *Client) cli.Command {
 				Usage: format(`Exports a P2P key to a JSON file`),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "newpassword, p",
+						Name:  "new-password, newpassword, p",
 						Usage: "`FILE` containing the password to encrypt the key (required)",
 					},
 					cli.StringFlag{
@@ -189,9 +189,9 @@ func (cli *Client) ImportP2PKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
-	oldPasswordFile := c.String("oldpassword")
+	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
@@ -225,9 +225,9 @@ func (cli *Client) ExportP2PKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
 
-	newPasswordFile := c.String("newpassword")
+	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
