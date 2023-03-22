@@ -68,9 +68,10 @@ type SolFunctionParam struct {
 }
 
 type TemplateData struct {
-	Events    []SolEvent
-	Structs   []SolStruct
-	Functions []SolFunction
+	ContractName string
+	Events       []SolEvent
+	Structs      []SolStruct
+	Functions    []SolFunction
 }
 
 func getABIFiles(root string) ([]string, error) {
@@ -90,7 +91,7 @@ func getABIFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func extractEventsAndStructs(abiJSON []byte, fileName string) ([]SolEvent, []SolStruct, error) {
+func extractEventsAndStructs(abiJSON []byte) ([]SolEvent, []SolStruct, error) {
 	var parsedABI []AbiEvent
 	err := json.Unmarshal(abiJSON, &parsedABI)
 	if err != nil {
@@ -102,7 +103,7 @@ func extractEventsAndStructs(abiJSON []byte, fileName string) ([]SolEvent, []Sol
 
 	for _, item := range parsedABI {
 		if item.Type == "event" {
-			eventName := fmt.Sprintf("%s_%s", fileName, item.Name)
+			eventName := item.Name
 			var eventParams []SolEventParam
 
 			for i, input := range item.Inputs {
@@ -114,7 +115,7 @@ func extractEventsAndStructs(abiJSON []byte, fileName string) ([]SolEvent, []Sol
 					if strings.Contains(internalType, ".") {
 						internalType = strings.Split(internalType, ".")[1]
 					}
-					structName := fmt.Sprintf("%s_%s", fileName, internalType)
+					structName := internalType
 
 					var solStructParams []SolStructParam
 					for _, component := range input.Components {
@@ -186,11 +187,11 @@ func generateFunctions(solEvents []SolEvent) ([]SolFunction, error) {
 	return solFunctions, nil
 }
 
-func generateContract(solEvents []SolEvent, solStructs []SolStruct, solFunctions []SolFunction) (string, error) {
+func generateContract(data TemplateData) (string, error) {
 	const templateStr = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-contract EventsMock {
+contract {{ .ContractName }} {
     {{- range .Structs }}
     struct {{ .Name }} { {{- range .SolStructParams }}{{ .Type }} {{ .Name }}; {{- end }} }
     {{- end }}
@@ -222,11 +223,6 @@ contract EventsMock {
 	}
 
 	var buf bytes.Buffer
-	data := TemplateData{
-		Events:    solEvents,
-		Structs:   solStructs,
-		Functions: solFunctions,
-	}
 	err = tmpl.Execute(&buf, data)
 	if err != nil {
 		return "", err
@@ -238,6 +234,7 @@ contract EventsMock {
 func main() {
 	abiPath := os.Args[1]
 	solPath := os.Args[2]
+	contractName := os.Args[3]
 
 	abiFiles, err := getABIFiles(abiPath)
 	if err != nil {
@@ -256,8 +253,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		fileName := strings.TrimSuffix(filepath.Base(abiFile), ".abi")
-		fileEvents, fileStructs, err := extractEventsAndStructs(abiJSON, fileName)
+		fileEvents, fileStructs, err := extractEventsAndStructs(abiJSON)
 		if err != nil {
 			fmt.Println("Error parsing events:", err)
 			os.Exit(1)
@@ -274,7 +270,13 @@ func main() {
 	}
 
 	// Generate the contract
-	contract, err := generateContract(events, structs, functions)
+	data := TemplateData{
+		ContractName: contractName,
+		Events:       events,
+		Structs:      structs,
+		Functions:    functions,
+	}
+	contract, err := generateContract(data)
 	if err != nil {
 		fmt.Println("Error generating mock contract:", err)
 		os.Exit(1)

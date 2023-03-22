@@ -8,6 +8,7 @@ coverage.json
 typechain
 
 src/v0.8/mocks/EventsMock.sol
+src/v0.8/mocks/FunctionsOracleEventsMock.sol
 
 # Foundry
 foundry-cache
