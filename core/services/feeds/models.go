@@ -3,6 +3,7 @@ package feeds
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -18,6 +19,26 @@ const (
 	JobTypeOffchainReporting  = "ocr"
 	JobTypeOffchainReporting2 = "ocr2"
 )
+
+type PluginType string
+
+const (
+	PluginTypeUnknown PluginType = "UNKNOWN"
+	PluginTypeMedian  PluginType = "MEDIAN"
+)
+
+func FromPluginTypeInput(pt PluginType) string {
+	return strings.ToLower(string(pt))
+}
+
+func ToPluginType(s string) (PluginType, error) {
+	switch s {
+	case "median":
+		return PluginTypeMedian, nil
+	default:
+		return PluginTypeUnknown, errors.New("unknown plugin type")
+	}
+}
 
 type ChainType string
 
@@ -104,11 +125,12 @@ func (c *OCR1Config) Scan(value interface{}) error {
 
 // OCR2Config defines configuration for OCR2 Jobs.
 type OCR2Config struct {
-	Enabled     bool        `json:"enabled"`
-	IsBootstrap bool        `json:"is_bootstrap"`
-	Multiaddr   null.String `json:"multiaddr"`
-	P2PPeerID   null.String `json:"p2p_peer_id"`
-	KeyBundleID null.String `json:"key_bundle_id"`
+	Enabled        bool        `json:"enabled"`
+	IsBootstrap    bool        `json:"is_bootstrap"`
+	Multiaddr      null.String `json:"multiaddr"`
+	P2PPeerID      null.String `json:"p2p_peer_id"`
+	KeyBundleID    null.String `json:"key_bundle_id"`
+	EnabledPlugins []string    `json:"enabled_plugins"`
 }
 
 func (c OCR2Config) Value() (driver.Value, error) {

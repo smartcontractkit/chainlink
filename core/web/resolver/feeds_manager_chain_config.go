@@ -119,6 +119,18 @@ func (r *OCR2JobConfigResolver) KeyBundleID() *string {
 	return r.cfg.KeyBundleID.Ptr()
 }
 
+func (r *OCR2JobConfigResolver) EnabledPlugins() []feeds.PluginType {
+	pts := []feeds.PluginType{}
+
+	for _, st := range r.cfg.EnabledPlugins {
+		if pt, err := feeds.ToPluginType(st); err == nil {
+			pts = append(pts, pt)
+		}
+	}
+
+	return pts
+}
+
 // -- CreateFeedsManagerChainConfig Mutation --
 
 // CreateFeedsManagerChainConfigPayloadResolver resolves the response to

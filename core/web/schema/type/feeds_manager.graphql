@@ -4,6 +4,10 @@ enum JobType {
 	OCR2
 }
 
+enum PluginType {
+	MEDIAN
+}
+
 type FeedsManager {
 	id: ID!
 	name: String!
@@ -44,6 +48,7 @@ type OCR2JobConfig {
 	multiaddr: String
 	p2pPeerID: String
 	keyBundleID: String
+	EnabledPlugins: [PluginType!]!
 }
 
 # FeedsManagerPayload defines the response to fetch a single feeds manager by id
@@ -111,6 +116,7 @@ input CreateFeedsManagerChainConfigInput {
 	ocr2Multiaddr: String
 	ocr2P2PPeerID: String
 	ocr2KeyBundleID: String
+	ocr2EnabledPlugins: [PluginType!]!
 }
 
 # CreateFeedsManagerChainConfigSuccess defines the success response when
@@ -150,6 +156,7 @@ input UpdateFeedsManagerChainConfigInput {
 	ocr2Multiaddr: String
 	ocr2P2PPeerID: String
 	ocr2KeyBundleID: String
+	ocr2EnabledPlugins: [PluginType!]!
 }
 
 # UpdateFeedsManagerChainConfigSuccess defines the success response when

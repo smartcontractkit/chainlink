@@ -199,7 +199,6 @@ func Test_CreateFeedsManager(t *testing.T) {
 			"input": map[string]interface{}{
 				"name":            name,
 				"uri":             uri,
-				"jobTypes":        []interface{}{"FLUX_MONITOR", "OCR2"},
 				"publicKey":       pubKeyHex,
 				"isBootstrapPeer": false,
 			},
