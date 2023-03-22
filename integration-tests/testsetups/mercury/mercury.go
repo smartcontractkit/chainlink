@@ -544,8 +544,7 @@ func buildBootstrapSpec(contractID string, chainID int64, fromBlock uint64, feed
 			Relay:      "evm",
 			FeedID:     common.BytesToHash(feedId[:]),
 			RelayConfig: map[string]interface{}{
-				"chainID":   int(chainID),
-				"fromBlock": fromBlock,
+				"chainID": int(chainID),
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
@@ -589,9 +588,10 @@ func buildOCRSpec(
 
 	uuid, _ := uuid.NewV4()
 	return &client.OCR2TaskJobSpec{
-		Name:            fmt.Sprintf("ocr2-%s", uuid),
-		JobType:         "offchainreporting2",
-		MaxTaskDuration: "1s",
+		Name:              fmt.Sprintf("ocr2-%s", uuid),
+		JobType:           "offchainreporting2",
+		MaxTaskDuration:   "1s",
+		ForwardingAllowed: false,
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			PluginType: "mercury",
 			PluginConfig: map[string]interface{}{
