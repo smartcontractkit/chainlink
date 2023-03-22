@@ -136,6 +136,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
+			Before: func(ctx *clipkg.Context) error {
+				return client.Config.Validate()
+			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
