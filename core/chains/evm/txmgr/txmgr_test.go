@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -55,15 +57,15 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
+	var fwdMgr txmgrtypes.ForwarderManager[common.Address]
 	if cfg.EvmUseForwarders() {
-		fwdMgr := forwarders.NewFwdMgr(db, ethClient, lp, lggr, cfg)
-		return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, fwdMgr)
+		fwdMgr = forwarders.NewFwdMgr(db, ethClient, lp, lggr, cfg)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
-		return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, nil)
 	}
 	// --------------------
 
+	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, fwdMgr)
 }
 
 func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {

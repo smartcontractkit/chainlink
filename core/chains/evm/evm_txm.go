@@ -3,8 +3,10 @@ package evm
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -41,14 +43,15 @@ func newEvmTxm(
 		// build estimator from factory
 		estimator := gas.NewEstimator(lggr, client, cfg)
 
+		var fwdMgr txmgrtypes.ForwarderManager[common.Address]
+
 		if cfg.EvmUseForwarders() {
-			fwdMgr := forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
-			txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr)
+			fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
 		} else {
 			lggr.Info("EvmForwarderManager: Disabled")
-			txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, nil)
 		}
 
+		txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, estimator, fwdMgr)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
