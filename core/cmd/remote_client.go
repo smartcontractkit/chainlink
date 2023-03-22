@@ -74,23 +74,8 @@ func initRemoteConfigSubCmds(client *Client, opts *chainlink.GeneralConfigOpts) 
 				},
 			},
 		},
-		{
-			Name:   "validate",
-			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
-			Action: client.ConfigFileValidate,
-			Flags: []cli.Flag{cli.StringSliceFlag{
-				Name:  "config, c",
-				Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
-			},
-				cli.StringFlag{
-					Name:  "secrets, s",
-					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
-				},
-			},
-			Before: func(c *cli.Context) error {
-				return client.setConfigFromFlags(opts, c)
-			},
-		},
+		statusCliCmd(client, false),
+		profileCliCmd(client, false),
 	}
 }
 
@@ -99,6 +84,37 @@ var (
 	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
 	errBadRequest   = errors.New(http.StatusText(http.StatusBadRequest))
 )
+
+func statusCliCmd(client *Client, hidden bool) cli.Command {
+	return cli.Command{
+		Name:   "status",
+		Usage:  "Displays the health of various services running inside the node.",
+		Action: client.Status,
+		Flags:  []cli.Flag{},
+		Hidden: hidden,
+	}
+}
+
+func profileCliCmd(client *Client, hidden bool) cli.Command {
+	return cli.Command{
+		Name:   "profile",
+		Usage:  "Collects profile metrics from the node.",
+		Action: client.Profile,
+		Flags: []cli.Flag{
+			cli.Uint64Flag{
+				Name:  "seconds, s",
+				Usage: "duration of profile capture",
+				Value: 8,
+			},
+			cli.StringFlag{
+				Name:  "output_dir, o",
+				Usage: "output directory of the captured profile",
+				Value: "/tmp/",
+			},
+		},
+		Hidden: hidden,
+	}
+}
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {

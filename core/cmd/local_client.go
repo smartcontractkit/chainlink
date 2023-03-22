@@ -110,28 +110,14 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			},
 		},
 		{
-			Name:   "status",
-			Usage:  "Displays the health of various services running inside the node.",
-			Action: client.Status,
-			Flags:  []cli.Flag{},
+			Name:   "validate",
+			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
 		},
-		{
-			Name:   "profile",
-			Usage:  "Collects profile metrics from the node.",
-			Action: client.Profile,
-			Flags: []cli.Flag{
-				cli.Uint64Flag{
-					Name:  "seconds, s",
-					Usage: "duration of profile capture",
-					Value: 8,
-				},
-				cli.StringFlag{
-					Name:  "output_dir, o",
-					Usage: "output directory of the captured profile",
-					Value: "/tmp/",
-				},
-			},
-		},
+		// status and profile for backward compatibilty
+		statusCliCmd(client, true),
+		profileCliCmd(client, true),
+
 		{
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
