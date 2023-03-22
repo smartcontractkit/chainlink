@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
@@ -57,7 +56,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
-	var fwdMgr txmgrtypes.ForwarderManager[common.Address]
+	var fwdMgr txmgrtypes.ForwarderManager[gethcommon.Address]
 	if cfg.EvmUseForwarders() {
 		fwdMgr = forwarders.NewFwdMgr(db, ethClient, lp, lggr, cfg)
 	} else {
