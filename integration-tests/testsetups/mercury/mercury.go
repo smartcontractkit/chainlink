@@ -61,7 +61,8 @@ type TestEnv struct {
 	Env              *environment.Environment
 	ChainlinkNodes   []*client.Chainlink
 	MockserverClient *ctfClient.MockserverClient
-	MSClient         *client.MercuryServer // Mercury server client authenticated with admin role
+	MSClient         *client.MercuryServer        // Mercury server client authenticated with admin role
+	MSDbClient       *ctfClient.PostgresConnector // Mercury db client
 	MSInfo           mercuryServerInfo
 	IsExistingEnv    bool // true if config in MERCURY_ENV_CONFIG_PATH contains namespace
 	SaveEnv          bool
@@ -71,7 +72,8 @@ type TestEnv struct {
 	EvmChart         *environment.ConnectedChart
 	EvmClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
-	Contracts        map[string]contractInfo
+	Contracts        map[string]*contractInfo
+	C                *TestEnvConfig // Config used to create this test env
 	// Logs of action taken on the test env
 	// When existing env is used, the logs are used to skip setting up
 	// jobs, contracts, etc. as they are already in place
@@ -89,16 +91,18 @@ type contractInfo struct {
 }
 
 type mercuryServerInfo struct {
-	RemoteUrl         string `json:"remoteUrl"`
-	LocalUrl          string `json:"localUrl"`
-	RemoteWsrpcUrl    string `json:"remoteWsrpcUrl"`
-	LocalWsrpcUrl     string `json:"localWsrpcUrl"`
-	AdminId           string `json:"adminId"`
-	AdminKey          string `json:"adminKey"`
-	AdminEncryptedKey string `json:"adminEncryptedKey"`
-	RpcPubKeyString   string `json:"rpcPubKey"`
-	RpcPubKey         ed25519.PublicKey
-	RpcNodesCsaKeys   []CsaKeyWrapper
+	RemoteUrl        string `json:"remoteUrl"`
+	LocalUrl         string `json:"localUrl"`
+	RemoteWsrpcUrl   string `json:"remoteWsrpcUrl"`
+	LocalWsrpcUrl    string `json:"localWsrpcUrl"`
+	RemoteDbUrl      string `json:"remoteDbUrl"`
+	LocalDbUrl       string `json:"localDbUrl"`
+	UserId           string `json:"userId"`
+	UserKey          string `json:"userKey"`
+	UserEncryptedKey string `json:"userEncryptedKey"`
+	RpcPubKeyString  string `json:"rpcPubKey"`
+	RpcPubKey        ed25519.PublicKey
+	RpcNodesCsaKeys  []CsaKeyWrapper
 }
 
 // Fetch mercury environment config from local json file
@@ -148,13 +152,12 @@ func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestE
 	c, _ := configFromFile(EnvConfigPath)
 	// Load env from config
 	if c != nil && c.Id == testEnvId {
+		te.C = c
 		// Fail when chain on env loaded from config is different than currently selected chain
 		if c.ChainId != networks.SelectedNetwork.ChainID {
 			return te, fmt.Errorf("chain set in SELECTED_NETWORKS is" +
 				" different than chain id set in config provided by MERCURY_ENV_CONFIG_PATH")
 		}
-
-		te.Namespace = c.K8Namespace
 
 		// Load keys for rpc nodes
 		var csaKeys []CsaKeyWrapper
@@ -171,36 +174,45 @@ func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestE
 		}
 
 		te.MSInfo = mercuryServerInfo{
-			RemoteUrl:         c.MSInfo.RemoteUrl,
-			LocalUrl:          c.MSInfo.LocalUrl,
-			RemoteWsrpcUrl:    c.MSInfo.RemoteWsrpcUrl,
-			LocalWsrpcUrl:     c.MSInfo.LocalWsrpcUrl,
-			AdminId:           c.MSInfo.AdminId,
-			AdminKey:          c.MSInfo.AdminKey,
-			AdminEncryptedKey: c.MSInfo.AdminEncryptedKey,
-			RpcPubKey:         c.MSInfo.RpcPubKey,
-			RpcNodesCsaKeys:   csaKeys,
+			RemoteUrl:        c.MSInfo.RemoteUrl,
+			LocalUrl:         c.MSInfo.LocalUrl,
+			RemoteWsrpcUrl:   c.MSInfo.RemoteWsrpcUrl,
+			LocalWsrpcUrl:    c.MSInfo.LocalWsrpcUrl,
+			UserId:           c.MSInfo.UserId,
+			UserKey:          c.MSInfo.UserKey,
+			UserEncryptedKey: c.MSInfo.UserEncryptedKey,
+			RpcPubKey:        c.MSInfo.RpcPubKey,
+			RpcNodesCsaKeys:  csaKeys,
 		}
 
 		// Load contract addresses
-		te.Contracts = map[string]contractInfo{}
+		te.Contracts = map[string]*contractInfo{}
 		for k, addr := range c.ContractsInfo {
-			te.Contracts[k] = contractInfo{
+			te.Contracts[k] = &contractInfo{
 				Address: addr,
 			}
 		}
 		te.ActionLog = c.Actions
-		te.IsExistingEnv = true
+
+		te.Namespace = c.K8Namespace
+
+		if te.Namespace != "" {
+			te.IsExistingEnv = true
+			log.Info().Msgf("Using existing mercury environment in %s. Env config: %s\n%s",
+				te.Namespace, EnvConfigPath, c.Json())
+		} else {
+			te.IsExistingEnv = false
+		}
 
 		log.Info().Msgf("Using existing mercury environment based on config: %s\n%s",
 			EnvConfigPath, c.Json())
 	} else {
 		te.MSInfo = mercuryServerInfo{
-			AdminId:           os.Getenv("MS_DATABASE_FIRST_ADMIN_ID"),
-			AdminKey:          os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY"),
-			AdminEncryptedKey: os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY"),
+			UserId:           os.Getenv("MS_DATABASE_FIRST_ADMIN_ID"),
+			UserKey:          os.Getenv("MS_DATABASE_FIRST_ADMIN_KEY"),
+			UserEncryptedKey: os.Getenv("MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY"),
 		}
-		te.Contracts = map[string]contractInfo{}
+		te.Contracts = map[string]*contractInfo{}
 		te.ActionLog = map[string]*envAction{}
 		te.IsExistingEnv = false
 
@@ -257,9 +269,9 @@ func (te *TestEnv) Config() *TestEnvConfig {
 		LocalUrl:                te.MSInfo.LocalUrl,
 		RemoteWsrpcUrl:          te.MSInfo.RemoteWsrpcUrl,
 		LocalWsrpcUrl:           te.MSInfo.LocalWsrpcUrl,
-		AdminId:                 te.MSInfo.AdminId,
-		AdminKey:                te.MSInfo.AdminKey,
-		AdminEncryptedKey:       te.MSInfo.AdminEncryptedKey,
+		UserId:                  te.MSInfo.UserId,
+		UserKey:                 te.MSInfo.UserKey,
+		UserEncryptedKey:        te.MSInfo.UserEncryptedKey,
 		RpcPubKey:               te.MSInfo.RpcPubKey,
 		RpcNodesCsaPrivKeySeeds: csaPrivKeySeeds,
 	}
@@ -338,7 +350,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 
 // Add DON to existing env
 func (te *TestEnv) AddDON() error {
-	if te.EvmNetwork == nil || te.EvmChart == nil {
+	if te.EvmNetwork == nil {
 		return fmt.Errorf("setup evm network first")
 	}
 
@@ -358,7 +370,6 @@ func (te *TestEnv) AddDON() error {
 				},
 			},
 		})).
-		AddHelm(*te.EvmChart).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
@@ -389,23 +400,12 @@ func (te *TestEnv) AddDON() error {
 	}
 	te.ChainlinkNodes = nodes
 
-	evmClient, err := blockchain.NewEVMClient(*te.EvmNetwork, te.Env)
-	if err != nil {
-		return err
-	}
-	te.EvmClient = evmClient
-	contractDeployer, err := contracts.NewContractDeployer(evmClient)
-	if err != nil {
-		return err
-	}
-	te.ContractDeployer = contractDeployer
-
 	return nil
 }
 
 // Deploy or load verifier proxy contract
 func (te *TestEnv) AddVerifierProxyContract(contractId string) (contracts.VerifierProxy, error) {
-	if te.IsExistingEnv {
+	if te.Contracts[contractId] != nil {
 		addr := te.Contracts[contractId].Address
 		if addr == "" {
 			return nil, fmt.Errorf("no address in config for %s", contractId)
@@ -422,7 +422,7 @@ func (te *TestEnv) AddVerifierProxyContract(contractId string) (contracts.Verifi
 			return nil, err
 		}
 		te.EvmClient.WaitForEvents()
-		te.Contracts[contractId] = contractInfo{
+		te.Contracts[contractId] = &contractInfo{
 			Address:  c.Address(),
 			Contract: c,
 		}
@@ -432,7 +432,7 @@ func (te *TestEnv) AddVerifierProxyContract(contractId string) (contracts.Verifi
 
 // Deploy or load verifier contract
 func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr string) (contracts.Verifier, error) {
-	if te.IsExistingEnv {
+	if te.Contracts[contractId] != nil {
 		addr := te.Contracts[contractId].Address
 		if addr == "" {
 			return nil, fmt.Errorf("no address in config for %s", contractId)
@@ -448,7 +448,7 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 			return nil, err
 		}
 		te.EvmClient.WaitForEvents()
-		te.Contracts[contractId] = contractInfo{
+		te.Contracts[contractId] = &contractInfo{
 			Address:  c.Address(),
 			Contract: c,
 		}
@@ -459,27 +459,31 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 // Deploy or load exchanger contract
 func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr string, lookupURL string, maxDelay uint8) (contracts.Exchanger, error) {
 	if te.IsExistingEnv {
-		addr := te.Contracts[contractId].Address
-		if addr == "" {
-			return nil, fmt.Errorf("no address in config for %s", contractId)
-		}
-		c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
-		if err != nil {
-			return nil, err
-		}
-		return c, nil
+		return te.LoadExchangerContract(contractId)
 	} else {
 		c, err := te.ContractDeployer.DeployExchanger(verifierProxyAddr, lookupURL, maxDelay)
 		if err != nil {
 			return nil, err
 		}
 		te.EvmClient.WaitForEvents()
-		te.Contracts[contractId] = contractInfo{
+		te.Contracts[contractId] = &contractInfo{
 			Address:  c.Address(),
 			Contract: c,
 		}
 		return c, err
 	}
+}
+
+func (te *TestEnv) LoadExchangerContract(contractId string) (contracts.Exchanger, error) {
+	addr := te.Contracts[contractId].Address
+	if addr == "" {
+		return nil, fmt.Errorf("no address in config for %s", contractId)
+	}
+	c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
@@ -845,101 +849,141 @@ type CsaKeyInfo struct {
 
 // Returns rpc pub key and list of node csa keys (when mock conf is used instead of DON)
 func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyWrapper, error) {
-	if te.IsExistingEnv {
-		// Connect to existing mercury server env and forward ports
-		te.Env.
-			AddHelm(mshelm.New(te.MSChartPath, "", nil)).
-			Run()
-
-		te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
-		te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
-		te.MSInfo.RemoteWsrpcUrl = te.Env.URLs[mshelm.URLsKey][2]
-		te.MSInfo.LocalWsrpcUrl = te.Env.URLs[mshelm.URLsKey][3]
-
-		te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
-
-		return te.MSInfo.RpcPubKey, te.MSInfo.RpcNodesCsaKeys, nil
-	}
-
-	// Build conf for rpc nodes
+	var rpcPubKey ed25519.PublicKey
 	var nodesCsaKeys []CsaKeyWrapper
-	var rpcNodesConf interface{}
-	var err error
-	if len(te.ChainlinkNodes) > 0 {
-		rpcNodesConf, err = buildRpcNodesConf(te.ChainlinkNodes)
+	var chartSettings map[string]interface{}
+
+	if te.IsExistingEnv {
+		rpcPubKey = te.MSInfo.RpcPubKey
+		nodesCsaKeys = te.MSInfo.RpcNodesCsaKeys
+	} else {
+		// Build conf for rpc nodes
+		var rpcNodesConf interface{}
+		var err error
+		if len(te.ChainlinkNodes) > 0 {
+			rpcNodesConf, err = buildRpcNodesConf(te.ChainlinkNodes)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			rpcNodesConf, nodesCsaKeys = buildMockedRpcNodesConf()
+			te.MSInfo.RpcNodesCsaKeys = nodesCsaKeys
+
+			log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
+		}
+		rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
 		if err != nil {
 			return nil, nil, err
 		}
-	} else {
-		rpcNodesConf, nodesCsaKeys = buildMockedRpcNodesConf()
-		te.MSInfo.RpcNodesCsaKeys = nodesCsaKeys
+		log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
 
-		log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
-	}
-	rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
-
-	// Generate keys for Mercury RPC server
-	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
-	te.MSInfo.RpcPubKey = rpcPubKey
-	te.MSInfo.RpcPubKeyString = hex.EncodeToString(rpcPubKey)
-
-	var initDbSql string
-	if users != nil {
-		initDbSql, err = buildInitialDbSql(*users)
-	} else {
-		defaultUsers := []User{
-			{
-				Id:       te.MSInfo.AdminId,
-				Secret:   te.MSInfo.AdminEncryptedKey,
-				Role:     "admin",
-				Disabled: false,
-			},
+		// Generate keys for Mercury RPC server
+		var rpcPrivKey ed25519.PrivateKey
+		rpcPubKey, rpcPrivKey, err = ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, nil, err
 		}
-		initDbSql, err = buildInitialDbSql(defaultUsers)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
+		te.MSInfo.RpcPubKey = rpcPubKey
+		te.MSInfo.RpcPubKeyString = hex.EncodeToString(rpcPubKey)
 
-	settings := map[string]interface{}{
-		"image": map[string]interface{}{
-			"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
-			"tag":        os.Getenv("MERCURY_SERVER_TAG"),
-		},
-		"resources": te.ResourcesConfig.MercuryResources,
-		"postgresql": map[string]interface{}{
-			"enabled": true,
-			"primary": map[string]interface{}{
-				"resources": te.ResourcesConfig.MercuryDBResources,
+		var initDbSql string
+		if users != nil {
+			initDbSql, err = buildInitialDbSql(*users)
+		} else {
+			defaultUsers := []User{
+				{
+					Id:       te.MSInfo.UserId,
+					Secret:   te.MSInfo.UserEncryptedKey,
+					Role:     "admin",
+					Disabled: false,
+				},
+			}
+			initDbSql, err = buildInitialDbSql(defaultUsers)
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
+
+		chartSettings = map[string]interface{}{
+			"image": map[string]interface{}{
+				"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
+				"tag":        os.Getenv("MERCURY_SERVER_TAG"),
 			},
-		},
-		"envSecrets": map[string]interface{}{
-			"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
-		},
-		"initDbSql":    initDbSql,
-		"rpcNodesConf": string(rpcNodesJsonConf),
-		"prometheus":   "true",
+			"resources": te.ResourcesConfig.MercuryResources,
+			"postgresql": map[string]interface{}{
+				"enabled": true,
+				"primary": map[string]interface{}{
+					"resources": te.ResourcesConfig.MercuryDBResources,
+				},
+			},
+			"envSecrets": map[string]interface{}{
+				"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
+			},
+			"initDbSql":    initDbSql,
+			"rpcNodesConf": string(rpcNodesJsonConf),
+			"prometheus":   "true",
+		}
 	}
 	te.Env.
-		AddHelm(mshelm.New(te.MSChartPath, "", settings)).
+		AddHelm(mshelm.New(te.MSChartPath, "", chartSettings)).
 		Run()
 
 	te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
 	te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
 	te.MSInfo.RemoteWsrpcUrl = te.Env.URLs[mshelm.URLsKey][2]
 	te.MSInfo.LocalWsrpcUrl = te.Env.URLs[mshelm.URLsKey][3]
+	te.MSInfo.RemoteDbUrl = te.Env.URLs[mshelm.URLsKey][4]
+	te.MSInfo.LocalDbUrl = te.Env.URLs[mshelm.URLsKey][5]
 
-	te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
+	te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.UserId, te.MSInfo.UserKey)
+
+	// Connect to mercury db
+	spl := strings.Split(te.MSInfo.LocalDbUrl, ":")
+	port := spl[len(spl)-1]
+	db, err := ctfClient.NewPostgresConnector(&ctfClient.PostgresConfig{
+		Host:     "localhost",
+		Port:     port,
+		User:     "postgres",
+		Password: "testpass",
+		DBName:   "testdb",
+	})
+	if err != nil {
+		return rpcPubKey, nodesCsaKeys, err
+	}
+	te.MSDbClient = db
+	log.Info().Msgf("Connected to Mercury db: localhost:%s", port)
 
 	return rpcPubKey, nodesCsaKeys, nil
+}
+
+func (te *TestEnv) ClearMercuryReportsInDb() error {
+	res, err := te.MSDbClient.Exec("TRUNCATE reports;")
+	_ = res
+	return err
+}
+
+func (te *TestEnv) GetAllReportsFromMercuryDb() ([]ReportTableRow, error) {
+	var d []ReportTableRow
+	err := te.MSDbClient.Select(&d, "SELECT * FROM reports;")
+	return d, err
+}
+
+type ReportTableRow struct {
+	Id                    int       `db:"id"`
+	FeedId                []byte    `db:"feed_id"`
+	Price                 float64   `db:"price"`
+	FullReport            []byte    `db:"full_report"`
+	Blob                  []byte    `db:"blob"`
+	ValidFromBlockNumber  int64     `db:"valid_from_block_number"`
+	ConfigDigest          []byte    `db:"config_digest"`
+	Epoch                 int64     `db:"epoch"`
+	Round                 int8      `db:"round"`
+	ObservationsTimestamp int64     `db:"observations_timestamp"`
+	TransmittingOperator  []byte    `db:"transmitting_operator"`
+	CreatedAt             time.Time `db:"created_at"`
+	CurrentBlockNumber    int64     `db:"current_block_number"`
+	CurrentBlockHash      []byte    `db:"current_block_hash"`
 }
 
 func (te *TestEnv) BuildOCRConfig() (*contracts.MercuryOCRConfig, error) {
@@ -1012,20 +1056,29 @@ func (te *TestEnv) BuildOCRConfig() (*contracts.MercuryOCRConfig, error) {
 	}, nil
 }
 
-func (te *TestEnv) AddEvmNetwork() {
+func (te *TestEnv) AddEvmNetwork() error {
 	network := networks.SelectedNetwork
-	var evmChart environment.ConnectedChart
 	if network.Simulated {
-		evmChart = eth.New(nil)
-	} else {
-		evmChart = eth.New(&eth.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
+		evmChart := eth.New(nil)
+		te.Env.
+			AddHelm(evmChart).
+			Run()
 	}
 	te.EvmNetwork = &network
-	te.EvmChart = &evmChart
+
+	evmClient, err := blockchain.NewEVMClient(network, te.Env)
+	if err != nil {
+		return err
+	}
+	te.EvmClient = evmClient
+
+	contractDeployer, err := contracts.NewContractDeployer(evmClient)
+	if err != nil {
+		return err
+	}
+	te.ContractDeployer = contractDeployer
+
+	return nil
 }
 
 func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
