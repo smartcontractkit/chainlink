@@ -31,6 +31,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -219,6 +220,23 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
+	}
+
+	if cfg.CosmosEnabled() {
+		cosmosLggr := appLggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
+			Config:           cfg,
+			Logger:           cosmosLggr,
+			DB:               db,
+			KeyStore:         keyStore.Cosmos(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		cfgs := cfg.CosmosConfigs()
+		opts.ORM = cosmos.NewORMImmut(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
+		}
 	}
 
 	if cfg.SolanaEnabled() {

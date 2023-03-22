@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -75,6 +76,13 @@ func TestDoc(t *testing.T) {
 		docDefaults.OperatorFactoryAddress = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
+	})
+
+	t.Run("Cosmos", func(t *testing.T) {
+		var fallbackDefaults cosmos.CosmosConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Cosmos[0].Chain)
 	})
 
 	t.Run("Solana", func(t *testing.T) {
