@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -55,7 +54,8 @@ type KeyStore[ADDR any, ID any, TX any, META any] interface {
 	CheckEnabled(address ADDR, chainID ID) error
 	//EnabledKeysForChain(chainID ID) (keys []ethkey.KeyV2, err error) //TODO:remove it and follow GetStatesForChain
 	GetNextMetadata(address ADDR, chainID ID, qopts ...pg.QOpt) (META, error)
-	GetStatesForChain(chainID ID) ([]ethkey.State, error)
+	// GetStatesForChain(chainID ID) ([]ethkey.State, error)
+	GetEnabledAddressesForChain(chainId ID) ([]ADDR, error)
 	IncrementNextMetadata(address ADDR, chainID ID, currentNonce META, qopts ...pg.QOpt) error
 	SignTx(fromAddress ADDR, tx *TX, chainID ID) (*TX, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
@@ -172,20 +172,20 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 // The provided context can be used to terminate Start sequence.
 func (b *Txm) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
-		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
+		addresses, err := b.keyStore.GetEnabledAddressesForChain(&b.chainID)
 		if err != nil {
 			return errors.Wrap(err, "Txm: failed to load key states")
 		}
 
-		if len(keyStates) > 0 {
-			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(keyStates)), "keys", keyStates)
+		if len(addresses) > 0 {
+			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(addresses)), "keys", addresses)
 		} else {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, addresses, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -198,7 +198,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, keyStates)
+		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, addresses)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -294,7 +294,7 @@ func (b *Txm) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
+func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, addresses []common.Address) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -327,8 +327,8 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, addresses, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -425,13 +425,13 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 				continue
 			}
 			var err error
-			keyStates, err = b.keyStore.GetStatesForChain(&b.chainID)
+			addresses, err = b.keyStore.GetEnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
-			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", addresses)
 
 			execReset(nil)
 		}

@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -122,7 +121,7 @@ type EthConfirmer struct {
 	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
 	resumeCallback ResumeCallback
 
-	keyStates []ethkey.State
+	addresses []gethCommon.Address
 
 	mb        *utils.Mailbox[*evmtypes.Head]
 	ctx       context.Context
@@ -134,7 +133,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	addresses []gethCommon.Address, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -151,7 +150,7 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		},
 		estimator,
 		resumeCallback,
-		keyStates,
+		addresses,
 		utils.NewSingleMailbox[*evmtypes.Head](),
 		ctx,
 		cancel,
@@ -578,10 +577,10 @@ func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeig
 
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	wg.Add(len(ec.keyStates))
+	wg.Add(len(ec.addresses))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, key := range ec.keyStates {
+	for _, address := range ec.addresses {
 		go func(fromAddress gethCommon.Address) {
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -591,7 +590,7 @@ func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeig
 			}
 
 			wg.Done()
-		}(key.Address.Address())
+		}(address)
 	}
 
 	wg.Wait()
@@ -985,8 +984,8 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	var wg sync.WaitGroup
 	errors := []error{}
 	var errMu sync.Mutex
-	wg.Add(len(ec.keyStates))
-	for _, key := range ec.keyStates {
+	wg.Add(len(ec.addresses))
+	for _, address := range ec.addresses {
 		go func(fromAddress gethCommon.Address) {
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()
@@ -996,7 +995,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 			}
 
 			wg.Done()
-		}(key.Address.Address())
+		}(address)
 	}
 
 	wg.Wait()

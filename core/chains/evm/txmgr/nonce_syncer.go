@@ -10,7 +10,6 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
@@ -80,11 +79,8 @@ func NewNonceSyncer(orm ORM, lggr logger.Logger, ethClient evmclient.Client, kst
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) Sync(ctx context.Context, keyState ethkey.State) (err error) {
-	if keyState.Disabled {
-		return errors.Errorf("cannot sync disabled key state: %s", keyState.Address)
-	}
-	err = s.fastForwardNonceIfNecessary(ctx, keyState.Address.Address())
+func (s NonceSyncer) Sync(ctx context.Context, address common.Address) (err error) {
+	err = s.fastForwardNonceIfNecessary(ctx, address)
 	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 

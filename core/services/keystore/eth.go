@@ -47,6 +47,7 @@ type Eth interface {
 	GetState(id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	GetEnabledAddressesForChain(chainID *big.Int) (addresses []common.Address, err error)
 
 	XXXTestingOnlySetState(ethkey.State)
 	XXXTestingOnlyAdd(key ethkey.KeyV2)
@@ -187,7 +188,7 @@ func (ks *eth) GetNextMetadata(address common.Address, chainID *big.Int, qopts .
 	}
 	nonce, err = ks.orm.getNextNonce(address, chainID, qopts...)
 	if err != nil {
-		return 0, errors.Wrap(err, "GetNextNonce failed")
+		return 0, errors.Wrap(err, "GetNextMetadata failed")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
@@ -489,6 +490,20 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 		states = append(states, *s)
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].KeyID() < states[j].KeyID() })
+	return
+}
+
+func (ks *eth) GetEnabledAddressesForChain(chainID *big.Int) (addresses []common.Address, err error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	for _, s := range ks.keyStates.ChainIDKeyID[chainID.String()] {
+		if !s.Disabled {
+			addresses = append(addresses, s.Address.Address())
+		}
+	}
 	return
 }
 

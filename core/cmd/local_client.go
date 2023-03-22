@@ -575,7 +575,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
+	keyStates, err := keyStore.Eth().GetEnabledAddressesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}

@@ -252,6 +252,32 @@ func (_m *Eth) GetAll() ([]ethkey.KeyV2, error) {
 	return r0, r1
 }
 
+// GetEnabledAddressesForChain provides a mock function with given fields: chainID
+func (_m *Eth) GetEnabledAddressesForChain(chainID *big.Int) ([]common.Address, error) {
+	ret := _m.Called(chainID)
+
+	var r0 []common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*big.Int) ([]common.Address, error)); ok {
+		return rf(chainID)
+	}
+	if rf, ok := ret.Get(0).(func(*big.Int) []common.Address); ok {
+		r0 = rf(chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
+		r1 = rf(chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetNextMetadata provides a mock function with given fields: address, chainID, qopts
 func (_m *Eth) GetNextMetadata(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
 	_va := make([]interface{}, len(qopts))

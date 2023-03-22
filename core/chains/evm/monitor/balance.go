@@ -21,7 +21,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -171,7 +170,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.GetStatesForChain(w.bm.chainID)
+	keys, err := w.bm.ethKeyStore.GetEnabledAddressesForChain(w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
@@ -180,7 +179,7 @@ func (w *worker) WorkCtx(ctx context.Context) {
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k ethkey.State) {
+		go func(k gethCommon.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
 		}(key)
@@ -191,24 +190,24 @@ func (w *worker) WorkCtx(ctx context.Context) {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.State) {
+func (w *worker) checkAccountBalance(ctx context.Context, address gethCommon.Address) {
 	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
-	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address.Address(), nil)
+	bal, err := w.bm.ethClient.BalanceAt(ctx, address, nil)
 	if err != nil {
-		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", address.Hex()),
 			"error", err,
-			"address", k.Address,
+			"address", address,
 		)
 	} else if bal == nil {
-		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", address.Hex()),
 			"error", err,
-			"address", k.Address,
+			"address", address,
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		w.bm.updateBalance(ethBal, k.Address.Address())
+		w.bm.updateBalance(ethBal, address)
 	}
 }
 
