@@ -31,7 +31,7 @@ ShutdownGracePeriod = '5s' # Default
 ```toml
 ExplorerURL = 'ws://explorer.url' # Example
 ```
-ExplorerURL is the websocket URL for the node to push stats to.
+ExplorerURL is the websocket URL used by the node to push stats. This variable is required to deliver telemetry.
 
 ### InsecureFastScrypt
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -96,13 +96,13 @@ MigrateOnStartup = true # Default
 ```toml
 DefaultIdleInTxSessionTimeout = '1h' # Default
 ```
-DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
+DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
 
 ### DefaultLockTimeout
 ```toml
 DefaultLockTimeout = '15s' # Default
 ```
-DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take a lock before timing out.
+DefaultLockTimeout is the maximum time allowed to wait for database lock of any kind before timing out. See Postgres `lock_timeout` for more details.
 
 ### DefaultQueryTimeout
 ```toml
@@ -160,7 +160,7 @@ _none_ - Disables backups.
 `lite` - Dumps small tables including configuration and keys that are essential for the node to function, which excludes historical data like job runs, transaction history, etc.
 `full` - Dumps the entire database.
 
-It will write to a file like `$ROOT/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
+It will write to a file like `'Dir'/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
 
 ### Dir
 ```toml
@@ -1095,18 +1095,21 @@ DefaultTransactionQueueDepth = 1 # Default
 DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
 
 ### GasPriceBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 GasPriceBufferPercent = 20 # Default
 ```
 GasPriceBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in legacy mode (EIP-1559 off).
 
 ### GasTipCapBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 GasTipCapBufferPercent = 20 # Default
 ```
 GasTipCapBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
 
 ### BaseFeeBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 BaseFeeBufferPercent = 20 # Default
 ```
