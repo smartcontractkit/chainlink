@@ -122,6 +122,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
 				return nil, err
 			}
@@ -185,6 +193,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
+// CheckFromAddressesExist returns an error if and only if one of the addresses
+// in the VRF spec's fromAddresses field does not exist in the keystore.
+func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+	for _, a := range jb.VRFSpec.FromAddresses {
+		_, err2 := gethks.Get(a.Hex())
+		err = multierr.Append(err, err2)
+	}
+	return
+}
+
 // CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
 // matches what is set for the  provided from addresses.
 // If they don't match, this is a configuration error. An error is returned with all the keys that do
@@ -199,6 +217,19 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
 						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
 			}
 		}
+	}
+	return
+}
+
+// FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
+// addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
+// gas price.
+func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg Config) (allEqual bool) {
+	allEqual = true
+	for i := range jb.VRFSpec.FromAddresses {
+		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		)
 	}
 	return
 }
