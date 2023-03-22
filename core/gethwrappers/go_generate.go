@@ -3,9 +3,9 @@
 package gethwrappers
 
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
-// go run ./generation/generate_events_mock/create_events_mock_contract.go requires the contracts to be compiled and abi generated
 //go:generate ./generation/compile_contracts.sh
 
+// go run ./generation/generate_events_mock/create_events_mock_contract.go requires the contracts to be compiled and abi generated
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6 ../../contracts/src/v0.8/mocks/EventsMock.sol
 //go:generate ./generation/compile_event_mock_contract.sh
 // EventsMock is a mock contract that emits all the events from all the contracts
