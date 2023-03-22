@@ -72,6 +72,8 @@ func (c *evmAttemptBuilder) SignTx(address common.Address, tx *gethTypes.Transac
 	return signedTx.Hash(), rlp.Bytes(), nil
 }
 
+// NewAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
+// used for when a brand new transaction is being created in the txm
 func (c *evmAttemptBuilder) NewAttempt(ctx context.Context, etx EthTx, lggr logger.Logger, opts ...txmgrtypes.Opt) (attempt EthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	txType := 0x0
 	if c.config.EvmEIP1559DynamicFees() {
@@ -80,6 +82,8 @@ func (c *evmAttemptBuilder) NewAttempt(ctx context.Context, etx EthTx, lggr logg
 	return c.NewAttemptWithType(ctx, etx, lggr, txType, opts...)
 }
 
+// NewAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
+// used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
 func (c *evmAttemptBuilder) NewAttemptWithType(ctx context.Context, etx EthTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
@@ -91,6 +95,8 @@ func (c *evmAttemptBuilder) NewAttemptWithType(ctx context.Context, etx EthTx, l
 	return attempt, fee, feeLimit, retryable, err
 }
 
+// NewBumpAttempt builds a new attempt with a bumped fee. The tx type must match the previous attempt tx type
+// used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
 func (c *evmAttemptBuilder) NewBumpAttempt(ctx context.Context, etx EthTx, previousAttempt EthTxAttempt, txType int, priorAttempts []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash], lggr logger.Logger) (attempt EthTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
@@ -102,6 +108,8 @@ func (c *evmAttemptBuilder) NewBumpAttempt(ctx context.Context, etx EthTx, previ
 	return attempt, bumpedFee, bumpedFeeLimit, retryable, err
 }
 
+// NewCustomAttempt is the lowest level func where the fee parameters + tx type must be passed in
+// used in the txm for force rebroadcast where fees and tx type are pre-determined without an estimator
 func (c *evmAttemptBuilder) NewCustomAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error) {
 	switch txType {
 	case 0x0: // legacy

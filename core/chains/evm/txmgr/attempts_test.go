@@ -8,14 +8,17 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	txmgrmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -157,46 +160,62 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	})
 }
 
-// func TestTxm_NewAttempt_NonRetryableErrors(t *testing.T) {
-// 	t.Parallel()
+func TestTxm_NewCustomAttempt_NonRetryableErrors(t *testing.T) {
+	t.Parallel()
 
-// 	cfg := mocks.NewConfig(t)
-// 	kst := ksmocks.NewEth(t)
-// 	lggr := logger.TestLogger(t)
-// 	cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
+	cfg := txmmocks.NewConfig(t)
+	kst := ksmocks.NewEth(t)
+	lggr := logger.TestLogger(t)
+	cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
 
-// 	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
-// 	legacyFee := assets.NewWeiI(100)
+	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
+	legacyFee := assets.NewWeiI(100)
 
-// 	t.Run("NewAttempt: mismatch fee + type", func(t *testing.T) {
-// 		t.Run("dynamic fee with legacy fee configured chain", func(t *testing.T) {
-// 			cfg.On("EvmEIP1559DynamicFees").Return(false).Once()
-// 			_, _, err := cks.NewCustomAttempt(txmgr.EthTx{}, gas.EvmFee{Dynamic: &dynamicFee}, 100, lggr)
-// 			require.Error(t, err)
-// 		})
-// 		t.Run("legacy fee with dynamic fee configured chain", func(t *testing.T) {
-// 			cfg.On("EvmEIP1559DynamicFees").Return(true).Once()
-// 			_, _, err := cks.NewCustomAttempt(txmgr.EthTx{}, gas.EvmFee{Legacy: legacyFee}, 100, lggr)
-// 			require.Error(t, err)
-// 		})
-// 	})
+	t.Run("dynamic fee with legacy tx type", func(t *testing.T) {
+		_, retryable, err := cks.NewCustomAttempt(txmgr.EthTx{}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x0, lggr)
+		require.Error(t, err)
+		assert.False(t, retryable)
+	})
+	t.Run("legacy fee with dynamic tx type", func(t *testing.T) {
+		_, retryable, err := cks.NewCustomAttempt(txmgr.EthTx{}, gas.EvmFee{Legacy: legacyFee}, 100, 0x2, lggr)
+		require.Error(t, err)
+		assert.False(t, retryable)
+	})
 
-// 	t.Run("NewAttemptWithType: mismatch fee + type", func(t *testing.T) {
-// 		t.Run("dynamic fee with legacy tx type", func(t *testing.T) {
-// 			_, retryable, err := cks.NewAttemptWithType(txmgr.EthTx{}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x0, lggr)
-// 			require.Error(t, err)
-// 			assert.False(t, retryable)
-// 		})
-// 		t.Run("legacy fee with dynamic tx type", func(t *testing.T) {
-// 			_, retryable, err := cks.NewAttemptWithType(txmgr.EthTx{}, gas.EvmFee{Legacy: legacyFee}, 100, 0x2, lggr)
-// 			require.Error(t, err)
-// 			assert.False(t, retryable)
-// 		})
-// 	})
+	t.Run("invalid type", func(t *testing.T) {
+		_, retryable, err := cks.NewCustomAttempt(txmgr.EthTx{}, gas.EvmFee{}, 100, 0xA, lggr)
+		require.Error(t, err)
+		assert.False(t, retryable)
+	})
+}
 
-// 	t.Run("NewAttemptWithType: invalid type", func(t *testing.T) {
-// 		_, retryable, err := cks.NewAttemptWithType(txmgr.EthTx{}, gas.EvmFee{}, 100, 0xA, lggr)
-// 		require.Error(t, err)
-// 		assert.False(t, retryable)
-// 	})
-// }
+func TestTxm_EvmAttemptBuilder_RetryableEstimatorError(t *testing.T) {
+	est := txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethcommon.Hash](t)
+	est.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
+	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
+
+	cfg := txmmocks.NewConfig(t)
+	cfg.On("EvmEIP1559DynamicFees").Return(true)
+	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(assets.NewWeiI(100))
+
+	kst := ksmocks.NewEth(t)
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	cks := txmgr.NewEvmAttemptBuilder(*big.NewInt(1), cfg, kst, est)
+
+	t.Run("NewAttempt", func(t *testing.T) {
+		_, _, _, retryable, err := cks.NewAttempt(ctx, txmgr.EthTx{}, lggr)
+		require.Error(t, err)
+		assert.True(t, retryable)
+	})
+	t.Run("NewAttemptWithType", func(t *testing.T) {
+		_, _, _, retryable, err := cks.NewAttemptWithType(ctx, txmgr.EthTx{}, lggr, 0x0)
+		require.Error(t, err)
+		assert.True(t, retryable)
+	})
+	t.Run("NewBumpAttempt", func(t *testing.T) {
+		_, _, _, retryable, err := cks.NewBumpAttempt(ctx, txmgr.EthTx{}, txmgr.EthTxAttempt{}, 0x0, nil, lggr)
+		require.Error(t, err)
+		assert.True(t, retryable)
+	})
+}
