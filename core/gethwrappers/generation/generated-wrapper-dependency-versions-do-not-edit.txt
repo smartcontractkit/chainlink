@@ -30,7 +30,7 @@ multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../..
 ocr2dr: ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Functions.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
 ocr2dr_client: ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin bee85cefe5304bee7c11beccf34edb78f2ce7d8fefe228bf1e108f6057ad4bd4
 ocr2dr_client_example: ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin 52d378dba1f51500f7ce06ec9441c1f4c7e6eec501f1f56c72724e5dd8c7233b
-ocr2dr_oracle: ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.abi ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.bin dd2283e292923396f0ed2ccb08b35e5b799837724e46baf8ec57672e26d486b9
+ocr2dr_oracle: ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.abi ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.bin bb399e4af8fe491cced3df180c89efd29dc4e2b46375ac3710beb1e2d413fa12
 ocr2dr_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin 9d629d27dfc7af026cfacb8d1a463fe9e8407769f97ce9e5c7df6769d36e4c3e
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 4803feddb5dadea2f228978d81fd30ad1bea3f88d973a8539a91445b0cea60e2

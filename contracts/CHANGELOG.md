@@ -10,7 +10,7 @@
 - Fix Functions cost estimation not correctly using registry fee
 - Fix Functions transmitter NOP fee payment (#8557)
 - Functions library uses solidty-cborutils CBOR v2.0.0 and ENS Buffer v0.1.0(#8485)
-- Fix to AuthorizedOriginReceiverUpgradable removeAuthorizedSenders's iteration loop
+- Gas optimization to AuthorizedOriginReceiverUpgradable by using EnumberableSet .keys()
 
 ## 0.6.1 - 2023-02-06
 
