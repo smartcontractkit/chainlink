@@ -3,12 +3,12 @@ module github.com/smartcontractkit/chainlink
 go 1.20
 
 require (
-	github.com/CosmWasm/wasmd v0.30.0
+	github.com/CosmWasm/wasmd v0.28.0
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/ava-labs/coreth v0.11.0-rc.4
 	github.com/btcsuite/btcd v0.23.4
-	github.com/cosmos/cosmos-sdk v0.45.11
+	github.com/cosmos/cosmos-sdk v0.45.6
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/ethereum/go-ethereum v1.10.26
@@ -58,7 +58,6 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-cosmos v0.1.4-0.20230320152049-e4098cfa14f5
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230316183824-9f1e5e11e2b7
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230320130046-4d37840c6c1b
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230318133606-b0d74b9b5e2c
@@ -119,12 +118,10 @@ require (
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-alpha8 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
-	github.com/cosmos/gogoproto v1.4.3 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
-	github.com/cosmos/iavl v0.19.4 // indirect
-	github.com/cosmos/ibc-go/v4 v4.2.0 // indirect
+	github.com/cosmos/iavl v0.19.0 // indirect
+	github.com/cosmos/ibc-go/v3 v3.0.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
 	github.com/cosmos/ledger-go v0.9.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
@@ -138,13 +135,12 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
-	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/dontpanicdao/caigo v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
-	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
+	github.com/flynn/noise v1.0.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gagliardetto/binary v0.7.1 // indirect
@@ -269,7 +265,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-multistream v0.2.0 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
