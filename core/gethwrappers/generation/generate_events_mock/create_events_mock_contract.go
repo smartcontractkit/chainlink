@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -247,20 +246,20 @@ func main() {
 	functions := []SolFunction{}
 
 	for _, abiFile := range abiFiles {
-		abiJSON, err := ioutil.ReadFile(abiFile)
-		if err != nil {
-			fmt.Println("Error reading ABI file:", err)
+		abiJSON, err2 := os.ReadFile(abiFile)
+		if err2 != nil {
+			fmt.Println("Error reading ABI file:", err2)
 			os.Exit(1)
 		}
 
-		fileEvents, fileStructs, err := extractEventsAndStructs(abiJSON)
-		if err != nil {
-			fmt.Println("Error parsing events:", err)
+		fileEvents, fileStructs, err2 := extractEventsAndStructs(abiJSON)
+		if err2 != nil {
+			fmt.Println("Error parsing events:", err2)
 			os.Exit(1)
 		}
-		fileFunctions, err := generateFunctions(fileEvents)
-		if err != nil {
-			fmt.Println("Error generating functions:", err)
+		fileFunctions, err2 := generateFunctions(fileEvents)
+		if err2 != nil {
+			fmt.Println("Error generating functions:", err2)
 			os.Exit(1)
 		}
 
@@ -283,7 +282,7 @@ func main() {
 	}
 
 	// Save the mock contract to a file
-	err = os.WriteFile(solPath, []byte(contract), 0644)
+	err = os.WriteFile(solPath, []byte(contract), 0600)
 	if err != nil {
 		fmt.Println("Error writing mock contract to a file:", err)
 		os.Exit(1)
