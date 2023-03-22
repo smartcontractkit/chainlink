@@ -73,6 +73,14 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 				},
 			},
 		},
+		{
+			Name:  "validate",
+			Usage: "DEPRECIATED. Use `chainlink node validate`",
+			Before: func(ctx *clipkg.Context) error {
+				return client.errorOut(fmt.Errorf("Depreciated, use `chainlink node validate`"))
+			},
+			Hidden: true,
+		},
 	}
 }
 

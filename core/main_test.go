@@ -449,7 +449,7 @@ func ExampleRun_node() {
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 	//    status                    Displays the health of various services running inside the node.
 	//    profile                   Collects profile metrics from the node.
-	//    validate                  Validate provided TOML config file, and print the full effective configuration, with defaults included
+	//    validate                  Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:

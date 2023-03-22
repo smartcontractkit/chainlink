@@ -134,7 +134,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 		},
 		{
 			Name:   "validate",
-			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
+			Usage:  "Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included",
 			Action: client.ConfigFileValidate,
 		},
 		{
