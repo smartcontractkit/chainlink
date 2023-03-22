@@ -58,7 +58,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress)
+	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
 	require.NoError(t, err)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
