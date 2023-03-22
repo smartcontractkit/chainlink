@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TOML configuration and secrets are now scoped to `chainlink node` command rather than being global flags.
 - TOML configuration validation has been moved from `chainlink config validate` to `chainlink node validate`.
 - Move `chainlink node {status,profile}` to `chainlink admin {status,profile}`.
+- Database commands (`chainlink node database` validate TOML configuration before executing.
 
 ### Removed
 
