@@ -61,7 +61,8 @@ type TestEnv struct {
 	Env              *environment.Environment
 	ChainlinkNodes   []*client.Chainlink
 	MockserverClient *ctfClient.MockserverClient
-	MSClient         *client.MercuryServer // Mercury server client authenticated with admin role
+	MSClient         *client.MercuryServer        // Mercury server client authenticated with admin role
+	MSDbClient       *ctfClient.PostgresConnector // Mercury db client
 	MSInfo           mercuryServerInfo
 	IsExistingEnv    bool // true if config in MERCURY_ENV_CONFIG_PATH contains namespace
 	SaveEnv          bool
@@ -93,6 +94,8 @@ type mercuryServerInfo struct {
 	LocalUrl          string `json:"localUrl"`
 	RemoteWsrpcUrl    string `json:"remoteWsrpcUrl"`
 	LocalWsrpcUrl     string `json:"localWsrpcUrl"`
+	RemoteDbUrl       string `json:"remoteDbUrl"`
+	LocalDbUrl        string `json:"localDbUrl"`
 	AdminId           string `json:"adminId"`
 	AdminKey          string `json:"adminKey"`
 	AdminEncryptedKey string `json:"adminEncryptedKey"`
@@ -845,101 +848,141 @@ type CsaKeyInfo struct {
 
 // Returns rpc pub key and list of node csa keys (when mock conf is used instead of DON)
 func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyWrapper, error) {
-	if te.IsExistingEnv {
-		// Connect to existing mercury server env and forward ports
-		te.Env.
-			AddHelm(mshelm.New(te.MSChartPath, "", nil)).
-			Run()
-
-		te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
-		te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
-		te.MSInfo.RemoteWsrpcUrl = te.Env.URLs[mshelm.URLsKey][2]
-		te.MSInfo.LocalWsrpcUrl = te.Env.URLs[mshelm.URLsKey][3]
-
-		te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
-
-		return te.MSInfo.RpcPubKey, te.MSInfo.RpcNodesCsaKeys, nil
-	}
-
-	// Build conf for rpc nodes
+	var rpcPubKey ed25519.PublicKey
 	var nodesCsaKeys []CsaKeyWrapper
-	var rpcNodesConf interface{}
-	var err error
-	if len(te.ChainlinkNodes) > 0 {
-		rpcNodesConf, err = buildRpcNodesConf(te.ChainlinkNodes)
+	var chartSettings map[string]interface{}
+
+	if te.IsExistingEnv {
+		rpcPubKey = te.MSInfo.RpcPubKey
+		nodesCsaKeys = te.MSInfo.RpcNodesCsaKeys
+	} else {
+		// Build conf for rpc nodes
+		var rpcNodesConf interface{}
+		var err error
+		if len(te.ChainlinkNodes) > 0 {
+			rpcNodesConf, err = buildRpcNodesConf(te.ChainlinkNodes)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			rpcNodesConf, nodesCsaKeys = buildMockedRpcNodesConf()
+			te.MSInfo.RpcNodesCsaKeys = nodesCsaKeys
+
+			log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
+		}
+		rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
 		if err != nil {
 			return nil, nil, err
 		}
-	} else {
-		rpcNodesConf, nodesCsaKeys = buildMockedRpcNodesConf()
-		te.MSInfo.RpcNodesCsaKeys = nodesCsaKeys
+		log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
 
-		log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
-	}
-	rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
-
-	// Generate keys for Mercury RPC server
-	rpcPubKey, rpcPrivKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
-	te.MSInfo.RpcPubKey = rpcPubKey
-	te.MSInfo.RpcPubKeyString = hex.EncodeToString(rpcPubKey)
-
-	var initDbSql string
-	if users != nil {
-		initDbSql, err = buildInitialDbSql(*users)
-	} else {
-		defaultUsers := []User{
-			{
-				Id:       te.MSInfo.AdminId,
-				Secret:   te.MSInfo.AdminEncryptedKey,
-				Role:     "admin",
-				Disabled: false,
-			},
+		// Generate keys for Mercury RPC server
+		var rpcPrivKey ed25519.PrivateKey
+		rpcPubKey, rpcPrivKey, err = ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, nil, err
 		}
-		initDbSql, err = buildInitialDbSql(defaultUsers)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
+		te.MSInfo.RpcPubKey = rpcPubKey
+		te.MSInfo.RpcPubKeyString = hex.EncodeToString(rpcPubKey)
 
-	settings := map[string]interface{}{
-		"image": map[string]interface{}{
-			"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
-			"tag":        os.Getenv("MERCURY_SERVER_TAG"),
-		},
-		"resources": te.ResourcesConfig.MercuryResources,
-		"postgresql": map[string]interface{}{
-			"enabled": true,
-			"primary": map[string]interface{}{
-				"resources": te.ResourcesConfig.MercuryDBResources,
+		var initDbSql string
+		if users != nil {
+			initDbSql, err = buildInitialDbSql(*users)
+		} else {
+			defaultUsers := []User{
+				{
+					Id:       te.MSInfo.AdminId,
+					Secret:   te.MSInfo.AdminEncryptedKey,
+					Role:     "admin",
+					Disabled: false,
+				},
+			}
+			initDbSql, err = buildInitialDbSql(defaultUsers)
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		log.Info().Msgf("Initialize mercury server db with:\n%s", initDbSql)
+
+		chartSettings = map[string]interface{}{
+			"image": map[string]interface{}{
+				"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
+				"tag":        os.Getenv("MERCURY_SERVER_TAG"),
 			},
-		},
-		"envSecrets": map[string]interface{}{
-			"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
-		},
-		"initDbSql":    initDbSql,
-		"rpcNodesConf": string(rpcNodesJsonConf),
-		"prometheus":   "true",
+			"resources": te.ResourcesConfig.MercuryResources,
+			"postgresql": map[string]interface{}{
+				"enabled": true,
+				"primary": map[string]interface{}{
+					"resources": te.ResourcesConfig.MercuryDBResources,
+				},
+			},
+			"envSecrets": map[string]interface{}{
+				"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
+			},
+			"initDbSql":    initDbSql,
+			"rpcNodesConf": string(rpcNodesJsonConf),
+			"prometheus":   "true",
+		}
 	}
 	te.Env.
-		AddHelm(mshelm.New(te.MSChartPath, "", settings)).
+		AddHelm(mshelm.New(te.MSChartPath, "", chartSettings)).
 		Run()
 
 	te.MSInfo.RemoteUrl = te.Env.URLs[mshelm.URLsKey][0]
 	te.MSInfo.LocalUrl = te.Env.URLs[mshelm.URLsKey][1]
 	te.MSInfo.RemoteWsrpcUrl = te.Env.URLs[mshelm.URLsKey][2]
 	te.MSInfo.LocalWsrpcUrl = te.Env.URLs[mshelm.URLsKey][3]
+	te.MSInfo.RemoteDbUrl = te.Env.URLs[mshelm.URLsKey][4]
+	te.MSInfo.LocalDbUrl = te.Env.URLs[mshelm.URLsKey][5]
 
 	te.MSClient = client.NewMercuryServerClient(te.MSInfo.LocalUrl, te.MSInfo.AdminId, te.MSInfo.AdminKey)
 
+	// Connect to mercury db
+	spl := strings.Split(te.MSInfo.LocalDbUrl, ":")
+	port := spl[len(spl)-1]
+	db, err := ctfClient.NewPostgresConnector(&ctfClient.PostgresConfig{
+		Host:     "localhost",
+		Port:     port,
+		User:     "postgres",
+		Password: "testpass",
+		DBName:   "testdb",
+	})
+	if err != nil {
+		return rpcPubKey, nodesCsaKeys, err
+	}
+	te.MSDbClient = db
+	log.Info().Msgf("Connected to Mercury db: localhost:%s", port)
+
 	return rpcPubKey, nodesCsaKeys, nil
+}
+
+func (te *TestEnv) ClearMercuryReportsInDb() error {
+	res, err := te.MSDbClient.Exec("TRUNCATE reports;")
+	_ = res
+	return err
+}
+
+func (te *TestEnv) GetAllReportsFromMercuryDb() ([]ReportTableRow, error) {
+	var d []ReportTableRow
+	err := te.MSDbClient.Select(&d, "SELECT * FROM reports;")
+	return d, err
+}
+
+type ReportTableRow struct {
+	Id                    int       `db:"id"`
+	FeedId                []byte    `db:"feed_id"`
+	Price                 float64   `db:"price"`
+	FullReport            []byte    `db:"full_report"`
+	Blob                  []byte    `db:"blob"`
+	ValidFromBlockNumber  int64     `db:"valid_from_block_number"`
+	ConfigDigest          []byte    `db:"config_digest"`
+	Epoch                 int64     `db:"epoch"`
+	Round                 int8      `db:"round"`
+	ObservationsTimestamp int64     `db:"observations_timestamp"`
+	TransmittingOperator  []byte    `db:"transmitting_operator"`
+	CreatedAt             time.Time `db:"created_at"`
+	CurrentBlockNumber    int64     `db:"current_block_number"`
+	CurrentBlockHash      []byte    `db:"current_block_hash"`
 }
 
 func (te *TestEnv) BuildOCRConfig() (*contracts.MercuryOCRConfig, error) {
