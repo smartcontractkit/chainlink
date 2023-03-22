@@ -9,6 +9,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+
 	context "context"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -18,8 +20,6 @@ import (
 	mock "github.com/stretchr/testify/mock"
 
 	rpc "github.com/ethereum/go-ethereum/rpc"
-
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 
 	types "github.com/ethereum/go-ethereum/core/types"
 )
@@ -576,18 +576,18 @@ func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 }
 
 // SendTransactionAndReturnErrorType provides a mock function with given fields: ctx, tx, fromAddress
-func (_m *Client) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (txmgrtypes.TxmErrorType, error) {
+func (_m *Client) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.ClientErrorType, error) {
 	ret := _m.Called(ctx, tx, fromAddress)
 
-	var r0 txmgrtypes.TxmErrorType
+	var r0 commonclient.ClientErrorType
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (txmgrtypes.TxmErrorType, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (commonclient.ClientErrorType, error)); ok {
 		return rf(ctx, tx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) txmgrtypes.TxmErrorType); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) commonclient.ClientErrorType); ok {
 		r0 = rf(ctx, tx, fromAddress)
 	} else {
-		r0 = ret.Get(0).(txmgrtypes.TxmErrorType)
+		r0 = ret.Get(0).(commonclient.ClientErrorType)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction, common.Address) error); ok {

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -121,9 +121,9 @@ func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return nil, nil
 }
 
-func (nc *NullClient) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, sender common.Address) (txmtypes.TxmErrorType, error) {
+func (nc *NullClient) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, sender common.Address) (clienttypes.ClientErrorType, error) {
 	nc.lggr.Debug("SendTransactionAndReturnErrorType")
-	return txmtypes.Successful, nil
+	return clienttypes.Successful, nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {

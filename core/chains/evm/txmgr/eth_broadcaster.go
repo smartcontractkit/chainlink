@@ -17,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -532,18 +533,18 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	lgr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "gasLimit", etx.GasLimit, "attempt", attempt, "etx", etx)
 	errType, err := eb.ethClient.SendTransactionAndReturnErrorType(ctx, signedTx, fromAddress)
 
-	if errType != txmgrtypes.Fatal {
+	if errType != clienttypes.Fatal {
 		etx.InitialBroadcastAt = &initialBroadcastAt
 		etx.BroadcastAt = &initialBroadcastAt
 	}
 
 	switch errType {
-	case txmgrtypes.Fatal:
+	case clienttypes.Fatal:
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
-	case txmgrtypes.SuccessfulMissingReceipt:
+	case clienttypes.TransactionAlreadyKnown:
 		fallthrough
-	case txmgrtypes.Successful:
+	case clienttypes.Successful:
 		// Either the transaction was successful or one of the following four scenarios happened:
 		//
 		// SCENARIO 1
@@ -586,18 +587,24 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
-	case txmgrtypes.Underpriced:
+	case clienttypes.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
-	case txmgrtypes.InsufficientFunds:
+	case clienttypes.InsufficientFunds:
 		fallthrough
-	case txmgrtypes.Retryable:
+	case clienttypes.Retryable:
 		return err, true
-	case txmgrtypes.Unsupported:
-		if eb.config.IsL2() {
-			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
-		}
+	case clienttypes.FeeOutOfValidRange:
+		return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+	case clienttypes.Unsupported:
 		return err, false
+	case clienttypes.ExceedsMaxFee:
+		// This means primary RPC node rejected this tx. However other SendOnlyNodes could've accepted it, and this Tx may confirm. So treat this as another case of Unknown error.
+		lgr.Criticalw(`RPC node rejected this tx as outside Fee Cap`)
+		fallthrough
 	default:
+		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
+		fallthrough
+	case clienttypes.Unknown:
 		lgr.Criticalw(`Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
 		nextNonce, e := eb.ethClient.PendingNonceAt(ctx, fromAddress)

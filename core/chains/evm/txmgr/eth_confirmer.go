@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	"go.uber.org/multierr"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -870,7 +871,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 	errType, sendError := ec.ethClient.SendTransactionAndReturnErrorType(ctx, signedTx, fromAddress)
 
 	switch errType {
-	case txmgrtypes.Underpriced:
+	case clienttypes.Underpriced:
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in ethBroadcaster.
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
@@ -905,12 +906,12 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
-	case txmgrtypes.ExceedsFeeCap:
+	case clienttypes.ExceedsMaxFee:
 		fallthrough
-	case txmgrtypes.Fatal:
+	case clienttypes.Fatal:
 		// WARNING: This should never happen!
 		// Should NEVER be fatal this is an invariant violation. The
-		// EthBroadcaster can never create an EthTxAttempt that will
+		// Broadcaster can never create a TxAttempt that will
 		// fatally error.
 		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
 			"err", sendError,
@@ -922,20 +923,22 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
-	case txmgrtypes.SuccessfulMissingReceipt:
+	case clienttypes.TransactionAlreadyKnown:
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
-	case txmgrtypes.InsufficientFunds:
-		ec.SvcErrBuffer.Append(sendError)
+	case clienttypes.InsufficientFunds:
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
-	case txmgrtypes.Successful:
+	case clienttypes.Successful:
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(timeout, &attempt, now)
+	case clienttypes.Unknown:
+		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
+		fallthrough
 	default:
 		// Any other type of error is considered temporary or resolvable by the
 		// node operator. The node may have it in the mempool so we must keep the

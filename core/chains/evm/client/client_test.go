@@ -18,11 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -443,10 +443,10 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.Fatal)
+		assert.Equal(t, errType, clienttypes.Fatal)
 	})
 
-	t.Run("returns SuccessfulMissingReceipt error type when error message is nonce too low", func(t *testing.T) {
+	t.Run("returns TransactionAlreadyKnown error type when error message is nonce too low", func(t *testing.T) {
 		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
@@ -469,7 +469,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.SuccessfulMissingReceipt)
+		assert.Equal(t, errType, clienttypes.TransactionAlreadyKnown)
 	})
 
 	t.Run("returns Successful error type when there is no error message", func(t *testing.T) {
@@ -494,7 +494,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.NoError(t, err)
-		assert.Equal(t, errType, txmtypes.Successful)
+		assert.Equal(t, errType, clienttypes.Successful)
 	})
 
 	t.Run("returns Underpriced error type when transaction is terminally underpriced", func(t *testing.T) {
@@ -520,7 +520,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.Underpriced)
+		assert.Equal(t, errType, clienttypes.Underpriced)
 	})
 
 	t.Run("returns Unsupported error type when error message is queue full", func(t *testing.T) {
@@ -546,7 +546,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.Unsupported)
+		assert.Equal(t, errType, clienttypes.Unsupported)
 	})
 
 	t.Run("returns Retryable error type when there is a transaction gap", func(t *testing.T) {
@@ -572,7 +572,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.Retryable)
+		assert.Equal(t, errType, clienttypes.Retryable)
 	})
 
 	t.Run("returns InsufficientFunds error type when the sender address doesn't have enough funds", func(t *testing.T) {
@@ -598,7 +598,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.InsufficientFunds)
+		assert.Equal(t, errType, clienttypes.InsufficientFunds)
 	})
 
 	t.Run("returns ExceedsFeeCap error type when gas price is too high for the node", func(t *testing.T) {
@@ -624,7 +624,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.ExceedsFeeCap)
+		assert.Equal(t, errType, clienttypes.ExceedsMaxFee)
 	})
 
 	t.Run("returns Unknown error type when the error can't be categorized", func(t *testing.T) {
@@ -650,7 +650,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, txmtypes.Unknown)
+		assert.Equal(t, errType, clienttypes.Unknown)
 	})
 }
 
