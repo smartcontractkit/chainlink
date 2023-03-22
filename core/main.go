@@ -13,7 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
+func err() error { return nil }
 func init() {
+	//TODO lint me
+	err()
 	// check version
 	if static.Version == static.Unset {
 		if v2.EnvDev.IsTrue() {
