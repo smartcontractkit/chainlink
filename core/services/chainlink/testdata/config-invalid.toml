@@ -77,6 +77,20 @@ WSURL = 'ws://dupe.com'
 
 [[EVM]]
 
+[[Cosmos]]
+ChainID = 'Malaga-420'
+
+[[Cosmos.Nodes]]
+Name = 'test'
+
+[[Cosmos.Nodes]]
+Name = 'test'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+
+[[Cosmos]]
+
 [[Solana]]
 ChainID = 'mainnet'
 

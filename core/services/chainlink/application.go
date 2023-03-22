@@ -18,12 +18,14 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -162,11 +164,15 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
+	Cosmos   cosmos.ChainSet   // nil if disabled
 	Solana   solana.ChainSet   // nil if disabled
 	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
+	if c.Cosmos != nil {
+		s = append(s, c.Cosmos)
+	}
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
@@ -379,6 +385,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
+		}
+		if cfg.CosmosEnabled() {
+			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
+			relayers[relay.Cosmos] = cosmosRelayer
+			srvcs = append(srvcs, cosmosRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)

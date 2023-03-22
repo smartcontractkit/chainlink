@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -44,6 +44,7 @@ type Master interface {
 	OCR2() OCR2
 	P2P() P2P
 	Solana() Solana
+	Cosmos() Cosmos
 	StarkNet() StarkNet
 	VRF() VRF
 	Unlock(password string) error
@@ -53,6 +54,7 @@ type Master interface {
 
 type master struct {
 	*keyManager
+	cosmos     *cosmos
 	csa        *csa
 	eth        *eth
 	ocr        *ocr
@@ -79,6 +81,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 
 	return &master{
 		keyManager: km,
+		cosmos:     newCosmosKeyStore(km),
 		csa:        newCSAKeyStore(km),
 		eth:        newEthKeyStore(km),
 		ocr:        newOCRKeyStore(km),
@@ -122,6 +125,10 @@ func (ks *master) P2P() P2P {
 
 func (ks *master) Solana() Solana {
 	return ks.solana
+}
+
+func (ks *master) Cosmos() Cosmos {
+	return ks.cosmos
 }
 
 func (ks *master) StarkNet() StarkNet {
@@ -328,6 +335,8 @@ func (km *keyManager) isLocked() bool {
 
 func GetFieldNameForKey(unknownKey Key) (string, error) {
 	switch unknownKey.(type) {
+	case cosmoskey.Key:
+		return "Cosmos", nil
 	case csakey.KeyV2:
 		return "CSA", nil
 	case ethkey.KeyV2:
