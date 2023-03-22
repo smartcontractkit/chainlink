@@ -73,8 +73,6 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 				},
 			},
 		},
-		statusCliCmd(client, false),
-		profileCliCmd(client, false),
 	}
 }
 
@@ -83,37 +81,6 @@ var (
 	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
 	errBadRequest   = errors.New(http.StatusText(http.StatusBadRequest))
 )
-
-func statusCliCmd(client *Client, hidden bool) cli.Command {
-	return cli.Command{
-		Name:   "status",
-		Usage:  "Displays the health of various services running inside the node.",
-		Action: client.Status,
-		Flags:  []cli.Flag{},
-		Hidden: hidden,
-	}
-}
-
-func profileCliCmd(client *Client, hidden bool) cli.Command {
-	return cli.Command{
-		Name:   "profile",
-		Usage:  "Collects profile metrics from the node.",
-		Action: client.Profile,
-		Flags: []cli.Flag{
-			cli.Uint64Flag{
-				Name:  "seconds, s",
-				Usage: "duration of profile capture",
-				Value: 8,
-			},
-			cli.StringFlag{
-				Name:  "output_dir, o",
-				Usage: "output directory of the captured profile",
-				Value: "/tmp/",
-			},
-		},
-		Hidden: hidden,
-	}
-}
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -273,21 +240,6 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 		return cli.printResponseBody(resp)
 	}
 	return nil
-}
-
-// Status will display the health of various services
-func (cli *Client) Status(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
 // Profile will collect pprof metrics and store them in a folder.

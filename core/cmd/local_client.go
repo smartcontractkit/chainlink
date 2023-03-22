@@ -110,14 +110,33 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			},
 		},
 		{
+			Name:   "status",
+			Usage:  "Displays the health of various services running inside the node.",
+			Action: client.Status,
+			Flags:  []cli.Flag{},
+		},
+		{
+			Name:   "profile",
+			Usage:  "Collects profile metrics from the node.",
+			Action: client.Profile,
+			Flags: []cli.Flag{
+				cli.Uint64Flag{
+					Name:  "seconds, s",
+					Usage: "duration of profile capture",
+					Value: 8,
+				},
+				cli.StringFlag{
+					Name:  "output_dir, o",
+					Usage: "output directory of the captured profile",
+					Value: "/tmp/",
+				},
+			},
+		},
+		{
 			Name:   "validate",
 			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
 			Action: client.ConfigFileValidate,
 		},
-		// status and profile for backward compatibilty
-		statusCliCmd(client, true),
-		profileCliCmd(client, true),
-
 		{
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
@@ -605,6 +624,21 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	renderList(headers, rows, rt.Writer)
 
 	return nil
+}
+
+// Status will display the health of various services
+func (cli *Client) Status(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/health?full=1", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
