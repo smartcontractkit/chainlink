@@ -146,7 +146,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:        "config",
 			Usage:       "Commands for the node's configuration",
-			Subcommands: initRemoteConfigSubCmds(client, &opts),
+			Subcommands: initRemoteConfigSubCmds(client),
 		},
 		{
 			Name:        "jobs",

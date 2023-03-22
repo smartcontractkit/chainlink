@@ -26,7 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,7 +34,7 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func initRemoteConfigSubCmds(client *Client, opts *chainlink.GeneralConfigOpts) []cli.Command {
+func initRemoteConfigSubCmds(client *Client) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "show",
@@ -276,6 +275,21 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	return nil
 }
 
+// Status will display the health of various services
+func (cli *Client) Status(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/health?full=1", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
+}
+
 // Profile will collect pprof metrics and store them in a folder.
 func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
@@ -468,18 +482,6 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 		return "", cli.errorOut(err)
 	}
 	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
-	}
-	fmt.Println("Valid configuration.")
-	return nil
 }
 
 func normalizePassword(password string) string {
