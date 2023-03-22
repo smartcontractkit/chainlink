@@ -490,7 +490,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 	}
 
 	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != common.Address{}) {
-		fwdPayload, fwdErr := b.fwdMgr.GetForwardedPayload(newTx.ToAddress, newTx.EncodedPayload)
+		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
 			if newTx.Meta != nil {
@@ -521,7 +521,7 @@ func (b *Txm) GetForwarderForEOA(eoa common.Address) (forwarder common.Address, 
 	if !b.config.EvmUseForwarders() {
 		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
-	forwarder, err = b.fwdMgr.GetForwarderFor(eoa)
+	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
 }
 
