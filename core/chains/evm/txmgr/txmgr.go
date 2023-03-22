@@ -57,7 +57,6 @@ type KeyStore interface {
 	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
-	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 }
 
@@ -581,29 +580,26 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 func sendEmptyTransaction(
 	ctx context.Context,
 	ethClient evmclient.Client,
-	keyStore KeyStore,
+	attemptBuilder AttemptBuilder,
 	nonce uint64,
 	gasLimit uint32,
-	gasPriceWei *big.Int,
+	gasPriceWei int64,
 	fromAddress common.Address,
-	chainID *big.Int,
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, fromAddress, chainID)
+	attempt, err := attemptBuilder.NewEmptyTransaction(nonce, gasLimit, gas.EvmFee{Legacy: assets.NewWeiI(gasPriceWei)}, fromAddress)
 	if err != nil {
 		return nil, err
 	}
+
+	signedTx, err := attempt.GetSignedTx()
+	if err != nil {
+		return nil, err
+	}
+
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
-}
-
-// makes a transaction that sends 0 eth to self
-func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint32, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
-	value := big.NewInt(0)
-	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, fromAddress, value, uint64(gasLimit), gasPriceWei, payload)
-	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
 var _ TxManager = &NullTxManager{}
