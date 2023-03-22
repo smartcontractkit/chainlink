@@ -1,6 +1,6 @@
 enum OCR2ChainType {
     EVM
-    TERRA
+    COSMOS
 	SOLANA
 }
 
