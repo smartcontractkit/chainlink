@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"testing"
 
-	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
