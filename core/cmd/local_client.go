@@ -551,6 +551,12 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 		cli.Config.SetPasswords(&pwd, nil)
 	}
+
+	err = cli.Config.Validate()
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+	}
+
 	err = keyStore.Unlock(cli.Config.KeystorePassword())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
