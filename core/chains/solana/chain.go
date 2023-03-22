@@ -12,15 +12,15 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	soltxm "github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
-	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -190,20 +190,16 @@ func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr lo
 	return &ch, nil
 }
 
+func (c *chain) Name() string {
+	return c.lggr.Name()
+}
+
 func (c *chain) ID() string {
 	return c.id
 }
 
 func (c *chain) Config() config.Config {
 	return c.cfg
-}
-
-func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
-	if c.cfgImmutable {
-		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
-		return
-	}
-	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() solana.TxManager {
@@ -311,9 +307,8 @@ func (c *chain) Ready() error {
 	)
 }
 
-func (c *chain) Healthy() error {
-	return multierr.Combine(
-		c.StartStopOnce.Healthy(),
-		c.txm.Healthy(),
-	)
+func (c *chain) HealthReport() map[string]error {
+	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	maps.Copy(report, c.txm.HealthReport())
+	return report
 }

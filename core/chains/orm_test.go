@@ -3,7 +3,6 @@ package chains_test
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
@@ -36,8 +35,6 @@ func ExampleNewORM() {
 		ExampleChainID string
 		URL            string
 		Bar            null.Int
-		CreatedAt      time.Time
-		UpdatedAt      time.Time
 	}
 	var q pg.Q
 	_ = chains.NewORM[string, *Config, Node](q, "example", "url", "bar")

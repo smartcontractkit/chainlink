@@ -44,7 +44,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-const TestSpec = `
+const FluxMonitorTestSpec = `
 type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
@@ -67,10 +67,44 @@ answer1 [type=median index=0];
 """
 `
 
+const OCR1TestSpec = `
+type               = "offchainreporting"
+schemaVersion      = 1
+name              = "example OCR1 spec"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pBootstrapPeers  = [
+	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+p2pv2Bootstrappers = []
+keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
+transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer		= false
+observationSource = """
+	// data source 1
+	ds1          [type=memo value=<"{\\"USD\\": 1}">];
+	ds1_parse    [type=jsonparse path="USD"];
+	ds1_multiply [type=multiply times=3];
+
+	ds2          [type=memo value=<"{\\"USD\\": 1}">];
+	ds2_parse    [type=jsonparse path="USD"];
+	ds2_multiply [type=multiply times=3];
+
+	ds3          [type=fail msg="uh oh"];
+
+	ds1 -> ds1_parse -> ds1_multiply -> answer;
+	ds2 -> ds2_parse -> ds2_multiply -> answer;
+	ds3 -> answer;
+
+	answer [type=median index=0];
+"""
+`
+
 const OCR2TestSpec = `
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
+name              = "example OCR2 spec"
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID      = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
@@ -91,6 +125,15 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+`
+const BootstrapTestSpec = `
+type				= "bootstrap"
+schemaVersion		= 1
+name              = "example Bootstrap spec"
+contractID			= "0x613a38AC1659769640aaE063C651F48E0250454C"
+relay				= "evm"
+[relayConfig]
+chainID 			= 1337
 `
 
 type TestService struct {
@@ -196,7 +239,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
 	// We need to stop the service because the manager will attempt to make a
 	// connection
-	defer svc.Close()
+	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -485,25 +528,90 @@ func Test_Service_ProposeJob(t *testing.T) {
 	t.Parallel()
 
 	var (
-		id         = int64(1)
-		remoteUUID = uuid.NewV4()
-		args       = &feeds.ProposeJobArgs{
+		idFluxMonitor         = int64(1)
+		remoteUUIDFluxMonitor = uuid.NewV4()
+		argsFluxMonitor       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
-			Spec:           TestSpec,
+			RemoteUUID:     remoteUUIDFluxMonitor,
+			Spec:           FluxMonitorTestSpec,
 			Version:        1,
 		}
-		jp = feeds.JobProposal{
+		jpFluxMonitor = feeds.JobProposal{
 			FeedsManagerID: 1,
-			RemoteUUID:     remoteUUID,
+			Name:           null.StringFrom("example flux monitor spec"),
+			RemoteUUID:     remoteUUIDFluxMonitor,
 			Status:         feeds.JobProposalStatusPending,
 		}
-		spec = feeds.JobProposalSpec{
-			Definition:    TestSpec,
+		specFluxMonitor = feeds.JobProposalSpec{
+			Definition:    FluxMonitorTestSpec,
 			Status:        feeds.SpecStatusPending,
-			Version:       args.Version,
-			JobProposalID: id,
+			Version:       argsFluxMonitor.Version,
+			JobProposalID: idFluxMonitor,
 		}
+
+		idOCR1         = int64(2)
+		remoteUUIDOCR1 = uuid.NewV4()
+		argsOCR1       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDOCR1,
+			Spec:           OCR1TestSpec,
+			Version:        1,
+		}
+		jpOCR1 = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("example OCR1 spec"),
+			RemoteUUID:     remoteUUIDOCR1,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		specOCR1 = feeds.JobProposalSpec{
+			Definition:    OCR1TestSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       argsOCR1.Version,
+			JobProposalID: idOCR1,
+		}
+
+		idOCR2         = int64(3)
+		remoteUUIDOCR2 = uuid.NewV4()
+		argsOCR2       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDOCR2,
+			Spec:           OCR2TestSpec,
+			Version:        1,
+		}
+		jpOCR2 = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("example OCR2 spec"),
+			RemoteUUID:     remoteUUIDOCR2,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		specOCR2 = feeds.JobProposalSpec{
+			Definition:    OCR2TestSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       argsOCR2.Version,
+			JobProposalID: idOCR2,
+		}
+
+		idBootstrap         = int64(4)
+		remoteUUIDBootstrap = uuid.NewV4()
+		argsBootstrap       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDBootstrap,
+			Spec:           BootstrapTestSpec,
+			Version:        1,
+		}
+		jpBootstrap = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("example Bootstrap spec"),
+			RemoteUUID:     remoteUUIDBootstrap,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		specBootstrap = feeds.JobProposalSpec{
+			Definition:    BootstrapTestSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       argsBootstrap.Version,
+			JobProposalID: idBootstrap,
+		}
+
 		httpTimeout = models.MustMakeDuration(1 * time.Second)
 	)
 
@@ -515,33 +623,66 @@ func Test_Service_ProposeJob(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "Create success",
+			name: "Create success (Flux Monitor)",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(idFluxMonitor, nil)
+				svc.orm.On("CreateSpec", specFluxMonitor, mock.Anything).Return(int64(100), nil)
 				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
-			args:   args,
-			wantID: id,
+			args:   argsFluxMonitor,
+			wantID: idFluxMonitor,
+		},
+		{
+			name: "Create success (OCR1)",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", jpOCR1.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpOCR1, mock.Anything).Return(idOCR1, nil)
+				svc.orm.On("CreateSpec", specOCR1, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   argsOCR1,
+			wantID: idOCR1,
+		},
+		{
+			name: "Create success (OCR2)",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", jpOCR2.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpOCR2, mock.Anything).Return(idOCR2, nil)
+				svc.orm.On("CreateSpec", specOCR2, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   argsOCR2,
+			wantID: idOCR2,
+		},
+		{
+			name: "Create success (Bootstrap)",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", jpBootstrap.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpBootstrap, mock.Anything).Return(idBootstrap, nil)
+				svc.orm.On("CreateSpec", specBootstrap, mock.Anything).Return(int64(102), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   argsBootstrap,
+			wantID: idBootstrap,
 		},
 		{
 			name: "Update success",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).
 					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
+						FeedsManagerID: jpFluxMonitor.FeedsManagerID,
+						RemoteUUID:     jpFluxMonitor.RemoteUUID,
 						Status:         feeds.JobProposalStatusPending,
 					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(false, nil)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jpFluxMonitor.ID, argsFluxMonitor.Version).Return(false, nil)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(idFluxMonitor, nil)
+				svc.orm.On("CreateSpec", specFluxMonitor, mock.Anything).Return(int64(100), nil)
 				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
-			args:   args,
-			wantID: id,
+			args:   argsFluxMonitor,
+			wantID: idFluxMonitor,
 		},
 		{
 			name:    "contains invalid job spec",
@@ -552,7 +693,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name:   "must be an ocr job to include bootstraps",
 			before: func(svc *TestService) {},
 			args: &feeds.ProposeJobArgs{
-				Spec:       TestSpec,
+				Spec:       FluxMonitorTestSpec,
 				Multiaddrs: pq.StringArray{"/dns4/example.com"},
 			},
 			wantErr: "only OCR job type supports multiaddr",
@@ -561,47 +702,47 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: 2,
-						RemoteUUID:     jp.RemoteUUID,
+						RemoteUUID:     jpFluxMonitor.RemoteUUID,
 					}, nil)
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "cannot update a job proposal belonging to another feeds manager",
 		},
 		{
 			name: "spec version already exists",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).
 					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
+						FeedsManagerID: jpFluxMonitor.FeedsManagerID,
+						RemoteUUID:     jpFluxMonitor.RemoteUUID,
 						Status:         feeds.JobProposalStatusPending,
 					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(true, nil)
+				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jpFluxMonitor.ID, argsFluxMonitor.Version).Return(true, nil)
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "proposed job spec version already exists",
 		},
 		{
 			name: "upsert error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(int64(0), errors.New("orm error"))
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "failed to upsert job proposal",
 		},
 		{
 			name: "Create spec error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", jpFluxMonitor.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jpFluxMonitor, mock.Anything).Return(idFluxMonitor, nil)
+				svc.orm.On("CreateSpec", specFluxMonitor, mock.Anything).Return(int64(0), errors.New("orm error"))
 			},
-			args:    args,
+			args:    argsFluxMonitor,
 			wantErr: "failed to create spec",
 		},
 	}
@@ -632,121 +773,80 @@ func Test_Service_ProposeJob(t *testing.T) {
 	}
 }
 
-func Test_Service_ProposeJob_OCR2(t *testing.T) {
+func Test_Service_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	var (
-		id         = int64(1)
 		remoteUUID = uuid.NewV4()
-		args       = &feeds.ProposeJobArgs{
+		args       = &feeds.DeleteJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
-			Spec:           OCR2TestSpec,
-			Version:        1,
-			Multiaddrs:     pq.StringArray{"/dns4/example.com"},
 		}
-		jp = feeds.JobProposal{
+
+		approved = feeds.JobProposal{
+			ID:             1,
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
-			Status:         feeds.JobProposalStatusPending,
-			Multiaddrs:     pq.StringArray{"/dns4/example.com"},
+			Status:         feeds.JobProposalStatusApproved,
 		}
-		spec = feeds.JobProposalSpec{
-			Definition:    OCR2TestSpec,
-			Status:        feeds.SpecStatusPending,
-			Version:       args.Version,
-			JobProposalID: id,
-		}
+
 		httpTimeout = models.MustMakeDuration(1 * time.Second)
 	)
 
 	testCases := []struct {
 		name    string
-		args    *feeds.ProposeJobArgs
+		args    *feeds.DeleteJobArgs
 		before  func(svc *TestService)
 		wantID  int64
 		wantErr string
 	}{
 		{
-			name: "Create success",
+			name: "Delete success",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(nil)
 			},
 			args:   args,
-			wantID: id,
+			wantID: approved.ID,
 		},
 		{
-			name: "Update success",
+			name: "Job proposal being deleted belongs to the feeds manager",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(false, nil)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
-			},
-			args:   args,
-			wantID: id,
-		},
-		{
-			name:    "contains invalid job spec",
-			args:    &feeds.ProposeJobArgs{},
-			wantErr: "invalid job type",
-		},
-		{
-			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
-			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", approved.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: 2,
-						RemoteUUID:     jp.RemoteUUID,
+						RemoteUUID:     approved.RemoteUUID,
+						Status:         feeds.JobProposalStatusApproved,
 					}, nil)
 			},
 			args:    args,
-			wantErr: "cannot update a job proposal belonging to another feeds manager",
+			wantErr: "cannot delete a job proposal belonging to another feeds manager",
 		},
 		{
-			name: "spec version already exists",
+			name: "Get proposal error",
 			before: func(svc *TestService) {
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(true, nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(nil, errors.New("orm error"))
 			},
 			args:    args,
-			wantErr: "proposed job spec version already exists",
+			wantErr: "GetJobProposalByRemoteUUID failed",
 		},
 		{
-			name: "upsert error",
+			name: "No proposal error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(nil, sql.ErrNoRows)
 			},
 			args:    args,
-			wantErr: "failed to upsert job proposal",
+			wantErr: "GetJobProposalByRemoteUUID did not find any proposals to delete",
 		},
 		{
-			name: "Create spec error",
+			name: "Delete proposal error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
-				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(errors.New("orm error"))
 			},
 			args:    args,
-			wantErr: "failed to create spec",
+			wantErr: "DeleteProposal failed",
 		},
 	}
 
@@ -763,14 +863,115 @@ func Test_Service_ProposeJob_OCR2(t *testing.T) {
 				tc.before(svc)
 			}
 
-			actual, err := svc.ProposeJob(testutils.Context(t), tc.args)
+			_, err := svc.DeleteJob(testutils.Context(t), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.wantErr)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tc.wantID, actual)
+			}
+		})
+	}
+}
+
+func Test_Service_RevokeJob(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteUUID = uuid.NewV4()
+		args       = &feeds.RevokeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUID,
+		}
+
+		pendingProposal = feeds.JobProposal{
+			ID:             1,
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUID,
+			Status:         feeds.JobProposalStatusPending,
+		}
+
+		httpTimeout = models.MustMakeDuration(1 * time.Second)
+	)
+
+	testCases := []struct {
+		name    string
+		args    *feeds.RevokeJobArgs
+		before  func(svc *TestService)
+		wantID  int64
+		wantErr string
+	}{
+		{
+			name: "Revoke success",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
+				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(nil)
+			},
+			args:   args,
+			wantID: pendingProposal.ID,
+		},
+		{
+			name: "Job proposal being deleted belongs to the feeds manager",
+			before: func(svc *TestService) {
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: 2,
+						RemoteUUID:     pendingProposal.RemoteUUID,
+						Status:         feeds.JobProposalStatusApproved,
+					}, nil)
+			},
+			args:    args,
+			wantErr: "cannot revoke a job proposal belonging to another feeds manager",
+		},
+		{
+			name: "Get proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(nil, errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID failed",
+		},
+		{
+			name: "No proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(nil, sql.ErrNoRows)
+			},
+			args:    args,
+			wantErr: "GetJobProposalByRemoteUUID did not find any proposals to revoke",
+		},
+		{
+			name: "Revoke proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
+				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "RevokeProposal failed",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
+			})
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			_, err := svc.RevokeJob(testutils.Context(t), tc.args)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -989,13 +1190,13 @@ func Test_Service_CancelSpec(t *testing.T) {
 			wantErr: "orm: job proposal spec: Not Found",
 		},
 		{
-			name: "must be an approved job proposal",
+			name: "must be an approved job proposal spec",
 			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
+				pspec := &feeds.JobProposalSpec{
 					ID:     spec.ID,
 					Status: feeds.SpecStatusPending,
 				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetSpec", pspec.ID, mock.Anything).Return(pspec, nil)
 			},
 			specID:  spec.ID,
 			wantErr: "must be an approved job proposal spec",
@@ -1229,8 +1430,8 @@ answer1 [type=median index=0];
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -1300,9 +1501,61 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
+			name: "revoked proposal fail",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(&feeds.JobProposal{
+					ID:     1,
+					Status: feeds.JobProposalStatusRevoked,
+				}, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve spec for a revoked job proposal",
+		},
+		{
+			name: "deleted proposal fail",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(&feeds.JobProposal{
+					ID:     jp.ID,
+					Status: feeds.JobProposalStatusDeleted,
+				}, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve spec for a deleted job proposal",
+		},
+		{
+			name: "approved spec fail",
+			before: func(svc *TestService) {
+				aspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: jp.ID,
+				}
+				svc.orm.On("GetSpec", aspec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve an approved spec",
+		},
+		{
+			name: "rejected spec fail",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      rejectedSpec.ID,
+			force:   false,
+			wantErr: "cannot approve a rejected spec",
+		},
+		{
 			name: "cancelled spec failed not latest spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
 					ID:            21,
 					Status:        feeds.SpecStatusPending,
@@ -1314,15 +1567,6 @@ answer1 [type=median index=0];
 			id:      cancelledSpec.ID,
 			force:   false,
 			wantErr: "cannot approve a cancelled spec",
-		},
-		{
-			name: "rejected spec failed cannot be approved",
-			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
-			},
-			id:      rejectedSpec.ID,
-			force:   false,
-			wantErr: "cannot approve a rejected spec",
 		},
 		{
 			name:        "already existing job replacement error",
@@ -1340,15 +1584,56 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
 		},
 		{
-			name:        "already existing job replacement success if forced",
+			name:        "already existing self managed job replacement success if forced",
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
+
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: true,
+		},
+		{
+			name:        "already existing FMS managed job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
+
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -1387,32 +1672,6 @@ answer1 [type=median index=0];
 			wantErr: "orm: job proposal spec: Not Found",
 		},
 		{
-			name: "cannot approve an approved spec",
-			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusApproved,
-				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-			},
-			id:      spec.ID,
-			force:   false,
-			wantErr: "cannot approve an approved spec",
-		},
-		{
-			name: "cannot approved an rejected spec",
-			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusRejected,
-				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
-			},
-			id:      spec.ID,
-			force:   false,
-			wantErr: "cannot approve a rejected spec",
-		},
-		{
 			name: "job proposal does not exist",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -1443,6 +1702,37 @@ answer1 [type=median index=0];
 			id:      spec.ID,
 			force:   false,
 			wantErr: "fms rpc client: Not Connected",
+		},
+		{
+			name:        "Fetching the approved spec fails",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, errors.New("failure"))
+			},
+			id:      spec.ID,
+			force:   true,
+			wantErr: "could not approve job proposal: GetApprovedSpec failed: failure",
+		},
+		{
+			name:        "spec cancellation fails",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(errors.New("failure"))
+			},
+			id:      spec.ID,
+			force:   true,
+			wantErr: "could not approve job proposal: failure",
 		},
 		{
 			name:        "create job error",
@@ -1644,7 +1934,6 @@ answer1      [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
@@ -1715,6 +2004,7 @@ answer1      [type=median index=0];
 			name: "cancelled spec failed not latest spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
 					ID:            21,
 					Status:        feeds.SpecStatusPending,
@@ -1731,6 +2021,7 @@ answer1      [type=median index=0];
 			name: "rejected spec failed cannot be approved",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 			},
 			id:      rejectedSpec.ID,
 			force:   false,
@@ -1744,7 +2035,6 @@ answer1      [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 			},
 			id:      spec.ID,
@@ -1752,14 +2042,53 @@ answer1      [type=median index=0];
 			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
 		},
 		{
-			name:        "already existing job replacement success if forced",
+			name:        "already existing self managed job replacement success if forced",
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: true,
+		},
+		{
+			name:        "already existing FMS managed job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
@@ -1801,24 +2130,466 @@ answer1      [type=median index=0];
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusApproved,
+				aspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					JobProposalID: jp.ID,
+					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 			},
 			id:      spec.ID,
 			force:   false,
 			wantErr: "cannot approve an approved spec",
 		},
 		{
-			name: "cannot approved an rejected spec",
+			name: "cannot approved a rejected spec",
 			before: func(svc *TestService) {
-				spec := &feeds.JobProposalSpec{
-					ID:     spec.ID,
-					Status: feeds.SpecStatusRejected,
+				rspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					JobProposalID: jp.ID,
+					Status:        feeds.SpecStatusRejected,
 				}
+				svc.orm.On("GetSpec", rspec.ID, mock.Anything).Return(rspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve a rejected spec",
+		},
+		{
+			name: "job proposal does not exist",
+			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(nil, errors.New("Not Found"))
+			},
+			id:      spec.ID,
+			wantErr: "orm: job proposal: Not Found",
+		},
+		{
+			name:        "bridges do not exist",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
+			},
+			id:      spec.ID,
+			wantErr: "failed to approve job spec due to bridge check: bridges do not exist",
+		},
+		{
+			name: "rpc client not connected",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(nil, errors.New("Not Connected"))
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "fms rpc client: Not Connected",
+		},
+		{
+			name:        "create job error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Return(errors.New("could not save"))
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "could not approve job proposal: could not save",
+		},
+		{
+			name:        "approve spec orm error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(errors.New("failure"))
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "could not approve job proposal: failure",
+		},
+		{
+			name:        "fms call error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(nil, errors.New("failure"))
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "could not approve job proposal: failure",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				if tc.httpTimeout != nil {
+					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
+				}
+			})
+
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			err := svc.ApproveSpec(ctx, tc.id, tc.force)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_Service_ApproveSpec_Bootstrap(t *testing.T) {
+	evmChainID := utils.NewBig(big.NewInt(0))
+	address := ethkey.EIP55AddressFromAddress(common.HexToAddress("0x613a38AC1659769640aaE063C651F48E0250454C"))
+
+	var (
+		ctx  = testutils.Context(t)
+		defn = `
+name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
+type = 'bootstrap'
+schemaVersion = 1
+contractID = '0x613a38AC1659769640aaE063C651F48E0250454C'
+externalJobID = '00000000-0000-0000-0000-000000000001'
+relay = 'evm'
+
+[relayConfig]
+chainID = 0
+`
+
+		jp = &feeds.JobProposal{
+			ID:             1,
+			FeedsManagerID: 100,
+		}
+		spec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusPending,
+			JobProposalID: jp.ID,
+			Version:       1,
+			Definition:    defn,
+		}
+		rejectedSpec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusRejected,
+			JobProposalID: jp.ID,
+			Version:       1,
+			Definition:    defn,
+		}
+		cancelledSpec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusCancelled,
+			JobProposalID: jp.ID,
+			Version:       1,
+			Definition:    defn,
+		}
+		j = job.Job{
+			ID:            1,
+			ExternalJobID: uuid.NewV4(),
+		}
+	)
+
+	testCases := []struct {
+		name        string
+		httpTimeout *models.Duration
+		before      func(svc *TestService)
+		id          int64
+		force       bool
+		wantErr     string
+	}{
+		{
+			name:        "pending job success",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: false,
+		},
+		{
+			name:        "cancelled spec success when it is the latest spec",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					cancelledSpec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    cancelledSpec.ID,
+			force: false,
+		},
+		{
+			name: "cancelled spec failed not latest spec",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusPending,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    defn,
+				}, nil)
+			},
+			id:      cancelledSpec.ID,
+			force:   false,
+			wantErr: "cannot approve a cancelled spec",
+		},
+		{
+			name: "rejected spec failed cannot be approved",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      rejectedSpec.ID,
+			force:   false,
+			wantErr: "cannot approve a rejected spec",
+		},
+		{
+			name:        "already existing job replacement error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
+		},
+		{
+			name:        "already existing self managed job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: true,
+		},
+		{
+			name:        "already existing FMS managed job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
+				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: true,
+		},
+		{
+			name: "spec does not exist",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(nil, errors.New("Not Found"))
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "orm: job proposal spec: Not Found",
+		},
+		{
+			name: "cannot approve an approved spec",
+			before: func(svc *TestService) {
+				aspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					JobProposalID: jp.ID,
+					Status:        feeds.SpecStatusApproved,
+				}
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve an approved spec",
+		},
+		{
+			name: "cannot approved a rejected spec",
+			before: func(svc *TestService) {
+				rspec := &feeds.JobProposalSpec{
+					ID:            spec.ID,
+					JobProposalID: jp.ID,
+					Status:        feeds.SpecStatusRejected,
+				}
+				svc.orm.On("GetSpec", rspec.ID, mock.Anything).Return(rspec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 			},
 			id:      spec.ID,
 			force:   false,
@@ -2022,7 +2793,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 			wantErr: "failure",
 		},
 		{
-			name: "Must be a pending spec",
+			name: "Cannot be a rejected proposal",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(&feeds.JobProposalSpec{
 					Status: feeds.SpecStatusRejected,

@@ -14,6 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
@@ -27,20 +29,24 @@ type bpBHSConfig interface {
 // BulletproofBHS is an implementation of BHS that writes "store" transactions to a bulletproof
 // transaction manager, and reads BlockhashStore state from the contract.
 type BulletproofBHS struct {
-	config      bpBHSConfig
-	jobID       uuid.UUID
-	fromAddress common.Address
-	txm         txmgr.TxManager
-	abi         *abi.ABI
-	bhs         blockhash_store.BlockhashStoreInterface
+	config        bpBHSConfig
+	jobID         uuid.UUID
+	fromAddresses []ethkey.EIP55Address
+	txm           txmgr.TxManager
+	abi           *abi.ABI
+	bhs           blockhash_store.BlockhashStoreInterface
+	chainID       *big.Int
+	gethks        keystore.Eth
 }
 
 // NewBulletproofBHS creates a new instance with the given transaction manager and blockhash store.
 func NewBulletproofBHS(
 	config bpBHSConfig,
-	fromAddress common.Address,
+	fromAddresses []ethkey.EIP55Address,
 	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
+	chainID *big.Int,
+	gethks keystore.Eth,
 ) (*BulletproofBHS, error) {
 	bhsABI, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
 	if err != nil {
@@ -49,11 +55,13 @@ func NewBulletproofBHS(
 	}
 
 	return &BulletproofBHS{
-		config:      config,
-		fromAddress: fromAddress,
-		txm:         txm,
-		abi:         bhsABI,
-		bhs:         bhs,
+		config:        config,
+		fromAddresses: fromAddresses,
+		txm:           txm,
+		abi:           bhsABI,
+		bhs:           bhs,
+		chainID:       chainID,
+		gethks:        gethks,
 	}, nil
 }
 
@@ -64,8 +72,13 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
+	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	if err != nil {
+		return errors.Wrap(err, "getting next from address")
+	}
+
 	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    c.fromAddress,
+		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
 		GasLimit:       c.config.EvmGasLimitDefault(),
@@ -91,4 +104,12 @@ func (c *BulletproofBHS) IsStored(ctx context.Context, blockNum uint64) (bool, e
 		return false, errors.Wrap(err, "getting blockhash")
 	}
 	return true, nil
+}
+
+func (c *BulletproofBHS) sendingKeys() []common.Address {
+	var keys []common.Address
+	for _, a := range c.fromAddresses {
+		keys = append(keys, a.Address())
+	}
+	return keys
 }

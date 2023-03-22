@@ -6,14 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
@@ -29,28 +26,15 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 	return ret
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func isDevMode() bool {
-	var clDev string
-	v1, v2 := os.Getenv("CHAINLINK_DEV"), os.Getenv("CL_DEV")
-	if v1 != "" && v2 != "" {
-		if v1 != v2 {
-			panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
-		}
-	} else if v1 == "" {
-		clDev = v2
-	} else if v2 == "" {
-		clDev = v1
-	}
-	return strings.ToLower(clDev) == "true"
-}
-
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
-	devMode := isDevMode()
+	devMode := v2.EnvDev.IsTrue()
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
+	// TOML
+	var opts chainlink.GeneralConfigOpts
+
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
@@ -73,74 +57,52 @@ func NewApp(client *Client) *cli.App {
 			Name:  "config, c",
 			Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
 			// Note: we cannot use the EnvVar field since it will combine with the flags.
+			Hidden: true,
 		},
 		cli.StringFlag{
-			Name:  "secrets, s",
-			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Name:   "secrets, s",
+			Usage:  "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Hidden: true,
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		if c.IsSet("config") || v2.EnvConfig.Get() != "" {
-			// TOML
-			var opts chainlink.GeneralConfigOpts
 
-			fileNames := c.StringSlice("config")
-			if err := loadOpts(&opts, fileNames...); err != nil {
-				return err
-			}
-
-			secretsTOML := ""
-			if c.IsSet("secrets") {
-				secretsFileName := c.String("secrets")
-				b, err := os.ReadFile(secretsFileName)
-				if err != nil {
-					return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
-				}
-				secretsTOML = string(b)
-			}
-			if err := opts.ParseSecrets(secretsTOML); err != nil {
-				return err
-			}
-
-			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
-				return err
-			} else {
-				client.Config = cfg
-				client.Logger = lggr
-				client.CloseLogger = closeLggr
-			}
+		// setup a default config and logger
+		// these will be overwritten later if a TOML config is specified
+		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+			return err
 		} else {
-			// Legacy ENV
-			if c.IsSet("secrets") {
-				panic("secrets file must not be used without a core config file")
-			}
-			client.Logger, client.CloseLogger = logger.NewLogger()
-			client.Config = config.NewGeneralConfig(client.Logger)
+			client.Config = cfg
+			client.Logger = lggr
+			client.CloseLogger = closeLggr
 		}
-		logDeprecatedClientEnvWarnings(client.Logger)
+
+		err := client.setConfigFromFlags(&opts, c)
+		if err != nil {
+			return err
+		}
+
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		urlStr := c.String("remote-node-url")
-		if envUrlStr := os.Getenv("CLIENT_NODE_URL"); envUrlStr != "" {
-			urlStr = envUrlStr
+
+		cookieJar, err := NewUserCache("cookies")
+		if err != nil {
+			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
+
+		urlStr := c.String("remote-node-url")
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
 			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
 		}
+
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
-		if envInsecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY"); envInsecureSkipVerify == "true" {
-			insecureSkipVerify = true
-		}
 		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
-		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: cookieJar}, client.Logger)
 		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
 
 		credentialsFile := c.String("admin-credentials-file")
-		if envCredentialsFile := os.Getenv("ADMIN_CREDENTIALS_FILE"); envCredentialsFile != "" {
-			credentialsFile = envCredentialsFile
-		}
 		sr, err := sessionRequestBuilder.Build(credentialsFile)
 		if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
 			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
@@ -150,6 +112,7 @@ func NewApp(client *Client) *cli.App {
 		client.CookieAuthenticator = cookieAuth
 		client.FileSessionRequestBuilder = sessionRequestBuilder
 		return nil
+
 	}
 	app.After = func(c *cli.Context) error {
 		if client.CloseLogger != nil {
@@ -183,7 +146,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:        "config",
 			Usage:       "Commands for the node's configuration",
-			Subcommands: initRemoteConfigSubCmds(client),
+			Subcommands: initRemoteConfigSubCmds(client, &opts),
 		},
 		{
 			Name:        "jobs",
@@ -202,6 +165,7 @@ func NewApp(client *Client) *cli.App {
 				initOCRKeysSubCmd(client),
 				initOCR2KeysSubCmd(client),
 
+				keysCommand("Cosmos", NewCosmosKeysClient(client)),
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
@@ -215,7 +179,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode),
+			Subcommands: initLocalSubCmds(client, devMode, &opts),
 		},
 		{
 			Name:        "initiators",
@@ -228,6 +192,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
 				initEVMTxSubCmd(client),
+				initCosmosTxSubCmd(client),
 				initSolanaTxSubCmd(client),
 			},
 		},
@@ -236,6 +201,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling chain configuration",
 			Subcommands: cli.Commands{
 				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Cosmos", CosmosChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
 				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
@@ -246,6 +212,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
 				initEVMNodeSubCmd(client),
+				initCosmosNodeSubCmd(client),
 				initSolanaNodeSubCmd(client),
 				initStarkNetNodeSubCmd(client),
 			},
@@ -264,18 +231,6 @@ var whitespace = regexp.MustCompile(`\s+`)
 // format returns result of replacing all whitespace in s with a single space
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
-}
-
-func logDeprecatedClientEnvWarnings(lggr logger.Logger) {
-	if s := os.Getenv("INSECURE_SKIP_VERIFY"); s != "" {
-		lggr.Error("INSECURE_SKIP_VERIFY env var has been deprecated and will be removed in a future release. Use flag instead: --insecure-skip-verify")
-	}
-	if s := os.Getenv("CLIENT_NODE_URL"); s != "" {
-		lggr.Errorf("CLIENT_NODE_URL env var has been deprecated and will be removed in a future release. Use flag instead: --remote-node-url=%s", s)
-	}
-	if s := os.Getenv("ADMIN_CREDENTIALS_FILE"); s != "" {
-		lggr.Errorf("ADMIN_CREDENTIALS_FILE env var has been deprecated and will be removed in a future release. Use flag instead: --admin-credentials-file=%s", s)
-	}
 }
 
 // loadOpts applies file configs and then overlays env config

@@ -24,7 +24,7 @@ type Keystore interface {
 	GetAll() ([]solkey.Key, error)
 }
 
-// NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
+// NewBalanceMonitor returns a balance monitoring services.Service which reports the SOL balance of all ks keys to prometheus.
 func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func() (solanaClient.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
@@ -57,6 +57,10 @@ type balanceMonitor struct {
 	stop, done chan struct{}
 }
 
+func (b *balanceMonitor) Name() string {
+	return b.lggr.Name()
+}
+
 func (b *balanceMonitor) Start(context.Context) error {
 	return b.StartOnce("SolanaBalanceMonitor", func() error {
 		go b.monitor()
@@ -70,6 +74,10 @@ func (b *balanceMonitor) Close() error {
 		<-b.done
 		return nil
 	})
+}
+
+func (b *balanceMonitor) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *balanceMonitor) monitor() {

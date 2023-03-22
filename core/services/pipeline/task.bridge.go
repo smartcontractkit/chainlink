@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -175,10 +176,12 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
-			lggr.Errorw("Bridge task: cache fallback failed",
-				"err", cacheErr.Error(),
-				"url", url.String(),
-			)
+			if !errors.Is(err, sql.ErrNoRows) {
+				lggr.Errorw("Bridge task: cache fallback failed",
+					"err", cacheErr.Error(),
+					"url", url.String(),
+				)
+			}
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 		promBridgeCacheHits.WithLabelValues(t.Name).Inc()

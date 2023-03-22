@@ -7,6 +7,7 @@ package services
 type Checkable interface {
 	// Ready should return nil if ready, or an error message otherwise.
 	Ready() error
-	// Healthy should return nil if healthy, or an error message otherwise.
-	Healthy() error
+	// HealthReport returns a full health report of the callee including it's dependencies.
+	// key is the dep name, value is nil if healthy, or error message otherwise.
+	HealthReport() map[string]error
 }

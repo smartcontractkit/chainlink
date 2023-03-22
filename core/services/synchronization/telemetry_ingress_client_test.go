@@ -36,7 +36,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	serverPubKeyHex := "33333333333"
 	telemIngressClient := synchronization.NewTestTelemetryIngressClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient)
 	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
-	defer telemIngressClient.Close()
+	defer func() { assert.NoError(t, telemIngressClient.Close()) }()
 
 	// Create the telemetry payload
 	telemetry := []byte("101010")

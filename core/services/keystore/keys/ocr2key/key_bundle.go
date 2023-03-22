@@ -31,6 +31,7 @@ type KeyBundle interface {
 
 // check generic keybundle for each chain conforms to KeyBundle interface
 var _ KeyBundle = &keyBundle[*evmKeyring]{}
+var _ KeyBundle = &keyBundle[*cosmosKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*starknet.OCR2Key]{}
 
@@ -41,6 +42,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:
 		return newKeyBundleRand(chaintype.EVM, newEVMKeyring)
+	case chaintype.Cosmos:
+		return newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
 	case chaintype.Solana:
 		return newKeyBundleRand(chaintype.Solana, newSolanaKeyring)
 	case chaintype.StarkNet:
@@ -54,6 +57,8 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	switch chainType {
 	case chaintype.EVM:
 		return mustNewKeyBundleInsecure(chaintype.EVM, newEVMKeyring, reader)
+	case chaintype.Cosmos:
+		return mustNewKeyBundleInsecure(chaintype.Cosmos, newCosmosKeyring, reader)
 	case chaintype.Solana:
 		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
 	case chaintype.StarkNet:
@@ -101,12 +106,14 @@ func (raw Raw) Key() (kb KeyBundle) {
 	switch temp.ChainType {
 	case chaintype.EVM:
 		kb = newKeyBundle(new(evmKeyring))
+	case chaintype.Cosmos:
+		kb = newKeyBundle(new(cosmosKeyring))
 	case chaintype.Solana:
 		kb = newKeyBundle(new(solanaKeyring))
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:
-		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
+		return nil
 	}
 	if err := kb.Unmarshal(raw); err != nil {
 		panic(err)

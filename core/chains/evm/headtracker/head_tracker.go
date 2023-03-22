@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -28,7 +29,7 @@ var (
 
 	promOldHead = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_very_old_head",
-		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
+		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is EVM.FinalityDepth or greater below the highest seen head)",
 	}, []string{"evmChainID"})
 )
 
@@ -136,14 +137,16 @@ func (ht *headTracker) Close() error {
 	})
 }
 
-func (ht *headTracker) Healthy() error {
-	if !ht.headListener.ReceivingHeads() {
-		return errors.New("Listener is not receiving heads")
+func (ht *headTracker) Name() string {
+	return ht.log.Name()
+}
+
+func (ht *headTracker) HealthReport() map[string]error {
+	report := map[string]error{
+		ht.Name(): ht.StartStopOnce.Healthy(),
 	}
-	if !ht.headListener.Connected() {
-		return errors.New("Listener is not connected")
-	}
-	return nil
+	maps.Copy(report, ht.headListener.HealthReport())
+	return report
 }
 
 func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
@@ -212,6 +215,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
 	return nil
@@ -346,11 +350,12 @@ var NullTracker httypes.HeadTracker = &nullTracker{}
 
 type nullTracker struct{}
 
-func (*nullTracker) Start(context.Context) error { return nil }
-func (*nullTracker) Close() error                { return nil }
-func (*nullTracker) Ready() error                { return nil }
-func (*nullTracker) Healthy() error              { return nil }
-func (*nullTracker) SetLogLevel(zapcore.Level)   {}
+func (*nullTracker) Start(context.Context) error    { return nil }
+func (*nullTracker) Close() error                   { return nil }
+func (*nullTracker) Ready() error                   { return nil }
+func (*nullTracker) HealthReport() map[string]error { return map[string]error{} }
+func (*nullTracker) Name() string                   { return "" }
+func (*nullTracker) SetLogLevel(zapcore.Level)      {}
 func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	return nil
 }

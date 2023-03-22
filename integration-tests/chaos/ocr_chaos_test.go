@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rs/zerolog/log"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -61,6 +60,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestOCRChaos(t *testing.T) {
+	t.Parallel()
+	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -130,16 +131,22 @@ func TestOCRChaos(t *testing.T) {
 	for n, tst := range testCases {
 		name := n
 		testCase := tst
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("OCR_%s", name), func(t *testing.T) {
 			t.Parallel()
 
-			testEnvironment := environment.New(&environment.Config{NamespacePrefix: fmt.Sprintf("chaos-ocr-%s", name)}).
+			testEnvironment := environment.New(&environment.Config{
+				NamespacePrefix: fmt.Sprintf("chaos-ocr-%s", name),
+				Test:            t,
+			}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(testCase.networkChart).
 				AddHelm(testCase.clChart)
 			err := testEnvironment.Run()
 			require.NoError(t, err)
+			if testEnvironment.WillUseRemoteRunner() {
+				return
+			}
 
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
@@ -194,7 +201,7 @@ func TestOCRChaos(t *testing.T) {
 				}
 				round, err := ocrInstances[0].GetLatestRound(context.Background())
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				log.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
+				l.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
 					chaosApplied = true
 					_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))

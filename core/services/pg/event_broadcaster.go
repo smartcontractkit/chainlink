@@ -124,6 +124,14 @@ func (b *eventBroadcaster) Close() error {
 	})
 }
 
+func (b *eventBroadcaster) Name() string {
+	return b.lggr.Name()
+}
+
+func (b *eventBroadcaster) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
+}
+
 func (b *eventBroadcaster) runLoop() {
 	defer close(b.chDone)
 	for {
@@ -305,6 +313,8 @@ func NewNullEventBroadcaster() *NullEventBroadcaster {
 
 var _ EventBroadcaster = &NullEventBroadcaster{}
 
+func (*NullEventBroadcaster) Name() string { return "NullEventBroadcaster" }
+
 // Start does no-op.
 func (*NullEventBroadcaster) Start(context.Context) error { return nil }
 
@@ -314,8 +324,8 @@ func (*NullEventBroadcaster) Close() error { return nil }
 // Ready does no-op.
 func (*NullEventBroadcaster) Ready() error { return nil }
 
-// Healthy does no-op.
-func (*NullEventBroadcaster) Healthy() error { return nil }
+// HealthReport does no-op
+func (*NullEventBroadcaster) HealthReport() map[string]error { return map[string]error{} }
 
 func (ne *NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
 	return ne.Sub, nil

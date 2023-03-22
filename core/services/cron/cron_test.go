@@ -51,7 +51,7 @@ func TestCronV2Pipeline(t *testing.T) {
 
 	err = service.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer service.Close()
+	defer func() { assert.NoError(t, service.Close()) }()
 }
 
 func TestCronV2Schedule(t *testing.T) {
@@ -74,7 +74,7 @@ func TestCronV2Schedule(t *testing.T) {
 	require.NoError(t, err)
 	err = service.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer service.Close()
+	defer func() { assert.NoError(t, service.Close()) }()
 
 	awaiter.AwaitOrFail(t)
 }

@@ -8,6 +8,7 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -36,6 +37,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 	gError := errors.New("error")
 	fakeKeys := []ocr2key.KeyBundle{
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm"),
+		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "cosmos"),
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "solana"),
 	}
 	expectedBundles := []map[string]interface{}{}
