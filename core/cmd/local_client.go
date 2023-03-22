@@ -154,7 +154,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
 			Before: func(ctx *clipkg.Context) error {
-				return client.Config.Validate()
+				if !devMode {
+					// dev mode operations like preparing the db don't require secrets and would choke here
+					return client.Config.Validate()
+				}
+				return nil
 			},
 			Subcommands: []cli.Command{
 				{
