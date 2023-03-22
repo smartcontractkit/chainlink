@@ -965,6 +965,7 @@ type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
 	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
+	ForwardingAllowed bool   `toml:"forwardingAllowed"`
 	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
@@ -982,6 +983,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		Name                     string
 		JobType                  string
 		MaxTaskDuration          string
+		ForwardingAllowed        bool
 		ContractID               string
 		FeedID                   string
 		Relay                    string
@@ -1019,6 +1021,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
+forwardingAllowed                      = {{.ForwardingAllowed}}
 {{if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
 {{if .PluginType}}
