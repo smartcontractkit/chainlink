@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "./../interfaces/TypeAndVersionInterface.sol";
-import "./../ConfirmedOwner.sol";
+import "./interfaces/TypeAndVersionInterface.sol";
+import "./ConfirmedOwner.sol";
 
 // defines some interfaces for type safety and reduces encoding/decoding
 // does not use the full interfaces intentionally because the requester only uses a fraction of them
