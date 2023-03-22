@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
@@ -108,25 +107,6 @@ type OffChainAggregatorConfig struct {
 	OracleIdentities []ocrConfigHelper.OracleIdentityExtra
 }
 
-type OffChainAggregatorV2Config struct {
-	DeltaProgress                           time.Duration
-	DeltaResend                             time.Duration
-	DeltaRound                              time.Duration
-	DeltaGrace                              time.Duration
-	DeltaStage                              time.Duration
-	RMax                                    uint8
-	S                                       []int
-	Oracles                                 []ocrConfigHelper2.OracleIdentityExtra
-	ReportingPluginConfig                   []byte
-	MaxDurationQuery                        time.Duration
-	MaxDurationObservation                  time.Duration
-	MaxDurationReport                       time.Duration
-	MaxDurationShouldAcceptFinalizedReport  time.Duration
-	MaxDurationShouldTransmitAcceptedReport time.Duration
-	F                                       int
-	OnchainConfig                           []byte
-}
-
 type OffchainAggregatorData struct {
 	LatestRoundData RoundData // Data about the latest round
 }
@@ -149,6 +129,7 @@ type OffchainAggregatorV2 interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
 	RequestNewRound() error
+	SetConfig(ocrConfig *OCRv2Config) error
 	SetPayees(transmitters, payees []string) error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
 	GetLatestRound(ctx context.Context) (*RoundData, error)

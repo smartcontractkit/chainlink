@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
+const ocrPath = "ocr_soak_test"
+
 // OCRSoakTest defines a typical OCR soak test
 type OCRSoakTest struct {
 	Inputs       *OCRSoakTestInputs
@@ -148,12 +150,10 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 func (o *OCRSoakTest) Run(t *testing.T) {
 	l := utils.GetTestLogger(t)
 	// Set initial value and create jobs
-	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
-	require.NoError(t, err, "Error setting adapter responses")
 	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		actions.CreateOCRJobsWithForwarder(o.ocrInstances, o.chainlinkNodes, o.mockServer, ocrPath, 5)
 	} else {
-		err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		err := actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer, ocrPath, 5)
 		require.NoError(t, err, "Error creating OCR jobs")
 	}
 
@@ -304,7 +304,7 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	for _, report := range o.TestReporter.ContractReports {
 		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
 	}
-	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	err = o.mockServer.SetValuePath(ocrPath, currentAdapterValue)
 	require.NoError(t, err, "Error setting adapter responses")
 	l.Info().
 		Int("Value", currentAdapterValue).

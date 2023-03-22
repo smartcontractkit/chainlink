@@ -804,6 +804,30 @@ p2pPeerID                              = "{{.P2PPeerID}}"`
 	return marshallTemplate(o, "OCR Bootstrap Job", ocrTemplateString)
 }
 
+// OCR2BootstrapJobSpec serves as the bootstrap job for OCRv2 operations
+type OCR2BootstrapJobSpec struct {
+	Name               string `toml:"name"`
+	ContractAddress    string `toml:"contractID"`
+	Relay              string `toml:"relay"`
+	MonitoringEndpoint string `toml:"monitoringEndpoint"`
+	ChainID            uint64 `toml:"chainID"`
+}
+
+func (o *OCR2BootstrapJobSpec) Type() string { return "bootstrap" }
+
+func (o *OCR2BootstrapJobSpec) String() (string, error) {
+	ocrTemplateString := `type = "bootstrap"
+schemaVersion      = 1
+name               = "{{.Name}}"
+contractID         = "{{.ContractAddress}}"
+relay              = "{{.Relay}}"
+monitoringEndpoint = "{{.MonitoringEndpoint}}"
+
+[relayConfig]
+chainID            = {{.ChainID}}`
+	return marshallTemplate(o, "OCR2 Bootstrap Job", ocrTemplateString)
+}
+
 // OCRTaskJobSpec represents an OCR job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCRTaskJobSpec struct {
@@ -907,7 +931,7 @@ p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
-forwardingAllowed					   = {{.ForwardingAllowed}}
+forwardingAllowed					             = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`

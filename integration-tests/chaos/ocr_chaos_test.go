@@ -186,9 +186,7 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
-			err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, ms)
-			require.NoError(t, err)
-			err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms)
+			err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms, "ocr_chaos", 5)
 			require.NoError(t, err)
 
 			chaosApplied := false

@@ -1326,6 +1326,16 @@ type EthereumOffchainAggregatorV2 struct {
 	contract *ocr2aggregator.OCR2Aggregator
 }
 
+// OCRv2Config represents the config for the OCRv2 contract
+type OCRv2Config struct {
+	Signers               []common.Address
+	Transmitters          []common.Address
+	F                     uint8
+	OnchainConfig         []byte
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
+}
+
 func (e *EthereumOffchainAggregatorV2) Address() string {
 	return e.address.Hex()
 }
@@ -1416,11 +1426,7 @@ func (e *EthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) 
 	return e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumOffchainAggregatorV2) SetConfig(
-	chainlinkNodes []*client.Chainlink,
-	ocrConfig OffChainAggregatorConfig,
-	transmitters []common.Address,
-) error {
+func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1429,7 +1435,15 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(
 		Str("OCRv2 Address", e.Address()).
 		Msg("Setting OCRv2 Config")
 
-	tx, err := e.contract.SetConfig(opts)
+	tx, err := e.contract.SetConfig(
+		opts,
+		ocrConfig.Signers,
+		ocrConfig.Transmitters,
+		ocrConfig.F,
+		ocrConfig.OnchainConfig,
+		ocrConfig.OffchainConfigVersion,
+		ocrConfig.OffchainConfig,
+	)
 	if err != nil {
 		return err
 	}

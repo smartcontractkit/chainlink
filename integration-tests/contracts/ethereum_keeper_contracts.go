@@ -55,12 +55,12 @@ type UpkeepTranscoder interface {
 type KeeperRegistry interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
-	SetConfig(config KeeperRegistrySettings, ocrConfig OCRConfig) error
+	SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error
 	SetRegistrar(registrarAddr string) error
 	AddUpkeepFunds(id *big.Int, amount *big.Int) error
 	GetUpkeepInfo(ctx context.Context, id *big.Int) (*UpkeepInfo, error)
 	GetKeeperInfo(ctx context.Context, keeperAddr string) (*KeeperInfo, error)
-	SetKeepers(keepers []string, payees []string, ocrConfig OCRConfig) error
+	SetKeepers(keepers []string, payees []string, ocrConfig OCRv2Config) error
 	GetKeeperList(ctx context.Context) ([]string, error)
 	RegisterUpkeep(target string, gasLimit uint32, admin string, checkData []byte) error
 	CancelUpkeep(id *big.Int) error
@@ -130,15 +130,6 @@ type UpkeepResetter interface {
 	Address() string
 	ResetManyConsumerBenchmark(ctx context.Context, upkeepAddresses []string, testRange *big.Int,
 		averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error
-}
-
-type OCRConfig struct {
-	Signers               []common.Address
-	Transmitters          []common.Address
-	F                     uint8
-	OnchainConfig         []byte
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
 }
 
 type UpkeepPerformedLog struct {
@@ -243,7 +234,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte
 	return onchainConfig, err
 }
 
-func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRConfig) error {
+func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -596,7 +587,7 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 	}, nil
 }
 
-func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, ocrConfig OCRConfig) error {
+func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, ocrConfig OCRv2Config) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err

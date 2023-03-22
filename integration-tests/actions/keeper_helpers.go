@@ -23,7 +23,7 @@ func CreateKeeperJobs(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 	keeperRegistry contracts.KeeperRegistry,
-	ocrConfig contracts.OCRConfig,
+	ocrConfig contracts.OCRv2Config,
 ) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
@@ -57,7 +57,7 @@ func CreateKeeperJobsWithKeyIndex(
 	chainlinkNodes []*client.Chainlink,
 	keeperRegistry contracts.KeeperRegistry,
 	keyIndex int,
-	ocrConfig contracts.OCRConfig,
+	ocrConfig contracts.OCRv2Config,
 ) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]

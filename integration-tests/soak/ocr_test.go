@@ -58,7 +58,10 @@ func TestOCRSoak(t *testing.T) {
 }
 
 func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, OcrSoakInputs) {
-	var testInputs OcrSoakInputs
+	var (
+		testInputs OcrSoakInputs
+		dynamicTxs = "EIP1559DynamicFees = true"
+	)
 	err := envconfig.Process("OCR", &testInputs)
 	require.NoError(t, err, "Error reading OCR soak test inputs")
 	testInputs.setForRemoteRunner()
@@ -99,7 +102,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			}))
 		} else {
 			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
+				"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, dynamicTxs, network),
 			}))
 		}
 	}

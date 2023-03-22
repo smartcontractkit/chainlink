@@ -744,7 +744,7 @@ func buildMercuryOCRConfig(chainlinkNodes []*client.Chainlink) (*contracts.Mercu
 		return nil, err
 	}
 
-	_, oracleIdentities := getOracleIdentities(chainlinkNodes)
+	_, oracleIdentities, err := actions.GetOracleIdentities(chainlinkNodes)
 	if err != nil {
 		return nil, err
 	}

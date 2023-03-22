@@ -5,29 +5,32 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/sync/errgroup"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
+// DeployOCRv2Contracts deploys a number of OCRv2 contracts and configures them with defaults
 func DeployOCRv2Contracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkWorkerNodes []*client.Chainlink,
 	client blockchain.EVMClient,
+	contractConfig *contracts.OCRv2Config,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -53,7 +56,7 @@ func DeployOCRv2Contracts(
 
 	// Gather transmitter and address payees
 	var transmitters, payees []string
-	for _, node := range chainlinkNodes[1:] {
+	for _, node := range chainlinkWorkerNodes {
 		addr, err := node.PrimaryEthAddress()
 		if err != nil {
 			return nil, fmt.Errorf("error getting node's primary ETH address: %w", err)
@@ -80,21 +83,12 @@ func DeployOCRv2Contracts(
 		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
 	}
 
-	// Set Config
-	transmitterAddresses, err := ChainlinkNodeAddresses(chainlinkNodes[1:])
-	if err != nil {
-		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
-	}
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
-		// err = ocrInstance.SetConfig(
-		// 	chainlinkNodes[1:],
-		// 	contracts.DefaultOffChainAggregatorConfig(len(chainlinkNodes[1:])),
-		// 	transmitterAddresses,
-		// )
-		// if err != nil {
-		// 	return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
-		// }
+		err = ocrInstance.SetConfig(contractConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
+		}
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			err = client.WaitForEvents()
 			if err != nil {
@@ -109,73 +103,33 @@ func DeployOCRv2Contracts(
 	return ocrInstances, nil
 }
 
-func BuildGeneralOCR2Config(
-	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
-	deltaProgress time.Duration,
-	deltaResend time.Duration,
-	deltaRound time.Duration,
-	deltaGrace time.Duration,
-	deltaStage time.Duration,
-	rMax uint8,
-	s []int,
-	reportingPluginConfig []byte,
-	maxDurationQuery time.Duration,
-	maxDurationObservation time.Duration,
-	maxDurationReport time.Duration,
-	maxDurationShouldAcceptFinalizedReport time.Duration,
-	maxDurationShouldTransmitAcceptedReport time.Duration,
-	f int,
-	onchainConfig []byte,
-) contracts.OCRConfig {
-	l := utils.GetTestLogger(t)
-	_, oracleIdentities := GetOracleIdentities(t, chainlinkNodes)
-
-	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		deltaProgress,
-		deltaResend,
-		deltaRound,
-		deltaGrace,
-		deltaStage,
-		rMax,
-		s,
+// BuildDefaultOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard aggregation job
+func BuildDefaultOCR2Config(chainlinkNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
+	_, oracleIdentities, err := GetOracleIdentities(chainlinkNodes)
+	if err != nil {
+		return nil, err
+	}
+	signerAddresses, transmitterAddresses, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracleIdentities,
-		reportingPluginConfig,
-		maxDurationQuery,
-		maxDurationObservation,
-		maxDurationReport,
-		maxDurationShouldAcceptFinalizedReport,
-		maxDurationShouldTransmitAcceptedReport,
-		f,
-		onchainConfig,
+		1,
+		1,
 	)
-	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
-
-	var signers []common.Address
-	for _, signer := range signerOnchainPublicKeys {
-		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
-		signers = append(signers, common.BytesToAddress(signer))
+	if err != nil {
+		return nil, err
 	}
 
-	var transmitters []common.Address
-	for _, transmitter := range transmitterAccounts {
-		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
-		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
-	}
-
-	l.Info().Msg("Done building OCR2 config")
-	return contracts.OCRConfig{
-		Signers:               signers,
-		Transmitters:          transmitters,
+	return &contracts.OCRv2Config{
+		Signers:               signerAddresses,
+		Transmitters:          transmitterAddresses,
 		F:                     f_,
-		OnchainConfig:         onchainConfig_,
+		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}
+	}, nil
 }
 
-func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra, error) {
-	l := utils.GetTestLogger(t)
+// GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities
+func GetOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra, error) {
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
@@ -184,9 +138,13 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 		index, chainlinkNode := i, cl
 		eg.Go(func() error {
 			address, err := chainlinkNode.PrimaryEthAddress()
-			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", index)
+			if err != nil {
+				return err
+			}
 			ocr2Keys, err := chainlinkNode.MustReadOCR2Keys()
-			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
+			if err != nil {
+				return err
+			}
 			var ocr2Config client.OCR2KeyAttributes
 			for _, key := range ocr2Keys.Data {
 				if key.Attributes.ChainType == string(chaintype.EVM) {
@@ -196,25 +154,37 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 			}
 
 			keys, err := chainlinkNode.MustReadP2PKeys()
-			require.NoError(t, err, "Shouldn't fail reading P2P keys from node")
+			if err != nil {
+				return err
+			}
 			p2pKeyID := keys.Data[0].Attributes.PeerID
 
 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
+			if err != nil {
+				return err
+			}
 
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
-			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+			if n != ed25519.PublicKeySize {
+				return fmt.Errorf("Wrong number of elements copied")
+			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
+			if err != nil {
+				return err
+			}
 
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
-			require.Equal(t, ed25519.PublicKeySize, n, "Wrong number of elements copied")
+			if n != ed25519.PublicKeySize {
+				return fmt.Errorf("Wrong number of elements copied")
+			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-			require.NoError(t, err, "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
+			if err != nil {
+				return err
+			}
 
 			sharedSecretEncryptionPublicKeys[index] = configPkBytesFixed
 			oracleIdentities[index] = confighelper.OracleIdentityExtra{
@@ -232,4 +202,97 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 	}
 
 	return S, oracleIdentities, eg.Wait()
+}
+
+// CreateOCRJobs bootstraps the first node and to the other nodes sends ocr jobs that
+// read from different adapters, to be used in combination with SetAdapterResponses
+func CreateOCRv2Jobs(
+	ocrInstances []contracts.OffchainAggregatorV2,
+	bootstrapNode *client.Chainlink,
+	workerChainlinkNodes []*client.Chainlink,
+	mockserver *ctfClient.MockserverClient,
+	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
+	mockServerValue int, // Value to get from the mock server when querying the path
+	chainId uint64, // EVM chain ID
+) error {
+	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
+	if err != nil {
+		return err
+	}
+	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+	for _, ocrInstance := range ocrInstances {
+		bootstrapSpec := &client.OCR2TaskJobSpec{
+			Name:    "ocr2 bootstrap node",
+			JobType: "bootstrap",
+			OCR2OracleSpec: job.OCR2OracleSpec{
+				ContractID: ocrInstance.Address(),
+				Relay:      "evm",
+				RelayConfig: map[string]interface{}{
+					"chainID": chainId,
+				},
+				MonitoringEndpoint: null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath)),
+			},
+		}
+		_, err := bootstrapNode.MustCreateJob(bootstrapSpec)
+		if err != nil {
+			return fmt.Errorf("creating bootstrap job have failed: %w", err)
+		}
+
+		for _, chainlinkNode := range workerChainlinkNodes {
+			nodeTransmitterAddress, err := chainlinkNode.PrimaryEthAddress()
+			if err != nil {
+				return fmt.Errorf("getting primary ETH address from OCR node have failed: %w", err)
+			}
+			nodeOCRKeys, err := chainlinkNode.MustReadOCR2Keys()
+			if err != nil {
+				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
+			}
+			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+
+			bta := client.BridgeTypeAttributes{
+				Name: mockServerPath,
+				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath),
+			}
+
+			err = mockserver.SetValuePath(mockServerPath, mockServerValue)
+			if err != nil {
+				return err
+			}
+			err = chainlinkNode.MustCreateBridge(&bta)
+			if err != nil {
+				return fmt.Errorf("creating bridge job have failed: %w", err)
+			}
+
+			ocrSpec := &client.OCR2TaskJobSpec{
+				Name:              "ocr2",
+				JobType:           "offchainreporting2",
+				ObservationSource: client.ObservationSourceSpecBridge(bta),
+				OCR2OracleSpec: job.OCR2OracleSpec{
+					PluginType: "median",
+					Relay:      "evm",
+					RelayConfig: map[string]interface{}{
+						"chainID": chainId,
+					},
+					PluginConfig: map[string]any{
+						"config": client.ObservationSourceSpecBridge(bta),
+					},
+					ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+					ContractID:                        ocrInstance.Address(),                   // registryAddr
+					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
+					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
+					P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
+				},
+			}
+			_, err = chainlinkNode.MustCreateJob(ocrSpec)
+			if err != nil {
+				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func SetOCRv2AdapterValues() {
+
 }

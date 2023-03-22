@@ -10,16 +10,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -31,9 +32,10 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
-) contracts.OCRConfig {
+) contracts.OCRv2Config {
 	l := utils.GetTestLogger(t)
-	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+	S, oracleIdentities, err := GetOracleIdentities(chainlinkNodes)
+	require.NoError(t, err, "error getting oracle identities")
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
@@ -80,7 +82,7 @@ func BuildAutoOCR2ConfigVars(
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
 	l.Info().Msg("Done building OCR config")
-	return contracts.OCRConfig{
+	return contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,
@@ -100,7 +102,6 @@ func CreateOCRKeeperJobs(
 ) {
 	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
-	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID

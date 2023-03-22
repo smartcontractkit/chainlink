@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -118,7 +119,7 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddres
 func BuildOCR2DKGConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
-) contracts.OCRConfig {
+) contracts.OCRv2Config {
 	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
@@ -192,7 +193,7 @@ func BuildOCR2DKGConfigVars(
 	require.NoError(t, err, "Shouldn't fail building OCR config")
 
 	l.Info().Msg("Done building DKG OCR config")
-	return contracts.OCRConfig{
+	return contracts.OCRv2Config{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
 		F:                     f,
@@ -264,7 +265,7 @@ func DecodeHexTo32ByteArray(val string) ([32]byte, error) {
 func BuildOCR2VRFConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
-) contracts.OCRConfig {
+) contracts.OCRv2Config {
 	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
@@ -317,7 +318,7 @@ func BuildOCR2VRFConfigVars(
 	require.NoError(t, err)
 
 	l.Info().Msg("Done building VRF OCR config")
-	return contracts.OCRConfig{
+	return contracts.OCRv2Config{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
 		F:                     f,

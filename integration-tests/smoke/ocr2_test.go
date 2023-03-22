@@ -35,7 +35,8 @@ func TestOCRv2Basic(t *testing.T) {
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	_, err = ctfClient.ConnectMockServer(testEnvironment)
+	bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
+	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 	t.Cleanup(func() {
 		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
@@ -49,8 +50,14 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, chainlinkNodes, chainClient)
+	ocrv2Config, err := actions.BuildDefaultOCR2Config(chainlinkNodes)
+	require.NoError(t, err, "Error building OCRv2 config")
+
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, workerNodes, chainClient, ocrv2Config)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
+
+	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
+	require.NoError(t, err, "Error creating OCRv2 jobs")
 }
 
 func setupOCR2Test(t *testing.T) (
