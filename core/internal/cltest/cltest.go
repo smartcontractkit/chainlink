@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -68,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
@@ -121,6 +123,7 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
+	DefaultCosmosKey     = cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
@@ -421,6 +424,22 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 	if err != nil {
 		lggr.Fatal(err)
+	}
+	if cfg.CosmosEnabled() {
+		cosmosLggr := lggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
+			Config:           cfg,
+			Logger:           cosmosLggr,
+			DB:               db,
+			KeyStore:         keyStore.Cosmos(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		cfgs := cfg.CosmosConfigs()
+		opts.ORM = cosmos.NewORMImmut(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		if err != nil {
+			lggr.Fatal(err)
+		}
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")

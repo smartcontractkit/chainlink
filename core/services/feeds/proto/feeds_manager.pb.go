@@ -80,6 +80,7 @@ const (
 	ChainType_CHAIN_TYPE_UNSPECIFIED ChainType = 0
 	ChainType_CHAIN_TYPE_EVM         ChainType = 1
 	ChainType_CHAIN_TYPE_SOLANA      ChainType = 2
+	ChainType_CHAIN_TYPE_COSMOS      ChainType = 3
 )
 
 // Enum value maps for ChainType.
@@ -88,11 +89,13 @@ var (
 		0: "CHAIN_TYPE_UNSPECIFIED",
 		1: "CHAIN_TYPE_EVM",
 		2: "CHAIN_TYPE_SOLANA",
+		3: "CHAIN_TYPE_COSMOS",
 	}
 	ChainType_value = map[string]int32{
 		"CHAIN_TYPE_UNSPECIFIED": 0,
 		"CHAIN_TYPE_EVM":         1,
 		"CHAIN_TYPE_SOLANA":      2,
+		"CHAIN_TYPE_COSMOS":      3,
 	}
 )
 

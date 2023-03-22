@@ -434,7 +434,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 // RoundRequested event has been emitted after the latest NewTransmission event.
 func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
 	// NOTE: This should be "good enough" 99% of the time.
-	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
+	// It guarantees validity up to `EVM.BlockBackfillDepth` blocks ago
 	// Some further improvements could be made:
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()

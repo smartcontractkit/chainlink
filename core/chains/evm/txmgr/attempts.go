@@ -241,7 +241,7 @@ func (c *evmAttemptBuilder) newLegacyAttempt(etx EthTx, gasPrice *assets.Wei, ga
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
 
-	attempt.State = EthTxAttemptInProgress
+	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.GasPrice = gasPrice
@@ -276,7 +276,7 @@ func (c *evmAttemptBuilder) newSignedAttempt(etx EthTx, tx *types.Transaction) (
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
 
-	attempt.State = EthTxAttemptInProgress
+	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.EthTx = etx

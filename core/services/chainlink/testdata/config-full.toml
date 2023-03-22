@@ -300,6 +300,32 @@ Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 
+[[Cosmos]]
+ChainID = 'Malaga-420'
+Enabled = true
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.001'
+FCDURL = 'http://cosmos.com'
+GasLimitMultiplier = '1.2'
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Cosmos.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Cosmos.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'
+
 [[Solana]]
 ChainID = 'mainnet'
 Enabled = false

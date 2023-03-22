@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	txmgrmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -229,7 +230,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.EthReceipts, 0)
 
 		// Check laterEthTx and it's attempt
@@ -252,7 +253,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.EthReceipts, 0)
 	})
 
@@ -327,7 +328,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.EthReceipts, 0)
 	})
 
@@ -752,7 +753,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		assert.NotNil(t, etx.InitialBroadcastAt)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.EthTxAttempts[0].State)
 	})
 
 	t.Run("previous run assigned nonce and broadcast but it fatally errored before we could save", func(t *testing.T) {
@@ -956,7 +957,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		s, err := attempt.GetSignedTx()
 		require.NoError(t, err)
 		assert.Equal(t, int64(342), s.GasPrice().Int64())
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 	})
 }
 
@@ -1200,7 +1201,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 
 		// Check that the key had its nonce reset
 		var nonce int64
@@ -1229,7 +1230,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 	})
 
 	t.Run("eth Client call fails with an unexpected random error, and transaction was not accepted into mempool", func(t *testing.T) {
@@ -1269,7 +1270,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 
 		// Now on the second run, it is successful
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -1293,7 +1294,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 	})
 
 	t.Run("eth client call fails with an unexpected random error, and the nonce check also subsequently fails", func(t *testing.T) {
@@ -1333,7 +1334,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 
 		// Now on the second run, it is successful
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -1357,7 +1358,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 	})
 
 	t.Run("eth Client call fails with an unexpected random error, and transaction was accepted into mempool", func(t *testing.T) {
@@ -1396,7 +1397,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 	})
 
 	t.Run("eth node returns underpriced transaction", func(t *testing.T) {
@@ -1485,7 +1486,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
-		assert.Equal(t, txmgr.EthTxAttemptInProgress, etx.EthTxAttempts[0].State)
+		assert.Equal(t, txmgrtypes.TxAttemptInProgress, etx.EthTxAttempts[0].State)
 	})
 
 	t.Run("eth node returns temporarily underpriced transaction", func(t *testing.T) {
@@ -1553,7 +1554,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		err, retryable := eb2.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped gas price of 20 gwei is equal to original gas price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+		require.Contains(t, err.Error(), "bumped gas price of 20 gwei is equal to original gas price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
@@ -1593,7 +1594,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
 
@@ -1631,7 +1632,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)

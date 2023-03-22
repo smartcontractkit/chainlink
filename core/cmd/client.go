@@ -31,6 +31,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -221,6 +222,23 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
 
+	if cfg.CosmosEnabled() {
+		cosmosLggr := appLggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
+			Config:           cfg,
+			Logger:           cosmosLggr,
+			DB:               db,
+			KeyStore:         keyStore.Cosmos(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		cfgs := cfg.CosmosConfigs()
+		opts.ORM = cosmos.NewORMImmut(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
+		}
+	}
+
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
 		opts := solana.ChainSetOpts{
@@ -310,7 +328,7 @@ func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, a
 		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
 		return nil
 	}
-	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
+	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
 	if err != nil {

@@ -205,6 +205,7 @@ func ExampleRun_keys() {
 	//    csa         Remote commands for administering the node's CSA keys
 	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
+	//    cosmos      Remote commands for administering the node's Cosmos keys
 	//    solana      Remote commands for administering the node's Solana keys
 	//    starknet    Remote commands for administering the node's StarkNet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
@@ -330,6 +331,26 @@ func ExampleRun_keys_solana() {
 	//    export  Export Solana key to keyfile
 	//    delete  Delete Solana key if present
 	//    list    List the Solana keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_cosmos() {
+	Run("keys", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys cosmos - Remote commands for administering the node's Cosmos keys
+	//
+	// USAGE:
+	//    core.test keys cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Cosmos key
+	//    import  Import Cosmos key from keyfile
+	//    export  Export Cosmos key to keyfile
+	//    delete  Delete Cosmos key if present
+	//    list    List the Cosmos keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -497,6 +518,7 @@ func ExampleRun_txs() {
 	//
 	// COMMANDS:
 	//    evm     Commands for handling EVM transactions
+	//    cosmos  Commands for handling Cosmos transactions
 	//    solana  Commands for handling Solana transactions
 	//
 	// OPTIONS:
@@ -537,6 +559,22 @@ func ExampleRun_txs_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_txs_cosmos() {
+	Run("txs", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs cosmos - Commands for handling Cosmos transactions
+	//
+	// USAGE:
+	//    core.test txs cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_chains() {
 	Run("chains", "--help")
 	// Output:
@@ -548,6 +586,7 @@ func ExampleRun_chains() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM chains
+	//    cosmos    Commands for handling Cosmos chains
 	//    solana    Commands for handling Solana chains
 	//    starknet  Commands for handling StarkNet chains
 	//
@@ -603,6 +642,22 @@ func ExampleRun_chains_starknet() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_chains_cosmos() {
+	Run("chains", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains cosmos - Commands for handling Cosmos chains
+	//
+	// USAGE:
+	//    core.test chains cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list  List all existing Cosmos chains
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_nodes() {
 	Run("nodes", "--help")
 	// Output:
@@ -614,6 +669,7 @@ func ExampleRun_nodes() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM node configuration
+	//    cosmos    Commands for handling Cosmos node configuration
 	//    solana    Commands for handling Solana node configuration
 	//    starknet  Commands for handling StarkNet node configuration
 	//
@@ -677,6 +733,22 @@ func ExampleRun_nodes_starknet() {
 	//
 	// COMMANDS:
 	//    list  List all existing StarkNet nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_cosmos() {
+	Run("nodes", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes cosmos - Commands for handling Cosmos node configuration
+	//
+	// USAGE:
+	//    core.test nodes cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list  List all existing Cosmos nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

@@ -111,7 +111,7 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 				},
 				cli.StringFlag{
 					Name:  "evmChainID",
-					Usage: "Chain ID for which to rebroadcast transactions. If left blank, ETH_CHAIN_ID will be used.",
+					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
 				},
 				cli.Uint64Flag{
 					Name:  "gasLimit",
@@ -373,6 +373,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
+	if cli.Config.CosmosEnabled() {
+		err2 := app.GetKeyStore().Cosmos().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure cosmos key")
+		}
+	}
 	if cli.Config.SolanaEnabled() {
 		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {
@@ -446,7 +452,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
-	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -474,7 +480,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 		}
 	}
 
-	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	// Ensure {secret,cookie} files' permissions are <= `ownerPermsMask``
 	protectedFiles := []string{"secret", "cookie", ".password", ".env", ".api"}
 	for _, fileName := range protectedFiles {
 		path := filepath.Join(rootDir, fileName)
@@ -507,8 +513,8 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
-	beginningNonce := c.Uint("beginningNonce")
-	endingNonce := c.Uint("endingNonce")
+	beginningNonce := c.Int64("beginningNonce")
+	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint("gasLimit")
 	addressHex := c.String("address")
