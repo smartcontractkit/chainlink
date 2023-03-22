@@ -187,7 +187,7 @@ func (ks *eth) GetNextMetadata(address common.Address, chainID *big.Int, qopts .
 	}
 	nonce, err = ks.orm.getNextNonce(address, chainID, qopts...)
 	if err != nil {
-		return 0, errors.Wrap(err, "GetNextMetadata failed")
+		return 0, errors.Wrap(err, "GetNextNonce failed")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
@@ -199,7 +199,7 @@ func (ks *eth) GetNextMetadata(address common.Address, chainID *big.Int, qopts .
 		return 0, errors.Errorf("state is disabled for address %s, chainID %s", address.Hex(), chainID.String())
 	}
 	// Always clobber the memory nonce with the DB nonce
-	state.NextMetadata = nonce
+	state.NextNonce = nonce
 	return nonce, nil
 }
 
@@ -221,7 +221,7 @@ func (ks *eth) IncrementNextMetadata(address common.Address, chainID *big.Int, c
 	if state.Disabled {
 		return errors.Errorf("state is disabled for address %s, chainID %s", address.Hex(), chainID.String())
 	}
-	state.NextMetadata = incrementedNonce
+	state.NextNonce = incrementedNonce
 	return nil
 }
 
@@ -294,7 +294,7 @@ func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopt
 	if !exists {
 		return errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
 	}
-	state.NextMetadata = nonce
+	state.NextNonce = nonce
 	return nil
 }
 
@@ -520,7 +520,7 @@ func (ks *eth) XXXTestingOnlySetState(state ethkey.State) {
 	if ks.isLocked() {
 		panic(ErrLocked)
 	}
-	existingState, exists := ks.keyStates.ChainIDKeyID[state.ChainID.String()][state.KeyID()]
+	existingState, exists := ks.keyStates.ChainIDKeyID[state.EVMChainID.String()][state.KeyID()]
 	if !exists {
 		panic(fmt.Sprintf("key not found with ID %s", state.KeyID()))
 	}

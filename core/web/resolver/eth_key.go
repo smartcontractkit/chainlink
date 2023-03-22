@@ -36,7 +36,7 @@ func NewETHKeys(keys []ETHKey) []*ETHKeyResolver {
 }
 
 func (r *ETHKeyResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, r.key.state.ChainID.String())
+	chain, err := loader.GetChainByID(ctx, r.key.state.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}

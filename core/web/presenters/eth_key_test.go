@@ -29,13 +29,13 @@ func TestETHKeyResource(t *testing.T) {
 	}
 
 	state := ethkey.State{
-		ID:           1,
-		ChainID:      *utils.NewBigI(42),
-		NextMetadata: 99,
-		Address:      eip55address,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		Disabled:     true,
+		ID:         1,
+		EVMChainID: *utils.NewBigI(42),
+		NextNonce:  99,
+		Address:    eip55address,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		Disabled:   true,
 	}
 
 	r := NewETHKeyResource(key, state,

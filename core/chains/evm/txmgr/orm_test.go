@@ -1301,7 +1301,7 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 	ethKeyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("update next nonce", func(t *testing.T) {
-		assert.Equal(t, int64(0), ethKeyState.NextMetadata)
+		assert.Equal(t, int64(0), ethKeyState.NextNonce)
 		err := borm.UpdateEthKeyNextNonce(int64(24), int64(0), fromAddress, *ethClient.ChainID())
 		require.NoError(t, err)
 
