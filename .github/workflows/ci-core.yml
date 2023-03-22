@@ -87,6 +87,9 @@ jobs:
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
           allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
+      - name: Print lint report artifact
+        if: always()
+        run: cat golangci-lint-report.xml
       - name: Store lint report artifact
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
