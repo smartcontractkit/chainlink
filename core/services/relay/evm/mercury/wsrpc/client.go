@@ -32,9 +32,14 @@ type client struct {
 	client pb.MercuryClient
 }
 
-func NewClient(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+// Consumers of wsrpc package should not usually call NewClient directly, but instead use the Pool
+func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+	return newClient(lggr, clientPrivKey, serverPubKey, serverURL)
+}
+
+func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *client {
 	return &client{
-		csaKey:       privKey,
+		csaKey:       clientPrivKey,
 		serverPubKey: serverPubKey,
 		serverURL:    serverURL,
 		logger:       lggr.Named("WSRPC"),

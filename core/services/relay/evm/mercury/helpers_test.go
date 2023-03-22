@@ -19,9 +19,9 @@ func buildSampleReport() []byte {
 	bp := big.NewInt(242)
 	bid := big.NewInt(243)
 	ask := big.NewInt(244)
-	currentBlockNumber := uint64(142)
+	currentBlockNumber := uint64(143)
 	currentBlockHash := utils.NewHash()
-	validFromBlockNum := uint64(143)
+	validFromBlockNum := uint64(142)
 
 	b, err := reportcodec.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, validFromBlockNum)
 	if err != nil {
