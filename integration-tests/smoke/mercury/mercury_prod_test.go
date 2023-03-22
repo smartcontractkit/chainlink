@@ -67,7 +67,7 @@ func TestSmokeMercuryProd(t *testing.T) {
 			latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
 			require.NoError(t, err, "Err getting latest block number")
 
-			report, _, err := msClient.GetReports(feedId, latestBlockNum-5)
+			report, _, err := msClient.GetReports(feedId, latestBlockNum-1)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 		})
