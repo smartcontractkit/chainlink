@@ -14,42 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 )
-
-// AttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)
-// and returns a signed TxAttempt
-// it is able to estimate fees and sign transactions
-type AttemptBuilder interface {
-	// interfaces for running the underlying estimator
-	services.ServiceCtx
-	txmgrtypes.HeadTrackable[*evmtypes.Head]
-
-	// NewAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
-	NewAttempt(ctx context.Context, etx EthTx, lggr logger.Logger, opts ...txmgrtypes.Opt) (attempt EthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error)
-
-	// NewAttemptWithType builds a transaction using the configured fee estimator (new estimation) + passed in tx type
-	NewAttemptWithType(ctx context.Context, etx EthTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error)
-
-	// NewBumpAttempt builds a transaction using the configured fee estimator (bumping) + passed in tx type
-	// this should only be used after an initial attempt has been broadcast and the underlying gas estimator only needs to bump the fee
-	NewBumpAttempt(ctx context.Context, etx EthTx, previousAttempt EthTxAttempt, txType int, priorAttempts []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash], lggr logger.Logger) (attempt EthTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error)
-
-	// NewCustomAttempt builds a transaction using the passed in fee + tx type
-	NewCustomAttempt(etx EthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt, retryable bool, err error)
-
-	// FeeEstimator returns the underlying gas estimator
-	FeeEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
-
-	// NewEmptyTransaction is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-	NewEmptyTransaction(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EthTxAttempt, err error)
-}
 
 type AttemptSigner interface {
 	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
-var _ AttemptBuilder = (*evmAttemptBuilder)(nil)
+var _ txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt] = (*evmAttemptBuilder)(nil)
 
 type evmAttemptBuilder struct {
 	chainID  big.Int
@@ -130,6 +101,7 @@ func (c *evmAttemptBuilder) NewCustomAttempt(etx EthTx, fee gas.EvmFee, gasLimit
 	}
 }
 
+// NewEmptyTransaction is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
 func (c *evmAttemptBuilder) NewEmptyTransaction(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EthTxAttempt, err error) {
 	value := big.NewInt(0)
 	payload := []byte{}

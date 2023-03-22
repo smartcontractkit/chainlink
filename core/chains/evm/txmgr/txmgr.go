@@ -120,7 +120,7 @@ type Txm struct {
 	ethBroadcaster *EthBroadcaster
 	ethConfirmer   *EthConfirmer
 	fwdMgr         *forwarders.FwdMgr
-	attemptBuilder AttemptBuilder
+	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt]
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -130,7 +130,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
 	fwdMgr *forwarders.FwdMgr,
-	attemptBuilder AttemptBuilder,
+	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt],
 ) *Txm {
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -580,7 +580,7 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 func sendEmptyTransaction(
 	ctx context.Context,
 	ethClient evmclient.Client,
-	attemptBuilder AttemptBuilder,
+	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt],
 	nonce uint64,
 	gasLimit uint32,
 	gasPriceWei int64,

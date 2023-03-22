@@ -18,9 +18,11 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -89,7 +91,7 @@ type EthBroadcaster struct {
 	logger    logger.Logger
 	orm       ORM
 	ethClient evmclient.Client
-	AttemptBuilder
+	txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
 	chainID        big.Int
 	config         Config
@@ -121,7 +123,7 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, resumeCallback ResumeCallback,
-	attemptBuilder AttemptBuilder,
+	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt],
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
