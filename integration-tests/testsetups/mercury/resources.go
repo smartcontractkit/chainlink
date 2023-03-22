@@ -24,7 +24,7 @@ var (
 		},
 		DONDBResources: map[string]interface{}{
 			"stateful": "true",
-			"capacity": "10Gi",
+			"capacity": "2Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "500m",
