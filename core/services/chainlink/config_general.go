@@ -24,6 +24,7 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -183,6 +184,10 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
+}
+
+func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+	return g.c.Cosmos
 }
 
 func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
@@ -349,6 +354,15 @@ func (g *generalConfig) P2PEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) CosmosEnabled() bool {
+	for _, c := range g.c.Cosmos {
 		if c.IsEnabled() {
 			return true
 		}

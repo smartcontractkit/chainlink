@@ -165,6 +165,7 @@ func NewApp(client *Client) *cli.App {
 				initOCRKeysSubCmd(client),
 				initOCR2KeysSubCmd(client),
 
+				keysCommand("Cosmos", NewCosmosKeysClient(client)),
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
@@ -204,6 +205,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
 				initEVMTxSubCmd(client),
+				initCosmosTxSubCmd(client),
 				initSolanaTxSubCmd(client),
 			},
 		},
@@ -212,6 +214,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling chain configuration",
 			Subcommands: cli.Commands{
 				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Cosmos", CosmosChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
 				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
@@ -222,6 +225,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
 				initEVMNodeSubCmd(client),
+				initCosmosNodeSubCmd(client),
 				initSolanaNodeSubCmd(client),
 				initStarkNetNodeSubCmd(client),
 			},
