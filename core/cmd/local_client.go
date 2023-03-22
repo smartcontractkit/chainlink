@@ -373,6 +373,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
+	if cli.Config.CosmosEnabled() {
+		err2 := app.GetKeyStore().Cosmos().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure cosmos key")
+		}
+	}
 	if cli.Config.SolanaEnabled() {
 		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {

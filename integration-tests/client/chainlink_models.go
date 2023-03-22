@@ -417,6 +417,49 @@ type EIKey struct {
 	Attributes EIAttributes `json:"attributes"`
 }
 
+type CosmosChainConfig struct {
+	BlockRate             null.String
+	BlocksUntilTxTimeout  null.Int
+	ConfirmPollPeriod     null.String
+	FallbackGasPriceULuna null.String
+	GasLimitMultiplier    null.Float
+	MaxMsgsPerBatch       null.Int
+}
+
+// CosmosChainAttributes is the model that represents the terra chain
+type CosmosChainAttributes struct {
+	ChainID string           `json:"chainID"`
+	Config  CosmosChainConfig `json:"config"`
+	FCDURL  string           `json:"fcdURL" db:"fcd_url"`
+}
+
+// CosmosChain is the model that represents the terra chain when read
+type CosmosChain struct {
+	Attributes CosmosChainAttributes `json:"attributes"`
+}
+
+// CosmosChainCreate is the model that represents the terra chain when created
+type CosmosChainCreate struct {
+	Data CosmosChain `json:"data"`
+}
+
+// CosmosNodeAttributes is the model that represents the terra noded
+type CosmosNodeAttributes struct {
+	Name          string `json:"name"`
+	CosmosChainID  string `json:"cosmosChainId"`
+	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
+}
+
+// CosmosNode is the model that represents the terra node when read
+type CosmosNode struct {
+	Attributes CosmosNodeAttributes `json:"attributes"`
+}
+
+// CosmosNodeCreate is the model that represents the terra node when created
+type CosmosNodeCreate struct {
+	Data CosmosNode `json:"data"`
+}
+
 type SolanaChainConfig struct {
 	BlockRate           null.String
 	ConfirmPollPeriod   null.String
