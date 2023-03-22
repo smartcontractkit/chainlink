@@ -63,7 +63,7 @@ func TestMercuryServerAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	admin := mercury.User{
-		Id:       testEnv.MSInfo.AdminId,
+		Id:       testEnv.MSInfo.UserId,
 		Key:      "admintestkey",
 		Secret:   "mz1I4AgYtvo3Wumrgtlyh9VWkCf/IzZ6JROnuw==",
 		Role:     "admin",
