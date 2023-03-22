@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -52,11 +53,24 @@ func TestSmokeMercuryProd(t *testing.T) {
 	err = testEnv.AddEvmNetwork()
 	require.NoError(t, err)
 
+	msClient := client.NewMercuryServerClient(
+		testEnv.MSInfo.RemoteUrl, testEnv.MSInfo.UserId, testEnv.MSInfo.UserKey)
+
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy")
 	require.NoError(t, err)
 	exchangerContract, err := testEnv.AddExchangerContract("exchanger", verifierProxyContract.Address(),
 		"", 255)
 	require.NoError(t, err)
+
+	t.Run("test mercury server has report for the latest block number",
+		func(t *testing.T) {
+			latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
+			require.NoError(t, err, "Err getting latest block number")
+
+			report, _, err := msClient.GetReports(feedId, latestBlockNum-5)
+			require.NoError(t, err, "Error getting report from Mercury Server")
+			require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
+		})
 
 	t.Run("test report verfification using Exchanger.ResolveTradeWithReport call",
 		func(t *testing.T) {
@@ -84,8 +98,6 @@ func TestSmokeMercuryProd(t *testing.T) {
 			fixedMerucyrUrlPath := strings.Replace(mercuryUrlPath, "feedIdHex", "feedIDHex", -1)
 
 			// Get report from mercury server
-			msClient := client.NewMercuryServerClient(
-				testEnv.MSInfo.RemoteUrl, testEnv.MSInfo.UserId, testEnv.MSInfo.UserKey)
 			report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
 			l.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
 			require.NoError(t, err, "Error getting report from Mercury Server")
