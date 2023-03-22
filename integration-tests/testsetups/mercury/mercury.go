@@ -488,9 +488,9 @@ func (te *TestEnv) LoadExchangerContract(contractId string) (contracts.Exchanger
 
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 	actionId string, verifierContractId string, verifierProxyContractId string,
-	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint32, error) {
+	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint64, error) {
 	if te.IsExistingEnv {
-		return uint32(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
+		return uint64(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
 	} else {
 		verifierContract := te.Contracts[verifierContractId].Contract.(contracts.Verifier)
 		verifierProxyContract := te.Contracts[verifierProxyContractId].Contract.(contracts.VerifierProxy)
@@ -503,22 +503,29 @@ func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 		if err != nil {
 			return 0, err
 		}
-		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v Config digest:%x", feedId, configDetails, configDetails.ConfigDigest)
+		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v\nConfig digest: %x", feedId, configDetails, configDetails.ConfigDigest)
 
 		err = verifierProxyContract.InitializeVerifier(configDetails.ConfigDigest, verifierContract.Address())
 		if err != nil {
 			return 0, err
 		}
-		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v Config digest:%x", feedId, configDetails, configDetails.ConfigDigest)
+
+		// Use latest block number from L2
+		// Don't use block block number from config details as Arbitrum uses block numbers from L1
+		latestBlockNum, err := te.EvmClient.LatestBlockNumber(context.Background())
+		if err != nil {
+			return 0, nil
+		}
+		log.Info().Msgf("Latest block number: %d", latestBlockNum)
 
 		te.ActionLog[actionId] = &envAction{
 			Done: true,
 			Logs: map[string]interface{}{
-				"blockNumber": configDetails.BlockNumber,
+				"blockNumber": latestBlockNum,
 			},
 		}
 
-		return configDetails.BlockNumber, nil
+		return latestBlockNum, nil
 	}
 }
 
