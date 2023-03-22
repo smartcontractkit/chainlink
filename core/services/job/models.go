@@ -501,11 +501,11 @@ type BlockhashStoreSpec struct {
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
 
-	// WaitBlocks defines the number of blocks to wait before a hash is stored.
-	WaitBlocks int32 `toml:"waitBlocks"`
-
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// WaitBlocks defines the maximum age of blocks whose hashes should be stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
@@ -545,6 +545,9 @@ type BlockHeaderFeederSpec struct {
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
 
+	// WaitBlocks defines the maximum age of blocks whose hashes should be stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
+
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
@@ -570,6 +573,9 @@ type BlockHeaderFeederSpec struct {
 
 	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
 	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
+
+	// EstimateGasMultiplier is the multiplier to apply to result of estimate gas for batching store calls
+	EstimateGasMultiplier uint8 `toml:"estimateGasMultiplier"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

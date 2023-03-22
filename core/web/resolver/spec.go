@@ -820,6 +820,11 @@ func (b *BlockHeaderFeederSpecResolver) CoordinatorV2Address() *string {
 	return &addr
 }
 
+// WaitBlocks returns the job's WaitBlocks param.
+func (b *BlockHeaderFeederSpecResolver) WaitBlocks() int32 {
+	return b.spec.WaitBlocks
+}
+
 // LookbackBlocks returns the job's LookbackBlocks param.
 func (b *BlockHeaderFeederSpecResolver) LookbackBlocks() int32 {
 	return b.spec.LookbackBlocks
@@ -871,6 +876,11 @@ func (b *BlockHeaderFeederSpecResolver) GetBlockhashesBatchSize() uint16 {
 // EVMChainID returns the job's EVMChainID param.
 func (b *BlockHeaderFeederSpecResolver) StoreBlockhashesBatchSize() uint16 {
 	return b.spec.StoreBlockhashesBatchSize
+}
+
+// EstimateGasMultiplier returns the job's EstimateGasMultiplier param.
+func (b *BlockHeaderFeederSpecResolver) EstimateGasMultiplier() uint8 {
+	return b.spec.EstimateGasMultiplier
 }
 
 // CreatedAt resolves the spec's created at timestamp.

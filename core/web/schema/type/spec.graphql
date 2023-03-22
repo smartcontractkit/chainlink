@@ -132,6 +132,7 @@ type BlockhashStoreSpec {
 type BlockHeaderFeederSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
     batchBlockhashStoreAddress: String
@@ -141,6 +142,7 @@ type BlockHeaderFeederSpec {
     getBlockhashesBatchSize: Int!
     storeBlockhashesBatchSize: Int!
     fromAddresses: [String!]
+    estimateGasMultiplier: Int
     createdAt: Time!
 }
 

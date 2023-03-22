@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
-// ValidatedBlockHeaderFeederSpec validates and converts the given toml string to a job.Job.
-func ValidatedBlockHeaderFeederSpec(tomlString string) (job.Job, error) {
+// ValidatedSpec validates and converts the given toml string to a job.Job.
+func ValidatedSpec(tomlString string) (job.Job, error) {
 	jb := job.Job{
 		// Default to generating a UUID, can be overwritten by the specified one in tomlString.
 		ExternalJobID: uuid.NewV4(),
@@ -53,6 +53,9 @@ func ValidatedBlockHeaderFeederSpec(tomlString string) (job.Job, error) {
 
 	// Defaults
 	// TODO: revisit defaults
+	if spec.WaitBlocks == 0 {
+		spec.WaitBlocks = 256
+	}
 	if spec.LookbackBlocks == 0 {
 		spec.LookbackBlocks = 1000
 	}
@@ -68,9 +71,18 @@ func ValidatedBlockHeaderFeederSpec(tomlString string) (job.Job, error) {
 	if spec.GetBlockhashesBatchSize == 0 {
 		spec.GetBlockhashesBatchSize = 10
 	}
+	if spec.EstimateGasMultiplier == 0 {
+		spec.EstimateGasMultiplier = 1
+	}
 
+	if spec.WaitBlocks < 256 {
+		return jb, errors.New(`"waitBlocks" must be greater than or equal to 256`)
+	}
 	if spec.LookbackBlocks <= 256 {
-		return jb, errors.New(`"lookback" must be greater than 256`)
+		return jb, errors.New(`"lookbackBlocks" must be greater than 256`)
+	}
+	if spec.WaitBlocks >= spec.LookbackBlocks {
+		return jb, errors.New(`"lookbackBlocks" must be greater than "waitBlocks"`)
 	}
 
 	jb.BlockHeaderFeederSpec = &spec

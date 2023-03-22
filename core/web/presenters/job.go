@@ -355,6 +355,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 type BlockHeaderFeederSpec struct {
 	CoordinatorV1Address       *ethkey.EIP55Address  `json:"coordinatorV1Address"`
 	CoordinatorV2Address       *ethkey.EIP55Address  `json:"coordinatorV2Address"`
+	WaitBlocks                 int32                 `json:"waitBlocks"`
 	LookbackBlocks             int32                 `json:"lookbackBlocks"`
 	BlockhashStoreAddress      ethkey.EIP55Address   `json:"blockhashStoreAddress"`
 	BatchBlockhashStoreAddress ethkey.EIP55Address   `json:"batchBlockhashStoreAddress"`
@@ -364,6 +365,7 @@ type BlockHeaderFeederSpec struct {
 	FromAddresses              []ethkey.EIP55Address `json:"fromAddresses"`
 	GetBlockhashesBatchSize    uint16                `json:"getBlockhashesBatchSize"`
 	StoreBlockhashesBatchSize  uint16                `json:"storeBlockhashesBatchSize"`
+	EstimateGasMultiplier      uint8                 `json:"estimateGasMultiplier"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -374,6 +376,7 @@ func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeede
 	return &BlockHeaderFeederSpec{
 		CoordinatorV1Address:       spec.CoordinatorV1Address,
 		CoordinatorV2Address:       spec.CoordinatorV2Address,
+		WaitBlocks:                 spec.WaitBlocks,
 		LookbackBlocks:             spec.LookbackBlocks,
 		BlockhashStoreAddress:      spec.BlockhashStoreAddress,
 		BatchBlockhashStoreAddress: spec.BatchBlockhashStoreAddress,
@@ -383,6 +386,7 @@ func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeede
 		FromAddresses:              spec.FromAddresses,
 		GetBlockhashesBatchSize:    spec.GetBlockhashesBatchSize,
 		StoreBlockhashesBatchSize:  spec.StoreBlockhashesBatchSize,
+		EstimateGasMultiplier:      spec.EstimateGasMultiplier,
 	}
 }
 

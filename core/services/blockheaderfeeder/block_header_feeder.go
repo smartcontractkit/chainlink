@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 type Client interface {
@@ -29,7 +32,7 @@ type BatchBHS interface {
 	GetBlockhashes(ctx context.Context, blockNumbers []*big.Int) ([][32]byte, error)
 
 	// StoreVerifyHeader stores blockhashes on-chain by using block headers
-	StoreVerifyHeader(ctx context.Context, blockNumbers []*big.Int, blockHeaders [][]byte) error
+	StoreVerifyHeader(ctx context.Context, blockNumbers []*big.Int, blockHeaders [][]byte, fromAddress common.Address) error
 }
 
 // NewBlockHeaderFeeder creates a new BlockHeaderFeeder instance.
@@ -38,29 +41,34 @@ func NewBlockHeaderFeeder(
 	coordinator blockhashstore.Coordinator,
 	bhs blockhashstore.BHS,
 	batchBHS BatchBHS,
+	waitBlocks int,
 	lookbackBlocks int,
 	latestBlock func(ctx context.Context) (uint64, error),
 	client Client,
+	gethks keystore.Eth,
 ) *BlockHeaderFeeder {
 	return &BlockHeaderFeeder{
 		lggr:           logger,
 		coordinator:    coordinator,
 		bhs:            bhs,
+		waitBlocks:     waitBlocks,
 		lookbackBlocks: lookbackBlocks,
 		latestBlock:    latestBlock,
 		stored:         make(map[uint64]struct{}),
 		lastRunBlock:   0,
 		ec:             client,
+		gethks:         gethks,
 	}
 }
 
 // BlockHeaderFeeder checks recent VRF coordinator events and stores any blockhashes for blocks within
-// (latest - 256) and lookbackBlocks that have unfulfilled requests.
+// waitBlocks and lookbackBlocks that have unfulfilled requests.
 type BlockHeaderFeeder struct {
 	lggr                      logger.Logger
 	coordinator               blockhashstore.Coordinator
 	bhs                       blockhashstore.BHS
 	batchBHS                  BatchBHS
+	waitBlocks                int
 	lookbackBlocks            int
 	latestBlock               func(ctx context.Context) (uint64, error)
 	stored                    map[uint64]struct{}
@@ -68,6 +76,9 @@ type BlockHeaderFeeder struct {
 	getBlockhashesBatchSize   uint16
 	storeBlockhashesBatchSize uint16
 	ec                        Client
+	gethks                    keystore.Eth
+	fromAddresses             []ethkey.EIP55Address
+	chainID                   *big.Int
 }
 
 // Run the feeder.
@@ -78,23 +89,15 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	var (
-		fromBlock = int(latestBlock) - f.lookbackBlocks
-		// EVM BLOCKHASH opcode allows (current block - 256) to be fetched on chain
-		// BlockHeaderFeeder is responsible for block hashes older than 256 blocks
-		toBlock = int(latestBlock) - 256
-	)
-	if fromBlock < 0 {
-		fromBlock = 0
-	}
-	if toBlock < 0 {
+	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlock), f.lookbackBlocks, f.waitBlocks)
+	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
 	}
 
 	lggr := f.lggr.With("latestBlock", latestBlock)
 
-	blockToRequests, err := blockhashstore.GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, uint64(fromBlock), uint64(toBlock))
+	blockToRequests, err := blockhashstore.GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
 	if err != nil {
 		return err
 	}
@@ -124,6 +127,9 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		return err
 	}
 
+	// use 1 sending key for all batches because ordering matters for StoreVerifyHeader
+	fromAddress, err := f.gethks.GetRoundRobinAddress(f.chainID, blockhashstore.SendingKeys(f.fromAddresses)...)
+
 	for i := 0; i < len(blocks); i += int(f.storeBlockhashesBatchSize) {
 		j := i + int(f.storeBlockhashesBatchSize)
 		if j > len(blocks) {
@@ -136,7 +142,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		}
 
 		lggr.Debugw("storing block headers", "blockRange", blockRange)
-		err = f.batchBHS.StoreVerifyHeader(ctx, blockRange, blockHeaders)
+		err = f.batchBHS.StoreVerifyHeader(ctx, blockRange, blockHeaders, fromAddress)
 		if err != nil {
 			return errors.Wrap(err, "storing block headers")
 		}
@@ -144,7 +150,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 
 	if f.lastRunBlock != 0 {
 		// Prune stored, anything older than fromBlock can be discarded
-		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < uint64(fromBlock); block++ {
+		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ {
 			if _, ok := f.stored[block]; ok {
 				delete(f.stored, block)
 				f.lggr.Debugw("Pruned block from stored cache",
@@ -173,7 +179,7 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 				"block", block)
 		} else if stored {
 			lggr.Infow("Blockhash already stored",
-				"block", block, "unfulfilledReqIDs", blockhashstore.LimitReqIDs(unfulfilledReqs))
+				"block", block, "unfulfilledReqIDs", blockhashstore.LimitReqIDs(unfulfilledReqs, 50))
 			f.stored[block] = struct{}{}
 			continue
 		}

@@ -111,17 +111,29 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
-	batchBHS, err := blockhashstore.NewBatchBHS(chain.Config(), fromAddresses, chain.TxManager(), batchBlockhashStore, chain.ID(), d.ks)
+	batchBHS, err := blockhashstore.NewBatchBHS(
+		chain.Config(),
+		fromAddresses,
+		chain.TxManager(),
+		batchBlockhashStore,
+		chain.ID(),
+		d.ks,
+		chain.Client(),
+		uint8(jb.BlockHeaderFeederSpec.EstimateGasMultiplier),
+		d.logger,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building batchBHS")
 	}
 
 	log := d.logger.Named("Block Header Feeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
+
 	feeder := NewBlockHeaderFeeder(
 		log,
 		blockhashstore.NewMultiCoordinator(coordinators...),
 		bpBHS,
 		batchBHS,
+		int(jb.BlockHeaderFeederSpec.WaitBlocks),
 		int(jb.BlockHeaderFeederSpec.LookbackBlocks),
 		func(ctx context.Context) (uint64, error) {
 			head, err := chain.Client().HeadByNumber(ctx, nil)
@@ -130,7 +142,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 			return uint64(head.Number), nil
 		},
-		chain.Client())
+		chain.Client(),
+		d.ks,
+	)
 
 	services := []job.ServiceCtx{&service{
 		feeder:     feeder,
@@ -211,7 +225,7 @@ func (s *service) runFeeder() {
 // CheckFromAddressesExist returns an error if and only if one of the addresses
 // in the VRF spec's fromAddresses field does not exist in the keystore.
 func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
-	for _, a := range jb.VRFSpec.FromAddresses {
+	for _, a := range jb.BlockHeaderFeederSpec.FromAddresses {
 		_, err2 := gethks.Get(a.Hex())
 		err = multierr.Append(err, err2)
 	}

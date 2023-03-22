@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 // Coordinator defines an interface for fetching request and fulfillment metadata from a VRF
@@ -85,12 +87,12 @@ func GetUnfulfilledBlocksAndRequests(
 	return blockToRequests, nil
 }
 
-// limitReqIDs converts a set of request IDs to a slice limited to 50 IDs max.
-func LimitReqIDs(reqs map[string]struct{}) []string {
+// LimitReqIDs converts a set of request IDs to a slice limited to maxLength.
+func LimitReqIDs(reqs map[string]struct{}, maxLength int) []string {
 	var reqIDs []string
 	for id := range reqs {
 		reqIDs = append(reqIDs, id)
-		if len(reqIDs) >= 50 {
+		if len(reqIDs) >= maxLength {
 			break
 		}
 	}
@@ -108,4 +110,30 @@ func DecreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
 		ret = append(ret, new(big.Int).Set(i))
 	}
 	return
+}
+
+// GetSearchWindow returns the search window (fromBlock, toBlock) given the latest block number, wait blocks and lookback blocks
+func GetSearchWindow(latestBlock, waitBlocks, lookbackBlocks int) (uint64, uint64) {
+	var (
+		fromBlock = latestBlock - lookbackBlocks
+		toBlock   = latestBlock - waitBlocks
+	)
+
+	if fromBlock < 0 {
+		fromBlock = 0
+	}
+	if toBlock < 0 {
+		toBlock = 0
+	}
+
+	return uint64(fromBlock), uint64(toBlock)
+}
+
+// SendingKeys returns a list of sending keys (common.Address) given EIP55 addresses
+func SendingKeys(fromAddresses []ethkey.EIP55Address) []common.Address {
+	var keys []common.Address
+	for _, a := range fromAddresses {
+		keys = append(keys, a.Address())
+	}
+	return keys
 }

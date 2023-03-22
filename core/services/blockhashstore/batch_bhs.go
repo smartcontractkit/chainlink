@@ -4,12 +4,14 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -17,16 +19,21 @@ import (
 
 type batchBHSConfig interface {
 	EvmGasLimitDefault() uint32
+	EvmGasLimitMax() uint32
+}
+
+type client interface {
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 }
 
 type BatchBlockhashStore struct {
 	config        batchBHSConfig
-	fromAddresses []ethkey.EIP55Address
 	txm           txmgr.TxManager
 	abi           *abi.ABI
-	chainID       *big.Int
-	gethks        keystore.Eth
 	batchbhs      batch_blockhash_store.BatchBlockhashStoreInterface
+	ec            client
+	lggr          logger.Logger
+	gasMultiplier uint8
 }
 
 func NewBatchBHS(
@@ -36,6 +43,9 @@ func NewBatchBHS(
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
+	ec client,
+	gasMultiplier uint8,
+	lggr logger.Logger,
 ) (*BatchBlockhashStore, error) {
 	abi, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
 	if err != nil {
@@ -43,12 +53,12 @@ func NewBatchBHS(
 	}
 	return &BatchBlockhashStore{
 		config:        config,
-		fromAddresses: fromAddresses,
 		txm:           txm,
 		abi:           abi,
 		batchbhs:      batchbhs,
-		chainID:       chainID,
-		gethks:        gethks,
+		ec:            ec,
+		gasMultiplier: gasMultiplier,
+		lggr:          lggr,
 	}, nil
 }
 
@@ -60,24 +70,41 @@ func (b *BatchBlockhashStore) GetBlockhashes(ctx context.Context, blockNumbers [
 	return blockhashes, nil
 }
 
-func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumbers []*big.Int, blockHeaders [][]byte) error {
+func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumbers []*big.Int, blockHeaders [][]byte, fromAddress common.Address) error {
 	payload, err := b.abi.Pack("storeVerifyHeader", blockNumbers, blockHeaders)
 	if err != nil {
 		return errors.Wrap(err, "packing args")
 	}
 
-	// TODO: re-evaluate if it's better to have 1 fromAddress
-	// because ordering matters for StoreVerifyHeader
-	fromAddress, err := b.gethks.GetRoundRobinAddress(b.chainID, b.sendingKeys()...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
+	}
+
+	toAddress := b.batchbhs.Address()
+	gasLimit, err := b.ec.EstimateGas(ctx, ethereum.CallMsg{
+		From: common.Address(fromAddress),
+		To:   &toAddress,
+		Data: payload,
+	})
+	if err != nil {
+		// Fallback to the maximum conceivable gas limit
+		// if we're unable to call estimate gas for whatever reason.
+		b.lggr.Warnw("unable to estimate, fallback to configured limit", "err", err, "fallback", b.config.EvmGasLimitDefault())
+		gasLimit = uint64(b.config.EvmGasLimitDefault())
+	}
+
+	gasLimit = gasLimit * uint64(b.gasMultiplier)
+
+	if gasLimit > uint64(b.config.EvmGasLimitMax()) {
+		b.lggr.Warnw("estimated gas limit * multiplier exceeded max gas limit, fallback to max limit", "fallback", b.config.EvmGasLimitMax())
+		gasLimit = uint64(b.config.EvmGasLimitMax())
 	}
 
 	_, err = b.txm.CreateEthTransaction(txmgr.NewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		GasLimit:       b.config.EvmGasLimitDefault(),
+		GasLimit:       uint32(gasLimit),
 		Strategy:       txmgr.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 
@@ -86,12 +113,4 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 	}
 
 	return nil
-}
-
-func (b *BatchBlockhashStore) sendingKeys() []common.Address {
-	var keys []common.Address
-	for _, a := range b.fromAddresses {
-		keys = append(keys, a.Address())
-	}
-	return keys
 }
