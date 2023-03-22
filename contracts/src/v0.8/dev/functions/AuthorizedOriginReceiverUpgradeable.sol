@@ -102,8 +102,9 @@ abstract contract AuthorizedOriginReceiverUpgradeable is Initializable {
           if (s_authorizedSendersList[j] == senders[i]) {
             address last = s_authorizedSendersList[s_authorizedSendersList.length - 1];
             // Copy last element and overwrite senders[i] to be deleted with it
-            s_authorizedSendersList[i] = last;
+            s_authorizedSendersList[j] = last;
             s_authorizedSendersList.pop();
+            break;
           }
         }
       }
