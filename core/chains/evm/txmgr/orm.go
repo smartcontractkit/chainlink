@@ -72,25 +72,28 @@ type dbReceiptPlus struct {
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
 
-func fromDBReceipts(rs []dbReceipt) (receipts []EvmReceipt) {
+func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
+	receipts := make([]EvmReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts = append(receipts, EvmReceipt(rs[i]))
+		receipts[i] = EvmReceipt(rs[i])
 	}
-	return
+	return receipts
 }
 
-func fromDBReceiptsPlus(rs []dbReceiptPlus) (receipts []EvmReceiptPlus) {
+func fromDBReceiptsPlus(rs []dbReceiptPlus) []EvmReceiptPlus {
+	receipts := make([]EvmReceiptPlus, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts = append(receipts, EvmReceiptPlus(rs[i]))
+		receipts[i] = EvmReceiptPlus(rs[i])
 	}
-	return
+	return receipts
 }
 
-func toDBRawReceipt(rs []evmtypes.Receipt) (receipts []dbRawReceipt) {
+func toDBRawReceipt(rs []evmtypes.Receipt) []dbRawReceipt {
+	receipts := make([]dbRawReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts = append(receipts, dbRawReceipt(rs[i]))
+		receipts[i] = dbRawReceipt(rs[i])
 	}
-	return
+	return receipts
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
