@@ -3,6 +3,7 @@ package resolver
 import (
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
@@ -45,15 +46,15 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 func FromOCR2ChainType(ct OCR2ChainType) string {
 	switch ct {
 	case OCR2ChainTypeEVM:
-		return "evm"
+		return string(chaintype.EVM)
 	case OCR2ChainTypeCosmos:
-		return "cosmos"
+		return string(chaintype.Cosmos)
 	case OCR2ChainTypeSolana:
 		return string(chaintype.Solana)
 	case OCR2ChainTypeStarkNet:
 		return string(chaintype.StarkNet)
 	default:
-		return string(ct)
+		return strings.ToLower(string(ct))
 	}
 }
 

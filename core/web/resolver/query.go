@@ -406,11 +406,8 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 			continue
 		}
-
-		// It is not an error to have ETH keys persisted which are not part of a currently
-		// configured chain; ergo, this should not cause listing the keys that have currently
-		// configured chains to fail
-		// TBD: Revisit when we have a comprehensive strategy for what can be 'orphaned keys'
+		// Don't include keys without valid chain.
+		// OperatorUI fails to show keys where chains are not in the config.
 		if err == nil {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.EIP55Address,
