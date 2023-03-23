@@ -39,11 +39,6 @@ func NewWSInstance(srv *client.MercuryServer) *WSInstance {
 	}
 }
 
-type NewReportWSMessage struct {
-	FeedId     []byte `json:"feedId"`
-	FullReport []byte `json:"report"`
-}
-
 // Run create an instance firing read requests against mock ws server
 func (m *WSInstance) Run(l *loadgen.Generator) {
 	c, _, err := m.srv.DialWS()
@@ -65,7 +60,7 @@ func (m *WSInstance) Run(l *loadgen.Generator) {
 				return
 			default:
 				startedAt := time.Now()
-				v := NewReportWSMessage{}
+				v := client.NewReportWSMessage{}
 				err = wsjson.Read(context.Background(), c, &v)
 				if err != nil {
 					l.Log.Error().Err(err).Msg("failed read ws msg from instance")

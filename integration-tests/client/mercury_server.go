@@ -29,6 +29,15 @@ type User struct {
 	UpdatedAt string `json:"updatedAt" db:"updated_at"`
 }
 
+type NewReportWSMessage struct {
+	FeedId     []byte `json:"feedId"`
+	FullReport []byte `json:"report"`
+}
+
+type WebsocketConnectQuery struct {
+	FeedIds []string `form:"feedIds"`
+}
+
 type MercuryServer struct {
 	URL       string
 	UserId    string
@@ -47,10 +56,10 @@ func NewMercuryServerClient(url string, userId string, userKey string) *MercuryS
 	}
 }
 
-func (s *MercuryServer) DialWS() (*websocket.Conn, *http.Response, error) {
+func (s *MercuryServer) DialWS(ctx context.Context) (*websocket.Conn, *http.Response, error) {
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", "/ws", []byte{}, []byte(s.UserKey), s.UserId, timestamp)
-	return websocket.Dial(context.Background(), fmt.Sprintf("%s/ws", s.URL), &websocket.DialOptions{
+	return websocket.Dial(ctx, fmt.Sprintf("%s/ws", s.URL), &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Authorization":                    []string{s.UserId},
 			"X-Authorization-Timestamp":        []string{timestamp},
@@ -59,7 +68,7 @@ func (s *MercuryServer) DialWS() (*websocket.Conn, *http.Response, error) {
 	})
 }
 
-func (s *MercuryServer) CallGet(path string) (interface{}, *http.Response, error) {
+func (s *MercuryServer) CallGet(path string) (map[string]interface{}, *http.Response, error) {
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	result := map[string]interface{}{}
@@ -104,30 +113,63 @@ func (s *MercuryServer) AddUser(newUserSecret string, newUserRole string, newUse
 
 // Need admin role
 func (s *MercuryServer) GetUsers() ([]User, *http.Response, error) {
-	r, resp, err := s.CallGet("/admin/user")
+	var result []User
+	path := "/admin/user"
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	resp, err := s.APIClient.R().
+		SetHeader("Accept", "application/json").
+		SetHeader("Authorization", s.UserId).
+		SetHeader("X-Authorization-Timestamp", timestamp).
+		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
+		SetResult(&result).
+		Get(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	result := r.([]User)
-	return result, resp, nil
+	return result, resp.RawResponse, err
 }
 
 func (s *MercuryServer) GetReportsByFeedIdStr(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
-	r, resp, err := s.CallGet(fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber))
-	if err != nil {
+	result := &GetReportsResult{}
+	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber)
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	resp, err := s.APIClient.R().
+		SetHeader("Accept", "application/json").
+		SetHeader("Authorization", s.UserId).
+		SetHeader("X-Authorization-Timestamp", timestamp).
+		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
+		SetResult(&result).
+		Get(path)
+	if err != nil && resp == nil {
 		return nil, nil, err
 	}
-	result := r.(GetReportsResult)
-	return &result, resp, nil
+	if err != nil {
+		return nil, resp.RawResponse, err
+	}
+	return result, resp.RawResponse, err
 }
 
 func (s *MercuryServer) GetReportsByFeedIdHex(feedIdHex string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
-	r, resp, err := s.CallGet(fmt.Sprintf("/client?feedIDHex=%s&L2Blocknumber=%d", feedIdHex, blockNumber))
-	if err != nil {
+	result := &GetReportsResult{}
+	path := fmt.Sprintf("/client?feedIDHex=%s&L2Blocknumber=%d", feedIdHex, blockNumber)
+	timestamp := genReqTimestamp()
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	resp, err := s.APIClient.R().
+		SetHeader("Accept", "application/json").
+		SetHeader("Authorization", s.UserId).
+		SetHeader("X-Authorization-Timestamp", timestamp).
+		SetHeader("X-Authorization-Signature-SHA256", hmacSignature).
+		SetResult(&result).
+		Get(path)
+	if err != nil && resp == nil {
 		return nil, nil, err
 	}
-	result := r.(GetReportsResult)
-	return &result, resp, nil
+	if err != nil {
+		return nil, resp.RawResponse, err
+	}
+	return result, resp.RawResponse, err
 }
 
 func genReqTimestamp() string {

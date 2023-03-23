@@ -114,8 +114,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 				// Get report from mercury server
 				msClient := client.NewMercuryServerClient(
 					testEnv.MSInfo.LocalUrl, testEnv.MSInfo.UserId, testEnv.MSInfo.UserKey)
-				r, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
-				report := r.(map[string]interface{})
+				report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
 				l.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
 				require.NoError(t, err, "Error getting report from Mercury Server")
 				require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")

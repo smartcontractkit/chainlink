@@ -7,12 +7,16 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ava-labs/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
@@ -62,17 +66,52 @@ func TestSmokeMercuryProd(t *testing.T) {
 		"", 255)
 	require.NoError(t, err)
 
-	t.Run("test mercury server has report for the latest block number",
-		func(t *testing.T) {
-			latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
-			require.NoError(t, err, "Err getting latest block number")
+	t.Run("get report by feed id str for the latest block number-2", func(t *testing.T) {
+		// latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
+		// require.NoError(t, err, "Err getting latest block number")
 
-			report, _, err := msClient.GetReports(feedId, latestBlockNum-1)
-			require.NoError(t, err, "Error getting report from Mercury Server")
-			require.NotEmpty(t, report.ChainlinkBlob, "Report response does not contain chainlinkBlob")
-		})
+		reportData, _, err := msClient.GetReportsByFeedIdStr(feedId, 12905278)
+		require.NoError(t, err)
+		require.NotEmpty(t, reportData.ChainlinkBlob, "received empty ChainlinkBlob")
+		reportBytes, err := hex.DecodeString(reportData.ChainlinkBlob[2:])
+		require.NoError(t, err)
+		reportCtx, err := mercuryactions.DecodeReport(reportBytes)
+		require.NoError(t, err)
+		l.Info().Msgf("received report: %+v", reportCtx)
+	})
 
-	t.Run("test report verfification using Exchanger.ResolveTradeWithReport call",
+	t.Run("get report by feed id hex for the latest block number-2", func(t *testing.T) {
+		// latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
+		// require.NoError(t, err, "Err getting latest block number")
+
+		feedIdHex := fmt.Sprintf("0x%x", mercury.StringToByte32(feedId))
+		reportData, _, err := msClient.GetReportsByFeedIdHex(feedIdHex, 12905278)
+		require.NoError(t, err)
+		require.NotEmpty(t, reportData.ChainlinkBlob, "received empty ChainlinkBlob")
+		reportBytes, err := hex.DecodeString(reportData.ChainlinkBlob[2:])
+		require.NoError(t, err)
+		reportCtx, err := mercuryactions.DecodeReport(reportBytes)
+		require.NoError(t, err)
+		l.Info().Msgf("received report: %+v", reportCtx)
+	})
+
+	t.Run("get report by feed id from /ws websocket", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		c, _, err := msClient.DialWS(ctx)
+		require.NoError(t, err)
+		defer c.Close(websocket.StatusNormalClosure, "")
+
+		m := client.NewReportWSMessage{}
+		err = wsjson.Read(context.Background(), c, &m)
+		require.NoError(t, err, "failed read ws msg from instance")
+
+		r, err := mercuryactions.DecodeReport(m.FullReport)
+		require.NoError(t, err)
+		l.Info().Msgf("received report: %+v", r)
+	})
+
+	t.Run("get report and verify it on chain using Exchanger.ResolveTradeWithReport call",
 		func(t *testing.T) {
 			order := mercury.Order{
 				FeedID:       mercury.StringToByte32(feedId),
