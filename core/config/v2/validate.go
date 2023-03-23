@@ -8,10 +8,12 @@ import (
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Validated configurations impose constraints that must be checked.
+/*
 type Validated interface {
 	// ValidateConfig returns nil if the config is valid, otherwise an error describing why it is invalid.
 	//
@@ -20,7 +22,7 @@ type Validated interface {
 	//  - If an anonymous field also implements ValidateConfig(), it must be called explicitly!
 	ValidateConfig() error
 }
-
+*/
 // Validate returns any errors from calling Validated.ValidateConfig on cfg and any nested types that implement Validated.
 func Validate(cfg interface{}) (err error) {
 	_, err = utils.MultiErrorList(validate(reflect.ValueOf(cfg), true))
@@ -30,11 +32,11 @@ func Validate(cfg interface{}) (err error) {
 func validate(v reflect.Value, checkInterface bool) (err error) {
 	if checkInterface {
 		i := v.Interface()
-		if vc, ok := i.(Validated); ok {
+		if vc, ok := i.(config.Validated); ok {
 			err = multierr.Append(err, vc.ValidateConfig())
 		} else if v.CanAddr() {
 			i = v.Addr().Interface()
-			if vc, ok := i.(Validated); ok {
+			if vc, ok := i.(config.Validated); ok {
 				err = multierr.Append(err, vc.ValidateConfig())
 			}
 		}

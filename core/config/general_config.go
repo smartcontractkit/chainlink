@@ -183,6 +183,8 @@ type BasicConfig interface {
 
 type GeneralConfig interface {
 	BasicConfig
+	//Secrets() []Secret
+	SetSecretValidationFilter(...SecretType)
 }
 
 func ValidateDBURL(dbURI url.URL) error {

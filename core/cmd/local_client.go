@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -154,11 +155,8 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
 			Before: func(ctx *clipkg.Context) error {
-				if !devMode {
-					// dev mode operations like preparing the db don't require secrets and would choke here
-					return client.Config.Validate()
-				}
-				return nil
+				client.Config.SetSecretValidationFilter(config.DBSecretType)
+				return client.Config.Validate()
 			},
 			Subcommands: []cli.Command{
 				{

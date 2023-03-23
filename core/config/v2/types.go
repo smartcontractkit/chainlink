@@ -127,9 +127,15 @@ type DatabaseSecrets struct {
 	URL                  *models.SecretURL
 	BackupURL            *models.SecretURL
 	AllowSimplePasswords bool
+
+	// use negative because bool default is false
+	noValidation bool
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	if d.noValidation {
+		return nil
+	}
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !d.AllowSimplePasswords {
@@ -143,6 +149,18 @@ func (d *DatabaseSecrets) ValidateConfig() (err error) {
 		}
 	}
 	return err
+}
+
+func (d *DatabaseSecrets) Type() config.SecretType {
+	return config.DBSecretType
+}
+
+func (d *DatabaseSecrets) EnableValidation() {
+	d.noValidation = false
+}
+
+func (d *DatabaseSecrets) DisableValidation() {
+	d.noValidation = true
 }
 
 type ExplorerSecrets struct {

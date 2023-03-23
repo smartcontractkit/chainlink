@@ -24,6 +24,7 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
@@ -938,6 +939,23 @@ func (g *generalConfig) RootDir() string {
 		return d
 	}
 	return h
+}
+
+func (g *generalConfig) Secrets() []config.Secret {
+	return nil
+}
+
+func (g *generalConfig) SetSecretValidationFilter(filterTypes ...config.SecretType) {
+	// could be more generic with reflection
+	secrets := []config.Secret{&g.secrets.Database}
+	for _, s := range secrets {
+		s.DisableValidation()
+		for _, keep := range filterTypes {
+			if s.Type() == keep {
+				s.EnableValidation()
+			}
+		}
+	}
 }
 
 func (g *generalConfig) SecureCookies() bool {
