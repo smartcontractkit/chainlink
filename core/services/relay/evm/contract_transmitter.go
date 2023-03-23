@@ -98,7 +98,10 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	txMeta, _ := oc.reportToEthTxMeta(report)
+	txMeta, err := oc.reportToEthTxMeta(report)
+	if err != nil {
+		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
+	}
 
 	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress, "txMeta", txMeta)
 
