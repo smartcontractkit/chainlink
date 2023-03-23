@@ -26,7 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,7 +34,7 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func initRemoteConfigSubCmds(client *Client, opts *chainlink.GeneralConfigOpts) []cli.Command {
+func initRemoteConfigSubCmds(client *Client) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "show",
@@ -75,21 +74,12 @@ func initRemoteConfigSubCmds(client *Client, opts *chainlink.GeneralConfigOpts) 
 			},
 		},
 		{
-			Name:   "validate",
-			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included",
-			Action: client.ConfigFileValidate,
-			Flags: []cli.Flag{cli.StringSliceFlag{
-				Name:  "config, c",
-				Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
+			Name:  "validate",
+			Usage: "DEPRECATED. Use `chainlink node validate`",
+			Before: func(ctx *clipkg.Context) error {
+				return client.errorOut(fmt.Errorf("Deprecated, use `chainlink node validate`"))
 			},
-				cli.StringFlag{
-					Name:  "secrets, s",
-					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
-				},
-			},
-			Before: func(c *cli.Context) error {
-				return client.setConfigFromFlags(opts, c)
-			},
+			Hidden: true,
 		},
 	}
 }
@@ -452,18 +442,6 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 		return "", cli.errorOut(err)
 	}
 	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
-	}
-	fmt.Println("Valid configuration.")
-	return nil
 }
 
 func normalizePassword(password string) string {

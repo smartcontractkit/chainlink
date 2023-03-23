@@ -110,3 +110,6 @@ $SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
 $SCRIPTPATH/native_solc8_6_compile Verifier.sol
 $SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
 $SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
+
+# Mocks
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol

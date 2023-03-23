@@ -60,6 +60,10 @@ func (disabled) IndexedLogs(eventSig common.Hash, address common.Address, topicI
 	return nil, ErrDisabled
 }
 
+func (disabled) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
 func (disabled) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
