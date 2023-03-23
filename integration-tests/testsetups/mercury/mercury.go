@@ -320,7 +320,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		return err
 	}
 
-	timeout := time.Minute * 5
+	timeout := time.Minute * 8
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 	to := time.NewTimer(timeout)
@@ -335,7 +335,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		case <-ticker.C:
 			var notFound = false
 			for _, feedId := range feedIds {
-				report, _, _ := te.MSClient.GetReports(Byte32ToString(feedId), latestBlockNum)
+				report, _, _ := te.MSClient.GetReportsByFeedIdStr(Byte32ToString(feedId), latestBlockNum)
 				if report == nil || report.ChainlinkBlob == "" {
 					notFound = true
 				}
@@ -488,9 +488,9 @@ func (te *TestEnv) LoadExchangerContract(contractId string) (contracts.Exchanger
 
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 	actionId string, verifierContractId string, verifierProxyContractId string,
-	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint32, error) {
+	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint64, error) {
 	if te.IsExistingEnv {
-		return uint32(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
+		return uint64(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
 	} else {
 		verifierContract := te.Contracts[verifierContractId].Contract.(contracts.Verifier)
 		verifierProxyContract := te.Contracts[verifierProxyContractId].Contract.(contracts.VerifierProxy)
@@ -503,22 +503,29 @@ func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 		if err != nil {
 			return 0, err
 		}
-		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v Config digest:%x", feedId, configDetails, configDetails.ConfigDigest)
+		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v\nConfig digest: %x", feedId, configDetails, configDetails.ConfigDigest)
 
 		err = verifierProxyContract.InitializeVerifier(configDetails.ConfigDigest, verifierContract.Address())
 		if err != nil {
 			return 0, err
 		}
-		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v Config digest:%x", feedId, configDetails, configDetails.ConfigDigest)
+
+		// Use latest block number from L2
+		// Don't use block block number from config details as Arbitrum uses block numbers from L1
+		latestBlockNum, err := te.EvmClient.LatestBlockNumber(context.Background())
+		if err != nil {
+			return 0, nil
+		}
+		log.Info().Msgf("Latest block number: %d", latestBlockNum)
 
 		te.ActionLog[actionId] = &envAction{
 			Done: true,
 			Logs: map[string]interface{}{
-				"blockNumber": configDetails.BlockNumber,
+				"blockNumber": latestBlockNum,
 			},
 		}
 
-		return configDetails.BlockNumber, nil
+		return latestBlockNum, nil
 	}
 }
 
@@ -1161,36 +1168,40 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 	return S, oracleIdentities
 }
 
-func SetupMercuryMultiFeedEnv(
-	name string,
-	prefix string,
+func SetupMultiFeedSingleVerifierEnv(
+	envId string,
+	nsPrefix string,
 	feedIDs [][32]byte,
 	r *ResourcesConfig,
-) (TestEnv, error) {
-	testEnv, err := NewEnv(name, prefix, r)
+) (*TestEnv, contracts.VerifierProxy, error) {
+	testEnv, err := NewEnv(envId, nsPrefix, r)
 	if err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
-	testEnv.AddEvmNetwork()
+	err = testEnv.AddEvmNetwork()
+	if err != nil {
+		return &testEnv, nil, err
+	}
 	if err = testEnv.AddDON(); err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	_, _, err = testEnv.AddMercuryServer(nil)
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, verifierProxyContract, err
 	}
+	// Use single verifier contract for all feeds
 	for _, feedId := range feedIDs {
 		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
 			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
@@ -1200,21 +1211,21 @@ func SetupMercuryMultiFeedEnv(
 			*ocrConfig,
 		)
 		if err != nil {
-			return TestEnv{}, err
+			return &testEnv, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return TestEnv{}, err
+			return &testEnv, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return TestEnv{}, err
+			return &testEnv, verifierProxyContract, err
 		}
 	}
 	if err = testEnv.WaitForReportsInMercuryDb(feedIDs); err != nil {
-		return TestEnv{}, err
+		return &testEnv, verifierProxyContract, err
 	}
-	return testEnv, nil
+	return &testEnv, verifierProxyContract, nil
 }
 
 func StringToByte32(str string) [32]byte {

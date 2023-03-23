@@ -98,7 +98,7 @@ LimitDefault = 5_000_000`
 			},
 		},
 		"stateful": true,
-		"capacity": "20Gi",
+		"capacity": "1Gi",
 	}
 
 	soakChainlinkResources = map[string]interface{}{
@@ -125,7 +125,7 @@ LimitDefault = 5_000_000`
 			},
 		},
 		"stateful": true,
-		"capacity": "20Gi",
+		"capacity": "1Gi",
 	}
 )
 
