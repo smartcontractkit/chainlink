@@ -2976,17 +2976,47 @@ func Test_Service_StartStop(t *testing.T) {
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
 
-	svc := setupTestService(t)
+	tests := []struct {
+		name       string
+		beforeFunc func(svc *TestService)
+	}{
+		{
+			name: "success with a feeds manager connection",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
+				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+				svc.connMgr.On("Close")
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+		},
+		{
+			name: "success with no registered managers",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers").Return([]feeds.FeedsManager{}, nil)
+				svc.connMgr.On("Close")
+			},
+		},
+	}
 
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
-	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
-	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
-	svc.connMgr.On("Close")
-	svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+	for _, tt := range tests {
+		tt := tt
 
-	err = svc.Start(testutils.Context(t))
-	require.NoError(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	svc.Close()
+			svc := setupTestService(t)
+
+			if tt.beforeFunc != nil {
+				tt.beforeFunc(svc)
+			}
+
+			err = svc.Start(testutils.Context(t))
+			require.NoError(t, err)
+
+			svc.Close()
+		})
+	}
 }
