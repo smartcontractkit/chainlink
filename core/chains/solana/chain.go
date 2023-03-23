@@ -20,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	soltxm "github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -202,14 +200,6 @@ func (c *chain) ID() string {
 
 func (c *chain) Config() config.Config {
 	return c.cfg
-}
-
-func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
-	if c.cfgImmutable {
-		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
-		return
-	}
-	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() solana.TxManager {

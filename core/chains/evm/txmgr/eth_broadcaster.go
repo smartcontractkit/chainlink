@@ -119,7 +119,7 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, TX_HASH], ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, TX_HASH], ethClient evmclient.Client, config Config, keystore KeyStore[ADDR, TX_HASH],
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH], resumeCallback ResumeCallback,
 	logger logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH], autoSyncNonce bool) *EthBroadcaster[ADDR, TX_HASH] {
@@ -387,7 +387,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) processUnstartedEthTxs(ctx context.Cont
 		}
 		n++
 		var a EthTxAttempt[ADDR, TX_HASH]
-		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(*etx.FromAddress.(*evmtypes.Address).NativeAddress())
 		fee, gasLimit, err := eb.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
 		if err != nil {
 			return errors.Wrap(err, "failed to get fee"), true
@@ -445,7 +445,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) incrementNextNonceAtomic(tx pg.Queryer,
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Context, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (error, bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Context, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (error, bool) {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State), false
 	}
@@ -597,7 +597,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Conte
 	// subsequent tries ought to resend the exact same in-progress transaction
 	// attempt and get a definitive answer on what happened
 	if sendError.IsTimeout() {
-		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash.Hex(), etx.ID), true
+		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash.String(), etx.ID), true
 	}
 
 	// Unknown error here. All bets are off in this case, it is possible the
@@ -634,7 +634,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Conte
 		eb.SvcErrBuffer.Append(sendError)
 	}
 
-	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, etx.FromAddress)
+	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, *etx.FromAddress.(*evmtypes.Address).NativeAddress())
 	if err != nil {
 		err = multierr.Combine(err, sendError)
 		return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true
@@ -659,13 +659,13 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Conte
 	//
 	// In all cases, the best thing we can do is go into a retry loop and keep
 	// trying to send the transaction over again.
-	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash.Hex(), etx.ID), true
+	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash.String(), etx.ID), true
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
 // Returns nil if no transactions are in queue
-func (eb *EthBroadcaster[ADDR, TX_HASH]) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*EthTx, error) {
-	etx := &EthTx{}
+func (eb *EthBroadcaster[ADDR, TX_HASH]) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*EthTx[ADDR, TX_HASH], error) {
+	etx := &EthTx[ADDR, TX_HASH]{}
 	if err := eb.orm.FindNextUnstartedTransactionFromAddress(etx, fromAddress, eb.chainID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// Finish. No more transactions left to process. Hoorah!
@@ -692,7 +692,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) tryAgainBumpingGas(ctx context.Context,
 	).Errorf("attempt gas price %v was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
-		"Consider increasing ETH_GAS_PRICE_DEFAULT (current value: %s)",
+		"Consider increasing EVM.GasEstimator.PriceDefault (current value: %s)",
 		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
 
 	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
@@ -793,7 +793,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) saveFatallyErroredTransaction(lgr logge
 	return eb.orm.UpdateEthTxFatalError(etx)
 }
 
-func (eb *EthBroadcaster[ADDR, TX_HASH]) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
+func (eb *EthBroadcaster[ADDR, TX_HASH]) getNextNonce(address ADDR) (nonce int64, err error) {
 	return eb.ChainKeyStore.keystore.GetNextNonce(address, &eb.chainID)
 }
 

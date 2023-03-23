@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -30,7 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestForwarderOCRSoak(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, network := SetupForwarderOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

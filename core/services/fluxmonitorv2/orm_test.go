@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commontxmmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
@@ -170,7 +171,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	cfg := pgtest.NewQConfig(true)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	strategy := txmmocks.NewTxStrategy(t)
+	strategy := commontxmmocks.NewTxStrategy(t)
 
 	var (
 		txm = txmmocks.NewTxManager(t)

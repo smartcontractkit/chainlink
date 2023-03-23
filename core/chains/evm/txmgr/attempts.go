@@ -23,9 +23,10 @@ func (c *ChainKeyStore[ADDR, TX_HASH]) NewDynamicFeeAttempt(etx EthTx[ADDR, TX_H
 	if etx.AccessList.Valid {
 		al = etx.AccessList.AccessList
 	}
+	nativeToAddress := *etx.ToAddress.(*evmtypes.Address).NativeAddress()
 	d := newDynamicFeeTransaction(
 		uint64(*etx.Nonce),
-		etx.ToAddress,
+		nativeToAddress,
 		&etx.Value,
 		gasLimit,
 		&c.chainID,
@@ -73,14 +74,15 @@ func validateDynamicFeeGas[ADDR types2.Hashable, TX_HASH types2.Hashable](cfg Co
 	}
 
 	// Configuration sanity-check
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	nativeFromAddress := *etx.FromAddress.(*evmtypes.Address).NativeAddress()
+	max := cfg.KeySpecificMaxGasPriceWei(nativeFromAddress)
 	if gasFeeCap.Cmp(max) > 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.Hex())
+		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), nativeFromAddress.Hex())
 	}
 	// Tip must be above minimum
 	minTip := cfg.EvmGasTipCapMinimum()
 	if gasTipCap.Cmp(minTip) < 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas tip cap of %s is below min configured gas tip of %s for key %s", gasTipCap.String(), minTip.String(), etx.FromAddress.Hex())
+		return errors.Errorf("cannot create tx attempt: specified gas tip cap of %s is below min configured gas tip of %s for key %s", gasTipCap.String(), minTip.String(), nativeFromAddress.Hex())
 	}
 	return nil
 }
@@ -99,14 +101,14 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth
 	}
 }
 
-func (c *ChainKeyStore[ADDR, TX_HASH]) NewLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
-	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
+func (c *ChainKeyStore[ADDR, TX_HASH]) NewLegacyAttempt(etx EthTx[ADDR, TX_HASH], gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt[ADDR, TX_HASH], err error) {
+	if err = validateLegacyGas(c.config, gasPrice, gasLimit, *etx.FromAddress.(*evmtypes.Address).NativeAddress()); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
 	tx := newLegacyTransaction(
 		uint64(*etx.Nonce),
-		etx.ToAddress,
+		*etx.ToAddress.(*evmtypes.Address).NativeAddress(),
 		etx.Value.ToInt(),
 		gasLimit,
 		gasPrice,
@@ -123,7 +125,7 @@ func (c *ChainKeyStore[ADDR, TX_HASH]) NewLegacyAttempt(etx EthTx, gasPrice *ass
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.GasPrice = gasPrice
-	attempt.Hash = hash
+	attempt.Hash = *hash
 	attempt.TxType = 0
 	attempt.ChainSpecificGasLimit = gasLimit
 	attempt.EthTx = etx
@@ -133,17 +135,17 @@ func (c *ChainKeyStore[ADDR, TX_HASH]) NewLegacyAttempt(etx EthTx, gasPrice *ass
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx EthTx) error {
+func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, fromAddress common.Address) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	max := cfg.KeySpecificMaxGasPriceWei(fromAddress)
 	if gasPrice.Cmp(max) > 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), fromAddress.String())
 	}
 	min := cfg.EvmMinGasPriceWei()
 	if gasPrice.Cmp(min) < 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.String())
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), fromAddress.String())
 	}
 	return nil
 }
@@ -158,7 +160,7 @@ func (c *ChainKeyStore[ADDR, TX_HASH]) newSignedAttempt(etx EthTx[ADDR, TX_HASH]
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.EthTx = etx
-	attempt.Hash = hash
+	attempt.Hash = *hash
 
 	return attempt, nil
 }
@@ -174,18 +176,17 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	}
 }
 
-func (c *ChainKeyStore[ADDR, TX_HASH]) signTx(address ADDR, tx *types.Transaction) (TX_HASH, []byte, error) {
+func (c *ChainKeyStore[ADDR, TX_HASH]) signTx(address ADDR, tx *types.Transaction) (*TX_HASH, []byte, error) {
 	// Native EVM types used here will be removed in later PRs.
-	signedTx, err := c.keystore.SignTx(*getEvmAddress(address).NativeAddress(), tx, &c.chainID)
+	signedTx, txHash, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
-		return &evmtypes.TxHash{}, nil, errors.Wrap(err, "signTx failed")
+		return nil, nil, errors.Wrap(err, "signTx failed")
 	}
 	rlp := new(bytes.Buffer)
 	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return &evmtypes.TxHash{}, nil, errors.Wrap(err, "signTx failed")
+		return nil, nil, errors.Wrap(err, "signTx failed")
 	}
-	var txHash TX_HASH = evmtypes.NewTxHash(signedTx.Hash())
-	return txHash, rlp.Bytes(), nil
+	return txHash, rlp.Bytes(), err
 }
 
 func getEvmAddress(h types2.Hashable) *evmtypes.Address {

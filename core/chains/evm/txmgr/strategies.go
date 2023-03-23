@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -35,19 +36,21 @@ func NewQueueingTxStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashab
 }
 
 // NewSendEveryStrategy creates a new TxStrategy that does not drop transactions.
-func NewSendEveryStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable]() TxStrategy[ADDR, TX_HASH] {
+func NewSendEveryStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable]() txmgrtypes.TxStrategy[ADDR, TX_HASH] {
 	return SendEveryStrategy[ADDR, TX_HASH]{}
+
 }
 
 // SendEveryStrategy will always send the tx
 type SendEveryStrategy[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct{}
 
 func (SendEveryStrategy[ADDR, TX_HASH]) Subject() uuid.NullUUID { return uuid.NullUUID{} }
-func (SendEveryStrategy[ADDR, TX_HASH]) PruneQueue(orm ORM[ADDR, TX_HASH], q pg.Queryer) (int64, error) {
+func (SendEveryStrategy[ADDR, TX_HASH]) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePruner, qopt pg.QOpt) (int64, error) {
+
 	return 0, nil
 }
 
-var _ TxStrategy = DropOldestStrategy{}
+var _ txmgrtypes.TxStrategy = DropOldestStrategy{}
 
 // DropOldestStrategy will send the newest N transactions, older ones will be
 // removed from the queue
@@ -67,10 +70,11 @@ func (s DropOldestStrategy[ADDR, TX_HASH]) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy[ADDR, TX_HASH]) PruneQueue(orm ORM[ADDR, TX_HASH], q pg.Queryer) (n int64, err error) {
+func (s DropOldestStrategy[ADDR, TX_HASH]) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
+
 	defer cancel()
-	n, err = orm.PruneUnstartedEthTxQueue(s.queueSize, s.subject, pg.WithQueryer(q), pg.WithParentCtx(ctx))
+	n, err = pruneService.PruneUnstartedTxQueue(s.queueSize, s.subject, pg.WithParentCtx(ctx), qopt)
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}

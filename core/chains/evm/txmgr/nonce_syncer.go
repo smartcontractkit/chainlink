@@ -46,10 +46,10 @@ type (
 	// This is not quite as straightforward as one might expect. We cannot
 	// query transactions from our account to infinite depth (geth does not
 	// support this). The best we can do is to query for all transactions sent
-	// within the past ETH_FINALITY_DEPTH blocks and find the ones sent by our
+	// within the past EVM.FinalityDepth blocks and find the ones sent by our
 	// address(es).
 	//
-	// This gives us re-org protection up to ETH_FINALITY_DEPTH deep in the
+	// This gives us re-org protection up to EVM.FinalityDepth deep in the
 	// worst case, which is in line with our other guarantees.
 	NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 		orm       ORM[ADDR, TX_HASH]

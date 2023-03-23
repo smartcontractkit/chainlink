@@ -28,7 +28,7 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 	if f.config.EvmGasBumpThreshold() == 0 && f.config.GasEstimatorMode() == "FixedPrice" {
 		// EvmGasFeeCapDefault is ignored if fixed estimator mode is on and gas bumping is disabled
 		if f.config.EvmGasFeeCapDefault().Cmp(f.config.EvmMaxGasPriceWei()) != 0 {
-			f.lggr.Infof("You are using FixedPrice estimator with gas bumping disabled. ETH_MAX_GAS_PRICE_WEI (value: %s) will be used as the FeeCap for transactions", f.config.EvmMaxGasPriceWei())
+			f.lggr.Infof("You are using FixedPrice estimator with gas bumping disabled. EVM.GasEstimator.PriceMax (value: %s) will be used as the FeeCap for transactions", f.config.EvmMaxGasPriceWei())
 		}
 	}
 	return nil

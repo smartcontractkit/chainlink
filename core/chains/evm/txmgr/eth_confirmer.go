@@ -115,7 +115,7 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	utils.StartStopOnce
-	orm       ORM
+	orm       ORM[ADDR, TX_HASH]
 	lggr      logger.Logger
 	ethClient evmclient.Client
 	ChainKeyStore[ADDR, TX_HASH]
@@ -133,7 +133,7 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, TX_HASH], ethClient evmclient.Client, config Config, keystore KeyStore[ADDR, TX_HASH],
 	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer[ADDR, TX_HASH] {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -164,7 +164,7 @@ func NewEthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM, ethCl
 func (ec *EthConfirmer[ADDR, TX_HASH]) Start(_ context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EvmGasBumpThreshold() == 0 {
-			ec.lggr.Infow("Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
+			ec.lggr.Infow("Gas bumping is disabled (EVM.GasEstimator.BumpThreshold set to 0)", "ethGasBumpThreshold", 0)
 		} else {
 			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EvmGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EvmGasBumpThreshold())
 		}
@@ -377,7 +377,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) CheckForReceipts(ctx context.Context, blo
 	return nil
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []EthTxAttempt, minedTransactionCount uint64) []EthTxAttempt {
+func (ec *EthConfirmer[ADDR, TX_HASH]) separateLikelyConfirmedAttempts(from ADDR, attempts []EthTxAttempt[ADDR, TX_HASH], minedTransactionCount uint64) []EthTxAttempt[ADDR, TX_HASH] {
 	if len(attempts) == 0 {
 		return attempts
 	}
@@ -386,7 +386,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) separateLikelyConfirmedAttempts(from geth
 	lastAttemptNonce := *attempts[0].EthTx.Nonce
 	latestMinedNonce := int64(minedTransactionCount) - 1 // this can be -1 if a transaction has never been mined on this account
 	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
-		len(attempts), from.Hex(), minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
+		len(attempts), from.String(), minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	// attempts are ordered by nonce ASC
@@ -413,7 +413,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) separateLikelyConfirmedAttempts(from geth
 	return likelyConfirmed
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) error {
+func (ec *EthConfirmer[ADDR, TX_HASH]) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt[ADDR, TX_HASH], blockNum int64) error {
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
 	batchSize := int(ec.config.EvmRPCDefaultBatchSize())
@@ -746,7 +746,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) attemptForRebroadcast(ctx context.Context
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) logFieldsPreviousAttempt(attempt EthTxAttempt) []interface{} {
+func (ec *EthConfirmer[ADDR, TX_HASH]) logFieldsPreviousAttempt(attempt EthTxAttempt[ADDR, TX_HASH]) []interface{} {
 	etx := attempt.EthTx
 	return []interface{}{
 		"etxID", etx.ID,
@@ -758,7 +758,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) logFieldsPreviousAttempt(attempt EthTxAtt
 	}
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) bumpGas(ctx context.Context, etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
+func (ec *EthConfirmer[ADDR, TX_HASH]) bumpGas(ctx context.Context, etx EthTx[ADDR, TX_HASH], previousAttempts []EthTxAttempt[ADDR, TX_HASH]) (bumpedAttempt EthTxAttempt[ADDR, TX_HASH], err error) {
 	// TODO: once generics are introduced at the top level struct (EthConfirmer) remove the chain-specific typings
 	priorAttempts := make([]txmgrtypes.PriorAttempt[gas.EvmFee, TX_HASH], len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
@@ -768,7 +768,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) bumpGas(ctx context.Context, etx EthTx, p
 	}
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(*etx.FromAddress.(*evmtypes.Address).NativeAddress())
 
 	var bumpedFee gas.EvmFee
 	var bumpedFeeLimit uint32
@@ -800,7 +800,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) bumpGas(ctx context.Context, etx EthTx, p
 	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
+func (ec *EthConfirmer[ADDR, TX_HASH]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], blockHeight int64) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
@@ -894,7 +894,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) handleInProgressAttempt(ctx context.Conte
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		sendError = nil
-		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
+		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.orm.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	}
@@ -914,7 +914,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) handleInProgressAttempt(ctx context.Conte
 		// order to bump again.
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
-			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
+			"Either you have set EVM.GasEstimator.BumpPercent (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
 			etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
@@ -933,7 +933,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) handleInProgressAttempt(ctx context.Conte
 	}
 
 	if sendError == nil {
-		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
+		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.orm.SaveSentAttempt(timeout, &attempt, now)
 	}
@@ -942,7 +942,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) handleInProgressAttempt(ctx context.Conte
 	// node operator. The node may have it in the mempool so we must keep the
 	// attempt (leave it in_progress). Safest thing to do is bail out and wait
 	// for the next head.
-	return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.Hex())
+	return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.String())
 }
 
 // EnsureConfirmedTransactionsInLongestChain finds all confirmed eth_txes up to the depth
@@ -1004,7 +1004,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) EnsureConfirmedTransactionsInLongestChain
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain(etx EthTx, head txmgrtypes.Head) bool {
+func hasReceiptInLongestChain[ADDR types.Hashable, TX_HASH types.Hashable](etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1020,20 +1020,20 @@ func hasReceiptInLongestChain(etx EthTx, head txmgrtypes.Head) bool {
 	}
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) markForRebroadcast(etx EthTx, head txmgrtypes.Head) error {
+func (ec *EthConfirmer[ADDR, TX_HASH]) markForRebroadcast(etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
 
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.EthTxAttempts[0]
-	var receipt EthReceipt
+	var receipt EvmReceipt
 	if len(attempt.EthReceipts) > 0 {
 		receipt = attempt.EthReceipts[0]
 	}
 
-	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.Hex()),
-		"txhash", attempt.Hash.Hex(),
+	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()),
+		"txhash", attempt.Hash.String(),
 		"currentBlockNum", head.BlockNumber(),
 		"currentBlockHash", head.BlockHash().Hex(),
 		"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.BlockNumber),
@@ -1057,7 +1057,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) markForRebroadcast(etx EthTx, head txmgrt
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *EthConfirmer[ADDR, TX_HASH]) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint32) error {
+func (ec *EthConfirmer[ADDR, TX_HASH]) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address ADDR, overrideGasLimit uint32) error {
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
@@ -1072,7 +1072,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) ForceRebroadcast(beginningNonce uint, end
 				ec.lggr.Errorw("ForceRebroadcast: failed to send empty transaction", "nonce", n, "err", err)
 				continue
 			}
-			ec.lggr.Infow("ForceRebroadcast: successfully rebroadcast empty transaction", "nonce", n, "hash", hash.String())
+			ec.lggr.Infow("ForceRebroadcast: successfully rebroadcast empty transaction", "nonce", n, "hash", (*hash).String())
 		} else {
 			ec.lggr.Debugf("ForceRebroadcast: got eth_tx %v with nonce %v, will rebroadcast this transaction", etx.ID, *etx.Nonce)
 			if overrideGasLimit != 0 {
@@ -1093,16 +1093,16 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) ForceRebroadcast(beginningNonce uint, end
 	return nil
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH]) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (gethCommon.Hash, error) {
+func (ec *EthConfirmer[ADDR, TX_HASH]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (*TX_HASH, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
 	}
 	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.keystore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
 	if err != nil {
-		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
+		return nil, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
-	return tx.Hash(), nil
+	return &evmtypes.NewTxHash(tx.Hash()), nil
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
@@ -1139,10 +1139,10 @@ func (ec *EthConfirmer[ADDR, TX_HASH]) ResumePendingTaskRuns(ctx context.Context
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
-func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts []evmtypes.Receipt) {
+func observeUntilTxConfirmed[ADDR types.Hashable, TX_HASH types.Hashable](chainID big.Int, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []evmtypes.Receipt) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
-			if attempt.Hash != r.TxHash {
+			if attempt.Hash.String() != r.TxHash.String() {
 				continue
 			}
 
@@ -1157,7 +1157,7 @@ func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts 
 
 			// Since a eth tx can have many attempts, we take the number of blocks to confirm as the block number
 			// of the receipt minus the block number of the first ever broadcast for this transaction.
-			broadcastBefore := utils.MinKey(attempt.EthTx.EthTxAttempts, func(attempt EthTxAttempt) int64 {
+			broadcastBefore := utils.MinKey(attempt.EthTx.EthTxAttempts, func(attempt EthTxAttempt[ADDR, TX_HASH]) int64 {
 				if attempt.BroadcastBeforeBlockNum != nil {
 					return *attempt.BroadcastBeforeBlockNum
 				}

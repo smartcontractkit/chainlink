@@ -16,6 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -27,47 +28,36 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM[ADDR types.Hashable, TX_HASH types.Hashable] interface {
-	CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error)
-	CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
-	CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error)
-	CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error)
-	DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt[ADDR, TX_HASH]) error
-	EthTransactions(offset, limit int) ([]EthTx[ADDR, TX_HASH], int, error)
-	EthTransactionsWithAttempts(offset, limit int) ([]EthTx[ADDR, TX_HASH], int, error)
-	EthTxAttempts(offset, limit int) ([]EthTxAttempt[ADDR, TX_HASH], int, error)
-	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EthReceiptsPlus, err error)
-	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt[ADDR, TX_HASH], error)
-	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt[ADDR, TX_HASH], error)
-	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx[ADDR, TX_HASH], err error)
-	FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx[ADDR, TX_HASH], err error)
-	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt[ADDR, TX_HASH], err error)
-	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt[ADDR, TX_HASH], error)
+	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64]
+	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
+	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
+	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error)
+	FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error)
+	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
+	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt[ADDR, TX_HASH], err error)
-	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt[ADDR, TX_HASH], err error)
-	FindEthTxByHash(hash common.Hash) (*EthTx[ADDR, TX_HASH], error)
-	FindEthTxWithAttempts(etxID int64) (etx EthTx[ADDR, TX_HASH], err error)
-	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx[ADDR, TX_HASH], err error)
-	FindNextUnstartedTransactionFromAddress(etx *EthTx[ADDR, TX_HASH], fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx[ADDR, TX_HASH], err error)
-	GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx[ADDR, TX_HASH], err error)
-	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt[ADDR, TX_HASH], err error)
+	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
+	FindEthTxByHash(hash common.Hash) (*EthTx, error)
+	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
+	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error)
+	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error
+	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error)
+	GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error)
+	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
 	HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error)
-	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-	InsertEthReceipt(receipt *EthReceipt) error
-	InsertEthTx(etx *EthTx[ADDR, TX_HASH]) error
-	InsertEthTxAttempt(attempt *EthTxAttempt[ADDR, TX_HASH]) error
-	LoadEthTxAttempts(etx *EthTx[ADDR, TX_HASH], qopts ...pg.QOpt) error
-	LoadEthTxesAttempts(etxs []*EthTx[ADDR, TX_HASH], qopts ...pg.QOpt) error
+	InsertEthTx(etx *EthTx) error
+	InsertEthTxAttempt(attempt *EthTxAttempt) error
+	LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error
+	LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error
 	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
 	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
-	PreloadEthTxes(attempts []EthTxAttempt[ADDR, TX_HASH]) error
-	PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
-	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error
-	SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error)
-	SaveInProgressAttempt(attempt *EthTxAttempt[ADDR, TX_HASH]) error
-	SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error
-	SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt[ADDR, TX_HASH], replacementAttempt *EthTxAttempt[ADDR, TX_HASH], qopts ...pg.QOpt) error
-	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error
+	PreloadEthTxes(attempts []EthTxAttempt) error
+	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
+	SaveInProgressAttempt(attempt *EthTxAttempt) error
+	SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
+	SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error
+	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
 	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
 	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
 	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error
@@ -80,6 +70,7 @@ type ORM[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
+var ErrInvalidQOpt = errors.New("orm: Invalid QOpt")
 
 type QueryerFunc func(tx pg.Queryer) error
 
@@ -188,7 +179,6 @@ func (o *orm[ADDR, TX_HASH]) EthTransactions(offset, limit int) (txs []EthTx[ADD
 	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
 		return
 	}
-
 	return
 }
 
@@ -283,8 +273,6 @@ func (o *orm[ADDR, TX_HASH]) InsertEthTxAttempt(attempt *EthTxAttempt[ADDR, TX_H
 	err := o.q.GetNamed(insertEthTxAttemptSQL, attempt, attempt)
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
-
-func (o *orm[ADDR, TX_HASH]) InsertEthReceipt(receipt *EthReceipt) error {
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
@@ -366,7 +354,7 @@ func loadEthTxesAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q 
 			attemptHashes = append(attemptHashes, bytes)
 		}
 	}
-	var receipts []EthReceipt
+	var receipts []EvmReceipt
 	if err = q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
@@ -388,7 +376,7 @@ func loadConfirmedAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](
 		}
 		hashes = append(hashes, bytes)
 	}
-	var receipts []EthReceipt
+	var receipts []EvmReceipt
 	if err := q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}
@@ -631,7 +619,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm[ADDR, TX_HASH]) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EthReceiptsPlus, err error) {
+func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
 	err = o.q.SelectContext(ctx, &receiptsPlus, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
@@ -772,6 +760,7 @@ func (o *orm[ADDR, TX_HASH]) SaveConfirmedMissingReceiptAttempt(ctx context.Cont
 
 func (o *orm[ADDR, TX_HASH]) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt[ADDR, TX_HASH]) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
@@ -1189,7 +1178,7 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}
 
-		pruned, err := newTx.Strategy.PruneQueue(o, tx)
+		pruned, err := newTx.Strategy.PruneQueue(o, pg.WithQueryer(tx))
 		if err != nil {
 			return errors.Wrap(err, "CreateEthTransaction failed to prune eth_txes")
 		}
@@ -1201,7 +1190,7 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (o *orm[ADDR, TX_HASH]) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
+func (o *orm) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`

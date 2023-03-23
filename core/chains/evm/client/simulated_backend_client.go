@@ -239,6 +239,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
+		Timestamp:  time.Unix(int64(header.Time), 0),
 	}, nil
 }
 
@@ -255,6 +256,7 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
+		Timestamp:  time.Unix(int64(header.Time), 0),
 	}, nil
 }
 
