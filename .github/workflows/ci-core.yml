@@ -159,6 +159,8 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
