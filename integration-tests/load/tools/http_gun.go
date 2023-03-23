@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"sync/atomic"
 
@@ -39,7 +40,7 @@ func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 		return loadgen.CallResult{Error: "connection error", Failed: true}
 	}
 	if res.Status != "200 OK" {
-		return loadgen.CallResult{Error: "not 200", Failed: true}
+		return loadgen.CallResult{Error: "not 200", Failed: true, Data: fmt.Sprintf("Response string was: %s", res.Status)}
 	}
 	reportBytes, err := hex.DecodeString(answer.ChainlinkBlob[2:])
 	if err != nil {

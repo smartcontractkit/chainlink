@@ -320,7 +320,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		return err
 	}
 
-	timeout := time.Minute * 5
+	timeout := time.Minute * 8
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 	to := time.NewTimer(timeout)

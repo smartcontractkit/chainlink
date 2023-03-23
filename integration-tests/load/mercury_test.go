@@ -65,7 +65,7 @@ var (
 )
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	feeds := mercuryactions.GenFeedIds(1)
+	feeds := mercuryactions.GenFeedIds(9)
 	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -94,8 +94,8 @@ func TestMercuryHTTPLoad(t *testing.T) {
 			"test_id":    "http",
 		},
 		LoadType:    loadgen.RPSScheduleType,
-		CallTimeout: 5 * time.Second,
-		Schedule:    loadgen.Line(10, 300, 100*time.Second),
+		CallTimeout: 10 * time.Second,
+		Schedule:    loadgen.Line(10, 300, 600*time.Second),
 		Gun:         gun,
 	})
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	feeds := mercuryactions.GenFeedIds(1)
+	feeds := mercuryactions.GenFeedIds(9)
 	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -124,7 +124,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			"test_id":    "ws",
 		},
 		LoadType: loadgen.InstancesScheduleType,
-		Schedule: loadgen.Line(10, 300, 30*time.Second),
+		Schedule: loadgen.Line(10, 30, 30*time.Second),
 		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)
