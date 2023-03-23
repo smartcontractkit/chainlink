@@ -20,7 +20,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	EthTransactions(offset, limit int) ([]TX, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]TX, int, error)
 	EthTxAttempts(offset, limit int) ([]TXATTEMPT, int, error)
-	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID) (receiptPlus []ReceiptPlus[R], err error)
+	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID) (receiptsPlus []ReceiptPlus[R], err error)
 	FindEthTxAttempt(hash HASH) (*TXATTEMPT, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []TXID) ([]TXATTEMPT, error)
 	FindEthTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAINID) (etxs []*TX, err error)
