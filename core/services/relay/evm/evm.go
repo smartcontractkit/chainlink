@@ -136,12 +136,22 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 	return configProvider, err
 }
 
-func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) ([]string, error) {
-	addr, err := ethkey.NewEIP55Address(args.ContractID)
-	if err != nil {
+func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, err error) {
+	var addr ethkey.EIP55Address
+	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
 		return nil, err
 	}
-	return []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}, err
+	var relayConfig types.RelayConfig
+	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if relayConfig.FeedID != nil {
+		filterNames = []string{mercury.FilterName(addr.Address())}
+	} else {
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
+	}
+	return filterNames, err
 }
 
 type ConfigPoller interface {
