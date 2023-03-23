@@ -540,6 +540,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 
 	switch errType {
 	case clienttypes.Fatal:
+		eb.SvcErrBuffer.Append(err)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
 	case clienttypes.TransactionAlreadyKnown:
@@ -590,6 +591,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	case clienttypes.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
 	case clienttypes.InsufficientFunds:
+		eb.SvcErrBuffer.Append(err)
 		fallthrough
 	case clienttypes.Retryable:
 		return err, true
@@ -605,6 +607,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
 		fallthrough
 	case clienttypes.Unknown:
+		eb.SvcErrBuffer.Append(err)
 		lgr.Criticalw(`Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
 		nextNonce, e := eb.ethClient.PendingNonceAt(ctx, fromAddress)

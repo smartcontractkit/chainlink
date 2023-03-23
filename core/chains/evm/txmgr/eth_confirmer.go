@@ -930,6 +930,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case clienttypes.InsufficientFunds:
+		ec.SvcErrBuffer.Append(sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	case clienttypes.Successful:
