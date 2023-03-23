@@ -116,7 +116,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Flags:  []cli.Flag{},
 			Hidden: true,
 			Before: func(ctx *clipkg.Context) error {
-				client.Logger.Warnf("Command depreciated. Use `admin status` instead.")
+				client.Logger.Warnf("Command deprecated. Use `admin status` instead.")
 				return nil
 			},
 		},
@@ -138,7 +138,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			},
 			Hidden: true,
 			Before: func(ctx *clipkg.Context) error {
-				client.Logger.Warnf("Command depreciated. Use `admin profile` instead.")
+				client.Logger.Warnf("Command deprecated. Use `admin profile` instead.")
 				return nil
 			},
 		},
