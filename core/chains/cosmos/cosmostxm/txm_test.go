@@ -33,7 +33,6 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmotest.RandomChainID()
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	chain := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: coscfg.Chain{
