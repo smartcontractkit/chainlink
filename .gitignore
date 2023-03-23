@@ -74,3 +74,5 @@ MacOSX*
 *report.xml
 *report.json
 *.out
+
+contracts/yarn.lock
