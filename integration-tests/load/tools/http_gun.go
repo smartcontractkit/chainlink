@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"sync/atomic"
 
@@ -34,12 +35,12 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feeds [][32]byte, 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	randFeedIdStr := mercurysetup.Byte32ToString(m.feeds[rand.Intn(len(m.feeds))])
-	answer, res, err := m.client.GetReports(randFeedIdStr, m.Bn.Load())
+	answer, res, err := m.client.GetReportsByFeedIdStr(randFeedIdStr, m.Bn.Load())
 	if err != nil {
 		return loadgen.CallResult{Error: "connection error", Failed: true}
 	}
 	if res.Status != "200 OK" {
-		return loadgen.CallResult{Error: "not 200", Failed: true}
+		return loadgen.CallResult{Error: "not 200", Failed: true, Data: fmt.Sprintf("Response string was: %s", res.Status)}
 	}
 	reportBytes, err := hex.DecodeString(answer.ChainlinkBlob[2:])
 	if err != nil {
