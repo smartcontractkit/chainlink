@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	types2 "github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
@@ -121,7 +122,7 @@ func (c *ChainKeyStore[ADDR, TX_HASH]) NewLegacyAttempt(etx EthTx[ADDR, TX_HASH]
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
 
-	attempt.State = EthTxAttemptInProgress
+	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.GasPrice = gasPrice
@@ -156,7 +157,7 @@ func (c *ChainKeyStore[ADDR, TX_HASH]) newSignedAttempt(etx EthTx[ADDR, TX_HASH]
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
 
-	attempt.State = EthTxAttemptInProgress
+	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.EthTx = etx

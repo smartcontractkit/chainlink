@@ -1,14 +1,14 @@
-import { getUsers, Personas } from '../../test-helpers/setup'
+import { getUsers, Personas } from '../test-helpers/setup'
 import { ethers } from 'hardhat'
 import { Signer } from 'ethers'
 import {
   HeartbeatRequester,
   MockAggregatorProxy,
   MockOffchainAggregator,
-} from '../../../typechain'
-import { HeartbeatRequester__factory as HeartbeatRequesterFactory } from '../../../typechain/factories/HeartbeatRequester__factory'
-import { MockAggregatorProxy__factory as MockAggregatorProxyFactory } from '../../../typechain/factories/MockAggregatorProxy__factory'
-import { MockOffchainAggregator__factory as MockOffchainAggregatorFactory } from '../../../typechain/factories/MockOffchainAggregator__factory'
+} from '../../typechain'
+import { HeartbeatRequester__factory as HeartbeatRequesterFactory } from '../../typechain/factories/HeartbeatRequester__factory'
+import { MockAggregatorProxy__factory as MockAggregatorProxyFactory } from '../../typechain/factories/MockAggregatorProxy__factory'
+import { MockOffchainAggregator__factory as MockOffchainAggregatorFactory } from '../../typechain/factories/MockOffchainAggregator__factory'
 import { assert, expect } from 'chai'
 
 let personas: Personas

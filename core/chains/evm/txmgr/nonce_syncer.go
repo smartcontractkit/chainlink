@@ -125,12 +125,12 @@ func (s NonceSyncer[ADDR, TX_HASH]) fastForwardNonceIfNecessary(ctx context.Cont
 		"address", address.Hex(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
 	// Need to remember to decrement the chain nonce by one to account for in_progress transaction
-	newNextNonce := chainNonce
+	newNextNonce := int64(chainNonce)
 	if hasInProgressTransaction {
 		newNextNonce--
 	}
 
-	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, uint64(keyNextNonce), address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, address, *s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())

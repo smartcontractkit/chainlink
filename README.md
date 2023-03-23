@@ -50,11 +50,8 @@ For the latest information on setting up a development environment, see the [Dev
 
 Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 
-An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
-
 ```bash
-# LIBWASMVM_ARCH (libwasmvm.so) architecture choice, defaults to output of `uname -m` (arch) if unset
-$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile
 ```
 
 ### Ethereum Execution Client Requirements

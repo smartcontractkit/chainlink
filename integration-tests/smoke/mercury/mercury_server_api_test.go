@@ -63,7 +63,7 @@ func TestMercuryServerAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	admin := mercury.User{
-		Id:       testEnv.MSInfo.AdminId,
+		Id:       testEnv.MSInfo.UserId,
 		Key:      "admintestkey",
 		Secret:   "mz1I4AgYtvo3Wumrgtlyh9VWkCf/IzZ6JROnuw==",
 		Role:     "admin",
@@ -84,12 +84,16 @@ func TestMercuryServerAPI(t *testing.T) {
 	msUrl := testEnv.MSInfo.LocalUrl
 	csaKey := nodesCsaKeys[0]
 
-	// Setup wsrpc client for one of the rpc nodes defined in the conf
+	// Start wsrpc client for one of the rpc nodes defined in the conf
 	wsrpcLggr, _ := logger.NewLogger()
 	wsrpcUrl := testEnv.MSInfo.LocalWsrpcUrl[6:len(testEnv.MSInfo.LocalWsrpcUrl)]
 	wsrpcClient := wsrpc.NewClient(wsrpcLggr, csaKey.KeyV2, rpcPubKey, wsrpcUrl)
 	err = wsrpcClient.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := wsrpcClient.Close()
+		require.NoError(t, err)
+	})
 
 	t.Run("GET /admin/user as admin role", func(t *testing.T) {
 		c := client.NewMercuryServerClient(msUrl, admin.Id, admin.Key)
@@ -107,7 +111,10 @@ func TestMercuryServerAPI(t *testing.T) {
 		require.Equal(t, 0, len(users))
 	})
 
-	t.Run("WSRPC LatestReport() empty", func(t *testing.T) {
+	t.Run("WSRPC LatestReport() returns no report for empty db", func(t *testing.T) {
+		err := testEnv.ClearMercuryReportsInDb()
+		require.NoError(t, err)
+
 		req := &pb.LatestReportRequest{
 			FeedId: feedID[:],
 		}
@@ -115,8 +122,6 @@ func TestMercuryServerAPI(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, resp.Report)
 	})
-
-	// TODO: test conflicting key value violates exclusion constraint "no_overlap"
 
 	t.Run("WSRPC LatestReport() returns newly created report", func(t *testing.T) {
 		var rs [][32]byte
@@ -177,6 +182,62 @@ func TestMercuryServerAPI(t *testing.T) {
 		}
 		res, _ := wsrpcClient.Transmit(context.Background(), req)
 		require.Equal(t, "failed to store report", res.Error)
+	})
+
+	t.Run("WSRPC: on block overlap", func(t *testing.T) {
+		err := testEnv.ClearMercuryReportsInDb()
+		require.NoError(t, err)
+
+		report1 := mercuryactions.Report{
+			FeedId:                feedID,
+			ObservationsTimestamp: uint32(42),
+			BenchmarkPrice:        big.NewInt(242),
+			Bid:                   big.NewInt(243),
+			Ask:                   big.NewInt(244),
+			CurrentBlockNum:       uint64(201),
+			CurrentBlockHash:      utils.NewHash(),
+			ValidFromBlockNum:     uint64(200),
+		}
+		reportBytes1, err := report1.Pack()
+		require.NoError(t, err)
+		rawReportCtx1 := evmutil.RawReportContext(sampleReportContext)
+		payload1, err := PayloadTypes.Pack(rawReportCtx1, reportBytes1, rs, ss, vs)
+		require.NoError(t, err)
+
+		// Transmit report
+		req1 := &pb.TransmitRequest{
+			Payload: payload1,
+		}
+		res1, _ := wsrpcClient.Transmit(context.Background(), req1)
+		require.Empty(t, res1.Error)
+
+		report2 := mercuryactions.Report{
+			FeedId:                feedID,
+			ObservationsTimestamp: uint32(42),
+			BenchmarkPrice:        big.NewInt(242),
+			Bid:                   big.NewInt(243),
+			Ask:                   big.NewInt(244),
+			CurrentBlockNum:       uint64(201),
+			CurrentBlockHash:      utils.NewHash(),
+			ValidFromBlockNum:     uint64(200),
+		}
+		reportBytes2, err := report2.Pack()
+		require.NoError(t, err)
+		rawReportCtx2 := evmutil.RawReportContext(sampleReportContext)
+		payload2, err := PayloadTypes.Pack(rawReportCtx2, reportBytes2, rs, ss, vs)
+		require.NoError(t, err)
+
+		// Transmit report
+		req2 := &pb.TransmitRequest{
+			Payload: payload2,
+		}
+		res2, _ := wsrpcClient.Transmit(context.Background(), req2)
+		require.Empty(t, res2.Error)
+
+		// Check only 1 report was saved in the db
+		reports, err := testEnv.GetAllReportsFromMercuryDb()
+		require.Empty(t, err)
+		require.Equal(t, 1, len(reports))
 	})
 }
 

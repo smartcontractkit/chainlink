@@ -588,7 +588,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Conte
 		// and we pass the same initialBroadcastAt timestamp there, when we re-enter
 		// this function we'll be using the same initialBroadcastAt.
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, EthTxAttemptBroadcast, func(tx pg.Queryer) error {
+		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	}
@@ -648,7 +648,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH]) handleInProgressEthTx(ctx context.Conte
 		// Despite the error, the RPC node considers the previously sent
 		// transaction to have been accepted. In this case, the right thing to
 		// do is assume success and hand off to EthConfirmer
-		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, EthTxAttemptBroadcast, func(tx pg.Queryer) error {
+		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	}

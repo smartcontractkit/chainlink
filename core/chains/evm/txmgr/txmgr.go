@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -120,10 +119,17 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	wg       sync.WaitGroup
 
 	reaper         *Reaper
+<<<<<<< HEAD
 	ethResender    *EthResender[ADDR, TX_HASH]
 	ethBroadcaster *EthBroadcaster[ADDR, TX_HASH]
 	ethConfirmer   *EthConfirmer[ADDR, TX_HASH]
 	fwdMgr         forwarders.FwdManager[ADDR]
+=======
+	ethResender    *EthResender
+	ethBroadcaster *EthBroadcaster
+	ethConfirmer   *EthConfirmer
+	fwdMgr         txmgrtypes.ForwarderManager[common.Address]
+>>>>>>> 5de05e8511a7a577f530785144b2444afff325b3
 }
 
 func (b *Txm[ADDR, TX_HASH]) RegisterResumeCallback(fn ResumeCallback) {
@@ -133,8 +139,8 @@ func (b *Txm[ADDR, TX_HASH]) RegisterResumeCallback(fn ResumeCallback) {
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH],
-	fwdMgr forwarders.FwdManager[ADDR],
-) *Txm[ADDR, TX_HASH] {
+	fwdMgr txmgrtypes.ForwarderManager[ADDR],
+) *Txm {
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -492,7 +498,7 @@ func (b *Txm[ADDR, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QO
 	}
 
 	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != nil) {
-		fwdPayload, fwdErr := b.fwdMgr.GetForwardedPayload(newTx.ToAddress, newTx.EncodedPayload)
+		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
 			if newTx.Meta != nil {
@@ -523,7 +529,7 @@ func (b *Txm[ADDR, TX_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err e
 	if !b.config.EvmUseForwarders() {
 		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
-	forwarder, err = b.fwdMgr.GetForwarderForEOA(eoa)
+	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
 }
 

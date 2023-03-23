@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	types2 "github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmlogpoller "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -33,14 +31,7 @@ type Config interface {
 	pg.QConfig
 }
 
-type FwdManager[ADDR types2.Hashable] interface {
-	services.ServiceCtx
-	GetForwardedPayload(dest ADDR, origPayload []byte) ([]byte, error)
-	GetForwarderForEOA(addr ADDR) (forwarder ADDR, err error)
-}
-
 type FwdMgr struct {
-	FwdManager[*evmtypes.Address]
 	utils.StartStopOnce
 	ORM       ORM
 	evmClient evmclient.Client
@@ -63,7 +54,7 @@ type FwdMgr struct {
 	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) FwdManager[*evmtypes.Address] {
+func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
 	lggr := logger.Sugared(l.Named("EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,
@@ -120,11 +111,11 @@ func (f *FwdMgr) filterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
-func (f *FwdMgr) GetForwarderForEOA(addr *evmtypes.Address) (forwarder *evmtypes.Address, err error) {
+func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {
-		return &evmtypes.Address{}, err
+		return common.Address{}, err
 	}
 
 	for _, fwdr := range fwdrs {
@@ -134,16 +125,16 @@ func (f *FwdMgr) GetForwarderForEOA(addr *evmtypes.Address) (forwarder *evmtypes
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa == *addr.NativeAddress() {
-				return evmtypes.NewAddress(fwdr.Address), nil
+			if eoa == addr {
+				return fwdr.Address, nil
 			}
 		}
 	}
-	return &evmtypes.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
 }
 
-func (f *FwdMgr) GetForwardedPayload(dest *evmtypes.Address, origPayload []byte) ([]byte, error) {
-	databytes, err := f.getForwardedPayload(*dest.NativeAddress(), origPayload)
+func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
+	databytes, err := f.getForwardedPayload(dest, origPayload)
 	if err != nil {
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
