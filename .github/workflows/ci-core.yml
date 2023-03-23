@@ -71,7 +71,7 @@ jobs:
         if: needs.init.outputs.on_trigger_lint == 'true'
         with:
           go-version-file: 'go.mod'
-          # If cache is set to true (default), the "prepare environment" will 
+          # If cache is set to true (default), the "prepare environment" will
           # silently fail with these errors:
           # Error: /usr/bin/tar: <...>: Cannot open: File exists
           cache: false
@@ -88,7 +88,7 @@ jobs:
           allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
       - name: Print lint report artifact
-        if: always()
+        if: needs.init.outputs.on_trigger_lint == 'true'
         run: cat golangci-lint-report.xml
       - name: Store lint report artifact
         if: always()
