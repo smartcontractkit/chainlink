@@ -42,10 +42,11 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-// Structs saved in database should be interal to
-// the ORM and distinct from generic arguments
-// so that modifying generic types does not result
-// in runtime errors
+// Structs saved in database should be internal to
+// the ORM and distinct from generic params
+// so that modifying generic params does neccessitate
+// modification of underlying column types
+// (or runtime errors by mistake)
 type dbReceipt struct {
 	ID               int64
 	TxHash           common.Hash
