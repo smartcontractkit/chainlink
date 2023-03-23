@@ -67,7 +67,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Image
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -111,15 +111,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5594260b2077d12ba212576cff98652728de33f4 # v2.1.4
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
-          repository: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
+          repository: chainlink-tests
           tag: ${{ env.CHAINLINK_VERSION }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: build test runner
         if: steps.check-image.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@c983d4dec0da805b6650151f378f9440c065d190 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
           tags: ${{ env.ENV_JOB_IMAGE }}
           file: ./integration-tests/test.Dockerfile
@@ -201,7 +201,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -222,7 +222,7 @@ jobs:
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -310,6 +310,11 @@ jobs:
 
   solana-test-image-exists:
     environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
     name: Check If Solana Test Image Exists
     runs-on: ubuntu-latest
     needs: [get_solana_sha]
@@ -318,9 +323,9 @@ jobs:
     steps:
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5594260b2077d12ba212576cff98652728de33f4 # v2.1.4
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
-          repository: ${{ env.SOLANA_TEST_ECR }}
+          repository: chainlink-solana-tests
           tag: ci.${{ needs.get_solana_sha.outputs.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -390,7 +395,7 @@ jobs:
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Runner
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
           tags: ${{ env.SOLANA_TEST_ECR }}:ci.${{ needs.get_solana_sha.outputs.sha }}
           file: ./integration-tests/test.Dockerfile
@@ -406,7 +411,7 @@ jobs:
           echo "\`ci.${{ needs.get_solana_sha.outputs.sha }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ env.SOLANA_TEST_ECR }}:ci.${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
@@ -472,7 +477,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       ## Only run OCR smoke test for now
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b8d89a3bad488c8c4cd0d285f62291fbf6f9963c # v2.1.4
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
