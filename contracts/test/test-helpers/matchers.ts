@@ -1,7 +1,6 @@
 import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
 import { ContractReceipt } from '@ethersproject/contracts'
 import { assert, expect } from 'chai'
-import { keccak256 } from 'ethers/lib/utils'
 
 /**
  * Check that two big numbers are the same value.
@@ -33,14 +32,7 @@ export async function evmRevert(
   msg?: string,
 ) {
   if (msg) {
-    try {
-      const utf8Encode = new TextEncoder()
-      await expect(action).to.be.revertedWith(
-        keccak256(utf8Encode.encode(msg)).slice(0, 10),
-      )
-    } catch (e) {
-      await expect(action).to.be.revertedWith(msg)
-    }
+    await expect(action).to.be.revertedWith(msg)
   } else {
     await expect(action).to.be.reverted
   }
