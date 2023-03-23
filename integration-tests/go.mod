@@ -288,7 +288,7 @@ require (
 	github.com/xlab/treeprint v1.1.0 // indirect
 	github.com/yuin/goldmark v1.4.13 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	github.com/zksync-sdk/zksync2-go v0.0.2 // indirect
+	github.com/zksync-sdk/zksync2-go v0.0.0-20230221170049-a21c27df41ef // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.starlark.net v0.0.0-20220817180228-f738f5508c12 // indirect
@@ -366,7 +366,8 @@ replace (
 
 	// Make sure we're working with the latest chainlink libs
 	github.com/smartcontractkit/chainlink => ../
-	github.com/smartcontractkit/chainlink-env => ../../chainlink-env
+	// github.com/smartcontractkit/chainlink-env => ../../chainlink-env
+	github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
 	github.com/smartcontractkit/go-gauntlet => ../../go-gauntlet
 
 	// The Loki - Grafana - Prometheus - Cortex stack is all sorts of wack
