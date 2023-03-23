@@ -341,6 +341,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
+		nil,
 	)
 }
 
@@ -388,6 +389,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		),
 		configWatcher.chain.LogPoller(),
 		lggr,
+		nil,
 	)
 }
 

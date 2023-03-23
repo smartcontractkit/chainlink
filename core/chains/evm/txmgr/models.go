@@ -55,6 +55,11 @@ type EthTxMeta struct {
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
 	FwdrDestAddress *common.Address `json:"ForwarderDestAddress,omitempty"`
+
+	// MessageIDs is used by CCIP for tx to executed messages correlation in logs
+	MessageIDs []string `json:"MessageIDs,omitempty"`
+	// SeqNumbers is used by CCIP for tx to committed sequence numbers correlation in logs
+	SeqNumbers []uint64 `json:"SeqNumbers,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -261,6 +266,16 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 
 		if meta.FwdrDestAddress != nil {
 			lgr = lgr.With("FwdrDestAddress", *meta.FwdrDestAddress)
+		}
+
+		if len(meta.MessageIDs) > 0 {
+			for _, mid := range meta.MessageIDs {
+				lgr = lgr.With("messageID", mid)
+			}
+		}
+
+		if len(meta.SeqNumbers) > 1 {
+			lgr = lgr.With("SeqNumbersMin", meta.SeqNumbers[0], "SeqNumbersMax", meta.SeqNumbers[1])
 		}
 	}
 

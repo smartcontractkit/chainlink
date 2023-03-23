@@ -16,6 +16,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,9 +30,11 @@ type ContractTransmitter interface {
 var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte) error
+	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
 	FromAddress() gethcommon.Address
 }
+
+type ReportToEthMetadata func([]byte) (*txmgr.EthTxMeta, error)
 
 type contractTransmitter struct {
 	contractAddress     gethcommon.Address
@@ -41,6 +44,7 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	reportToEthTxMeta   ReportToEthMetadata
 }
 
 func NewOCRContractTransmitter(
@@ -50,6 +54,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	reportToEthTxMeta ReportToEthMetadata,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
@@ -60,6 +65,11 @@ func NewOCRContractTransmitter(
 	if err != nil {
 		return nil, err
 	}
+	if reportToEthTxMeta == nil {
+		reportToEthTxMeta = func([]byte) (*txmgr.EthTxMeta, error) {
+			return nil, nil
+		}
+	}
 	return &contractTransmitter{
 		contractAddress:     address,
 		contractABI:         contractABI,
@@ -68,6 +78,7 @@ func NewOCRContractTransmitter(
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                lggr.Named("OCRContractTransmitter"),
+		reportToEthTxMeta:   reportToEthTxMeta,
 	}, nil
 }
 
@@ -87,14 +98,16 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress)
+	txMeta, _ := oc.reportToEthTxMeta(report)
+
+	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress, "txMeta", txMeta)
 
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
 }
 
 type contractReader interface {
