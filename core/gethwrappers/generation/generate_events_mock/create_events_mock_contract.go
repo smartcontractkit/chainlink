@@ -288,5 +288,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Generated EventsMock.sol mock contract!")
+	fmt.Println(fmt.Sprintf("Generated %s.sol mock contract!", contractName))
 }
