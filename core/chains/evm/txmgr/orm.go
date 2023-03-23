@@ -42,11 +42,9 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-// Structs saved in database should be internal to
-// the ORM and distinct from generic params
-// so that modifying generic params does neccessitate
-// modification of underlying column types
-// (or runtime errors by mistake)
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
 type dbReceipt struct {
 	ID               int64
 	TxHash           common.Hash
@@ -57,8 +55,17 @@ type dbReceipt struct {
 	CreatedAt        time.Time
 }
 
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
 type dbRawReceipt = evmtypes.Receipt
 
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+//
+// Does not map to a single database table.
+// It's comprised of fields from different tables.
 type dbReceiptPlus struct {
 	ID           uuid.UUID        `db:"id"`
 	Receipt      evmtypes.Receipt `db:"receipt"`
