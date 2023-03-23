@@ -9,3 +9,4 @@ solc-select install 0.8.6
 
 # Mocks
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
