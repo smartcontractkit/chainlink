@@ -9,6 +9,7 @@ import (
 	mercuryserver "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
+	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/load/tools"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
@@ -64,8 +65,8 @@ var (
 )
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
-	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	feeds := mercuryactions.GenFeedIds(1)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
@@ -103,8 +104,8 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
-	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	feeds := mercuryactions.GenFeedIds(1)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)

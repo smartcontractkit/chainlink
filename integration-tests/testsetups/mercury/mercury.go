@@ -1168,36 +1168,37 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 	return S, oracleIdentities
 }
 
-func SetupMercuryMultiFeedEnv(
-	name string,
-	prefix string,
+func SetupMultiFeedSingleVerifierEnv(
+	envId string,
+	nsPrefix string,
 	feedIDs [][32]byte,
 	r *ResourcesConfig,
-) (TestEnv, error) {
-	testEnv, err := NewEnv(name, prefix, r)
+) (*TestEnv, contracts.VerifierProxy, error) {
+	testEnv, err := NewEnv(envId, nsPrefix, r)
 	if err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
 	testEnv.AddEvmNetwork()
 	if err = testEnv.AddDON(); err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	if err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
 	_, _, err = testEnv.AddMercuryServer(nil)
 	if err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
 	if err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
 	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
 	if err != nil {
-		return TestEnv{}, err
+		return nil, verifierProxyContract, err
 	}
+	// Use single verifier contract for all feeds
 	for _, feedId := range feedIDs {
 		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
 			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
@@ -1207,21 +1208,21 @@ func SetupMercuryMultiFeedEnv(
 			*ocrConfig,
 		)
 		if err != nil {
-			return TestEnv{}, err
+			return nil, nil, err
 		}
 
 		if err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return TestEnv{}, err
+			return nil, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return TestEnv{}, err
+			return nil, verifierProxyContract, err
 		}
 	}
 	if err = testEnv.WaitForReportsInMercuryDb(feedIDs); err != nil {
-		return TestEnv{}, err
+		return nil, verifierProxyContract, err
 	}
-	return testEnv, nil
+	return &testEnv, verifierProxyContract, nil
 }
 
 func StringToByte32(str string) [32]byte {

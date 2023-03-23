@@ -133,8 +133,9 @@ func TestMercuryChaos(t *testing.T) {
 		t.Run(fmt.Sprintf("Mercury_%s", name), func(t *testing.T) {
 			t.Parallel()
 
-			feeds := [][32]byte{mercury.StringToByte32("feed-1")}
-			env, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "chaos", feeds, resources)
+			feeds := mercuryactions.GenFeedIds(1)
+
+			env, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "chaos", feeds, resources)
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				env.Cleanup(t)
