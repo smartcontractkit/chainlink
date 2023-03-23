@@ -67,51 +67,23 @@ type dbReceiptPlus struct {
 
 func fromDBReceipts(rs []dbReceipt) (receipts []EvmReceipt) {
 	for i := 0; i < len(rs); i++ {
-		r := rs[i]
-		receipts = append(receipts, EvmReceipt{
-			ID:               r.ID,
-			TxHash:           r.TxHash,
-			BlockHash:        r.BlockHash,
-			BlockNumber:      r.BlockNumber,
-			TransactionIndex: r.TransactionIndex,
-			Receipt:          r.Receipt,
-			CreatedAt:        r.CreatedAt,
-		})
+		receipts = append(receipts, EvmReceipt(rs[i]))
 	}
 	return
 }
 
-func fromDBReceiptsPlus(rs []dbReceiptPlus) (receipts []txmgrtypes.ReceiptPlus[evmtypes.Receipt]) {
+func fromDBReceiptsPlus(rs []dbReceiptPlus) (receipts []EvmReceiptPlus) {
 	for i := 0; i < len(rs); i++ {
-		r := rs[i]
-		receipts = append(receipts, txmgrtypes.ReceiptPlus[evmtypes.Receipt]{
-			ID:           r.ID,
-			Receipt:      r.Receipt,
-			FailOnRevert: r.FailOnRevert,
-		})
+		receipts = append(receipts, EvmReceiptPlus(rs[i]))
 	}
 	return
 }
 
-func toDBRawReceipt(receipts []evmtypes.Receipt) []dbRawReceipt {
-	var dbRawReceipts []dbRawReceipt
-	for i := 0; i < len(receipts); i++ {
-		r := receipts[i]
-		dbRawReceipts = append(dbRawReceipts, dbRawReceipt{
-			PostState:         r.PostState,
-			Status:            r.Status,
-			CumulativeGasUsed: r.CumulativeGasUsed,
-			Bloom:             r.Bloom,
-			Logs:              r.Logs,
-			TxHash:            r.TxHash,
-			ContractAddress:   r.ContractAddress,
-			GasUsed:           r.GasUsed,
-			BlockHash:         r.BlockHash,
-			BlockNumber:       r.BlockNumber,
-			TransactionIndex:  r.TransactionIndex,
-		})
+func toDBRawReceipt(rs []evmtypes.Receipt) (receipts []dbRawReceipt) {
+	for i := 0; i < len(rs); i++ {
+		receipts = append(receipts, dbRawReceipt(rs[i]))
 	}
-	return dbRawReceipts
+	return
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
@@ -301,29 +273,15 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 
 func (o *orm) InsertEthReceipt(receipt *EvmReceipt) error {
 	// convert to database representation
-	r := &dbReceipt{
-		ID:               receipt.ID,
-		TxHash:           receipt.TxHash,
-		BlockHash:        receipt.BlockHash,
-		BlockNumber:      receipt.BlockNumber,
-		TransactionIndex: receipt.TransactionIndex,
-		Receipt:          receipt.Receipt,
-		CreatedAt:        receipt.CreatedAt,
-	}
+	r := dbReceipt(*receipt)
 
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	err := o.q.GetNamed(insertEthReceiptSQL, r, r)
+	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
 	// method expects original (destination) receipt struct to be updated
-	receipt.ID = r.ID
-	receipt.TxHash = r.TxHash
-	receipt.BlockHash = r.BlockHash
-	receipt.BlockNumber = r.BlockNumber
-	receipt.TransactionIndex = r.TransactionIndex
-	receipt.Receipt = r.Receipt
-	receipt.CreatedAt = r.CreatedAt
+	*receipt = EvmReceipt(r)
 
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
@@ -665,7 +623,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
+func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EvmReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
 	err = o.q.SelectContext(ctx, &rs, `

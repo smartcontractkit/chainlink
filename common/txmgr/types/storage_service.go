@@ -69,9 +69,9 @@ type UnstartedTxQueuePruner interface {
 
 // R is the raw unparsed transaction receipt
 type ReceiptPlus[R any] struct {
-	ID           uuid.UUID `db:"id"`
+	ID           uuid.UUID `db:"pipeline_run_id"`
 	Receipt      R         `db:"receipt"`
-	FailOnRevert bool      `db:"FailOnRevert"`
+	FailOnRevert bool      `db:"fail_on_revert"`
 }
 
 // R is the raw unparsed transaction receipt
