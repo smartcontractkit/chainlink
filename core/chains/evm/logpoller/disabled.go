@@ -24,8 +24,6 @@ func (disabled) Close() error { return ErrDisabled }
 
 func (disabled) Ready() error { return ErrDisabled }
 
-func (disabled) Healthy() error { return ErrDisabled }
-
 func (disabled) HealthReport() map[string]error {
 	return map[string]error{"disabledLogPoller": ErrDisabled}
 }
@@ -59,6 +57,10 @@ func (disabled) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []co
 }
 
 func (disabled) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
+func (disabled) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
 

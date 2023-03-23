@@ -13,6 +13,7 @@
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
+/core/chains/cosmos @archseer @cfal
 
 # Services
 /core/services/cron @samsondav
@@ -51,7 +52,7 @@
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @alexroan @se3000 @connorwstein
+/contracts/ @se3000 @connorwstein
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 
@@ -61,7 +62,7 @@
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
-/.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
+/.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
 /.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team

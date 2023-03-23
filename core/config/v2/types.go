@@ -114,7 +114,6 @@ type Secrets struct {
 	Password   Passwords         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
 	Prometheus PrometheusSecrets `toml:",omitempty"`
-	Mercury    MercurySecrets    `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -167,32 +166,6 @@ type PyroscopeSecrets struct {
 type PrometheusSecrets struct {
 	AuthToken *models.Secret
 }
-
-type MercuryCredentials struct {
-	URL      *models.SecretURL
-	Username *models.Secret
-	Password *models.Secret
-}
-
-type MercurySecrets struct {
-	Credentials []MercuryCredentials
-}
-
-func (m *MercurySecrets) ValidateConfig() (err error) {
-	urls := make(map[string]struct{}, len(m.Credentials))
-	for _, creds := range m.Credentials {
-		if creds.URL == nil {
-			return errors.New("`url` must be set for all mercury credentials")
-		}
-		s := creds.URL.String()
-		if _, exists := urls[s]; exists {
-			return errors.New("Credentials: may not contain duplicate URLs")
-		}
-		urls[s] = struct{}{}
-	}
-	return nil
-}
-
 type Feature struct {
 	FeedsManager *bool
 	LogPoller    *bool
@@ -626,6 +599,7 @@ type OCR2 struct {
 	ContractTransmitterTransmitTimeout *models.Duration
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
+	CaptureEATelemetry                 *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -653,6 +627,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	if v := f.KeyBundleID; v != nil {
 		o.KeyBundleID = v
 	}
+	if v := f.CaptureEATelemetry; v != nil {
+		o.CaptureEATelemetry = v
+	}
 }
 
 type OCR struct {
@@ -666,6 +643,7 @@ type OCR struct {
 	KeyBundleID          *models.Sha256Hash
 	SimulateTransactions *bool
 	TransmitterAddress   *ethkey.EIP55Address
+	CaptureEATelemetry   *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -695,6 +673,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.TransmitterAddress; v != nil {
 		o.TransmitterAddress = v
+	}
+	if v := f.CaptureEATelemetry; v != nil {
+		o.CaptureEATelemetry = v
 	}
 }
 

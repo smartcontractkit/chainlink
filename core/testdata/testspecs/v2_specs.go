@@ -127,6 +127,24 @@ storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 chainID = "Chainlink-99"`
 
+	OCR2CosmosSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "wasm1ysjdehnf3a3kpndx74yyg6ry90258y4z5vawjz"
+isBootstrapPeer = false
+p2pv2Bootstrappers = []
+relay = "cosmos"
+transmitterID = "wasm1ysjdehnf3a3kpndx74yyg6ry90258y4z5vawjz"
+observationSource = """
+"""
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+chainID = "Chainlink-99"`
+	OCR2CosmosNodeSpecMinimal = OCR2CosmosSpecMinimal + `
+nodeName = "some-test-node"`
+
 	OCR2EVMSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
@@ -264,6 +282,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.BatchCoordinatorAddress != "" {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
+
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
 		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier

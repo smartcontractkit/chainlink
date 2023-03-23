@@ -13,7 +13,6 @@ concurrency:
 env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
   CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  SOLANA_REF: develop
 
 jobs:
   changes:
@@ -22,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -54,12 +53,12 @@ jobs:
     needs: [changes]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Image
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -98,17 +97,17 @@ jobs:
           this-job-name: Build Test Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: build test runner
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           tags: ${{ env.ENV_JOB_IMAGE }}
           file: ./integration-tests/test.Dockerfile
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.8
+            IMAGE_VERSION=v0.3.17
             SUITES="smoke soak chaos benchmark migration performance"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -178,13 +177,13 @@ jobs:
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         env:
           TEST_SUITE: smoke
           TEST_ARGS: -test.timeout 30m
@@ -209,7 +208,7 @@ jobs:
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -245,18 +244,52 @@ jobs:
         run: exit 1
 
   ### Solana Section
+  get_solana_sha:
+    name: Get Solana Sha From Go Mod
+    environment: Integration
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.getsha.outputs.sha }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Get the sha from go mod
+        id: getshortsha
+        run: |
+          sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
+          short_sha="${sol_ver##*-}"
+          echo "short sha is: ${short_sha}"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+      - name: Checkout solana
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        with:
+          repository: smartcontractkit/chainlink-solana
+          ref: develop
+          fetch-depth: 0
+          path: solanapath
+      - name: Get long sha
+        id: getsha
+        run: |
+          cd solanapath
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          echo "sha is: ${full_sha}"
+          echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
+
   get_projectserum_version:
     name: Get ProjectSerum Version
     environment: integration
     runs-on: ubuntu-latest
+    needs: [get_solana_sha]
     outputs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: ${{ env.SOLANA_REF }}
+          ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Get ProjectSerum Version
         id: psversion
         uses: smartcontractkit/chainlink-solana/.github/actions/projectserum_version@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
@@ -270,7 +303,7 @@ jobs:
       contents: read
     name: Solana Build Artifacts
     runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes, get_projectserum_version]
+    needs: [changes, get_projectserum_version, get_solana_sha]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:
@@ -278,15 +311,15 @@ jobs:
         FORCE_COLOR: 1
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: ${{ env.SOLANA_REF }}
+          ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
-        if: ${{needs.changes.outputs.src == 'true' && env.SOLANA_REF != 'develop' }}
+        if: ${{needs.changes.outputs.src == 'true' && needs.get_solana_sha.outputs.sha != 'develop' }}
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
         with:
-          ref: ${{ env.SOLANA_REF }}
+          ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -306,7 +339,7 @@ jobs:
       contents: read
     name: Solana Smoke Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink, solana-build-contracts, changes]
+    needs: [build-chainlink, solana-build-contracts, changes, get_solana_sha]
     env:
       TEST_SUITE: smoke
       TEST_ARGS: -test.timeout 30m
@@ -316,37 +349,37 @@ jobs:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: ${{ env.SOLANA_REF }}
+          ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
-        if: ${{ env.SOLANA_REF != 'develop' }}
+        if: ${{ needs.changes.outputs.src == 'true' && needs.get_solana_sha.outputs.sha != 'develop' }}
         uses: actions/download-artifact@v3
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Runner
-        if: ${{ env.SOLANA_REF != 'develop' }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        if: ${{ needs.changes.outputs.src == 'true' && needs.get_solana_sha.outputs.sha != 'develop' }}
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
-          tags: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ env.SOLANA_REF }}
+          tags: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:solana.${{ needs.get_solana_sha.outputs.sha }}
           file: ./integration-tests/test.Dockerfile
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.8
+            IMAGE_VERSION=v0.3.17
             SUITES="smoke"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Print Solana Tests Image
         run: |
           echo "### chainlink-solana-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.SOLANA_REF }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ needs.get_solana_sha.outputs.sha }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
-          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ env.SOLANA_REF }} && make test_smoke
+          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:solana.${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/integration-tests/logs
@@ -406,12 +439,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       ## Only run OCR smoke test for now
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         env:
           TEST_SUITE: smoke
           TEST_ARGS: -test.timeout 30m
@@ -433,7 +466,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Notify Slack
-        if: always()
+        if: false ## TODO: This is currently noisy and needs to be more compact.
         id: slack
         uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844 # v1.23.0
         with:

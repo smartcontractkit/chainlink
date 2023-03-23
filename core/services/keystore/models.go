@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -147,6 +148,7 @@ type keyRing struct {
 	OCR        map[string]ocrkey.KeyV2
 	OCR2       map[string]ocr2key.KeyBundle
 	P2P        map[string]p2pkey.KeyV2
+	Cosmos     map[string]cosmoskey.Key
 	Solana     map[string]solkey.Key
 	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
@@ -162,6 +164,7 @@ func newKeyRing() *keyRing {
 		OCR:        make(map[string]ocrkey.KeyV2),
 		OCR2:       make(map[string]ocr2key.KeyBundle),
 		P2P:        make(map[string]p2pkey.KeyV2),
+		Cosmos:     make(map[string]cosmoskey.Key),
 		Solana:     make(map[string]solkey.Key),
 		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
@@ -215,6 +218,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, p2pKey := range kr.P2P {
 		rawKeys.P2P = append(rawKeys.P2P, p2pKey.Raw())
 	}
+	for _, cosmoskey := range kr.Cosmos {
+		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw())
+	}
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
 	}
@@ -255,6 +261,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, P2PKey := range kr.P2P {
 		p2pIDs = append(p2pIDs, P2PKey.ID())
 	}
+	var cosmosIDs []string
+	for _, cosmosKey := range kr.Cosmos {
+		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
+	}
 	var solanaIDs []string
 	for _, solanaKey := range kr.Solana {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
@@ -290,6 +300,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(p2pIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d P2P keys", len(p2pIDs)), "keys", p2pIDs)
 	}
+	if len(cosmosIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
+	}
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
 	}
@@ -319,6 +332,7 @@ type rawKeyRing struct {
 	OCR        []ocrkey.Raw
 	OCR2       []ocr2key.Raw
 	P2P        []p2pkey.Raw
+	Cosmos     []cosmoskey.Raw
 	Solana     []solkey.Raw
 	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
@@ -349,6 +363,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawP2PKey := range rawKeys.P2P {
 		p2pKey := rawP2PKey.Key()
 		keyRing.P2P[p2pKey.ID()] = p2pKey
+	}
+	for _, rawCosmosKey := range rawKeys.Cosmos {
+		cosmosKey := rawCosmosKey.Key()
+		keyRing.Cosmos[cosmosKey.ID()] = cosmosKey
 	}
 	for _, rawSolKey := range rawKeys.Solana {
 		solKey := rawSolKey.Key()

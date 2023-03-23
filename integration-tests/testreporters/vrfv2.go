@@ -80,7 +80,7 @@ func (o *VRFV2SoakTestReporter) SendSlackNotification(t *testing.T, slackClient 
 		headerText = ":x: VRFV2 Soak Test FAILED :x:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(
-		t, slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed,
+		headerText, o.namespace, o.csvLocation,
 	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {

@@ -25,10 +25,9 @@ type medianContract struct {
 	configTracker       types.ContractConfigTracker
 	contractCaller      *ocr2aggregator.OCR2AggregatorCaller
 	requestRoundTracker *RequestRoundTracker
-	mercuryMode         bool
 }
 
-func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger, mercuryMode bool) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
@@ -58,7 +57,6 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 			NewRoundRequestedDB(db.DB, specID, lggr),
 			chain.Config(),
 		),
-		mercuryMode: mercuryMode,
 	}, nil
 }
 
@@ -71,13 +69,6 @@ func (oc *medianContract) Close() error {
 }
 
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
-	if oc.mercuryMode {
-		// Bit of a hack, this must return the correct config digest at least
-		// TODO: Return the actual latest transmission details
-		// https://app.shortcut.com/chainlinklabs/story/57500/return-the-actual-latest-transmission-details
-		_, cd, err := oc.configTracker.LatestConfigDetails(ctx)
-		return cd, 0, 0, big.NewInt(0), time.Time{}, err
-	}
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
