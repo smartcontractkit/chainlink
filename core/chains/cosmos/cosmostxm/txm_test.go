@@ -1,4 +1,4 @@
-//go:build integration && wasmd
+//go:build integration
 
 package cosmostxm_test
 
