@@ -3,12 +3,8 @@ package testsetups
 
 import (
 	"context"
-	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
-	"github.com/smartcontractkit/chainlink/integration-tests/l2/zksync"
 	"math/big"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -146,85 +142,6 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 		)
 	}
 	l.Info().Msg("OCR Soak Test Setup Complete")
-}
-
-func (o *OCRSoakTest) SetupZKSync(t *testing.T, env *environment.Environment) {
-	o.ensureInputValues(t)
-	o.testEnvironment = env
-	// Gauntlet Setup
-	fmt.Println(o.chainClient.GetDefaultWallet().PrivateKey())
-
-	zkClient, err := zksync.Setup(os.Getenv("TEST_ZK_SYNC_GOERLI_HTTP_URLS"), o.chainClient.GetDefaultWallet().PrivateKey(), o.chainClient)
-	require.NoError(t, err, "Creating ZKSync client should not fail")
-
-	o.chainlinkNodes, err = client.ConnectChainlinkNodes(o.testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-
-	err = zkClient.CreateKeys(o.chainlinkNodes)
-	require.NoError(t, err, "Creating keys should not fail")
-
-	err = zkClient.DeployContracts(o.chainClient, gauntlet.DefaultOcrContract(), gauntlet.DefaultOcrConfig())
-	require.NoError(t, err, "Deploying Contracts should not fail")
-
-	o.mockServer, err = ctfClient.ConnectMockServer(o.testEnvironment)
-	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
-
-	o.chainClient.ParallelTransactions(true)
-
-	err = o.chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for events")
-	o.ocrInstances = []contracts.OffchainAggregator{
-		zkClient.OCRContract,
-	}
-
-	// Set Config
-	transmitterAddresses, err := actions.ChainlinkNodeAddresses(o.chainlinkNodes[1:])
-	if err != nil {
-		require.NoError(t, err, "Error getting transmitters")
-	}
-
-	// Exclude the first node, which will be used as a bootstrapper
-	err = o.ocrInstances[0].SetConfig(
-		o.chainlinkNodes[1:],
-		contracts.DefaultOffChainAggregatorConfig(len(o.chainlinkNodes[1:])),
-		transmitterAddresses,
-	)
-	if err != nil {
-		require.NoError(t, err, "Error setting config")
-	}
-}
-
-func (o *OCRSoakTest) RunZKSync(t *testing.T) {
-	l := actions.GetTestLogger(t)
-	err := actions.SetAllAdapterResponsesToTheSameValue(5, o.ocrInstances, o.chainlinkNodes, o.mockServer)
-	require.NoError(t, err)
-
-	err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
-	require.NoError(t, err)
-
-	l.Info().
-		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
-		Str("Round Timeout", o.Inputs.RoundTimeout.String()).
-		Int("Number of OCR Contracts", len(o.ocrInstances)).
-		Msg("Starting OCR Soak Test")
-
-	roundNumber := 0
-	for start := time.Now(); time.Since(start) < o.Inputs.TestDuration.Truncate(time.Second); {
-		err = actions.StartNewRound(int64(roundNumber), o.ocrInstances, o.chainClient)
-		if err != nil {
-			l.Error().Err(err)
-		}
-		answer, err := o.ocrInstances[0].GetLatestAnswer(context.Background())
-		if err != nil {
-			l.Error().Err(err)
-		}
-		if answer.Int64() != int64(5) {
-			l.Error().Msg(fmt.Sprintf("Received %v, expected %v", answer.Int64(), int64(5)))
-		}
-		time.Sleep(5)
-
-		roundNumber++
-	}
 }
 
 // Run starts the OCR soak test

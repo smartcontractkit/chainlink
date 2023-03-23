@@ -57,38 +57,6 @@ func TestOCRSoak(t *testing.T) {
 	ocrSoakTest.Run(t)
 }
 
-func TestOCRSoakZKSync(t *testing.T) {
-	l := actions.GetTestLogger(t)
-	testEnvironment, network, testInputs := SetupOCRSoakEnv(t)
-	if testEnvironment.WillUseRemoteRunner() {
-		return
-	}
-	// Adding L1 URL to HTTPURLs
-	network.HTTPURLs = append(network.HTTPURLs, os.Getenv("L1_RPC_URL"))
-
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
-	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-
-	ocrSoakTest := testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
-		BlockchainClient:     chainClient,
-		TestDuration:         testInputs.TestDuration,
-		NumberOfContracts:    2,
-		ChainlinkNodeFunding: big.NewFloat(testInputs.ChainlinkNodeFunding),
-		ExpectedRoundTime:    time.Minute * 2,
-		RoundTimeout:         time.Minute * 15,
-		TimeBetweenRounds:    testInputs.TimeBetweenRounds,
-		StartingAdapterValue: 5,
-	})
-	t.Cleanup(func() {
-		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
-			l.Error().Err(err).Msg("Error tearing down environment")
-		}
-	})
-	ocrSoakTest.SetupZKSync(t, testEnvironment)
-	l.Info().Msg("Set up soak test")
-	ocrSoakTest.RunZKSync(t)
-}
-
 func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, OcrSoakInputs) {
 	var testInputs OcrSoakInputs
 	err := envconfig.Process("OCR", &testInputs)
