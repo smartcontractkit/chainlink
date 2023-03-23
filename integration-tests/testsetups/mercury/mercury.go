@@ -1178,25 +1178,28 @@ func SetupMultiFeedSingleVerifierEnv(
 	if err != nil {
 		return nil, nil, err
 	}
-	testEnv.AddEvmNetwork()
+	err = testEnv.AddEvmNetwork()
+	if err != nil {
+		return &testEnv, nil, err
+	}
 	if err = testEnv.AddDON(); err != nil {
-		return nil, nil, err
+		return &testEnv, nil, err
 	}
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	if err != nil {
-		return nil, nil, err
+		return &testEnv, nil, err
 	}
 	_, _, err = testEnv.AddMercuryServer(nil)
 	if err != nil {
-		return nil, nil, err
+		return &testEnv, nil, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
 	if err != nil {
-		return nil, nil, err
+		return &testEnv, nil, err
 	}
 	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
 	if err != nil {
-		return nil, verifierProxyContract, err
+		return &testEnv, verifierProxyContract, err
 	}
 	// Use single verifier contract for all feeds
 	for _, feedId := range feedIDs {
@@ -1208,19 +1211,19 @@ func SetupMultiFeedSingleVerifierEnv(
 			*ocrConfig,
 		)
 		if err != nil {
-			return nil, nil, err
+			return &testEnv, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return nil, verifierProxyContract, err
+			return &testEnv, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return nil, verifierProxyContract, err
+			return &testEnv, verifierProxyContract, err
 		}
 	}
 	if err = testEnv.WaitForReportsInMercuryDb(feedIDs); err != nil {
-		return nil, verifierProxyContract, err
+		return &testEnv, verifierProxyContract, err
 	}
 	return &testEnv, verifierProxyContract, nil
 }
