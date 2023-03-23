@@ -60,9 +60,12 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 func (d *Delegate) BeforeJobDeleted(jb job.Job, q pg.Queryer) error {
 	err := d.externalInitiatorManager.DeleteJob(*jb.WebhookSpecID)
 	if err != nil {
-		err = errors.Wrapf(err, "Webhook delegate BeforeJobDeleted errored for job ID %d", jb.ID)
+		d.lggr.Errorw("Webhook delegate BeforeJobDeleted errored",
+			"error", err,
+			"jobID", jb.ID,
+		)
 	}
-	return err
+	return nil
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
