@@ -143,7 +143,7 @@ func validateNewReportsEveryBlock(
 	validatorId string,
 	duration time.Duration,
 	callTimeout time.Duration,
-	feedId string, er expectedResult,
+	feedId [32]byte, er expectedResult,
 	evmClient blockchain.EVMClient, msClient *client.MercuryServer,
 	wg *sync.WaitGroup, resultChan chan testResult) {
 
@@ -178,7 +178,7 @@ func validateNewReportsEveryBlock(
 			time.Sleep(callTimeout)
 
 			requestTime := time.Now()
-			reportData, _, err := msClient.GetReportsByFeedIdStr(feedId, bn)
+			reportData, _, err := msClient.GetReportsByFeedIdStr(string(mercury.Byte32ToString(feedId)), bn)
 			if err != nil {
 				resultChan <- testResult{Id: validatorId, Err: err}
 				break
@@ -318,10 +318,9 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for _, feedIdBytes := range feedIds {
-		feedIdStr := mercury.Byte32ToString(feedIdBytes)
+	for _, feedId := range feedIds {
 
-		t.Run(fmt.Sprintf("validate report values for latest block number for %s", feedIdStr),
+		t.Run(fmt.Sprintf("validate report values for latest block number for %s", feedId),
 			func(t *testing.T) {
 				evmClient := testEnv.EvmClient
 				msClient := testEnv.MSClient
@@ -332,7 +331,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 					}
 
 					er := expectedResult{
-						FeedId: feedIdBytes,
+						FeedId: feedId,
 						Value:  simulation.Rounds[i].DataProviderValue,
 					}
 
@@ -355,7 +354,7 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 						go validateNewReportsEveryBlock(
 							validatorId, simulation.Rounds[i].Duration,
 							simulation.Rounds[i].TimeBetweenNewBlockAndApiCall,
-							feedIdStr, er, evmClient, msClient, &wg, resultChan,
+							feedId, er, evmClient, msClient, &wg, resultChan,
 						)
 					}
 
