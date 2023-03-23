@@ -221,19 +221,55 @@ func Test_OCR1Config_Scan(t *testing.T) {
 	}
 }
 
+func Test_Plugins_Value(t *testing.T) {
+	t.Parallel()
+
+	var (
+		give = Plugins{
+			Median: true,
+		}
+		want = `{"median":true}`
+	)
+
+	val, err := give.Value()
+	require.NoError(t, err)
+
+	actual, ok := val.([]byte)
+	require.True(t, ok)
+
+	assert.Equal(t, want, string(actual))
+}
+
+func Test_Plugins_Scan(t *testing.T) {
+	t.Parallel()
+
+	var (
+		give = `{"median":true}`
+		want = Plugins{
+			Median: true,
+		}
+	)
+
+	var actual Plugins
+	err := actual.Scan([]byte(give))
+	require.NoError(t, err)
+
+	assert.Equal(t, want, actual)
+}
+
 func Test_OCR2Config_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
 		give = OCR2Config{
-			Enabled:        true,
-			IsBootstrap:    false,
-			Multiaddr:      null.StringFrom("multiaddr"),
-			P2PPeerID:      null.StringFrom("peerid"),
-			KeyBundleID:    null.StringFrom("ocrkeyid"),
-			EnabledPlugins: []string{"median"},
+			Enabled:     true,
+			IsBootstrap: false,
+			Multiaddr:   null.StringFrom("multiaddr"),
+			P2PPeerID:   null.StringFrom("peerid"),
+			KeyBundleID: null.StringFrom("ocrkeyid"),
+			Plugins:     Plugins{Median: true},
 		}
-		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","enabled_plugins":["median"]}`
+		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"median":true}}`
 	)
 
 	val, err := give.Value()
@@ -249,14 +285,14 @@ func Test_OCR2Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","enabled_plugins":["median"]}`
+		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"median":true}}`
 		want = OCR2Config{
-			Enabled:        true,
-			IsBootstrap:    false,
-			Multiaddr:      null.StringFrom("multiaddr"),
-			P2PPeerID:      null.StringFrom("peerid"),
-			KeyBundleID:    null.StringFrom("ocrkeyid"),
-			EnabledPlugins: []string{"median"},
+			Enabled:     true,
+			IsBootstrap: false,
+			Multiaddr:   null.StringFrom("multiaddr"),
+			P2PPeerID:   null.StringFrom("peerid"),
+			KeyBundleID: null.StringFrom("ocrkeyid"),
+			Plugins:     Plugins{Median: true},
 		}
 	)
 

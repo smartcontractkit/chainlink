@@ -59,7 +59,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":    false,
 				"ocr2P2PPeerID":      peerID.String,
 				"ocr2KeyBundleID":    keyBundleID.String,
-				"ocr2EnabledPlugins": []interface{}{"MEDIAN"},
+				"ocr2Plugins":        `{"median": true}`,
 			},
 		}
 	)
@@ -86,10 +86,12 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: keyBundleID,
 					},
 					OCR2Config: feeds.OCR2Config{
-						Enabled:        true,
-						P2PPeerID:      peerID,
-						KeyBundleID:    keyBundleID,
-						EnabledPlugins: []string{"median"},
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
+						Plugins: feeds.Plugins{
+							Median: true,
+						},
 					},
 				}).Return(cfgID, nil)
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
@@ -107,10 +109,12 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: keyBundleID,
 					},
 					OCR2Config: feeds.OCR2Config{
-						Enabled:        true,
-						P2PPeerID:      peerID,
-						KeyBundleID:    keyBundleID,
-						EnabledPlugins: []string{"median"},
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
+						Plugins: feeds.Plugins{
+							Median: true,
+						},
 					},
 				}, nil)
 			},
@@ -294,7 +298,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":    false,
 				"ocr2P2PPeerID":      peerID.String,
 				"ocr2KeyBundleID":    keyBundleID.String,
-				"ocr2EnabledPlugins": []interface{}{"MEDIAN"},
+				"ocr2Plugins":        `{"median": true}`,
 			},
 		}
 	)
@@ -319,10 +323,12 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: null.StringFrom(keyBundleID.String),
 					},
 					OCR2Config: feeds.OCR2Config{
-						Enabled:        true,
-						P2PPeerID:      peerID,
-						KeyBundleID:    keyBundleID,
-						EnabledPlugins: []string{"median"},
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
+						Plugins: feeds.Plugins{
+							Median: true,
+						},
 					},
 				}).Return(cfgID, nil)
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
@@ -338,10 +344,12 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: null.StringFrom(keyBundleID.String),
 					},
 					OCR2Config: feeds.OCR2Config{
-						Enabled:        true,
-						P2PPeerID:      peerID,
-						KeyBundleID:    keyBundleID,
-						EnabledPlugins: []string{"median"},
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
+						Plugins: feeds.Plugins{
+							Median: true,
+						},
 					},
 				}, nil)
 			},

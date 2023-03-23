@@ -40,6 +40,23 @@ func ToPluginType(s string) (PluginType, error) {
 	}
 }
 
+type Plugins struct {
+	Median bool `json:"median"`
+}
+
+func (p Plugins) Value() (driver.Value, error) {
+	return json.Marshal(p)
+}
+
+func (p *Plugins) Scan(value interface{}) error {
+	b, ok := value.(string)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal([]byte(b), &p)
+}
+
 type ChainType string
 
 const (
@@ -125,12 +142,12 @@ func (c *OCR1Config) Scan(value interface{}) error {
 
 // OCR2Config defines configuration for OCR2 Jobs.
 type OCR2Config struct {
-	Enabled        bool        `json:"enabled"`
-	IsBootstrap    bool        `json:"is_bootstrap"`
-	Multiaddr      null.String `json:"multiaddr"`
-	P2PPeerID      null.String `json:"p2p_peer_id"`
-	KeyBundleID    null.String `json:"key_bundle_id"`
-	EnabledPlugins []string    `json:"enabled_plugins"`
+	Enabled     bool        `json:"enabled"`
+	IsBootstrap bool        `json:"is_bootstrap"`
+	Multiaddr   null.String `json:"multiaddr"`
+	P2PPeerID   null.String `json:"p2p_peer_id"`
+	KeyBundleID null.String `json:"key_bundle_id"`
+	Plugins     Plugins     `json:"plugins"`
 }
 
 func (c OCR2Config) Value() (driver.Value, error) {
