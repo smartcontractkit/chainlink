@@ -7,10 +7,14 @@ echo $SCRIPTPATH
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.8.15
 
-# Transmission
-$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/Greeter.sol
-$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/SCA.sol
-$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/Paymaster.sol
-$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/consumers/SmartContractAccountFactory.sol
-$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/EntryPoint.sol
-$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/utils/SmartContractAccountHelper.sol
+# Contracts
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/SCA.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/Paymaster.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/SmartContractAccountFactory.sol
+
+# Testhelpers
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/testhelpers/SmartContractAccountHelper.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/testhelpers/Greeter.sol
+
+# Vendor
+$SCRIPTPATH/native_solc8_15_compile dev/vendor/entrypoint/core/EntryPoint.sol

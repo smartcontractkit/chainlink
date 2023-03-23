@@ -8,6 +8,7 @@ union JobSpec =
     VRFSpec |
     WebhookSpec |
     BlockhashStoreSpec |
+    TransmissionSpec |
     BootstrapSpec
 
 type CronSpec {
@@ -138,5 +139,12 @@ type BootstrapSpec {
     blockchainTimeout: String
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
+    createdAt: Time!
+}
+
+type TransmissionSpec {
+    rpcPort: String
+    evmChainID: String
+    fromAddresses: [String!]
     createdAt: Time!
 }

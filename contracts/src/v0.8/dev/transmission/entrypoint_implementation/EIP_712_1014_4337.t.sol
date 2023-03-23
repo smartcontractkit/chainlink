@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "./consumers/SmartContractAccountFactory.sol";
-import "./utils/SmartContractAccountHelper.sol";
-import "./consumers/SCA.sol";
-import "./consumers/Greeter.sol";
-import "./consumers/Paymaster.sol";
-import "./interfaces/UserOperation.sol";
-import "./contracts/EntryPoint.sol";
-import "./interfaces/IEntryPoint.sol";
-import "./consumers/SCALibrary.sol";
+import "./contracts/SmartContractAccountFactory.sol";
+import "./testhelpers/SmartContractAccountHelper.sol";
+import "./contracts/SCA.sol";
+import "./testhelpers/Greeter.sol";
+import "./contracts/Paymaster.sol";
+import "../../vendor/entrypoint/interfaces/UserOperation.sol";
+import "../../vendor/entrypoint/core/EntryPoint.sol";
+import "../../vendor/entrypoint/interfaces/IEntryPoint.sol";
+import "./contracts/SCALibrary.sol";
 import "../../../mocks/MockLinkToken.sol";
 import "../../../interfaces/LinkTokenInterface.sol";
 import "../../../mocks/VRFCoordinatorMock.sol";
@@ -70,16 +70,16 @@ contract EIP_712_1014_4337 is Test {
     EntryPoint entryPoint;
 
     bytes signature = // Signature by LINK_WHALE. Signs off on "hi" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"3b8fc44066576110ba9b3f77b479fdec9cc6a3bba5d25f80f27a7dd40e4ece550becaeca8473b82a208bcfe1bf1ad89a32fc2dd5fa642f931f748fd62a8717e601";
+        hex"6f08b54f6d42a82ea550c49fa5aff09248b02c13f32d5c285de29ed05087aff61e8b1a20571be569acdab24efeb5e2f49666082939f9d2ca159b879fa8b2909501";
 
     bytes signature2 = // Signature by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"cd6317fd718037261501fce54cd7355d646b39f5b75e91d5f01b2c032a56035e43eba05c4da914511fdcb806d75596f1b7a9a762a47f1eb5711168be6f3355ac01";
+        hex"4b3f5c407debc369a3e2c80ba500e9a4b6a6233185cf36b2c4c3cfcb05b498425e82b89c4938a3ba9c3093b44703f67ced44a7b6bfbfa164679131fe7a04070500";
 
     bytes signature3 = // Signature #2 by LINK_WHALE_2. Signs off on "bye" being set as the greeting on the Greeter.sol contract, without knowing the address of their SCA.
-        hex"9895b844224797d1d5caf20862c182032b3dfcb901840aa91ae08478d422daa43f6ccdf8f7c862c2c03364fcf181ca019242dc265a841b6c0c6c1f80d13e05b800";
+        hex"e81e498aca99e564fa6c122e317e5442229741e85cb7d33444dc41a790113f0a171b22b6a43dbd6f7cbc1150d50151966e2066576d806978a72a0d969a1e482b00";
     
-    bytes signature4 = 
-        hex"09e5fe6c212e5fe7959c618362ff86621916618182fb8f117040d28f6f9ae541520bb9cba50a73b5b6167f7ebe7de0f9e357bf1c1c43a0d0c424b6ddeaac282500";
+    bytes signature4 = // Signature #3 by LINK_WHALE_2. Signs off on a VRF consumer topup & request, without knowing the address of their SCA.
+        hex"3df5311388af69e8c6823050377c14b57c060433826fbb8733311a8a901d1daa23d8324d848cfb981aa2983323a6b48e2af497b8fce07f82dc72bbdc3b7edab000";
     
     function setUp() public {
         // Fork Goerli.
@@ -146,7 +146,7 @@ contract EIP_712_1014_4337 is Test {
             callData: fullEncoding,
             callGasLimit: 1_000_000,
             verificationGasLimit: 1_000_000,
-            preVerificationGas: 1_000_000,
+            preVerificationGas: 10_000,
             maxFeePerGas: 100,
             maxPriorityFeePerGas: 200,
             paymasterAndData: "",
@@ -168,6 +168,7 @@ contract EIP_712_1014_4337 is Test {
 
         // Assert that the greeting was set.
         assertEq("hi", Greeter(greeter).getGreeting());
+        assertEq(SCA(toDeployAddress).s_nonce(), uint256(1));
     }
 
     /// @dev Test case for fresh user, EntryPoint.sol should generate a 
@@ -206,7 +207,7 @@ contract EIP_712_1014_4337 is Test {
             callData: fullEncoding,
             callGasLimit: 1_000_000,
             verificationGasLimit: 500_000,
-            preVerificationGas: 20_000,
+            preVerificationGas: 10_000,
             maxFeePerGas: 100,
             maxPriorityFeePerGas: 200,
             paymasterAndData: "",
@@ -228,6 +229,7 @@ contract EIP_712_1014_4337 is Test {
 
         // Assert that the greeting was set.
         assertEq("bye", Greeter(greeter).getGreeting());
+        assertEq(SCA(toDeployAddress).s_nonce(), uint256(1));
     }
 
     /// @dev Test case for a user executing a setGreeting with a LINK token paymaster.
@@ -270,7 +272,7 @@ contract EIP_712_1014_4337 is Test {
             callData: fullEncoding,
             callGasLimit: 1_000_000,
             verificationGasLimit: 1_500_000,
-            preVerificationGas: 20_000,
+            preVerificationGas: 10_000,
             maxFeePerGas: 100,
             maxPriorityFeePerGas: 200,
             paymasterAndData: abi.encodePacked(address(paymaster)),
@@ -292,6 +294,7 @@ contract EIP_712_1014_4337 is Test {
 
         // Assert that the greeting was set.
         assertEq("good day", Greeter(greeter).getGreeting());
+        assertEq(SCA(toDeployAddress).s_nonce(), uint256(1));
     }
 
     /// @dev Test case for a VRF Request via LINK token paymaster and an SCA.
@@ -344,11 +347,11 @@ contract EIP_712_1014_4337 is Test {
             nonce: 0,
             initCode: fullInitializeCode,
             callData: fullEncoding,
-            callGasLimit: 1_000_000,
-            verificationGasLimit: 1_500_000,
-            preVerificationGas: 20_000,
-            maxFeePerGas: 100,
-            maxPriorityFeePerGas: 200,
+            callGasLimit: 200_000,
+            verificationGasLimit: 1_000_000,
+            preVerificationGas: 10_000,
+            maxFeePerGas: 10,
+            maxPriorityFeePerGas: 10,
             paymasterAndData: abi.encodePacked(address(paymaster), uint8(0), abi.encode(directFundingData)),
             signature: signature4
         });
@@ -378,6 +381,23 @@ contract EIP_712_1014_4337 is Test {
         // Execute the user operation.
         UserOperation[] memory operations = new UserOperation[](1);
         operations[0] = op;
-        entryPoint.handleOps(operations, payable(LINK_WHALE_2));        
+
+        // Simulate user operation to ensure success.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.ExecutionResult.selector, // success
+                512_474, // Estimated gas cost for execution (contract deployment + call)
+                5_677_040, // Estimated fee taken (~maxFeePerGas * gas spent)
+                0, // operation validity start time
+                type(uint48).max, // operation validity end-time (unlimited)
+                0, // target
+                "" // target callData
+            )
+        );
+        entryPoint.simulateHandleOp(op, address(0), "");
+
+        // Execute user operation and ensure correct outcome.
+        entryPoint.handleOps(operations, payable(LINK_WHALE_2));    
+        assertEq(SCA(toDeployAddress).s_nonce(), uint256(1));
     }
 }

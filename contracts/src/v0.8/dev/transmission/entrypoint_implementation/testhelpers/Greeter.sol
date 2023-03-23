@@ -1,6 +1,7 @@
-//SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.15;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
 
+/// @dev Ownerless greeter contract.
 contract Greeter {
     string private s_greeting;
 

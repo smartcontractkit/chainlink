@@ -1,4 +1,4 @@
-package metatx_test
+package transmission_test
 
 import (
 	"crypto/ecdsa"
@@ -19,16 +19,25 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_mock"
 
+	"github.com/ethereum/go-ethereum/core/types"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/entry_point"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/greeter_wrapper"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/paymaster_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/sca_wrapper"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/smart_contract_account_factory"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/smart_contract_account_helper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/metatx"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/transmission"
+)
+
+var (
+	greeterABI    = evmtypes.MustGetABI(greeter_wrapper.GreeterABI)
+	consumerABI   = evmtypes.MustGetABI(solidity_vrf_consumer_interface_v08.VRFConsumerABI)
+	entrypointABI = evmtypes.MustGetABI(entry_point.EntryPointABI)
 )
 
 func Test4337Basic(t *testing.T) {
@@ -100,11 +109,8 @@ func Test4337Basic(t *testing.T) {
 	t.Log("Full initialization code:", common.Bytes2Hex(fullInitializeCode))
 
 	// Construct calldata for setGreeting.
-	abi, err := greeter_wrapper.GreeterMetaData.GetAbi()
+	encodedGreetingCall, err := greeterABI.Pack("setGreeting", "bye")
 	require.NoError(t, err)
-	greeting, err := utils.ABIEncode(`[{"type":"string"}]`, "bye")
-	require.NoError(t, err)
-	encodedGreetingCall := append(abi.Methods["setGreeting"].ID, greeting...)
 	t.Log("Encoded greeting call:", common.Bytes2Hex(encodedGreetingCall))
 
 	// Construct the calldata to be passed in the user operation.
@@ -138,7 +144,7 @@ func Test4337Basic(t *testing.T) {
 	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
-	sig, err := metatx.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
 	require.NoError(t, err)
 	t.Log("Signature:", common.Bytes2Hex(sig))
 	userOp.Signature = sig
@@ -164,6 +170,13 @@ func Test4337Basic(t *testing.T) {
 	greetingResult, err := greeter.GetGreeting(nil)
 	require.NoError(t, err)
 	require.Equal(t, "bye", greetingResult)
+
+	// Assert smart contract account is created and nonce incremented.
+	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
+	require.NoError(t, err)
+	onChainNonce, err := sca.SNonce(nil)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1), onChainNonce)
 }
 
 func Test4337WithLinkTokenPaymaster(t *testing.T) {
@@ -235,11 +248,8 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	t.Log("Full initialization code:", common.Bytes2Hex(fullInitializeCode))
 
 	// Construct calldata for setGreeting.
-	abi, err := greeter_wrapper.GreeterMetaData.GetAbi()
+	encodedGreetingCall, err := greeterABI.Pack("setGreeting", "bye")
 	require.NoError(t, err)
-	greeting, err := utils.ABIEncode(`[{"type":"string"}]`, "bye")
-	require.NoError(t, err)
-	encodedGreetingCall := append(abi.Methods["setGreeting"].ID, greeting...)
 	t.Log("Encoded greeting call:", common.Bytes2Hex(encodedGreetingCall))
 
 	// Construct the calldata to be passed in the user operation.
@@ -289,7 +299,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
-	sig, err := metatx.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
 	require.NoError(t, err)
 	t.Log("Signature:", common.Bytes2Hex(sig))
 	userOp.Signature = sig
@@ -315,6 +325,13 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	greetingResult, err := greeter.GetGreeting(nil)
 	require.NoError(t, err)
 	require.Equal(t, "bye", greetingResult)
+
+	// Assert smart contract account is created and nonce incremented.
+	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
+	require.NoError(t, err)
+	onChainNonce, err := sca.SNonce(nil)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1), onChainNonce)
 }
 
 func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
@@ -388,11 +405,8 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	var keyhash [32]byte
 	copy(keyhash[:], common.LeftPadBytes(big.NewInt(123).Bytes(), 32))
 	var fee = assets.Ether(1).ToInt()
-	abi, err := solidity_vrf_consumer_interface_v08.VRFConsumerMetaData.GetAbi()
+	encodedVRFRequest, err := consumerABI.Pack("doRequestRandomness", keyhash, fee)
 	require.NoError(t, err)
-	requestData, err := utils.ABIEncode(`[{"type":"bytes32"}, {"type":"uint256"}]`, keyhash, fee)
-	require.NoError(t, err)
-	encodedVRFRequest := append(abi.Methods["doRequestRandomness"].ID, requestData...)
 	t.Log("Encoded vrf request:", common.Bytes2Hex(encodedVRFRequest))
 
 	// Construct the calldata to be passed in the user operation.
@@ -444,7 +458,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
-	sig, err := metatx.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
 	require.NoError(t, err)
 	t.Log("Signature:", common.Bytes2Hex(sig))
 	userOp.Signature = sig
@@ -461,10 +475,37 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	require.Equal(t, assets.Ether(10).ToInt(), balance)
 
 	// Run handleOps from holder2's account, to demonstrate that any account can execute this signed user operation.
-	tx, err = entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
+	// Manually execute transaction to test ABI packing.
+	gasPrice, err := backend.SuggestGasPrice(testutils.Context(t))
+	require.NoError(t, err)
+	accountNonce, err := backend.PendingNonceAt(testutils.Context(t), holder2.From)
+	require.NoError(t, err)
+	payload, err := entrypointABI.Pack("handleOps", []entry_point.UserOperation{userOp}, holder1.From)
+	require.NoError(t, err)
+	gas, err := backend.EstimateGas(testutils.Context(t), ethereum.CallMsg{
+		From:     holder2.From,
+		To:       &entryPointAddress,
+		Gas:      0,
+		Data:     payload,
+		GasPrice: gasPrice,
+	})
+	unsigned := types.NewTx(&types.LegacyTx{
+		Nonce:    accountNonce,
+		Gas:      gas,
+		To:       &entryPointAddress,
+		Value:    big.NewInt(0),
+		Data:     payload,
+		GasPrice: gasPrice,
+	})
+	require.NoError(t, err)
+	signedtx, err := holder2.Signer(holder2.From, unsigned)
+	require.NoError(t, err)
+	err = backend.SendTransaction(testutils.Context(t), signedtx)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	receipt, err := bind.WaitMined(testutils.Context(t), backend, signedtx)
+	require.NoError(t, err)
+	t.Log("Receipt:", receipt.Status)
 
 	// Assert the VRF request was correctly made.
 	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{
@@ -477,4 +518,11 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	require.Equal(t, fee, randomnessRequestLog.Fee)
 	require.Equal(t, keyhash, randomnessRequestLog.KeyHash)
 	require.Equal(t, vrfConsumerAddress, randomnessRequestLog.Sender)
+
+	// Assert smart contract account is created and nonce incremented.
+	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
+	require.NoError(t, err)
+	onChainNonce, err := sca.SNonce(nil)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1), onChainNonce)
 }

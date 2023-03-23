@@ -1,18 +1,14 @@
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
 
-import "../interfaces/IPaymaster.sol";
+import "../../../vendor/entrypoint/interfaces/IPaymaster.sol";
 import "./SCALibrary.sol";
-import "../contracts/Helpers.sol";
+import "../../../vendor/entrypoint/core/Helpers.sol";
 import "../../../../interfaces/LinkTokenInterface.sol";
 import "./SCALibrary.sol";
 
-/**
- * the interface exposed by a paymaster contract, who agrees to pay the gas for user's operations.
- * a paymaster must hold a stake to cover the required entrypoint stake and also the gas for the transaction.
- */
+/// @dev LINK token paymaster implementation.
 contract Paymaster is IPaymaster {
-
   error OnlyCallableFromLink();
   error InvalidCalldata();
 
@@ -44,26 +40,36 @@ contract Paymaster is IPaymaster {
     uint256 maxCost
   ) external returns (bytes memory context, uint256 validationData) {
     if (userOpHashMapping[userOpHash]) {
-      return ("", _packValidationData(true, 0, 0)); // already tried
+      require(false, "already tried");
+      // return ("", _packValidationData(true, 0, 0)); // already tried
     }
 
-    uint256 costJuels = (1e18 * maxCost) / weiPerUnitLink + extractExtraCostJuels(userOp);
+    uint256 extraCostJuels = extractExtraCostJuels(userOp);
+    uint256 costJuels = (1e18 * maxCost) / weiPerUnitLink + extraCostJuels;
     if (subscriptions[userOp.sender] < costJuels) {
-      return ("", _packValidationData(true, 0, 0)); // insufficient funds
+      require(false, "insufficient funds");
+      // return ("", _packValidationData(true, 0, 0)); // insufficient funds
     }
 
     userOpHashMapping[userOpHash] = true;
-    return (abi.encode(userOp.sender), _packValidationData(false, 0, 0)); // already tried
+    return (abi.encode(userOp.sender, extraCostJuels), _packValidationData(false, 0, 0)); // already tried
   }
 
+  /// @dev Calculates any extra LINK cost for the user operation, based on the funding type passed to the
+  /// @dev paymaster.
   function extractExtraCostJuels(UserOperation calldata userOp) internal returns (uint256 extraCost) {
     if (userOp.paymasterAndData.length == 20) {
-      return 0; // no extra data.
+      return 0; // no extra data, stop here
     }
 
     uint8 paymentType = uint8(userOp.paymasterAndData[20]);
+
+    // For direct funding, use top-up logic.
     if (paymentType == uint8(SCALibrary.LinkPaymentType.DIRECT_FUNDING)) {
-      SCALibrary.DirectFundingData memory directFundingData = abi.decode(userOp.paymasterAndData[21:], (SCALibrary.DirectFundingData));
+      SCALibrary.DirectFundingData memory directFundingData = abi.decode(
+        userOp.paymasterAndData[21:],
+        (SCALibrary.DirectFundingData)
+      );
       if (
         directFundingData.topupThreshold != 0 &&
         LINK.balanceOf(directFundingData.recipient) < directFundingData.topupThreshold
@@ -74,9 +80,10 @@ contract Paymaster is IPaymaster {
     }
   }
 
-  function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external {
-    address sender = abi.decode(context, (address));
+  /// @dev Deducts user subscription balance after execution.
+  function postOp(PostOpMode /* mode */, bytes calldata context, uint256 actualGasCost) external {
+    (address sender, uint256 extraCostJuels) = abi.decode(context, (address, uint256));
     uint256 costJuels = (1e18 * actualGasCost) / weiPerUnitLink;
-    subscriptions[sender] -= costJuels;
+    subscriptions[sender] -= (costJuels + extraCostJuels);
   }
 }

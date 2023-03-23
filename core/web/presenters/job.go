@@ -32,6 +32,7 @@ const (
 	KeeperJobSpec            JobSpecType = "keeper"
 	CronJobSpec              JobSpecType = "cron"
 	VRFJobSpec               JobSpecType = "vrf"
+	TransmissionJobSpec      JobSpecType = "transmission"
 	WebhookJobSpec           JobSpecType = "webhook"
 	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
@@ -350,6 +351,24 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	}
 }
 
+// TransmissionSpec defines the job parameters for a transmission job.
+type TransmissionSpec struct {
+	RPCPort       uint16                `json:"rpcPort"`
+	EVMChainID    *utils.Big            `json:"evmChainID"`
+	FromAddresses []ethkey.EIP55Address `json:"fromAddresses"`
+	CreatedAt     time.Time             `json:"createdAt"`
+	UpdatedAt     time.Time             `json:"updatedAt"`
+}
+
+// NewTransmissionSpec creates a new TransmissionSpec for the given parameters.
+func NewTransmissionSpec(spec *job.TransmissionSpec) *TransmissionSpec {
+	return &TransmissionSpec{
+		RPCPort:       spec.RPCPort,
+		EVMChainID:    spec.EVMChainID,
+		FromAddresses: spec.FromAddresses,
+	}
+}
+
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
 	ContractID                             string                 `json:"contractID"`
@@ -416,6 +435,7 @@ type JobResource struct {
 	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
 	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
+	TransmissionSpec       *TransmissionSpec       `json:"transmissionSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -455,6 +475,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BlockhashStoreSpec = NewBlockhashStoreSpec(j.BlockhashStoreSpec)
 	case job.Bootstrap:
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
+	case job.Transmission:
+		resource.TransmissionSpec = NewTransmissionSpec(j.TransmissionSpec)
 	}
 
 	jes := []JobError{}

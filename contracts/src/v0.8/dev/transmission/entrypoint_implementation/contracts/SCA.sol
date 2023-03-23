@@ -1,14 +1,15 @@
-import "../interfaces/IAccount.sol";
+// SPDX-License-Identifier: MIT
+import "../../../vendor/entrypoint/interfaces/IAccount.sol";
 import "./SCALibrary.sol";
-import "../contracts/Helpers.sol";
+import "../../../vendor/entrypoint/core/Helpers.sol";
 
-//SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.15;
+/// TODO: decide on a compiler version. Must not be dynamic, and must be > 0.8.12.
+pragma solidity 0.8.15; 
 
 // Smart Contract Account, a contract deployed for a single user and that allows
 // them to invoke meta-transactions.
 contract SCA is IAccount {
-  uint256 s_nonce;
+  uint256 public s_nonce;
   address public immutable s_owner;
   address public immutable s_entryPoint;
 

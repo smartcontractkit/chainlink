@@ -1,9 +1,10 @@
-import "../consumers/SCA.sol";
-import "../consumers/SmartContractAccountFactory.sol";
-import "../consumers/SCALibrary.sol";
+import "../contracts/SCA.sol";
+import "../contracts/SmartContractAccountFactory.sol";
+import "../contracts/SCALibrary.sol";
 
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.15;
 
+/// TODO: delete this file. Move all logic into Go, or into the smart contract account factory.
 library SmartContractAccountHelper {
   bytes constant initailizeCode = type(SCA).creationCode;
 

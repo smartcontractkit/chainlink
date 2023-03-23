@@ -64,7 +64,6 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				vrfKey.PublicKey.MustHash(), big.NewInt(100))
 			require.NoError(t, err)
 			cu.backend.Commit()
-			t.Log("Sent 2 test requests")
 			// Mine the required number of blocks
 			// So our request gets confirmed.
 			for i := 0; i < incomingConfs; i++ {

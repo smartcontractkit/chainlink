@@ -1,4 +1,4 @@
-package metatx
+package transmission
 
 import (
 	"crypto/ecdsa"

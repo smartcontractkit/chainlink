@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity ^0.8.15;
 
 library SCALibrary {
   // keccak256("EIP712Domain(uint256 chainId, address verifyingContract)");
