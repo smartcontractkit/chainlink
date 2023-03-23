@@ -80,6 +80,7 @@ type TaskRun struct {
 
 type NodeKeysBundle struct {
 	OCR2Key    OCR2Key
+	OCRKey     OCRKey
 	PeerID     string
 	TXKey      TxKey
 	P2PKeys    P2PKeys
@@ -428,9 +429,9 @@ type CosmosChainConfig struct {
 
 // CosmosChainAttributes is the model that represents the terra chain
 type CosmosChainAttributes struct {
-	ChainID string           `json:"chainID"`
+	ChainID string            `json:"chainID"`
 	Config  CosmosChainConfig `json:"config"`
-	FCDURL  string           `json:"fcdURL" db:"fcd_url"`
+	FCDURL  string            `json:"fcdURL" db:"fcd_url"`
 }
 
 // CosmosChain is the model that represents the terra chain when read
@@ -446,7 +447,7 @@ type CosmosChainCreate struct {
 // CosmosNodeAttributes is the model that represents the terra noded
 type CosmosNodeAttributes struct {
 	Name          string `json:"name"`
-	CosmosChainID  string `json:"cosmosChainId"`
+	CosmosChainID string `json:"cosmosChainId"`
 	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
 }
 

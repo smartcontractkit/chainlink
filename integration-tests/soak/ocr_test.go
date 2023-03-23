@@ -58,7 +58,7 @@ func TestOCRSoak(t *testing.T) {
 }
 
 func TestOCRSoakZKSync(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, network, testInputs := SetupOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

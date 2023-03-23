@@ -64,7 +64,8 @@ func (oc *OCRContractTransmitter) Transmit(ctx context.Context, report []byte, r
 }
 
 func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer ocrtypes.Observation, latestTimestamp time.Time, err error) {
-	opts := bind.CallOpts{Context: ctx, Pending: false}
+	//TODO: check for a better fix and reach out to zkSync
+	opts := bind.CallOpts{Context: ctx, Pending: false, From: gethCommon.HexToAddress("0x0000000000000000000000000000000000000011")}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	if err != nil {
 		return configDigest, 0, 0, ocrtypes.Observation(nil), time.Time{}, errors.Wrap(err, "error getting LatestTransmissionDetails")

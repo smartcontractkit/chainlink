@@ -3,6 +3,8 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
+	"github.com/smartcontractkit/chainlink/integration-tests/l2/zksync"
 	"math/big"
 	"os"
 	"strings"
@@ -77,6 +79,85 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
+	require.NoError(t, err, "Error getting latest OCR answer")
+	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+}
+
+// WIP
+func TestOCRZKSync(t *testing.T) {
+	testEnvironment, testNetwork := setupOCRTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
+
+	// Adding L1 URL to HTTPURLs
+	testNetwork.HTTPURLs = append(testNetwork.HTTPURLs, os.Getenv("L1_RPC_URL"))
+
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+
+	// Gauntlet Setup
+	zkClient, err := zksync.Setup(os.Getenv("ZK_SYNC_GOERLI_HTTP_URLS"), chainClient.GetDefaultWallet().PrivateKey(), chainClient)
+	require.NoError(t, err, "Creating ZKSync client should not fail")
+
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+
+	err = zkClient.CreateKeys(chainlinkNodes)
+	require.NoError(t, err, "Creating keys should not fail")
+
+	err = zkClient.DeployContracts(chainClient, gauntlet.DefaultOcrContract(), gauntlet.DefaultOcrConfig())
+	require.NoError(t, err, "Deploying Contracts should not fail")
+
+	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
+	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
+
+	t.Cleanup(func() {
+		err = actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.DebugLevel)
+		require.NoError(t, err, "Error tearing down environment")
+	})
+	chainClient.ParallelTransactions(true)
+
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for events")
+	ocrInstance := []contracts.OffchainAggregator{
+		zkClient.OCRContract,
+	}
+
+	// Set Config
+	transmitterAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes[1:])
+	if err != nil {
+		require.NoError(t, err, "Error getting transmitters")
+	}
+
+	// Exclude the first node, which will be used as a bootstrapper
+	err = ocrInstance[0].SetConfig(
+		chainlinkNodes[1:],
+		contracts.DefaultOffChainAggregatorConfig(len(chainlinkNodes[1:])),
+		transmitterAddresses,
+	)
+	if err != nil {
+		require.NoError(t, err, "Error setting config")
+	}
+	err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstance, chainlinkNodes, mockServer)
+	require.NoError(t, err)
+
+	err = actions.CreateOCRJobs(ocrInstance, chainlinkNodes, mockServer)
+	require.NoError(t, err)
+
+	err = actions.StartNewRound(1, ocrInstance, chainClient)
+	require.NoError(t, err)
+
+	answer, err := ocrInstance[0].GetLatestAnswer(context.Background())
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
+
+	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstance, chainlinkNodes, mockServer)
+	require.NoError(t, err)
+	err = actions.StartNewRound(2, ocrInstance, chainClient)
+	require.NoError(t, err)
+
+	answer, err = ocrInstance[0].GetLatestAnswer(context.Background())
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 }

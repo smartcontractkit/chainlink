@@ -186,6 +186,18 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	// https://era.zksync.io/docs/dev/troubleshooting/important-links.html
+	ZKSyncGoerliTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "ZKSync Goerli Testnet",
+		ClientImplementation:      blockchain.ZKSyncClientImplementation,
+		ChainID:                   280,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{5 * time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	mappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -201,6 +213,7 @@ var (
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
 		"AVALANCHE_FUJI":  Avalanche,
+		"ZK_SYNC_GOERLI":  ZKSyncGoerliTestnet,
 	}
 )
 

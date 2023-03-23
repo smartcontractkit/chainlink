@@ -3,6 +3,7 @@ package txmgr
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	"sync"
 	"time"
@@ -559,6 +560,9 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 	err = ethClient.SendTransaction(ctx, signedTx)
 
 	a.EthTx = e // for logging
+	//TODO: This is a hack to debug the zkSync ISSUE - REMOVE this later
+	data, err := signedTx.MarshalBinary()
+	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a, "rawtxnhex", hexutil.Encode(data))
 	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
 	sendErr := evmclient.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {

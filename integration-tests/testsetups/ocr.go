@@ -195,7 +195,7 @@ func (o *OCRSoakTest) SetupZKSync(t *testing.T, env *environment.Environment) {
 }
 
 func (o *OCRSoakTest) RunZKSync(t *testing.T) {
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	err := actions.SetAllAdapterResponsesToTheSameValue(5, o.ocrInstances, o.chainlinkNodes, o.mockServer)
 	require.NoError(t, err)
 
