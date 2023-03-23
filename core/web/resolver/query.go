@@ -406,20 +406,21 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 			continue
 		}
-		if err != nil {
-			return nil, fmt.Errorf("error getting EVM Chain: %v", err)
+		// Don't include keys without valid chain.
+		// OperatorUI fails to show keys where chains are not in the config.
+		if err == nil {
+			ethKeys = append(ethKeys, ETHKey{
+				addr:  k.EIP55Address,
+				state: state,
+				chain: chain,
+			})
 		}
-
-		ethKeys = append(ethKeys, ETHKey{
-			addr:  k.EIP55Address,
-			state: state,
-			chain: chain,
-		})
 	}
 	// Put disabled keys to the end
 	sort.SliceStable(ethKeys, func(i, j int) bool {
 		return !states[i].Disabled && states[j].Disabled
 	})
+
 	return NewETHKeysPayload(ethKeys), nil
 }
 

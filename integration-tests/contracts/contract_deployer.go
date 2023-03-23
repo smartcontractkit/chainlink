@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog/log"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -82,13 +84,14 @@ type ContractDeployer interface {
 	DeployUpkeepResetter() (UpkeepResetter, error)
 	DeployStaking(params eth_contracts.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
-	DeployAtlasFunctions() (AtlasFunctions, error)
 	LoadVerifierProxy(address common.Address) (VerifierProxy, error)
 	DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error)
 	LoadVerifier(address common.Address) (Verifier, error)
 	DeployVerifier(verifierProxyAddr string) (Verifier, error)
 	LoadExchanger(address common.Address) (Exchanger, error)
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
+	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
+	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -274,20 +277,37 @@ func (e *EthereumContractDeployer) DeployStaking(params eth_contracts.StakingPoo
 	}, nil
 }
 
-func (e *EthereumContractDeployer) DeployAtlasFunctions() (AtlasFunctions, error) {
-	address, _, instance, err := e.client.DeployContract("AtlasFunctions", func(
+func (e *EthereumContractDeployer) DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("FunctionsOracleEventsMock", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployAtlasFunctions(auth, backend)
+		return functions_oracle_events_mock.DeployFunctionsOracleEventsMock(auth, backend)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAtlasFunctions{
-		client:         e.client,
-		atlasFunctions: instance.(*eth_contracts.AtlasFunctions),
-		address:        address,
+	return &EthereumFunctionsOracleEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*functions_oracle_events_mock.FunctionsOracleEventsMock),
+		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("FunctionsBillingRegistryEventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return functions_billing_registry_events_mock.DeployFunctionsBillingRegistryEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsBillingRegistryEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMock),
+		address:    address,
 	}, nil
 }
 

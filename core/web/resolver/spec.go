@@ -536,7 +536,7 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// KeyBundleID resolves the spec's key bundle id.
+// OcrKeyBundleID resolves the spec's key bundle id.
 func (r *OCR2SpecResolver) OcrKeyBundleID() *string {
 	if !r.spec.OCRKeyBundleID.Valid {
 		return nil
@@ -593,6 +593,11 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 
 	addr := r.spec.TransmitterID.String
 	return &addr
+}
+
+// FeedID resolves the spec's feed ID
+func (r *OCR2SpecResolver) FeedID() string {
+	return r.spec.FeedID.String()
 }
 
 type VRFSpecResolver struct {
