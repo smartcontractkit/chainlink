@@ -189,7 +189,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		// There may be leftover Started messages after a crash or failed send attempt.
 		started, err := txm.orm.GetMsgsState(db.Started, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
 		if err != nil {
-			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
+			txm.lggr.Errorw("unable to read started msgs", "err", err)
 			return err
 		}
 		if limit := txm.cfg.MaxMsgsPerBatch() - int64(len(started)); limit > 0 {
