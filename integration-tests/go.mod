@@ -20,7 +20,7 @@ require (
 	github.com/smartcontractkit/chainlink v1.10.0
 	github.com/smartcontractkit/chainlink-env v0.30.23-0.20230327111055-d0c8557d3123
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230316183824-9f1e5e11e2b7
-	github.com/smartcontractkit/chainlink-testing-framework v1.11.1-0.20230323082912-07294e1ed770
+	github.com/smartcontractkit/chainlink-testing-framework v1.11.1-0.20230323100510-2f1971041ea2
 	github.com/smartcontractkit/go-gauntlet v0.0.0-2023010111
 	github.com/smartcontractkit/libocr v0.0.0-20230301222433-aec519050c9a
 	github.com/smartcontractkit/ocr2keepers v0.6.14
@@ -336,7 +336,7 @@ require (
 	github.com/xlab/treeprint v1.1.0 // indirect
 	github.com/yuin/goldmark v1.4.13 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	github.com/zksync-sdk/zksync2-go v0.0.0-20230221170049-a21c27df41ef // indirect
+	github.com/zksync-sdk/zksync2-go v0.0.0-20230321150305-48b2d584ed38 // indirect
 	github.com/zondax/hid v0.9.0 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
