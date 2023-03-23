@@ -14,9 +14,9 @@ type MSInfoConf struct {
 	LocalUrl                string            `json:"localUrl"`
 	RemoteWsrpcUrl          string            `json:"remoteWsrpcUrl"`
 	LocalWsrpcUrl           string            `json:"localWsrpcUrl"`
-	AdminId                 string            `json:"adminId"`
-	AdminKey                string            `json:"adminKey"`
-	AdminEncryptedKey       string            `json:"adminEncryptedKey"`
+	UserId                  string            `json:"userId"`
+	UserKey                 string            `json:"userKey"`
+	UserEncryptedKey        string            `json:"userEncryptedKey"`
 	RpcPubKey               ed25519.PublicKey `json:"rpcPubKey"`
 	RpcNodesCsaPrivKeySeeds []string          `json:"rpcNodesCsaPrivKeys"`
 }
@@ -24,6 +24,7 @@ type MSInfoConf struct {
 type TestEnvConfig struct {
 	Id            string                `json:"id"`
 	K8Namespace   string                `json:"k8Namespace"`
+	FeedId        string                `json:"feedId"`
 	ChainId       int64                 `json:"chainId"`
 	ContractsInfo map[string]string     `json:"contracts"`
 	MSInfo        MSInfoConf            `json:"mercuryServer"`

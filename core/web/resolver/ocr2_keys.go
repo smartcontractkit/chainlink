@@ -7,13 +7,14 @@ import (
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
-
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 )
 
 // OCR2ChainType defines OCR2 Chain Types accepted on this resolver
 type OCR2ChainType string
 
+// These constants map to the enum type OCR2ChainType in ocr2_keys.graphql
 const (
 	// OCR2ChainTypeEVM defines OCR2 EVM Chain Type
 	OCR2ChainTypeEVM = "EVM"
@@ -21,19 +22,23 @@ const (
 	OCR2ChainTypeCosmos = "COSMOS"
 	// OCR2ChainTypeSolana defines OCR2 Solana Chain Type
 	OCR2ChainTypeSolana = "SOLANA"
+	// OCR2ChainTypeStarkNet defines OCR2 StarkNet Chain Type
+	OCR2ChainTypeStarkNet = "STARKNET"
 )
 
 // ToOCR2ChainType turns a valid string into a OCR2ChainType
 func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 	switch s {
-	case "evm":
+	case string(chaintype.EVM):
 		return OCR2ChainTypeEVM, nil
-	case "cosmos":
+	case string(chaintype.Cosmos):
 		return OCR2ChainTypeCosmos, nil
-	case "solana":
+	case string(chaintype.Solana):
 		return OCR2ChainTypeSolana, nil
+	case string(chaintype.StarkNet):
+		return OCR2ChainTypeStarkNet, nil
 	default:
-		return "", errors.New("invalid ocr2 chain type")
+		return "", errors.New("unknown ocr2 chain type")
 	}
 }
 
@@ -41,11 +46,13 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 func FromOCR2ChainType(ct OCR2ChainType) string {
 	switch ct {
 	case OCR2ChainTypeEVM:
-		return "evm"
+		return string(chaintype.EVM)
 	case OCR2ChainTypeCosmos:
-		return "cosmos"
+		return string(chaintype.Cosmos)
 	case OCR2ChainTypeSolana:
-		return "solana"
+		return string(chaintype.Solana)
+	case OCR2ChainTypeStarkNet:
+		return string(chaintype.StarkNet)
 	default:
 		return strings.ToLower(string(ct))
 	}

@@ -68,7 +68,7 @@ func (e *EthereumExchanger) ResolveTradeWithReport(chainlinkBlob []byte, encoded
 	if err != nil {
 		return nil, err
 	}
-	txOpts.GasLimit = 1000000
+	txOpts.GasLimit = 8000000
 	tx, err := e.exchanger.ResolveTradeWithReport(txOpts, chainlinkBlob, encodedCommitment)
 	if err != nil {
 		// blockchain.LogRevertReason(err, exchanger.ExchangerABI)
