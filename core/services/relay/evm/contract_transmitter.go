@@ -36,6 +36,10 @@ type Transmitter interface {
 
 type ReportToEthMetadata func([]byte) (*txmgr.EthTxMeta, error)
 
+func reportToEthTxMetaNoop([]byte) (*txmgr.EthTxMeta, error) {
+	return nil, nil
+}
+
 type contractTransmitter struct {
 	contractAddress     gethcommon.Address
 	contractABI         abi.ABI
@@ -66,9 +70,7 @@ func NewOCRContractTransmitter(
 		return nil, err
 	}
 	if reportToEthTxMeta == nil {
-		reportToEthTxMeta = func([]byte) (*txmgr.EthTxMeta, error) {
-			return nil, nil
-		}
+		reportToEthTxMeta = reportToEthTxMetaNoop
 	}
 	return &contractTransmitter{
 		contractAddress:     address,
