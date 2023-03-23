@@ -215,6 +215,11 @@ type AtlasFunctions interface {
 	BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) error
 }
 
+type FunctionsOracleEventsMock interface {
+	Address() string
+	OracleResponse(requestId [32]byte) error
+}
+
 type RoundData struct {
 	RoundId         *big.Int
 	Answer          *big.Int

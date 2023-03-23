@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -89,6 +90,7 @@ type ContractDeployer interface {
 	DeployVerifier(verifierProxyAddr string) (Verifier, error)
 	LoadExchanger(address common.Address) (Exchanger, error)
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
+	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -288,6 +290,23 @@ func (e *EthereumContractDeployer) DeployAtlasFunctions() (AtlasFunctions, error
 		client:         e.client,
 		atlasFunctions: instance.(*eth_contracts.AtlasFunctions),
 		address:        address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("EventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return functions_oracle_events_mock.DeployFunctionsOracleEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsOracleEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*functions_oracle_events_mock.FunctionsOracleEventsMock),
+		address:    address,
 	}, nil
 }
 
