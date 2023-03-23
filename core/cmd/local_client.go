@@ -133,6 +133,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			},
 		},
 		{
+			Name:   "validate",
+			Usage:  "Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
+		},
+		{
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
@@ -631,6 +636,19 @@ func (cli *Client) Status(c *clipkg.Context) error {
 }
 
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+// ConfigValidate validate the client configuration and pretty-prints results
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	fmt.Println("Valid configuration.")
+	return nil
+}
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to setup the database for testing
