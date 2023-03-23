@@ -41,6 +41,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Loading contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 	nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
@@ -77,7 +78,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	actions.CreateOCRJobsWithForwarder(ocrInstances, chainlinkNodes, mockServer, "ocr", 5)
+	actions.CreateOCRJobsWithForwarder(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr", 5)
 	err = actions.StartNewRound(1, ocrInstances, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()

@@ -94,12 +94,12 @@ func TestFluxBasic(t *testing.T) {
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
 	adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
-	bta := client.BridgeTypeAttributes{
+	bta := &client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("variable-%s", adapterUUID),
 		URL:  adapterFullURL,
 	}
 	for i, n := range chainlinkNodes {
-		err = n.MustCreateBridge(&bta)
+		err = n.MustCreateBridge(bta)
 		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
 
 		fluxSpec := &client.FluxMonitorJobSpec{

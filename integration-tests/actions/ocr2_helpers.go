@@ -4,13 +4,14 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -30,7 +31,6 @@ func DeployOCRv2Contracts(
 	contractDeployer contracts.ContractDeployer,
 	chainlinkWorkerNodes []*client.Chainlink,
 	client blockchain.EVMClient,
-	contractConfig *contracts.OCRv2Config,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -78,34 +78,33 @@ func DeployOCRv2Contracts(
 			}
 		}
 	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
-	}
+	return ocrInstances, client.WaitForEvents()
+}
 
-	for contractCount, ocrInstance := range ocrInstances {
+func ConfigureOCRv2Contracts(
+	client blockchain.EVMClient,
+	contractConfig *contracts.OCRv2Config,
+	ocrv2Contracts []contracts.OffchainAggregatorV2,
+) error {
+	for contractCount, ocrInstance := range ocrv2Contracts {
 		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfig(contractConfig)
+		err := ocrInstance.SetConfig(contractConfig)
 		if err != nil {
-			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
+			return fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			err = client.WaitForEvents()
 			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
+				return fmt.Errorf("failed to wait for setting OCR config: %w", err)
 			}
 		}
 	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set config: %w", err)
-	}
-	return ocrInstances, nil
+	return client.WaitForEvents()
 }
 
 // BuildDefaultOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard aggregation job
-func BuildDefaultOCR2Config(chainlinkNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
-	_, oracleIdentities, err := GetOracleIdentities(chainlinkNodes)
+func BuildDefaultOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
+	_, oracleIdentities, err := GetOracleIdentities(workerNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +123,7 @@ func BuildDefaultOCR2Config(chainlinkNodes []*client.Chainlink) (*contracts.OCRv
 		F:                     f_,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
+		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
 	}, nil
 }
 
@@ -219,6 +218,16 @@ func CreateOCRv2Jobs(
 	if err != nil {
 		return err
 	}
+	// Set the value for the jobs to report on
+	err = mockserver.SetValuePath(mockServerPath, mockServerValue)
+	if err != nil {
+		return err
+	}
+	// Set the juelsPerFeeCoinSource config value
+	err = mockserver.SetValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockServerPath), mockServerValue)
+	if err != nil {
+		return err
+	}
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 	for _, ocrInstance := range ocrInstances {
@@ -250,16 +259,19 @@ func CreateOCRv2Jobs(
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			bta := client.BridgeTypeAttributes{
+			bta := &client.BridgeTypeAttributes{
 				Name: mockServerPath,
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath),
 			}
-
-			err = mockserver.SetValuePath(mockServerPath, mockServerValue)
-			if err != nil {
-				return err
+			juelsBridge := &client.BridgeTypeAttributes{
+				Name: "juels",
+				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockserver.Config.ClusterURL, mockServerPath),
 			}
-			err = chainlinkNode.MustCreateBridge(&bta)
+			err = chainlinkNode.MustCreateBridge(bta)
+			if err != nil {
+				return fmt.Errorf("creating bridge job have failed: %w", err)
+			}
+			err = chainlinkNode.MustCreateBridge(juelsBridge)
 			if err != nil {
 				return fmt.Errorf("creating bridge job have failed: %w", err)
 			}
@@ -267,6 +279,7 @@ func CreateOCRv2Jobs(
 			ocrSpec := &client.OCR2TaskJobSpec{
 				Name:              "ocr2",
 				JobType:           "offchainreporting2",
+				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
@@ -275,13 +288,13 @@ func CreateOCRv2Jobs(
 						"chainID": chainId,
 					},
 					PluginConfig: map[string]any{
-						"config": client.ObservationSourceSpecBridge(bta),
+						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", client.ObservationSourceSpecBridge(juelsBridge)),
 					},
 					ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
-					P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
+					P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
 				},
 			}
 			_, err = chainlinkNode.MustCreateJob(ocrSpec)
@@ -293,6 +306,24 @@ func CreateOCRv2Jobs(
 	return nil
 }
 
-func SetOCRv2AdapterValues() {
-
+// StartNewOCR2Round requests a new round from the ocr2 contracts and waits for confirmation
+func StartNewOCR2Round(
+	roundNumber int64,
+	ocrInstances []contracts.OffchainAggregatorV2,
+	client blockchain.EVMClient,
+	timeout time.Duration,
+) error {
+	for i := 0; i < len(ocrInstances); i++ {
+		err := ocrInstances[i].RequestNewRound()
+		if err != nil {
+			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
+		}
+		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, nil)
+		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
+		err = client.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
+		}
+	}
+	return nil
 }

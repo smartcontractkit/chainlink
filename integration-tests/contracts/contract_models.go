@@ -111,6 +111,7 @@ type OffchainAggregatorData struct {
 	LatestRoundData RoundData // Data about the latest round
 }
 
+// TODO: OffchainAggregator and OffchainAggregatorV2 can probably be merged into one interface if we're clever about it
 type OffchainAggregator interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
@@ -130,6 +131,7 @@ type OffchainAggregatorV2 interface {
 	Fund(nativeAmount *big.Float) error
 	RequestNewRound() error
 	SetConfig(ocrConfig *OCRv2Config) error
+	GetConfig(ctx context.Context) ([32]byte, uint32, error)
 	SetPayees(transmitters, payees []string) error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
 	GetLatestRound(ctx context.Context) (*RoundData, error)

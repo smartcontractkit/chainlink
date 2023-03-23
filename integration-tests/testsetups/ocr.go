@@ -149,11 +149,12 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run(t *testing.T) {
 	l := utils.GetTestLogger(t)
+	bootstrapNode, workerNodes := o.chainlinkNodes[0], o.chainlinkNodes[1:]
 	// Set initial value and create jobs
 	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(o.ocrInstances, o.chainlinkNodes, o.mockServer, ocrPath, 5)
+		actions.CreateOCRJobsWithForwarder(o.ocrInstances, bootstrapNode, workerNodes, o.mockServer, ocrPath, 5)
 	} else {
-		err := actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer, ocrPath, 5)
+		err := actions.CreateOCRJobs(o.ocrInstances, bootstrapNode, workerNodes, o.mockServer, ocrPath, 5)
 		require.NoError(t, err, "Error creating OCR jobs")
 	}
 

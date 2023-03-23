@@ -993,8 +993,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
-{{if .MaxTaskDuration}}
-maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
+maxTaskDuration                        = {{if not .MaxTaskDuration}} "180s" {{else}} "{{.MaxTaskDuration}}" {{end}}
 {{if .PluginType}}
 pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
@@ -1163,18 +1162,16 @@ observationSource = """
 
 // ObservationSourceSpecHTTP creates a http GET task spec for json data
 func ObservationSourceSpecHTTP(url string) string {
-	return fmt.Sprintf(`
-		fetch [type=http method=GET url="%s"];
-		parse [type=jsonparse path="data,result"];
-		fetch -> parse;`, url)
+	return fmt.Sprintf(`fetch [type=http method=GET url="%s"];
+  parse [type=jsonparse path="data,result"];
+  fetch -> parse;`, url)
 }
 
 // ObservationSourceSpecBridge creates a bridge task spec for json data
-func ObservationSourceSpecBridge(bta BridgeTypeAttributes) string {
-	return fmt.Sprintf(`
-		fetch [type=bridge name="%s" requestData="%s"];
-		parse [type=jsonparse path="data,result"];
-		fetch -> parse;`, bta.Name, bta.RequestData)
+func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
+	return fmt.Sprintf(`fetch [type=bridge name="%s" requestData="%s"];
+  parse [type=jsonparse path="data,result"];
+  fetch -> parse;`, bta.Name, bta.RequestData)
 }
 
 // marshallTemplate Helper to marshall templates

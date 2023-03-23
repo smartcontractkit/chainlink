@@ -179,13 +179,17 @@ func DeployOCRContractsForwarderFlow(
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRJobs(
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.Chainlink,
+	bootstrapNode *client.Chainlink,
+	workerNodes []*client.Chainlink,
 	mockServer *ctfClient.MockserverClient,
 	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
 	mockServerValue int, // Value to get from the mock server when querying the path
 ) error {
+	err := mockServer.SetValuePath(mockServerPath, mockServerValue)
+	if err != nil {
+		return err
+	}
 	for _, ocrInstance := range ocrInstances {
-		bootstrapNode := chainlinkNodes[0]
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		if err != nil {
 			return fmt.Errorf("reading P2P keys from bootstrap node have failed: %w", err)
@@ -202,32 +206,28 @@ func CreateOCRJobs(
 			return fmt.Errorf("creating bootstrap job have failed: %w", err)
 		}
 
-		for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-			nodeP2PIds, err := chainlinkNodes[nodeIndex].MustReadP2PKeys()
+		for _, chainlinkNode := range workerNodes {
+			nodeP2PIds, err := chainlinkNode.MustReadP2PKeys()
 			if err != nil {
 				return fmt.Errorf("reading P2P keys from OCR node have failed: %w", err)
 			}
 			nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
-			nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
+			nodeTransmitterAddress, err := chainlinkNode.PrimaryEthAddress()
 			if err != nil {
 				return fmt.Errorf("getting primary ETH address from OCR node have failed: %w", err)
 			}
-			nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCRKeys()
+			nodeOCRKeys, err := chainlinkNode.MustReadOCRKeys()
 			if err != nil {
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			bta := client.BridgeTypeAttributes{
+			bta := &client.BridgeTypeAttributes{
 				Name: mockServerPath,
 				URL:  fmt.Sprintf("%s/%s", mockServer.Config.ClusterURL, mockServerPath),
 			}
 
-			err = mockServer.SetValuePath(mockServerPath, mockServerValue)
-			if err != nil {
-				return err
-			}
-			err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
+			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
 				return fmt.Errorf("creating bridge job have failed: %w", err)
 			}
@@ -240,7 +240,7 @@ func CreateOCRJobs(
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  client.ObservationSourceSpecBridge(bta),
 			}
-			_, err = chainlinkNodes[nodeIndex].MustCreateJob(ocrSpec)
+			_, err = chainlinkNode.MustCreateJob(ocrSpec)
 			if err != nil {
 				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
 			}
@@ -253,13 +253,13 @@ func CreateOCRJobs(
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRJobsWithForwarder(
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.Chainlink,
+	bootstrapNode *client.Chainlink,
+	workerNodes []*client.Chainlink,
 	mockServer *ctfClient.MockserverClient,
 	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
 	mockServerValue int, // Value to get from the mock server when querying the path
 ) error {
 	for _, ocrInstance := range ocrInstances {
-		bootstrapNode := chainlinkNodes[0]
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		if err != nil {
 			return err
@@ -276,23 +276,23 @@ func CreateOCRJobsWithForwarder(
 			return err
 		}
 
-		for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-			nodeP2PIds, err := chainlinkNodes[nodeIndex].MustReadP2PKeys()
+		for _, chainlinkNode := range workerNodes {
+			nodeP2PIds, err := chainlinkNode.MustReadP2PKeys()
 			if err != nil {
 				return err
 			}
 			nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
-			nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
+			nodeTransmitterAddress, err := chainlinkNode.PrimaryEthAddress()
 			if err != nil {
 				return err
 			}
-			nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCRKeys()
+			nodeOCRKeys, err := chainlinkNode.MustReadOCRKeys()
 			if err != nil {
 				return err
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			bta := client.BridgeTypeAttributes{
+			bta := &client.BridgeTypeAttributes{
 				Name: mockServerPath,
 				URL:  fmt.Sprintf("%s/%s", mockServer.Config.ClusterURL, mockServerPath),
 			}
@@ -301,7 +301,7 @@ func CreateOCRJobsWithForwarder(
 			if err != nil {
 				return err
 			}
-			err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
+			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
 				return err
 			}
@@ -315,7 +315,7 @@ func CreateOCRJobsWithForwarder(
 				ObservationSource:  client.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed:  true,
 			}
-			_, err = chainlinkNodes[nodeIndex].MustCreateJob(ocrSpec)
+			_, err = chainlinkNode.MustCreateJob(ocrSpec)
 			if err != nil {
 				return err
 			}

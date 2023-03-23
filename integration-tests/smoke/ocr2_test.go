@@ -1,10 +1,12 @@
 package smoke
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -47,17 +49,41 @@ func TestOCRv2Basic(t *testing.T) {
 	linkToken, err := contractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
+	err = actions.FundChainlinkNodes(workerNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrv2Config, err := actions.BuildDefaultOCR2Config(chainlinkNodes)
-	require.NoError(t, err, "Error building OCRv2 config")
-
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, workerNodes, chainClient, ocrv2Config)
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, workerNodes, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
 	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
 	require.NoError(t, err, "Error creating OCRv2 jobs")
+
+	ocrv2Config, err := actions.BuildDefaultOCR2Config(workerNodes)
+	require.NoError(t, err, "Error building OCRv2 config")
+
+	err = actions.ConfigureOCRv2Contracts(chainClient, ocrv2Config, aggregatorContracts)
+	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+
+	err = actions.StartNewOCR2Round(1, aggregatorContracts, chainClient, time.Minute*5)
+	require.NoError(t, err, "Error starting new OCR2 round")
+	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, int64(5), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 5 but got %d",
+		roundData.Answer.Int64(),
+	)
+
+	err = mockServer.SetValuePath("ocr2", 10)
+	require.NoError(t, err)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, chainClient, time.Minute*5)
+	require.NoError(t, err)
+
+	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
+	require.NoError(t, err, "Error getting latest OCR answer")
+	require.Equal(t, int64(10), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 10 but got %d",
+		roundData.Answer.Int64(),
+	)
 }
 
 func setupOCR2Test(t *testing.T) (
@@ -86,6 +112,10 @@ func setupOCR2Test(t *testing.T) (
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlinkChart)
+		// AddChart(blockscout.New(&blockscout.Props{
+		// 	Name:    "geth-blockscout",
+		// 	WsURL:   testNetwork.URLs[0],
+		// 	HttpURL: testNetwork.HTTPURLs[0]}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork

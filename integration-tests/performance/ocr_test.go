@@ -38,6 +38,7 @@ func TestOCRBasic(t *testing.T) {
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
@@ -55,7 +56,7 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Error waiting for events")
 
 	profileFunction := func(chainlinkNode *client.Chainlink) {
-		err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer, "ocr", 5)
+		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr", 5)
 		require.NoError(t, err)
 		err = actions.StartNewRound(1, ocrInstances, chainClient)
 		require.NoError(t, err)
