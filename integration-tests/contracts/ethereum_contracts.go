@@ -15,6 +15,7 @@ import (
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 
@@ -310,6 +311,29 @@ func (f *EthereumAtlasFunctions) SubscriptionFunded(subscriptionId uint64, oldBa
 		return err
 	}
 	tx, err := f.atlasFunctions.FireSubscriptionFunded(opts, subscriptionId, oldBalance, newBalance)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+// EthereumFunctionsOracleEventsMock represents the basic events mock contract
+type EthereumFunctionsOracleEventsMock struct {
+	client     blockchain.EVMClient
+	eventsMock *functions_oracle_events_mock.FunctionsOracleEventsMock
+	address    *common.Address
+}
+
+func (f *EthereumFunctionsOracleEventsMock) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumFunctionsOracleEventsMock) OracleResponse(requestId [32]byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitOracleResponse(opts, requestId)
 	if err != nil {
 		return err
 	}

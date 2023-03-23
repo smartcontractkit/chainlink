@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 echo "compiling contracts"
 
 CDIR="$(dirname "$0")"
-COMPILE_COMMAND="$CDIR/../../../contracts/scripts/native_solc_compile_all"
+COMPILE_COMMAND="$CDIR/../../../contracts/scripts/native_solc_compile_events_mock"
 
 
 # Only print compilation output on failure.
