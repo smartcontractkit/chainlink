@@ -70,7 +70,7 @@ type (
 		// non-db side effects.  This is required in order to guarantee mutual atomicity between
 		// all tasks intended to happen during job deletion.  For the same reason, the job will
 		// not show up in the db within BeforeJobDeleted(), even though it is still actively running.
-		BeforeJobDeleted(spec Job)
+		BeforeJobDeleted(spec Job, q pg.Queryer) error
 	}
 
 	activeJob struct {
@@ -317,7 +317,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	}
 
 	err := q.Transaction(func(tx pg.Queryer) error {
-		err := js.orm.DeleteJob(jobID, pg.WithQueryer(q.Queryer))
+		err := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
 		if err != nil {
 			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
 			return err
@@ -326,16 +326,20 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in BeforeJobDeleted()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
 		lggr.Debugw("Callback: BeforeJobDeleted")
-		aj.delegate.BeforeJobDeleted(aj.spec)
-		lggr.Debugw("Callback: BeforeJobDeleted done")
-
-		if exists {
-			// Stop the service and remove the job from memory, which will always happen even if closing the services fail.
-			js.stopService(jobID)
+		err = aj.delegate.BeforeJobDeleted(aj.spec, tx)
+		if err != nil {
+			return err
 		}
-		lggr.Infow("Stopped and deleted job")
+
+		lggr.Debugw("Callback: BeforeJobDeleted done")
 		return nil
 	})
+
+	if exists {
+		// Stop the service and remove the job from memory, which will always happen even if closing the services fail.
+		js.stopService(jobID)
+	}
+	lggr.Infow("Stopped and deleted job")
 
 	return err
 }
@@ -377,6 +381,6 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
-func (n *NullDelegate) BeforeJobCreated(spec Job) {}
-func (n *NullDelegate) AfterJobCreated(spec Job)  {}
-func (n *NullDelegate) BeforeJobDeleted(spec Job) {}
+func (n *NullDelegate) BeforeJobCreated(spec Job)                     {}
+func (n *NullDelegate) AfterJobCreated(spec Job)                      {}
+func (n *NullDelegate) BeforeJobDeleted(spec Job, q pg.Queryer) error { return nil }

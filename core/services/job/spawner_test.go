@@ -287,14 +287,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecID := jobOCR2VRF.ID
 		delegateOCR2.jobID = jobOCR2VRF.ID
 
-		lp.On("UnregisterFilter", mock.Anything).Return(nil).Times(3).Run(func(args mock.Arguments) {
+		lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			lggr.Debugf("Got here, with args %v", args)
 		})
 
 		err = spawner.DeleteJob(jobSpecID)
 		require.NoError(t, err)
 
-		lp.AssertExpectations(t)
+		lp.AssertNumberOfCalls(t, "UnregisterFilter", 3)
 
 		lp.On("Close").Return(nil).Once()
 		spawner.Close()

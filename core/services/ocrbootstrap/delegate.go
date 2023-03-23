@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 )
 
@@ -122,5 +123,6 @@ func (d Delegate) AfterJobCreated(spec job.Job) {
 }
 
 // BeforeJobDeleted satisfies the job.Delegate interface.
-func (d Delegate) BeforeJobDeleted(spec job.Job) {
+func (d Delegate) BeforeJobDeleted(spec job.Job, q pg.Queryer) error {
+	return nil
 }

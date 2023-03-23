@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
@@ -113,25 +114,32 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 	d.isNewlyCreatedJob = true
 }
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
-func (d *Delegate) BeforeJobDeleted(jb job.Job) {
+func (d *Delegate) BeforeJobDeleted(jb job.Job, q pg.Queryer) error {
+	// If the job spec is malformed in any way, we report the error but return nil so that
+	//  the job deletion itself isn't blocked.  However, if UnregisterFilter returns an
+	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
+	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
+	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
+	//  at all (no rows deleted).
+
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		d.lggr.Errorf("offchainreporting2.Delegate.BeforeJobDeleted called with wrong job type, ignoring non-OCR2 spec %v", jb)
-		return
+		return nil
 	}
 	if spec.Relay != relay.EVM {
-		return
+		return nil
 	}
 
 	chainID, err := spec.RelayConfig.EVMChainID()
 	if err != nil {
 		d.lggr.Errorf("OCR2 jobs spec missing chainID")
-		return
+		return nil
 	}
 	chain, err := d.chainSet.Get(big.NewInt(chainID))
 	if err != nil {
 		d.lggr.Error(err)
-		return
+		return nil
 	}
 	lp := chain.LogPoller()
 
@@ -148,7 +156,7 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
 	default:
-		return
+		return nil
 	}
 
 	rargs := types.RelayArgs{
@@ -162,17 +170,19 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
 	if err != nil {
 		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
+		return nil
 	}
 
 	filters = append(filters, relayFilters...)
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter)
+		err = lp.UnregisterFilter(filter, q)
 		if err != nil {
-			d.lggr.Errorw("Failed to unregister filter", "filter", filter, "err", err)
+			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
 	}
+	return nil
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job

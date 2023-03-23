@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -56,14 +57,12 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 	}
 }
 
-func (d *Delegate) BeforeJobDeleted(jb job.Job) {
+func (d *Delegate) BeforeJobDeleted(jb job.Job, q pg.Queryer) error {
 	err := d.externalInitiatorManager.DeleteJob(*jb.WebhookSpecID)
 	if err != nil {
-		d.lggr.Errorw("Webhook delegate BeforeJobDeleted errored",
-			"error", err,
-			"jobID", jb.ID,
-		)
+		err = errors.Wrapf(err, "Webhook delegate BeforeJobDeleted errored for job ID %d", jb.ID)
 	}
+	return err
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
