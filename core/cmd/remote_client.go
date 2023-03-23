@@ -77,7 +77,7 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 			Name:  "validate",
 			Usage: "DEPRECATED. Use `chainlink node validate`",
 			Before: func(ctx *clipkg.Context) error {
-				return client.errorOut(fmt.Errorf("Depreciated, use `chainlink node validate`"))
+				return client.errorOut(fmt.Errorf("Deprecated, use `chainlink node validate`"))
 			},
 			Hidden: true,
 		},
