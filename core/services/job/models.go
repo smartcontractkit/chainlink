@@ -504,7 +504,7 @@ type BlockhashStoreSpec struct {
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
 
-	// WaitBlocks defines the maximum age of blocks whose hashes should be stored.
+	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
 	WaitBlocks int32 `toml:"waitBlocks"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
@@ -545,7 +545,7 @@ type BlockHeaderFeederSpec struct {
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
 
-	// WaitBlocks defines the maximum age of blocks whose hashes should be stored.
+	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
 	WaitBlocks int32 `toml:"waitBlocks"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes

@@ -7,9 +7,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,13 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
-type Client interface {
-	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
-}
-
 var (
 	zeroHash [32]byte
 )
+
+type BlockHeaderProvider interface {
+	RlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error)
+}
 
 // BatchBHS defines an interface for interacting with a BatchBlockhashStore contract.
 type BatchBHS interface {
@@ -41,23 +38,32 @@ func NewBlockHeaderFeeder(
 	coordinator blockhashstore.Coordinator,
 	bhs blockhashstore.BHS,
 	batchBHS BatchBHS,
+	blockHeaderProvider BlockHeaderProvider,
 	waitBlocks int,
 	lookbackBlocks int,
 	latestBlock func(ctx context.Context) (uint64, error),
-	client Client,
 	gethks keystore.Eth,
+	getBlockhashesBatchSize uint16,
+	storeBlockhashesBatchSize uint16,
+	fromAddresses []ethkey.EIP55Address,
+	chainID *big.Int,
 ) *BlockHeaderFeeder {
 	return &BlockHeaderFeeder{
-		lggr:           logger,
-		coordinator:    coordinator,
-		bhs:            bhs,
-		waitBlocks:     waitBlocks,
-		lookbackBlocks: lookbackBlocks,
-		latestBlock:    latestBlock,
-		stored:         make(map[uint64]struct{}),
-		lastRunBlock:   0,
-		ec:             client,
-		gethks:         gethks,
+		lggr:                      logger,
+		coordinator:               coordinator,
+		bhs:                       bhs,
+		batchBHS:                  batchBHS,
+		waitBlocks:                waitBlocks,
+		lookbackBlocks:            lookbackBlocks,
+		latestBlock:               latestBlock,
+		stored:                    make(map[uint64]struct{}),
+		lastRunBlock:              0,
+		getBlockhashesBatchSize:   getBlockhashesBatchSize,
+		storeBlockhashesBatchSize: storeBlockhashesBatchSize,
+		blockHeaderProvider:       blockHeaderProvider,
+		gethks:                    gethks,
+		fromAddresses:             fromAddresses,
+		chainID:                   chainID,
 	}
 }
 
@@ -72,6 +78,7 @@ type BlockHeaderFeeder struct {
 	lookbackBlocks            int
 	latestBlock               func(ctx context.Context) (uint64, error)
 	stored                    map[uint64]struct{}
+	blockHeaderProvider       BlockHeaderProvider
 	lastRunBlock              uint64
 	getBlockhashesBatchSize   uint16
 	storeBlockhashesBatchSize uint16
@@ -89,13 +96,14 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlock), f.lookbackBlocks, f.waitBlocks)
+	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks)
 	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
 	}
 
-	lggr := f.lggr.With("latestBlock", latestBlock)
+	lggr := f.lggr.With("latestBlock", latestBlock, "fromBlock", fromBlock, "toBlock", toBlock)
+	lggr.Debug("searching for unfulfilled blocks")
 
 	blockToRequests, err := blockhashstore.GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
 	if err != nil {
@@ -108,20 +116,27 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		return nil
 	}
 
+	lggr.Debugw("found lowest block number without blockhash", "minBlockNumber", minBlockNumber)
+
 	earliestStoredBlockNumber, err := f.findEarliestBlockNumberWithBlockhash(ctx, lggr, minBlockNumber.Uint64()+1, uint64(toBlock))
 	if err != nil {
 		return errors.Wrap(err, "finding earliest blocknumber with blockhash")
 	}
 
+	lggr.Debugw("found earliest block number with blockhash", "earliestStoredBlockNumber", earliestStoredBlockNumber)
+
 	if earliestStoredBlockNumber == nil {
 		// store earliest blockhash and return
 		// on next iteration, earliestStoredBlockNumber will be found and
-		// will make progress in storing blockhashes using blockheader
+		// will make progress in storing blockhashes using blockheader.
+		// In this scenario, f.stored is not updated until the next iteration
+		// because we do not know which block number will be stored in the current iteration
 		f.bhs.StoreEarliest(ctx)
 		lggr.Info("Stored earliest block number")
 		return nil
 	}
 
+	// get the block range from (earliestStoredBlockNumber - 1) (inclusive) to minBlockNumber (inclusive) in descending order
 	blocks, err := blockhashstore.DecreasingBlockRange(earliestStoredBlockNumber.Sub(earliestStoredBlockNumber, big.NewInt(1)), minBlockNumber)
 	if err != nil {
 		return err
@@ -129,6 +144,9 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 
 	// use 1 sending key for all batches because ordering matters for StoreVerifyHeader
 	fromAddress, err := f.gethks.GetRoundRobinAddress(f.chainID, blockhashstore.SendingKeys(f.fromAddresses)...)
+	if err != nil {
+		return errors.Wrap(err, "getting round robin address")
+	}
 
 	for i := 0; i < len(blocks); i += int(f.storeBlockhashesBatchSize) {
 		j := i + int(f.storeBlockhashesBatchSize)
@@ -136,7 +154,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 			j = len(blocks)
 		}
 		blockRange := blocks[i:j]
-		blockHeaders, err := f.getRlpHeadersBatch(ctx, blockRange)
+		blockHeaders, err := f.blockHeaderProvider.RlpHeadersBatch(ctx, blockRange)
 		if err != nil {
 			return errors.Wrap(err, "fetching block headers")
 		}
@@ -144,7 +162,10 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		lggr.Debugw("storing block headers", "blockRange", blockRange)
 		err = f.batchBHS.StoreVerifyHeader(ctx, blockRange, blockHeaders, fromAddress)
 		if err != nil {
-			return errors.Wrap(err, "storing block headers")
+			return errors.Wrap(err, "store block headers")
+		}
+		for _, blockNumber := range blockRange {
+			f.stored[blockNumber.Uint64()] = struct{}{}
 		}
 	}
 
@@ -158,6 +179,9 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 			}
 		}
 	}
+	// lastRunBlock is only used for pruning
+	// only time we update lastRunBlock is when the run reaches completion, indicating
+	// that new block has been stored
 	f.lastRunBlock = latestBlock
 	return nil
 }
@@ -177,6 +201,7 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 			lggr.Warnw("Failed to check if block is already stored",
 				"error", err,
 				"block", block)
+			continue
 		} else if stored {
 			lggr.Infow("Blockhash already stored",
 				"block", block, "unfulfilledReqIDs", blockhashstore.LimitReqIDs(unfulfilledReqs, 50))
@@ -191,10 +216,11 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 	return min
 }
 
+// findEarliestBlockNumberWithBlockhash searches [startBlock, toBlock) where startBlock is inclusive and toBlock is exclusive
+// and returns the first block that has blockhash already stored. Returns nil if no blockhashes are found
 func (f *BlockHeaderFeeder) findEarliestBlockNumberWithBlockhash(ctx context.Context, lggr logger.Logger, startBlock, toBlock uint64) (*big.Int, error) {
-	from := startBlock
 	for i := startBlock; i < toBlock; i += uint64(f.getBlockhashesBatchSize) {
-		j := from + uint64(f.getBlockhashesBatchSize)
+		j := i + uint64(f.getBlockhashesBatchSize)
 		if j > toBlock {
 			j = toBlock
 		}
@@ -217,37 +243,10 @@ func (f *BlockHeaderFeeder) findEarliestBlockNumberWithBlockhash(ctx context.Con
 			if !bytes.Equal(bh[:], zeroHash[:]) {
 				earliestBlockNumber := i + uint64(idx)
 				lggr.Infow("found earliest block number with blockhash", "earliestBlockNumber", earliestBlockNumber, "blockhash", bh)
+				f.stored[blockNumber] = struct{}{}
 				return big.NewInt(0).SetUint64(earliestBlockNumber), nil
 			}
 		}
 	}
 	return nil, nil
-}
-
-func (f *BlockHeaderFeeder) getRlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error) {
-	var reqs []rpc.BatchElem
-	for _, num := range blockRange {
-		req := rpc.BatchElem{
-			Method: "eth_getHeaderByNumber",
-			// Get child block since it's the one that has the parent hash in its header.
-			Args:   []interface{}{num.Add(num, big.NewInt(1))},
-			Result: &types.Header{},
-		}
-		reqs = append(reqs, req)
-	}
-	err := f.ec.BatchCallContext(ctx, reqs)
-	if err != nil {
-		return nil, err
-	}
-
-	var headers [][]byte
-	for _, req := range reqs {
-		header, err := rlp.EncodeToBytes(req.Result)
-		if err != nil {
-			return nil, err
-		}
-		headers = append(headers, header)
-	}
-
-	return headers, nil
 }

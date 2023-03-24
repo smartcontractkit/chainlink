@@ -135,7 +135,7 @@ type BlockHeaderFeederSpec {
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
-    batchBlockhashStoreAddress: String
+    batchBlockhashStoreAddress: String!
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String

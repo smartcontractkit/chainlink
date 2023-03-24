@@ -126,13 +126,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "building batchBHS")
 	}
 
-	log := d.logger.Named("Block Header Feeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
+	log := d.logger.Named("Block Header Feeder").With(
+		"jobID", jb.ID,
+		"externalJobID", jb.ExternalJobID,
+		"bhsAddress", bhs.Address(),
+		"batchBHSAddress", batchBlockhashStore.Address(),
+	)
+
+	blockHeaderProvider := NewGethBlockHeaderProvider(chain.Client())
 
 	feeder := NewBlockHeaderFeeder(
 		log,
 		blockhashstore.NewMultiCoordinator(coordinators...),
 		bpBHS,
 		batchBHS,
+		blockHeaderProvider,
 		int(jb.BlockHeaderFeederSpec.WaitBlocks),
 		int(jb.BlockHeaderFeederSpec.LookbackBlocks),
 		func(ctx context.Context) (uint64, error) {
@@ -142,8 +150,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 			return uint64(head.Number), nil
 		},
-		chain.Client(),
 		d.ks,
+		jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize,
+		jb.BlockHeaderFeederSpec.StoreBlockhashesBatchSize,
+		fromAddresses,
+		chain.ID(),
 	)
 
 	services := []job.ServiceCtx{&service{

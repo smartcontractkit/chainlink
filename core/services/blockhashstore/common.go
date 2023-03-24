@@ -55,9 +55,7 @@ func GetUnfulfilledBlocksAndRequests(
 	reqs, err := coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF requests",
-			"error", err,
-			"fromBlock", fromBlock,
-			"toBlock", toBlock)
+			"error", err)
 		return nil, errors.Wrap(err, "fetching VRF requests")
 	}
 	for _, req := range reqs {
@@ -71,9 +69,7 @@ func GetUnfulfilledBlocksAndRequests(
 	fuls, err := coordinator.Fulfillments(ctx, uint64(fromBlock))
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
-			"error", err,
-			"fromBlock", fromBlock,
-			"toBlock", toBlock)
+			"error", err)
 		return nil, errors.Wrap(err, "fetching VRF fulfillments")
 	}
 	for _, ful := range fuls {
@@ -100,7 +96,7 @@ func LimitReqIDs(reqs map[string]struct{}, maxLength int) []string {
 }
 
 // DecreasingBlockRange creates a continugous block range starting with
-// block `start` and ending at block `end`.
+// block `start` (inclusive) and ending at block `end` (inclusive).
 func DecreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
 	if start.Cmp(end) == -1 {
 		return nil, fmt.Errorf("start (%s) must be greater than end (%s)", start.String(), end.String())

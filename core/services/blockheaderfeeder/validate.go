@@ -51,6 +51,11 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 		return jb, notSet("evmChainID")
 	}
 
+	err = validateChainID(spec.EVMChainID.Int64())
+	if err != nil {
+		return jb, err
+	}
+
 	// Defaults
 	// TODO: revisit defaults
 	if spec.WaitBlocks == 0 {
@@ -60,7 +65,7 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 		spec.LookbackBlocks = 1000
 	}
 	if spec.PollPeriod == 0 {
-		spec.PollPeriod = 30 * time.Second
+		spec.PollPeriod = 15 * time.Second
 	}
 	if spec.RunTimeout == 0 {
 		spec.RunTimeout = 30 * time.Second
@@ -92,4 +97,12 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 
 func notSet(field string) error {
 	return errors.Errorf("%q must be set", field)
+}
+
+func validateChainID(evmChainID int64) error {
+	if evmChainID == 43114 || // C-chain mainnet
+		evmChainID == 43113 { // Fuji testnet
+		return errors.Errorf("unsupported chain")
+	}
+	return nil
 }

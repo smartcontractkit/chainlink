@@ -868,19 +868,25 @@ func (b *BlockHeaderFeederSpecResolver) FromAddresses() *[]string {
 	return &addresses
 }
 
-// EVMChainID returns the job's EVMChainID param.
-func (b *BlockHeaderFeederSpecResolver) GetBlockhashesBatchSize() uint16 {
-	return b.spec.GetBlockhashesBatchSize
+// GetBlockhashesBatchSize returns the job's GetBlockhashesBatchSize param.
+func (b *BlockHeaderFeederSpecResolver) GetBlockhashesBatchSize() int32 {
+	return int32(b.spec.GetBlockhashesBatchSize)
 }
 
-// EVMChainID returns the job's EVMChainID param.
-func (b *BlockHeaderFeederSpecResolver) StoreBlockhashesBatchSize() uint16 {
-	return b.spec.StoreBlockhashesBatchSize
+// StoreBlockhashesBatchSize returns the job's StoreBlockhashesBatchSize param.
+func (b *BlockHeaderFeederSpecResolver) StoreBlockhashesBatchSize() int32 {
+	return int32(b.spec.StoreBlockhashesBatchSize)
 }
 
 // EstimateGasMultiplier returns the job's EstimateGasMultiplier param.
-func (b *BlockHeaderFeederSpecResolver) EstimateGasMultiplier() uint8 {
-	return b.spec.EstimateGasMultiplier
+func (b *BlockHeaderFeederSpecResolver) EstimateGasMultiplier() *int32 {
+	if b.spec.EstimateGasMultiplier == 0 {
+		return nil
+	}
+
+	estimateGasMultiplier := int32(b.spec.EstimateGasMultiplier)
+
+	return &estimateGasMultiplier
 }
 
 // CreatedAt resolves the spec's created at timestamp.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -243,7 +244,7 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(tomlString)
 	case job.BlockHeaderFeeder:
-		jb, err = blockhashstore.ValidatedSpec(tomlString)
+		jb, err = blockheaderfeeder.ValidatedSpec(tomlString)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
 	default:

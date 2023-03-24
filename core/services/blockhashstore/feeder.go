@@ -52,49 +52,16 @@ func (f *Feeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	var (
-		blockToRequests  = make(map[uint64]map[string]struct{})
-		requestIDToBlock = make(map[string]uint64)
-	)
-
 	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.lookbackBlocks, f.waitBlocks)
 	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
 	}
 
-	reqs, err := f.coordinator.Requests(ctx, fromBlock, toBlock)
+	lggr := f.lggr.With("latestBlock", latestBlock, "fromBlock", fromBlock, "toBlock", toBlock)
+	blockToRequests, err := GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
 	if err != nil {
-		f.lggr.Errorw("Failed to fetch VRF requests",
-			"error", err,
-			"latestBlock", latestBlock,
-			"fromBlock", fromBlock,
-			"toBlock", toBlock)
-		return errors.Wrap(err, "fetching VRF requests")
-	}
-	for _, req := range reqs {
-		if _, ok := blockToRequests[req.Block]; !ok {
-			blockToRequests[req.Block] = make(map[string]struct{})
-		}
-		blockToRequests[req.Block][req.ID] = struct{}{}
-		requestIDToBlock[req.ID] = req.Block
-	}
-
-	fuls, err := f.coordinator.Fulfillments(ctx, fromBlock)
-	if err != nil {
-		f.lggr.Errorw("Failed to fetch VRF fulfillments",
-			"error", err,
-			"latestBlock", latestBlock,
-			"fromBlock", fromBlock,
-			"toBlock", toBlock)
-		return errors.Wrap(err, "fetching VRF fulfillments")
-	}
-	for _, ful := range fuls {
-		requestBlock, ok := requestIDToBlock[ful.ID]
-		if !ok {
-			continue
-		}
-		delete(blockToRequests[requestBlock], ful.ID)
+		return err
 	}
 
 	var errs error

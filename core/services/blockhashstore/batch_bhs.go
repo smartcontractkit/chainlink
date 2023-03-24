@@ -80,31 +80,11 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	toAddress := b.batchbhs.Address()
-	gasLimit, err := b.ec.EstimateGas(ctx, ethereum.CallMsg{
-		From: common.Address(fromAddress),
-		To:   &toAddress,
-		Data: payload,
-	})
-	if err != nil {
-		// Fallback to the maximum conceivable gas limit
-		// if we're unable to call estimate gas for whatever reason.
-		b.lggr.Warnw("unable to estimate, fallback to configured limit", "err", err, "fallback", b.config.EvmGasLimitDefault())
-		gasLimit = uint64(b.config.EvmGasLimitDefault())
-	}
-
-	gasLimit = gasLimit * uint64(b.gasMultiplier)
-
-	if gasLimit > uint64(b.config.EvmGasLimitMax()) {
-		b.lggr.Warnw("estimated gas limit * multiplier exceeded max gas limit, fallback to max limit", "fallback", b.config.EvmGasLimitMax())
-		gasLimit = uint64(b.config.EvmGasLimitMax())
-	}
-
 	_, err = b.txm.CreateEthTransaction(txmgr.NewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		GasLimit:       uint32(gasLimit),
+		GasLimit:       b.config.EvmGasLimitDefault(),
 		Strategy:       txmgr.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 
