@@ -48,9 +48,6 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.EVMChainID == nil {
 		return jb, notSet("evmChainID")
 	}
-	if len(spec.FromAddresses) == 0 {
-		return jb, notSet("FromAddresses")
-	}
 
 	// Defaults
 	if spec.WaitBlocks == 0 {

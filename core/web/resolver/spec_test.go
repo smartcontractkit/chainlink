@@ -873,7 +873,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 						... on Job {
 							spec {
 								__typename
-								... on BlockhashStoreSpec {
+								... on BlockHeaderFeederSpec {
 									coordinatorV1Address
 									coordinatorV2Address
 									createdAt
@@ -898,12 +898,12 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 				{
 					"job": {
 						"spec": {
-							"__typename": "BlockhashStoreSpec",
+							"__typename": "BlockHeaderFeederSpec",
 							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
-							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", "0xD479d7c994D298cA05bF270136ED9627b7E684D3"],
+							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"],
 							"pollPeriod": "1m0s",
 							"runTimeout": "37s",
 							"waitBlocks": 100,
@@ -912,7 +912,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 							"batchBlockhashStoreAddress": "0xd23BAE30019853Caf1D08b4C03291b10AD7743Df",
 							"getBlockhashesBatchSize": 5,
 							"storeBlockhashesBatchSize": 3,
-							"estimateGasMultiplier": 1,
+							"estimateGasMultiplier": 1
 						}
 					}
 				}

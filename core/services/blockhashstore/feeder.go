@@ -52,7 +52,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.lookbackBlocks, f.waitBlocks)
+	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks)
 	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
