@@ -150,7 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
-	// Set up the versioning ORM
+	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
 
 	if static.Version != static.Unset {
@@ -201,7 +201,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
+			if err = cosmos.EnsureChains(db, appLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
@@ -232,8 +232,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			EventBroadcaster: eventBroadcaster,
 		}
 		cfgs := cfg.CosmosConfigs()
-		opts.ORM = cosmos.NewORMImmut(cfgs)
-		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		opts.Configs = cosmos.NewConfigs(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
 		}
@@ -253,12 +253,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
 		}
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		opts.Configs = solana.NewConfigs(cfgs)
+		chains.Solana, err = solana.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
@@ -278,12 +278,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
 			}
 		}
-		opts.ORM = starknet.NewORMImmut(cfgs)
-		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		opts.Configs = starknet.NewConfigs(cfgs)
+		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}

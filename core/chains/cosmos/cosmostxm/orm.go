@@ -22,7 +22,7 @@ type ORM struct {
 
 // NewORM creates an ORM scoped to chainID.
 func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
-	namedLogger := lggr.Named("ORM")
+	namedLogger := lggr.Named("Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
 		chainID: chainID,

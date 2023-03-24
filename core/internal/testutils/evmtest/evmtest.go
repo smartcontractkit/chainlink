@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -119,25 +120,27 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 
 type MockORM struct {
 	mu     sync.RWMutex
-	chains map[string]evmtypes.ChainConfig
+	chains map[string]chains.ChainConfig
 	nodes  map[string][]evmtypes.Node
 }
 
-var _ evmtypes.ORM = &MockORM{}
+var _ evmtypes.Configs = &MockORM{}
 
-func NewMockORM(chains []evmtypes.ChainConfig, nodes []evmtypes.Node) *MockORM {
+func NewMockORM(cs []chains.ChainConfig, nodes []evmtypes.Node) *MockORM {
 	mo := &MockORM{
-		chains: make(map[string]evmtypes.ChainConfig),
+		chains: make(map[string]chains.ChainConfig),
 		nodes:  make(map[string][]evmtypes.Node),
 	}
-	mo.PutChains(chains...)
+	mo.PutChains(cs...)
 	mo.AddNodes(nodes...)
 	return mo
 }
 
-func (mo *MockORM) PutChains(cs ...evmtypes.ChainConfig) {
+func (mo *MockORM) PutChains(cs ...chains.ChainConfig) {
+	mo.mu.Lock()
+	defer mo.mu.Unlock()
 	for _, c := range cs {
-		mo.chains[c.ID.String()] = c
+		mo.chains[c.ID] = c
 	}
 }
 
@@ -148,38 +151,26 @@ func (mo *MockORM) AddNodes(ns ...evmtypes.Node) {
 	}
 }
 
-func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.ChainConfig, error) {
+func (mo *MockORM) Chains(offset int, limit int, ids ...utils.Big) (cs []chains.ChainConfig, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
-	c, ok := mo.chains[id.String()]
-	if !ok {
-		return evmtypes.ChainConfig{}, sql.ErrNoRows
+	if len(ids) == 0 {
+		cs = maps.Values(mo.chains)
+		count = len(cs)
+		return
 	}
-	return c, nil
-}
-
-func (mo *MockORM) Chains(offset int, limit int, qopts ...pg.QOpt) (chains []evmtypes.ChainConfig, count int, err error) {
-	mo.mu.RLock()
-	defer mo.mu.RUnlock()
-	chains = maps.Values(mo.chains)
-	count = len(chains)
-	return
-}
-
-func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.ChainConfig, err error) {
-	mo.mu.RLock()
-	defer mo.mu.RUnlock()
 	for _, id := range ids {
 		c, ok := mo.chains[id.String()]
 		if ok {
-			chains = append(chains, c)
+			cs = append(cs, c)
 		}
 	}
+	count = len(cs)
 	return
 }
 
-// Nodes implements evmtypes.ORM
-func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) (nodes []evmtypes.Node, cnt int, err error) {
+// Nodes implements evmtypes.Configs
+func (mo *MockORM) Nodes(offset int, limit int) (nodes []evmtypes.Node, cnt int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	for _, ns := range maps.Values(mo.nodes) {
@@ -189,7 +180,7 @@ func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) (nodes []evmty
 	return
 }
 
-func (mo *MockORM) NodeNamed(name string, opt ...pg.QOpt) (evmtypes.Node, error) {
+func (mo *MockORM) NodeNamed(name string) (evmtypes.Node, error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	for _, ns := range maps.Values(mo.nodes) {
@@ -202,8 +193,8 @@ func (mo *MockORM) NodeNamed(name string, opt ...pg.QOpt) (evmtypes.Node, error)
 	return evmtypes.Node{}, sql.ErrNoRows
 }
 
-// GetNodesByChainIDs implements evmtypes.ORM
-func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []evmtypes.Node, err error) {
+// GetNodesByChainIDs implements evmtypes.Configs
+func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
 	ids := map[string]struct{}{}
 	for _, chainID := range chainIDs {
 		ids[chainID.String()] = struct{}{}
@@ -220,12 +211,8 @@ func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (n
 	return
 }
 
-// NodesForChain implements evmtypes.ORM
-func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
-	panic("not implemented")
-}
-
-func (mo *MockORM) EnsureChains([]utils.Big, ...pg.QOpt) error {
+// NodesForChain implements evmtypes.Configs
+func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]evmtypes.Node, int, error) {
 	panic("not implemented")
 }
 
