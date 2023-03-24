@@ -522,14 +522,18 @@ func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 		}
 		log.Info().Msgf("Latest block number: %d", latestBlockNum)
 
+		// TODO: Remove and use bn from config digest when https://smartcontract-it.atlassian.net/browse/MERC-248 resolved
+		bnForJobs := uint64(configDetails.BlockNumber) - 50
+		log.Info().Msgf("Block number used for job specs: %d", bnForJobs)
+
 		te.ActionLog[actionId] = &envAction{
 			Done: true,
 			Logs: map[string]interface{}{
-				"blockNumber": latestBlockNum,
+				"blockNumber": bnForJobs,
 			},
 		}
 
-		return latestBlockNum, nil
+		return bnForJobs, nil
 	}
 }
 
