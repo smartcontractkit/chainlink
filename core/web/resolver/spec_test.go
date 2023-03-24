@@ -822,6 +822,107 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+	coordinatorV1Address, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	require.NoError(t, err)
+
+	coordinatorV2Address, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
+	require.NoError(t, err)
+
+	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	require.NoError(t, err)
+
+	blockhashStoreAddress, err := ethkey.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
+	require.NoError(t, err)
+
+	batchBHSAddress, err := ethkey.NewEIP55Address("0xd23BAE30019853Caf1D08b4C03291b10AD7743Df")
+	require.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "block header feeder spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+					Type: job.BlockHeaderFeeder,
+					BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
+						CoordinatorV1Address:       &coordinatorV1Address,
+						CoordinatorV2Address:       &coordinatorV2Address,
+						CreatedAt:                  f.Timestamp(),
+						EVMChainID:                 utils.NewBigI(42),
+						FromAddresses:              []ethkey.EIP55Address{fromAddress},
+						PollPeriod:                 1 * time.Minute,
+						RunTimeout:                 37 * time.Second,
+						WaitBlocks:                 100,
+						LookbackBlocks:             200,
+						BlockhashStoreAddress:      blockhashStoreAddress,
+						BatchBlockhashStoreAddress: batchBHSAddress,
+						GetBlockhashesBatchSize:    5,
+						StoreBlockhashesBatchSize:  3,
+						EstimateGasMultiplier:      1,
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on BlockhashStoreSpec {
+									coordinatorV1Address
+									coordinatorV2Address
+									createdAt
+									evmChainID
+									fromAddresses
+									pollPeriod
+									runTimeout
+									waitBlocks
+									lookbackBlocks
+									blockhashStoreAddress
+									batchBlockhashStoreAddress
+									getBlockhashesBatchSize
+									storeBlockhashesBatchSize
+									estimateGasMultiplier
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "BlockhashStoreSpec",
+							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
+							"createdAt": "2021-01-01T00:00:00Z",
+							"evmChainID": "42",
+							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", "0xD479d7c994D298cA05bF270136ED9627b7E684D3"],
+							"pollPeriod": "1m0s",
+							"runTimeout": "37s",
+							"waitBlocks": 100,
+							"lookbackBlocks": 200,
+							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A",
+							"batchBlockhashStoreAddress": "0xd23BAE30019853Caf1D08b4C03291b10AD7743Df",
+							"getBlockhashesBatchSize": 5,
+							"storeBlockhashesBatchSize": 3,
+							"estimateGasMultiplier": 1,
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
 func TestResolver_BootstrapSpec(t *testing.T) {
 	var (
 		id = int32(1)

@@ -118,7 +118,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		batchBlockhashStore,
 		chain.ID(),
 		d.ks,
-		chain.Client(),
 		uint8(jb.BlockHeaderFeederSpec.EstimateGasMultiplier),
 		d.logger,
 	)
@@ -234,7 +233,7 @@ func (s *service) runFeeder() {
 }
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
-// in the VRF spec's fromAddresses field does not exist in the keystore.
+// in the BlockHeaderFeeder spec's fromAddresses field does not exist in the keystore.
 func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.BlockHeaderFeederSpec.FromAddresses {
 		_, err2 := gethks.Get(a.Hex())

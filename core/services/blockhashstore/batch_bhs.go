@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,11 +18,6 @@ import (
 
 type batchBHSConfig interface {
 	EvmGasLimitDefault() uint32
-	EvmGasLimitMax() uint32
-}
-
-type client interface {
-	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 }
 
 type BatchBlockhashStore struct {
@@ -31,7 +25,6 @@ type BatchBlockhashStore struct {
 	txm           txmgr.TxManager
 	abi           *abi.ABI
 	batchbhs      batch_blockhash_store.BatchBlockhashStoreInterface
-	ec            client
 	lggr          logger.Logger
 	gasMultiplier uint8
 }
@@ -43,7 +36,6 @@ func NewBatchBHS(
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
-	ec client,
 	gasMultiplier uint8,
 	lggr logger.Logger,
 ) (*BatchBlockhashStore, error) {
@@ -56,7 +48,6 @@ func NewBatchBHS(
 		txm:           txm,
 		abi:           abi,
 		batchbhs:      batchbhs,
-		ec:            ec,
 		gasMultiplier: gasMultiplier,
 		lggr:          lggr,
 	}, nil
@@ -74,10 +65,6 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 	payload, err := b.abi.Pack("storeVerifyHeader", blockNumbers, blockHeaders)
 	if err != nil {
 		return errors.Wrap(err, "packing args")
-	}
-
-	if err != nil {
-		return errors.Wrap(err, "getting next from address")
 	}
 
 	_, err = b.txm.CreateEthTransaction(txmgr.NewTx{

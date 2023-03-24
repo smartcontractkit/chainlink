@@ -3,6 +3,7 @@ package blockheaderfeeder
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -242,7 +243,7 @@ func (f *BlockHeaderFeeder) findEarliestBlockNumberWithBlockhash(ctx context.Con
 		for idx, bh := range blockhashes {
 			if !bytes.Equal(bh[:], zeroHash[:]) {
 				earliestBlockNumber := i + uint64(idx)
-				lggr.Infow("found earliest block number with blockhash", "earliestBlockNumber", earliestBlockNumber, "blockhash", bh)
+				lggr.Infow("found earliest block number with blockhash", "earliestBlockNumber", earliestBlockNumber, "blockhash", hex.EncodeToString(bh[:]))
 				f.stored[blockNumber] = struct{}{}
 				return big.NewInt(0).SetUint64(earliestBlockNumber), nil
 			}
