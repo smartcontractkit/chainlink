@@ -42,6 +42,7 @@ func RunTestMercuryServerHasReportForRecentBlockNum(t *testing.T, te *mercury.Te
 		})
 }
 
+// This will fail if https://smartcontract-it.atlassian.net/browse/MERC-337 not resolved
 func RunTestReportVerificationWithExchangerContract(t *testing.T, te *mercury.TestEnv,
 	exchangerContract contracts.Exchanger, feedId string) {
 	feedIdBytes := mercury.StringToByte32(feedId)
