@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,7 +33,7 @@ const defaultResenderPollInterval = 5 * time.Second
 type EthResender struct {
 	orm       ORM
 	ethClient evmclient.Client
-	ks        KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
+	ks        txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
 	chainID   big.Int
 	interval  time.Duration
 	config    Config
@@ -44,7 +45,7 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}

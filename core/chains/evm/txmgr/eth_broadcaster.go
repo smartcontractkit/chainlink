@@ -118,7 +118,7 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
+func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
 	eventBroadcaster pg.EventBroadcaster,
 	addresses []gethCommon.Address, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback,
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {

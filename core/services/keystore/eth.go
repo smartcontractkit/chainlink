@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -61,7 +61,7 @@ type eth struct {
 
 var _ Eth = &eth{}
 
-var _ txmgr.KeyStore[common.Address, *big.Int, types.Transaction, int64] = (*eth)(nil)
+var _ txmgrtypes.KeyStore[common.Address, *big.Int, types.Transaction, int64] = (*eth)(nil)
 
 func newEthKeyStore(km *keyManager) *eth {
 	return &eth{

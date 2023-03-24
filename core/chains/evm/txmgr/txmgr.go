@@ -49,18 +49,6 @@ type Config interface {
 	TriggerFallbackDBPollInterval() time.Duration
 }
 
-// KeyStore encompasses the subset of keystore used by txmgr
-type KeyStore[ADDR any, ID any, TX any, META any] interface {
-	CheckEnabled(address ADDR, chainID ID) error
-	//EnabledKeysForChain(chainID ID) (keys []ethkey.KeyV2, err error) //TODO:remove it and follow GetStatesForChain
-	GetNextMetadata(address ADDR, chainID ID, qopts ...pg.QOpt) (META, error)
-	// GetStatesForChain(chainID ID) ([]ethkey.State, error)
-	GetEnabledAddressesForChain(chainId ID) ([]ADDR, error)
-	IncrementNextMetadata(address ADDR, chainID ID, currentNonce META, qopts ...pg.QOpt) error
-	SignTx(fromAddress ADDR, tx *TX, chainID ID) (*TX, error)
-	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
-}
-
 // For more information about the Txm architecture, see the design doc:
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
@@ -102,7 +90,7 @@ type Txm struct {
 	q                pg.Q
 	ethClient        evmclient.Client
 	config           Config
-	keyStore         KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
+	keyStore         txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
 	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	chainID          big.Int
@@ -129,7 +117,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 ) *Txm {
@@ -559,10 +547,10 @@ func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.
 type ChainKeyStore struct {
 	chainID  big.Int
 	config   Config
-	keystore KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
+	keystore txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
 }
 
-func NewChainKeyStore(chainID big.Int, config Config, keystore KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]) ChainKeyStore {
+func NewChainKeyStore(chainID big.Int, config Config, keystore txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]) ChainKeyStore {
 	return ChainKeyStore{chainID, config, keystore}
 }
 
@@ -603,7 +591,7 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 func sendEmptyTransaction(
 	ctx context.Context,
 	ethClient evmclient.Client,
-	keyStore KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64],
+	keyStore txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64],
 	nonce uint64,
 	gasLimit uint32,
 	gasPriceWei *big.Int,
@@ -621,7 +609,7 @@ func sendEmptyTransaction(
 }
 
 // makes a transaction that sends 0 eth to self
-func makeEmptyTransaction(keyStore KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], nonce uint64, gasLimit uint32, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
+func makeEmptyTransaction(keyStore txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], nonce uint64, gasLimit uint32, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
 	value := big.NewInt(0)
 	payload := []byte{}
 	tx := gethTypes.NewTransaction(nonce, fromAddress, value, uint64(gasLimit), gasPriceWei, payload)

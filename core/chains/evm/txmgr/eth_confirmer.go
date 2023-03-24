@@ -132,7 +132,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
+func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
 	addresses []gethCommon.Address, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())

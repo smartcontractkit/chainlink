@@ -42,6 +42,7 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -200,7 +201,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore txmgr.KeyStore[common.Address, *big.Int, types.Transaction, int64], config evmconfig.ChainScopedConfig, addresses []common.Address, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore txmgrtypes.KeyStore[common.Address, *big.Int, types.Transaction, int64], config evmconfig.ChainScopedConfig, addresses []common.Address, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))

@@ -38,7 +38,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore txmgr.KeyStore[gethcommon.Address, *big.Int, gethtypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
+func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore txmgrtypes.KeyStore[gethcommon.Address, *big.Int, gethtypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
