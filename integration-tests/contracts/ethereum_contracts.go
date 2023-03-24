@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 
@@ -1321,6 +1322,40 @@ func (e *EthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) 
 
 func (e *EthereumAuthorizedForwarder) Address() string {
 	return e.address.Hex()
+}
+
+// EthereumMockAggregatorProxy represents mock aggregator proxy contract
+type EthereumMockAggregatorProxy struct {
+	address             *common.Address
+	client              blockchain.EVMClient
+	mockAggregatorProxy *mock_aggregator_proxy.MockAggregatorProxy
+}
+
+func (e *EthereumMockAggregatorProxy) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMockAggregatorProxy) UpdateAggregator(aggregator common.Address) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.mockAggregatorProxy.UpdateAggregator(opts, aggregator)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMockAggregatorProxy) Aggregator() (common.Address, error) {
+	addr, err := e.mockAggregatorProxy.Aggregator(&bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	})
+	if err != nil {
+		return common.Address{}, err
+	}
+	return addr, nil
 }
 
 func channelClosed(ch <-chan struct{}) bool {
