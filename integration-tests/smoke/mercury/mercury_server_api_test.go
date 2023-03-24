@@ -55,7 +55,7 @@ func genRsSsVs() ([][32]byte, [][32]byte, [32]byte) {
 }
 
 func TestMercuryServerAPI(t *testing.T) {
-	testEnv, err := mercury.NewEnv(t.Name(), "lukaszf-smoke", mercury.DefaultResources)
+	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
 
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
