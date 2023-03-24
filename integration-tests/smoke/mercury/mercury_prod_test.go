@@ -62,15 +62,16 @@ func TestSmokeMercuryProd(t *testing.T) {
 
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy")
 	require.NoError(t, err)
-	exchangerContract, err := testEnv.AddExchangerContract("exchanger", verifierProxyContract.Address(),
+
+	exchangerContract, err := testEnv.AddExchangerContract("exchanger", "",
 		"", 255)
 	require.NoError(t, err)
 
 	t.Run("get report by feed id str for the latest block number-2", func(t *testing.T) {
-		// latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
-		// require.NoError(t, err, "Err getting latest block number")
+		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
+		require.NoError(t, err, "Err getting latest block number")
 
-		reportData, _, err := msClient.GetReportsByFeedIdStr(feedId, 12905278)
+		reportData, _, err := msClient.GetReportsByFeedIdStr(feedId, latestBlockNum-2)
 		require.NoError(t, err)
 		require.NotEmpty(t, reportData.ChainlinkBlob, "received empty ChainlinkBlob")
 		reportBytes, err := hex.DecodeString(reportData.ChainlinkBlob[2:])
@@ -81,11 +82,11 @@ func TestSmokeMercuryProd(t *testing.T) {
 	})
 
 	t.Run("get report by feed id hex for the latest block number-2", func(t *testing.T) {
-		// latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
-		// require.NoError(t, err, "Err getting latest block number")
+		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
+		require.NoError(t, err, "Err getting latest block number")
 
 		feedIdHex := fmt.Sprintf("0x%x", mercury.StringToByte32(feedId))
-		reportData, _, err := msClient.GetReportsByFeedIdHex(feedIdHex, 12905278)
+		reportData, _, err := msClient.GetReportsByFeedIdHex(feedIdHex, latestBlockNum-2)
 		require.NoError(t, err)
 		require.NotEmpty(t, reportData.ChainlinkBlob, "received empty ChainlinkBlob")
 		reportBytes, err := hex.DecodeString(reportData.ChainlinkBlob[2:])
@@ -111,8 +112,24 @@ func TestSmokeMercuryProd(t *testing.T) {
 		l.Info().Msgf("received report: %+v", r)
 	})
 
+	t.Run("get report by /client?feedIDHex and verify it using VerifierProxy", func(t *testing.T) {
+		latestBlockNum, err := testEnv.EvmClient.LatestBlockNumber(context.Background())
+		require.NoError(t, err, "Err getting latest block number")
+
+		feedIdHex := fmt.Sprintf("0x%x", mercury.StringToByte32(feedId))
+		reportData, _, err := msClient.GetReportsByFeedIdHex(feedIdHex, latestBlockNum-2)
+		require.NoError(t, err)
+		require.NotEmpty(t, reportData.ChainlinkBlob, "received empty ChainlinkBlob")
+		reportBytes, err := hex.DecodeString(reportData.ChainlinkBlob[2:])
+		require.NoError(t, err)
+
+		err = verifierProxyContract.Verify(reportBytes)
+		require.NoError(t, err)
+	})
+
 	t.Run("get report and verify it on chain using Exchanger.ResolveTradeWithReport call",
 		func(t *testing.T) {
+			// t.Skip()
 			order := mercury.Order{
 				FeedID:       mercury.StringToByte32(feedId),
 				CurrencySrc:  mercury.StringToByte32("1"),
@@ -133,19 +150,25 @@ func TestSmokeMercuryProd(t *testing.T) {
 			require.NoError(t, err)
 			mercuryUrlPath, err := exchangerContract.ResolveTrade(encodedCommitment)
 			require.NoError(t, err)
-			// feedIdHex param is still not fixed in the Exchanger contract. Should be feedIDHex
-			fixedMerucyrUrlPath := strings.Replace(mercuryUrlPath, "feedIdHex", "feedIDHex", -1)
 
-			// Get report from mercury server
-			report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
-			l.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
+			// Wait for report in mercury server
+			time.Sleep(1 * time.Second)
+
+			// Get reportResp from mercury server
+			reportResp, resp, err := msClient.CallGet(mercuryUrlPath)
+			l.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, reportResp)
 			require.NoError(t, err, "Error getting report from Mercury Server")
-			require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")
-			reportBlob := report["chainlinkBlob"].(string)
+			require.NotEmpty(t, reportResp["chainlinkBlob"], "Report response does not contain chainlinkBlob")
+			reportBlob := reportResp["chainlinkBlob"].(string)
 
 			// Resolve the trade with report
 			reportBytes, err := hex.DecodeString(reportBlob[2:])
 			require.NoError(t, err)
+
+			reportCtx, err := mercuryactions.DecodeReport(reportBytes)
+			require.NoError(t, err)
+			l.Info().Msgf("report: %+v", reportCtx)
+
 			receipt, err := exchangerContract.ResolveTradeWithReport(reportBytes, encodedCommitment)
 			require.NoError(t, err)
 
