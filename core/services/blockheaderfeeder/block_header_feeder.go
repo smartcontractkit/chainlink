@@ -131,7 +131,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		// will make progress in storing blockhashes using blockheader.
 		// In this scenario, f.stored is not updated until the next iteration
 		// because we do not know which block number will be stored in the current iteration
-		err := f.bhs.StoreEarliest(ctx)
+		err = f.bhs.StoreEarliest(ctx)
 		if err != nil {
 			return errors.Wrap(err, "storing earliest")
 		}
