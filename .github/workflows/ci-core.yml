@@ -88,8 +88,8 @@ jobs:
           allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
       - name: Print lint report artifact
-        if: needs.init.outputs.on_trigger_lint == 'true'
-        run: cat golangci-lint-report.xml
+        if: always()
+        run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true
       - name: Store lint report artifact
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0

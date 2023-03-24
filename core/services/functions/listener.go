@@ -1,4 +1,4 @@
-package directrequestocr
+package functions
 
 import (
 	"bytes"
@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	_ log.Listener   = &DRListener{}
-	_ job.ServiceCtx = &DRListener{}
+	_ log.Listener   = &FunctionsListener{}
+	_ job.ServiceCtx = &FunctionsListener{}
 
 	sizeBuckets = []float64{
 		1024,
@@ -102,7 +102,7 @@ const (
 	ParseErrorTaskName  string = "parse_error"
 )
 
-type DRListener struct {
+type FunctionsListener struct {
 	utils.StartStopOnce
 	oracle            *ocr2dr_oracle.OCR2DROracle
 	oracleHexAddr     string
@@ -125,8 +125,8 @@ func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *DRListener {
-	return &DRListener{
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *FunctionsListener {
+	return &FunctionsListener{
 		oracle:         oracle,
 		oracleHexAddr:  oracle.Address().Hex(),
 		job:            jb,
@@ -143,8 +143,8 @@ func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeli
 }
 
 // Start complies with job.Service
-func (l *DRListener) Start(context.Context) error {
-	return l.StartOnce("DirectRequestListener", func() error {
+func (l *FunctionsListener) Start(context.Context) error {
+	return l.StartOnce("FunctionsListener", func() error {
 		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle.Address(),
@@ -169,15 +169,15 @@ func (l *DRListener) Start(context.Context) error {
 			l.shutdownWaitGroup.Done()
 		}()
 
-		l.mailMon.Monitor(l.mbOracleEvents, "DirectRequestListener", "OracleEvents", fmt.Sprint(l.job.ID))
+		l.mailMon.Monitor(l.mbOracleEvents, "FunctionsListener", "OracleEvents", fmt.Sprint(l.job.ID))
 
 		return nil
 	})
 }
 
 // Close complies with job.Service
-func (l *DRListener) Close() error {
-	return l.StopOnce("DirectRequestListener", func() error {
+func (l *FunctionsListener) Close() error {
+	return l.StopOnce("FunctionsListener", func() error {
 		l.serviceCancel()
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
@@ -187,7 +187,7 @@ func (l *DRListener) Close() error {
 }
 
 // HandleLog implements log.Listener
-func (l *DRListener) HandleLog(lb log.Broadcast) {
+func (l *FunctionsListener) HandleLog(lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		l.logger.Error("HandleLog: ignoring nil value")
@@ -206,11 +206,11 @@ func (l *DRListener) HandleLog(lb log.Broadcast) {
 }
 
 // JobID() complies with log.Listener
-func (l *DRListener) JobID() int32 {
+func (l *FunctionsListener) JobID() int32 {
 	return l.job.ID
 }
 
-func (l *DRListener) processOracleEvents() {
+func (l *FunctionsListener) processOracleEvents() {
 	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
@@ -293,7 +293,7 @@ func ExtractRawBytes(input []byte) ([]byte, error) {
 	return utils.TryParseHex(string(input))
 }
 
-func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
 	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
 	if timeoutSec == 0 {
 		return context.WithCancel(l.serviceContext)
@@ -301,7 +301,7 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
 }
 
-func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
+func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
 		promRequestInternalError.WithLabelValues(l.oracleHexAddr).Inc()
 	} else {
@@ -313,7 +313,7 @@ func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId in
 	}
 }
 
-func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
@@ -424,7 +424,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	}
 }
 
-func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
 
@@ -437,13 +437,13 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
-func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
+func (l *FunctionsListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
 		l.logger.Errorw("unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }
 
-func (l *DRListener) timeoutRequests() {
+func (l *FunctionsListener) timeoutRequests() {
 	defer l.shutdownWaitGroup.Done()
 	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
 	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {

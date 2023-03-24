@@ -4,7 +4,7 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	directrequestocr "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	functions "github.com/smartcontractkit/chainlink/core/services/functions"
 	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
@@ -18,7 +18,7 @@ type ORM struct {
 }
 
 // CreateRequest provides a mock function with given fields: requestID, receivedAt, requestTxHash, qopts
-func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+func (_m *ORM) CreateRequest(requestID functions.RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -29,7 +29,7 @@ func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, receivedAt ti
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, time.Time, *common.Hash, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, time.Time, *common.Hash, ...pg.QOpt) error); ok {
 		r0 = rf(requestID, receivedAt, requestTxHash, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -39,7 +39,7 @@ func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, receivedAt ti
 }
 
 // FindById provides a mock function with given fields: requestID, qopts
-func (_m *ORM) FindById(requestID directrequestocr.RequestID, qopts ...pg.QOpt) (*directrequestocr.Request, error) {
+func (_m *ORM) FindById(requestID functions.RequestID, qopts ...pg.QOpt) (*functions.Request, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -49,20 +49,20 @@ func (_m *ORM) FindById(requestID directrequestocr.RequestID, qopts ...pg.QOpt) 
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 *directrequestocr.Request
+	var r0 *functions.Request
 	var r1 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, ...pg.QOpt) (*directrequestocr.Request, error)); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, ...pg.QOpt) (*functions.Request, error)); ok {
 		return rf(requestID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, ...pg.QOpt) *directrequestocr.Request); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, ...pg.QOpt) *functions.Request); ok {
 		r0 = rf(requestID, qopts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*directrequestocr.Request)
+			r0 = ret.Get(0).(*functions.Request)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(directrequestocr.RequestID, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(functions.RequestID, ...pg.QOpt) error); ok {
 		r1 = rf(requestID, qopts...)
 	} else {
 		r1 = ret.Error(1)
@@ -72,7 +72,7 @@ func (_m *ORM) FindById(requestID directrequestocr.RequestID, qopts ...pg.QOpt) 
 }
 
 // FindOldestEntriesByState provides a mock function with given fields: state, limit, qopts
-func (_m *ORM) FindOldestEntriesByState(state directrequestocr.RequestState, limit uint32, qopts ...pg.QOpt) ([]directrequestocr.Request, error) {
+func (_m *ORM) FindOldestEntriesByState(state functions.RequestState, limit uint32, qopts ...pg.QOpt) ([]functions.Request, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -82,20 +82,20 @@ func (_m *ORM) FindOldestEntriesByState(state directrequestocr.RequestState, lim
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 []directrequestocr.Request
+	var r0 []functions.Request
 	var r1 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestState, uint32, ...pg.QOpt) ([]directrequestocr.Request, error)); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestState, uint32, ...pg.QOpt) ([]functions.Request, error)); ok {
 		return rf(state, limit, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestState, uint32, ...pg.QOpt) []directrequestocr.Request); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestState, uint32, ...pg.QOpt) []functions.Request); ok {
 		r0 = rf(state, limit, qopts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]directrequestocr.Request)
+			r0 = ret.Get(0).([]functions.Request)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(directrequestocr.RequestState, uint32, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(functions.RequestState, uint32, ...pg.QOpt) error); ok {
 		r1 = rf(state, limit, qopts...)
 	} else {
 		r1 = ret.Error(1)
@@ -105,7 +105,7 @@ func (_m *ORM) FindOldestEntriesByState(state directrequestocr.RequestState, lim
 }
 
 // SetConfirmed provides a mock function with given fields: requestID, qopts
-func (_m *ORM) SetConfirmed(requestID directrequestocr.RequestID, qopts ...pg.QOpt) error {
+func (_m *ORM) SetConfirmed(requestID functions.RequestID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -116,7 +116,7 @@ func (_m *ORM) SetConfirmed(requestID directrequestocr.RequestID, qopts ...pg.QO
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, ...pg.QOpt) error); ok {
 		r0 = rf(requestID, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -126,7 +126,7 @@ func (_m *ORM) SetConfirmed(requestID directrequestocr.RequestID, qopts ...pg.QO
 }
 
 // SetError provides a mock function with given fields: requestID, runID, errorType, computationError, readyAt, readyForProcessing, qopts
-func (_m *ORM) SetError(requestID directrequestocr.RequestID, runID int64, errorType directrequestocr.ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
+func (_m *ORM) SetError(requestID functions.RequestID, runID int64, errorType functions.ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -137,7 +137,7 @@ func (_m *ORM) SetError(requestID directrequestocr.RequestID, runID int64, error
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, int64, directrequestocr.ErrType, []byte, time.Time, bool, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, int64, functions.ErrType, []byte, time.Time, bool, ...pg.QOpt) error); ok {
 		r0 = rf(requestID, runID, errorType, computationError, readyAt, readyForProcessing, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -147,7 +147,7 @@ func (_m *ORM) SetError(requestID directrequestocr.RequestID, runID int64, error
 }
 
 // SetFinalized provides a mock function with given fields: requestID, reportedResult, reportedError, qopts
-func (_m *ORM) SetFinalized(requestID directrequestocr.RequestID, reportedResult []byte, reportedError []byte, qopts ...pg.QOpt) error {
+func (_m *ORM) SetFinalized(requestID functions.RequestID, reportedResult []byte, reportedError []byte, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -158,7 +158,7 @@ func (_m *ORM) SetFinalized(requestID directrequestocr.RequestID, reportedResult
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, []byte, []byte, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, []byte, []byte, ...pg.QOpt) error); ok {
 		r0 = rf(requestID, reportedResult, reportedError, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -168,7 +168,7 @@ func (_m *ORM) SetFinalized(requestID directrequestocr.RequestID, reportedResult
 }
 
 // SetResult provides a mock function with given fields: requestID, runID, computationResult, readyAt, qopts
-func (_m *ORM) SetResult(requestID directrequestocr.RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+func (_m *ORM) SetResult(requestID functions.RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -179,7 +179,7 @@ func (_m *ORM) SetResult(requestID directrequestocr.RequestID, runID int64, comp
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, int64, []byte, time.Time, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(functions.RequestID, int64, []byte, time.Time, ...pg.QOpt) error); ok {
 		r0 = rf(requestID, runID, computationResult, readyAt, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -189,7 +189,7 @@ func (_m *ORM) SetResult(requestID directrequestocr.RequestID, runID int64, comp
 }
 
 // TimeoutExpiredResults provides a mock function with given fields: cutoff, limit, qopts
-func (_m *ORM) TimeoutExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]directrequestocr.RequestID, error) {
+func (_m *ORM) TimeoutExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]functions.RequestID, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -199,16 +199,16 @@ func (_m *ORM) TimeoutExpiredResults(cutoff time.Time, limit uint32, qopts ...pg
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 []directrequestocr.RequestID
+	var r0 []functions.RequestID
 	var r1 error
-	if rf, ok := ret.Get(0).(func(time.Time, uint32, ...pg.QOpt) ([]directrequestocr.RequestID, error)); ok {
+	if rf, ok := ret.Get(0).(func(time.Time, uint32, ...pg.QOpt) ([]functions.RequestID, error)); ok {
 		return rf(cutoff, limit, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(time.Time, uint32, ...pg.QOpt) []directrequestocr.RequestID); ok {
+	if rf, ok := ret.Get(0).(func(time.Time, uint32, ...pg.QOpt) []functions.RequestID); ok {
 		r0 = rf(cutoff, limit, qopts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]directrequestocr.RequestID)
+			r0 = ret.Get(0).([]functions.RequestID)
 		}
 	}
 

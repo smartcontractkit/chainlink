@@ -29,6 +29,7 @@ import (
 
 // ErrNoChains indicates that no EVM chains have been started
 var ErrNoChains = errors.New("no EVM chains loaded")
+var ErrChainNotFound = errors.New("chain not found")
 
 var _ ChainSet = &chainSet{}
 
@@ -126,7 +127,7 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	if exists {
 		return c, nil
 	}
-	return nil, errors.Errorf("chain not found with id %v", id.String())
+	return nil, errors.Wrap(ErrChainNotFound, fmt.Sprintf("failed to get chain with id %s", id.String()))
 }
 
 func (cll *chainSet) Show(id utils.Big) (types.ChainConfig, error) {

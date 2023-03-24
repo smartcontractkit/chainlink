@@ -9,6 +9,7 @@ import (
 	mercuryserver "github.com/smartcontractkit/chainlink-env/pkg/helm/mercury-server"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/loadgen"
+	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/load/tools"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
@@ -64,8 +65,8 @@ var (
 )
 
 func TestMercuryHTTPLoad(t *testing.T) {
-	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
-	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	feeds := mercuryactions.GenFeedIds(9)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
@@ -93,8 +94,8 @@ func TestMercuryHTTPLoad(t *testing.T) {
 			"test_id":    "http",
 		},
 		LoadType:    loadgen.RPSScheduleType,
-		CallTimeout: 5 * time.Second,
-		Schedule:    loadgen.Line(10, 300, 100*time.Second),
+		CallTimeout: 10 * time.Second,
+		Schedule:    loadgen.Line(10, 300, 600*time.Second),
 		Gun:         gun,
 	})
 	require.NoError(t, err)
@@ -103,8 +104,8 @@ func TestMercuryHTTPLoad(t *testing.T) {
 }
 
 func TestMercuryWSLoad(t *testing.T) {
-	feeds := [][32]byte{mercury.StringToByte32("feed-1")}
-	testEnv, err := mercury.SetupMercuryMultiFeedEnv(t.Name(), "load", feeds, resources)
+	feeds := mercuryactions.GenFeedIds(9)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
@@ -123,7 +124,7 @@ func TestMercuryWSLoad(t *testing.T) {
 			"test_id":    "ws",
 		},
 		LoadType: loadgen.InstancesScheduleType,
-		Schedule: loadgen.Line(10, 300, 30*time.Second),
+		Schedule: loadgen.Line(10, 30, 30*time.Second),
 		Instance: tools.NewWSInstance(testEnv.MSClient),
 	})
 	require.NoError(t, err)
