@@ -1007,6 +1007,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom(multiaddr),
+				Plugins: feeds.Plugins{
+					Median: true,
+				},
 			},
 		}
 		chainConfigs = []feeds.ChainConfig{ccfg}
@@ -1051,6 +1054,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					Enabled:     true,
 					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
 					Multiaddr:   multiaddr,
+					Plugins: &proto.OCR2Config_Plugins{
+						Median: ccfg.OCR2Config.Plugins.Median,
+					},
 				},
 			},
 		},
