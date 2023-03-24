@@ -169,15 +169,15 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.GetEnabledAddressesForChain(w.bm.chainID)
+	enabledAddresses, err := w.bm.ethKeyStore.GetEnabledAddressesForChain(w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
 
 	var wg sync.WaitGroup
 
-	wg.Add(len(keys))
-	for _, key := range keys {
+	wg.Add(len(enabledAddresses))
+	for _, key := range enabledAddresses {
 		go func(k gethCommon.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)

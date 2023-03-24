@@ -499,6 +499,9 @@ func (ks *eth) GetEnabledAddressesForChain(chainID *big.Int) (addresses []common
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
+	if chainID == nil {
+		return nil, errors.New("chainID must be non-nil")
+	}
 	for _, s := range ks.keyStates.ChainIDKeyID[chainID.String()] {
 		if !s.Disabled {
 			addresses = append(addresses, s.Address.Address())

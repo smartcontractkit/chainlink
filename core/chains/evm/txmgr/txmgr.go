@@ -172,20 +172,20 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 // The provided context can be used to terminate Start sequence.
 func (b *Txm) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
-		addresses, err := b.keyStore.GetEnabledAddressesForChain(&b.chainID)
+		enabledAddresses, err := b.keyStore.GetEnabledAddressesForChain(&b.chainID)
 		if err != nil {
 			return errors.Wrap(err, "Txm: failed to load key states")
 		}
 
-		if len(addresses) > 0 {
-			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(addresses)), "keys", addresses)
+		if len(enabledAddresses) > 0 {
+			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(enabledAddresses)), "keys", enabledAddresses)
 		} else {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, addresses, b.gasEstimator, b.resumeCallback, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -198,7 +198,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, addresses)
+		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, enabledAddresses)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -294,7 +294,7 @@ func (b *Txm) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, addresses []common.Address) {
+func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []common.Address) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -327,8 +327,8 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, addresses []common.A
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, addresses, b.gasEstimator, b.resumeCallback, b.logger)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -425,13 +425,13 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, addresses []common.A
 				continue
 			}
 			var err error
-			addresses, err = b.keyStore.GetEnabledAddressesForChain(&b.chainID)
+			enabledAddresses, err = b.keyStore.GetEnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
-			b.logger.Debugw("Keys changed, reloading", "keyStates", addresses)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", enabledAddresses)
 
 			execReset(nil)
 		}

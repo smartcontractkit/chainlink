@@ -162,6 +162,47 @@ func Test_EthKeyStore(t *testing.T) {
 		assert.Error(t, err)
 		assert.EqualError(t, err, "chainID must be non-nil")
 	})
+
+	t.Run("GetEnabledAddressesForChain with specified chain ID", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create(testutils.FixtureChainID)
+		require.NoError(t, err)
+		key2, err := ethKeyStore.Create(big.NewInt(1337))
+		require.NoError(t, err)
+		testutils.AssertCount(t, db, "evm_key_states", 2)
+		keys, err := ethKeyStore.GetAll()
+		require.NoError(t, err)
+		assert.Len(t, keys, 2)
+
+		//get enabled addresses for FixtureChainID
+		enabledAddresses, err := ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
+		require.NoError(t, err)
+		require.Len(t, enabledAddresses, 1)
+		require.Equal(t, key.Address, enabledAddresses[0])
+
+		//get enabled addresses for chain 1337
+		enabledAddresses, err = ethKeyStore.GetEnabledAddressesForChain(big.NewInt(1337))
+		require.NoError(t, err)
+		require.Len(t, enabledAddresses, 1)
+		require.Equal(t, key2.Address, enabledAddresses[0])
+
+		// /get enabled addresses for nil chain ID
+		_, err = ethKeyStore.GetEnabledAddressesForChain(nil)
+		assert.Error(t, err)
+		assert.EqualError(t, err, "chainID must be non-nil")
+
+		// disable the key for chain FixtureChainID
+		err = ethKeyStore.Disable(key.Address, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		enabledAddresses, err = ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
+		require.NoError(t, err)
+		assert.Len(t, enabledAddresses, 0)
+		enabledAddresses, err = ethKeyStore.GetEnabledAddressesForChain(big.NewInt(1337))
+		require.NoError(t, err)
+		assert.Len(t, enabledAddresses, 1)
+	})
+
 }
 
 func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {

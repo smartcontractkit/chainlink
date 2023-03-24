@@ -2389,7 +2389,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	keys, err := ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
+	enabledAddresses, err := ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
 	require.NoError(t, err)
 	// keyStates, err := ethKeyStore.GetStatesForKeys(keys)
 	// require.NoError(t, err)
@@ -2408,7 +2408,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 
 	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, keys, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, enabledAddresses, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -2434,7 +2434,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, keys, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, enabledAddresses, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -2459,7 +2459,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, keys, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, enabledAddresses, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -2491,7 +2491,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 			c.EVM[0].GasEstimator.BumpTxDepth = ptr(uint16(depth))
 		})
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, keys, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, enabledAddresses, nil)
 
 		for i := 0; i < etxCount; i++ {
 			n := nonce

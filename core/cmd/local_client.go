@@ -575,13 +575,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	keyStates, err := keyStore.Eth().GetEnabledAddressesForChain(chain.ID())
+	enabledAddresses, err := keyStore.Eth().GetEnabledAddressesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
 	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), enabledAddresses, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
