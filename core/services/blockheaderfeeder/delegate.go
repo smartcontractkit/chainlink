@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/multierr"
 )
 
 var _ job.ServiceCtx = &service{}

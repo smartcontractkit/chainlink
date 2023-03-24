@@ -52,7 +52,10 @@ func (p *GethBlockHeaderProvider) RlpHeadersBatch(ctx context.Context, blockRang
 			return nil, errors.New("invariant violation: got nil header")
 		}
 		headerBuffer := new(bytes.Buffer)
-		header.EncodeRLP(headerBuffer)
+		err := header.EncodeRLP(headerBuffer)
+		if err != nil {
+			return nil, err
+		}
 		headers = append(headers, headerBuffer.Bytes())
 	}
 

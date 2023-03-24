@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	keystoremocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestFeeder(t *testing.T) {
