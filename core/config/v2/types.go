@@ -155,12 +155,17 @@ func (d *DatabaseSecrets) Type() config.SecretType {
 	return config.DBSecretType
 }
 
-func (d *DatabaseSecrets) EnableValidation() {
-	d.noValidation = false
+func (d *DatabaseSecrets) SetEnabled(enabled bool) {
+	d.noValidation = !enabled
 }
 
-func (d *DatabaseSecrets) DisableValidation() {
-	d.noValidation = true
+/*
+	func (d *DatabaseSecrets) DisableValidation() {
+		d.noValidation = true
+	}
+*/
+func (d *DatabaseSecrets) Enabled() bool {
+	return !d.noValidation
 }
 
 type ExplorerSecrets struct {

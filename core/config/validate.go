@@ -19,6 +19,6 @@ const (
 type Secret interface {
 	Validated
 	Type() SecretType
-	EnableValidation()
-	DisableValidation()
+	SetEnabled(on bool)
+	Enabled() bool
 }

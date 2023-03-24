@@ -197,10 +197,16 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
+	var secretsMerr error
+	for _, s := range g.Secrets() {
+		if s.Enabled() {
+			secretsMerr = multierr.Append(secretsMerr, s.ValidateConfig())
+		}
+	}
 	_, err := utils.MultiErrorList(multierr.Combine(
 		validateEnv(),
 		g.c.Validate(),
-		g.secrets.Validate()))
+		secretsMerr))
 	return err
 }
 
@@ -942,17 +948,19 @@ func (g *generalConfig) RootDir() string {
 }
 
 func (g *generalConfig) Secrets() []config.Secret {
-	return nil
+	//return nil
+	// could be more generic with reflection
+	return []config.Secret{&g.secrets.Database}
 }
 
 func (g *generalConfig) SetSecretValidationFilter(filterTypes ...config.SecretType) {
 	// could be more generic with reflection
-	secrets := []config.Secret{&g.secrets.Database}
-	for _, s := range secrets {
-		s.DisableValidation()
+	//secrets := []config.Secret{&g.secrets.Database}
+	for _, s := range g.Secrets() {
+		s.SetEnabled(false)
 		for _, keep := range filterTypes {
 			if s.Type() == keep {
-				s.EnableValidation()
+				s.SetEnabled(true)
 			}
 		}
 	}
