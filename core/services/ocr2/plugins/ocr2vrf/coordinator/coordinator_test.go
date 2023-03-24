@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
@@ -1769,4 +1770,33 @@ func getLogPoller(
 		Return(logPollerBlocks, nil)
 
 	return lp
+}
+
+func TestFilterNamesFromSpec(t *testing.T) {
+	beaconAddress := newAddress(t)
+	coordinatorAddress := newAddress(t)
+	dkgAddress := newAddress(t)
+
+	spec := &job.OCR2OracleSpec{
+		ContractID: beaconAddress.String(),
+		PluginType: job.OCR2VRF,
+		PluginConfig: job.JSONConfig{
+			"VRFCoordinatorAddress": coordinatorAddress.String(),
+			"DKGContractAddress":    dkgAddress.String(),
+		},
+	}
+
+	names, err := FilterNamesFromSpec(spec)
+	require.NoError(t, err)
+
+	assert.Len(t, names, 1)
+	assert.Equal(t, logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress), names[0])
+
+	spec = &job.OCR2OracleSpec{
+		PluginType:   job.OCR2VRF,
+		ContractID:   beaconAddress.String(),
+		PluginConfig: nil, // missing coordinator & dkg addresses
+	}
+	names, err = FilterNamesFromSpec(spec)
+	require.ErrorContains(t, err, "is not a valid EIP55 formatted address")
 }

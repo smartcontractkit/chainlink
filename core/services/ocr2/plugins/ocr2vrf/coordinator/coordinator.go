@@ -172,12 +172,11 @@ func New(
 	}
 
 	t := newTopics()
-	filterName := logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: filterName,
+		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
 			t.randomnessFulfillmentRequestedTopic,
@@ -1107,17 +1106,26 @@ func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	promCallbacksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
 }
 
+func filterName(beaconAddress, coordinatorAddress, dkgAddress common.Address) string {
+	return logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
+}
+
 func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
 	var cfg ocr2vrfconfig.PluginConfig
+	var beaconAddress, coordinatorAddress, dkgAddress ethkey.EIP55Address
 
 	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
 		err = errors.Wrap(err, "failed to unmarshal ocr2vrf plugin config")
-		return
+		return nil, err
 	}
 
-	beaconAddress := ethkey.MustEIP55Address(spec.ContractID).Address()
-	coordinatorAddress := ethkey.MustEIP55Address(cfg.VRFCoordinatorAddress).Address()
-	dkgAddress := ethkey.MustEIP55Address(cfg.DKGContractAddress).Address()
+	if beaconAddress, err = ethkey.NewEIP55Address(spec.ContractID); err == nil {
+		if coordinatorAddress, err = ethkey.NewEIP55Address(cfg.VRFCoordinatorAddress); err == nil {
+			if dkgAddress, err = ethkey.NewEIP55Address(cfg.DKGContractAddress); err == nil {
+				return []string{filterName(beaconAddress.Address(), coordinatorAddress.Address(), dkgAddress.Address())}, nil
+			}
+		}
+	}
 
-	return []string{logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)}, err
+	return nil, err
 }
