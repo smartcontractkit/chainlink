@@ -70,7 +70,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	if err := CheckFromAddressesExist(jb, d.ks); err != nil {
+	if err = CheckFromAddressesExist(jb, d.ks); err != nil {
 		return nil, err
 	}
 	fromAddresses := jb.BlockHeaderFeederSpec.FromAddresses

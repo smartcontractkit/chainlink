@@ -90,19 +90,19 @@ type BlockHeaderFeeder struct {
 
 // Run the feeder.
 func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
-	latestBlock, err := f.latestBlock(ctx)
+	latestBlockNumber, err := f.latestBlock(ctx)
 	if err != nil {
 		f.lggr.Errorw("Failed to fetch current block number", "error", err)
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks)
+	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlockNumber), f.waitBlocks, f.lookbackBlocks)
 	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
 	}
 
-	lggr := f.lggr.With("latestBlock", latestBlock, "fromBlock", fromBlock, "toBlock", toBlock)
+	lggr := f.lggr.With("latestBlock", latestBlockNumber, "fromBlock", fromBlock, "toBlock", toBlock)
 	lggr.Debug("searching for unfulfilled blocks")
 
 	blockToRequests, err := blockhashstore.GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
@@ -177,15 +177,15 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ {
 			if _, ok := f.stored[block]; ok {
 				delete(f.stored, block)
-				f.lggr.Debugw("Pruned block from stored cache",
-					"block", block, "latestBlock", latestBlock)
+				lggr.Debugw("Pruned block from stored cache",
+					"block", block)
 			}
 		}
 	}
 	// lastRunBlock is only used for pruning
 	// only time we update lastRunBlock is when the run reaches completion, indicating
 	// that new block has been stored
-	f.lastRunBlock = latestBlock
+	f.lastRunBlock = latestBlockNumber
 	return nil
 }
 
