@@ -1,4 +1,4 @@
-package directrequestocr_test
+package functions_test
 
 import (
 	"errors"
@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
-	drocr_mocks "github.com/smartcontractkit/chainlink/core/services/directrequestocr/mocks"
+	functions_service "github.com/smartcontractkit/chainlink/core/services/functions"
+	functions_mocks "github.com/smartcontractkit/chainlink/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	job_mocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
@@ -33,17 +33,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type DRListenerUniverse struct {
+type FunctionsListenerUniverse struct {
 	runner         *pipeline_mocks.Runner
-	service        *drocr_service.DRListener
+	service        *functions_service.FunctionsListener
 	jobORM         *job_mocks.ORM
-	pluginORM      *drocr_mocks.ORM
+	pluginORM      *functions_mocks.ORM
 	logBroadcaster *log_mocks.Broadcaster
 }
 
 func ptr[T any](t T) *T { return &t }
 
-func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
+func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
@@ -59,7 +59,7 @@ func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
 	lggr := logger.TestLogger(t)
 
 	jobORM := job_mocks.NewORM(t)
-	pluginORM := drocr_mocks.NewORM(t)
+	pluginORM := functions_mocks.NewORM(t)
 	jb := &job.Job{
 		Type:          job.OffchainReporting2,
 		SchemaVersion: 1,
@@ -83,17 +83,17 @@ func NewDRListenerUniverse(t *testing.T, timeoutSec int) *DRListenerUniverse {
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
 
-	return &DRListenerUniverse{
+	return &FunctionsListenerUniverse{
 		runner:         runner,
-		service:        service.(*drocr_service.DRListener),
+		service:        service.(*functions_service.FunctionsListener),
 		jobORM:         jobORM,
 		pluginORM:      pluginORM,
 		logBroadcaster: broadcaster,
 	}
 }
 
-func PrepareAndStartDRListener(t *testing.T, expectPipelineRun bool) (*DRListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
-	uni := NewDRListenerUniverse(t, 0)
+func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*FunctionsListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
+	uni := NewFunctionsListenerUniverse(t, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	err := uni.service.Start(testutils.Context(t))
@@ -131,7 +131,7 @@ func PrepareAndStartDRListener(t *testing.T, expectPipelineRun bool) (*DRListene
 	return uni, log, runBeganAwaiter
 }
 
-var RequestID drocr_service.RequestID = newRequestID()
+var RequestID functions_service.RequestID = newRequestID()
 
 const (
 	CorrectResultData string = "\"0x1234\""
@@ -139,16 +139,16 @@ const (
 	EmptyData         string = "\"\""
 )
 
-func TestDRListener_HandleOracleRequestSuccess(t *testing.T) {
+func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
@@ -157,17 +157,17 @@ func TestDRListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestDRListener_HandleOracleRequestComputationError(t *testing.T) {
+func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, drocr_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -175,15 +175,15 @@ func TestDRListener_HandleOracleRequestComputationError(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestDRListener_HandleOracleRequestCBORParsingError(t *testing.T) {
+func TestFunctionsListener_HandleOracleRequestCBORParsingError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, drocr_service.CBORParseTaskName, mock.Anything).Return(nil, errors.New("bad cbor"))
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, drocr_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return(nil, errors.New("bad cbor"))
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -191,15 +191,15 @@ func TestDRListener_HandleOracleRequestCBORParsingError(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestDRListener_RequestTimeout(t *testing.T) {
+func TestFunctionsListener_RequestTimeout(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
 	reqId := newRequestID()
 	done := make(chan bool)
-	uni := NewDRListenerUniverse(t, 1)
+	uni := NewFunctionsListenerUniverse(t, 1)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
-	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]drocr_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]functions_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
 		done <- true
 	})
 
@@ -210,13 +210,13 @@ func TestDRListener_RequestTimeout(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestDRListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
+func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
 	var ormCallExited sync.WaitGroup
 	ormCallExited.Add(1)
-	uni, log, _ := PrepareAndStartDRListener(t, false)
+	uni, log, _ := PrepareAndStartFunctionsListener(t, false)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		var queryerWrapper pg.Q
 		args.Get(3).(pg.QOpt)(&queryerWrapper)
@@ -230,40 +230,40 @@ func TestDRListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestDRListener_ExtractRawBytes(t *testing.T) {
+func TestFunctionsListener_ExtractRawBytes(t *testing.T) {
 	t.Parallel()
 
-	res, err := drocr_service.ExtractRawBytes([]byte("\"\""))
+	res, err := functions_service.ExtractRawBytes([]byte("\"\""))
 	require.NoError(t, err)
 	require.Equal(t, []byte{}, res)
 
-	res, err = drocr_service.ExtractRawBytes([]byte("\"0xabcd\""))
+	res, err = functions_service.ExtractRawBytes([]byte("\"0xabcd\""))
 	require.NoError(t, err)
 	require.Equal(t, []byte{0xab, 0xcd}, res)
 
-	res, err = drocr_service.ExtractRawBytes([]byte("\"0x0\""))
+	res, err = functions_service.ExtractRawBytes([]byte("\"0x0\""))
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x0}, res)
 
-	res, err = drocr_service.ExtractRawBytes([]byte("\"0x00\""))
+	res, err = functions_service.ExtractRawBytes([]byte("\"0x00\""))
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x0}, res)
 
-	_, err = drocr_service.ExtractRawBytes([]byte(""))
+	_, err = functions_service.ExtractRawBytes([]byte(""))
 	require.Error(t, err)
 
-	_, err = drocr_service.ExtractRawBytes([]byte("0xab"))
+	_, err = functions_service.ExtractRawBytes([]byte("0xab"))
 	require.Error(t, err)
 
-	_, err = drocr_service.ExtractRawBytes([]byte("\"0x\""))
+	_, err = functions_service.ExtractRawBytes([]byte("\"0x\""))
 	require.Error(t, err)
 
-	_, err = drocr_service.ExtractRawBytes([]byte("\"0xabc\""))
+	_, err = functions_service.ExtractRawBytes([]byte("\"0xabc\""))
 	require.Error(t, err)
 
-	_, err = drocr_service.ExtractRawBytes([]byte("\"0xqwer\""))
+	_, err = functions_service.ExtractRawBytes([]byte("\"0xqwer\""))
 	require.Error(t, err)
 
-	_, err = drocr_service.ExtractRawBytes([]byte("null"))
+	_, err = functions_service.ExtractRawBytes([]byte("null"))
 	require.ErrorContains(t, err, "null value")
 }
