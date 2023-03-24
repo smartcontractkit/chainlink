@@ -26,6 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+type EvmReceiptPlus = txmgrtypes.ReceiptPlus[evmtypes.Receipt]
+
 // EthTxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present
 type EthTxMeta struct {
@@ -71,7 +74,6 @@ type TransmitCheckerSpec struct {
 }
 
 type EthTxState string
-type EthTxAttemptState string
 
 // TransmitCheckerType describes the type of check that should be performed before a transaction is
 // executed on-chain.
@@ -84,10 +86,6 @@ const (
 	EthTxUnconfirmed             = EthTxState("unconfirmed")
 	EthTxConfirmed               = EthTxState("confirmed")
 	EthTxConfirmedMissingReceipt = EthTxState("confirmed_missing_receipt")
-
-	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
-	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
-	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
 
 	// TransmitCheckerTypeSimulate is a checker that simulates the transaction before executing on
 	// chain.
@@ -297,8 +295,8 @@ type EthTxAttempt struct {
 	Hash                    common.Hash
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
-	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `json:"-"`
+	State                   txmgrtypes.TxAttemptState
+	EthReceipts             []EvmReceipt `json:"-"`
 	TxType                  int
 }
 
@@ -352,14 +350,4 @@ func (a EthTxAttempt) GetHash() common.Hash {
 
 func (a EthTxAttempt) GetTxType() int {
 	return a.TxType
-}
-
-type EthReceipt struct {
-	ID               int64
-	TxHash           common.Hash
-	BlockHash        common.Hash
-	BlockNumber      int64
-	TransactionIndex uint
-	Receipt          evmtypes.Receipt
-	CreatedAt        time.Time
 }

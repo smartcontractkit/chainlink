@@ -45,10 +45,10 @@ type (
 	// This is not quite as straightforward as one might expect. We cannot
 	// query transactions from our account to infinite depth (geth does not
 	// support this). The best we can do is to query for all transactions sent
-	// within the past ETH_FINALITY_DEPTH blocks and find the ones sent by our
+	// within the past EVM.FinalityDepth blocks and find the ones sent by our
 	// address(es).
 	//
-	// This gives us re-org protection up to ETH_FINALITY_DEPTH deep in the
+	// This gives us re-org protection up to EVM.FinalityDepth deep in the
 	// worst case, which is in line with our other guarantees.
 	NonceSyncer struct {
 		orm       ORM
@@ -124,12 +124,12 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		"address", address.Hex(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
 	// Need to remember to decrement the chain nonce by one to account for in_progress transaction
-	newNextNonce := chainNonce
+	newNextNonce := int64(chainNonce)
 	if hasInProgressTransaction {
 		newNextNonce--
 	}
 
-	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, uint64(keyNextNonce), address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, address, *s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())

@@ -10,16 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- TOML configuration and secrets are now scoped to `chainlink node start` command rather than being global flags
+- TOML configuration and secrets are now scoped to `chainlink node` command rather than being global flags.
+- TOML configuration validation has been moved from `chainlink config validate` to `chainlink node validate`.
 
 ### Removed
 
 - Configuration with legacy environment variables is no longer supported. TOML is required.
 
-## 1.13.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 1.13.0 - 2023-03-16
 
 ### Added
 
+- Support for sending Bootstrap job specs to the feeds manager
 - Support for sending OCR2 job specs to the feeds manager
 - Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
 - Add support for new job type `mercury` (low-latency oracle)
@@ -36,15 +40,18 @@ AutoCreateKey = false
 - TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
 of any values provided via configuration files.
 
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
 ### Changed
 
 - The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
 
 ### Removed
 
-- Terra is no longer supported 
-
-<!-- unreleasedstop -->
+- Terra is no longer supported
 
 ## 1.12.0 - 2023-02-15
 

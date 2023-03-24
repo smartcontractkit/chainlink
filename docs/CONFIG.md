@@ -31,7 +31,7 @@ ShutdownGracePeriod = '5s' # Default
 ```toml
 ExplorerURL = 'ws://explorer.url' # Example
 ```
-ExplorerURL is the websocket URL for the node to push stats to.
+ExplorerURL is the websocket URL used by the node to push stats. This variable is required to deliver telemetry.
 
 ### InsecureFastScrypt
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -96,13 +96,13 @@ MigrateOnStartup = true # Default
 ```toml
 DefaultIdleInTxSessionTimeout = '1h' # Default
 ```
-DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
+DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
 
 ### DefaultLockTimeout
 ```toml
 DefaultLockTimeout = '15s' # Default
 ```
-DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take a lock before timing out.
+DefaultLockTimeout is the maximum time allowed to wait for database lock of any kind before timing out. See Postgres `lock_timeout` for more details.
 
 ### DefaultQueryTimeout
 ```toml
@@ -160,7 +160,7 @@ _none_ - Disables backups.
 `lite` - Dumps small tables including configuration and keys that are essential for the node to function, which excludes historical data like job runs, transaction history, etc.
 `full` - Dumps the entire database.
 
-It will write to a file like `$ROOT/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
+It will write to a file like `'Dir'/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
 
 ### Dir
 ```toml
@@ -1049,13 +1049,22 @@ Note: V1.Enabled is true by default, so it must be set false in order to run V2 
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in host:port form as accepted by net.Dial. The addresses should be reachable by peers of interest.
+AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
+The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
+a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
 
 ### DefaultBootstrappers
 ```toml
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 ```
 DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
+
+Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
+DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
+Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
+(which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
+received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
+nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
 
 ### DeltaDial
 ```toml
@@ -1073,7 +1082,8 @@ DeltaReconcile controls how often a Reconcile message is sent to every peer.
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
+but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
 ## Keeper
 ```toml
@@ -1095,18 +1105,21 @@ DefaultTransactionQueueDepth = 1 # Default
 DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
 
 ### GasPriceBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 GasPriceBufferPercent = 20 # Default
 ```
 GasPriceBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in legacy mode (EIP-1559 off).
 
 ### GasTipCapBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 GasTipCapBufferPercent = 20 # Default
 ```
 GasTipCapBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
 
 ### BaseFeeBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 BaseFeeBufferPercent = 20 # Default
 ```
@@ -4531,6 +4544,116 @@ GasLimit = 5300000 # Default
 GasLimit = 5300000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
+
+## Cosmos
+```toml
+[[Cosmos]]
+ChainID = 'Malaga-420' # Example
+Enabled = true # Default
+BlockRate = '6s' # Default
+BlocksUntilTxTimeout = 30 # Default
+ConfirmPollPeriod = '1s' # Default
+FallbackGasPriceUAtom = '0.015' # Default
+FCDURL = 'http://cosmos.com' # Example
+GasLimitMultiplier = '1.5' # Default
+MaxMsgsPerBatch = 100 # Default
+OCR2CachePollPeriod = '4s' # Default
+OCR2CacheTTL = '1m' # Default
+TxMsgTimeout = '10m' # Default
+```
+
+
+### ChainID
+```toml
+ChainID = 'Malaga-420' # Example
+```
+ChainID is the Cosmos chain ID. Mandatory.
+
+### Enabled
+```toml
+Enabled = true # Default
+```
+Enabled enables this chain.
+
+### BlockRate
+```toml
+BlockRate = '6s' # Default
+```
+BlockRate is the average time between blocks.
+
+### BlocksUntilTxTimeout
+```toml
+BlocksUntilTxTimeout = 30 # Default
+```
+BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
+
+### ConfirmPollPeriod
+```toml
+ConfirmPollPeriod = '1s' # Default
+```
+ConfirmPollPeriod sets how often check for tx confirmation.
+
+### FallbackGasPriceUAtom
+```toml
+FallbackGasPriceUAtom = '0.015' # Default
+```
+FallbackGasPriceUAtom sets a fallback gas price to use when the estimator is not available.
+
+### FCDURL
+```toml
+FCDURL = 'http://cosmos.com' # Example
+```
+FCDURL sets the FCD (Full Client Daemon) URL.
+
+### GasLimitMultiplier
+```toml
+GasLimitMultiplier = '1.5' # Default
+```
+GasLimitMultiplier scales the estimated gas limit.
+
+### MaxMsgsPerBatch
+```toml
+MaxMsgsPerBatch = 100 # Default
+```
+MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+
+### OCR2CachePollPeriod
+```toml
+OCR2CachePollPeriod = '4s' # Default
+```
+OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
+
+### OCR2CacheTTL
+```toml
+OCR2CacheTTL = '1m' # Default
+```
+OCR2CacheTTL is the stale OCR2 cache deadline.
+
+### TxMsgTimeout
+```toml
+TxMsgTimeout = '10m' # Default
+```
+TxMsgTimeout is the maximum age for resending transaction before they expire.
+
+## Cosmos.Nodes
+```toml
+[[Cosmos.Nodes]]
+Name = 'primary' # Example
+TendermintURL = 'http://tender.mint' # Example
+```
+
+
+### Name
+```toml
+Name = 'primary' # Example
+```
+Name is a unique (per-chain) identifier for this node.
+
+### TendermintURL
+```toml
+TendermintURL = 'http://tender.mint' # Example
+```
+TendermintURL is the HTTP(S) tendermint endpoint for this node.
 
 ## Solana
 ```toml

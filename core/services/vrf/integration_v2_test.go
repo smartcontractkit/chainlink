@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmlogger "github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -2338,7 +2339,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			SignedRawTx:             []byte(`blah`),
 			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
-			State:                   txmgr.EthTxAttemptBroadcast,
+			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
 			ChainSpecificGasLimit:   uint32(100),
 		})
@@ -2350,7 +2351,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			GasPrice:              assets.NewWeiI(100),
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  utils.NewHash(),
-			State:                 txmgr.EthTxAttemptInProgress,
+			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint32(100),
 		})
@@ -2366,9 +2367,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 
 	// add eth_receipts
-	receipts := []txmgr.EthReceipt{}
+	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgr.EthReceipt{
+		receipts = append(receipts, txmgr.EvmReceipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,

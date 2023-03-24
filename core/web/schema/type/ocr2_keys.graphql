@@ -1,9 +1,9 @@
 enum OCR2ChainType {
     EVM
-    TERRA
-	SOLANA
+    COSMOS
+    SOLANA
+    STARKNET
 }
-
 
 type OCR2KeyBundle {
 	id: ID!
