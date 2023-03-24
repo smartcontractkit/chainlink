@@ -150,9 +150,6 @@ func TestVRFv2Basic(t *testing.T) {
 		)
 		require.NoError(t, err)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
-
-		//_, _, err = chainlinkNode.UpdateEthKeyMaxGasPriceGWei(ethKeyAddress, maxGasPriceGWei)
-		//require.NoError(t, err)
 	}
 
 	keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
@@ -168,12 +165,6 @@ PriceMax = '%d gwei'
 
 	//todo - make evmKeySpecificConfigTemplate for multiple eth keys
 	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, ethKeyAddress, maxGasPriceGWei)
-
-	//	evmNetworkTOML = `[[EVM]]
-	//ChainID = '%d'
-	//MinContractPayment = '0'
-	//%s`
-
 	tomlConfigWithUpdates := fmt.Sprintf("%s\n%s", config.BaseVRFV2NetworkDetailTomlConfig, evmKeySpecificConfig)
 
 	for index, chart := range testEnvironment.Charts {
@@ -221,23 +212,6 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 			WsURLs:      testNetwork.URLs,
 		})
 	}
-
-	//	networkDetailTOML := `BlockBackfillDepth = 500
-	//MinIncomingConfirmations = 3
-	//[EVM.GasEstimator]
-	//LimitDefault = 3500000
-	//[EVM.Transactions]
-	//MaxQueued = 10000
-	//`
-	//PriceMax = 100000000000
-	//FeeCapDefault = 100000000000
-
-	//          LINK_CONTRACT_ADDRESS: "0x514910771AF9Ca656af840dff83E8264EcF986CA" -> [[EVM]] LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
-	//          BLOCK_BACKFILL_DEPTH: "500" -> [[EVM]] BlockBackfillDepth = 500
-	//          MIN_INCOMING_CONFIRMATIONS: "3" -> [[EVM]] MinIncomingConfirmations = 3
-	//          DATABASE_LOCKING_MODE: "lease"
-	//          ETH_GAS_LIMIT_DEFAULT: "3500000" -> [EVM.GasEstimator] LimitDefault = 3500000
-	//          ETH_MAX_QUEUED_TRANSACTIONS: "10000" -> [EVM.Transactions] MaxQueued = 10000
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
