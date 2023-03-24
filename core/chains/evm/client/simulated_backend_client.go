@@ -361,7 +361,12 @@ func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash
 }
 
 func (c *SimulatedBackendClient) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.ClientErrorType, error) {
-	panic("unimplemented")
+	err := c.SendTransaction(ctx, tx)
+	if err == nil {
+		return clienttypes.Successful, nil
+	} else {
+		return clienttypes.Unknown, nil
+	}
 }
 
 // SendTransaction sends a transaction.
