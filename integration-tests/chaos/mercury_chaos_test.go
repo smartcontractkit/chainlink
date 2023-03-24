@@ -135,8 +135,11 @@ func TestMercuryChaos(t *testing.T) {
 
 			feeds := mercuryactions.GenFeedIds(1)
 
-			env, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "chaos", feeds, resources)
+			env, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t, "chaos", feeds, resources)
 			require.NoError(t, err)
+			if env.Env.WillUseRemoteRunner() {
+				return // short circuit if using remote runner
+			}
 			t.Cleanup(func() {
 				env.Cleanup(t)
 			})

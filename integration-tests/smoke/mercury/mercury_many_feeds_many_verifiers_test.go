@@ -14,11 +14,19 @@ import (
 func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 	feedIds := mercuryactions.GenFeedIds(9)
 
-	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
+	testEnv, err := mercury.NewEnv(t, "smoke", mercury.DefaultResources)
+	require.NoError(t, err)
+
+	// start empty env to simplify remote runner short circuit
+	err = testEnv.Env.Run()
+	require.NoError(t, err)
+	if testEnv.Env.WillUseRemoteRunner() {
+		return // short circuit if using remote runner
+	}
+
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
 	})
-	require.NoError(t, err)
 
 	testEnv.AddEvmNetwork()
 

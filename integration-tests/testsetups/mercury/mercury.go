@@ -140,18 +140,34 @@ var (
 // MERCURY_ENV_CONFIG_PATH: Path to saved test env config
 // MERCURY_ENV_SAVE: List of test env ids separated by comma that should be saved
 // MERCURY_ENV_TTL_MINS: Env ttl in mins
-func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestEnv, error) {
+func NewEnv(t *testing.T, namespacePrefix string, r *ResourcesConfig) (TestEnv, error) {
 	te := TestEnv{}
-	te.Id = testEnvId
+	err := utils.SetupEnvVarsForRemoteRunner([]string{
+		"MS_DATABASE_FIRST_ADMIN_ID",
+		"MS_DATABASE_FIRST_ADMIN_KEY",
+		"MS_DATABASE_FIRST_ADMIN_ENCRYPTED_KEY",
+		"MERCURY_ENV_CONFIG_PATH",
+		"MERCURY_ENV_SAVE",
+		"MERCURY_ENV_TTL_MINS",
+		"MERCURY_CHART",
+		"MERCURY_SERVER_IMAGE",
+		"MERCURY_SERVER_TAG",
+		"LOKI_URL",
+		"LOKI_TOKEN",
+	})
+	if err != nil {
+		return te, err
+	}
+	te.Id = t.Name()
 	te.NsPrefix = namespacePrefix
 	te.ResourcesConfig = r
 
 	savedEnvs := strings.Split(os.Getenv("MERCURY_ENV_SAVE"), ",")
-	te.SaveEnv = slices.Contains(savedEnvs, testEnvId)
+	te.SaveEnv = slices.Contains(savedEnvs, te.Id)
 
 	c, _ := configFromFile(EnvConfigPath)
 	// Load env from config
-	if c != nil && c.Id == testEnvId {
+	if c != nil && c.Id == te.Id {
 		te.C = c
 		// Fail when chain on env loaded from config is different than currently selected chain
 		if c.ChainId != networks.SelectedNetwork.ChainID {
@@ -241,6 +257,7 @@ func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestE
 		NamespacePrefix:  fmt.Sprintf("%s-mercury", te.NsPrefix),
 		Namespace:        te.Namespace,
 		NoManifestUpdate: te.IsExistingEnv,
+		Test:             t,
 	})
 
 	return te, nil
@@ -1169,15 +1186,25 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 }
 
 func SetupMultiFeedSingleVerifierEnv(
-	envId string,
+	t *testing.T,
 	nsPrefix string,
 	feedIDs [][32]byte,
 	r *ResourcesConfig,
 ) (*TestEnv, contracts.VerifierProxy, error) {
-	testEnv, err := NewEnv(envId, nsPrefix, r)
+	testEnv, err := NewEnv(t, nsPrefix, r)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Setup the blank environment so we can short circuit the remote runner more cleanly
+	err = testEnv.Env.Run()
+	if err != nil {
+		return nil, nil, err
+	}
+	if testEnv.Env.WillUseRemoteRunner() {
+		return nil, nil, nil // short circuit if we're using a remote runner
+	}
+
 	err = testEnv.AddEvmNetwork()
 	if err != nil {
 		return &testEnv, nil, err

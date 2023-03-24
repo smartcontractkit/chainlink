@@ -66,8 +66,11 @@ var (
 
 func TestMercuryHTTPLoad(t *testing.T) {
 	feeds := mercuryactions.GenFeedIds(9)
-	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t, "load", feeds, resources)
 	require.NoError(t, err)
+	if testEnv.Env.WillUseRemoteRunner() {
+		return // short circuit if using remote runner
+	}
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
 	})
@@ -105,8 +108,11 @@ func TestMercuryHTTPLoad(t *testing.T) {
 
 func TestMercuryWSLoad(t *testing.T) {
 	feeds := mercuryactions.GenFeedIds(9)
-	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t, "load", feeds, resources)
 	require.NoError(t, err)
+	if testEnv.Env.WillUseRemoteRunner() {
+		return // short circuit if using remote runner
+	}
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
 	})

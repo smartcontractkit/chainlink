@@ -312,11 +312,14 @@ func TestMercuryReportsHaveValidValues(t *testing.T) {
 
 	feedIds := mercuryactions.GenFeedIds(9)
 
-	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "smoke", feedIds, mercury.DefaultResources)
+	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t, "smoke", feedIds, mercury.DefaultResources)
+	require.NoError(t, err)
+	if testEnv.Env.WillUseRemoteRunner() {
+		return // short circuit if using remote runner
+	}
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
 	})
-	require.NoError(t, err)
 
 	for _, feedId := range feedIds {
 

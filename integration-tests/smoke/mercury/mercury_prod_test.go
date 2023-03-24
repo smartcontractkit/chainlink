@@ -42,13 +42,20 @@ import (
 func TestSmokeMercuryProd(t *testing.T) {
 	l := utils.GetTestLogger(t)
 
-	testEnv, err := mercury.NewEnv(t.Name(), "smoke", mercury.DefaultResources)
+	testEnv, err := mercury.NewEnv(t, "smoke", mercury.DefaultResources)
 	require.NoError(t, err)
 	if testEnv.C == nil {
 		t.Skip("Test is skipped because env config file was not provided")
 	}
 	feedId := testEnv.C.FeedId
 	require.NotEmpty(t, feedId, "'feedId' needs to be provided in the env config file")
+
+	// start empty env to simplify remote runner short circuit
+	err = testEnv.Env.Run()
+	require.NoError(t, err)
+	if testEnv.Env.WillUseRemoteRunner() {
+		return // short circuit if using remote runner
+	}
 
 	t.Cleanup(func() {
 		testEnv.Cleanup(t)
