@@ -504,6 +504,9 @@ func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 		if err != nil {
 			return 0, err
 		}
+		if configDetails.ConfigCount != 1 {
+			return 0, fmt.Errorf("verifier config count should be 1 but is %d", configDetails.ConfigCount)
+		}
 		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v\nConfig digest: %x", feedId, configDetails, configDetails.ConfigDigest)
 
 		err = verifierProxyContract.InitializeVerifier(configDetails.ConfigDigest, verifierContract.Address())
