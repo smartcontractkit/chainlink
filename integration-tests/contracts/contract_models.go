@@ -220,6 +220,12 @@ type FunctionsBillingRegistryEventsMock interface {
 	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
 }
 
+type MockAggregatorProxy interface {
+	Address() string
+	UpdateAggregator(aggregator common.Address) error
+	Aggregator() (common.Address, error)
+}
+
 type RoundData struct {
 	RoundId         *big.Int
 	Answer          *big.Int
