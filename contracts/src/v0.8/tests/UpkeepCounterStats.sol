@@ -43,7 +43,10 @@ contract UpkeepCounterStats {
   mapping(uint256 => uint256) public upkeepIdsToGasLimit;
   mapping(uint256 => bytes) public upkeepIdsToCheckData;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
-  mapping(uint256 => uint256[]) public upkeepIdsToDelay;
+  mapping(uint256 => uint256[]) public upkeepIdsToDelay;  // how to query for delays for a certain past period: calendar day and/or past 24 hours
+
+  mapping(uint256 => mapping(uint16 => uint256[])) public upkeepIdsToBucketedDelays;
+  mapping(uint256 => uint16) public upkeepIdsToBucket;
   EnumerableSet.UintSet internal s_upkeepIDs;
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
@@ -65,6 +68,11 @@ contract UpkeepCounterStats {
 
   receive() external payable {
     emit Received(msg.sender, msg.value);
+  }
+
+  function fundLink(uint256 amount) external {
+    linkToken.approve(msg.sender, amount);
+    linkToken.transferFrom(msg.sender, address(this), amount);
   }
 
   function setRegistrar(KeeperRegistrar2_0 newRegistrar) external {
@@ -171,16 +179,21 @@ contract UpkeepCounterStats {
       performData,
       (uint256, bytes)
     );
-    uint256 performGasToBurn = upkeepIdsToPerformGasToBurn[upkeepId];
     uint256 initialBlock = upkeepIdsToInitialBlock[upkeepId];
     uint256 blockNum = block.number;
-    uint256 interval = upkeepIdsToIntervals[upkeepId];
     if (initialBlock == 0) {
       upkeepIdsToInitialBlock[upkeepId] = blockNum;
       initialBlock = blockNum;
     } else {
       // Calculate and append delay
-      uint256 delay = blockNum - upkeepIdsToPreviousPerformBlock[upkeepId] - interval;
+      uint256 delay = blockNum - upkeepIdsToPreviousPerformBlock[upkeepId] - upkeepIdsToIntervals[upkeepId];
+
+      uint16 bucket = upkeepIdsToBucket[upkeepId];
+      uint256[] memory bucketedDelays = upkeepIdsToBucketedDelays[upkeepId][bucket];
+      if (bucketedDelays.length == 100) {
+        bucket++;
+      }
+      upkeepIdsToBucketedDelays[upkeepId][bucket].push(delay);
       upkeepIdsToDelay[upkeepId].push(delay);
     }
 
@@ -200,6 +213,7 @@ contract UpkeepCounterStats {
       }
     }
 
+    uint256 performGasToBurn = upkeepIdsToPerformGasToBurn[upkeepId];
     while (startGas - gasleft() + 10000 < performGasToBurn) {
       // 10K margin over gas to burn
       dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
@@ -255,6 +269,11 @@ contract UpkeepCounterStats {
     upkeepIdsToCounter[upkeepId] = 0;
 
     delete upkeepIdsToDelay[upkeepId];
+    uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+    for (uint16 i = 0; i <= currentBucket; i++) {
+      delete upkeepIdsToBucketedDelays[upkeepId][i];
+    }
+    upkeepIdsToBucket[upkeepId] = 0;
   }
 
   function batchSetIntervals(uint32 interval) external {
@@ -277,12 +296,58 @@ contract UpkeepCounterStats {
     return upkeepIdsToDelay[upkeepId].length;
   }
 
+  function getDelaysLengthAtBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256) {
+    return upkeepIdsToBucketedDelays[upkeepId][bucket].length;
+  }
+
+  function getBucketedDelaysLength(uint256 upkeepId) public view returns (uint256) {
+    uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+    uint256 len = 0;
+    for (uint16 i = 0; i <= currentBucket; i++) {
+      len += upkeepIdsToBucketedDelays[upkeepId][i].length;
+    }
+    return len;
+  }
+
   function getDelays(uint256 upkeepId) public view returns (uint256[] memory) {
     return upkeepIdsToDelay[upkeepId];
   }
 
+  function getBucketedDelays(uint256 upkeepId, uint16 bucket) public view returns (uint256[] memory) {
+    return upkeepIdsToBucketedDelays[upkeepId][bucket];
+  }
+
   function getSumDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
     uint256[] memory delays = upkeepIdsToDelay[upkeepId];
+    return getSumDelayLastNPerforms(delays, n);
+  }
+
+  function getSumDelayLastNPerforms1(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
+    uint256 len = this.getBucketedDelaysLength(upkeepId);
+    if (n == 0 || n >= len) {
+      n = len;
+    }
+    uint256 nn = n;
+    uint256 sum = 0;
+    uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+    for (uint16 i = currentBucket; i >= 0; i--) {
+      uint256[] memory delays = upkeepIdsToBucketedDelays[upkeepId][i];
+      (uint256 s, uint256 m) = getSumDelayLastNPerforms(delays, nn);
+      sum += s;
+      nn -= m;
+      if (nn <= 0) {
+        break;
+      }
+    }
+    return (sum, n);
+  }
+
+  function getSumDelayInBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256, uint256) {
+    uint256[] memory delays = upkeepIdsToBucketedDelays[upkeepId][bucket];
+    return getSumDelayLastNPerforms(delays, delays.length);
+  }
+
+  function getSumDelayLastNPerforms(uint256[] memory delays, uint256 n) internal view returns (uint256, uint256) {
     uint256 i;
     uint256 len = delays.length;
     if (n == 0 || n >= len) {
@@ -303,14 +368,47 @@ contract UpkeepCounterStats {
       uint256 upkeepId = s_upkeepIDs.at(idx);
       uint256[] memory delays = upkeepIdsToDelay[upkeepId];
       upkeepIds[idx] = upkeepId;
-      pxDelays[idx] = this.getPxDelayLastNPerforms(upkeepId, p, delays.length);
+      pxDelays[idx] = getPxDelayLastNPerforms(delays, p, delays.length);
     }
 
     return (upkeepIds, pxDelays);
   }
 
+  function getPxBucketedDelaysForAllUpkeeps(uint256 p) public view returns (uint256[] memory, uint256[] memory) {
+    uint256 len = s_upkeepIDs.length();
+    uint256[] memory upkeepIds = new uint256[](len);
+    uint256[] memory pxDelays = new uint256[](len);
+
+    for (uint256 idx = 0; idx < len; idx++) {
+      uint256 upkeepId = s_upkeepIDs.at(idx);
+      upkeepIds[idx] = upkeepId;
+      uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+      uint256 delayLen = this.getBucketedDelaysLength(upkeepId);
+      uint256[] memory delays = new uint256[](delayLen);
+      uint256 i = 0;
+      mapping(uint16 => uint256[]) storage bucketedDelays = upkeepIdsToBucketedDelays[upkeepId];
+      for (uint16 j = 0; j <= currentBucket; j++) {
+        uint256[] memory d = bucketedDelays[j];
+        for (uint256 k = 0; k < d.length; k++) {
+          delays[i++] = d[k];
+        }
+      }
+      pxDelays[idx] = getPxDelayLastNPerforms(delays, p, delayLen);
+    }
+
+    return (upkeepIds, pxDelays);
+  }
+
+  function getPxDelayInBucket(uint256 upkeepId, uint256 p, uint16 bucket) public view returns (uint256) {
+    uint256[] memory delays = upkeepIdsToBucketedDelays[upkeepId][bucket];
+    return getPxDelayLastNPerforms(delays, p, delays.length);
+  }
+
   function getPxDelayLastNPerforms(uint256 upkeepId, uint256 p, uint256 n) public view returns (uint256) {
-    uint256[] memory delays = upkeepIdsToDelay[upkeepId];
+    return getPxDelayLastNPerforms(upkeepIdsToDelay[upkeepId], p, n);
+  }
+
+  function getPxDelayLastNPerforms(uint256[] memory delays, uint256 p, uint256 n) internal view returns (uint256) {
     uint256 i;
     uint256 len = delays.length;
     if (n == 0 || n >= len) {
@@ -321,8 +419,10 @@ contract UpkeepCounterStats {
     for (i = 0; i < n; i++) subArr[i] = (delays[len - i - 1]);
     quickSort(subArr, int256(0), int256(subArr.length - 1));
 
-    uint256 index = (p * subArr.length) / 100;
-    return subArr[index];
+    if (p == 100) {
+      return  subArr[subArr.length - 1];
+    }
+    return subArr[(p * subArr.length) / 100];
   }
 
   function quickSort(
