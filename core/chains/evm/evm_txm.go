@@ -27,19 +27,26 @@ func newEvmTxm(
 	chainID := cfg.ChainID()
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-	} else if opts.GenTxManager == nil {
-		lggr = lggr.Named("Txm")
-		lggr.Infow("Initializing EVM transaction manager",
-			"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
-			"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
-			"maxQueuedTransactions", cfg.EvmMaxQueuedTransactions(),
-			"nonceAutoSync", cfg.EvmNonceAutoSync(),
-			"gasLimitDefault", cfg.EvmGasLimitDefault(),
-		)
+		return txm, nil
+	}
 
-		// build estimator from factory
+	lggr = lggr.Named("Txm")
+	lggr.Infow("Initializing EVM transaction manager",
+		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
+		"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
+		"maxQueuedTransactions", cfg.EvmMaxQueuedTransactions(),
+		"nonceAutoSync", cfg.EvmNonceAutoSync(),
+		"gasLimitDefault", cfg.EvmGasLimitDefault(),
+	)
+
+	// build estimator from factory
+	if opts.GenGasEstimator == nil {
 		estimator = gas.NewEstimator(lggr, client, cfg)
+	} else {
+		estimator = opts.GenGasEstimator(chainID)
+	}
 
+	if opts.GenTxManager == nil {
 		var fwdMgr txmgrtypes.ForwarderManager[common.Address]
 
 		if cfg.EvmUseForwarders() {
@@ -56,5 +63,6 @@ func newEvmTxm(
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
+
 	return txm, estimator
 }
