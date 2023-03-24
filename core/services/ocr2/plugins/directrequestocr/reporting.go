@@ -12,14 +12,14 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/functions"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type DirectRequestReportingPluginFactory struct {
 	Logger    commontypes.Logger
-	PluginORM directrequestocr.ORM
+	PluginORM functions.ORM
 	JobID     uuid.UUID
 }
 
@@ -27,7 +27,7 @@ var _ types.ReportingPluginFactory = (*DirectRequestReportingPluginFactory)(nil)
 
 type functionsReporting struct {
 	logger         commontypes.Logger
-	pluginORM      directrequestocr.ORM
+	pluginORM      functions.ORM
 	jobID          uuid.UUID
 	reportCodec    *ReportCodec
 	genericConfig  *types.ReportingPluginConfig
@@ -121,7 +121,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"oracleID": r.genericConfig.OracleID,
 	})
 	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
-	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
+	results, err := r.pluginORM.FindOldestEntriesByState(functions.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 			continue
 		}
 		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
-		if localResult.State == directrequestocr.RESULT_READY {
+		if localResult.State == functions.RESULT_READY {
 			resultProto := ProcessedRequest{
 				RequestID: localResult.RequestID[:],
 				Result:    localResult.Result,
@@ -389,7 +389,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		if request.State == directrequestocr.TIMED_OUT || request.State == directrequestocr.CONFIRMED {
+		if request.State == functions.TIMED_OUT || request.State == functions.CONFIRMED {
 			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request is not FINALIZED any more. Not transmitting.",
 				commontypes.LogFields{
 					"requestID": reqIdStr,
@@ -397,7 +397,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 				})
 			continue
 		}
-		if request.State == directrequestocr.IN_PROGRESS || request.State == directrequestocr.RESULT_READY {
+		if request.State == functions.IN_PROGRESS || request.State == functions.RESULT_READY {
 			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: unusual request state. Still transmitting.",
 				commontypes.LogFields{
 					"requestID": reqIdStr,
