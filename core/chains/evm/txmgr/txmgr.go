@@ -17,7 +17,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -118,7 +117,7 @@ type Txm struct {
 	ethResender      *EthResender
 	ethBroadcaster   *EthBroadcaster
 	ethConfirmer     *EthConfirmer
-	fwdMgr           *forwarders.FwdMgr
+	fwdMgr           txmgrtypes.ForwarderManager[common.Address]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx, EthTxAttempt]
 }
 
@@ -128,7 +127,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
-	fwdMgr *forwarders.FwdMgr,
+	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx, EthTxAttempt],
 ) *Txm {
 	b := Txm{
@@ -488,7 +487,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 	}
 
 	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != common.Address{}) {
-		fwdPayload, fwdErr := b.fwdMgr.GetForwardedPayload(newTx.ToAddress, newTx.EncodedPayload)
+		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
 			if newTx.Meta != nil {
@@ -519,7 +518,7 @@ func (b *Txm) GetForwarderForEOA(eoa common.Address) (forwarder common.Address, 
 	if !b.config.EvmUseForwarders() {
 		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
-	forwarder, err = b.fwdMgr.GetForwarderForEOA(eoa)
+	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
 }
 

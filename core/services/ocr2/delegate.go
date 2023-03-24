@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	functions_service "github.com/smartcontractkit/chainlink/core/services/functions"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
@@ -613,7 +613,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		pluginORM := drocr_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
+		pluginORM := functions_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
 		pluginOracle, err2 = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
 		if err2 != nil {
 			return nil, err2

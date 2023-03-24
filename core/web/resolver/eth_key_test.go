@@ -53,7 +53,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 	gError := errors.New("error")
 	keysError := fmt.Errorf("error getting unlocked keys: %v", gError)
 	statesError := fmt.Errorf("error getting key states: %v", gError)
-	chainError := fmt.Errorf("error getting EVM Chain: %v", gError)
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "ethKeys"),
@@ -228,7 +227,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			},
 		},
 		{
-			name:          "generic error on #chainSet.Get()",
+			name:          "Empty set on #chainSet.Get()",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
@@ -249,16 +248,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
-			query:  query,
-			result: `null`,
-			errors: []*gqlerrors.QueryError{
+			query: query,
+			result: `
 				{
-					Extensions:    nil,
-					ResolverError: chainError,
-					Path:          []interface{}{"ethKeys"},
-					Message:       chainError.Error(),
-				},
-			},
+					"ethKeys": {
+						"results": []
+					}
+				}`,
 		},
 		{
 			name:          "generic error on GetLINKBalance()",
