@@ -17,7 +17,6 @@ type TxAttemptBuilder[
 	FEE Fee, // FEE - chain fee type
 	ADDR any, // ADDR - chain address type
 	TXHASH any, // TXHAHS - chain hash type
-	GASUNIT any, // GASUNIT - chain gas unit type
 	TX any, // TX - tx type (will be replaced in future)
 	TXATTEMPT any, // TXATTEMPT - tx attempt type (will be replaced  in future)
 ] interface {
@@ -37,9 +36,6 @@ type TxAttemptBuilder[
 
 	// NewCustomTxAttempt builds a transaction using the passed in fee + tx type
 	NewCustomTxAttempt(tx TX, fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (attempt TXATTEMPT, retryable bool, err error)
-
-	// FeeEstimator returns the underlying gas estimator
-	FeeEstimator() FeeEstimator[HEAD, FEE, GASUNIT, TXHASH]
 
 	// NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
 	NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TXATTEMPT, err error)

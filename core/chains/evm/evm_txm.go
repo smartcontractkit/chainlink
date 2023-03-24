@@ -21,9 +21,8 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) txmgr.TxManager {
+) (txm txmgr.TxManager, estimator gas.EvmFeeEstimator) {
 	chainID := cfg.ChainID()
-	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
@@ -37,7 +36,7 @@ func newEvmTxm(
 		)
 
 		// build estimator from factory
-		estimator := gas.NewEstimator(lggr, client, cfg)
+		estimator = gas.NewEstimator(lggr, client, cfg)
 
 		// build forwarder manager for evm txm
 		var fwdMgr *forwarders.FwdMgr
@@ -55,5 +54,5 @@ func newEvmTxm(
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-	return txm
+	return txm, estimator
 }

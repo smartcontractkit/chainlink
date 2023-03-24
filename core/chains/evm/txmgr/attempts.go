@@ -20,7 +20,7 @@ type TxAttemptSigner interface {
 	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
-var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt] = (*evmTxAttemptBuilder)(nil)
+var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx, EthTxAttempt] = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID  big.Int
@@ -31,10 +31,6 @@ type evmTxAttemptBuilder struct {
 
 func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner, estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
 	return &evmTxAttemptBuilder{chainID, config, keystore, estimator}
-}
-
-func (c *evmTxAttemptBuilder) FeeEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
-	return c.EvmFeeEstimator
 }
 
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type

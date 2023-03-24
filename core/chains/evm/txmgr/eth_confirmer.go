@@ -117,7 +117,7 @@ type EthConfirmer struct {
 	orm       ORM
 	lggr      logger.Logger
 	ethClient evmclient.Client
-	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
 	config         Config
 	chainID        big.Int
@@ -136,7 +136,7 @@ type EthConfirmer struct {
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, resumeCallback ResumeCallback,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
 	lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
