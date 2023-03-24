@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/services"
 )
@@ -14,9 +15,7 @@ const (
 	OptForceRefetch Opt = iota
 )
 
-type Fee interface {
-	String() string
-}
+type Fee fmt.Stringer
 
 // PriorAttempt provides a generic interface for reading tx data to be used in the fee esimators
 type PriorAttempt[F Fee, HASH any] interface {

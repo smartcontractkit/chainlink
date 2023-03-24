@@ -117,7 +117,7 @@ type EthConfirmer struct {
 	orm       ORM
 	lggr      logger.Logger
 	ethClient evmclient.Client
-	txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
 	config         Config
 	chainID        big.Int
@@ -136,7 +136,7 @@ type EthConfirmer struct {
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, resumeCallback ResumeCallback,
-	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt],
 	lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -147,7 +147,7 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		orm,
 		lggr,
 		ethClient,
-		attemptBuilder,
+		txAttemptBuilder,
 		resumeCallback,
 		config,
 		*ethClient.ChainID(),
@@ -772,7 +772,7 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 
 	var bumpedFee gas.EvmFee
 	var bumpedFeeLimit uint32
-	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpAttempt(ctx, etx, previousAttempt, previousAttempt.TxType, priorAttempts, ec.lggr)
+	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpTxAttempt(ctx, etx, previousAttempt, priorAttempts, ec.lggr)
 
 	// if no error, return attempt
 	// if err, continue below
@@ -1067,7 +1067,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce int64, endingNonce int64
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, _, err := ec.NewCustomAttempt(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
+			attempt, _, err := ec.NewCustomTxAttempt(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
@@ -1087,7 +1087,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.AttemptBuilder, nonce, gasLimit, int64(gasPriceWei), fromAddress)
+	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, nonce, gasLimit, int64(gasPriceWei), fromAddress)
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}

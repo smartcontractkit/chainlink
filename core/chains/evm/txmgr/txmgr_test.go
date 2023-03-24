@@ -64,11 +64,11 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	}
 
 	// build evm tx attempt builder
-	attemptBuilder := txmgr.NewEvmAttemptBuilder(*ethClient.ChainID(), cfg, keyStore, estimator)
+	txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), cfg, keyStore, estimator)
 
 	// --------------------
 
-	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, fwdMgr, attemptBuilder)
+	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, fwdMgr, txAttemptBuilder)
 }
 
 func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {

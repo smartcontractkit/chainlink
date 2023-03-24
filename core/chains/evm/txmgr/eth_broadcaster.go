@@ -91,7 +91,7 @@ type EthBroadcaster struct {
 	logger    logger.Logger
 	orm       ORM
 	ethClient evmclient.Client
-	txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
 	chainID        big.Int
 	config         Config
@@ -123,7 +123,7 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, resumeCallback ResumeCallback,
-	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, *assets.Wei, EthTx, EthTxAttempt],
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
@@ -132,7 +132,7 @@ func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keyst
 		logger:           logger,
 		orm:              orm,
 		ethClient:        ethClient,
-		AttemptBuilder:   attemptBuilder,
+		TxAttemptBuilder: txAttemptBuilder,
 		resumeCallback:   resumeCallback,
 		chainID:          *ethClient.ChainID(),
 		config:           config,
@@ -390,7 +390,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		n++
 		var a EthTxAttempt
 		var retryable bool
-		a, _, _, retryable, err = eb.NewAttempt(ctx, *etx, eb.logger)
+		a, _, _, retryable, err = eb.NewTxAttempt(ctx, *etx, eb.logger)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), retryable
 		}
@@ -685,7 +685,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 		"Consider increasing EVM.GasEstimator.PriceDefault (current value: %s)",
 		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
 
-	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpAttempt(ctx, etx, attempt, attempt.TxType, nil, lgr)
+	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainBumpFee failed"), retryable
 	}
@@ -700,8 +700,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 		return err, false
 	}
 
-	// TODO: nil handling for gasPrice.Legacy? will this ever be reached where EIP1559 is enabled on a L2 but a legacy tx?
-	replacementAttempt, fee, feeLimit, retryable, err := eb.NewAttemptWithType(ctx, etx, lgr, attempt.TxType, txmgrtypes.OptForceRefetch)
+	replacementAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, txmgrtypes.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to build new attempt"), retryable
 	}

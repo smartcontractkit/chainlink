@@ -115,12 +115,12 @@ type Txm struct {
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper         *Reaper
-	ethResender    *EthResender
-	ethBroadcaster *EthBroadcaster
-	ethConfirmer   *EthConfirmer
-	fwdMgr         *forwarders.FwdMgr
-	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt]
+	reaper           *Reaper
+	ethResender      *EthResender
+	ethBroadcaster   *EthBroadcaster
+	ethConfirmer     *EthConfirmer
+	fwdMgr           *forwarders.FwdMgr
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt]
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -130,7 +130,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
 	fwdMgr *forwarders.FwdMgr,
-	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt],
 ) *Txm {
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -150,7 +150,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
-		attemptBuilder:   attemptBuilder,
+		txAttemptBuilder: txAttemptBuilder,
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
@@ -183,8 +183,8 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.resumeCallback, b.attemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.resumeCallback, b.attemptBuilder, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -192,7 +192,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err = ms.Start(ctx, b.attemptBuilder); err != nil {
+		if err = ms.Start(ctx, b.txAttemptBuilder); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
@@ -267,7 +267,7 @@ func (b *Txm) Close() (merr error) {
 
 		b.wg.Wait()
 
-		b.attemptBuilder.Close()
+		b.txAttemptBuilder.Close()
 
 		return nil
 	})
@@ -284,7 +284,7 @@ func (b *Txm) HealthReport() map[string]error {
 	b.IfStarted(func() {
 		maps.Copy(report, b.ethBroadcaster.HealthReport())
 		maps.Copy(report, b.ethConfirmer.HealthReport())
-		maps.Copy(report, b.attemptBuilder.HealthReport())
+		maps.Copy(report, b.txAttemptBuilder.HealthReport())
 	})
 
 	if b.config.EvmUseForwarders() {
@@ -326,8 +326,8 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.resumeCallback, b.attemptBuilder, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.resumeCallback, b.attemptBuilder, b.logger)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -443,7 +443,7 @@ func (b *Txm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.BlockNumber())
 		}
-		b.attemptBuilder.OnNewLongestChain(ctx, head)
+		b.txAttemptBuilder.OnNewLongestChain(ctx, head)
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
@@ -531,7 +531,7 @@ func (b *Txm) checkEnabled(addr common.Address) error {
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
 func (b *Txm) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash] {
-	return b.attemptBuilder.FeeEstimator()
+	return b.txAttemptBuilder.FeeEstimator()
 }
 
 // SendEther creates a transaction that transfers the given value of ether
@@ -580,7 +580,7 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 func sendEmptyTransaction(
 	ctx context.Context,
 	ethClient evmclient.Client,
-	attemptBuilder txmgrtypes.AttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, *assets.Wei, EthTx, EthTxAttempt],
 	nonce uint64,
 	gasLimit uint32,
 	gasPriceWei int64,
@@ -588,7 +588,7 @@ func sendEmptyTransaction(
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	attempt, err := attemptBuilder.NewEmptyTransaction(nonce, gasLimit, gas.EvmFee{Legacy: assets.NewWeiI(gasPriceWei)}, fromAddress)
+	attempt, err := txAttemptBuilder.NewEmptyTxAttempt(nonce, gasLimit, gas.EvmFee{Legacy: assets.NewWeiI(gasPriceWei)}, fromAddress)
 	if err != nil {
 		return nil, err
 	}
