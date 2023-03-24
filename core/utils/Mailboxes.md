@@ -111,13 +111,13 @@ flowchart TB
                 dr-processCancelOracleRequests --> dr-handleReceivedLogs -- "Retrieve()" ---> dr-mbOracleCancelRequests
             end
         end
-        subgraph directrequestocr [directrequestocr]
-            subgraph DRListener [DRListener]
+        subgraph functions [functions]
+            subgraph FunctionsListener [FunctionsListener]
                 direction TB
-                drocr-mbOracleEvents[[mbOracleEvents]]
-                drocr-HandleLog(["HandleLog()"]) -- "Deliver()" --> drocr-mbOracleEvents
-                drocr-mbOracleEvents -- "Notify()" --> drocr-processOracleEvents(["processOracleEvents"])
-                drocr-processOracleEvents -- "Retrieve()" --> drocr-mbOracleEvents
+                functions-mbOracleEvents[[mbOracleEvents]]
+                functions-HandleLog(["HandleLog()"]) -- "Deliver()" --> functions-mbOracleEvents
+                functions-mbOracleEvents -- "Notify()" --> functions-processOracleEvents(["processOracleEvents"])
+                functions-processOracleEvents -- "Retrieve()" --> functions-mbOracleEvents
             end
         end
         subgraph keeper [keeper]
@@ -180,7 +180,7 @@ flowchart TB
     HeadTrackable ---> promreporter-type
     
     Listener --> listener  
-    Listener --> DRListener  
+    Listener --> FunctionsListener
     Listener --> RegistrySynchronizer  
     Listener --> OCRContractTracker  
     Listener --> listenerV1  
