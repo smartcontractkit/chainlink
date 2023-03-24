@@ -337,6 +337,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 			for _, feedId := range feedIds {
 				report, _, _ := te.MSClient.GetReportsByFeedIdStr(Byte32ToString(feedId), latestBlockNum)
 				if report == nil || report.ChainlinkBlob == "" {
+					log.Debug().Msgf("Report not found for feedId: %s, blockNumber: %d", feedId, latestBlockNum)
 					notFound = true
 				}
 			}
@@ -863,6 +864,53 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 	if te.IsExistingEnv {
 		rpcPubKey = te.MSInfo.RpcPubKey
 		nodesCsaKeys = te.MSInfo.RpcNodesCsaKeys
+
+		// Provide dump values in chart settings for helm to not complain when reusing env
+		chartSettings = map[string]interface{}{
+			"image": map[string]interface{}{
+				"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
+				"tag":        os.Getenv("MERCURY_SERVER_TAG"),
+			},
+			"resources": te.ResourcesConfig.MercuryResources,
+			"postgresql": map[string]interface{}{
+				"enabled": true,
+				"primary": map[string]interface{}{
+					"resources": te.ResourcesConfig.MercuryDBResources,
+				},
+				"mercury": map[string]interface{}{
+					"initDbSql": "anything",
+				},
+			},
+			"config": map[string]interface{}{
+				"rpc": map[string]interface{}{
+					"publicKey": "anything",
+				},
+			},
+			"secrets": map[string]interface{}{
+				"config": map[string]interface{}{
+					"rpc": map[string]interface{}{
+						"privateKey": "anything",
+					},
+					"database": map[string]interface{}{
+						"url":           "postgres://postgres:testpass@mercury-server-postgresql:5432/testdb?sslmode=disable",
+						"encryptionKey": "key",
+					},
+					"bootstrap": map[string]interface{}{
+						"adminUsername": "admin2",
+						"adminPassword": "admintestkey",
+					},
+				},
+			},
+			"chainlinkDONConfig": "anything",
+			"ingress": map[string]interface{}{
+				"private": map[string]interface{}{
+					"enabled": false,
+				},
+				"public": map[string]interface{}{
+					"enabled": false,
+				},
+			},
+		}
 	} else {
 		// Build conf for rpc nodes
 		var rpcNodesConf interface{}
@@ -878,11 +926,11 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 
 			log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
 		}
-		rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
+		chainlinkDONConfig, err := json.Marshal(rpcNodesConf)
 		if err != nil {
 			return nil, nil, err
 		}
-		log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
+		log.Info().Msgf("RPC node json conf for mercury server: %s", chainlinkDONConfig)
 
 		// Generate keys for Mercury RPC server
 		var rpcPrivKey ed25519.PrivateKey
@@ -923,13 +971,39 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 				"primary": map[string]interface{}{
 					"resources": te.ResourcesConfig.MercuryDBResources,
 				},
+				"mercury": map[string]interface{}{
+					"initDbSql": initDbSql,
+				},
 			},
-			"envSecrets": map[string]interface{}{
-				"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
+			"config": map[string]interface{}{
+				"rpc": map[string]interface{}{
+					"publicKey": hex.EncodeToString(rpcPubKey),
+				},
 			},
-			"initDbSql":    initDbSql,
-			"rpcNodesConf": string(rpcNodesJsonConf),
-			"prometheus":   "true",
+			"secrets": map[string]interface{}{
+				"config": map[string]interface{}{
+					"rpc": map[string]interface{}{
+						"privateKey": hex.EncodeToString(rpcPrivKey),
+					},
+					"database": map[string]interface{}{
+						"url":           "postgres://postgres:testpass@mercury-server-postgresql:5432/testdb?sslmode=disable",
+						"encryptionKey": "key",
+					},
+					"bootstrap": map[string]interface{}{
+						"adminUsername": "admin2",
+						"adminPassword": "admintestkey",
+					},
+				},
+			},
+			"chainlinkDONConfig": string(chainlinkDONConfig),
+			"ingress": map[string]interface{}{
+				"private": map[string]interface{}{
+					"enabled": false,
+				},
+				"public": map[string]interface{}{
+					"enabled": false,
+				},
+			},
 		}
 	}
 	te.Env.
@@ -980,6 +1054,9 @@ type ReportTableRow struct {
 	Id                    int       `db:"id"`
 	FeedId                []byte    `db:"feed_id"`
 	Price                 float64   `db:"price"`
+	Bid                   float64   `db:"bid"`
+	Ask                   float64   `db:"ask"`
+	OperatorName          string    `db:"operator_name"`
 	FullReport            []byte    `db:"full_report"`
 	Blob                  []byte    `db:"blob"`
 	ValidFromBlockNumber  int64     `db:"valid_from_block_number"`
