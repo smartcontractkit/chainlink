@@ -469,6 +469,7 @@ func (c *Chainlink) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey
 		}).
 		SetResult(ethKey).
 		Put("/v2/keys/eth/{keyId}")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, nil, err
 	}

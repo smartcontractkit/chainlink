@@ -3,6 +3,7 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"math/big"
 	"strings"
 	"testing"
@@ -17,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	ctf_ethereum "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
@@ -35,6 +36,8 @@ func TestVRFv2Basic(t *testing.T) {
 	subID := uint64(1)
 	linkFundingAmount := big.NewInt(100)
 	numberOfWords := uint32(3)
+	maxGasPriceGWei := 1000
+	gasLimit := uint32(1000000)
 
 	t.Parallel()
 	l := utils.GetTestLogger(t)
@@ -77,7 +80,7 @@ func TestVRFv2Basic(t *testing.T) {
 		86400,
 		33825,
 		linkEthFeedResponse,
-		ethereum.VRFCoordinatorV2FeeConfig{
+		ctf_ethereum.VRFCoordinatorV2FeeConfig{
 			FulfillmentFlatFeeLinkPPMTier1: 1,
 			FulfillmentFlatFeeLinkPPMTier2: 1,
 			FulfillmentFlatFeeLinkPPMTier3: 1,
@@ -112,10 +115,10 @@ func TestVRFv2Basic(t *testing.T) {
 	var (
 		job                *client.Job
 		encodedProvingKeys = make([][2]*big.Int, 0)
-		oracleAddress      string
+		ethKeyAddress      string
 	)
-	for _, n := range chainlinkNodes {
-		vrfKey, err := n.MustCreateVRFKey()
+	for _, chainlinkNode := range chainlinkNodes {
+		vrfKey, err := chainlinkNode.MustCreateVRFKey()
 		require.NoError(t, err)
 		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
@@ -125,12 +128,12 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 		ost, err := os.String()
 		require.NoError(t, err)
-		oracleAddress, err = n.PrimaryEthAddress()
+		ethKeyAddress, err = chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err)
-		job, err = n.MustCreateJob(&client.VRFV2JobSpec{
+		job, err = chainlinkNode.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddresses:            []string{oracleAddress},
+			FromAddresses:            []string{ethKeyAddress},
 			EVMChainID:               fmt.Sprint(chainClient.GetNetworkConfig().ChainID),
 			MinIncomingConfirmations: minimumConfirmations,
 			PublicKey:                pubKeyCompressed,
@@ -142,17 +145,46 @@ func TestVRFv2Basic(t *testing.T) {
 		provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
 		require.NoError(t, err)
 		err = coordinator.RegisterProvingKey(
-			oracleAddress,
+			ethKeyAddress,
 			provingKey,
 		)
 		require.NoError(t, err)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
+
+		//_, _, err = chainlinkNode.UpdateEthKeyMaxGasPriceGWei(ethKeyAddress, maxGasPriceGWei)
+		//require.NoError(t, err)
 	}
 
 	keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 	require.NoError(t, err)
 
-	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), 1000000, numberOfWords)
+	evmKeySpecificConfigTemplate := `
+[[EVM.KeySpecific]]
+Key = '%s'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMax = '%d gwei'
+`
+
+	//todo - make evmKeySpecificConfigTemplate for multiple eth keys
+	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, ethKeyAddress, maxGasPriceGWei)
+
+	//	evmNetworkTOML = `[[EVM]]
+	//ChainID = '%d'
+	//MinContractPayment = '0'
+	//%s`
+
+	tomlConfigWithUpdates := fmt.Sprintf("%s\n%s", config.BaseVRFV2NetworkDetailTomlConfig, evmKeySpecificConfig)
+
+	for index, chart := range testEnvironment.Charts {
+		//UPDATE NODE CONFIG AND REDEPLOY THE NODE
+		err = testEnvironment.ModifyHelm(chart.GetName(), chainlink.New(index, map[string]interface{}{
+			//set new toml config
+			"toml": client.AddNetworkDetailedConfig("", tomlConfigWithUpdates, testNetwork),
+		})).Run()
+	}
+
+	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), gasLimit, numberOfWords)
 	require.NoError(t, err)
 
 	gom := gomega.NewGomegaWithT(t)
@@ -190,17 +222,34 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 		})
 	}
 
-	networkDetailTOML := `[EVM.GasEstimator]
-LimitDefault = 3_500_000
-PriceMax = 100000000000
-FeeCapDefault = 100000000000`
+	//	networkDetailTOML := `BlockBackfillDepth = 500
+	//MinIncomingConfirmations = 3
+	//[EVM.GasEstimator]
+	//LimitDefault = 3500000
+	//[EVM.Transactions]
+	//MaxQueued = 10000
+	//`
+	//PriceMax = 100000000000
+	//FeeCapDefault = 100000000000
+
+	//          LINK_CONTRACT_ADDRESS: "0x514910771AF9Ca656af840dff83E8264EcF986CA" -> [[EVM]] LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
+	//          BLOCK_BACKFILL_DEPTH: "500" -> [[EVM]] BlockBackfillDepth = 500
+	//          MIN_INCOMING_CONFIRMATIONS: "3" -> [[EVM]] MinIncomingConfirmations = 3
+	//          DATABASE_LOCKING_MODE: "lease"
+	//          ETH_GAS_LIMIT_DEFAULT: "3500000" -> [EVM.GasEstimator] LimitDefault = 3500000
+	//          ETH_MAX_QUEUED_TRANSACTIONS: "10000" -> [EVM.Transactions] MaxQueued = 10000
+
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]any{
-			"toml": client.AddNetworkDetailedConfig("", networkDetailTOML, testNetwork),
+			"toml": client.AddNetworkDetailedConfig("", config.BaseVRFV2NetworkDetailTomlConfig, testNetwork),
+			//need to restart the node with updated eth key config
+			"db": map[string]interface{}{
+				"stateful": true,
+			},
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")

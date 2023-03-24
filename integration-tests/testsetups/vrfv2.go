@@ -3,7 +3,10 @@ package testsetups
 //revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,11 +47,12 @@ type VRFV2SoakTestTestFunc func(t *VRFV2SoakTest, requestNumber int) error
 // VRFV2SoakTestInputs define required inputs to run a vrfv2 soak test
 type VRFV2SoakTestInputs struct {
 	BlockchainClient     blockchain.EVMClient // Client for the test to connect to the blockchain with
-	TestDuration         time.Duration        // How long to run the test for (assuming things pass)
-	ChainlinkNodeFunding *big.Float           // Amount of ETH to fund each chainlink node with
+	TestDuration         time.Duration        `envconfig:"TEST_DURATION" default:"15m"`         // How long to run the test for (assuming things pass)
+	ChainlinkNodeFunding *big.Float           `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"` // Amount of ETH to fund each chainlink node with
+	SubscriptionFunding  *big.Float           `envconfig:"SUBSCRIPTION_FUNDING" default:"100"`  // Amount of Link to fund VRF Coordinator subscription
 	StopTestOnError      bool                 // Do we want the test to stop after any error or just continue on
 
-	RequestsPerMinute int                   // Number of requests for randomness per minute
+	RequestsPerMinute int                   `envconfig:"REQUESTS_PER_MINUTE" default:"10"` // Number of requests for randomness per minute
 	TestFunc          VRFV2SoakTestTestFunc // The function that makes the request and validations wanted
 }
 
@@ -63,7 +67,7 @@ func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs) *VRFV2SoakTest {
 }
 
 // Setup sets up the test environment
-func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment, isLocal bool) {
+func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment) {
 	v.ensureInputValues(t)
 	v.testEnvironment = env
 	var err error
@@ -135,8 +139,14 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 }
 
 // Networks returns the networks that the test is running on
-func (t *VRFV2SoakTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
-	return t.testEnvironment, t.ChainlinkNodes, &t.TestReporter, t.chainClient
+func (o *VRFV2SoakTest) TearDownVals(t *testing.T) (
+	*testing.T,
+	*environment.Environment,
+	[]*client.Chainlink,
+	reportModel.TestReporter,
+	blockchain.EVMClient,
+) {
+	return t, o.testEnvironment, o.ChainlinkNodes, &o.TestReporter, o.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present
@@ -145,8 +155,24 @@ func (v *VRFV2SoakTest) ensureInputValues(t *testing.T) {
 	require.NotNil(t, inputs.BlockchainClient, "Need a valid blockchain client for the test")
 	v.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(t, inputs.RequestsPerMinute, 1, "Expecting at least 1 request per minute")
-	funding, _ := inputs.ChainlinkNodeFunding.Float64()
-	require.Greater(t, funding, 0, "Need some amount of funding for Chainlink nodes")
+	chainlinkNodeFunding, _ := inputs.ChainlinkNodeFunding.Float64()
+	subscriptionFunding, _ := inputs.SubscriptionFunding.Float64()
+	require.Greater(t, chainlinkNodeFunding, 0, "Need some amount of funding for Chainlink nodes")
+	require.Greater(t, subscriptionFunding, 0, "Need some amount of funding for VRF V2 Coordinator Subscription nodes")
 	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute, "Test duration should be longer than 1 minute")
 	require.NotNil(t, inputs.TestFunc, "Expected there to be test to run")
+}
+
+func (i VRFV2SoakTestInputs) SetForRemoteRunner() {
+	os.Setenv("TEST_VRFV2_TEST_DURATION", i.TestDuration.String())
+	os.Setenv("TEST_VRFV2_CHAINLINK_NODE_FUNDING", i.ChainlinkNodeFunding.String())
+	os.Setenv("TEST_VRFV2_SUBSCRIPTION_FUNDING", i.SubscriptionFunding.String())
+
+	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
+	for _, networkPrefix := range selectedNetworks {
+		urlEnv := fmt.Sprintf("%s_URLS", networkPrefix)
+		httpEnv := fmt.Sprintf("%s_HTTP_URLS", networkPrefix)
+		os.Setenv(fmt.Sprintf("TEST_%s", urlEnv), os.Getenv(urlEnv))
+		os.Setenv(fmt.Sprintf("TEST_%s", httpEnv), os.Getenv(httpEnv))
+	}
 }
