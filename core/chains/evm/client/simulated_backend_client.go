@@ -364,10 +364,9 @@ func (c *SimulatedBackendClient) SendTransactionAndReturnErrorType(ctx context.C
 	err := c.SendTransaction(ctx, tx)
 	if err == nil {
 		return clienttypes.Successful, nil
-	} else {
-		// All error messages returned from SendTransaction are considered Unknown.
-		return clienttypes.Unknown, err
 	}
+	// All error messages returned from SendTransaction are considered Unknown.
+	return clienttypes.Unknown, err
 }
 
 // SendTransaction sends a transaction.
