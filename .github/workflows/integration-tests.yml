@@ -126,7 +126,7 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.TEST_BASE_ECR }}
             IMAGE_VERSION=${{ env.TEST_BASE_VERSION }}
-            SUITES="smoke soak chaos benchmark migration performance"
+            SUITES="smoke soak chaos benchmark migration performance load reorg"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Print Image Built
