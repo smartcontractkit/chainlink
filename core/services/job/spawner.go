@@ -388,5 +388,5 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 
 func (n *NullDelegate) BeforeJobCreated(spec Job)                {}
 func (n *NullDelegate) AfterJobCreated(spec Job)                 {}
-func (d *NullDelegate) BeforeJobDeleted(spec Job)                {}
+func (n *NullDelegate) BeforeJobDeleted(spec Job)                {}
 func (n *NullDelegate) OnDeleteJob(spec Job, q pg.Queryer) error { return nil }

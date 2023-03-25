@@ -1797,6 +1797,6 @@ func TestFilterNamesFromSpec(t *testing.T) {
 		ContractID:   beaconAddress.String(),
 		PluginConfig: nil, // missing coordinator & dkg addresses
 	}
-	names, err = FilterNamesFromSpec(spec)
+	_, err = FilterNamesFromSpec(spec)
 	require.ErrorContains(t, err, "is not a valid EIP55 formatted address")
 }
