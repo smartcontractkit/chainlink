@@ -76,8 +76,6 @@ func ExampleRun() {
 	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to <RootDir>/apicredentials
 	//    --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
 	//    --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
-	//    --config value, -c value       TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
-	//    --secrets value, -s value      TOML configuration file for secrets. Must be set if and only if config is set.
 	//    --help, -h                     show help
 	//    --version, -v                  print the version
 	// core.test version 0.0.0@exampleSHA
@@ -93,10 +91,12 @@ func ExampleRun_admin() {
 	//    core.test admin command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    chpass  Change your API password remotely
-	//    login   Login to remote client by creating a session cookie
-	//    logout  Delete any local sessions
-	//    users   Create, edit permissions, or delete API users
+	//    chpass   Change your API password remotely
+	//    login    Login to remote client by creating a session cookie
+	//    logout   Delete any local sessions
+	//    profile  Collects profile metrics from the node.
+	//    status   Displays the health of various services running inside the node.
+	//    users    Create, edit permissions, or delete API users
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -163,13 +163,9 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]
-	//    list         Show the node's environment variables [Not supported with TOML]
-	//    show         Show the application configuration [Only supported with TOML]
-	//    setgasprice  Set the default gas price to use for outgoing transactions [Not supported with TOML]
-	//    loglevel     Set log level
-	//    logsql       Enable/disable sql statement logging
-	//    validate     Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]
+	//    show      Show the application configuration
+	//    loglevel  Set log level
+	//    logsql    Enable/disable SQL statement logging
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -210,6 +206,7 @@ func ExampleRun_keys() {
 	//    csa         Remote commands for administering the node's CSA keys
 	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
+	//    cosmos      Remote commands for administering the node's Cosmos keys
 	//    solana      Remote commands for administering the node's Solana keys
 	//    starknet    Remote commands for administering the node's StarkNet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
@@ -231,7 +228,6 @@ func ExampleRun_keys_eth() {
 	//
 	// COMMANDS:
 	//    create  Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
-	//    update  Update the existing key's parameters
 	//    list    List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata
 	//    delete  Delete the ETH key by address (irreversible!)
 	//    import  Import an ETH key from a JSON file
@@ -341,6 +337,26 @@ func ExampleRun_keys_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_keys_cosmos() {
+	Run("keys", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys cosmos - Remote commands for administering the node's Cosmos keys
+	//
+	// USAGE:
+	//    core.test keys cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Cosmos key
+	//    import  Import Cosmos key from keyfile
+	//    export  Export Cosmos key to keyfile
+	//    delete  Delete Cosmos key if present
+	//    list    List the Cosmos keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_keys_starknet() {
 	Run("keys", "starknet", "--help")
 	// Output:
@@ -433,12 +449,13 @@ func ExampleRun_node() {
 	// COMMANDS:
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
-	//    status                    Displays the health of various services running inside the node.
-	//    profile                   Collects profile metrics from the node.
+	//    validate                  Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:
-	//    --help, -h  show help
+	//    --config value, -c value   TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
+	//    --secrets value, -s value  TOML configuration file for secrets. Must be set if and only if config is set.
+	//    --help, -h                 show help
 }
 
 func ExampleRun_node_start() {
@@ -501,6 +518,7 @@ func ExampleRun_txs() {
 	//
 	// COMMANDS:
 	//    evm     Commands for handling EVM transactions
+	//    cosmos  Commands for handling Cosmos transactions
 	//    solana  Commands for handling Solana transactions
 	//
 	// OPTIONS:
@@ -541,6 +559,22 @@ func ExampleRun_txs_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_txs_cosmos() {
+	Run("txs", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs cosmos - Commands for handling Cosmos transactions
+	//
+	// USAGE:
+	//    core.test txs cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_chains() {
 	Run("chains", "--help")
 	// Output:
@@ -552,6 +586,7 @@ func ExampleRun_chains() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM chains
+	//    cosmos    Commands for handling Cosmos chains
 	//    solana    Commands for handling Solana chains
 	//    starknet  Commands for handling StarkNet chains
 	//
@@ -569,10 +604,7 @@ func ExampleRun_chains_evm() {
 	//    core.test chains evm command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new EVM chain
-	//    delete     Delete an existing EVM chain
-	//    list       List all existing EVM chains
-	//    configure  Configure an existing EVM chain
+	//    list  List all existing EVM chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -588,10 +620,7 @@ func ExampleRun_chains_solana() {
 	//    core.test chains solana command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new Solana chain
-	//    delete     Delete an existing Solana chain
-	//    list       List all existing Solana chains
-	//    configure  Configure an existing Solana chain
+	//    list  List all existing Solana chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -607,10 +636,23 @@ func ExampleRun_chains_starknet() {
 	//    core.test chains starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new StarkNet chain
-	//    delete     Delete an existing StarkNet chain
-	//    list       List all existing StarkNet chains
-	//    configure  Configure an existing StarkNet chain
+	//    list  List all existing StarkNet chains
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_chains_cosmos() {
+	Run("chains", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains cosmos - Commands for handling Cosmos chains
+	//
+	// USAGE:
+	//    core.test chains cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list  List all existing Cosmos chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -627,6 +669,7 @@ func ExampleRun_nodes() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM node configuration
+	//    cosmos    Commands for handling Cosmos node configuration
 	//    solana    Commands for handling Solana node configuration
 	//    starknet  Commands for handling StarkNet node configuration
 	//
@@ -644,9 +687,7 @@ func ExampleRun_nodes_evm() {
 	//    core.test nodes evm command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new EVM node
-	//    delete  Delete an existing EVM node
-	//    list    List all existing EVM nodes
+	//    list  List all existing EVM nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -675,9 +716,7 @@ func ExampleRun_nodes_solana() {
 	//    core.test nodes solana command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new Solana node
-	//    delete  Delete an existing Solana node
-	//    list    List all existing Solana nodes
+	//    list  List all existing Solana nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -693,9 +732,23 @@ func ExampleRun_nodes_starknet() {
 	//    core.test nodes starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new StarkNet node
-	//    delete  Delete an existing StarkNet node
-	//    list    List all existing StarkNet nodes
+	//    list  List all existing StarkNet nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_cosmos() {
+	Run("nodes", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes cosmos - Commands for handling Cosmos node configuration
+	//
+	// USAGE:
+	//    core.test nodes cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list  List all existing Cosmos nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

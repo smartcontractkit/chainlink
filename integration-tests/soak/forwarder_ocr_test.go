@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestForwarderOCRSoak(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	testEnvironment, network := SetupForwarderOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

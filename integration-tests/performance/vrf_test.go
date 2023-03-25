@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -27,7 +27,7 @@ import (
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return

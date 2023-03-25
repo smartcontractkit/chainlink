@@ -35,7 +35,7 @@ regarding Chainlink social accounts, news, and networking.
 
 1. [Install Go 1.20](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 11.x and < 15.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
    - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
@@ -50,11 +50,8 @@ For the latest information on setting up a development environment, see the [Dev
 
 Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 
-An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
-
 ```bash
-# LIBWASMVM_ARCH (libwasmvm.so) architecture choice, defaults to output of `uname -m` (arch) if unset
-$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile
 ```
 
 ### Ethereum Execution Client Requirements
@@ -73,12 +70,12 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
-  - https://github.com/NethermindEth/nethermind/issues/4384
+  - ~https://github.com/NethermindEth/nethermind/issues/4384~
 - [Besu](https://github.com/hyperledger/besu)
   Blocking issues:
   - https://github.com/hyperledger/besu/issues/4212
-  - https://github.com/hyperledger/besu/issues/4192
-  - https://github.com/hyperledger/besu/issues/4114
+  - ~https://github.com/hyperledger/besu/issues/4192~
+  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946

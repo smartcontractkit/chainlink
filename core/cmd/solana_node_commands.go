@@ -4,8 +4,9 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -22,13 +23,11 @@ func (p *SolanaNodePresenter) ToRow() []string {
 		p.Name,
 		p.SolanaChainID,
 		p.SolanaURL,
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 	}
 	return row
 }
 
-var solanaNodeHeaders = []string{"ID", "Name", "Chain ID", "URL", "Created", "Updated"}
+var solanaNodeHeaders = []string{"ID", "Name", "Chain ID", "URL"}
 
 // RenderTable implements TableRenderer
 func (p SolanaNodePresenter) RenderTable(rt RendererTable) error {

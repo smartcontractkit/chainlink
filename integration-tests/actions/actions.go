@@ -11,9 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -232,7 +232,7 @@ func TeardownSuite(
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
@@ -270,7 +270,7 @@ func TeardownRemoteSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	var err error
 	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")

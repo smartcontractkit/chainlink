@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -79,7 +79,7 @@ func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment, isLoca
 
 // Run starts the VRFV2 soak test
 func (v *VRFV2SoakTest) Run(t *testing.T) {
-	l := zerolog.New(zerolog.NewTestWriter(t))
+	l := utils.GetTestLogger(t)
 	l.Info().
 		Str("Test Duration", v.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Max number of requests per minute wanted", v.Inputs.RequestsPerMinute).

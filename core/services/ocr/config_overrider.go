@@ -47,7 +47,7 @@ func NewConfigOverriderImpl(
 
 	if !flags.ContractExists() {
 		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
-			"Please create the contract or remove the FLAGS_CONTRACT_ADDRESS configuration variable", contractAddress.Address())
+			"Please create the contract or remove the OCR.TransmitterAddress configuration variable", contractAddress.Address())
 	}
 
 	addressBig := contractAddress.Big()

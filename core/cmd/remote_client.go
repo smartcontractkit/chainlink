@@ -3,18 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	stderrs "errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
@@ -26,13 +21,10 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -40,38 +32,13 @@ import (
 func initRemoteConfigSubCmds(client *Client) []cli.Command {
 	return []cli.Command{
 		{
-			Name:   "dump",
-			Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
-			Action: client.ConfigDump,
-		},
-		{
-			Name:   "list",
-			Usage:  "Show the node's environment variables [Not supported with TOML]",
-			Action: client.GetConfiguration,
-		},
-		{
 			Name:   "show",
-			Usage:  "Show the application configuration [Only supported with TOML]",
+			Usage:  "Show the application configuration",
 			Action: client.ConfigV2,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "user-only",
 					Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
-				},
-			},
-		},
-		{
-			Name:   "setgasprice",
-			Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
-			Action: client.SetEvmGasPriceDefault,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "gwei",
-					Usage: "Specify amount in gwei",
-				},
-				cli.StringFlag{
-					Name:  "evmChainID",
-					Usage: "(optional) specify the chain ID for which to make the update",
 				},
 			},
 		},
@@ -88,23 +55,26 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 		},
 		{
 			Name:   "logsql",
-			Usage:  "Enable/disable sql statement logging",
+			Usage:  "Enable/disable SQL statement logging",
 			Action: client.SetLogSQL,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "enable",
-					Usage: "enable sql logging",
+					Usage: "enable SQL logging",
 				},
 				cli.BoolFlag{
 					Name:  "disable",
-					Usage: "disable sql logging",
+					Usage: "disable SQL logging",
 				},
 			},
 		},
 		{
-			Name:   "validate",
-			Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
-			Action: client.ConfigFileValidate,
+			Name:  "validate",
+			Usage: "DEPRECATED. Use `chainlink node validate`",
+			Before: func(ctx *clipkg.Context) error {
+				return client.errorOut(fmt.Errorf("Deprecated, use `chainlink node validate`"))
+			},
+			Hidden: true,
 		},
 	}
 }
@@ -112,6 +82,7 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 var (
 	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
+	errBadRequest   = errors.New(http.StatusText(http.StatusBadRequest))
 )
 
 // CreateExternalInitiator adds an external initiator
@@ -274,87 +245,6 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	return nil
 }
 
-// Profile will collect pprof metrics and store them in a folder.
-func (cli *Client) Profile(c *clipkg.Context) error {
-	seconds := c.Uint("seconds")
-	baseDir := c.String("output_dir")
-
-	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
-		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
-	}
-
-	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
-
-	err := os.Mkdir(genDir, 0o755)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	var wgPprof sync.WaitGroup
-	vitals := []string{
-		"allocs",       // A sampling of all past memory allocations
-		"block",        // Stack traces that led to blocking on synchronization primitives
-		"cmdline",      // The command line invocation of the current program
-		"goroutine",    // Stack traces of all current goroutines
-		"heap",         // A sampling of memory allocations of live objects.
-		"mutex",        // Stack traces of holders of contended mutexes
-		"profile",      // CPU profile.
-		"threadcreate", // Stack traces that led to the creation of new OS threads
-		"trace",        // A trace of execution of the current program.
-	}
-	wgPprof.Add(len(vitals))
-	cli.Logger.Infof("Collecting profiles: %v", vitals)
-	cli.Logger.Infof("writing debug info to %s", genDir)
-
-	errs := make(chan error, len(vitals))
-	for _, vt := range vitals {
-		go func(vt string) {
-			defer wgPprof.Done()
-			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			resp, err := cli.HTTP.Get(uri)
-			if err != nil {
-				errs <- errors.Wrapf(err, "error collecting %s", vt)
-				return
-			}
-			if resp.StatusCode == http.StatusUnauthorized {
-				errs <- errors.Wrapf(errUnauthorized, "error collecting %s", vt)
-				return
-			}
-			defer resp.Body.Close()
-			// write to file
-			f, err := os.Create(filepath.Join(genDir, vt))
-			if err != nil {
-				errs <- errors.Wrapf(err, "error creating file for %s", vt)
-				return
-			}
-			wc := utils.NewDeferableWriteCloser(f)
-			defer wc.Close()
-
-			_, err = io.Copy(wc, resp.Body)
-			if err != nil {
-				errs <- errors.Wrapf(err, "error writing to file for %s", vt)
-				return
-			}
-			err = wc.Close()
-			if err != nil {
-				errs <- errors.Wrapf(err, "error closing file for %s", vt)
-				return
-			}
-		}(vt)
-	}
-	wgPprof.Wait()
-	close(errs)
-	// Atmost one err is emitted per vital.
-	cli.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
-	if len(errs) > 0 {
-		var merr error
-		for err := range errs {
-			merr = stderrs.Join(merr, err)
-		}
-		return cli.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
-	}
-	return nil
-}
-
 func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
@@ -412,114 +302,6 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
-	var adjustedAmount *big.Int
-	if c.NArg() != 1 {
-		return cli.errorOut(errors.New("expecting an amount"))
-	}
-	value := c.Args().Get(0)
-	amount, ok := new(big.Float).SetString(value)
-	if !ok {
-		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
-	}
-	if c.IsSet("gwei") {
-		amount.Mul(amount, big.NewFloat(1000000000))
-	}
-	var chainID *big.Int
-	if c.IsSet("evmChainID") {
-		var ok bool
-		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
-		if !ok {
-			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
-		}
-	}
-	adjustedAmount, _ = amount.Int(nil)
-
-	request := struct {
-		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
-		EvmChainID         *utils.Big `json:"evmChainID"`
-	}{
-		EvmGasPriceDefault: adjustedAmount.String(),
-		EvmChainID:         utils.NewBig(chainID),
-	}
-
-	requestData, err := json.Marshal(request)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-	response, err := cli.HTTP.Patch("/v2/config", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	patchResponse := web.ConfigPatchResponse{}
-	if err = cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
-		return err
-	}
-
-	err = cli.errorOut(cli.Render(&patchResponse))
-	return err
-}
-
-// GetConfiguration gets the nodes environment variables
-func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/config")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	cwl := config.ConfigPrinter{}
-	err = cli.renderAPIResponse(resp, &cwl)
-	return err
-}
-
-func (cli *Client) configDumpStr() (string, error) {
-	resp, err := cli.HTTP.Get("/v2/config/dump-v1-as-v2")
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	respPayload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	if resp.StatusCode != 200 {
-		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
-	}
-	var configV2Resource web.ConfigV2Resource
-	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
-	if err != nil {
-		return "", cli.errorOut(err)
-	}
-	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
-	configStr, err := cli.configDumpStr()
-	if err != nil {
-		return err
-	}
-	fmt.Print(configStr)
-	return nil
-}
-
 func (cli *Client) ConfigV2(c *clipkg.Context) error {
 	userOnly := c.Bool("user-only")
 	s, err := cli.configV2Str(userOnly)
@@ -553,21 +335,6 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 		return "", cli.errorOut(err)
 	}
 	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	if _, ok := cli.Config.(chainlink.ConfigV2); !ok {
-		return errors.New("unsupported with legacy ENV config")
-	}
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
-	}
-	fmt.Println("Valid configuration.")
-	return nil
 }
 
 func normalizePassword(password string) string {
