@@ -113,8 +113,9 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 	// This is only called first time the job is created
 	d.isNewlyCreatedJob = true
 }
-func (d *Delegate) AfterJobCreated(spec job.Job) {}
-func (d *Delegate) BeforeJobDeleted(jb job.Job, q pg.Queryer) error {
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.  However, if UnregisterFilter returns an
 	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
@@ -124,7 +125,7 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job, q pg.Queryer) error {
 
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		d.lggr.Errorf("offchainreporting2.Delegate.BeforeJobDeleted called with wrong job type, ignoring non-OCR2 spec %v", jb)
+		d.lggr.Errorf("offchainreporting2.Delegate.OnDeleteJob called with wrong job type, ignoring non-OCR2 spec %v", jb)
 		return nil
 	}
 	if spec.Relay != relay.EVM {

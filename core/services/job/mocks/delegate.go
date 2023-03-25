@@ -24,18 +24,9 @@ func (_m *Delegate) BeforeJobCreated(spec job.Job) {
 	_m.Called(spec)
 }
 
-// BeforeJobDeleted provides a mock function with given fields: spec, q
-func (_m *Delegate) BeforeJobDeleted(spec job.Job, q pg.Queryer) error {
-	ret := _m.Called(spec, q)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(job.Job, pg.Queryer) error); ok {
-		r0 = rf(spec, q)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// BeforeJobDeleted provides a mock function with given fields: spec
+func (_m *Delegate) BeforeJobDeleted(spec job.Job) {
+	_m.Called(spec)
 }
 
 // JobType provides a mock function with given fields:
@@ -47,6 +38,20 @@ func (_m *Delegate) JobType() job.Type {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(job.Type)
+	}
+
+	return r0
+}
+
+// OnDeleteJob provides a mock function with given fields: spec, q
+func (_m *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error {
+	ret := _m.Called(spec, q)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(job.Job, pg.Queryer) error); ok {
+		r0 = rf(spec, q)
+	} else {
+		r0 = ret.Error(0)
 	}
 
 	return r0

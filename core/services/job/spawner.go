@@ -65,12 +65,13 @@ type (
 		// and stopped in reverse order.
 		ServicesForSpec(spec Job) ([]ServiceCtx, error)
 		AfterJobCreated(spec Job)
-		// BeforeJobDeleted will be called from within DELETE db transaction.  Any db
-		// commands issued within BeforeJobDeleted() should be performed first, before any
+		BeforeJobDeleted(spec Job)
+		// OnDeleteJob will be called from within DELETE db transaction.  Any db
+		// commands issued within OnDeleteJob() should be performed first, before any
 		// non-db side effects.  This is required in order to guarantee mutual atomicity between
 		// all tasks intended to happen during job deletion.  For the same reason, the job will
-		// not show up in the db within BeforeJobDeleted(), even though it is still actively running.
-		BeforeJobDeleted(spec Job, q pg.Queryer) error
+		// not show up in the db within OnDeleteJob(), even though it is still actively running.
+		OnDeleteJob(spec Job, q pg.Queryer) error
 	}
 
 	activeJob struct {
@@ -316,6 +317,10 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		}
 	}
 
+	lggr.Debugw("Callback: BeforeDeleteJob")
+	aj.delegate.BeforeJobDeleted(aj.spec)
+	lggr.Debugw("Callback: BeforeDeleteJob done")
+
 	err := q.Transaction(func(tx pg.Queryer) error {
 		err := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
 		if err != nil {
@@ -323,15 +328,15 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 			return err
 		}
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if
-		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in BeforeJobDeleted()
+		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in OnDeleteJob()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
-		lggr.Debugw("Callback: BeforeJobDeleted")
-		err = aj.delegate.BeforeJobDeleted(aj.spec, tx)
+		lggr.Debugw("Callback: OnDeleteJob")
+		err = aj.delegate.OnDeleteJob(aj.spec, tx)
 		if err != nil {
 			return err
 		}
 
-		lggr.Debugw("Callback: BeforeJobDeleted done")
+		lggr.Debugw("Callback: OnDeleteJob done")
 		return nil
 	})
 
@@ -381,6 +386,7 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
-func (n *NullDelegate) BeforeJobCreated(spec Job)                     {}
-func (n *NullDelegate) AfterJobCreated(spec Job)                      {}
-func (n *NullDelegate) BeforeJobDeleted(spec Job, q pg.Queryer) error { return nil }
+func (n *NullDelegate) BeforeJobCreated(spec Job)                {}
+func (n *NullDelegate) AfterJobCreated(spec Job)                 {}
+func (d *NullDelegate) BeforeJobDeleted(spec Job)                {}
+func (n *NullDelegate) OnDeleteJob(spec Job, q pg.Queryer) error { return nil }
