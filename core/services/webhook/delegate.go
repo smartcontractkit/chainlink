@@ -57,16 +57,16 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 	}
 }
 
-func (d *Delegate) BeforeJobDeleted(jb job.Job, q pg.Queryer) error {
-	err := d.externalInitiatorManager.DeleteJob(*jb.WebhookSpecID)
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {
+	err := d.externalInitiatorManager.DeleteJob(*spec.WebhookSpecID)
 	if err != nil {
-		d.lggr.Errorw("Webhook delegate BeforeJobDeleted errored",
+		d.lggr.Errorw("Webhook delegate OnDeleteJob errored",
 			"error", err,
-			"jobID", jb.ID,
+			"jobID", spec.ID,
 		)
 	}
-	return nil
 }
+func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
