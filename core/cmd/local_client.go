@@ -114,6 +114,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:  "Displays the health of various services running inside the node.",
 			Action: client.Status,
 			Flags:  []cli.Flag{},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin status` instead.")
+				return nil
+			},
 		},
 		{
 			Name:   "profile",
@@ -131,6 +136,16 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Value: "/tmp/",
 				},
 			},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin profile` instead.")
+				return nil
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
 		},
 		{
 			Name:        "db",
@@ -621,22 +636,20 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// Status will display the health of various services
-func (cli *Client) Status(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
-}
-
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+// ConfigValidate validate the client configuration and pretty-prints results
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	fmt.Println("Valid configuration.")
+	return nil
+}
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to setup the database for testing

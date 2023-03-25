@@ -1,4 +1,4 @@
-package directrequestocr
+package functions
 
 import (
 	"database/sql/driver"
