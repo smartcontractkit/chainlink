@@ -238,15 +238,10 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	}
 
 	q := js.q.WithOpts(qopts...)
-	if q.ParentCtx != nil {
-		ctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
-		defer cancel()
-		q.ParentCtx = ctx
-	} else {
-		ctx, cancel := utils.ContextFromChan(js.chStop)
-		defer cancel()
-		q.ParentCtx = ctx
-	}
+	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
+	defer cancel()
+	q.ParentCtx = pctx
+
 	ctx, cancel := q.Context()
 	defer cancel()
 
@@ -258,7 +253,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 
 	delegate.BeforeJobCreated(*jb)
-	err = js.StartService(q.ParentCtx, *jb)
+	err = js.StartService(pctx, *jb)
 	if err != nil {
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "error", err)
 	} else {
@@ -288,20 +283,14 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	}()
 
 	q := js.q.WithOpts(qopts...)
-	if q.ParentCtx != nil {
-		ctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
-		defer cancel()
-		q.ParentCtx = ctx
-	} else {
-		ctx, cancel := utils.ContextFromChan(js.chStop)
-		defer cancel()
-		q.ParentCtx = ctx
-	}
-	qctx, cancel := q.Context()
+	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
+	defer cancel()
+	q.ParentCtx = pctx
+	ctx, cancel := q.Context()
 	defer cancel()
 
 	if !exists { // inactive, so look up the spec and delegate
-		jb, err := js.orm.FindJob(qctx, jobID)
+		jb, err := js.orm.FindJob(ctx, jobID)
 		if err != nil {
 			return pkgerrors.Wrapf(err, "job %d not found", jobID)
 		}
