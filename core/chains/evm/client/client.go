@@ -231,6 +231,12 @@ func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types
 	return client.pool.BlockByHash(ctx, hash)
 }
 
+func (client *client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	var height *big.Int
+	h, err := client.pool.BlockNumber(ctx)
+	return height.SetUint64(h), err
+}
+
 func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
 	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)

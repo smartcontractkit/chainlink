@@ -102,6 +102,7 @@ type Node interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+	BlockNumber(ctx context.Context) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
@@ -817,6 +818,32 @@ func (n *node) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Bloc
 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "BlockByHash",
 		"block", b,
+	)
+
+	return
+}
+
+func (n *node) BlockNumber(ctx context.Context) (height uint64, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n))
+
+	lggr.Debug("RPC call: evmclient.Client#BlockNumber")
+	start := time.Now()
+	if http != nil {
+		height, err = http.geth.BlockNumber(ctx)
+		err = n.wrapHTTP(err)
+	} else {
+		height, err = ws.geth.BlockNumber(ctx)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "BlockNumber",
+		"height", height,
 	)
 
 	return

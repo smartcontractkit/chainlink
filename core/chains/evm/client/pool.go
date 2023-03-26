@@ -381,6 +381,10 @@ func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block,
 	return p.selectNode().BlockByHash(ctx, hash)
 }
 
+func (p *Pool) BlockNumber(ctx context.Context) (uint64, error) {
+	return p.selectNode().BlockNumber(ctx)
+}
+
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return p.selectNode().BalanceAt(ctx, account, blockNumber)
 }
