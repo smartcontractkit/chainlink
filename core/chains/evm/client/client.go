@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -26,19 +27,16 @@ const queryTimeout = 10 * time.Second
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
+	txmgrtypes.Client[*big.Int, common.Address, types.Block, types.Header, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
+
 	Dial(ctx context.Context) error
 	Close()
-	ChainID() *big.Int
+
 	// NodeStates returns a map of node Name->node state
 	// It might be nil or empty, e.g. for mock clients etc
 	NodeStates() map[string]string
 
-	GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
-	GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error)
-	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
-
 	// Wrapped RPC methods
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	// BatchCallContextAll calls BatchCallContext for every single node including
 	// sendonlys.
@@ -55,24 +53,13 @@ type Client interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
-	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
-	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
-	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
-	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
-	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
-
-	// bind.ContractBackend methods
-	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
-	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
@@ -185,8 +172,8 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return
 }
 
-func (client *client) ChainID() *big.Int {
-	return client.pool.chainID
+func (client *client) ChainID() (*big.Int, error) {
+	return client.pool.chainID, nil
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -254,7 +241,8 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(client.ChainID())
+	chainId, _ := client.ChainID()
+	head.EVMChainID = utils.NewBig(chainId)
 	return
 }
 
@@ -267,7 +255,8 @@ func (client *client) HeadByHash(ctx context.Context, hash common.Hash) (head *e
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(client.ChainID())
+	chainId, _ := client.ChainID()
+	head.EVMChainID = utils.NewBig(chainId)
 	return
 }
 
@@ -294,7 +283,8 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	csf := newChainIDSubForwarder(client.ChainID(), ch)
+	chainId, _ := client.ChainID()
+	csf := newChainIDSubForwarder(chainId, ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
 	if err != nil {
 		return nil, err
