@@ -167,13 +167,41 @@ PriceMax = '%d gwei'
 	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, ethKeyAddress, maxGasPriceGWei)
 	tomlConfigWithUpdates := fmt.Sprintf("%s\n%s", config.BaseVRFV2NetworkDetailTomlConfig, evmKeySpecificConfig)
 
-	for index, chart := range testEnvironment.Charts {
-		//UPDATE NODE CONFIG AND REDEPLOY THE NODE
-		err = testEnvironment.ModifyHelm(chart.GetName(), chainlink.New(index, map[string]interface{}{
-			//set new toml config
-			"toml": client.AddNetworkDetailedConfig("", tomlConfigWithUpdates, testNetwork),
-		})).Run()
+	//UPDATE NODE CONFIG AND REDEPLOY THE NODE
+	//err = testEnvironment.ModifyHelm(testEnvironment.Charts[0].GetName(), chainlink.New(0, map[string]interface{}{
+	//	//set new toml config
+	//	"toml": client.AddNetworkDetailedConfig("", tomlConfigWithUpdates, testNetwork),
+	//})).Run()
+	//
+
+	testNetwork = networks.SelectedNetwork
+	evmConfig := eth.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
 	}
+
+	testEnvironment = environment.New(&environment.Config{
+		Namespace: testEnvironment.Cfg.Namespace,
+		Test:      t,
+		//KeepConnection:    true,
+		//RemoveOnInterrupt: true,
+		TTL: time.Minute * 40,
+	}).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]any{
+			"toml": client.AddNetworkDetailedConfig("", tomlConfigWithUpdates, testNetwork),
+			//need to restart the node with updated eth key config
+			"db": map[string]interface{}{
+				"stateful": true,
+			},
+		}))
+
+	err = testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
 
 	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), gasLimit, numberOfWords)
 	require.NoError(t, err)
@@ -222,7 +250,7 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 			"toml": client.AddNetworkDetailedConfig("", config.BaseVRFV2NetworkDetailTomlConfig, testNetwork),
 			//need to restart the node with updated eth key config
 			"db": map[string]interface{}{
-				"stateful": true,
+				"stateful": "true",
 			},
 		}))
 	err := testEnvironment.Run()
