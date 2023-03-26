@@ -27,15 +27,6 @@ func (n node) Prompt(p string) string {
 	return n.login
 }
 
-type nodeConfig struct {
-	ethAddress            string
-	p2pPeerID             string
-	ocr2BundleID          string
-	ocr2OnchainPublicKey  string
-	ocr2OffchainPublicKey string
-	ocr2ConfigPublicKey   string
-}
-
 func mustReadNodesList(path string) []*node {
 	fmt.Println("Reading nodes list from", path)
 

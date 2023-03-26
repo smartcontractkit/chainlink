@@ -72,7 +72,7 @@ func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, erro
 	}
 
 	if !validatePollTimer(jb.FluxMonitorSpec.PollTimerDisabled, minTimeout, jb.FluxMonitorSpec.PollTimerPeriod) {
-		return jb, errors.Errorf("PollTimerPeriod (%v) must be equal or greater than the smallest value of MaxTaskDuration param, DEFAULT_HTTP_TIMEOUT config var, or MinTimeout of all tasks (%v)", jb.FluxMonitorSpec.PollTimerPeriod, minTimeout)
+		return jb, errors.Errorf("PollTimerPeriod (%v) must be equal or greater than the smallest value of MaxTaskDuration param, JobPipeline.HTTPRequest.DefaultTimeout config var, or MinTimeout of all tasks (%v)", jb.FluxMonitorSpec.PollTimerPeriod, minTimeout)
 	}
 
 	return jb, nil

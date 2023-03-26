@@ -1,8 +1,16 @@
 package cmd_test
 
 import (
+	"crypto/rand"
+	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -12,9 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
@@ -304,4 +309,22 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewUserCache(t *testing.T) {
+
+	r, err := rand.Int(rand.Reader, big.NewInt(256*1024*1024))
+	require.NoError(t, err)
+	// NewUserCache owns it's Dir.
+	// invent a unique subdir that we can cleanup
+	// because test.TempDir and ioutil.TempDir don't work well here
+	subDir := filepath.Base(fmt.Sprintf("%s-%d", t.Name(), r.Int64()))
+	c, err := cmd.NewUserCache(subDir)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(c.RootDir()))
+	}()
+
+	assert.DirExists(t, c.RootDir())
+
 }

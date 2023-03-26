@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -521,7 +522,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
-	defer jorm.Close()
+	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
 	var keeperJob = job.Job{
@@ -622,7 +623,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
-	defer jorm.Close()
+	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
 	var drJob = job.Job{
@@ -708,11 +709,18 @@ func Test_Prune(t *testing.T) {
 	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.MaxSuccessfulRuns = &n
 	})
-	lggr := logger.TestLogger(t)
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
 	porm := pipeline.NewORM(db, lggr, cfg)
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
+
+	t.Run("when there are no runs to prune, does nothing", func(t *testing.T) {
+		porm.Prune(db, ps1.ID)
+
+		// no error logs; it did nothing
+		assert.Empty(t, observed.All())
+	})
 
 	// ps1 has:
 	// - 20 completed runs
@@ -753,5 +761,4 @@ func Test_Prune(t *testing.T) {
 	assert.Equal(t, 3, cnt)
 	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusSuspended)
 	assert.Equal(t, 3, cnt)
-
 }

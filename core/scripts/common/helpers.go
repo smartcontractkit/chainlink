@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -310,6 +311,14 @@ func ParseHashSlice(arg string) (ret []common.Hash) {
 	ret = []common.Hash{}
 	for _, part := range parts {
 		ret = append(ret, common.HexToHash(part))
+	}
+	return
+}
+
+func ParseHexSlice(arg string) (ret [][]byte) {
+	parts := strings.Split(arg, ",")
+	for _, part := range parts {
+		ret = append(ret, hexutil.MustDecode(part))
 	}
 	return
 }

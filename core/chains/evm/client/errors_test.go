@@ -40,6 +40,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"invalid transaction: nonce too low", true, "Optimism"},
 			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true, "Avalanche"},
 			{"call failed: OldNonce", true, "Nethermind"},
+			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
 		}
 
 		for _, test := range tests {
@@ -49,6 +50,24 @@ func Test_Eth_Errors(t *testing.T) {
 				err = newSendErrorWrapped(test.message)
 				assert.Equal(t, err.IsNonceTooLowError(), test.expect)
 			})
+		}
+	})
+
+	t.Run("IsNonceTooHigh", func(t *testing.T) {
+
+		tests := []errorCase{
+			{"call failed: NonceGap", true, "Nethermind"},
+			{"call failed: NonceGap, Future nonce. Expected nonce: 10", true, "Nethermind"},
+			{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
+			{"nonce too high", true, "Geth"},
+			{"nonce too high", true, "Erigon"},
+		}
+
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
 		}
 	})
 
@@ -128,6 +147,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true, "Parity"},
 			{"gas price too low", true, "Arbitrum"},
 			{"FeeTooLow", true, "Nethermind"},
+			{"FeeTooLow, MaxFeePerGas too low. MaxFeePerGas: 50, BaseFee: 100, MaxPriorityFeePerGas:200, Block number: 5", true, "Nethermind"},
+			{"FeeTooLow, EffectivePriorityFeePerGas too low 10 < 20, BaseFee: 30", true, "Nethermind"},
+			{"FeeTooLow, FeePerGas needs to be higher than 100 to be added to the TxPool. Affordable FeePerGas of rejected tx: 50.", true, "Nethermind"},
 			{"FeeTooLowToCompete", true, "Nethermind"},
 			{"transaction underpriced", true, "Klaytn"},
 			{"intrinsic gas too low", true, "Klaytn"},
@@ -270,7 +292,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"oversized data", true, "Geth"},
 		{"gas uint64 overflow", true, "Geth"},
 		{"intrinsic gas too low", true, "Geth"},
-		{"nonce too high", true, "Geth"},
 
 		{"Intrinsic gas exceeds gas limit", true, "Besu"},
 		{"Transaction gas limit exceeds block gas limit", true, "Besu"},
@@ -283,7 +304,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"oversized data", true, "Erigon"},
 		{"gas uint64 overflow", true, "Erigon"},
 		{"intrinsic gas too low", true, "Erigon"},
-		{"nonce too high", true, "Erigon"},
 
 		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false, "Parity"},
 		{"Supplied gas is beyond limit.", true, "Parity"},
@@ -303,13 +323,14 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"execution reverted: error code", true, "Arbitrum"},
 		{"execution reverted: stale report", true, "Arbitrum"},
 		{"execution reverted", true, "Arbitrum"},
-		{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 
 		{"call failed: SenderIsContract", true, "Nethermind"},
 		{"call failed: Invalid", true, "Nethermind"},
+		{"call failed: Invalid, transaction Hash is null", true, "Nethermind"},
 		{"call failed: Int256Overflow", true, "Nethermind"},
 		{"call failed: FailedToResolveSender", true, "Nethermind"},
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
+		{"call failed: GasLimitExceeded, Gas limit: 100, gas limit of rejected tx: 150", true, "Nethermind"},
 
 		{"invalid shard", true, "Harmony"},
 		{"`to` address of transaction in blacklist", true, "Harmony"},

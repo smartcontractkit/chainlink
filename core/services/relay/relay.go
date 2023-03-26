@@ -4,13 +4,13 @@ type Network string
 
 var (
 	EVM             Network = "evm"
+	Cosmos          Network = "cosmos"
 	Solana          Network = "solana"
-	Terra           Network = "terra"
 	StarkNet        Network = "starknet"
 	SupportedRelays         = map[Network]struct{}{
 		EVM:      {},
+		Cosmos:   {},
 		Solana:   {},
-		Terra:    {},
 		StarkNet: {},
 	}
 )

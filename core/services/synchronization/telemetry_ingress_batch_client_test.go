@@ -2,6 +2,7 @@ package synchronization_test
 
 import (
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -44,16 +44,19 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 1"),
 		ContractID: "0x1",
+		TelemType:  synchronization.OCR,
 	}
 	telemPayload2 := synchronization.TelemPayload{
 		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 2"),
 		ContractID: "0x2",
+		TelemType:  synchronization.OCR2VRF,
 	}
 	telemPayload3 := synchronization.TelemPayload{
 		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 3"),
 		ContractID: "0x3",
+		TelemType:  synchronization.OCR2Functions,
 	}
 
 	// Assert telemetry payloads for each contract are correctly sent to wsrpc
@@ -65,20 +68,23 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 
 		if telemBatchReq.ContractId == "0x1" {
 			for _, telem := range telemBatchReq.Telemetry {
-				contractCounter1.Inc()
+				contractCounter1.Add(1)
 				assert.Equal(t, telemPayload1.Telemetry, telem)
+				assert.Equal(t, synchronization.OCR, telemPayload1.TelemType)
 			}
 		}
 		if telemBatchReq.ContractId == "0x2" {
 			for _, telem := range telemBatchReq.Telemetry {
-				contractCounter2.Inc()
+				contractCounter2.Add(1)
 				assert.Equal(t, telemPayload2.Telemetry, telem)
+				assert.Equal(t, synchronization.OCR2VRF, telemPayload2.TelemType)
 			}
 		}
 		if telemBatchReq.ContractId == "0x3" {
 			for _, telem := range telemBatchReq.Telemetry {
-				contractCounter3.Inc()
+				contractCounter3.Add(1)
 				assert.Equal(t, telemPayload3.Telemetry, telem)
+				assert.Equal(t, synchronization.OCR2Functions, telemPayload3.TelemType)
 			}
 		}
 	})

@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
@@ -25,7 +26,8 @@ import (
 )
 
 const (
-	executionQueueSize = 10
+	executionQueueSize  = 10
+	maxUpkeepPerformGas = 5_000_000 // Max perform gas for upkeep is 5M on all chains for v1.x
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -50,7 +52,7 @@ type UpkeepExecuter struct {
 	config                 Config
 	executionQueue         chan struct{}
 	headBroadcaster        httypes.HeadBroadcasterRegistry
-	gasEstimator           gas.Estimator
+	gasEstimator           txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
 	job                    job.Job
 	mailbox                *utils.Mailbox[*evmtypes.Head]
 	orm                    ORM
@@ -68,7 +70,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	gasEstimator gas.Estimator,
+	gasEstimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	logger logger.Logger,
 	config Config,
 	effectiveKeeperAddress common.Address,
@@ -267,7 +269,7 @@ func buildJobSpec(
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: jb.ForwardingAllowed,
 			},
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
+			"performUpkeepGasLimit": maxUpkeepPerformGas + ormConfig.KeeperRegistryPerformGasOverhead(),
 			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
 			"gasPrice":              gasPrice.ToInt(),
 			"gasTipCap":             gasTipCap.ToInt(),

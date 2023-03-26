@@ -4,12 +4,108 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
   push:
+    branches:
+      - master
+      - develop
+      - 'release/*'
+      - staging
+      - trying
+      - rollup
+  pull_request:
   schedule:
     - cron: "0 0 * * *"
 
 jobs:
+  golangci-changes:
+    name: detect changes for lint
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.golangci-changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+        id: golangci-changes
+        with:
+          filters: |
+            src:
+            - '**/*.go'
+            - '**/go.mod'
+            - '**/go.sum'
+            - '.golangci.yml'
+            - '.github/workflows/ci-core.yml'
+  init:
+    name: initialize
+    runs-on: ubuntu-latest
+    needs: [golangci-changes]
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      # Determine if `on` event should trigger linting to run
+      on_trigger_lint: ${{ steps.golangci-lint.outputs.on_trigger }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - name: Check if event should trigger lint
+        id: golangci-lint
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_REF: ${{ github.ref }}
+          SRC_CHANGED: ${{ needs.golangci-changes.outputs.src }}
+        run: ./.github/scripts/bash/ontriggerlint.sh | tee -a $GITHUB_OUTPUT
+
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    needs: [init]
+    steps:
+      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v4
+        if: needs.init.outputs.on_trigger_lint == 'true'
+        with:
+          go-version-file: 'go.mod'
+          # If cache is set to true (default), the "prepare environment" will
+          # silently fail with these errors:
+          # Error: /usr/bin/tar: <...>: Cannot open: File exists
+          cache: false
+      - name: golangci-lint
+        if: needs.init.outputs.on_trigger_lint == 'true'
+        ##
+        # XXX: change this to the official action once multiple --out-format args are supported.
+        # See: https://github.com/golangci/golangci-lint-action/issues/612
+        ##
+        uses: smartcontractkit/golangci-lint-action@54ab6c5f11d66a92d14c3f7cc41ea13f676644bd # feature/multiple-output-formats-backup
+        with:
+          version: v1.52.1
+          only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
+          allow-extra-out-format-args: true
+          args: --out-format checkstyle:golangci-lint-report.xml
+      - name: Print lint report artifact
+        if: always()
+        run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true
+      - name: Store lint report artifact
+        if: always()
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        with:
+          name: golangci-lint-report
+          path: golangci-lint-report.xml
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: lint
+        continue-on-error: true
+
   split-packages:
     name: Split Go Tests
     runs-on: ubuntu-latest
@@ -17,7 +113,7 @@ jobs:
       splits: ${{ steps.split.outputs.splits }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -49,12 +145,10 @@ jobs:
     name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
-      LOG_LEVEL: debug
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Setup node
         uses: actions/setup-node@v3
       - name: Setup NodeJS
@@ -120,11 +214,12 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [core-complete]
+    needs: [core]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
@@ -141,6 +236,7 @@ jobs:
           args: >
             -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
             -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
+            -Dsonar.go.golangci-lint.reportPaths=golangci-lint-report/golangci-lint-report.xml
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -151,5 +247,37 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: sonarqube-scan
+          this-job-name: SonarQube Scan
+        continue-on-error: true
+
+  clean:
+    name: Clean Go Tidy & Generate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - run: make generate # generate install go deps
+      - name: Ensure clean after generate
+        run: git diff --stat --exit-code
+      - run: make gomodtidy
+      - name: Ensure clean after tidy
+        run: git diff --minimal --exit-code
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Clean Go Tidy & Generate
         continue-on-error: true

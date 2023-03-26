@@ -13,16 +13,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	drocr_serv "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
-	drocr_mocks "github.com/smartcontractkit/chainlink/core/services/directrequestocr/mocks"
+	functions_srv "github.com/smartcontractkit/chainlink/core/services/functions"
+	functions_mocks "github.com/smartcontractkit/chainlink/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *drocr_mocks.ORM, *directrequestocr.ReportCodec) {
+func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *directrequestocr.ReportCodec) {
 	lggr := logger.TestLogger(t)
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
-	orm := drocr_mocks.NewORM(t)
+	orm := functions_mocks.NewORM(t)
 	factory := directrequestocr.DirectRequestReportingPluginFactory{
 		Logger:    ocrLogger,
 		PluginORM: orm,
@@ -46,31 +46,31 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *droc
 	return plugin, orm, codec
 }
 
-func newRequestID() drocr_serv.RequestID {
+func newRequestID() functions_srv.RequestID {
 	return testutils.Random32Byte()
 }
 
-func newRequest() drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.IN_PROGRESS}
+func newRequest() functions_srv.Request {
+	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.IN_PROGRESS}
 }
 
-func newRequestWithResult(result []byte) drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.RESULT_READY, Result: result}
+func newRequestWithResult(result []byte) functions_srv.Request {
+	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.RESULT_READY, Result: result}
 }
 
-func newRequestFinalized() drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.FINALIZED}
+func newRequestFinalized() functions_srv.Request {
+	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.FINALIZED}
 }
 
-func newRequestTimedOut() drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.TIMED_OUT}
+func newRequestTimedOut() functions_srv.Request {
+	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.TIMED_OUT}
 }
 
-func newRequestConfirmed() drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.CONFIRMED}
+func newRequestConfirmed() functions_srv.Request {
+	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.CONFIRMED}
 }
 
-func newMarshalledQuery(t *testing.T, reqIDs ...drocr_serv.RequestID) []byte {
+func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte {
 	queryProto := directrequestocr.Query{}
 	queryProto.RequestIDs = [][]byte{}
 	for _, id := range reqIDs {
@@ -82,7 +82,7 @@ func newMarshalledQuery(t *testing.T, reqIDs ...drocr_serv.RequestID) []byte {
 	return marshalled
 }
 
-func newProcessedRequest(requestId drocr_serv.RequestID, compResult []byte, compError []byte) *directrequestocr.ProcessedRequest {
+func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *directrequestocr.ProcessedRequest {
 	return &directrequestocr.ProcessedRequest{
 		RequestID: requestId[:],
 		Result:    compResult,
@@ -104,8 +104,8 @@ func TestDRReporting_Query(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
 	plugin, orm, _ := preparePlugin(t, batchSize)
-	reqs := []drocr_serv.Request{newRequest(), newRequest()}
-	orm.On("FindOldestEntriesByState", drocr_serv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
+	reqs := []functions_srv.Request{newRequest(), newRequest()}
+	orm.On("FindOldestEntriesByState", functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
@@ -236,7 +236,7 @@ func TestDRReporting_Report_IncorrectObservation(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getReportBytes(t *testing.T, codec *directrequestocr.ReportCodec, reqs ...drocr_serv.Request) []byte {
+func getReportBytes(t *testing.T, codec *directrequestocr.ReportCodec, reqs ...functions_srv.Request) []byte {
 	var report []*directrequestocr.ProcessedRequest
 	for _, req := range reqs {
 		req := req

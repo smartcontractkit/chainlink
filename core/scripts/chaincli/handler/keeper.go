@@ -160,6 +160,9 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 }
 
 func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) {
+	if k.approveAmount.Cmp(big.NewInt(0)) == 0 {
+		return
+	}
 	// Approve keeper registry
 	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
 	if err != nil {

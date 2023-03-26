@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
-import { Contract, ContractFactory } from 'ethers'
+import { BigNumber, Contract, ContractFactory } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
 let functionsOracleFactory: ContractFactory
@@ -38,7 +38,7 @@ before(async () => {
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
+    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 
@@ -65,6 +65,7 @@ describe('FunctionsOracle', () => {
   let transmitters: string[]
 
   beforeEach(async () => {
+    // Deploy contracts
     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     mockLinkEth = await mockAggregatorV3Factory.deploy(
       0,
@@ -74,6 +75,8 @@ describe('FunctionsOracle', () => {
     registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
+
+    // Setup contracts
     await oracle.setRegistry(registry.address)
     await oracle.deactivateAuthorizedReceiver()
     client = await clientTestHelperFactory
@@ -82,14 +85,20 @@ describe('FunctionsOracle', () => {
     await registry.setAuthorizedSenders([oracle.address])
 
     await registry.setConfig(
-      1_000_000,
-      86_400,
-      21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
-      ethers.BigNumber.from('5000000000000000'),
-      500_000,
-      300,
+      1_000_000, // maxGasLimit
+      86_400, // stalenessSeconds
+      39_173 /* gasAfterPaymentCalculation
+      gathered by taking the difference from gasleft() directly after payment calculation, and then again after the BillingEnd event, using a hardhat console log
+      */,
+      ethers.BigNumber.from('5000000000000000'), // fallbackWeiPerUnitLink
+      519_719 /* gasOverhead
+      gathered by taking the difference from initialGas and gasleft() directly after payment calculation, adding back the user's callback gas usage, using a hardhat console log
+      NOTE: this number can vary slightly by number of nodes on the DON
+      */,
+      300, // requestTimeoutSeconds
     )
 
+    // Setup accounts
     const createSubTx = await registry
       .connect(roles.defaultAccount)
       .createSubscription()
@@ -234,7 +243,7 @@ describe('FunctionsOracle', () => {
   describe('Sending requests', () => {
     it('#sendRequest emits OracleRequest event', async () => {
       const data = stringToHex('some data')
-      await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
+      await expect(oracle.sendRequest(subscriptionId, data, 0))
         .to.emit(oracle, 'OracleRequest')
         .withArgs(
           anyValue,
@@ -249,7 +258,7 @@ describe('FunctionsOracle', () => {
     it('#sendRequest reverts for empty data', async () => {
       const data = stringToHex('')
       await expect(
-        oracle.sendRequest(subscriptionId, data, 0, 0),
+        oracle.sendRequest(subscriptionId, data, 0),
       ).to.be.revertedWith('EmptyRequestData')
     })
 
@@ -258,7 +267,6 @@ describe('FunctionsOracle', () => {
       const requestId = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
-        0,
         0,
       )
       expect(requestId).not.to.be.empty
@@ -270,9 +278,8 @@ describe('FunctionsOracle', () => {
         subscriptionId,
         data,
         0,
-        0,
       )
-      await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
+      await expect(oracle.sendRequest(subscriptionId, data, 0))
         .to.emit(oracle, 'OracleRequest')
         .withArgs(
           anyValue,
@@ -285,7 +292,6 @@ describe('FunctionsOracle', () => {
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
-        0,
         0,
       )
       expect(requestId1).not.to.be.equal(requestId2)
@@ -322,7 +328,7 @@ describe('FunctionsOracle', () => {
 
       await expect(oracle.callReport(report)).to.emit(
         oracle,
-        'UserCallbackRawError',
+        'InvalidRequestID',
       )
     })
 
@@ -340,28 +346,46 @@ describe('FunctionsOracle', () => {
         .withArgs(requestId)
     })
 
-    // it('#estimateCost correctly estimates cost', async () => {
-    //   const estimatedCost = await client.estimateJuelCost(
-    //     'function(){}',
-    //     subscriptionId,
-    //     { gasPrice: 1000000093 },
-    //   )
+    it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
+      const [subscriptionBalanceBefore] = await registry.getSubscription(
+        subscriptionId,
+      )
 
-    //   const requestId = await client
-    //     .connect(roles.oracleNode)
-    //     .sendSimpleRequestWithJavaScript('function(){}', subscriptionId, {
-    //       gasPrice: 1000000093,
-    //     })
+      const request = await client
+        .connect(roles.oracleNode)
+        .sendSimpleRequestWithJavaScript('function(){}', subscriptionId)
+      const receipt = await request.wait()
+      const requestId = receipt.events[3].args[0]
 
-    //   const report = encodeReport(
-    //     ethers.utils.hexZeroPad(requestId, 32),
-    //     stringToHex('response'),
-    //     stringToHex(''),
-    //   )
-    //   await expect(oracle.connect(roles.oracleNode).callReport(report))
-    //     .to.emit(oracle, 'OracleResponse')
-    //     .withArgs(requestId)
-    // })
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'OracleResponse')
+        .withArgs(requestId)
+        .to.emit(registry, 'BillingEnd')
+
+      const [subscriptionBalanceAfter] = await registry.getSubscription(
+        subscriptionId,
+      )
+
+      const feeData = await ethers.provider.getFeeData()
+      const estimatedCost = await client.estimateJuelCost(
+        'function(){}',
+        subscriptionId,
+        feeData.gasPrice ?? BigNumber.from(0),
+      )
+      // Expect charged amount to be +-0.01%
+      expect(
+        subscriptionBalanceBefore.sub(subscriptionBalanceAfter),
+      ).to.be.below(estimatedCost.add(estimatedCost.div(100)))
+      expect(
+        subscriptionBalanceBefore.sub(subscriptionBalanceAfter),
+      ).to.be.above(estimatedCost.sub(estimatedCost.div(100)))
+    })
 
     it('#fulfillRequest emits UserCallbackError if callback reverts', async () => {
       const requestId = await placeTestRequest()
@@ -424,8 +448,8 @@ describe('FunctionsOracle', () => {
 
       // for second fulfill the requestId becomes invalid
       await expect(oracle.connect(roles.oracleNode).callReport(report))
-        .to.emit(oracle, 'UserCallbackRawError')
-        .withArgs(requestId, '0xda7aa3e1')
+        .to.emit(oracle, 'InvalidRequestID')
+        .withArgs(requestId)
     })
 
     it('#_report reverts for inconsistent encoding', async () => {

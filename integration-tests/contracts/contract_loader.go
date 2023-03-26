@@ -3,8 +3,7 @@ package contracts
 import (
 	"errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,6 +34,8 @@ func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
 		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl)}, nil
 	case *blockchain.PolygonClient:
 		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+	case *blockchain.OptimismClient:
+		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -59,8 +60,13 @@ type ArbitrumContractLoader struct {
 	*EthereumContractLoader
 }
 
-// PolygonContractLoader wraps for Arbitrum
+// PolygonContractLoader wraps for Polygon
 type PolygonContractLoader struct {
+	*EthereumContractLoader
+}
+
+// OptimismContractLoader wraps for Optimism
+type OptimismContractLoader struct {
 	*EthereumContractLoader
 }
 
@@ -113,7 +119,7 @@ func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Addr
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return ethereum.NewKeeperConsumerBenchmark(address, backend)
+		return eth_contracts.NewKeeperConsumerBenchmark(address, backend)
 	})
 	if err != nil {
 		return nil, err
@@ -121,7 +127,7 @@ func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Addr
 	return &EthereumKeeperConsumerBenchmark{
 		address:  &address,
 		client:   e.client,
-		consumer: instance.(*ethereum.KeeperConsumerBenchmark),
+		consumer: instance.(*eth_contracts.KeeperConsumerBenchmark),
 	}, err
 }
 
@@ -131,7 +137,7 @@ func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (Upk
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return int_ethereum.NewUpkeepResetter(address, backend)
+		return eth_contracts.NewUpkeepResetter(address, backend)
 	})
 	if err != nil {
 		return nil, err
@@ -139,6 +145,6 @@ func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (Upk
 	return &EthereumUpkeepResetter{
 		address:  &address,
 		client:   e.client,
-		consumer: instance.(*int_ethereum.UpkeepResetter),
+		consumer: instance.(*eth_contracts.UpkeepResetter),
 	}, err
 }

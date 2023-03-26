@@ -16,16 +16,15 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-
-	"github.com/rs/zerolog/log"
 )
 
 var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -44,7 +43,11 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 }
 
 func TestKeeperPerformance(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_1,
@@ -74,7 +77,7 @@ func TestKeeperPerformance(t *testing.T) {
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 					"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
-				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 			}
 		}, "5m", "1s").Should(gomega.Succeed())
 
@@ -93,7 +96,7 @@ func TestKeeperPerformance(t *testing.T) {
 			// Obtain the amount of times the upkeep has been executed so far
 			countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-			log.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
+			l.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
 		}
 
 		gom.Consistently(func(g gomega.Gomega) {
@@ -150,7 +153,10 @@ SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	testEnvironment := environment.New(
-		&environment.Config{NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName)},
+		&environment.Config{
+			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
+			Test:            t,
+		},
 	).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -161,6 +167,9 @@ PerformGasOverhead = 150_000`
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		return testEnvironment, nil, nil, nil, nil
+	}
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")

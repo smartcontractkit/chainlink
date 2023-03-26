@@ -30,6 +30,7 @@ import (
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -147,6 +148,7 @@ type coordinator struct {
 	toBeTransmittedBlocks *ocrCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
 	toBeTransmittedCallbacks *ocrCache[callbackInReport]
+	blockhashLookback        uint64
 	coordinatorConfig        *ocr2vrftypes.CoordinatorConfig
 }
 
@@ -166,10 +168,12 @@ func New(
 	}
 
 	t := newTopics()
+	filterName := logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	_, err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(logpoller.Filter{
+		Name: filterName,
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
 			t.randomnessFulfillmentRequestedTopic,
@@ -183,6 +187,7 @@ func New(
 
 	cacheEvictionWindowSeconds := int64(60)
 	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
+	lookbackBlocks := uint64(1_000)
 
 	return &coordinator{
 		onchainRouter:            onchainRouter,
@@ -196,6 +201,7 @@ func New(
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
 		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
 		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
+		blockhashLookback:        mathutil.Min(256, lookbackBlocks),
 		// defaults
 		coordinatorConfig: &ocr2vrftypes.CoordinatorConfig{
 			CacheEvictionWindowSeconds: cacheEvictionWindowSeconds,
@@ -203,9 +209,17 @@ func New(
 			CoordinatorOverhead:        50_000,
 			BlockGasOverhead:           50_000,
 			CallbackOverhead:           50_000,
-			LookbackBlocks:             1_000,
+			LookbackBlocks:             lookbackBlocks,
 		},
 	}, nil
+}
+
+func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
+	head, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return 0, err
+	}
+	return uint64(head), nil
 }
 
 // ReportIsOnchain returns true iff a report for the given OCR epoch/round is
@@ -290,7 +304,13 @@ func (c *coordinator) ReportBlocks(
 	retransmissionDelay time.Duration, // TODO: unused for now
 	maxBlocks, // TODO: unused for now
 	maxCallbacks int, // TODO: unused for now
-) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
+) (
+	blocks []ocr2vrftypes.Block,
+	callbacks []ocr2vrftypes.AbstractCostedCallbackRequest,
+	recentBlockHashesStartHeight uint64,
+	recentBlockHashes []common.Hash,
+	err error,
+) {
 	now := time.Now().UTC()
 	defer c.logAndEmitFunctionDuration("ReportBlocks", now)
 
@@ -298,7 +318,7 @@ func (c *coordinator) ReportBlocks(
 	currentBatchGasLimit := c.coordinatorConfig.CoordinatorOverhead
 
 	// TODO: use head broadcaster instead?
-	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
+	currentHeight, err := c.CurrentChainHeight(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "header by number")
 		return
@@ -311,8 +331,8 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
-		currentHeight-c.coordinatorConfig.LookbackBlocks,
-		currentHeight,
+		int64(currentHeight-c.coordinatorConfig.LookbackBlocks),
+		int64(currentHeight),
 		[]common.Hash{
 			c.randomnessRequestedTopic,
 			c.randomnessFulfillmentRequestedTopic,
@@ -346,11 +366,29 @@ func (c *coordinator) ReportBlocks(
 		"OutputsServed", outputsServedLogs,
 	)
 
+	// Get start height for recent blockhashes.
+	recentBlockHashesStartHeight = uint64(0)
+	if currentHeight >= c.blockhashLookback {
+		recentBlockHashesStartHeight = currentHeight - c.blockhashLookback + 1
+	}
+
 	// Get blockhashes that pertain to requested blocks.
-	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(ctx, randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, currentHeight)
+	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(
+		ctx,
+		randomnessRequestedLogs,
+		randomnessFulfillmentRequestedLogs,
+		currentHeight,
+		recentBlockHashesStartHeight,
+	)
 	if err != nil {
 		err = errors.Wrap(err, "get blockhashes in ReportBlocks")
 		return
+	}
+
+	// TODO BELOW: Write tests for the new blockhash retrieval.
+	// Obtain recent blockhashes, ordered by ascending block height.
+	for i := recentBlockHashesStartHeight; i <= uint64(currentHeight); i++ {
+		recentBlockHashes = append(recentBlockHashes, blockhashesMapping[i])
 	}
 
 	blocksRequested := make(map[block]struct{})
@@ -424,7 +462,8 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	ctx context.Context,
 	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
-	currentHeight int64,
+	currentHeight uint64,
+	recentBlockHashesStartHeight uint64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
 
 	// Get all request + callback requests into a mapping.
@@ -463,7 +502,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	}
 
 	// Get a mapping of block numbers to block hashes.
-	blockhashesMapping, err = c.getBlockhashesMapping(ctx, requestedBlockNumbers)
+	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, uint64(currentHeight), recentBlockHashesStartHeight))
 	if err != nil {
 		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
 	}
@@ -498,14 +537,17 @@ func (c *coordinator) getBlockhashesMapping(
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
 
-	if len(heads) != len(blockNumbers) {
-		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
-		return
-	}
-
 	blockhashesMapping = make(map[uint64]common.Hash)
 	for _, head := range heads {
 		blockhashesMapping[uint64(head.BlockNumber)] = head.BlockHash
+	}
+
+	// Ensure that every requested block received a blockhash.
+	for _, b := range blockNumbers {
+		if _, ok := blockhashesMapping[b]; !ok {
+			err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
+			return
+		}
 	}
 	return
 }
@@ -527,7 +569,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	callbacksRequested []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	fulfilledRequestIDs map[uint64]struct{},
 	confirmationDelays map[uint32]struct{},
-	currentHeight int64,
+	currentHeight uint64,
 	currentBatchGasLimit int64,
 ) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
 
@@ -604,7 +646,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 func (c *coordinator) filterEligibleCallbacks(
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	confirmationDelays map[uint32]struct{},
-	currentHeight int64,
+	currentHeight uint64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (callbacks []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested, unfulfilled []block, err error) {
 
@@ -652,7 +694,7 @@ func (c *coordinator) filterEligibleCallbacks(
 func (c *coordinator) filterEligibleRandomnessRequests(
 	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	confirmationDelays map[uint32]struct{},
-	currentHeight int64,
+	currentHeight uint64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (unfulfilled []block, err error) {
 
@@ -958,9 +1000,9 @@ func (c *coordinator) KeyID(ctx context.Context) (dkg.KeyID, error) {
 // NextBeaconOutputHeight is always greater than the request block, therefore
 // a number of confirmations on the beacon block is always enough confirmations
 // for the request block.
-func isBlockEligible(nextBeaconOutputHeight uint64, confDelay *big.Int, currentHeight int64) bool {
-	cond := confDelay.Int64() < currentHeight // Edge case: for simulated chains with low block numbers
-	cond = cond && (nextBeaconOutputHeight+confDelay.Uint64()) < uint64(currentHeight)
+func isBlockEligible(nextBeaconOutputHeight uint64, confDelay *big.Int, currentHeight uint64) bool {
+	cond := confDelay.Uint64() < currentHeight // Edge case: for simulated chains with low block numbers
+	cond = cond && (nextBeaconOutputHeight+confDelay.Uint64()) < currentHeight
 	return cond
 }
 
@@ -1022,6 +1064,13 @@ func (c *coordinator) SetOffChainConfig(b []byte) error {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
 	}
 
+	// Update local caches with new eviction window.
+	cacheEvictionWindowSeconds := c.coordinatorConfig.CacheEvictionWindowSeconds
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
+	c.toBeTransmittedBlocks.SetEvictonWindow(cacheEvictionWindow)
+	c.toBeTransmittedCallbacks.SetEvictonWindow(cacheEvictionWindow)
+
+	c.blockhashLookback = mathutil.Min(256, c.coordinatorConfig.LookbackBlocks)
 	c.lggr.Infow("set offchain config",
 		offchainConfigFields(c.coordinatorConfig)...,
 	)

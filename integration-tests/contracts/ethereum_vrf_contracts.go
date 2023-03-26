@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"time"
 
@@ -12,15 +13,16 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
 )
 
 // DeployVRFContract deploy VRF contract
@@ -131,6 +133,23 @@ func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordina
 	}, err
 }
 
+func (e *EthereumContractDeployer) DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error) {
+	address, _, instance, err := e.client.DeployContract("VRFv2Consumer", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return eth_contracts.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFv2Consumer{
+		client:   e.client,
+		consumer: instance.(*eth_contracts.VRFv2Consumer),
+		address:  address,
+	}, err
+}
+
 // DeployDKG deploys DKG contract
 func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 	address, _, instance, err := e.client.DeployContract("DKG", func(
@@ -149,13 +168,31 @@ func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 	}, err
 }
 
+// DeployVRFRouter deploys VRF router contract
+func (e *EthereumContractDeployer) DeployVRFRouter() (VRFRouter, error) {
+	address, _, instance, err := e.client.DeployContract("VRFRouter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return vrf_router.DeployVRFRouter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFRouter{
+		client:    e.client,
+		vrfRouter: instance.(*vrf_router.VRFRouter),
+		address:   address,
+	}, err
+}
+
 // DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string) (VRFCoordinatorV3, error) {
+func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string, vrfRouter string) (VRFCoordinatorV3, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress))
+		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress), common.HexToAddress(vrfRouter))
 	})
 	if err != nil {
 		return nil, err
@@ -222,12 +259,12 @@ func decodeHexTo32ByteArray(val string) ([32]byte, error) {
 }
 
 // DeployVRFBeaconConsumer deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfCoordinatorV3Address string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
+func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFBeaconConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfCoordinatorV3Address), false, beaconPeriodBlockCount)
+		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfRouterAddress), false, beaconPeriodBlockCount)
 	})
 	if err != nil {
 		return nil, err
@@ -308,6 +345,18 @@ func (v *EthereumVRFCoordinatorV2) RegisterProvingKey(
 	return v.client.ProcessTransaction(tx)
 }
 
+func (v *EthereumVRFCoordinatorV2) CreateSubscription() error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.CreateSubscription(opts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 // EthereumVRFCoordinator represents VRF coordinator contract
 type EthereumVRFCoordinator struct {
 	address     *common.Address
@@ -357,6 +406,13 @@ type EthereumVRFConsumerV2 struct {
 	consumer *ethereum.VRFConsumerV2
 }
 
+// EthereumVRFv2Consumer represents VRFv2 consumer contract
+type EthereumVRFv2Consumer struct {
+	address  *common.Address
+	client   blockchain.EVMClient
+	consumer *eth_contracts.VRFv2Consumer
+}
+
 // CurrentSubscription get current VRFv2 subscription
 func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
 	return v.consumer.SSubId(&bind.CallOpts{
@@ -395,6 +451,10 @@ func (v *EthereumVRFConsumerV2) Address() string {
 	return v.address.Hex()
 }
 
+func (v *EthereumVRFv2Consumer) Address() string {
+	return v.address.Hex()
+}
+
 // GasAvailable get available gas after randomness fulfilled
 func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 	return v.consumer.SGasAvailable(&bind.CallOpts{
@@ -417,6 +477,33 @@ func (v *EthereumVRFConsumerV2) RequestRandomness(hash [32]byte, subID uint64, c
 	if err != nil {
 		return err
 	}
+	log.Info().Interface("Sub ID", subID).
+		Interface("Number of Words", numWords).
+		Interface("Number of Confirmations", confs).
+		Interface("Callback Gas Limit", gasLimit).
+		Interface("KeyHash", hex.EncodeToString(hash[:])).
+		Interface("Consumer Contract", v.address).
+		Msg("RequestRandomness called")
+	return v.client.ProcessTransaction(tx)
+}
+
+// RequestRandomness request VRFv2 random words
+func (v *EthereumVRFv2Consumer) RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.RequestRandomWords(opts, subID, gasLimit, confs, numWords, hash)
+	if err != nil {
+		return err
+	}
+	log.Info().Interface("Sub ID", subID).
+		Interface("Number of Words", numWords).
+		Interface("Number of Confirmations", confs).
+		Interface("Callback Gas Limit", gasLimit).
+		Interface("KeyHash", hex.EncodeToString(hash[:])).
+		Interface("Consumer Contract", v.address).
+		Msg("RequestRandomness called")
 	return v.client.ProcessTransaction(tx)
 }
 
@@ -426,6 +513,20 @@ func (v *EthereumVRFConsumerV2) RandomnessOutput(ctx context.Context, arg0 *big.
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}, arg0)
+}
+
+func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error) {
+	return v.consumer.GetRequestStatus(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}, requestID)
+}
+
+func (v *EthereumVRFv2Consumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
+	return v.consumer.LastRequestId(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
 }
 
 // GetAllRandomWords get all VRFv2 randomness output words
@@ -566,22 +667,22 @@ func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) 
 	if err != nil {
 		return err
 	}
-	l := log.Debug().
-		Str("Contract Address", f.consumer.Address()).
-		Int64("Waiting for Round", f.roundID.Int64()).
-		Int64("Current round ID", roundID.Int64()).
-		Uint64("Header Number", header.Number.Uint64())
+	logFields := map[string]any{
+		"Contract Address":  f.consumer.Address(),
+		"Waiting for Round": f.roundID.Int64(),
+		"Current Round ID":  roundID.Int64(),
+		"Header Number":     header.Number.Uint64(),
+	}
 	if roundID.Int64() == f.roundID.Int64() {
 		randomness, err := f.consumer.RandomnessOutput(context.Background())
 		if err != nil {
 			return err
 		}
-		l.Uint64("Randomness", randomness.Uint64()).
-			Msg("VRFConsumer round completed")
+		log.Info().Fields(logFields).Uint64("Randomness", randomness.Uint64()).Msg("VRFConsumer round completed")
 		f.done = true
 		f.doneChan <- struct{}{}
 	} else {
-		l.Msg("Waiting for VRFConsumer round")
+		log.Debug().Fields(logFields).Msg("Waiting for VRFConsumer round")
 	}
 	return nil
 }
@@ -679,33 +780,70 @@ func (dkgContract *EthereumDKG) SetConfig(
 	return dkgContract.client.ProcessTransaction(tx)
 }
 
-func (dkgContract *EthereumDKG) WaitForTransmittedEvent() (*dkg.DKGTransmitted, error) {
+func (dkgContract *EthereumDKG) WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error) {
 	transmittedEventsChannel := make(chan *dkg.DKGTransmitted)
 	subscription, err := dkgContract.dkg.WatchTransmitted(nil, transmittedEventsChannel)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	transmittedEvent := <-transmittedEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err = <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, errors.New("timeout waiting for DKGTransmitted event")
+		case transmittedEvent := <-transmittedEventsChannel:
+			return transmittedEvent, nil
+		}
 	}
-	return transmittedEvent, nil
 }
 
-func (dkgContract *EthereumDKG) WaitForConfigSetEvent() (*dkg.DKGConfigSet, error) {
-
+func (dkgContract *EthereumDKG) WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error) {
 	configSetEventsChannel := make(chan *dkg.DKGConfigSet)
 	subscription, err := dkgContract.dkg.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	configSetEvent := <-configSetEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err = <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, errors.New("timeout waiting for DKGConfigSet event")
+		case configSetEvent := <-configSetEventsChannel:
+			return configSetEvent, nil
+		}
 	}
-	return configSetEvent, nil
+}
+
+// EthereumVRFRouter represents EthereumVRFRouter contract
+type EthereumVRFRouter struct {
+	address   *common.Address
+	client    blockchain.EVMClient
+	vrfRouter *vrf_router.VRFRouter
+}
+
+func (router *EthereumVRFRouter) Address() string {
+	return router.address.Hex()
+}
+
+func (router *EthereumVRFRouter) RegisterCoordinator(coordinatorAddress string) error {
+	opts, err := router.client.TransactionOpts(router.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := router.vrfRouter.RegisterCoordinator(
+		opts,
+		common.HexToAddress(coordinatorAddress),
+	)
+	if err != nil {
+		return err
+	}
+	return router.client.ProcessTransaction(tx)
 }
 
 // EthereumVRFCoordinatorV3 represents VRFCoordinatorV3 contract
@@ -748,7 +886,43 @@ func (coordinator *EthereumVRFCoordinatorV3) CreateSubscription() error {
 	return coordinator.client.ProcessTransaction(tx)
 }
 
-func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId uint64, consumerAddress string) error {
+func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, error) {
+	fopts := &bind.FilterOpts{}
+	owner := coordinator.client.GetDefaultWallet().Address()
+
+	subscriptionIterator, err := coordinator.vrfCoordinatorV3.FilterSubscriptionCreated(
+		fopts,
+		nil,
+		[]common.Address{common.HexToAddress(owner)},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if !subscriptionIterator.Next() {
+		return nil, fmt.Errorf("expected at leats 1 subID for the given owner %s", owner)
+	}
+
+	return subscriptionIterator.Event.SubId, nil
+}
+
+func (coordinator *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
+	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := coordinator.coordinator.AddConsumer(
+		opts,
+		subId,
+		common.HexToAddress(consumerAddress),
+	)
+	if err != nil {
+		return err
+	}
+	return coordinator.client.ProcessTransaction(tx)
+}
+
+func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consumerAddress string) error {
 	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -819,32 +993,53 @@ func (beacon *EthereumVRFBeacon) SetConfig(
 	return beacon.client.ProcessTransaction(tx)
 }
 
-func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error) {
+func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error) {
 	configSetEventsChannel := make(chan *vrf_beacon.VRFBeaconConfigSet)
 	subscription, err := beacon.vrfBeacon.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	configSetEvent := <-configSetEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for config set event")
+		case configSetEvent := <-configSetEventsChannel:
+			return configSetEvent, nil
+		}
 	}
-	return configSetEvent, nil
 }
 
-func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error) {
+func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
 	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
 	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer subscription.Unsubscribe()
-	newTransmissionEvent := <-newTransmissionEventsChannel
-	if err != nil {
-		return nil, err
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for new transmission event")
+		case newTransmissionEvent := <-newTransmissionEventsChannel:
+			return newTransmissionEvent, nil
+		}
 	}
-	return newTransmissionEvent, nil
+}
+
+func (beacon *EthereumVRFBeacon) LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
+	error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(beacon.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	return beacon.vrfBeacon.LatestConfigDigestAndEpoch(opts)
 }
 
 // EthereumVRFBeaconConsumer represents VRFBeaconConsumer contract
@@ -861,8 +1056,7 @@ func (consumer *EthereumVRFBeaconConsumer) Address() string {
 
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 	numWords uint16,
-	subID uint64,
-	confirmationDelayArg *big.Int,
+	subID, confirmationDelayArg *big.Int,
 ) (*types.Receipt, error) {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
@@ -890,11 +1084,15 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 	if err != nil {
 		return nil, errors.Wrap(err, "GetTxReceipt failed")
 	}
+	log.Info().Interface("Sub ID", subID).
+		Interface("Number of Words", numWords).
+		Interface("Number of Confirmations", confirmationDelayArg).
+		Msg("RequestRandomness called")
 	return receipt, nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
-	requestID *big.Int,
+	subID, requestID *big.Int,
 ) error {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
@@ -902,24 +1100,27 @@ func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
 	}
 	tx, err := consumer.vrfBeaconConsumer.TestRedeemRandomness(
 		opts,
+		subID,
 		requestID,
 	)
 	if err != nil {
 		return err
 	}
+	log.Info().Interface("Sub ID", subID).
+		Interface("Request ID", requestID).
+		Msg("RedeemRandomness called")
 	return consumer.client.ProcessTransaction(tx)
 }
 
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	numWords uint16,
-	subID uint64,
-	confirmationDelayArg *big.Int,
+	subID, confirmationDelayArg *big.Int,
 	callbackGasLimit uint32,
 	arguments []byte,
-) error {
+) (*types.Receipt, error) {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
 		opts,
@@ -930,9 +1131,27 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 		arguments,
 	)
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "TestRequestRandomnessFulfillment failed")
 	}
-	return consumer.client.ProcessTransaction(tx)
+	err = consumer.client.ProcessTransaction(tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "ProcessTransaction failed")
+	}
+	err = consumer.client.WaitForEvents()
+
+	if err != nil {
+		return nil, errors.Wrap(err, "WaitForEvents failed")
+	}
+	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
+	if err != nil {
+		return nil, errors.Wrap(err, "GetTxReceipt failed")
+	}
+	log.Info().Interface("Sub ID", subID).
+		Interface("Number of Words", numWords).
+		Interface("Number of Confirmations", confirmationDelayArg).
+		Interface("Callback Gas Limit", callbackGasLimit).
+		Msg("RequestRandomnessFulfillment called")
+	return receipt, nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error) {

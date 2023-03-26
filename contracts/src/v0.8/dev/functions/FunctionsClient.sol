@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./Functions.sol";
-import "../interfaces/FunctionsClientInterface.sol";
-import "../interfaces/FunctionsOracleInterface.sol";
+import {Functions} from "./Functions.sol";
+import {FunctionsClientInterface} from "../interfaces/FunctionsClientInterface.sol";
+import {FunctionsOracleInterface} from "../interfaces/FunctionsOracleInterface.sol";
 
 /**
  * @title The Chainlink Functions client contract
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is FunctionsClientInterface {
-  FunctionsOracleInterface private s_oracle;
-  mapping(bytes32 => address) private s_pendingRequests;
+  FunctionsOracleInterface internal s_oracle;
+  mapping(bytes32 => address) internal s_pendingRequests;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
@@ -57,10 +57,9 @@ abstract contract FunctionsClient is FunctionsClientInterface {
   function sendRequest(
     Functions.Request memory req,
     uint64 subscriptionId,
-    uint32 gasLimit,
-    uint256 gasPrice
+    uint32 gasLimit
   ) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, Functions.encodeCBOR(req), gasLimit);
     s_pendingRequests[requestId] = s_oracle.getRegistry();
     emit RequestSent(requestId);
     return requestId;

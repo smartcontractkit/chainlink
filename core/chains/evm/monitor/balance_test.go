@@ -3,6 +3,7 @@ package monitor_test
 import (
 	"context"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -44,7 +44,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
-		defer bm.Close()
+		defer func() { assert.NoError(t, bm.Close()) }()
 
 		k0bal := big.NewInt(42)
 		k1bal := big.NewInt(43)
@@ -72,7 +72,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
-		defer bm.Close()
+		defer func() { assert.NoError(t, bm.Close()) }()
 		k0bal := big.NewInt(42)
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
@@ -92,7 +92,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
-		defer bm.Close()
+		defer func() { assert.NoError(t, bm.Close()) }()
 		ctxCancelledAwaiter := cltest.NewAwaiter()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Run(func(args mock.Arguments) {
@@ -122,7 +122,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
-		defer bm.Close()
+		defer func() { assert.NoError(t, bm.Close()) }()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
 			Once().
@@ -161,7 +161,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		require.NoError(t, bm.Start(testutils.Context(t)))
-		defer bm.Close()
+		defer func() { assert.NoError(t, bm.Close()) }()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
@@ -226,7 +226,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	// executed once
 	var callCount atomic.Int32
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { callCount.Inc() }).
+		Run(func(mock.Arguments) { callCount.Add(1) }).
 		Maybe().
 		Return(big.NewInt(42), nil)
 

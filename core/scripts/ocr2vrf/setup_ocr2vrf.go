@@ -86,8 +86,14 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		feedAddress = common.HexToAddress(*linkEthFeed)
 	}
 
+	fmt.Println("Deploying VRF Router...")
+	vrfRouterAddress := deployVRFRouter(e)
+
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
+	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+
+	fmt.Println("Registering VRF coordinator...")
+	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
@@ -99,19 +105,19 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	setProducer(e, vrfCoordinatorAddress.String(), vrfBeaconAddress.String())
 
 	fmt.Println("Deploying beacon consumer...")
-	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Creating subscription...")
 	createSubscription(e, vrfCoordinatorAddress.String())
-	subID := 1
+	subID := findSubscriptionID(e, vrfCoordinatorAddress.String())
 
 	fmt.Println("Adding consumer to subscription...")
-	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), big.NewInt(int64(subID)))
+	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), subID)
 
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
 	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
-		eoaFundSubscription(e, vrfCoordinatorAddress.String(), link.String(), subscriptionBalance, uint64(subID))
+		eoaFundSubscription(e, vrfCoordinatorAddress.String(), link.String(), subscriptionBalance, subID)
 	} else {
 		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
 	}
@@ -131,8 +137,8 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	fmt.Println("Deploying batch beacon consumer...")
-	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
-	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), big.NewInt(int64(subID)))
+	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), subID)
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
@@ -250,6 +256,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		transmitters[1:],
 		dkgEncrypters[1:],
 		dkgSigners[1:],
+		subID.String(),
 	)
 }
 
@@ -324,8 +331,14 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	fmt.Println("Deploying DKG contract...")
 	dkgAddress := deployDKG(e)
 
+	fmt.Println("Deploying VRF Router...")
+	vrfRouterAddress := deployVRFRouter(e)
+
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
+	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+
+	fmt.Println("Registering VRF coordinator...")
+	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
@@ -337,19 +350,20 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	setProducer(e, vrfCoordinatorAddress.String(), vrfBeaconAddress.String())
 
 	fmt.Println("Deploying beacon consumer...")
-	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Creating subscription...")
 	createSubscription(e, vrfCoordinatorAddress.String())
-	subID := 1
+
+	subID := findSubscriptionID(e, vrfCoordinatorAddress.String())
 
 	fmt.Println("Adding consumer to subscription...")
-	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), big.NewInt(int64(subID)))
+	addConsumer(e, vrfRouterAddress.String(), consumerAddress.String(), subID)
 
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
 	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
-		eoaFundSubscription(e, vrfCoordinatorAddress.String(), link.String(), subscriptionBalance, uint64(subID))
+		eoaFundSubscription(e, vrfCoordinatorAddress.String(), link.String(), subscriptionBalance, subID)
 	} else {
 		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
 	}
@@ -402,8 +416,8 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	helpers.FundNodes(e, nodesToFund, big.NewInt(*fundingAmount))
 
 	fmt.Println("Deploying batch beacon consumer...")
-	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
-	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), big.NewInt(int64(subID)))
+	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), subID)
 
 	for i := 0; i < *nodeCount; i++ {
 		// Apply forwarder args if using the forwarder.
@@ -418,6 +432,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 				true, // forwardingAllowed
 				"",   // P2P Bootstrapper
 				e.ChainID,
+				sendingKeys[i],
 				dkgEncrypters[adjustedIndex],
 				dkgSigners[adjustedIndex],
 				*keyID,
@@ -445,6 +460,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 		transmitters,
 		dkgEncrypters,
 		dkgSigners,
+		subID.String(),
 	)
 }
 
@@ -462,6 +478,7 @@ func printStandardCommands(
 	transmitters []string,
 	dkgEncrypters []string,
 	dkgSigners []string,
+	subID string,
 ) {
 	fmt.Println("Generated dkg setConfig command:")
 	dkgCommand := fmt.Sprintf(
@@ -496,29 +513,29 @@ func printStandardCommands(
 	fmt.Println("Consumer address:", consumerAddress.String())
 	fmt.Println("Consumer request command:")
 	requestCommand := fmt.Sprintf(
-		"go run . consumer-request-randomness -consumer-address %s -sub-id <sub-id>",
-		consumerAddress.Hex())
+		"go run . consumer-request-randomness -consumer-address %s -sub-id %s",
+		consumerAddress.Hex(), subID)
 	fmt.Println(requestCommand)
 	fmt.Println()
 
 	fmt.Println("Consumer callback request command:")
 	callbackCommand := fmt.Sprintf(
-		"go run . consumer-request-callback -consumer-address %s -sub-id <sub-id>",
-		consumerAddress.Hex())
+		"go run . consumer-request-callback -consumer-address %s -sub-id %s",
+		consumerAddress.Hex(), subID)
 	fmt.Println(callbackCommand)
 	fmt.Println()
 
 	fmt.Println("Consumer callback batch request command:")
 	callbackCommand = fmt.Sprintf(
-		"go run . consumer-request-callback-batch -consumer-address %s -sub-id <sub-id> -batch-size <batch-size>",
-		loadTestConsumerAddress.Hex())
+		"go run . consumer-request-callback-batch -consumer-address %s -sub-id %s -batch-size <batch-size>",
+		loadTestConsumerAddress.Hex(), subID)
 	fmt.Println(callbackCommand)
 	fmt.Println()
 
 	fmt.Println("Consumer redeem randomness command:")
 	redeemCommand := fmt.Sprintf(
-		"go run . consumer-redeem-randomness -consumer-address %s -request-id <req-id>",
-		consumerAddress.Hex())
+		"go run . consumer-redeem-randomness -consumer-address %s -sub-id %s -request-id <req-id>",
+		consumerAddress.Hex(), subID)
 	fmt.Println(redeemCommand)
 	fmt.Println()
 }

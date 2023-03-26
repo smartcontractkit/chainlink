@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -227,9 +229,11 @@ func TeardownSuite(
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
+	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
-	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter); err != nil {
+	l := utils.GetTestLogger(t)
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	for _, c := range clients {
@@ -238,12 +242,12 @@ func TeardownSuite(
 				// This printed line is required for tests that use real funds to propagate the failure
 				// out to the system running the test. Do not remove
 				fmt.Println(environment.FAILED_FUND_RETURN)
-				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+				l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 						"Environment is left running so you can try manually!")
 			}
 		} else {
-			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+			l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
 		// nolint
 		if c != nil {
@@ -266,12 +270,13 @@ func TeardownRemoteSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
+	l := utils.GetTestLogger(t)
 	var err error
 	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
-		log.Warn().Err(err).Msg("Error writing test report")
+		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	if err = returnFunds(chainlinkNodes, client); err != nil {
-		log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}

@@ -14,7 +14,7 @@ transmitterID = "{{node_eth_address}}"
 observationSource = """
     decode_log   [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
     decode_cbor  [type="cborparse" data="$(decode_log.data)"]
-    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"requestId\\": $(jobRun.meta.oracleRequest.requestId), \\"jobName\\": $(jobSpec.name), \\"subscriptionOwner\\": $(decode_log.subscriptionOwner), \\"subscriptionId\\": $(decode_log.subscriptionId), \\"data\\": $(decode_cbor)}" timeout="20s"]
+    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"requestId\\": $(jobRun.meta.oracleRequest.requestId), \\"jobName\\": $(jobSpec.name), \\"subscriptionOwner\\": $(decode_log.subscriptionOwner), \\"subscriptionId\\": $(decode_log.subscriptionId), \\"data\\": $(decode_cbor)}"]
     parse_result [type=jsonparse data="$(run_computation)" path="data,result"]
     parse_error  [type=jsonparse data="$(run_computation)" path="data,error"]
 
@@ -25,8 +25,9 @@ decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error
 chainID = {{chain_id}}
 
 [pluginConfig]
-minIncomingConfirmations = 2
-requestTimeoutBatchLookupSize = 5
-requestTimeoutCheckFrequencySec = 30
-requestTimeoutSec = 1_200
+minIncomingConfirmations = 3
+requestTimeoutSec = 300
+requestTimeoutCheckFrequencySec = 10
+requestTimeoutBatchLookupSize = 20
 listenerEventHandlerTimeoutSec = 120
+maxRequestSizeBytes = 30720

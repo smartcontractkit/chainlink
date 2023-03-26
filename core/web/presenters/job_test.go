@@ -462,7 +462,7 @@ func TestJob(t *testing.T) {
 					PollPeriod:            25 * time.Second,
 					RunTimeout:            10 * time.Second,
 					EVMChainID:            utils.NewBigI(4),
-					FromAddress:           &fromAddress,
+					FromAddresses:         []ethkey.EIP55Address{fromAddress},
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -503,7 +503,7 @@ func TestJob(t *testing.T) {
 							"pollPeriod": 25000000000,
 							"runTimeout": 10000000000,
 							"evmChainID": "4",
-							"fromAddress": "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+							"fromAddresses": ["0xa8037A20989AFcBC51798de9762b351D63ff462e"],
 							"createdAt": "0001-01-01T00:00:00Z",
 							"updatedAt": "0001-01-01T00:00:00Z"
 						},

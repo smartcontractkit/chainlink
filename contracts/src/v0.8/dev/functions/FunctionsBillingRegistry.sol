@@ -1,29 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/FunctionsBillingRegistryInterface.sol";
-import "../interfaces/FunctionsOracleInterface.sol";
-import "../interfaces/FunctionsClientInterface.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
-import "../interfaces/AuthorizedOriginReceiverInterface.sol";
-import "../../ConfirmedOwner.sol";
-import "../AuthorizedReceiver.sol";
-import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
+import {LinkTokenInterface} from "../../interfaces/LinkTokenInterface.sol";
+import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {FunctionsBillingRegistryInterface} from "../interfaces/FunctionsBillingRegistryInterface.sol";
+import {FunctionsOracleInterface} from "../interfaces/FunctionsOracleInterface.sol";
+import {FunctionsClientInterface} from "../interfaces/FunctionsClientInterface.sol";
+import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ERC677ReceiverInterface} from "../../interfaces/ERC677ReceiverInterface.sol";
+import {AuthorizedOriginReceiverInterface} from "../interfaces/AuthorizedOriginReceiverInterface.sol";
+import {ConfirmedOwnerUpgradeable} from "../ConfirmedOwnerUpgradeable.sol";
+import {AuthorizedReceiver} from "../AuthorizedReceiver.sol";
+import {SafeCast} from "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+/**
+ * @title Functions Billing Registry contract
+ * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
+ * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
+ */
 contract FunctionsBillingRegistry is
-  ConfirmedOwner,
-  Pausable,
+  Initializable,
+  ConfirmedOwnerUpgradeable,
+  PausableUpgradeable,
   FunctionsBillingRegistryInterface,
   ERC677ReceiverInterface,
   AuthorizedReceiver
 {
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AuthorizedOriginReceiverInterface private immutable ORACLE_WITH_ALLOWLIST;
+  LinkTokenInterface private LINK;
+  AggregatorV3Interface private LINK_ETH_FEED;
+  AuthorizedOriginReceiverInterface private ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -84,7 +91,6 @@ contract FunctionsBillingRegistry is
 
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error IncorrectRequestID();
   error PaymentTooLarge();
   error Reentrant();
 
@@ -145,11 +151,16 @@ contract FunctionsBillingRegistry is
     uint32 gasOverhead
   );
 
-  constructor(
+  /**
+   * @dev Initializes the contract.
+   */
+  function initialize(
     address link,
     address linkEthFeed,
     address oracle
-  ) ConfirmedOwner(msg.sender) {
+  ) public initializer {
+    __Pausable_init();
+    __ConfirmedOwner_initialize(msg.sender, address(0));
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     ORACLE_WITH_ALLOWLIST = AuthorizedOriginReceiverInterface(oracle);
@@ -194,6 +205,8 @@ contract FunctionsBillingRegistry is
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @return gasOverhead average gas execution cost used in estimating total cost
+   * @return linkAddress address of contract for the LINK token
+   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    */
   function getConfig()
     external
@@ -203,7 +216,9 @@ contract FunctionsBillingRegistry is
       uint32 stalenessSeconds,
       uint256 gasAfterPaymentCalculation,
       int256 fallbackWeiPerUnitLink,
-      uint32 gasOverhead
+      uint32 gasOverhead,
+      address linkAddress,
+      address linkPriceFeed
     )
   {
     return (
@@ -211,7 +226,9 @@ contract FunctionsBillingRegistry is
       s_config.stalenessSeconds,
       s_config.gasAfterPaymentCalculation,
       s_fallbackWeiPerUnitLink,
-      s_config.gasOverhead
+      s_config.gasOverhead,
+      address(LINK),
+      address(LINK_ETH_FEED)
     );
   }
 
@@ -420,10 +437,10 @@ contract FunctionsBillingRegistry is
     uint8 signerCount,
     uint256 reportValidationGas,
     uint256 initialGas
-  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bool success) {
+  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (FulfillResult) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
-      revert IncorrectRequestID();
+      return FulfillResult.INVALID_REQUEST_ID;
     }
     delete s_requestCommitments[requestId];
 
@@ -440,7 +457,7 @@ contract FunctionsBillingRegistry is
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
+    bool success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -461,9 +478,7 @@ contract FunctionsBillingRegistry is
     s_subscriptions[commitment.subscriptionId].balance -= bill.totalCost;
     // Pay out signers their portion of the DON fee
     for (uint256 i = 0; i < signerCount; i++) {
-      if (signers[i] != transmitter) {
-        s_withdrawableTokens[signers[i]] += bill.signerPayment;
-      }
+      s_withdrawableTokens[signers[i]] += bill.signerPayment;
     }
     // Pay out the registry fee
     s_withdrawableTokens[owner()] += commitment.registryFee;
@@ -480,6 +495,7 @@ contract FunctionsBillingRegistry is
       bill.totalCost,
       success
     );
+    return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
   // Determine the cost breakdown for payment
@@ -506,7 +522,7 @@ contract FunctionsBillingRegistry is
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     uint96 signerPayment = donFee / uint96(signerCount);
-    uint96 transmitterPayment = uint96(paymentNoFee) + signerPayment;
+    uint96 transmitterPayment = uint96(paymentNoFee);
     uint96 totalCost = SafeCast.toUint96(paymentNoFee + fee);
     return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
@@ -525,6 +541,7 @@ contract FunctionsBillingRegistry is
   /*
    * @notice Oracle withdraw LINK earned through fulfilling requests
    * @notice If amount is 0 the full balance will be withdrawn
+   * @notice Both signing and transmitting wallets will have a balance to withdraw
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
@@ -850,4 +867,11 @@ contract FunctionsBillingRegistry is
   function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
     return true;
   }
+
+  /**
+   * @dev This empty reserved space is put in place to allow future versions to add new
+   * variables without shifting down storage in the inheritance chain.
+   * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+   */
+  uint256[49] private __gap;
 }

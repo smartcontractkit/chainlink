@@ -1,8 +1,6 @@
 package starknet
 
 import (
-	"context"
-
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -22,6 +20,10 @@ type ChainSetOpts struct {
 	Logger   logger.Logger
 	KeyStore keystore.StarkNet
 	ORM      types.ORM
+}
+
+func (o *ChainSetOpts) Name() string {
+	return o.Logger.Name()
 }
 
 func (o *ChainSetOpts) Validate() (err error) {
@@ -47,12 +49,12 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
-func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starkchain.Chain, error) {
-	if !dbchain.Enabled {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
+func (o *ChainSetOpts) NewChain(cc types.ChainConfig) (starkchain.Chain, error) {
+	if !cc.Enabled {
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", cc.ID)
 	}
-	cfg := config.NewConfig(*dbchain.Cfg, o.Logger)
-	return newChain(dbchain.ID, cfg, o.KeyStore, o.ORM, o.Logger)
+	cfg := config.NewConfig(*cc.Cfg, o.Logger)
+	return newChain(cc.ID, cfg, o.KeyStore, o.ORM, o.Logger)
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, error) {
@@ -69,22 +71,8 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 
 type ChainSet interface {
 	starkchain.ChainSet
-
-	Add(context.Context, string, *db.ChainCfg) (types.DBChain, error)
-	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (types.DBChain, error)
-	Show(id string) (types.DBChain, error)
-	Index(offset, limit int) ([]types.DBChain, int, error)
-	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
-	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
-	DeleteNode(ctx context.Context, id int32) error
-}
-
-// NewChainSet returns a new chain set for opts.
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, *db.ChainCfg, db.Node, starkchain.Chain](&opts, func(s string) string { return s })
+	chains.Chains[string, *db.ChainCfg]
+	chains.Nodes[string, db.Node]
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {

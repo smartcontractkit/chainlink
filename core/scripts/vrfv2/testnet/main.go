@@ -48,6 +48,42 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "manual-fulfill":
+		cmd := flag.NewFlagSet("manual-fulfill", flag.ExitOnError)
+		// In order to get the tx data for a fulfillment transaction, you can grep the
+		// chainlink node logs for the VRF v2 request ID in hex. You will find a log for
+		// the vrf task in the VRF pipeline, specifically the "output" log field.
+		// Sample Loki query:
+		// {app="app-name"} | json | taskType="vrfv2" |~ "39f2d812c04e07cb9c71e93ce6547e48b7dd23ed4cc02616dfef5ef063a58bde"
+		txdatas := cmd.String("txdatas", "", "hex encoded tx data")
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		gasMultiplier := cmd.Float64("gas-multiplier", 1.1, "gas multiplier")
+		helpers.ParseArgs(cmd, os.Args[2:], "txdatas", "coordinator-address")
+		txdatasParsed := helpers.ParseHexSlice(*txdatas)
+		coordinatorAddr := common.HexToAddress(*coordinatorAddress)
+		for i, txdata := range txdatasParsed {
+			nonce, err := e.Ec.PendingNonceAt(context.Background(), e.Owner.From)
+			helpers.PanicErr(err)
+			estimate, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+				From: common.HexToAddress("0x0"),
+				To:   &coordinatorAddr,
+				Data: txdata,
+			})
+			helpers.PanicErr(err)
+			finalEstimate := uint64(*gasMultiplier * float64(estimate))
+			tx := types.NewTx(&types.LegacyTx{
+				Nonce:    nonce,
+				GasPrice: e.Owner.GasPrice,
+				Gas:      finalEstimate,
+				To:       &coordinatorAddr,
+				Data:     txdata,
+			})
+			signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+			helpers.PanicErr(err)
+			err = e.Ec.SendTransaction(context.Background(), signedTx)
+			helpers.PanicErr(err)
+			helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx, e.ChainID, fmt.Sprintf("manual fulfillment %d", i+1))
+		}
 	case "topics":
 		randomWordsRequested := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()
 		randomWordsFulfilled := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()
@@ -441,13 +477,6 @@ func main() {
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
 		deployBHS(e)
-	case "nocancel-coordinator-deploy":
-		cmd := flag.NewFlagSet("nocancel-coordinator-deploy", flag.ExitOnError)
-		linkAddress := cmd.String("link-address", "", "link contract address")
-		bhsAddress := cmd.String("bhs-address", "", "bhs contract address")
-		linkEthAddress := cmd.String("link-eth-feed", "", "link eth feed address")
-		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
-		deployNoCancelCoordinator(e, *linkAddress, *bhsAddress, *linkEthAddress)
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")

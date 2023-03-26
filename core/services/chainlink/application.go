@@ -18,19 +18,19 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
@@ -71,9 +71,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
-	GetConfig() config.GeneralConfig
-	// ConfigDump returns a TOML configuration from the current environment and database configuration.
-	ConfigDump(context.Context) (string, error)
+	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
@@ -126,7 +124,7 @@ type ChainlinkApplication struct {
 	txmORM                   txmgr.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -147,7 +145,7 @@ type ChainlinkApplication struct {
 }
 
 type ApplicationOpts struct {
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
 	MailMon                  *utils.MailboxMonitor
@@ -166,20 +164,20 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
+	Cosmos   cosmos.ChainSet   // nil if disabled
 	Solana   solana.ChainSet   // nil if disabled
-	Terra    terra.ChainSet    // nil if disabled
 	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
+	if c.Cosmos != nil {
+		s = append(s, c.Cosmos)
+	}
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
 	if c.Solana != nil {
 		s = append(s, c.Solana)
-	}
-	if c.Terra != nil {
-		s = append(s, c.Terra)
 	}
 	if c.StarkNet != nil {
 		s = append(s, c.StarkNet)
@@ -243,7 +241,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil && cfg.TelemetryIngressURL() != nil {
-		globalLogger.Warn("Both EXPLORER_URL and TELEMETRY_INGRESS_URL are set, defaulting to Explorer")
+		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
 	if cfg.ExplorerURL() != nil {
@@ -260,7 +258,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		} else {
 			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize())
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
@@ -275,7 +273,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		srvcs = append(srvcs, databaseBackup)
 	} else {
-		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
+		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
@@ -384,19 +382,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore.Eth())
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
+		}
+		if cfg.CosmosEnabled() {
+			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
+			relayers[relay.Cosmos] = cosmosRelayer
+			srvcs = append(srvcs, cosmosRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			relayers[relay.Solana] = solanaRelayer
 			srvcs = append(srvcs, solanaRelayer)
-		}
-		if cfg.TerraEnabled() {
-			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relayers[relay.Terra] = terraRelayer
-			srvcs = append(srvcs, terraRelayer)
 		}
 		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
@@ -446,18 +444,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 	}
 
-	// TODO: Make feeds manager compatible with multiple chains
-	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	var feedsService feeds.Service
 	if cfg.FeatureFeedsManager() {
 		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-		chain, err := chains.EVM.Default()
-		if err != nil {
-			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
-			feedsService = &feeds.NullService{}
-		} else {
-			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chains.EVM, globalLogger, opts.Version)
-		}
+		feedsService = feeds.NewService(
+			feedsORM,
+			jobORM,
+			db,
+			jobSpawner,
+			keyStore,
+			cfg,
+			chains.EVM,
+			globalLogger,
+			opts.Version,
+		)
 	} else {
 		feedsService = &feeds.NullService{}
 	}
@@ -495,8 +495,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	for _, service := range app.srvcs {
 		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
+		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
 			return nil, err
+		}
+	}
+
+	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
+	// If it's enabled, they are going to be registered with relayers by default.
+	if !cfg.FeatureOffchainReporting2() {
+		for _, service := range app.Chains.services() {
+			checkable := service.(services.Checkable)
+			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -522,7 +533,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
-			app.logger.Infof("[Feeds Service] %v", err)
+			app.logger.Errorf("[Feeds Service] Failed to start %v", err)
+			app.FeedsService = &feeds.NullService{} // so we don't try to Close() later
 		}
 	}
 
@@ -614,7 +626,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	return err
 }
 
-func (app *ChainlinkApplication) GetConfig() config.GeneralConfig {
+func (app *ChainlinkApplication) GetConfig() GeneralConfig {
 	return app.Config
 }
 

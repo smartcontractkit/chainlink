@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gorilla/websocket"
-	"go.uber.org/atomic"
 )
 
 var (
@@ -44,6 +43,8 @@ const (
 	ExplorerBinaryMessage = websocket.BinaryMessage
 )
 
+//go:generate mockery --quiet --name ExplorerClient --output ./mocks --case=underscore
+
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
@@ -56,6 +57,9 @@ type ExplorerClient interface {
 
 type NoopExplorerClient struct{}
 
+func (NoopExplorerClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopExplorerClient) Name() string                   { return "NoopExplorerClient" }
+
 // Url always returns underlying url.
 func (NoopExplorerClient) Url() url.URL { return url.URL{} }
 
@@ -67,9 +71,6 @@ func (NoopExplorerClient) Start(context.Context) error { return nil }
 
 // Close is a no-op
 func (NoopExplorerClient) Close() error { return nil }
-
-// Healthy is a no-op
-func (NoopExplorerClient) Healthy() error { return nil }
 
 // Ready is a no-op
 func (NoopExplorerClient) Ready() error { return nil }
@@ -140,6 +141,16 @@ func (ec *explorerClient) Start(context.Context) error {
 	})
 }
 
+func (ec *explorerClient) Name() string {
+	return ec.lggr.Name()
+}
+
+func (ec *explorerClient) HealthReport() map[string]error {
+	return map[string]error{
+		ec.Name(): ec.StartStopOnce.Healthy(),
+	}
+}
+
 // Send sends data asynchronously across the websocket if it's open, or
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
@@ -156,7 +167,10 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 	case ExplorerBinaryMessage:
 		send = ec.sendBinary
 	default:
-		log.Panicf("send on explorer client received unsupported message type %d", messageType)
+		err := fmt.Errorf("send on explorer client received unsupported message type %d", messageType)
+		ec.SvcErrBuffer.Append(err)
+		ec.lggr.Critical(err.Error())
+		return
 	}
 	select {
 	case send <- data:
@@ -181,7 +195,7 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 // 300
 // etc...
 func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
-	count := ec.dropMessageCount.Inc()
+	count := ec.dropMessageCount.Add(1)
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		ec.lggr.Warnw("explorer client buffer full, dropping message", "data", data, "droppedCount", count)
 	}
@@ -245,11 +259,14 @@ func (ec *explorerClient) connectAndWritePump() {
 			ec.setStatus(ConnectionStatusConnected)
 
 			ec.lggr.Infow("Connected to explorer", "url", ec.url)
-			ec.sleeper.Reset()
+			start := time.Now()
 			ec.writePumpDone = make(chan struct{})
 			ec.wg.Add(1)
 			go ec.readPump()
 			ec.writePump()
+			if time.Since(start) > time.Second {
+				ec.sleeper.Reset()
+			}
 
 		case <-ec.chStop:
 			return
@@ -345,14 +362,12 @@ func (ec *explorerClient) connect(ctx context.Context) error {
 
 var expectedCloseMessages = []int{websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure}
 
-const CloseTimeout = 100 * time.Millisecond
-
 // readPump listens on the websocket connection for control messages and
 // response messages (text)
 //
 // For more details on how disconnection messages are handled, see:
-//  * https://stackoverflow.com/a/48181794/639773
-//  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
+//   - https://stackoverflow.com/a/48181794/639773
+//   - https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
 func (ec *explorerClient) readPump() {
 	defer ec.wg.Done()
 	ec.conn.SetReadLimit(maxMessageSize)

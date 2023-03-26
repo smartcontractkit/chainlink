@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract, ContractFactory, Signer } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
-import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
+import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
 import { stringToBytes } from '../../test-helpers/helpers'
 
 let functionsOracleFactory: ContractFactory
@@ -64,7 +64,7 @@ before(async () => {
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
+    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.consumer,
   )
 
@@ -143,7 +143,7 @@ describe('FunctionsRegistry', () => {
             config.gasOverhead,
             config.requestTimeoutSeconds,
           ),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith('OnlyCallableByOwner()')
     })
 
     it('owner can set config', async () => {
@@ -195,7 +195,7 @@ describe('FunctionsRegistry', () => {
     it('non-owner is unable to register a DON', async () => {
       await expect(
         registry.connect(roles.stranger).setAuthorizedSenders([oracle.address]),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith('OnlyCallableByOwner()')
     })
 
     it('owner can register a DON', async () => {
@@ -578,7 +578,7 @@ describe('FunctionsRegistry', () => {
       it('only owner can recover', async function () {
         await expect(
           registry.connect(subOwner).recoverFunds(strangerAddress),
-        ).to.be.revertedWith(`Only callable by owner`)
+        ).to.be.revertedWith('OnlyCallableByOwner()')
       })
 
       it('owner can recover link transferred', async function () {
@@ -648,7 +648,7 @@ describe('FunctionsRegistry', () => {
       await expect(
         oracle
           .connect(stranger)
-          .sendRequest(subId, stringToBytes('some data'), 0, 0),
+          .sendRequest(subId, stringToBytes('some data'), 0),
       ).to.be.revertedWith(
         `reverted with custom error 'InvalidConsumer(${subId}, "${strangerAddress}")`,
       )
@@ -759,6 +759,21 @@ describe('FunctionsRegistry', () => {
           .connect(roles.oracleNode)
           .callReport(report, { gasLimit: 500_000 }),
       ).to.emit(registry, 'BillingEnd')
+    })
+
+    it('validates request ID', async () => {
+      const unknown =
+        '0x67c6a2e151d4352a55021b5d0028c18121cfc24c7d73b179d22b17eeeeeeeeee'
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(unknown, 32),
+        stringToHex('hello world'),
+        stringToHex(''),
+      )
+      await expect(
+        oracle
+          .connect(roles.oracleNode)
+          .callReport(report, { gasLimit: 500_000 }),
+      ).to.emit(oracle, 'InvalidRequestID')
     })
 
     it('pays the transmitter the expected amount', async () => {

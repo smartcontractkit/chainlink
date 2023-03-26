@@ -2,12 +2,15 @@ package contracts
 
 import (
 	"context"
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"math/big"
 )
 
 type VRF interface {
@@ -39,6 +42,8 @@ type VRFCoordinatorV2 interface {
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+	CreateSubscription() error
+	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
 }
 
@@ -63,6 +68,13 @@ type VRFConsumerV2 interface {
 	Fund(ethAmount *big.Float) error
 }
 
+type VRFv2Consumer interface {
+	Address() string
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
+}
+
 type DKG interface {
 	Address() string
 	AddClient(keyID string, clientAddress string) error
@@ -74,15 +86,21 @@ type DKG interface {
 		offchainConfigVersion uint64,
 		offchainConfig []byte,
 	) error
-	WaitForConfigSetEvent() (*dkg.DKGConfigSet, error)
-	WaitForTransmittedEvent() (*dkg.DKGTransmitted, error)
+	WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error)
+	WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error)
+}
+
+type VRFRouter interface {
+	Address() string
+	RegisterCoordinator(coordinatorAddress string) error
 }
 
 type VRFCoordinatorV3 interface {
 	Address() string
 	SetProducer(producerAddress string) error
 	CreateSubscription() error
-	AddConsumer(subId uint64, consumerAddress string) error
+	FindSubscriptionID() (*big.Int, error)
+	AddConsumer(subId *big.Int, consumerAddress string) error
 }
 
 type VRFBeacon interface {
@@ -96,26 +114,25 @@ type VRFBeacon interface {
 		offchainConfigVersion uint64,
 		offchainConfig []byte,
 	) error
-	WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error)
-	WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error)
+	WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error)
+	WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error)
+	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
+		error)
 }
 
 type VRFBeaconConsumer interface {
 	Address() string
 	RequestRandomness(
 		numWords uint16,
-		subID uint64,
-		confirmationDelayArg *big.Int,
+		subID, confirmationDelayArg *big.Int,
 	) (*types.Receipt, error)
-	RedeemRandomness(requestID *big.Int) error
+	RedeemRandomness(subID, requestID *big.Int) error
 	RequestRandomnessFulfillment(
 		numWords uint16,
-		subID uint64,
-		confirmationDelayArg *big.Int,
+		subID, confirmationDelayArg *big.Int,
 		callbackGasLimit uint32,
 		arguments []byte,
-	) error
-
+	) (*types.Receipt, error)
 	IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error)
 	GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error)
 	GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error)
@@ -123,4 +140,9 @@ type VRFBeaconConsumer interface {
 
 type BatchBlockhashStore interface {
 	Address() string
+}
+
+type RequestStatus struct {
+	Fulfilled   bool
+	RandomWords []*big.Int
 }

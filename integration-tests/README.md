@@ -92,15 +92,19 @@ You can also run specific tests and debug tests in vscode by setting up your .vs
 ```
 
 You can also run your tests inside of kubernetes instead of from locally to reduce local resource usage and the number of ports that get forwarded to the cluster. This is not recommended for normal developement since building and pushing the image can be time heavy depending on your internet upload speeds. To do this you will want to either pull down an already built chainlink-tests image or build one yourself. To build and push one yourself you can run:
+
 ```sh
 make build_test_image tag=<a tag for your image> base_tag=latest suite="smoke soak chaos reorg migration performance" push=true
 ```
+
 Once that is done building you can add this to your go.testEnvVars in .vscode/settings.json with the correct account number and tag filled out.
+
 ```json
-        "TEST_SUITE": "smoke",
-        "TEST_ARGS": "-test.timeout 30m",
-        "ENV_JOB_IMAGE":"<account number>.dkr.ecr.us-west-2.amazonaws.com/chainlink-env-tests:<tag you used in the build step>",
+  "TEST_SUITE": "smoke",
+  "TEST_ARGS": "-test.timeout 30m",
+  "ENV_JOB_IMAGE":"<account number>.dkr.ecr.us-west-2.amazonaws.com/chainlink-env-tests:<tag you used in the build step>",
 ```
+
 Once that is done you can run/debug your test using the vscode test view just like normal.
 
 ### Soak

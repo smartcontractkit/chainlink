@@ -59,13 +59,16 @@ func main() {
 	switch os.Args[1] {
 	case "dkg-deploy":
 		deployDKG(e)
+	case "router-deploy":
+		deployVRFRouter(e)
 	case "coordinator-deploy":
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		linkAddress := cmd.String("link-address", "", "link contract address")
 		linkEthFeed := cmd.String("link-eth-feed", "", "link/eth feed address")
+		routerAddress := cmd.String("router-address", "", "router address")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address", "link-eth-feed")
-		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed)
+		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed, *routerAddress)
 	case "beacon-deploy":
 		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator contract address")
@@ -175,7 +178,7 @@ func main() {
 		coordinatorOverhead := cmd.Int64("coordinator-overhead", 50_000, "coordinator overhead")
 		callbackOverhead := cmd.Int64("callback-overhead", 50_000, "callback overhead")
 		blockGasOverhead := cmd.Int64("block-gas-overhead", 50_000, "block gas overhead")
-		lookbackBlocks := cmd.Int64("lookback-blocks", 1_000, "lookback blocks")
+		lookbackBlocks := cmd.Uint64("lookback-blocks", 1000, "lookback blocks")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
@@ -232,20 +235,30 @@ func main() {
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-address")
 		setProducer(e, *coordinatorAddress, *beaconAddress)
-	case "coordinator-request-randomness":
-		cmd := flag.NewFlagSet("coordinator-request-randomness", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+	case "router-request-randomness":
+		cmd := flag.NewFlagSet("router-request-randomness", flag.ExitOnError)
+		routerAddress := cmd.String("router-address", "", "VRF coordinator contract address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id")
-		requestRandomness(e, *coordinatorAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
-	case "coordinator-redeem-randomness":
-		cmd := flag.NewFlagSet("coordinator-redeem-randomness", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "router-address", "sub-id")
+		requestRandomness(
+			e,
+			*routerAddress,
+			uint16(*numWords),
+			decimal.RequireFromString(*subID).BigInt(),
+			big.NewInt(*confDelay))
+	case "router-redeem-randomness":
+		cmd := flag.NewFlagSet("router-redeem-randomness", flag.ExitOnError)
+		routerAddress := cmd.String("router-address", "", "VRF coordinator contract address")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		requestID := cmd.Int64("request-id", 0, "request ID")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-id")
-		redeemRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
+		helpers.ParseArgs(cmd, os.Args[2:], "router-address", "sub-id", "request-id")
+		redeemRandomness(
+			e,
+			*routerAddress,
+			decimal.RequireFromString(*subID).BigInt(),
+			big.NewInt(*requestID))
 	case "beacon-info":
 		cmd := flag.NewFlagSet("beacon-info", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
@@ -266,15 +279,15 @@ func main() {
 		cmd := flag.NewFlagSet("coordinator-add-consumer", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		consumerAddress := cmd.String("consumer-address", "", "VRF consumer contract address")
-		subId := cmd.Int64("sub-id", 1, "subscription ID")
+		subId := cmd.String("sub-id", "", "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "consumer-address")
-		addConsumer(e, *coordinatorAddress, *consumerAddress, big.NewInt(*subId))
+		addConsumer(e, *coordinatorAddress, *consumerAddress, decimal.RequireFromString(*subId).BigInt())
 	case "coordinator-get-sub":
 		cmd := flag.NewFlagSet("coordinator-get-sub", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
-		subId := cmd.Int64("sub-id", 1, "subscription ID")
+		subId := cmd.String("sub-id", "", "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
-		sub := getSubscription(e, *coordinatorAddress, uint64(*subId))
+		sub := getSubscription(e, *coordinatorAddress, decimal.RequireFromString(*subId).BigInt())
 		fmt.Println("subscription ID:", *subId)
 		fmt.Println("balance:", sub.Balance)
 		fmt.Println("consumers:", sub.Consumers)
@@ -307,9 +320,9 @@ func main() {
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		linkAddress := cmd.String("link-address", "", "link-address")
 		fundingAmount := cmd.String("funding-amount", "5e18", "funding amount in juels. can use scientific notation, e.g 10e18 for 10 LINK") // 5 LINK
-		subId := cmd.Uint64("sub-id", 1, "subscription ID")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
-		eoaFundSubscription(e, *coordinatorAddress, *linkAddress, decimal.RequireFromString(*fundingAmount).BigInt(), *subId)
+		eoaFundSubscription(e, *coordinatorAddress, *linkAddress, decimal.RequireFromString(*fundingAmount).BigInt(), decimal.RequireFromString(*subID).BigInt())
 	case "beacon-set-payees":
 		cmd := flag.NewFlagSet("beacon-set-payees", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
@@ -328,22 +341,23 @@ func main() {
 		cmd := flag.NewFlagSet("consumer-request-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "sub-id")
-		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
+		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), decimal.RequireFromString(*subID).BigInt(), big.NewInt(*confDelay))
 	case "consumer-redeem-randomness":
 		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		requestID := cmd.Int64("request-id", 0, "request ID")
 		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		redeemRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID), *numWords)
+		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), big.NewInt(*requestID), *numWords)
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		callbackGasLimit := cmd.Uint("cb-gas-limit", 100_000, "callback gas limit")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
@@ -351,7 +365,7 @@ func main() {
 			e,
 			*consumerAddress,
 			uint16(*numWords),
-			*subID,
+			decimal.RequireFromString(*subID).BigInt(),
 			big.NewInt(int64(*confDelay)),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args
@@ -367,7 +381,7 @@ func main() {
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		batchSize := cmd.Int64("batch-size", 1, "batch size")
 		callbackGasLimit := cmd.Uint("cb-gas-limit", 200_000, "callback gas limit")
@@ -376,7 +390,7 @@ func main() {
 			e,
 			*consumerAddress,
 			uint16(*numWords),
-			*subID,
+			decimal.RequireFromString(*subID).BigInt(),
 			big.NewInt(int64(*confDelay)),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args,
@@ -386,7 +400,7 @@ func main() {
 		cmd := flag.NewFlagSet("consumer-request-callback-load-test", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF beacon batch consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		subID := cmd.String("sub-id", "", "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		batchSize := cmd.Int64("batch-size", 1, "batch size")
 		batchCount := cmd.Int64("batch-count", 1, "number of batches to run")
@@ -398,7 +412,7 @@ func main() {
 				e,
 				*consumerAddress,
 				uint16(*numWords),
-				*subID,
+				decimal.RequireFromString(*subID).BigInt(),
 				big.NewInt(int64(*confDelay)),
 				uint32(*callbackGasLimit),
 				nil, // test consumer doesn't use any args,

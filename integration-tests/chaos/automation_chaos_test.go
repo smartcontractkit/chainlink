@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -16,23 +15,15 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	eth_contracts "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-)
-
-const (
-	// ChaosGroupMinorityAutomation a group of faulty nodes, even if they fail OCR must work
-	ChaosGroupMinorityAutomation = "chaosGroupMinority"
-	// ChaosGroupMajorityAutomation a group of nodes that are working even if minority fails
-	ChaosGroupMajorityAutomation = "chaosGroupMajority"
-	// ChaosGroupMajorityAutomationPlus a group of nodes that are majority + 1
-	ChaosGroupMajorityAutomationPlus = "chaosGroupMajority"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 var (
@@ -52,7 +43,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
-			"capacity": "10Gi",
+			"capacity": "1Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "250m",
@@ -114,6 +105,8 @@ const (
 )
 
 func TestAutomationChaos(t *testing.T) {
+	t.Parallel()
+	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -121,51 +114,51 @@ func TestAutomationChaos(t *testing.T) {
 		chaosProps   *chaos.Props
 	}{
 		// see ocr_chaos.test.go for comments
-		"pod-chaos-fail-minority-nodes": {
+		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
 				DurationStr:    "1m",
 			},
 		},
-		"pod-chaos-fail-majority-nodes": {
+		PodChaosFailMajorityNodes: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
 				DurationStr:    "1m",
 			},
 		},
-		"pod-chaos-fail-majority-db": {
+		PodChaosFailMajorityDB: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
 				DurationStr:    "1m",
 				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
 		},
-		"network-chaos-fail-majority-network": {
+		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
+				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
 				DurationStr: "1m",
 			},
 		},
-		"network-chaos-fail-blockchain-node": {
+		NetworkChaosFailBlockchainNode: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -174,7 +167,7 @@ func TestAutomationChaos(t *testing.T) {
 	for n, tst := range testCases {
 		name := n
 		testCase := tst
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
 			network := networks.SelectedNetwork
 
@@ -182,6 +175,7 @@ func TestAutomationChaos(t *testing.T) {
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf("chaos-automation-%s", name),
 					TTL:             time.Hour * 1,
+					Test:            t,
 				}).
 				AddHelm(testCase.networkChart).
 				AddHelm(testCase.clChart).
@@ -192,12 +186,15 @@ func TestAutomationChaos(t *testing.T) {
 				}))
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
+			if testEnvironment.WillUseRemoteRunner() {
+				return
+			}
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinorityAutomation)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajorityAutomation)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityAutomationPlus)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
 			chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
@@ -213,7 +210,7 @@ func TestAutomationChaos(t *testing.T) {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
 				}
-				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
@@ -254,7 +251,7 @@ func TestAutomationChaos(t *testing.T) {
 				defaultUpkeepGasLimit,
 			)
 
-			log.Info().Msg("Waiting for all upkeeps to be performed")
+			l.Info().Msg("Waiting for all upkeeps to be performed")
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -263,7 +260,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
-					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
@@ -278,7 +275,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10
-					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}

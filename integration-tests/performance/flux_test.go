@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -18,18 +19,22 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 )
 
 func TestFluxPerformance(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupFluxTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
@@ -81,7 +86,7 @@ func TestFluxPerformance(t *testing.T) {
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	oracles, err := fluxInstance.GetOracles(context.Background())
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
-	log.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
+	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
 	adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
 	bta := client.BridgeTypeAttributes{
@@ -117,7 +122,7 @@ func TestFluxPerformance(t *testing.T) {
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 		data, err := fluxInstance.GetContractData(context.Background())
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
-		log.Info().Interface("Data", data).Msg("Round data")
+		l.Info().Interface("Data", data).Msg("Round data")
 		require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
 			"Expected latest round answer to be %d, but found %d", int64(1e5), data.LatestRoundData.Answer.Int64())
 		require.Equal(t, int64(1), data.LatestRoundData.RoundId.Int64(),
@@ -145,7 +150,7 @@ func TestFluxPerformance(t *testing.T) {
 			"Expected available funds to be %d, but found %d", int64(999999999999999994), data.AvailableFunds.Int64())
 		require.Equal(t, int64(6), data.AllocatedFunds.Int64(),
 			"Expected allocated funds to be %d, but found %d", int64(6), data.AllocatedFunds.Int64())
-		log.Info().Interface("data", data).Msg("Round data")
+		l.Info().Interface("data", data).Msg("Round data")
 
 		for _, oracleAddr := range nodeAddresses {
 			payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)
@@ -184,6 +189,7 @@ HTTPWriteTimout = '300s'
 Enabled = true`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).

@@ -6,15 +6,14 @@ import (
 	"math/rand"
 	"time"
 
-	caigotypes "github.com/dontpanicdao/caigo/types"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -43,7 +42,7 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 		lggr: lggr.Named("Chain"),
 	}
 
-	getClient := func() (caigotypes.Provider, error) {
+	getClient := func() (*starknet.Client, error) {
 		return ch.getClient()
 	}
 
@@ -55,16 +54,12 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 	return ch, nil
 }
 
-func (c *chain) Config() config.Config {
-	return c.cfg
+func (c *chain) Name() string {
+	return c.lggr.Name()
 }
 
-func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
-	if c.cfgImmutable {
-		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
-		return
-	}
-	c.cfg.Update(*cfg)
+func (c *chain) Config() config.Config {
+	return c.cfg
 }
 
 func (c *chain) TxManager() txm.TxManager {
@@ -126,6 +121,8 @@ func (c *chain) Ready() error {
 	return c.StartStopOnce.Ready()
 }
 
-func (c *chain) Healthy() error {
-	return c.StartStopOnce.Healthy()
+func (c *chain) HealthReport() map[string]error {
+	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	maps.Copy(report, c.txm.HealthReport())
+	return report
 }

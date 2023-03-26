@@ -36,4 +36,5 @@ ZIG_FLAGS_DARWIN="-isysroot$macos_sdk_dir \
   -iwithsysroot$include_search_path \
   -mmacosx-version-min=11.7.1" \
 ZIG_EXEC=$(which zig) \
+CHAINLINK_VERSION=$(cat VERSION) \
 goreleaser "$@"

@@ -31,8 +31,15 @@ go run main.go --help
 
 ### Run OCR2Keepers on the local env
 
+First, decide which CL node version to use, or build a new one using...
+
+```bash
+docker build -t chainlink:local -f ./core/chainlink.Dockerfile .
+```
+
 Before start, there should be `.env` file with all required environment variables. Example for Goerli network:
 ```.dotenv
+CHAINLINK_DOCKER_IMAGE=chainlink:local
 NODE_URL=<wss-rpc-node-addr>
 CHAIN_ID=5
 PRIVATE_KEY=<wallet-private-key>

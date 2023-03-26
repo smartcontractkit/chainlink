@@ -14,7 +14,10 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"errors"
 
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"golang.org/x/exp/constraints"
@@ -23,10 +26,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jpillora/backoff"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
-	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 )
@@ -36,6 +38,9 @@ const (
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
+
+	// defaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
+	defaultErrorBufferCap = 50
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
@@ -118,7 +123,7 @@ func NewSecret(n int) string {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
-		panic(errors.Wrap(err, "generating secret failed"))
+		panic(pkgerrors.Wrap(err, "generating secret failed"))
 	}
 	return base64.StdEncoding.EncodeToString(b)
 }
@@ -181,7 +186,7 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun *atomic.Bool
+	beenRun atomic.Bool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
@@ -193,13 +198,12 @@ func NewBackoffSleeper() *BackoffSleeper {
 			Min: 1 * time.Second,
 			Max: 10 * time.Second,
 		},
-		beenRun: atomic.NewBool(false),
 	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if bs.beenRun.CAS(false, true) {
+	if bs.beenRun.CompareAndSwap(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -207,7 +211,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if bs.beenRun.CAS(false, true) {
+	if bs.beenRun.CompareAndSwap(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -297,7 +301,7 @@ func Sha256(in string) (string, error) {
 	hasher := sha3.New256()
 	_, err := hasher.Write([]byte(in))
 	if err != nil {
-		return "", errors.Wrap(err, "sha256 write error")
+		return "", pkgerrors.Wrap(err, "sha256 write error")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
@@ -375,7 +379,7 @@ func CheckUint256(n *big.Int) error {
 func HexToUint256(s string) (*big.Int, error) {
 	rawNum, err := hexutil.Decode(s)
 	if err != nil {
-		return nil, errors.Wrapf(err, "while parsing %s as hex: ", s)
+		return nil, pkgerrors.Wrapf(err, "while parsing %s as hex: ", s)
 	}
 	rv := big.NewInt(0).SetBytes(rawNum) // can't be negative number
 	if err := CheckUint256(rv); err != nil {
@@ -626,7 +630,7 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 //	}
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
-		*err = errors.Wrap(*err, msg)
+		*err = pkgerrors.Wrap(*err, msg)
 	}
 }
 
@@ -692,7 +696,7 @@ func (t *PausableTicker) Destroy() {
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
-	beenRun *atomic.Bool
+	beenRun atomic.Bool
 }
 
 // NewCronTicker returns a new CrontTicker for the given schedule.
@@ -706,15 +710,15 @@ func NewCronTicker(schedule string) (CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return CronTicker{beenRun: atomic.NewBool(false)}, err
+		return CronTicker{}, err
 	}
-	return CronTicker{Cron: cron, ch: ch, beenRun: atomic.NewBool(false)}, nil
+	return CronTicker{Cron: cron, ch: ch}, nil
 }
 
 // Start - returns true if the CronTicker was actually started, false otherwise
 func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		if t.beenRun.CAS(false, true) {
+		if t.beenRun.CompareAndSwap(false, true) {
 			t.Cron.Start()
 			return true
 		}
@@ -725,7 +729,7 @@ func (t *CronTicker) Start() bool {
 // Stop - returns true if the CronTicker was actually stopped, false otherwise
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		if t.beenRun.CAS(true, false) {
+		if t.beenRun.CompareAndSwap(true, false) {
 			t.Cron.Stop()
 			return true
 		}
@@ -745,7 +749,7 @@ func ValidateCronSchedule(schedule string) error {
 	}
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	_, err := parser.Parse(schedule)
-	return errors.Wrapf(err, "invalid cron schedule '%v'", schedule)
+	return pkgerrors.Wrapf(err, "invalid cron schedule '%v'", schedule)
 }
 
 // ResettableTimer stores a timer
@@ -819,6 +823,13 @@ var (
 type StartStopOnce struct {
 	state        atomic.Int32
 	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
+
+	// SvcErrBuffer is an ErrorBuffer that let service owners track critical errors happening in the service.
+	//
+	// SvcErrBuffer.SetCap(int) Overrides buffer limit from defaultErrorBufferCap
+	// SvcErrBuffer.Append(error) Appends an error to the buffer
+	// SvcErrBuffer.Flush() error returns all tracked errors as a single joined error
+	SvcErrBuffer ErrorBuffer
 }
 
 // StartStopOnceState holds the state for StartStopOnce
@@ -860,21 +871,23 @@ func (s StartStopOnceState) String() string {
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	// SAFETY: We do this compare-and-swap outside of the lock so that
 	// concurrent StartOnce() calls return immediately.
-	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
+	success := once.state.CompareAndSwap(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
-		return errors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
+		return pkgerrors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
 	}
 
 	once.Lock()
 	defer once.Unlock()
 
+	// Setting cap before calling startup fn in case of crits in startup
+	once.SvcErrBuffer.SetCap(defaultErrorBufferCap)
 	err := fn()
 
 	if err == nil {
-		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
 	} else {
-		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
 	}
 
 	if !success {
@@ -894,26 +907,26 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
 
-	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
+	success := once.state.CompareAndSwap(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
 		state := once.state.Load()
 		switch state {
 		case int32(StartStopOnce_Stopped):
-			return errors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
+			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
 		case int32(StartStopOnce_Unstarted):
-			return errors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
+			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
 		default:
-			return errors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
+			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
 		}
 	}
 
 	err := fn()
 
 	if err == nil {
-		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
 	} else {
-		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
 	}
 
 	if !success {
@@ -973,7 +986,7 @@ func (once *StartStopOnce) Ready() error {
 func (once *StartStopOnce) Healthy() error {
 	state := once.State()
 	if state == StartStopOnce_Started {
-		return nil
+		return once.SvcErrBuffer.Flush()
 	}
 	return &errNotStarted{state: state}
 }
@@ -1112,4 +1125,64 @@ func MinKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
 	}
 
 	return min
+}
+
+// ErrorBuffer uses joinedErrors interface to join multiple errors into a single error.
+// This is useful to track the most recent N errors in a service and flush them as a single error.
+type ErrorBuffer struct {
+	// buffer is a slice of errors
+	buffer []error
+
+	// cap is the maximum number of errors that the buffer can hold.
+	// Exceeding the cap results in discarding the oldest error
+	cap int
+
+	mu sync.RWMutex
+}
+
+func (eb *ErrorBuffer) Flush() (err error) {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+	err = errors.Join(eb.buffer...)
+	eb.buffer = nil
+	return
+}
+
+func (eb *ErrorBuffer) Append(incoming error) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+
+	if len(eb.buffer) == eb.cap && eb.cap != 0 {
+		eb.buffer = append(eb.buffer[1:], incoming)
+		return
+	}
+	eb.buffer = append(eb.buffer, incoming)
+}
+
+func (eb *ErrorBuffer) SetCap(cap int) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	if len(eb.buffer) > cap {
+		eb.buffer = eb.buffer[len(eb.buffer)-cap:]
+	}
+	eb.cap = cap
+}
+
+// UnwrapError returns a list of underlying errors if passed error implements joinedError or return the err in a single-element list otherwise.
+//
+//nolint:errorlint // error type checks will fail on wrapped errors. Disabled since we are not doing checks on error types.
+func UnwrapError(err error) []error {
+	joined, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		return []error{err}
+	}
+	return joined.Unwrap()
+}
+
+// DeleteUnstable destructively removes slice element at index i
+// It does no bounds checking and may re-order the slice
+func DeleteUnstable[T any](s []T, i int) []T {
+	s[i] = s[len(s)-1]
+	s = s[:len(s)-1]
+	return s
 }

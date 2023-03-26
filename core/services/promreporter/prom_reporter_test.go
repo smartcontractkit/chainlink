@@ -2,6 +2,7 @@ package promreporter_test
 
 import (
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,9 +11,9 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -40,12 +41,12 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 
 		require.NoError(t, reporter.Start(testutils.Context(t)))
-		defer reporter.Close()
+		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)
@@ -71,12 +72,12 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
 		require.NoError(t, reporter.Start(testutils.Context(t)))
-		defer reporter.Close()
+		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
@@ -109,11 +110,11 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 		require.NoError(t, reporter.Start(testutils.Context(t)))
-		defer reporter.Close()
+		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)

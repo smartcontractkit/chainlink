@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -231,9 +231,9 @@ func checkOraclesAdded(t *testing.T, f fluxAggregatorUniverse, oracleList []comm
 	}
 }
 
-func generatePriceResponseFn(price *atomic.Int64) func() string {
+func generatePriceResponseFn(price func() int64) func() string {
 	return func() string {
-		return fmt.Sprintf(`{"data":{"result": %d}}`, price.Load())
+		return fmt.Sprintf(`{"data":{"result": %d}}`, price())
 	}
 }
 
@@ -458,9 +458,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			expectedMeta := map[string]v{}
 			var expMetaMu sync.Mutex
 
-			reportPrice := atomic.NewInt64(100)
+			var reportPrice atomic.Int64
+			reportPrice.Store(100)
 			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
-				generatePriceResponseFn(reportPrice),
+				generatePriceResponseFn(reportPrice.Load),
 				func(r *http.Request) {
 					b, err1 := io.ReadAll(r.Body)
 					require.NoError(t, err1)
@@ -625,9 +626,10 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	initialBalance := currentBalance(t, &fa).Int64()
 
 	// Create mock server
-	reportPrice := atomic.NewInt64(1)
+	var reportPrice atomic.Int64
+	reportPrice.Store(1)
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
-		generatePriceResponseFn(reportPrice),
+		generatePriceResponseFn(reportPrice.Load),
 	)
 	t.Cleanup(mockServer.Close)
 
@@ -730,9 +732,10 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	})
 
 	// Create mock server
-	reportPrice := atomic.NewInt64(1)
+	var reportPrice atomic.Int64
+	reportPrice.Store(1)
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
-		generatePriceResponseFn(reportPrice),
+		generatePriceResponseFn(reportPrice.Load),
 	)
 	t.Cleanup(mockServer.Close)
 
@@ -837,9 +840,10 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 
 	// Report a price that is above the maximum allowed value,
 	// causing it to revert.
-	reportPrice := atomic.NewInt64(10001) // 10001 ETH/USD price is outside the range.
+	var reportPrice atomic.Int64
+	reportPrice.Store(10001) // 10001 ETH/USD price is outside the range.
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
-		generatePriceResponseFn(reportPrice),
+		generatePriceResponseFn(reportPrice.Load),
 	)
 	t.Cleanup(mockServer.Close)
 
@@ -928,7 +932,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// The initial balance is the LINK balance of flux aggregator contract. We
 	// use it to check that the fee for submitting an answer has been paid out.
 	initialBalance := currentBalance(t, &fa).Int64()
-	reportPrice := atomic.NewInt64(answer)
+	var reportPrice atomic.Int64
+	reportPrice.Store(answer)
 	priceResponse := func() string {
 		return fmt.Sprintf(`{"data":{"result": %d}}`, reportPrice.Load())
 	}

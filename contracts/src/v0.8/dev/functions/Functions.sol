@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {CBORChainlink} from "../../vendor/CBORChainlink.sol";
-import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
+import {CBOR, Buffer} from "../vendor/solidity-cborutils/2.0.0/CBOR.sol";
 
 /**
  * @title Library for Chainlink Functions
@@ -10,7 +9,7 @@ import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
 library Functions {
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
 
-  using CBORChainlink for BufferChainlink.buffer;
+  using CBOR for Buffer.buffer;
 
   enum Location {
     Inline,
@@ -42,35 +41,35 @@ library Functions {
    * @return CBOR encoded bytes
    */
   function encodeCBOR(Request memory self) internal pure returns (bytes memory) {
-    BufferChainlink.buffer memory buf;
-    BufferChainlink.init(buf, DEFAULT_BUFFER_SIZE);
+    CBOR.CBORBuffer memory buffer;
+    Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
 
-    buf.encodeString("codeLocation");
-    buf.encodeUInt(uint256(self.codeLocation));
+    CBOR.writeString(buffer, "codeLocation");
+    CBOR.writeUInt256(buffer, uint256(self.codeLocation));
 
-    buf.encodeString("language");
-    buf.encodeUInt(uint256(self.language));
+    CBOR.writeString(buffer, "language");
+    CBOR.writeUInt256(buffer, uint256(self.language));
 
-    buf.encodeString("source");
-    buf.encodeString(self.source);
+    CBOR.writeString(buffer, "source");
+    CBOR.writeString(buffer, self.source);
 
     if (self.args.length > 0) {
-      buf.encodeString("args");
-      buf.startArray();
+      CBOR.writeString(buffer, "args");
+      CBOR.startArray(buffer);
       for (uint256 i = 0; i < self.args.length; i++) {
-        buf.encodeString(self.args[i]);
+        CBOR.writeString(buffer, self.args[i]);
       }
-      buf.endSequence();
+      CBOR.endSequence(buffer);
     }
 
     if (self.secrets.length > 0) {
-      buf.encodeString("secretsLocation");
-      buf.encodeUInt(uint256(self.secretsLocation));
-      buf.encodeString("secrets");
-      buf.encodeBytes(self.secrets);
+      CBOR.writeString(buffer, "secretsLocation");
+      CBOR.writeUInt256(buffer, uint256(self.secretsLocation));
+      CBOR.writeString(buffer, "secrets");
+      CBOR.writeBytes(buffer, self.secrets);
     }
 
-    return buf.buf;
+    return buffer.buf.buf;
   }
 
   /**
@@ -105,7 +104,7 @@ library Functions {
   }
 
   /**
-   * @notice Adds user encrypted secrets to a Request
+   * @notice Adds Inline user encrypted secrets to a Request
    * @param self The initialized request
    * @param secrets The user encrypted secrets (must not be empty)
    */
@@ -114,6 +113,18 @@ library Functions {
 
     self.secretsLocation = Location.Inline;
     self.secrets = secrets;
+  }
+
+  /**
+   * @notice Adds Remote user encrypted secrets to a Request
+   * @param self The initialized request
+   * @param encryptedSecretsURLs Encrypted comma-separated string of URLs pointing to off-chain secrets
+   */
+  function addRemoteSecrets(Request memory self, bytes memory encryptedSecretsURLs) internal pure {
+    if (encryptedSecretsURLs.length == 0) revert EmptySecrets();
+
+    self.secretsLocation = Location.Remote;
+    self.secrets = encryptedSecretsURLs;
   }
 
   /**

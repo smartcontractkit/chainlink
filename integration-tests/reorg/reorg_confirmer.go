@@ -4,12 +4,12 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -50,7 +50,7 @@ type ReorgController struct {
 	forkBlockNumber       int64
 	currentAltBlocks      int
 	currentVerifiedBlocks int
-	networkStep           *atomic.Int64
+	networkStep           atomic.Int64
 	altBlockNumbers       []int64
 	blocksByNode          map[int]map[int64]blockchain.NodeHeader
 	blockHashes           map[int64][]common.Hash
@@ -86,9 +86,9 @@ func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 		mutex:              sync.Mutex{},
 		ctx:                ctx,
 		cancel:             ctxCancel,
-		networkStep:        atomic.NewInt64(InitConsensus),
 		complete:           false,
 	}
+	rc.networkStep.Store(InitConsensus)
 	cfg.Network.AddHeaderEventSubscription("reorg", rc)
 	<-rc.initConsensusReady
 	return rc, nil
@@ -157,10 +157,10 @@ func (rc *ReorgController) VerifyReorgComplete() error {
 		}
 		log.Info().
 			Int64("Number", bb.Number.Int64()).
-			Str("Hash before", bb.Hash().String()).
+			Str("Hash before", bb.Hash.String()).
 			Str("Hash after", h).
 			Msg("Comparing block")
-		if bb.Hash().String() != h {
+		if bb.Hash.String() != h {
 			rc.currentVerifiedBlocks++
 		}
 	}
@@ -194,7 +194,7 @@ func (rc *ReorgController) compareBlocks(blk blockchain.NodeHeader) error {
 		rc.currentAltBlocks++
 		log.Info().
 			Int64("Number", blk.Number.Int64()).
-			Str("Hash", blk.Hash().String()).
+			Str("Hash", blk.Hash.String()).
 			Int("Node", blk.NodeID).
 			Int("BlocksLeft", rc.ReorgDepth-rc.currentAltBlocks).
 			Msg("Mined alternative block")
@@ -276,7 +276,7 @@ func (rc *ReorgController) appendBlockHeader(header blockchain.NodeHeader) {
 	if _, ok := rc.blockHashes[bn]; !ok {
 		rc.blockHashes[bn] = []common.Hash{}
 	}
-	rc.blockHashes[bn] = append(rc.blockHashes[bn], header.Hash())
+	rc.blockHashes[bn] = append(rc.blockHashes[bn], header.Hash)
 
 	if _, ok := rc.blocksByNode[header.NodeID]; !ok {
 		rc.blocksByNode[header.NodeID] = make(map[int64]blockchain.NodeHeader)

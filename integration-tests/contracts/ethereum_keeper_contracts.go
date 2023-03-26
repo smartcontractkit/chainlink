@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_transcoder"
 	"math/big"
 	"strconv"
 	"strings"
@@ -15,12 +15,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	goabi "github.com/umbracle/ethgo/abi"
 
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -202,10 +208,10 @@ type UpkeepInfo struct {
 type EthereumKeeperRegistry struct {
 	client      blockchain.EVMClient
 	version     ethereum.KeeperRegistryVersion
-	registry1_1 *ethereum.KeeperRegistry11
-	registry1_2 *ethereum.KeeperRegistry12
-	registry1_3 *ethereum.KeeperRegistry13
-	registry2_0 *ethereum.KeeperRegistry20
+	registry1_1 *keeper_registry_wrapper1_1.KeeperRegistry
+	registry1_2 *keeper_registry_wrapper1_2.KeeperRegistry
+	registry1_3 *keeper_registry_wrapper1_3.KeeperRegistry
+	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
 	address     *common.Address
 }
 
@@ -269,7 +275,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			return err
 		}
 
-		tx, err := v.registry1_2.SetConfig(txOpts, ethereum.Config1_2{
+		tx, err := v.registry1_2.SetConfig(txOpts, keeper_registry_wrapper1_2.Config{
 			PaymentPremiumPPB:    config.PaymentPremiumPPB,
 			FlatFeeMicroLink:     config.FlatFeeMicroLINK,
 			BlockCountPerTurn:    config.BlockCountPerTurn,
@@ -294,7 +300,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			return err
 		}
 
-		tx, err := v.registry1_3.SetConfig(txOpts, ethereum.Config1_3{
+		tx, err := v.registry1_3.SetConfig(txOpts, keeper_registry_wrapper1_3.Config{
 			PaymentPremiumPPB:    config.PaymentPremiumPPB,
 			FlatFeeMicroLink:     config.FlatFeeMicroLINK,
 			BlockCountPerTurn:    config.BlockCountPerTurn,
@@ -454,9 +460,9 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
-
-	return fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
 
 // AddUpkeepFunds adds link for particular upkeep id
@@ -1565,7 +1571,7 @@ func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(ctx context.C
 
 type EthereumUpkeepResetter struct {
 	client   blockchain.EVMClient
-	consumer *int_ethereum.UpkeepResetter
+	consumer *ethereum.UpkeepResetter
 	address  *common.Address
 }
 
@@ -1688,8 +1694,8 @@ func (v *EthereumKeeperConsumerBenchmark) SetFirstEligibleBuffer(ctx context.Con
 // registering new upkeeps.
 type EthereumKeeperRegistrar struct {
 	client      blockchain.EVMClient
-	registrar   *ethereum.KeeperRegistrar
-	registrar20 *ethereum.KeeperRegistrar20
+	registrar   *keeper_registrar_wrapper1_2.KeeperRegistrar
+	registrar20 *keeper_registrar_wrapper2_0.KeeperRegistrar
 	address     *common.Address
 }
 
@@ -1714,7 +1720,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 	senderAddr string,
 ) ([]byte, error) {
 	if v.registrar20 != nil {
-		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrar20MetaData.ABI))
+		registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.ABI))
 		if err != nil {
 			return nil, err
 		}
@@ -1734,35 +1740,34 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 			return nil, err
 		}
 		return req, nil
-	} else {
-		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
-		if err != nil {
-			return nil, err
-		}
-		req, err := registryABI.Pack(
-			"register",
-			name,
-			email,
-			common.HexToAddress(upkeepAddr),
-			gasLimit,
-			common.HexToAddress(adminAddr),
-			checkData,
-			amount,
-			source,
-			common.HexToAddress(senderAddr),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return req, nil
 	}
+	registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.ABI))
+	if err != nil {
+		return nil, err
+	}
+	req, err := registryABI.Pack(
+		"register",
+		name,
+		email,
+		common.HexToAddress(upkeepAddr),
+		gasLimit,
+		common.HexToAddress(adminAddr),
+		checkData,
+		amount,
+		source,
+		common.HexToAddress(senderAddr),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
 }
 
 // EthereumUpkeepTranscoder represents the transcoder which is used to perform migrations
 // of upkeeps from one registry to another.
 type EthereumUpkeepTranscoder struct {
 	client     blockchain.EVMClient
-	transcoder *ethereum.UpkeepTranscoder
+	transcoder *upkeep_transcoder.UpkeepTranscoder
 	address    *common.Address
 }
 

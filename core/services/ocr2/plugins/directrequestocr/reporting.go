@@ -4,20 +4,22 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/functions"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type DirectRequestReportingPluginFactory struct {
 	Logger    commontypes.Logger
-	PluginORM directrequestocr.ORM
+	PluginORM functions.ORM
 	JobID     uuid.UUID
 }
 
@@ -25,7 +27,7 @@ var _ types.ReportingPluginFactory = (*DirectRequestReportingPluginFactory)(nil)
 
 type functionsReporting struct {
 	logger         commontypes.Logger
-	pluginORM      directrequestocr.ORM
+	pluginORM      functions.ORM
 	jobID          uuid.UUID
 	reportCodec    *ReportCodec
 	genericConfig  *types.ReportingPluginConfig
@@ -33,6 +35,44 @@ type functionsReporting struct {
 }
 
 var _ types.ReportingPlugin = &functionsReporting{}
+
+var (
+	promReportingPlugins = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_restarts",
+		Help: "Metric to track number of reporting plugin restarts",
+	}, []string{"jobID"})
+
+	promReportingPluginsQuery = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_query",
+		Help: "Metric to track number of reporting plugin Query calls",
+	}, []string{"jobID"})
+
+	promReportingPluginsObservation = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_observation",
+		Help: "Metric to track number of reporting plugin Observation calls",
+	}, []string{"jobID"})
+
+	promReportingPluginsReport = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_report",
+		Help: "Metric to track number of reporting plugin Report calls",
+	}, []string{"jobID"})
+
+	promReportingAcceptReports = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_accept",
+		Help: "Metric to track number of accepting reports",
+	}, []string{"jobID"})
+
+	promReportingTransmitReports = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_reporting_plugin_transmit",
+		Help: "Metric to track number of transmiting reports",
+	}, []string{"jobID"})
+
+	promReportingTransmitBatchSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "functions_reporting_plugin_transmit_batch_size",
+		Help:    "Metric to track batch size of transmitting reports",
+		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 100, 1000},
+	}, []string{"jobID"})
+)
 
 func formatRequestId(requestId []byte) string {
 	return fmt.Sprintf("0x%x", requestId)
@@ -69,6 +109,7 @@ func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.R
 		genericConfig:  &rpConfig,
 		specificConfig: pluginConfig,
 	}
+	promReportingPlugins.WithLabelValues(f.JobID.String()).Inc()
 	return &plugin, info, nil
 }
 
@@ -80,7 +121,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"oracleID": r.genericConfig.OracleID,
 	})
 	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
-	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
+	results, err := r.pluginORM.FindOldestEntriesByState(functions.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +140,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"queryLen":   len(queryProto.RequestIDs),
 		"requestIDs": idStrs,
 	})
+	promReportingPluginsQuery.WithLabelValues(r.jobID.String()).Inc()
 	return proto.Marshal(&queryProto)
 }
 
@@ -137,7 +179,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 			continue
 		}
 		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
-		if localResult.State == directrequestocr.RESULT_READY {
+		if localResult.State == functions.RESULT_READY {
 			resultProto := ProcessedRequest{
 				RequestID: localResult.RequestID[:],
 				Result:    localResult.Result,
@@ -155,6 +197,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		"requestIDs":     idStrs,
 	})
 
+	promReportingPluginsObservation.WithLabelValues(r.jobID.String()).Inc()
 	return proto.Marshal(&observationProto)
 }
 
@@ -242,6 +285,12 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			})
 			continue
 		}
+		r.logger.Debug("FunctionsReporting Report: aggregated successfully", commontypes.LogFields{
+			"epoch":         ts.Epoch,
+			"round":         ts.Round,
+			"requestID":     reqId,
+			"nObservations": len(observations),
+		})
 		allAggregated = append(allAggregated, aggregated)
 		allIdStrs = append(allIdStrs, reqId)
 	}
@@ -261,6 +310,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	if err != nil {
 		return false, nil, err
 	}
+	promReportingPluginsReport.WithLabelValues(r.jobID.String()).Inc()
 	return true, reportBytes, nil
 }
 
@@ -307,7 +357,11 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 		"needTransmissionIds": needTransmissionIds,
 		"accepting":           len(needTransmissionIds) > 0,
 	})
-	return len(needTransmissionIds) > 0, nil
+	shouldAccept := len(needTransmissionIds) > 0
+	if shouldAccept {
+		promReportingAcceptReports.WithLabelValues(r.jobID.String()).Inc()
+	}
+	return shouldAccept, nil
 }
 
 // ShouldTransmitAcceptedReport() complies with ReportingPlugin
@@ -335,7 +389,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		if request.State == directrequestocr.TIMED_OUT || request.State == directrequestocr.CONFIRMED {
+		if request.State == functions.TIMED_OUT || request.State == functions.CONFIRMED {
 			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request is not FINALIZED any more. Not transmitting.",
 				commontypes.LogFields{
 					"requestID": reqIdStr,
@@ -343,7 +397,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 				})
 			continue
 		}
-		if request.State == directrequestocr.IN_PROGRESS || request.State == directrequestocr.RESULT_READY {
+		if request.State == functions.IN_PROGRESS || request.State == functions.RESULT_READY {
 			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: unusual request state. Still transmitting.",
 				commontypes.LogFields{
 					"requestID": reqIdStr,
@@ -360,7 +414,12 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 		"needTransmissionIds": needTransmissionIds,
 		"transmitting":        len(needTransmissionIds) > 0,
 	})
-	return len(needTransmissionIds) > 0, nil
+	shouldTransmit := len(needTransmissionIds) > 0
+	if shouldTransmit {
+		promReportingTransmitReports.WithLabelValues(r.jobID.String()).Inc()
+		promReportingTransmitBatchSize.WithLabelValues(r.jobID.String()).Observe(float64(len(allIds)))
+	}
+	return shouldTransmit, nil
 }
 
 // Close() complies with ReportingPlugin

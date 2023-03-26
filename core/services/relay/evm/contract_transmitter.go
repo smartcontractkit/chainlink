@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -16,17 +17,23 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var _ ocrtypes.ContractTransmitter = &ContractTransmitter{}
+type ContractTransmitter interface {
+	services.ServiceCtx
+	ocrtypes.ContractTransmitter
+}
+
+var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte) error
 	FromAddress() gethcommon.Address
 }
 
-type ContractTransmitter struct {
+type contractTransmitter struct {
 	contractAddress     gethcommon.Address
 	contractABI         abi.ABI
 	transmitter         Transmitter
@@ -43,28 +50,29 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-) (*ContractTransmitter, error) {
+) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	_, err := lp.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	filterName := logpoller.FilterName("OCR ContractTransmitter", address.String())
+	err := lp.RegisterFilter(logpoller.Filter{Name: filterName, EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
 	}
-	return &ContractTransmitter{
+	return &contractTransmitter{
 		contractAddress:     address,
 		contractABI:         contractABI,
 		transmitter:         transmitter,
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                lggr,
+		lggr:                lggr.Named("OCRContractTransmitter"),
 	}, nil
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
-func (oc *ContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
@@ -128,7 +136,7 @@ func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI,
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.
 // It is plugin independent, in particular avoids use of the plugin specific generated evm wrappers
 // by using the evm client Call directly for functions/events that are part of OCR2Abstract.
-func (oc *ContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
+func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
 	latestConfigDigestAndEpoch, err := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDigestAndEpoch", nil, oc.contractReader)
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
@@ -157,6 +165,16 @@ func (oc *ContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 }
 
 // FromAccount returns the account from which the transmitter invokes the contract
-func (oc *ContractTransmitter) FromAccount() ocrtypes.Account {
-	return ocrtypes.Account(oc.transmitter.FromAddress().String())
+func (oc *contractTransmitter) FromAccount() ocrtypes.Account {
+	return ocrtypes.Account(fmt.Sprintf("0x%x", oc.transmitter.FromAddress()))
 }
+
+func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
+func (oc *contractTransmitter) Close() error                    { return nil }
+
+// Has no state/lifecycle so it's always healthy and ready
+func (oc *contractTransmitter) Ready() error { return nil }
+func (oc *contractTransmitter) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): nil}
+}
+func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }

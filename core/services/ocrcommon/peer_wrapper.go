@@ -69,18 +69,18 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 	switch config.P2PNetworkingStack() {
 	case ocrnetworking.NetworkingStackV1:
 		if config.P2PListenPort() == 0 {
-			return errors.New("networking stack v1 selected but no P2P_LISTEN_PORT specified")
+			return errors.New("networking stack v1 selected but no P2P.V1.ListenPort specified")
 		}
 	case ocrnetworking.NetworkingStackV2:
 		if len(config.P2PV2ListenAddresses()) == 0 {
-			return errors.New("networking stack v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
+			return errors.New("networking stack v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	case ocrnetworking.NetworkingStackV1V2:
 		if config.P2PListenPort() == 0 {
-			return errors.New("networking stack v1v2 selected but no P2P_LISTEN_PORT specified")
+			return errors.New("networking stack v1v2 selected but no P2P.V1.ListenPort specified")
 		}
 		if len(config.P2PV2ListenAddresses()) == 0 {
-			return errors.New("networking stack v1v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
+			return errors.New("networking stack v1v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	default:
 		return errors.New("unknown networking stack")
@@ -215,6 +215,14 @@ func (p *SingletonPeerWrapper) Close() error {
 		}
 		return err
 	})
+}
+
+func (p *SingletonPeerWrapper) Name() string {
+	return p.lggr.Name()
+}
+
+func (p *SingletonPeerWrapper) HealthReport() map[string]error {
+	return map[string]error{p.Name(): p.Healthy()}
 }
 
 func (p *SingletonPeerWrapper) Config() PeerWrapperConfig {

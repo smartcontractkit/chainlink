@@ -19,6 +19,36 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+func initFowardersSubCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "list",
+			Usage:  "List all stored forwarders addresses",
+			Action: client.ListForwarders,
+		},
+		{
+			Name:   "track",
+			Usage:  "Track a new forwarder",
+			Action: client.TrackForwarder,
+			Flags: []cli.Flag{
+				cli.Int64Flag{
+					Name:  "evmChainID, c",
+					Usage: "chain ID, if left empty, EVM.ChainID will be used",
+				},
+				cli.StringFlag{
+					Name:  "address, a",
+					Usage: "The forwarding address (in hex format)",
+				},
+			},
+		},
+		{
+			Name:   "delete",
+			Usage:  "Delete a forwarder address",
+			Action: client.DeleteForwarder,
+		},
+	}
+}
+
 type EVMForwarderPresenter struct {
 	JAID // This is needed to render the id for a JSONAPI Resource as normal JSON
 	presenters.EVMForwarderResource

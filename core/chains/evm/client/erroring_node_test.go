@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -22,7 +23,7 @@ func TestErroringNode(t *testing.T) {
 	err := n.Start(ctx)
 	require.Equal(t, n.errMsg, err.Error())
 
-	defer n.Close()
+	defer func() { assert.NoError(t, n.Close()) }()
 
 	err = n.Verify(ctx, nil)
 	require.Equal(t, n.errMsg, err.Error())

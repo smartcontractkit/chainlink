@@ -49,7 +49,7 @@ const (
 	KeyDeleted  EventID = "KEY_DELETED"
 
 	EthTransactionCreated    EventID = "ETH_TRANSACTION_CREATED"
-	TerraTransactionCreated  EventID = "TERRA_TRANSACTION_CREATED"
+	CosmosTransactionCreated EventID = "COSMOS_TRANSACTION_CREATED"
 	SolanaTransactionCreated EventID = "SOLANA_TRANSACTION_CREATED"
 
 	JobCreated EventID = "JOB_CREATED"

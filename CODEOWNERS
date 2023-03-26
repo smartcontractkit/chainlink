@@ -1,10 +1,19 @@
+# CODEOWNERS Best Practices
+# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence." 
+# Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
+
+# Misc
+/core/store @samsondav @jmank88
+/core/chains @samsondav
+/core/logger @jmank88
+/core/internal @samsondav @jmank88
+
 # Chains
-/core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm @samsondav @prashantkumar1982
+/core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
-/core/chains/evm @samsondav @prashantkumar1982
-/core/chains/terra @connorwstein @jmank88
+/core/chains/cosmos @archseer @cfal
 
 # Services
 /core/services/cron @samsondav
@@ -43,27 +52,21 @@
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @alexroan @se3000 @connorwstein
+/contracts/ @se3000 @connorwstein
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
-/integration-tests/ @smartcontractkit/set-team
+/integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
-# Misc
-/core/store @samsondav @jmank88
-/core/chains @samsondav
-/core/logger @jmank88
-/core/internal @samsondav @jmank88
-
 # CI/CD
-/.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
-/.github/workflows/integration-tests.yml @smartcontractkit/set-team
-/.github/workflows/integration-chaos-tests.yml @smartcontractkit/set-team
-/.github/workflows/integration-tests-publish.yml @smartcontractkit/set-team
-/.github/workflows/performance-tests.yml @smartcontractkit/set-team
+/.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
+/.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
+/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 

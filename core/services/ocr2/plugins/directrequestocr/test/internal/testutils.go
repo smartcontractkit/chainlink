@@ -349,7 +349,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		observationSource  = """
 			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
 			decode_cbor        [type="cborparse" data="$(decode_log.data)"]
-			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}" timeout="20s"]
+			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
 			parse_error        [type=jsonparse data="$(run_computation)" path="data,error"]
 
@@ -362,7 +362,11 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 
 		[pluginConfig]
 		minIncomingConfirmations = 3
-		listenerEventHandlerTimeoutSec = 40
+		requestTimeoutSec = 300
+		requestTimeoutCheckFrequencySec = 10
+		requestTimeoutBatchLookupSize = 20
+		listenerEventHandlerTimeoutSec = 120
+		maxRequestSizeBytes = 30720
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)

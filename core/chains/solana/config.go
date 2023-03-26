@@ -12,6 +12,7 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
@@ -63,7 +64,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
 	}
 }
 
-func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
+func (cs SolanaConfigs) Chains(ids ...string) (chains []ChainConfig) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -218,7 +219,7 @@ func setFromChain(c, f *solcfg.Chain) {
 	}
 }
 
-func (c *SolanaConfig) SetFromDB(ch DBChain, nodes []soldb.Node) error {
+func (c *SolanaConfig) SetFromDB(ch ChainConfig, nodes []soldb.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
 
@@ -248,21 +249,26 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *SolanaConfig) AsV1() DBChain {
-	return DBChain{
+func (c *SolanaConfig) AsV1() ChainConfig {
+	return ChainConfig{
 		ID:      *c.ChainID,
 		Enabled: c.IsEnabled(),
 		Cfg: &soldb.ChainCfg{
-			BalancePollPeriod:   c.Chain.BalancePollPeriod,
-			ConfirmPollPeriod:   c.Chain.ConfirmPollPeriod,
-			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,
-			TxTimeout:           c.Chain.TxTimeout,
-			TxRetryTimeout:      c.Chain.TxRetryTimeout,
-			TxConfirmTimeout:    c.Chain.TxConfirmTimeout,
-			SkipPreflight:       null.BoolFromPtr(c.Chain.SkipPreflight),
-			Commitment:          null.StringFromPtr(c.Chain.Commitment),
-			MaxRetries:          null.IntFromPtr(c.Chain.MaxRetries),
+			BalancePollPeriod:       c.Chain.BalancePollPeriod,
+			ConfirmPollPeriod:       c.Chain.ConfirmPollPeriod,
+			OCR2CachePollPeriod:     c.Chain.OCR2CachePollPeriod,
+			OCR2CacheTTL:            c.Chain.OCR2CacheTTL,
+			TxTimeout:               c.Chain.TxTimeout,
+			TxRetryTimeout:          c.Chain.TxRetryTimeout,
+			TxConfirmTimeout:        c.Chain.TxConfirmTimeout,
+			SkipPreflight:           null.BoolFromPtr(c.Chain.SkipPreflight),
+			Commitment:              null.StringFromPtr(c.Chain.Commitment),
+			MaxRetries:              null.IntFromPtr(c.Chain.MaxRetries),
+			FeeEstimatorMode:        null.StringFromPtr(c.Chain.FeeEstimatorMode),
+			ComputeUnitPriceMax:     null.IntFrom(int64(*c.Chain.ComputeUnitPriceMax)),
+			ComputeUnitPriceMin:     null.IntFrom(int64(*c.Chain.ComputeUnitPriceMin)),
+			ComputeUnitPriceDefault: null.IntFrom(int64(*c.Chain.ComputeUnitPriceDefault)),
+			FeeBumpPeriod:           c.Chain.FeeBumpPeriod,
 		},
 	}
 }
@@ -313,6 +319,22 @@ func (c *SolanaConfig) MaxRetries() *uint {
 	return &mr
 }
 
-func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
+func (c *SolanaConfig) FeeEstimatorMode() string {
+	return *c.Chain.FeeEstimatorMode
+}
+
+func (c *SolanaConfig) ComputeUnitPriceMax() uint64 {
+	return *c.Chain.ComputeUnitPriceMax
+}
+
+func (c *SolanaConfig) ComputeUnitPriceMin() uint64 {
+	return *c.Chain.ComputeUnitPriceMin
+}
+
+func (c *SolanaConfig) ComputeUnitPriceDefault() uint64 {
+	return *c.Chain.ComputeUnitPriceDefault
+}
+
+func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
+	return c.Chain.FeeBumpPeriod.Duration()
 }

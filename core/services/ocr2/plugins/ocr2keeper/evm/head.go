@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -11,15 +12,19 @@ import (
 )
 
 type HeadProvider struct {
-	ht httypes.HeadTracker
-	hb httypes.HeadBroadcaster
+	ht         httypes.HeadTracker
+	hb         httypes.HeadBroadcaster
+	chHead     chan types.BlockKey
+	subscribed bool
 }
 
-// OnNewHead should continue running until the context ends
-func (hw *HeadProvider) OnNewHead(ctx context.Context, f func(blockKey types.BlockKey)) error {
-	_, _ = hw.hb.Subscribe(&headWrapper{f: f})
-	<-ctx.Done()
-	return nil
+// HeadTicker provides external access to the heads channel
+func (hw *HeadProvider) HeadTicker() chan types.BlockKey {
+	if !hw.subscribed {
+		_, _ = hw.hb.Subscribe(&headWrapper{c: hw.chHead})
+		hw.subscribed = true
+	}
+	return hw.chHead
 }
 
 func (hw *HeadProvider) LatestBlock() int64 {
@@ -30,8 +35,16 @@ func (hw *HeadProvider) LatestBlock() int64 {
 	return lc.Number
 }
 
+// send does a non-blocking send of the key on c.
+func send(c chan types.BlockKey, k types.BlockKey) {
+	select {
+	case c <- k:
+	default:
+	}
+}
+
 type headWrapper struct {
-	f func(blockKey types.BlockKey)
+	c chan types.BlockKey
 }
 
 func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
@@ -39,5 +52,6 @@ func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head
 	if head != nil {
 		bl = head.Number
 	}
-	w.f(types.BlockKey(fmt.Sprintf("%d", bl)))
+
+	send(w.c, chain.BlockKey(fmt.Sprintf("%d", bl)))
 }

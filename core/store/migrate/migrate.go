@@ -28,17 +28,7 @@ func init() {
 	goose.SetBaseFS(embedMigrations)
 	goose.SetSequential(true)
 	goose.SetTableName("goose_migrations")
-	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-	var logMigrations string
-	if v1, v2 := os.Getenv("LOG_SQL_MIGRATIONS"), os.Getenv("CL_LOG_SQL_MIGRATIONS"); v1 != "" && v2 != "" {
-		if v1 != v2 {
-			panic("you may only set one of LOG_SQL_MIGRATIONS and CL_LOG_SQL_MIGRATIONS environment variables, not both")
-		}
-	} else if v1 == "" {
-		logMigrations = v2
-	} else if v2 == "" {
-		logMigrations = v1
-	}
+	logMigrations := os.Getenv("CL_LOG_SQL_MIGRATIONS")
 	verbose, _ := strconv.ParseBool(logMigrations)
 	goose.SetVerbose(verbose)
 }

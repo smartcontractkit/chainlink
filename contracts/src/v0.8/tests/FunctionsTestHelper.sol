@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../dev/functions/Functions.sol";
+import {Functions} from "../dev/functions/Functions.sol";
 
 contract FunctionsTestHelper {
   using Functions for Functions.Request;
+
+  error EmptySource();
+  error EmptyUrl();
+  error EmptySecrets();
+  error EmptyArgs();
 
   Functions.Request private s_req;
 

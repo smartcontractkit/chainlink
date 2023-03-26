@@ -86,7 +86,7 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
 	}
 }
 
-func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.DBChain) {
+func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.ChainConfig) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -103,7 +103,7 @@ func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.DBChain) {
 				continue
 			}
 		}
-		dbc := types.DBChain{
+		dbc := types.ChainConfig{
 			ID:  *ch.ChainID,
 			Cfg: ch.asV1(),
 		}
@@ -213,7 +213,7 @@ func (c *EVMConfig) SetFrom(f *EVMConfig) {
 	c.Nodes.SetFrom(&f.Nodes)
 }
 
-func (c *EVMConfig) SetFromDB(ch types.DBChain, nodes []types.Node) error {
+func (c *EVMConfig) SetFromDB(ch types.ChainConfig, nodes []types.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
 
@@ -247,8 +247,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				if config.ChainType(*c.ChainType) != config.ChainOptimismBedrock {
+					err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+						Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				}
 			}
 		}
 	}
@@ -276,6 +278,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 }
 
 type Chain struct {
+	AutoCreateKey            *bool
 	BlockBackfillDepth       *uint32
 	BlockBackfillSkip        *bool
 	ChainType                *string

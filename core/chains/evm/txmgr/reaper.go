@@ -3,11 +3,11 @@ package txmgr
 import (
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -29,7 +29,7 @@ type Reaper struct {
 	config         ReaperConfig
 	chainID        utils.Big
 	log            logger.Logger
-	latestBlockNum *atomic.Int64
+	latestBlockNum atomic.Int64
 	trigger        chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
@@ -37,16 +37,18 @@ type Reaper struct {
 
 // NewReaper instantiates a new reaper object
 func NewReaper(lggr logger.Logger, db *sqlx.DB, config ReaperConfig, chainID big.Int) *Reaper {
-	return &Reaper{
+	r := &Reaper{
 		db,
 		config,
 		*utils.NewBig(&chainID),
 		lggr.Named("txm_reaper"),
-		atomic.NewInt64(-1),
+		atomic.Int64{},
 		make(chan struct{}, 1),
 		make(chan struct{}),
 		make(chan struct{}),
 	}
+	r.latestBlockNum.Store(-1)
+	return r
 }
 
 // Start the reaper. Should only be called once.
@@ -107,7 +109,7 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 func (r *Reaper) ReapEthTxes(headNum int64) error {
 	threshold := r.config.EthTxReaperThreshold()
 	if threshold == 0 {
-		r.log.Debug("TxmReaper: ETH_TX_REAPER_THRESHOLD set to 0; skipping ReapEthTxes")
+		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapEthTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.config.EvmFinalityDepth())

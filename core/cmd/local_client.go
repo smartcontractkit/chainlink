@@ -21,8 +21,10 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -43,13 +45,187 @@ import (
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+var ErrProfileTooLong = errors.New("requested profile duration too large")
+
+func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+	return []cli.Command{
+		{
+			Name:    "start",
+			Aliases: []string{"node", "n"},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "api, a",
+					Usage: "text file holding the API email and password, each on a line",
+				},
+				cli.BoolFlag{
+					Name:  "debug, d",
+					Usage: "set logger level to debug",
+				},
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "text file holding the password for the node's account",
+				},
+				cli.StringFlag{
+					Name:  "vrfpassword, vp",
+					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
+				},
+			},
+			Usage:  "Run the Chainlink node",
+			Action: client.RunNode,
+		},
+		{
+			Name:   "rebroadcast-transactions",
+			Usage:  "Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue",
+			Action: client.RebroadcastTransactions,
+			Flags: []cli.Flag{
+				cli.Uint64Flag{
+					Name:  "beginningNonce, b",
+					Usage: "beginning of nonce range to rebroadcast",
+				},
+				cli.Uint64Flag{
+					Name:  "endingNonce, e",
+					Usage: "end of nonce range to rebroadcast (inclusive)",
+				},
+				cli.Uint64Flag{
+					Name:  "gasPriceWei, g",
+					Usage: "gas price (in Wei) to rebroadcast transactions at",
+				},
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "text file holding the password for the node's account",
+				},
+				cli.StringFlag{
+					Name:     "address, a",
+					Usage:    "The address (in hex format) for the key which we want to rebroadcast transactions",
+					Required: true,
+				},
+				cli.StringFlag{
+					Name:  "evmChainID",
+					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
+				},
+				cli.Uint64Flag{
+					Name:  "gasLimit",
+					Usage: "OPTIONAL: gas limit to use for each transaction ",
+				},
+			},
+		},
+		{
+			Name:   "status",
+			Usage:  "Displays the health of various services running inside the node.",
+			Action: client.Status,
+			Flags:  []cli.Flag{},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin status` instead.")
+				return nil
+			},
+		},
+		{
+			Name:   "profile",
+			Usage:  "Collects profile metrics from the node.",
+			Action: client.Profile,
+			Flags: []cli.Flag{
+				cli.Uint64Flag{
+					Name:  "seconds, s",
+					Usage: "duration of profile capture",
+					Value: 8,
+				},
+				cli.StringFlag{
+					Name:  "output_dir, o",
+					Usage: "output directory of the captured profile",
+					Value: "/tmp/",
+				},
+			},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin profile` instead.")
+				return nil
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
+		},
+		{
+			Name:        "db",
+			Usage:       "Commands for managing the database.",
+			Description: "Potentially destructive commands for managing the database.",
+			Subcommands: []cli.Command{
+				{
+					Name:   "reset",
+					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+					Hidden: !devMode,
+					Action: client.ResetDatabase,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "dangerWillRobinson",
+							Usage: "set to true to enable dropping non-test databases",
+						},
+					},
+				},
+				{
+					Name:   "preparetest",
+					Usage:  "Reset database and load fixtures.",
+					Hidden: !devMode,
+					Action: client.PrepareTestDatabase,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "user-only",
+							Usage: "only include test user fixture",
+						},
+					},
+				},
+				{
+					Name:   "version",
+					Usage:  "Display the current database version.",
+					Action: client.VersionDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "status",
+					Usage:  "Display the current database migration status.",
+					Action: client.StatusDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate the database to the latest version.",
+					Action: client.MigrateDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "rollback",
+					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
+					Action: client.RollbackDatabase,
+					Flags:  []cli.Flag{},
+				},
+				{
+					Name:   "create-migration",
+					Usage:  "Create a new migration.",
+					Hidden: !devMode,
+					Action: client.CreateMigration,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "type",
+							Usage: "set to `go` to generate a .go migration (instead of .sql)",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // ownerPermsMask are the file permission bits reserved for owner.
-const ownerPermsMask = os.FileMode(0700)
+const ownerPermsMask = os.FileMode(0o700)
 
 // PristineDBName is a clean copy of test DB with migrations.
 // Used by heavyweight.FullTestDB* functions.
-const PristineDBName = "chainlink_test_pristine"
-const TestDBNamePrefix = "chainlink_test_"
+const (
+	PristineDBName   = "chainlink_test_pristine"
+	TestDBNamePrefix = "chainlink_test_"
+)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -121,10 +297,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", cli.Config.ShutdownGracePeriod())
 		// LockedDB.Close() will release DB locks and close DB connection
 		// Executing this explicitly because defers are not executed in case of os.Exit()
-		if err = ldb.Close(); err != nil {
+		if err := ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
-		if err = cli.CloseLogger(); err != nil {
+		if err := cli.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
 		}
 
@@ -132,7 +308,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	})
 
 	// Try opening DB connection and acquiring DB locks at once
-	if err = ldb.Open(rootCtx); err != nil {
+	if err := ldb.Open(rootCtx); err != nil {
 		// If not successful, we know neither locks nor connection remains opened
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
@@ -172,9 +348,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
-			if err2 != nil {
-				return errors.Wrap(err2, "failed to ensure keystore keys")
+			if ch.Config().AutoCreateKey() {
+				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
+				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+				if err2 != nil {
+					return errors.Wrap(err2, "failed to ensure keystore keys")
+				}
+			} else {
+				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", ch.ID())
 			}
 		}
 	}
@@ -197,16 +378,16 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
+	if cli.Config.CosmosEnabled() {
+		err2 := app.GetKeyStore().Cosmos().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure cosmos key")
+		}
+	}
 	if cli.Config.SolanaEnabled() {
 		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
-		}
-	}
-	if cli.Config.TerraEnabled() {
-		err2 := app.GetKeyStore().Terra().EnsureKey()
-		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure terra key")
 		}
 	}
 	if cli.Config.StarkNetEnabled() {
@@ -226,14 +407,16 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil && !errors.Is(err, ErrNoCredentialFile) {
-		return errors.Wrap(err, "error creating api initializer")
-	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
-		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
-			return errors.WithStack(err)
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil {
+		if !errors.Is(err, ErrNoCredentialFile) {
+			return errors.Wrap(err, "error creating api initializer")
 		}
-		return errors.Wrap(err, "error creating fallback initializer")
+		if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
+			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
+				return errors.WithStack(err)
+			}
+			return errors.Wrap(err, "error creating fallback initializer")
+		}
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
@@ -274,7 +457,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
-	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -302,7 +485,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 		}
 	}
 
-	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	// Ensure {secret,cookie} files' permissions are <= `ownerPermsMask``
 	protectedFiles := []string{"secret", "cookie", ".password", ".env", ".api"}
 	for _, fileName := range protectedFiles {
 		path := filepath.Join(rootDir, fileName)
@@ -335,8 +518,8 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
-	beginningNonce := c.Uint("beginningNonce")
-	endingNonce := c.Uint("endingNonce")
+	beginningNonce := c.Int64("beginningNonce")
+	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint("gasLimit")
 	addressHex := c.String("address")
@@ -368,15 +551,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
-	defer func() {
-		if serr := app.Stop(); serr != nil {
-			err = multierr.Append(err, serr)
-		}
-	}()
-	pwd, err := utils.PasswordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
+
 	chain, err := app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		return cli.errorOut(err)
@@ -390,7 +565,20 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return err
 	}
 
-	err = keyStore.Unlock(pwd)
+	if c.IsSet("password") {
+		pwd, err := utils.PasswordFromFile(c.String("password"))
+		if err != nil {
+			return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+		}
+		cli.Config.SetPasswords(&pwd, nil)
+	}
+
+	err = cli.Config.Validate()
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+	}
+
+	err = keyStore.Unlock(cli.Config.KeystorePassword())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
@@ -401,7 +589,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := txmgr.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+
+	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
@@ -446,28 +636,28 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// Status will display the health of various services
-func (cli *Client) Status(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
+var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
+// ConfigValidate validate the client configuration and pretty-prints results
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	fmt.Println("Valid configuration.")
+	return nil
 }
 
-// ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
-// This is useful to setup the database for testing
+// ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
+// in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+		return cli.errorOut(errDBURLMissing)
 	}
 
 	dangerMode := c.Bool("dangerWillRobinson")
@@ -521,7 +711,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	}
 
 	userOnly := c.Bool("user-only")
-	var fixturePath = "../store/fixtures/fixtures.sql"
+	fixturePath := "../store/fixtures/fixtures.sql"
 	if userOnly {
 		fixturePath = "../store/fixtures/users_only_fixture.sql"
 	}
@@ -587,7 +777,7 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+		return cli.errorOut(errDBURLMissing)
 	}
 
 	cli.Logger.Infof("Migrating database: %#v", parsed.String())
@@ -680,7 +870,7 @@ type dbConfig interface {
 func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
-		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+		return nil, errDBURLMissing
 	}
 	return pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
 }

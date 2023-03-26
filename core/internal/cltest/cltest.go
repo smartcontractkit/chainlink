@@ -39,17 +39,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -57,7 +56,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -71,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
@@ -79,14 +78,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -126,12 +123,12 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
+	DefaultCosmosKey     = cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
 	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
-	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
@@ -203,15 +200,16 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
-	return txmgr.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr,
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
+	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
+		keyStates, estimator, nil, lggr,
 		checkerFactory, nonceAutoSync)
 }
 
@@ -220,11 +218,12 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
+func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	ec := txmgr.NewEthConfirmer(db, ethClient, config, ks, keyStates,
-		gas.NewFixedPriceEstimator(config, lggr), fn, lggr)
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
+
+	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, estimator, fn, lggr)
 	return ec
 }
 
@@ -246,38 +245,12 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 	return server.WSURL().String()
 }
 
-// Deprecated: use configtest/v2.NewTestGeneralConfig
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
-	shutdownGracePeriod := testutils.DefaultWaitTimeout
-	reaperInterval := time.Duration(0) // disable reaper
-	overrides := configtest.GeneralConfigOverrides{
-		Dialect:                   dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:            null.IntFrom(NewRandomPositiveInt64()),
-		P2PEnabled:                null.BoolFrom(false),
-		ShutdownGracePeriod:       &shutdownGracePeriod,
-		JobPipelineReaperInterval: &reaperInterval,
-	}
-	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
-}
-
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := configtest2.NewGeneralConfig(t, nil)
-
-	return NewApplicationWithConfig(t, c)
-}
-
-// Deprecated: use NewApplicationEVMDisabled
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
-	t.Helper()
-
-	c := NewTestGeneralConfig(t)
-	c.Overrides.EVMEnabled = null.BoolFrom(false)
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -303,24 +276,21 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
-	require.NoError(t, app.KeyStore.Unlock(Password))
+
 	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case ethkey.KeyV2:
-			app.Keys = append(app.Keys, v)
-		case p2pkey.KeyV2:
-			require.NoError(t, app.GetKeyStore().P2P().Add(v))
-		case evmtypes.DBChain:
+		case evmtypes.ChainConfig:
 			chainID = v.ID
 		case *utils.Big:
 			chainID = *v
 		}
 	}
+
 	if len(app.Keys) == 0 {
 		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
 		app.Keys = []ethkey.KeyV2{k}
@@ -334,13 +304,32 @@ func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsA
 	return app
 }
 
+func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID utils.Big) {
+	require.NoError(t, app.KeyStore.Unlock(Password))
+
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case ethkey.KeyV2:
+			app.Keys = append(app.Keys, v)
+		case p2pkey.KeyV2:
+			require.NoError(t, app.GetKeyStore().P2P().Add(v))
+		case csakey.KeyV2:
+			require.NoError(t, app.GetKeyStore().CSA().Add(v))
+		case ocr2key.KeyBundle:
+			require.NoError(t, app.GetKeyStore().OCR2().Add(v))
+		}
+	}
+
+	return
+}
+
 const (
 	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
 )
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
-func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -387,11 +376,6 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case evmtypes.DBChain:
-			if chainORM != nil {
-				panic("cannot set more than one chain")
-			}
-			chainORM = evmtest.NewMockORM([]evmtypes.DBChain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
@@ -407,24 +391,22 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	if h, ok := cfg.(v2.HasEVMConfigs); ok {
-		var ids []utils.Big
-		for _, c := range h.EVMConfigs() {
-			ids = append(ids, *c.ChainID)
+	var ids []utils.Big
+	for _, c := range cfg.EVMConfigs() {
+		ids = append(ids, *c.ChainID)
+	}
+	if len(ids) > 0 {
+		o := chainORM
+		if o == nil {
+			o = evm.NewORM(db, lggr, cfg)
 		}
-		if len(ids) > 0 {
-			o := chainORM
-			if o == nil {
-				o = evm.NewORM(db, lggr, cfg)
-			}
-			if err = o.EnsureChains(ids); err != nil {
-				t.Fatal(err)
-			}
+		if err = o.EnsureChains(ids); err != nil {
+			t.Fatal(err)
 		}
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
+	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
@@ -442,32 +424,18 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	if err != nil {
 		lggr.Fatal(err)
 	}
-	if cfg.TerraEnabled() {
-		terraLggr := lggr.Named("Terra")
-		opts := terra.ChainSetOpts{
+	if cfg.CosmosEnabled() {
+		cosmosLggr := lggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
 			Config:           cfg,
-			Logger:           terraLggr,
+			Logger:           cosmosLggr,
 			DB:               db,
-			KeyStore:         keyStore.Terra(),
+			KeyStore:         keyStore.Cosmos(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
-			cfgs := newCfg.TerraConfigs()
-			opts.ORM = terra.NewORMImmut(cfgs)
-			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
-			var ids []string
-			for _, c := range cfgs {
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
-					t.Fatal(err)
-				}
-			}
-		} else {
-			opts.ORM = terra.NewORM(db, terraLggr, cfg)
-			chains.Terra, err = terra.NewChainSet(opts)
-		}
+		cfgs := cfg.CosmosConfigs()
+		opts.ORM = cosmos.NewORMImmut(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
 		if err != nil {
 			lggr.Fatal(err)
 		}
@@ -479,24 +447,17 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			DB:       db,
 			KeyStore: keyStore.Solana(),
 		}
-		if newCfg, ok := cfg.(interface {
-			SolanaConfigs() solana.SolanaConfigs
-		}); ok {
-			cfgs := newCfg.SolanaConfigs()
-			opts.ORM = solana.NewORMImmut(cfgs)
-			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
-			var ids []string
-			for _, c := range cfgs {
-				ids = append(ids, *c.ChainID)
+		cfgs := cfg.SolanaConfigs()
+		opts.ORM = solana.NewORMImmut(cfgs)
+		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		var ids []string
+		for _, c := range cfgs {
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+				t.Fatal(err)
 			}
-			if len(ids) > 0 {
-				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
-					t.Fatal(err)
-				}
-			}
-		} else {
-			opts.ORM = solana.NewORM(db, solLggr, cfg)
-			chains.Solana, err = solana.NewChainSet(opts)
 		}
 		if err != nil {
 			lggr.Fatal(err)
@@ -509,24 +470,17 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			Logger:   starkLggr,
 			KeyStore: keyStore.StarkNet(),
 		}
-		if newCfg, ok := cfg.(interface {
-			StarknetConfigs() starknet.StarknetConfigs
-		}); ok {
-			cfgs := newCfg.StarknetConfigs()
-			opts.ORM = starknet.NewORMImmut(cfgs)
-			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
-			var ids []string
-			for _, c := range cfgs {
-				ids = append(ids, *c.ChainID)
+		cfgs := cfg.StarknetConfigs()
+		opts.ORM = starknet.NewORMImmut(cfgs)
+		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		var ids []string
+		for _, c := range cfgs {
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+				t.Fatal(err)
 			}
-			if len(ids) > 0 {
-				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
-					t.Fatal(err)
-				}
-			}
-		} else {
-			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
-			chains.StarkNet, err = starknet.NewChainSet(opts)
 		}
 		if err != nil {
 			lggr.Fatal(err)
@@ -555,11 +509,17 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		ChainlinkApplication: app,
 		Logger:               lggr,
 	}
-	ta.Server = httptest.NewServer(web.Router(t, app, nil))
+
+	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
+	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Start()
+	ta.Server = srvr
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
+
+	setKeys(t, ta, flagsAndDeps...)
 
 	return ta
 }
@@ -668,6 +628,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession(roleFixtureUserAPIEmail string) (id string) {
 	session := NewSession()
+	ta.Logger.Infof("TestApplication creating session (id: %s, email: %s, last used: %s)", session.ID, roleFixtureUserAPIEmail, session.LastUsed.String())
 	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, roleFixtureUserAPIEmail, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id

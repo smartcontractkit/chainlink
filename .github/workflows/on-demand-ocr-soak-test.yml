@@ -23,7 +23,7 @@ on:
         required: false
         type: string
       slackMemberID:
-        description: Notifies test results (Not your @)
+        description: Slack Member ID (Not your @)
         required: true
         default: U01A2B2C3D4
         type: string
@@ -61,7 +61,6 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_TRIGGERED_BY: ocr-on-demand
       SELECTED_NETWORKS: ${{ inputs.network }}
       EVM_KEYS: ${{ inputs.fundingPrivateKey }}
       EVM_URLS: ${{ inputs.wsURL }}
@@ -73,6 +72,8 @@ jobs:
       OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
       OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
       TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -83,17 +84,52 @@ jobs:
           this-job-name: ${{ inputs.network }} OCR Soak Test
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.REF_NAME }}
+      - name: Setup Push Tag
+        id: push
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ inputs.chainlinkVersion }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          if [ "${{ env.REF_NAME }}" != "develop" ]; then
+            # use sha if not on develop
+            echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:soak.${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "\`soak.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
+          else
+            # default to develop
+            echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:develop" >>$GITHUB_OUTPUT
+            echo "\`develop\`" >>$GITHUB_STEP_SUMMARY
+          fi
+      - name: build test runner
+        if: ${{ env.REF_NAME != 'develop' }}
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        with:
+          tags: ${{ steps.push.outputs.tag }}
+          file: ./integration-tests/test.Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
+            IMAGE_VERSION=v0.3.17
+            SUITES="soak"
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: soak
+          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
+          ENV_JOB_IMAGE: ${{ steps.push.outputs.tag }}
+          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
+          TEST_UPLOAD_CPU_PROFILE: true
+          TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run TestOCRSoak ./soak
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
-          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           token: ${{ secrets.GITHUB_TOKEN }}
           should_cleanup: false
           go_mod_path: ./integration-tests/go.mod
