@@ -693,8 +693,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	start := time.Now()
 	var processed = make(map[string]struct{})
+	chainId, _ := lsn.ethClient.ChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.q, startBalance, chainId.Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed

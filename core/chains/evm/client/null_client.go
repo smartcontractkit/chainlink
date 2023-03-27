@@ -41,19 +41,14 @@ func (nc *NullClient) Close() {
 	nc.lggr.Debug("Close")
 }
 
-func (nc *NullClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
-	nc.lggr.Debug("GetERC20Balance")
+func (nc *NullClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
+	nc.lggr.Debug("TokenBalance")
 	return big.NewInt(0), nil
 }
 
 func (nc *NullClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	nc.lggr.Debug("GetLINKBalance")
 	return assets.NewLinkFromJuels(0), nil
-}
-
-func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
-	nc.lggr.Debug("GetEthBalance")
-	return assets.NewEth(0), nil
 }
 
 func (nc *NullClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
@@ -102,12 +97,12 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 // GethClient methods
 //
 
-func (nc *NullClient) ChainID() *big.Int {
+func (nc *NullClient) ChainID() (*big.Int, error) {
 	nc.lggr.Debug("ChainID")
 	if nc.cid != nil {
-		return nc.cid
+		return nc.cid, nil
 	}
-	return big.NewInt(NullClientChainID)
+	return big.NewInt(NullClientChainID), nil
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -122,6 +117,11 @@ func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	nc.lggr.Debug("SendTransaction")
+	return nil
+}
+
+func (nc *NullClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+	nc.lggr.Debug("SimulateTransaction")
 	return nil
 }
 
@@ -145,6 +145,11 @@ func (nc *NullClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return nil, nil
 }
 
+func (nc *NullClient) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	nc.lggr.Debug("TransactionByHash")
+	return nil, nil
+}
+
 func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	nc.lggr.Debug("BlockByNumber")
 	return nil, nil
@@ -152,6 +157,11 @@ func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*type
 
 func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	nc.lggr.Debug("BlockByHash")
+	return nil, nil
+}
+
+func (nc *NullClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	nc.lggr.Debug("LatestBlockHeight")
 	return nil, nil
 }
 

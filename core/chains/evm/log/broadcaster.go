@@ -167,7 +167,7 @@ var _ Broadcaster = (*broadcaster)(nil)
 func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *utils.MailboxMonitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("LogBroadcaster")
-	id := ethClient.ChainID()
+	id, _ := ethClient.ChainID()
 	return &broadcaster{
 		orm:                    orm,
 		config:                 config,

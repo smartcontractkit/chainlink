@@ -126,7 +126,7 @@ type CallArgs struct {
 	Data hexutil.Bytes  `json:"data"`
 }
 
-// GetERC20Balance returns the balance of the given address for the token contract address.
+// TokenBalance returns the balance of the given address for the token contract address.
 func (client *client) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)

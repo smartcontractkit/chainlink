@@ -133,6 +133,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 ) *Txm {
+	chainId, _ := ethClient.ChainID()
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -144,7 +145,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     estimator,
-		chainID:          *ethClient.ChainID(),
+		chainID:          *chainId,
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
 		trigger:          make(chan common.Address),
@@ -160,7 +161,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.EthTxReaperThreshold() > 0 && cfg.EthTxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
+		b.reaper = NewReaper(lggr, db, cfg, *chainId)
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}

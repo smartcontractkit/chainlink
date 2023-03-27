@@ -56,7 +56,8 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) tx
 	case "Arbitrum":
 		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, cfg, ethClient, ethClient), cfg)
 	case "BlockHistory":
-		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID()), cfg)
+		chainId, _ := ethClient.ChainID()
+		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, *chainId), cfg)
 	case "FixedPrice":
 		return NewWrappedEvmEstimator(NewFixedPriceEstimator(cfg, lggr), cfg)
 	case "Optimism2", "L2Suggested":

@@ -64,7 +64,7 @@ func NewHeadTracker(
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
-	id := ethClient.ChainID()
+	id, _ := ethClient.ChainID()
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,

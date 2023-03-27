@@ -93,6 +93,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+	chainId, _ := chain.Client().ChainID()
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
@@ -160,7 +161,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
 				chain.HeadBroadcaster(),
 				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
 		}
@@ -183,7 +184,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),

@@ -65,7 +65,7 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
-	ChainID() *big.Int
+	ChainID() (*big.Int, error)
 }
 
 var (
@@ -611,7 +611,8 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID()), pg.WithQueryer(tx))
+			chainId, _ := lp.ec.ChainID()
+			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, chainId), pg.WithQueryer(tx))
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
@@ -785,11 +786,12 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			if len(logs) == 0 {
 				return nil
 			}
+			chainId, _ := lp.ec.ChainID()
 			return lp.orm.InsertLogs(convertLogs(logs,
 				[]LogPollerBlock{{BlockNumber: currentBlockNumber,
 					BlockTimestamp: currentBlock.Timestamp}},
 				lp.lggr,
-				lp.ec.ChainID(),
+				chainId,
 			), pg.WithQueryer(tx))
 		})
 		if err != nil {

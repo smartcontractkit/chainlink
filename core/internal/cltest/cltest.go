@@ -406,6 +406,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
+	chainId, _ := ethClient.ChainID()
 	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
@@ -414,8 +415,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 		GenEthClient: func(_ *big.Int) evmclient.Client {
-			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
-				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
+			if chainId.Cmp(cfg.DefaultChainID()) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
 			}
 			return ethClient
 		},

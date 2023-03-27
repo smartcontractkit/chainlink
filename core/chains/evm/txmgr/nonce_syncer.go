@@ -67,10 +67,11 @@ type (
 // NewNonceSyncer returns a new syncer
 func NewNonceSyncer(orm ORM, lggr logger.Logger, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
+	chainId, _ := ethClient.ChainID()
 	return &NonceSyncer{
 		orm,
 		ethClient,
-		ethClient.ChainID(),
+		chainId,
 		lggr,
 		kst,
 	}
