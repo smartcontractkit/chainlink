@@ -109,7 +109,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		d.pr,
 		chain.Client(),
 		chain.HeadBroadcaster(),
-		chain.TxManager().GetGasEstimator(),
+		chain.GasEstimator(),
 		svcLogger,
 		chain.Config(),
 		effectiveKeeperAddress,
