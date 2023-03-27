@@ -13,7 +13,7 @@ inputs:
     required: false
   # Inputs for publishing
   publish-root:
-    description: When set to the string boolean value of "true", the resulting built image will be published
+    description: When set to the string boolean value of "true", the resulting built root image will be published
     default: "false"
     required: false
   publish-nonroot:
