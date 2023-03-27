@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 )
 
 var (
