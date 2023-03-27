@@ -56,10 +56,16 @@ func NewMercuryServerClient(url string, userId string, userKey string) *MercuryS
 	}
 }
 
-func (s *MercuryServer) DialWS(ctx context.Context) (*websocket.Conn, *http.Response, error) {
+func (s *MercuryServer) DialWS(ctx context.Context, urlParams string) (*websocket.Conn, *http.Response, error) {
 	timestamp := genReqTimestamp()
-	hmacSignature := genHmacSignature("GET", "/ws", []byte{}, []byte(s.UserKey), s.UserId, timestamp)
-	return websocket.Dial(ctx, fmt.Sprintf("%s/ws", s.URL), &websocket.DialOptions{
+	var path string
+	if urlParams != "" {
+		path = fmt.Sprintf("/ws%s", urlParams)
+	} else {
+		path = "/ws"
+	}
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	return websocket.Dial(ctx, fmt.Sprintf("%s%s", s.URL, path), &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Authorization":                    []string{s.UserId},
 			"X-Authorization-Timestamp":        []string{timestamp},

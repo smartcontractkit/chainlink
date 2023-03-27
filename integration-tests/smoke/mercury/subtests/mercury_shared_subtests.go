@@ -100,7 +100,7 @@ func RunTestGetReportByFeedIdHexFromWS(t *testing.T, te *mercury.TestEnv, feedId
 	t.Run("get report by feed id from /ws websocket", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		c, _, err := te.MSClient.DialWS(ctx)
+		c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s", feedId))
 		require.NoError(t, err)
 		defer c.Close(websocket.StatusNormalClosure, "")
 
