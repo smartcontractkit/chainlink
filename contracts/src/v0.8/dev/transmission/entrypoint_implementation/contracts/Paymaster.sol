@@ -11,6 +11,8 @@ import "./SCALibrary.sol";
 contract Paymaster is IPaymaster {
   error OnlyCallableFromLink();
   error InvalidCalldata();
+  error UserOperationAlreadyTried(bytes32 userOpHash);
+  error InsufficientFunds(uint256 juelsNeeded, uint256 subscriptionBalance);
 
   LinkTokenInterface public immutable LINK;
   uint256 weiPerUnitLink = 5000000000000000;
@@ -40,15 +42,13 @@ contract Paymaster is IPaymaster {
     uint256 maxCost
   ) external returns (bytes memory context, uint256 validationData) {
     if (userOpHashMapping[userOpHash]) {
-      require(false, "already tried");
-      // return ("", _packValidationData(true, 0, 0)); // already tried
+      revert UserOperationAlreadyTried(userOpHash);
     }
 
     uint256 extraCostJuels = extractExtraCostJuels(userOp);
     uint256 costJuels = (1e18 * maxCost) / weiPerUnitLink + extraCostJuels;
     if (subscriptions[userOp.sender] < costJuels) {
-      require(false, "insufficient funds");
-      // return ("", _packValidationData(true, 0, 0)); // insufficient funds
+      revert InsufficientFunds(costJuels, subscriptions[userOp.sender]);
     }
 
     userOpHashMapping[userOpHash] = true;

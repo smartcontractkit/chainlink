@@ -4,15 +4,17 @@ import "./SCALibrary.sol";
 import "../../../vendor/entrypoint/core/Helpers.sol";
 
 /// TODO: decide on a compiler version. Must not be dynamic, and must be > 0.8.12.
-pragma solidity 0.8.15; 
+pragma solidity 0.8.15;
 
-// Smart Contract Account, a contract deployed for a single user and that allows
-// them to invoke meta-transactions.
+/// @dev Smart Contract Account, a contract deployed for a single user and that allows
+/// @dev them to invoke meta-transactions.
+/// TODO: Consider making the Smart Contract Account upgradeable.
 contract SCA is IAccount {
   uint256 public s_nonce;
   address public immutable s_owner;
   address public immutable s_entryPoint;
 
+  error IncorrectNonce(uint256 currentNonce, uint256 nonceGiven);
   error NotAuthorized(address sender);
   error TransactionExpired(uint256 deadline, uint256 currentTimestamp);
   error InvalidSignature(bytes32 operationHash, address owner);
@@ -30,7 +32,8 @@ contract SCA is IAccount {
     uint256 /* missingAccountFunds - unused in favor of paymaster */
   ) external returns (uint256 validationData) {
     if (userOp.nonce != s_nonce) {
-      return _packValidationData(true, 0, 0); // incorrect nonce
+      // Revert for non-signature errors.
+      revert IncorrectNonce(s_nonce, userOp.nonce);
     }
 
     // Verify signature on hash.

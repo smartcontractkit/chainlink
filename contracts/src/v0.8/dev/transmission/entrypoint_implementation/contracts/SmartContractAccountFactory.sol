@@ -8,6 +8,8 @@ contract SmartContractAccountFactory {
 
   /// @dev Use create2 to deploy a new Smart Contract Account.
   /// @dev See EIP-1014 for more on CREATE2.
+  /// TODO: Return the address of the Smart Contract Account even if it is already 
+  /// deployed.
   function deploySmartContractAccount(
     bytes32 abiEncodedOwnerAddress,
     bytes memory initCode
