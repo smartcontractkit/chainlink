@@ -127,7 +127,7 @@ type CallArgs struct {
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
-func (client *client) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (client *client) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
@@ -145,20 +145,20 @@ func (client *client) GetERC20Balance(ctx context.Context, address common.Addres
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
-func (client *client) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	balance, err := client.GetERC20Balance(ctx, address, linkAddress)
+func (client *client) LINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	balance, err := client.TokenBalance(ctx, address, linkAddress)
 	if err != nil {
 		return assets.NewLinkFromJuels(0), err
 	}
 	return (*assets.Link)(balance), nil
 }
 
-func (client *client) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	balance, err := client.BalanceAt(ctx, account, blockNumber)
 	if err != nil {
-		return assets.NewEth(0), err
+		return big.NewInt(0), err
 	}
-	return (*assets.Eth)(balance), nil
+	return balance, nil
 }
 
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
@@ -187,6 +187,11 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 // SendTransaction also uses the sendonly HTTP RPC URLs if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	return client.pool.SendTransaction(ctx, tx)
+}
+
+func (client *client) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+	// todo: implement if used
+	return nil
 }
 
 func (client *client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
