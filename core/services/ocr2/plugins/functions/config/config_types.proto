@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "core/services/ocr2/plugins/directrequestocr/config";
+option go_package = "core/services/ocr2/plugins/functions/config";
 
 package config_types;
 
