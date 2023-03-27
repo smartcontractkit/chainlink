@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -174,6 +175,9 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 
 // BeforeJobDeleted satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+
+// OnDeleteJob satisfies the job.Delegate interface.
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {
