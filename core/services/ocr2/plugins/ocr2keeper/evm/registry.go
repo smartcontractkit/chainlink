@@ -121,7 +121,6 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterName    string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -359,18 +358,20 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
+func UpkeepFilterName(addr common.Address) string {
+	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+}
+
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 	err := r.poller.RegisterFilter(logpoller.Filter{
-		Name:      filterName,
+		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()
-		r.filterName = filterName
 		r.mu.Unlock()
 	}
 	return err
