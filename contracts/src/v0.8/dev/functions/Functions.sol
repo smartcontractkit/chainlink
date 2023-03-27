@@ -34,6 +34,7 @@ library Functions {
   error EmptyUrl();
   error EmptySecrets();
   error EmptyArgs();
+  error NoInlineSecrets();
 
   /**
    * @notice Encodes a Request to CBOR encoded bytes
@@ -63,6 +64,9 @@ library Functions {
     }
 
     if (self.secrets.length > 0) {
+      if (self.secretsLocation == Location.Inline) {
+        revert NoInlineSecrets();
+      }
       CBOR.writeString(buffer, "secretsLocation");
       CBOR.writeUInt256(buffer, uint256(self.secretsLocation));
       CBOR.writeString(buffer, "secrets");
@@ -101,18 +105,6 @@ library Functions {
    */
   function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
     initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
-  }
-
-  /**
-   * @notice Adds Inline user encrypted secrets to a Request
-   * @param self The initialized request
-   * @param secrets The user encrypted secrets (must not be empty)
-   */
-  function addInlineSecrets(Request memory self, bytes memory secrets) internal pure {
-    if (secrets.length == 0) revert EmptySecrets();
-
-    self.secretsLocation = Location.Inline;
-    self.secrets = secrets;
   }
 
   /**
