@@ -1378,7 +1378,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	}
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
-	estimator := chain.TxManager().GetGasEstimator()
+	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(500000), gasLimit)

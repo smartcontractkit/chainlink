@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
@@ -36,27 +37,15 @@ func TestLoader_Chains(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, app)
 	})
 
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte("1"))
-	require.NoError(t, err)
-
-	id2 := utils.Big{}
-	err = id2.UnmarshalText([]byte("2"))
-	require.NoError(t, err)
-
-	chainId3 := utils.Big{}
-	err = chainId3.UnmarshalText([]byte("3"))
-	require.NoError(t, err)
-
-	chain := evmtypes.ChainConfig{
-		ID:      id,
+	chain := chains.ChainConfig{
+		ID:      "1",
 		Enabled: true,
 	}
-	chain2 := evmtypes.ChainConfig{
-		ID:      id2,
+	chain2 := chains.ChainConfig{
+		ID:      "2",
 		Enabled: true,
 	}
-	evmORM := evmtest.NewMockORM([]evmtypes.ChainConfig{chain, chain2}, nil)
+	evmORM := evmtest.NewMockORM([]chains.ChainConfig{chain, chain2}, nil)
 	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}
@@ -65,11 +54,11 @@ func TestLoader_Chains(t *testing.T) {
 	results := batcher.loadByIDs(ctx, keys)
 
 	assert.Len(t, results, 3)
-	assert.Equal(t, chain2, results[0].Data.(evmtypes.ChainConfig))
-	assert.Equal(t, chain, results[1].Data.(evmtypes.ChainConfig))
+	assert.Equal(t, chain2, results[0].Data.(chains.ChainConfig))
+	assert.Equal(t, chain, results[1].Data.(chains.ChainConfig))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
-	assert.Equal(t, "chain not found", results[2].Error.Error())
+	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
 }
 
 func TestLoader_Nodes(t *testing.T) {
