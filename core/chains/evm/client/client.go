@@ -154,11 +154,7 @@ func (client *client) LINKBalance(ctx context.Context, linkAddress common.Addres
 }
 
 func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	balance, err := client.BalanceAt(ctx, account, blockNumber)
-	if err != nil {
-		return big.NewInt(0), err
-	}
-	return balance, nil
+	return client.pool.BalanceAt(ctx, account, blockNumber)
 }
 
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
@@ -170,6 +166,10 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 		return nil, ethereum.NotFound
 	}
 	return
+}
+
+func (client *client) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	return client.pool.TransactionByHash(ctx, txHash)
 }
 
 func (client *client) ChainID() (*big.Int, error) {
@@ -276,10 +276,6 @@ func ToBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
-}
-
-func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	return client.pool.BalanceAt(ctx, account, blockNumber)
 }
 
 func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {

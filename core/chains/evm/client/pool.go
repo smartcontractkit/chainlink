@@ -373,6 +373,10 @@ func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*typ
 	return p.selectNode().TransactionReceipt(ctx, txHash)
 }
 
+func (p *Pool) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	return p.selectNode().TransactionByHash(ctx, txHash)
+}
+
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return p.selectNode().BlockByNumber(ctx, number)
 }

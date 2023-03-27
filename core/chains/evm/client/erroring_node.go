@@ -58,12 +58,20 @@ func (e *erroringNode) TransactionReceipt(ctx context.Context, txHash common.Has
 	return nil, errors.New(e.errMsg)
 }
 
+func (e *erroringNode) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return nil, errors.New(e.errMsg)
 }
 
 func (e *erroringNode) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return nil, errors.New(e.errMsg)
+}
+
+func (e *erroringNode) BlockNumber(ctx context.Context) (uint64, error) {
+	return 0,errors.New(e.errMsg)
 }
 
 func (e *erroringNode) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {

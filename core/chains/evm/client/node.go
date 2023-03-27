@@ -100,6 +100,7 @@ type Node interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	BlockNumber(ctx context.Context) (uint64, error)
@@ -507,6 +508,33 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "TransactionReceipt",
 		"receipt", receipt,
+	)
+
+	return
+}
+
+func (n *node) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n)).With("txHash", txHash)
+
+	lggr.Debug("RPC call: evmclient.Client#TransactionByHash")
+
+	start := time.Now()
+	if http != nil {
+		tx, _, err = http.geth.TransactionByHash(ctx, txHash)
+		err = n.wrapHTTP(err)
+	} else {
+		tx, _, err = ws.geth.TransactionByHash(ctx, txHash)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "TransactionByHash",
+		"receipt", tx,
 	)
 
 	return
