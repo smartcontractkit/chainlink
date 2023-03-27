@@ -102,7 +102,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
-	ks        KeyStore
+	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64]
 	addresses []gethCommon.Address
 
 	checkerFactory TransmitCheckerFactory

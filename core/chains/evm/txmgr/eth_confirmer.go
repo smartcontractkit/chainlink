@@ -122,7 +122,7 @@ type EthConfirmer struct {
 	config         Config
 	chainID        big.Int
 
-	ks        KeyStore
+	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64]
 	addresses []gethCommon.Address
 
 	mb        *utils.Mailbox[*evmtypes.Head]
