@@ -77,18 +77,20 @@ type configPoller struct {
 	addr               common.Address
 }
 
+func configPollerFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
+}
+
 // NewConfigPoller creates a new ConfigPoller
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ConfigPoller, error) {
-	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
 
 	cp := &configPoller{
 		lggr:               lggr,
-		filterName:         configFilterName,
+		filterName:         configPollerFilterName(addr),
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 	}
