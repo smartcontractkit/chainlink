@@ -117,10 +117,12 @@ type EthConfirmer struct {
 	orm       ORM
 	lggr      logger.Logger
 	ethClient evmclient.Client
-	ChainKeyStore
-	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
+	config         Config
+	chainID        big.Int
 
+	ks        KeyStore
 	keyStates []ethkey.State
 
 	mb        *utils.Mailbox[*evmtypes.Head]
@@ -133,7 +135,9 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, resumeCallback ResumeCallback,
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
+	lggr logger.Logger) *EthConfirmer {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -143,13 +147,11 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		orm,
 		lggr,
 		ethClient,
-		ChainKeyStore{
-			*ethClient.ChainID(),
-			config,
-			keystore,
-		},
-		estimator,
+		txAttemptBuilder,
 		resumeCallback,
+		config,
+		*ethClient.ChainID(),
+		keystore,
 		keyStates,
 		utils.NewSingleMailbox[*evmtypes.Head](),
 		ctx,
@@ -767,29 +769,17 @@ func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts
 	}
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 
 	var bumpedFee gas.EvmFee
 	var bumpedFeeLimit uint32
-	bumpedFee, bumpedFeeLimit, err = ec.estimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpTxAttempt(ctx, etx, previousAttempt, priorAttempts, ec.lggr)
 
+	// if no error, return attempt
+	// if err, continue below
 	if err == nil {
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		switch previousAttempt.TxType {
-		case 0x0: // Legacy
-			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedFee.Legacy.String())...)
-			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedFeeLimit)
-		case 0x2: // EIP1559
-			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.Dynamic.TipCap.String(), "bumpedFeeCap", bumpedFee.Dynamic.FeeCap.String())...)
-			if bumpedFee.Dynamic == nil {
-				err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", previousAttempt.ID)
-			} else {
-				return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedFeeLimit)
-			}
-		default:
-			err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-				"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
-		}
+		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String(), "bumpedFeeLimit", bumpedFeeLimit)...)
+		return bumpedAttempt, err
 	}
 
 	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
@@ -1077,7 +1067,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce int64, endingNonce int64
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := ec.NewLegacyAttempt(*etx, assets.NewWeiI(int64(gasPriceWei)), etx.GasLimit)
+			attempt, _, err := ec.NewCustomTxAttempt(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
@@ -1097,7 +1087,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.keystore, nonce, gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
+	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, nonce, gasLimit, int64(gasPriceWei), fromAddress)
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
