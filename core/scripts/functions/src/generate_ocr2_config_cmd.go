@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
 )
 
 // NOTE: Field names need to match what's in the JSON input file (see sample_config.json)
