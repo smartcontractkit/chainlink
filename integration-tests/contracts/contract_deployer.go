@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -92,6 +93,7 @@ type ContractDeployer interface {
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
+	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -914,5 +916,23 @@ func (e *EthereumContractDeployer) DeployUpkeepResetter() (UpkeepResetter, error
 		address:  addr,
 		client:   e.client,
 		consumer: instance.(*eth_contracts.UpkeepResetter),
+	}, err
+}
+
+// DeployMockAggregatorProxy deploys a mock aggregator proxy contract
+func (e *EthereumContractDeployer) DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error) {
+	addr, _, instance, err := e.client.DeployContract("MockAggregatorProxy", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return mock_aggregator_proxy.DeployMockAggregatorProxy(auth, backend, common.HexToAddress(aggregatorAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMockAggregatorProxy{
+		address:             addr,
+		client:              e.client,
+		mockAggregatorProxy: instance.(*mock_aggregator_proxy.MockAggregatorProxy),
 	}, err
 }
