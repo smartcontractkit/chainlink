@@ -285,8 +285,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case evmtypes.ChainConfig:
-			chainID = v.ID
 		case *utils.Big:
 			chainID = *v
 		}
@@ -370,7 +368,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
-	var chainORM evmtypes.ORM
+	var chainCfgs evmtypes.Configs
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -397,18 +395,17 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		o := chainORM
+		o := chainCfgs
 		if o == nil {
-			o = evm.NewORM(db, lggr, cfg)
-		}
-		if err = o.EnsureChains(ids); err != nil {
-			t.Fatal(err)
+			if err = cosmos.EnsureChains(db, lggr, cfg, ids); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
-		ORM:              chainORM,
+		Configs:          chainCfgs,
 		Config:           cfg,
 		Logger:           lggr,
 		DB:               db,
@@ -435,8 +432,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			EventBroadcaster: eventBroadcaster,
 		}
 		cfgs := cfg.CosmosConfigs()
-		opts.ORM = cosmos.NewORMImmut(cfgs)
-		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		opts.Configs = cosmos.NewConfigs(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
 		if err != nil {
 			lggr.Fatal(err)
 		}
@@ -449,14 +446,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			KeyStore: keyStore.Solana(),
 		}
 		cfgs := cfg.SolanaConfigs()
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		opts.Configs = solana.NewConfigs(cfgs)
+		chains.Solana, err = solana.NewChainSet(opts, cfgs)
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -472,14 +469,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			KeyStore: keyStore.StarkNet(),
 		}
 		cfgs := cfg.StarknetConfigs()
-		opts.ORM = starknet.NewORMImmut(cfgs)
-		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		opts.Configs = starknet.NewConfigs(cfgs)
+		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
 				t.Fatal(err)
 			}
 		}
