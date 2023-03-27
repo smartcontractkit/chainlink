@@ -203,6 +203,16 @@ PriceMax = '%d gwei'
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 
+	err = testEnvironment.RolloutStatefulSets()
+	require.NoError(t, err, "Error performing rollout restart for test environment")
+
+	err = testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+
+	//need to get node's urls again since port changed after redeployment
+	chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err)
+
 	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), gasLimit, numberOfWords)
 	require.NoError(t, err)
 
