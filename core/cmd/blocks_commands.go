@@ -71,11 +71,7 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		bytes, err2 := cli.parseResponse(resp)
-		if err2 != nil {
-			return errors.Wrap(err2, "parseResponse error")
-		}
-		return cli.errorOut(errors.New(string(bytes)))
+		return cli.errorOut(fmt.Errorf("error replaying: %w", httpError(resp)))
 	}
 
 	err = cli.printResponseBody(resp)
