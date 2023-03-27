@@ -17,6 +17,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -56,6 +57,7 @@ type TestChainOpts struct {
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *utils.MailboxMonitor
+	GasEstimator   gas.EvmFeeEstimator
 }
 
 // NewChainSet returns a simple chain collection with one chain and
@@ -82,6 +84,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 		KeyStore:         testopts.KeyStore,
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 		MailMon:          testopts.MailMon,
+		GasEstimator:     testopts.GasEstimator,
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -106,6 +109,11 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 	}
 	if opts.MailMon == nil {
 		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	}
+	if testopts.GasEstimator != nil {
+		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
+			return testopts.GasEstimator
+		}
 	}
 
 	return opts

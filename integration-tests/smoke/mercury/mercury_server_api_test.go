@@ -100,7 +100,7 @@ func TestMercuryServerAPI(t *testing.T) {
 		users, resp, err := c.GetUsers()
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
-		require.Equal(t, len(initUsers), len(users))
+		require.Equal(t, len(initUsers)+1, len(users)) // include bootstrap user
 	})
 
 	t.Run("GET /admin/user as user role", func(t *testing.T) {
