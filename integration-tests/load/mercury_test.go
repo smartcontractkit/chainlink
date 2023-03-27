@@ -65,6 +65,7 @@ var (
 )
 
 func TestMercuryHTTPLoad(t *testing.T) {
+
 	feeds := mercuryactions.GenFeedIds(9)
 	testEnv, _, err := mercury.SetupMultiFeedSingleVerifierEnv(t.Name(), "load", feeds, resources)
 	require.NoError(t, err)
