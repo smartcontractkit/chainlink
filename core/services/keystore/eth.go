@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -41,7 +42,7 @@ type Eth interface {
 
 	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
-	CheckEnabled(address common.Address, chainID *big.Int) error
+	CheckEnabled(address evmtypes.Address, chainID *big.Int) error
 
 	GetState(id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
@@ -410,7 +411,7 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 
 // CheckEnabled returns nil if state is present and enabled
 // The complexity here comes because we want to return nice, useful error messages
-func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
+func (ks *eth) CheckEnabled(address evmtypes.Address, chainID *big.Int) error {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -418,15 +419,15 @@ func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 	}
 	var found bool
 	for _, k := range ks.keyRing.Eth {
-		if k.Address == address {
+		if k.Address == *address.NativeAddress() {
 			found = true
 			break
 		}
 	}
 	if !found {
-		return errors.Errorf("no eth key exists with address %s", address.Hex())
+		return errors.Errorf("no eth key exists with address %s", address.String())
 	}
-	states := ks.keyStates.KeyIDChainID[address.Hex()]
+	states := ks.keyStates.KeyIDChainID[address.String()]
 	state, exists := states[chainID.String()]
 	if !exists {
 		var chainIDs []string
@@ -435,7 +436,7 @@ func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 				chainIDs = append(chainIDs, cid)
 			}
 		}
-		return errors.Errorf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: %s)", address.Hex(), chainID.String(), strings.Join(chainIDs, ","))
+		return errors.Errorf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: %s)", address.String(), chainID.String(), strings.Join(chainIDs, ","))
 	}
 	if state.Disabled {
 		var chainIDs []string
@@ -444,7 +445,7 @@ func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 				chainIDs = append(chainIDs, cid)
 			}
 		}
-		return errors.Errorf("eth key with address %s exists but is disabled for chain %s (enabled only for chain IDs: %s)", address.Hex(), chainID.String(), strings.Join(chainIDs, ","))
+		return errors.Errorf("eth key with address %s exists but is disabled for chain %s (enabled only for chain IDs: %s)", address.String(), chainID.String(), strings.Join(chainIDs, ","))
 	}
 	return nil
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, evmtypes.TxHash, evmtypes.BlockHash]
 type EvmReceiptPlus = txmgrtypes.ReceiptPlus[evmtypes.Receipt]
 
 // EthTxMeta contains fields of the transaction metadata
@@ -279,7 +279,7 @@ func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash] = EthTxAttempt{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash] = EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]{}
 
 type EthTxAttempt[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	ID      int64

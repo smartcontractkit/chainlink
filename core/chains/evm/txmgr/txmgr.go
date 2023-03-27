@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -51,17 +49,6 @@ type Config interface {
 	TriggerFallbackDBPollInterval() time.Duration
 }
 
-// KeyStore encompasses the subset of keystore used by txmgr
-type KeyStore[ADDR types.Hashable, TX_HASH types.Hashable] interface {
-	CheckEnabled(address ADDR, chainID *big.Int) error
-	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
-	SignTx(fromAddress ADDR, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, *TX_HASH, error)
-	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
-}
-
 // For more information about the Txm architecture, see the design doc:
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
@@ -78,7 +65,7 @@ type TxManager[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error)
+	CreateEthTransaction(newTx NewTx[ADDR], qopts ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH]
 	RegisterResumeCallback(fn ResumeCallback)
@@ -95,15 +82,15 @@ type reset struct {
 	done chan error
 }
 
-type Txm[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
-	orm              ORM[ADDR, TX_HASH]
+	orm              ORM[ADDR, BLOCK_HASH, TX_HASH]
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
 	config           Config
-	keyStore         KeyStore
+	keyStore         txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
 	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH]
 	chainID          big.Int
@@ -119,32 +106,25 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	wg       sync.WaitGroup
 
 	reaper         *Reaper
-<<<<<<< HEAD
 	ethResender    *EthResender[ADDR, TX_HASH]
-	ethBroadcaster *EthBroadcaster[ADDR, TX_HASH]
-	ethConfirmer   *EthConfirmer[ADDR, TX_HASH]
-	fwdMgr         forwarders.FwdManager[ADDR]
-=======
-	ethResender    *EthResender
-	ethBroadcaster *EthBroadcaster
-	ethConfirmer   *EthConfirmer
-	fwdMgr         txmgrtypes.ForwarderManager[common.Address]
->>>>>>> 5de05e8511a7a577f530785144b2444afff325b3
+	ethBroadcaster *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]
+	ethConfirmer   *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]
+	fwdMgr         txmgrtypes.ForwarderManager[ADDR]
 }
 
-func (b *Txm[ADDR, TX_HASH]) RegisterResumeCallback(fn ResumeCallback) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
+func NewTxm[ADDR types.Hashable, BLOCK_HASH types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH],
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
 ) *Txm {
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
-		orm:              NewORM[ADDR, TX_HASH](db, lggr, cfg),
+		orm:              NewORM[ADDR, BLOCK_HASH, TX_HASH](db, lggr, cfg),
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -178,22 +158,22 @@ func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, ethClient 
 
 // Start starts Txm service.
 // The provided context can be used to terminate Start sequence.
-func (b *Txm[ADDR, TX_HASH]) Start(ctx context.Context) (merr error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
-		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
+		enabledAddresses, err := b.keyStore.EnabledAddressesForChain(&b.chainID)
 		if err != nil {
 			return errors.Wrap(err, "Txm: failed to load key states")
 		}
 
-		if len(keyStates) > 0 {
-			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(keyStates)), "keys", keyStates)
+		if len(enabledAddresses) > 0 {
+			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(enabledAddresses)), "keys", enabledAddresses)
 		} else {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster[ADDR, TX_HASH](b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer[ADDR, TX_HASH](b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster[ADDR, TX_HASH, BLOCK_HASH](b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer[ADDR, TX_HASH, BLOCK_HASH](b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -206,7 +186,7 @@ func (b *Txm[ADDR, TX_HASH]) Start(ctx context.Context) (merr error) {
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, keyStates)
+		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, enabledAddresses)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -229,7 +209,7 @@ func (b *Txm[ADDR, TX_HASH]) Start(ctx context.Context) (merr error) {
 
 // Reset stops EthBroadcaster/EthConfirmer, executes callback, then starts them
 // again
-func (b *Txm[ADDR, TX_HASH]) Reset(callback func(), addr common.Address, abandon bool) (err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Reset(callback func(), addr common.Address, abandon bool) (err error) {
 	ok := b.IfStarted(func() {
 		done := make(chan error)
 		f := func() {
@@ -251,12 +231,12 @@ func (b *Txm[ADDR, TX_HASH]) Reset(callback func(), addr common.Address, abandon
 // abandon, scoped to the key of this txm:
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
-func (b *Txm[ADDR, TX_HASH]) abandon(addr common.Address) (err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) abandon(addr common.Address) (err error) {
 	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), addr)
 	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.Hex())
 }
 
-func (b *Txm[ADDR, TX_HASH]) Close() (merr error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Close() (merr error) {
 	return b.StopOnce("Txm", func() error {
 		close(b.chStop)
 
@@ -282,11 +262,11 @@ func (b *Txm[ADDR, TX_HASH]) Close() (merr error) {
 	})
 }
 
-func (b *Txm[ADDR, TX_HASH]) Name() string {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Name() string {
 	return b.logger.Name()
 }
 
-func (b *Txm[ADDR, TX_HASH]) HealthReport() map[string]error {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) HealthReport() map[string]error {
 	report := map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 
 	// only query if txm started properly
@@ -302,7 +282,7 @@ func (b *Txm[ADDR, TX_HASH]) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm[ADDR, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HASH], ec *EthConfirmer[ADDR, TX_HASH], keyStates []ethkey.State) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH], ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH], addresses []ADDR) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -335,8 +315,8 @@ func (b *Txm[ADDR, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HASH], ec *EthC
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, addresses, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -433,13 +413,13 @@ func (b *Txm[ADDR, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HASH], ec *EthC
 				continue
 			}
 			var err error
-			keyStates, err = b.keyStore.GetStatesForChain(&b.chainID)
+			addresses, err = b.keyStore.EnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
-			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", addresses)
 
 			execReset(nil)
 		}
@@ -447,7 +427,7 @@ func (b *Txm[ADDR, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HASH], ec *EthC
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *Txm[ADDR, TX_HASH]) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.BlockNumber())
@@ -465,7 +445,7 @@ func (b *Txm[ADDR, TX_HASH]) OnNewLongestChain(ctx context.Context, head *evmtyp
 }
 
 // Trigger forces the EthBroadcaster to check early for the given address
-func (b *Txm[ADDR, TX_HASH]) Trigger(addr ADDR) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Trigger(addr ADDR) {
 	select {
 	case b.trigger <- addr:
 	default:
@@ -478,7 +458,7 @@ type NewTx[ADDR types.Hashable] struct {
 	EncodedPayload   []byte
 	GasLimit         uint32
 	Meta             *EthTxMeta
-	ForwarderAddress *ADDR
+	ForwarderAddress ADDR
 
 	// Pipeline variables - if you aren't calling this from ethtx task within
 	// the pipeline, you don't need these variables
@@ -492,7 +472,7 @@ type NewTx[ADDR types.Hashable] struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *Txm[ADDR, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error) {
 	if err = b.checkEnabled(newTx.FromAddress); err != nil {
 		return etx, err
 	}
@@ -501,14 +481,16 @@ func (b *Txm[ADDR, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QO
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
+			bytesToAddr, _ := newTx.ToAddress.MarshalText()
+			toAddr := common.BytesToAddress(bytesToAddr)
 			if newTx.Meta != nil {
-				newTx.Meta.FwdrDestAddress = &newTx.ToAddress
+				newTx.Meta.FwdrDestAddress = &toAddr
 			} else {
 				newTx.Meta = &EthTxMeta{
-					FwdrDestAddress: newTx.ToAddress,
+					FwdrDestAddress: &toAddr,
 				}
 			}
-			newTx.ToAddress = *newTx.ForwarderAddress
+			newTx.ToAddress = newTx.ForwarderAddress
 			newTx.EncodedPayload = fwdPayload
 		} else {
 			b.logger.Errorf("Failed to use forwarder set upstream: %s", fwdErr.Error())
@@ -520,12 +502,11 @@ func (b *Txm[ADDR, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QO
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	etx, err = b.orm.CreateEthTransaction(newTx, b.chainID, qs...)
-	return
+	return b.orm.CreateEthTransaction(newTx, b.chainID, qs...)
 }
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
-func (b *Txm[ADDR, TX_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
 	if !b.config.EvmUseForwarders() {
 		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
@@ -533,21 +514,21 @@ func (b *Txm[ADDR, TX_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err e
 	return
 }
 
-func (b *Txm[ADDR, TX_HASH]) checkEnabled(addr ADDR) error {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) checkEnabled(addr ADDR) error {
 	err := b.keyStore.CheckEnabled(addr, &b.chainID)
 	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.Hex(), b.chainID.String())
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
-func (b *Txm[ADDR, TX_HASH]) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH] {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) GetGasEstimator() txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH] {
 	return b.gasEstimator
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func (b *Txm[ADDR, TX_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	// TODO: Remove this hard-coding on evm package
-	toNativeAddress := to.(*evmtypes.Address).NativeAddress()
-	if *toNativeAddress == utils.ZeroAddress {
+	toBytes, _ := to.MarshalText()
+	if common.BytesToAddress(toBytes) == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
 	etx = EthTx[ADDR, TX_HASH]{
@@ -564,28 +545,6 @@ func (b *Txm[ADDR, TX_HASH]) SendEther(chainID *big.Int, from, to ADDR, value as
 ) RETURNING eth_txes.*`
 	err = b.q.GetNamed(query, &etx, etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
-}
-
-type ChainKeyStore[ADDR types.Hashable, TX_HASH types.Hashable] struct {
-	chainID  big.Int
-	config   Config
-	keystore KeyStore[ADDR, TX_HASH]
-}
-
-func NewChainKeyStore[ADDR types.Hashable, TX_HASH types.Hashable](chainID big.Int, config Config, keystore KeyStore[ADDR, TX_HASH]) ChainKeyStore[ADDR, TX_HASH] {
-	return ChainKeyStore[ADDR, TX_HASH]{chainID, config, keystore}
-}
-
-func (c *ChainKeyStore[ADDR, TX_HASH]) SignTx(address ADDR, tx *gethTypes.Transaction) (*TX_HASH, []byte, error) {
-	signedTx, txHash, err := c.keystore.SignTx(address, tx, &c.chainID)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "SignTx failed")
-	}
-	rlp := new(bytes.Buffer)
-	if err = signedTx.EncodeRLP(rlp); err != nil {
-		return nil, nil, errors.Wrap(err, "SignTx failed")
-	}
-	return txHash, rlp.Bytes(), nil
 }
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
@@ -613,7 +572,7 @@ func sendTransaction[ADDR types.Hashable, TX_HASH types.Hashable](ctx context.Co
 func sendEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](
 	ctx context.Context,
 	ethClient evmclient.Client,
-	keyStore KeyStore[ADDR, TX_HASH],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
 	nonce uint64,
 	gasLimit uint32,
 	gasPriceWei *big.Int,
@@ -622,21 +581,18 @@ func sendEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	signedTx, _, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, fromAddress, chainID)
+	attempt, err := txAttemptBuilder.NewEmptyTxAttempt(nonce, gasLimit, gas.EvmFee{Legacy: assets.NewWeiI(gasPriceWei)}, fromAddress)
 	if err != nil {
 		return nil, err
 	}
+
+	signedTx, err := attempt.GetSignedTx()
+	if err != nil {
+		return nil, err
+	}
+
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
-}
-
-// makes a transaction that sends 0 eth to self
-func makeEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](keyStore KeyStore[ADDR, TX_HASH], nonce uint64, gasLimit uint32, gasPriceWei *big.Int, fromAddress ADDR, chainID *big.Int) (*gethTypes.Transaction, *TX_HASH, error) {
-	value := big.NewInt(0)
-	payload := []byte{}
-	fromAddr := fromAddress.(*evmtypes.Address).NativeAddress()
-	tx := gethTypes.NewTransaction(nonce, *fromAddr, value, uint64(gasLimit), gasPriceWei, payload)
-	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
 var _ TxManager = &NullTxManager{}

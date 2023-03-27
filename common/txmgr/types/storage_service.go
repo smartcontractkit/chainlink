@@ -6,11 +6,12 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
-type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
+type TxStorageService[ADDR any, CHAINID any, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
 	UnstartedTxQueuePruner
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
@@ -21,7 +22,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	EthTransactionsWithAttempts(offset, limit int) ([]TX, int, error)
 	EthTxAttempts(offset, limit int) ([]TXATTEMPT, int, error)
 	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID) (receiptsPlus []ReceiptPlus[R], err error)
-	FindEthTxAttempt(hash HASH) (*TXATTEMPT, error)
+	FindEthTxAttempt(hash TX_HASH) (*TXATTEMPT, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []TXID) ([]TXATTEMPT, error)
 	FindEthTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAINID) (etxs []*TX, err error)
 	FindEthTxsRequiringResubmissionDueToInsufficientEth(address ADDR, chainID CHAINID, qopts ...pg.QOpt) (etxs []*TX, err error)
@@ -29,7 +30,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	FindEthTxAttemptsByEthTxIDs(ids []TXID) ([]TXATTEMPT, error)
 	FindEthTxAttemptsRequiringReceiptFetch(chainID CHAINID) (attempts []TXATTEMPT, err error)
 	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID CHAINID, address ADDR) (attempts []TXATTEMPT, err error)
-	FindEthTxByHash(hash HASH) (*TX, error)
+	FindEthTxByHash(hash TX_HASH) (*TX, error)
 	FindEthTxWithAttempts(etxID TXID) (etx TX, err error)
 	FindEthTxWithNonce(fromAddress ADDR, nonce TXMETA) (etx *TX, err error)
 	FindNextUnstartedTransactionFromAddress(etx *TX, fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) error
@@ -38,7 +39,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	GetInProgressEthTxAttempts(ctx context.Context, address ADDR, chainID CHAINID) (attempts []TXATTEMPT, err error)
 	HasInProgressTransaction(account ADDR, chainID CHAINID, qopts ...pg.QOpt) (exists bool, err error)
 	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-	InsertEthReceipt(receipt *Receipt[R, HASH]) error
+	InsertEthReceipt(receipt *Receipt[R, TX_HASH, BLOCK_HASH]) error
 	InsertEthTx(etx *TX) error
 	InsertEthTxAttempt(attempt *TXATTEMPT) error
 	LoadEthTxAttempts(etx *TX, qopts ...pg.QOpt) error
@@ -75,10 +76,10 @@ type ReceiptPlus[R any] struct {
 }
 
 // R is the raw unparsed transaction receipt
-type Receipt[R any, HASH any] struct {
+type Receipt[R any, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ID               int64
-	TxHash           HASH
-	BlockHash        HASH
+	TxHash           TX_HASH
+	BlockHash        BLOCK_HASH
 	BlockNumber      int64
 	TransactionIndex uint
 	Receipt          R

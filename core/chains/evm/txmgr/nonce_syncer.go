@@ -10,14 +10,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type (
-	NonceSyncerKeyStore[ADDR types.Hashable, TX_HASH types.Hashable] interface {
-		GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	NonceSyncerKeyStore[ADDR types.Hashable] interface {
+		GetNextNonce(address ADDR, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	}
 	// NonceSyncer manages the delicate task of syncing the local nonce with the
 	// chain nonce in case of divergence.
@@ -51,12 +51,8 @@ type (
 	//
 	// This gives us re-org protection up to EVM.FinalityDepth deep in the
 	// worst case, which is in line with our other guarantees.
-	NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable] struct {
-		orm       ORM[ADDR, TX_HASH]
-		ethClient evmclient.Client
-		chainID   *big.Int
-		logger    logger.Logger
-		kst       NonceSyncerKeyStore[ADDR, TX_HASH]
+	NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
+		Sync(ctx context.Context, addr ADDR) (err error)
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
 	NSinserttx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
@@ -65,15 +61,24 @@ type (
 	}
 )
 
+type nonceSyncer struct {
+	NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	orm       ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]
+	ethClient evmclient.Client
+	chainID   *big.Int
+	logger    logger.Logger
+	kst       NonceSyncerKeyStore[*evmtypes.Address]
+}
+
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, TX_HASH], lggr logger.Logger, ethClient evmclient.Client, kst NonceSyncerKeyStore[ADDR, TX_HASH]) *NonceSyncer[ADDR, TX_HASH] {
+func NewNonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](orm ORM[ADDR, BLOCK_HASH, TX_HASH], lggr logger.Logger, ethClient evmclient.Client, kst NonceSyncerKeyStore[ADDR]) NonceSyncer[ADDR, TX_HASH, BLOCK_HASH] {
 	lggr = lggr.Named("NonceSyncer")
-	return &NonceSyncer[ADDR, TX_HASH]{
-		orm,
-		ethClient,
-		ethClient.ChainID(),
-		lggr,
-		kst,
+	return &nonceSyncer{
+		orm:       orm,
+		ethClient: ethClient,
+		chainID:   ethClient.ChainID(),
+		logger:    lggr,
+		kst:       kst,
 	}
 }
 
@@ -81,16 +86,13 @@ func NewNonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable](orm ORM[ADDR, T
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer[ADDR, TX_HASH]) Sync(ctx context.Context, keyState ethkey.State) (err error) {
-	if keyState.Disabled {
-		return errors.Errorf("cannot sync disabled key state: %s", keyState.Address)
-	}
-	err = s.fastForwardNonceIfNecessary(ctx, keyState.Address.Address())
+func (s nonceSyncer) Sync(ctx context.Context, addr *evmtypes.Address) (err error) {
+	err = s.fastForwardNonceIfNecessary(ctx, *addr)
 	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
-func (s NonceSyncer[ADDR, TX_HASH]) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
-	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
+func (s nonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address evmtypes.Address) error {
+	chainNonce, err := s.pendingNonceFromEthClient(ctx, *address.NativeAddress())
 	if err != nil {
 		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
@@ -98,15 +100,15 @@ func (s NonceSyncer[ADDR, TX_HASH]) fastForwardNonceIfNecessary(ctx context.Cont
 		return nil
 	}
 
-	keyNextNonce, err := s.kst.GetNextNonce(address, s.chainID, pg.WithParentCtx(ctx))
+	keyNextNonce, err := s.kst.GetNextNonce(&address, s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
 
 	localNonce := keyNextNonce
-	hasInProgressTransaction, err := s.orm.HasInProgressTransaction(address, *s.chainID, pg.WithParentCtx(ctx))
+	hasInProgressTransaction, err := s.orm.HasInProgressTransaction(&address, *s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
-		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.Hex())
+		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.String())
 	} else if hasInProgressTransaction {
 		// If we have an 'in_progress' transaction, our keys.next_nonce will be
 		// one lower than it should because we must have crashed mid-execution.
@@ -121,8 +123,8 @@ func (s NonceSyncer[ADDR, TX_HASH]) fastForwardNonceIfNecessary(ctx context.Cont
 		"Local nonce is %v but the on-chain nonce for this account was %v. "+
 		"It's possible that this node was restored from a backup. If so, transactions sent by the previous node will NOT be re-org protected and in rare cases may need to be manually bumped/resubmitted. "+
 		"Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and can lead to missed or stuck transactions. ",
-		address.Hex(), localNonce, chainNonce),
-		"address", address.Hex(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
+		address.String(), localNonce, chainNonce),
+		"address", address.String(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
 	// Need to remember to decrement the chain nonce by one to account for in_progress transaction
 	newNextNonce := int64(chainNonce)
@@ -130,17 +132,17 @@ func (s NonceSyncer[ADDR, TX_HASH]) fastForwardNonceIfNecessary(ctx context.Cont
 		newNextNonce--
 	}
 
-	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, &address, *s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
-		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())
+		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())
 	} else if err == nil {
 		s.logger.Infow("Fast-forwarded nonce", "address", address, "newNextNonce", newNextNonce, "oldNextNonce", keyNextNonce)
 	}
 	return err
 }
 
-func (s NonceSyncer[ADDR, TX_HASH]) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
+func (s nonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
 	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
 }

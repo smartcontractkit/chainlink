@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -26,21 +27,21 @@ import (
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
-type ORM interface {
-	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, int64]
+type ORM[ADDR types.Hashable, BLOCK_HASH types.Hashable, TX_HASH types.Hashable] interface {
+	txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
 var ErrInvalidQOpt = errors.New("orm: Invalid QOpt")
 
-type orm struct {
+type orm[ADDR types.Hashable, BLOCK_HASH types.Hashable, TX_HASH types.Hashable] struct {
 	q         pg.Q
 	logger    logger.Logger
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 }
 
-var _ ORM = (*orm)(nil)
+var _ ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash] = (*orm[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash])(nil)
 
 // Directly maps to database schema.
 // Do not modify type unless you
@@ -53,6 +54,36 @@ type dbReceipt struct {
 	TransactionIndex uint
 	Receipt          evmtypes.Receipt
 	CreatedAt        time.Time
+}
+
+func dbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
+	txHash := evmReceipt.TxHash.NativeHash()
+	blockHash := evmReceipt.BlockHash.NativeHash()
+
+	return dbReceipt{
+		ID:               evmReceipt.ID,
+		TxHash:           *txHash,
+		BlockHash:        *blockHash,
+		BlockNumber:      evmReceipt.BlockNumber,
+		TransactionIndex: evmReceipt.TransactionIndex,
+		Receipt:          evmReceipt.Receipt,
+		CreatedAt:        evmReceipt.CreatedAt,
+	}
+}
+
+func dbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
+	txHash := evmtypes.NewTxHash(receipt.TxHash)
+	blockHash := evmtypes.NewBlockHash(receipt.TxHash)
+
+	return EvmReceipt{
+		ID:               receipt.ID,
+		TxHash:           *txHash,
+		BlockHash:        *blockHash,
+		BlockNumber:      receipt.BlockNumber,
+		TransactionIndex: receipt.TransactionIndex,
+		Receipt:          receipt.Receipt,
+		CreatedAt:        receipt.CreatedAt,
+	}
 }
 
 // Directly maps to database schema.
@@ -75,7 +106,7 @@ type dbReceiptPlus struct {
 func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
 	receipts := make([]EvmReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = EvmReceipt(rs[i])
+		receipts[i] = dbReceiptToEvmReceipt(&rs[i])
 	}
 	return receipts
 }
@@ -96,11 +127,11 @@ func toDBRawReceipt(rs []evmtypes.Receipt) []dbRawReceipt {
 	return receipts
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
+func NewORM[ADDR types.Hashable, BLOCK_HASH types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM[ADDR, BLOCK_HASH, TX_HASH] {
 	namedLogger := lggr.Named("TxmORM")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
-	return &orm{
+	return &orm[ADDR, BLOCK_HASH, TX_HASH]{
 		q:         q,
 		logger:    namedLogger,
 		ctx:       ctx,
@@ -116,11 +147,11 @@ RETURNING *;
 
 // TODO: create method to pass in new context to orm (which will also create a new pg.Q)
 
-func (o *orm) Close() {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) Close() {
 	o.ctxCancel()
 }
 
-func (o *orm) preloadTxAttempts(txs []EthTx) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) preloadTxAttempts(txs []EthTx[ADDR, TX_HASH]) error {
 	// Preload TxAttempts
 	var ids []int64
 	for _, tx := range txs {
@@ -129,7 +160,7 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	var attempts []EthTxAttempt
+	var attempts []EthTxAttempt[ADDR, TX_HASH]
 	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
 	query, args, err := sqlx.In(sql, ids)
 	if err != nil {
@@ -150,10 +181,10 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	return nil
 }
 
-func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
-	ethTxM := make(map[int64]EthTx)
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) PreloadEthTxes(attempts []EthTxAttempt[ADDR, TX_HASH]) error {
+	ethTxM := make(map[int64]EthTx[ADDR, TX_HASH])
 	for _, attempt := range attempts {
-		ethTxM[attempt.EthTxID] = EthTx{}
+		ethTxM[attempt.EthTxID] = EthTx[ADDR, TX_HASH]{}
 	}
 	ethTxIDs := make([]int64, len(ethTxM))
 	var i int
@@ -161,7 +192,7 @@ func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
 		ethTxIDs[i] = id
 		i++
 	}
-	ethTxs := make([]EthTx, len(ethTxIDs))
+	ethTxs := make([]EthTx[ADDR, TX_HASH], len(ethTxIDs))
 	if err := o.q.Select(&ethTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
 		return errors.Wrap(err, "loadEthTxes failed")
 	}
@@ -176,7 +207,7 @@ func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
 
 // EthTransactions returns all eth transactions without loaded relations
 // limited by passed parameters.
-func (o *orm) EthTransactions(offset, limit int) (txs []EthTx, count int, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) EthTransactions(offset, limit int) (txs []EthTx[ADDR, TX_HASH], count int, err error) {
 	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
@@ -191,7 +222,7 @@ func (o *orm) EthTransactions(offset, limit int) (txs []EthTx, count int, err er
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
-func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx[ADDR, TX_HASH], count int, err error) {
 	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
@@ -207,7 +238,7 @@ func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count
 }
 
 // EthTxAttempts returns the last tx attempts sorted by created_at descending.
-func (o *orm) EthTxAttempts(offset, limit int) (txs []EthTxAttempt, count int, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) EthTxAttempts(offset, limit int) (txs []EthTxAttempt[ADDR, TX_HASH], count int, err error) {
 	sql := `SELECT count(*) FROM eth_tx_attempts`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
@@ -221,22 +252,22 @@ func (o *orm) EthTxAttempts(offset, limit int) (txs []EthTxAttempt, count int, e
 	return
 }
 
-// FindEthTxAttempt returns an individual EthTxAttempt
-func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
-	ethTxAttempt := EthTxAttempt{}
+// FindEthTxAttempt returns an individual EthTxAttempt[ADDR, TX_HASH]
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxAttempt(hash TX_HASH) (*EthTxAttempt[ADDR, TX_HASH], error) {
+	ethTxAttempt := EthTxAttempt[ADDR, TX_HASH]{}
 	sql := `SELECT * FROM eth_tx_attempts WHERE hash = $1`
 	if err := o.q.Get(&ethTxAttempt, sql, hash); err != nil {
 		return nil, err
 	}
 	// reuse the preload
-	attempts := []EthTxAttempt{ethTxAttempt}
+	attempts := []EthTxAttempt[ADDR, TX_HASH]{ethTxAttempt}
 	err := o.PreloadEthTxes(attempts)
 	return &attempts[0], err
 }
 
 // FindEthTxAttemptsByEthTxIDs returns a list of attempts by ETH Tx IDs
-func (o *orm) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
-	var attempts []EthTxAttempt
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt[ADDR, TX_HASH], error) {
+	var attempts []EthTxAttempt[ADDR, TX_HASH]
 
 	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1)`
 	if err := o.q.Select(&attempts, sql, ids); err != nil {
@@ -246,8 +277,8 @@ func (o *orm) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
 	return attempts, nil
 }
 
-func (o *orm) FindEthTxByHash(hash common.Hash) (*EthTx, error) {
-	var etx EthTx
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxByHash(hash TX_HASH) (*EthTx[ADDR, TX_HASH], error) {
+	var etx EthTx[ADDR, TX_HASH]
 
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`
@@ -262,7 +293,7 @@ func (o *orm) FindEthTxByHash(hash common.Hash) (*EthTx, error) {
 }
 
 // InsertEthTxAttempt inserts a new txAttempt into the database
-func (o *orm) InsertEthTx(etx *EthTx) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) InsertEthTx(etx *EthTx[ADDR, TX_HASH]) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
@@ -273,7 +304,7 @@ func (o *orm) InsertEthTx(etx *EthTx) error {
 	return errors.Wrap(err, "InsertEthTx failed")
 }
 
-func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) InsertEthTxAttempt(attempt *EthTxAttempt[ADDR, TX_HASH]) error {
 	const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 :eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 ) RETURNING *`
@@ -281,9 +312,9 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
-func (o *orm) InsertEthReceipt(receipt *EvmReceipt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) InsertEthReceipt(receipt *EvmReceipt) error {
 	// convert to database representation
-	r := dbReceipt(*receipt)
+	r := dbReceiptFromEvmReceipt(receipt)
 
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
@@ -291,13 +322,13 @@ func (o *orm) InsertEthReceipt(receipt *EvmReceipt) error {
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
 	// method expects original (destination) receipt struct to be updated
-	*receipt = EvmReceipt(r)
+	*receipt = dbReceiptToEvmReceipt(&r)
 
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
 
-// FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
-func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
+// FindEthTxWithAttempts finds the EthTx[ADDR, TX_HASH] with its attempts and receipts preloaded
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxWithAttempts(etxID int64) (etx EthTx[ADDR, TX_HASH], err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
@@ -313,8 +344,8 @@ func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
 	return etx, errors.Wrap(err, "FindEthTxWithAttempts failed")
 }
 
-func (o *orm) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
-	var attempts []EthTxAttempt
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt[ADDR, TX_HASH], error) {
+	var attempts []EthTxAttempt[ADDR, TX_HASH]
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		if err := tx.Select(&attempts, `SELECT eta.*
 		FROM eth_tx_attempts eta
@@ -326,16 +357,16 @@ func (o *orm) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, 
 	return attempts, errors.Wrap(err, "FindEthTxAttemptConfirmedByEthTxIDs failed")
 }
 
-func (o *orm) LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) LoadEthTxesAttempts(etxs []*EthTx[ADDR, TX_HASH], qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	ethTxIDs := make([]int64, len(etxs))
-	ethTxesM := make(map[int64]*EthTx, len(etxs))
+	ethTxesM := make(map[int64]*EthTx[ADDR, TX_HASH], len(etxs))
 	for i, etx := range etxs {
 		etx.EthTxAttempts = nil // this will overwrite any previous preload
 		ethTxIDs[i] = etx.ID
 		ethTxesM[etx.ID] = etxs[i]
 	}
-	var ethTxAttempts []EthTxAttempt
+	var ethTxAttempts []EthTxAttempt[ADDR, TX_HASH]
 	if err := qq.Select(&ethTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttempts failed to load eth_tx_attempts")
 	}
@@ -346,24 +377,28 @@ func (o *orm) LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *orm) LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error {
-	return o.LoadEthTxesAttempts([]*EthTx{etx}, qopts...)
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) LoadEthTxAttempts(etx *EthTx[ADDR, TX_HASH], qopts ...pg.QOpt) error {
+	return o.LoadEthTxesAttempts([]*EthTx[ADDR, TX_HASH]{etx}, qopts...)
 }
 
-func loadEthTxAttemptsReceipts(q pg.Queryer, etx *EthTx) (err error) {
-	return loadEthTxesAttemptsReceipts(q, []*EthTx{etx})
+func loadEthTxAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, etx *EthTx[ADDR, TX_HASH]) (err error) {
+	return loadEthTxesAttemptsReceipts(q, []*EthTx[ADDR, TX_HASH]{etx})
 }
 
-func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
+func loadEthTxesAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, etxs []*EthTx[ADDR, TX_HASH]) (err error) {
 	if len(etxs) == 0 {
 		return nil
 	}
-	attemptHashM := make(map[common.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
-	attemptHashes := make([][]byte, len(etxs))                     // len here is lower bound
+	attemptHashM := make(map[string]*EthTxAttempt[ADDR, TX_HASH], len(etxs)) // len here is lower bound
+	attemptHashes := make([][]byte, len(etxs))                               // len here is lower bound
 	for _, etx := range etxs {
 		for i, attempt := range etx.EthTxAttempts {
-			attemptHashM[attempt.Hash] = &etx.EthTxAttempts[i]
-			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
+			attemptHashM[attempt.Hash.String()] = &etx.EthTxAttempts[i]
+			bytes, err := attempt.Hash.MarshalText()
+			if err != nil {
+				return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to marshal attempt hash")
+			}
+			attemptHashes = append(attemptHashes, bytes)
 		}
 	}
 	var rs []dbReceipt
@@ -374,18 +409,22 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 	var receipts []EvmReceipt = fromDBReceipts(rs)
 
 	for _, receipt := range receipts {
-		attempt := attemptHashM[receipt.TxHash]
+		attempt := attemptHashM[receipt.TxHash.String()]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
 	}
 	return nil
 }
 
-func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error {
-	byHash := make(map[common.Hash]*EthTxAttempt, len(attempts))
+func loadConfirmedAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, attempts []EthTxAttempt[ADDR, TX_HASH]) error {
+	byHash := make(map[string]*EthTxAttempt[ADDR, TX_HASH], len(attempts))
 	hashes := make([][]byte, len(attempts))
 	for i, attempt := range attempts {
-		byHash[attempt.Hash] = &attempts[i]
-		hashes = append(hashes, attempt.Hash.Bytes())
+		byHash[attempt.Hash.String()] = &attempts[i]
+		bytes, err := attempt.Hash.MarshalText()
+		if err != nil {
+			return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
+		}
+		hashes = append(hashes, bytes)
 	}
 	var rs []dbReceipt
 	if err := q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
@@ -393,7 +432,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 	}
 	var receipts []EvmReceipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
-		attempt := byHash[receipt.TxHash]
+		attempt := byHash[receipt.TxHash.String()]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
 	}
 	return nil
@@ -401,7 +440,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 
 // FindEthTxAttemptsRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func (o *orm) FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address ADDR) (attempts []EthTxAttempt[ADDR, TX_HASH], err error) {
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
@@ -420,7 +459,7 @@ LIMIT $4
 	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
 }
 
-func (o *orm) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 	// Deliberately do nothing on NULL broadcast_at because that indicates the
 	// tx has been moved into a state where broadcast_at is not relevant, e.g.
 	// fatally errored.
@@ -435,7 +474,7 @@ func (o *orm) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 // SetBroadcastBeforeBlockNum updates already broadcast attempts with the
 // current block number. This is safe no matter how old the head is because if
 // the attempt is already broadcast it _must_ have been before this head.
-func (o *orm) SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error {
 	_, err := o.q.Exec(
 		`UPDATE eth_tx_attempts
 SET broadcast_before_block_num = $1 
@@ -447,7 +486,7 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
 
-func (o *orm) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt[ADDR, TX_HASH], err error) {
 	err = o.q.Select(&attempts,
 		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
 		FROM eth_tx_attempts
@@ -461,7 +500,7 @@ func (o *orm) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts 
 	return
 }
 
-func (o *orm) UpdateEthTxsUnconfirmed(ids []int64) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateEthTxsUnconfirmed(ids []int64) error {
 	_, err := o.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ids))
 
 	if err != nil {
@@ -470,7 +509,7 @@ func (o *orm) UpdateEthTxsUnconfirmed(ids []int64) error {
 	return nil
 }
 
-func (o *orm) FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt[ADDR, TX_HASH], err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&attempts, `
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
@@ -487,7 +526,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *orm) SaveFetchedReceipts(r []evmtypes.Receipt, chainID big.Int) (err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveFetchedReceipts(r []evmtypes.Receipt, chainID big.Int) (err error) {
 	receipts := toDBRawReceipt(r)
 	if len(receipts) == 0 {
 		return nil
@@ -588,7 +627,7 @@ func (o *orm) SaveFetchedReceipts(r []evmtypes.Receipt, chainID big.Int) (err er
 //
 // We will continue to try to fetch a receipt for these attempts until all
 // attempts are below the finality depth from current head.
-func (o *orm) MarkAllConfirmedMissingReceipt(chainID big.Int) (err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) MarkAllConfirmedMissingReceipt(chainID big.Int) (err error) {
 	res, err := o.q.Exec(`
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
@@ -616,7 +655,7 @@ WHERE state = 'unconfirmed'
 	return
 }
 
-func (o *orm) GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) GetInProgressEthTxAttempts(ctx context.Context, address ADDR, chainID big.Int) (attempts []EthTxAttempt[ADDR, TX_HASH], err error) {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&attempts, `
@@ -633,7 +672,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EvmReceiptPlus, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EvmReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
 	err = o.q.SelectContext(ctx, &rs, `
@@ -650,8 +689,8 @@ func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum i
 }
 
 // FindEthTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce int64) (etx *EthTx, err error) {
-	etx = new(EthTx)
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxWithNonce(fromAddress ADDR, nonce int64) (etx *EthTx[ADDR, TX_HASH], err error) {
+	etx = new(EthTx[ADDR, TX_HASH])
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Get(etx, `
 SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
@@ -668,7 +707,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 	return
 }
 
-func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EthTxAttempt) error {
+func updateEthTxAttemptUnbroadcast[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, attempt EthTxAttempt[ADDR, TX_HASH]) error {
 	if attempt.State != txmgrtypes.TxAttemptBroadcast {
 		return errors.New("expected eth_tx_attempt to be broadcast")
 	}
@@ -676,7 +715,7 @@ func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EthTxAttempt) error {
 	return errors.Wrap(err, "updateEthTxAttemptUnbroadcast failed")
 }
 
-func updateEthTxUnconfirm(q pg.Queryer, etx EthTx) error {
+func updateEthTxUnconfirm[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, etx EthTx[ADDR, TX_HASH]) error {
 	if etx.State != EthTxConfirmed {
 		return errors.New("expected eth_tx state to be confirmed")
 	}
@@ -694,7 +733,7 @@ AND eth_tx_attempts.eth_tx_id = $1
 	return errors.Wrap(err, "deleteEthReceipts failed")
 }
 
-func (o *orm) UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateEthTxForRebroadcast(etx EthTx[ADDR, TX_HASH], etxAttempt EthTxAttempt[ADDR, TX_HASH]) error {
 	return o.q.Transaction(func(tx pg.Queryer) error {
 		if err := deleteEthReceipts(tx, etx.ID); err != nil {
 			return errors.Wrapf(err, "deleteEthReceipts failed for etx %v", etx.ID)
@@ -706,7 +745,7 @@ func (o *orm) UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) erro
 	})
 }
 
-func (o *orm) FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx[ADDR, TX_HASH], err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
@@ -727,7 +766,7 @@ ORDER BY nonce ASC
 	return etxs, errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
-func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
+func saveAttemptWithNewState[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return pg.SqlxTransaction(ctx, q, logger, func(tx pg.Queryer) error {
@@ -742,7 +781,7 @@ func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.
 	})
 }
 
-func (o *orm) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error {
 	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
@@ -750,7 +789,7 @@ func (o *orm) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAt
 	return errors.Wrap(saveAttemptWithNewState(o.q, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
-func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveSentAttempt[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
@@ -758,11 +797,11 @@ func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, 
 	return errors.Wrap(saveAttemptWithNewState(q, timeout, logger, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
-func (o *orm) SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error {
 	return saveSentAttempt(o.q, timeout, o.logger, attempt, broadcastAt)
 }
 
-func (o *orm) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt[ADDR, TX_HASH], broadcastAt time.Time) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err := qq.Transaction(func(tx pg.Queryer) error {
 		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
@@ -776,7 +815,7 @@ func (o *orm) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout ti
 	return errors.Wrap(err, "SaveConfirmedMissingReceiptAttempt failed")
 }
 
-func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt[ADDR, TX_HASH]) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
@@ -790,7 +829,7 @@ func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt)
 }
 
 // SaveInProgressAttempt inserts or updates an attempt
-func (o *orm) SaveInProgressAttempt(attempt *EthTxAttempt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveInProgressAttempt(attempt *EthTxAttempt[ADDR, TX_HASH]) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("SaveInProgressAttempt failed: attempt state must be in_progress")
 	}
@@ -822,7 +861,7 @@ func (o *orm) SaveInProgressAttempt(attempt *EthTxAttempt) error {
 // limited by limit pending transactions
 //
 // It also returns eth_txes that are unconfirmed with no eth_tx_attempts
-func (o *orm) FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx[ADDR, TX_HASH], err error) {
 	if gasBumpThreshold == 0 {
 		return
 	}
@@ -847,7 +886,7 @@ ORDER BY nonce ASC
 // FindEthTxsRequiringResubmissionDueToInsufficientEth returns transactions
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
-func (o *orm) FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindEthTxsRequiringResubmissionDueToInsufficientEth(address ADDR, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx[ADDR, TX_HASH], err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&etxs, `
@@ -873,7 +912,7 @@ ORDER BY nonce ASC
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
-func (o *orm) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	// cutoffBlockNum is a block height
 	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
@@ -926,7 +965,7 @@ RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, chainID.String())
 
 		type result struct {
 			ID                         int64
-			FromAddress                common.Address
+			FromAddress                ADDR
 			MaxBroadcastBeforeBlockNum int64
 			TxHashes                   pq.ByteaArray
 		}
@@ -957,14 +996,14 @@ GROUP BY e.id
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+
 				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
 				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.Hex(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
+				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.String(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
 		}
 
 		return nil
 	})
 }
 
-func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt[ADDR, TX_HASH], replacementAttempt *EthTxAttempt[ADDR, TX_HASH], qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
@@ -985,13 +1024,13 @@ func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacem
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func (o *orm) FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) FindNextUnstartedTransactionFromAddress(etx *EthTx[ADDR, TX_HASH], fromAddress ADDR, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	err := qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	return errors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 }
 
-func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateEthTxFatalError(etx *EthTx[ADDR, TX_HASH], qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.State != EthTxInProgress {
@@ -1015,7 +1054,7 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.BroadcastAt == nil {
@@ -1050,7 +1089,7 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 }
 
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
-func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateEthTxUnstartedToInProgress(etx *EthTx[ADDR, TX_HASH], attempt *EthTxAttempt[ADDR, TX_HASH], qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	if etx.Nonce == nil {
 		return errors.New("in_progress transaction must have nonce")
@@ -1085,11 +1124,15 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) GetEthTxInProgress(fromAddress ADDR, qopts ...pg.QOpt) (etx *EthTx[ADDR, TX_HASH], err error) {
 	qq := o.q.WithOpts(qopts...)
-	etx = new(EthTx)
+	etx = new(EthTx[ADDR, TX_HASH])
+	bytes, err := fromAddress.MarshalText()
+	if err != nil {
+		return etx, errors.Wrap(err, "getInProgressEthTx failed")
+	}
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		err = qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
+		err = qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, bytes)
 		if errors.Is(err, sql.ErrNoRows) {
 			etx = nil
 			return nil
@@ -1109,13 +1152,13 @@ func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
 
-func (o *orm) HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) HasInProgressTransaction(account ADDR, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
 	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
 }
 
-func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce int64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce int64, address ADDR, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	return qq.Transaction(func(tx pg.Queryer) error {
 		//  We filter by next_nonce here as an optimistic lock to make sure it
@@ -1135,7 +1178,7 @@ func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce int64, addres
 	})
 }
 
-func (o *orm) countTransactionsWithState(fromAddress common.Address, state EthTxState, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) countTransactionsWithState(fromAddress ADDR, state EthTxState, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
 		fromAddress, state, chainID.String())
@@ -1143,16 +1186,16 @@ func (o *orm) countTransactionsWithState(fromAddress common.Address, state EthTx
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func (o *orm) CountUnconfirmedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) CountUnconfirmedTransactions(fromAddress ADDR, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	return o.countTransactionsWithState(fromAddress, EthTxUnconfirmed, chainID, qopts...)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func (o *orm) CountUnstartedTransactions(fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) CountUnstartedTransactions(fromAddress ADDR, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	return o.countTransactionsWithState(fromAddress, EthTxUnstarted, chainID, qopts...)
 }
 
-func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID big.Int, qopts ...pg.QOpt) (err error) {
 	qq := o.q.WithOpts(qopts...)
 	if maxQueuedTransactions == 0 {
 		return nil
@@ -1170,7 +1213,7 @@ func (o *orm) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTrans
 	return
 }
 
-func (o *orm) CreateEthTransaction(newTx NewTx, chainID big.Int, qopts ...pg.QOpt) (etx EthTx, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], chainID big.Int, qopts ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error) {
 	qq := o.q.WithOpts(qopts...)
 	value := 0
 	err = qq.Transaction(func(tx pg.Queryer) error {
@@ -1208,7 +1251,7 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (o *orm) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`

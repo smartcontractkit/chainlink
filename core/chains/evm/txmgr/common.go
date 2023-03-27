@@ -21,9 +21,9 @@ const batchSendTransactionTimeout = 30 * time.Second
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable](
+func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
 	ctx context.Context,
-	orm ORM[ADDR, TX_HASH],
+	orm ORM[ADDR, BLOCK_HASH, TX_HASH],
 	attempts []EthTxAttempt[ADDR, TX_HASH],
 	batchSize int,
 	logger logger.Logger,

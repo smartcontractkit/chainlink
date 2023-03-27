@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -31,8 +30,10 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
+type EvmFeeEstimator txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, *evmtypes.TxHash]
+
 // NewEstimator returns the estimator for a given config
-func NewEstimator[TX_HASH types.Hashable](lggr logger.Logger, ethClient evmclient.Client, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, TX_HASH] {
+func NewEstimator[TX_HASH types.Hashable](lggr logger.Logger, ethClient evmclient.Client, cfg Config) EvmFeeEstimator {
 	s := cfg.GasEstimatorMode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
 		"estimatorMode", s,
@@ -75,14 +76,14 @@ type DynamicFee struct {
 }
 
 type EvmPriorAttempt interface {
-	txmgrtypes.PriorAttempt[EvmFee, common.Hash]
+	txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]
 
 	GetGasPrice() *assets.Wei
 	DynamicFee() DynamicFee
 }
 
 type evmPriorAttempt struct {
-	txmgrtypes.PriorAttempt[EvmFee, common.Hash]
+	txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]
 }
 
 func (e evmPriorAttempt) GetGasPrice() *assets.Wei {
@@ -97,14 +98,18 @@ func (e evmPriorAttempt) DynamicFee() DynamicFee {
 	return *fee
 }
 
-func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (out []EvmPriorAttempt) {
+func (e evmPriorAttempt) GetHash() *evmtypes.TxHash {
+	return e.GetHash()
+}
+
+func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]) (out []EvmPriorAttempt) {
 	for i := range attempts {
 		out = append(out, MakeEvmPriorAttempt(attempts[i]))
 	}
 	return out
 }
 
-func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, common.Hash]) EvmPriorAttempt {
+func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]) EvmPriorAttempt {
 	e := evmPriorAttempt{a}
 	return &e
 }
@@ -147,9 +152,9 @@ type WrappedEvmEstimator struct {
 	EIP1559Enabled bool
 }
 
-var _ txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] = (*WrappedEvmEstimator)(nil)
+var _ txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, *evmtypes.TxHash] = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash] {
+func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) EvmFeeEstimator {
 	return &WrappedEvmEstimator{
 		EvmEstimator:   e,
 		EIP1559Enabled: cfg.EvmEIP1559DynamicFees(),
@@ -170,7 +175,7 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 	return
 }
 
-func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
+func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// validate only 1 fee type is present
 	if (originalFee.Dynamic == nil && originalFee.Legacy == nil) || (originalFee.Dynamic != nil && originalFee.Legacy != nil) {
 		err = errors.New("only one dynamic or legacy fee can be defined")

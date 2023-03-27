@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -33,7 +34,7 @@ type Chain interface {
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
-	TxManager() txmgr.TxManager
+	TxManager() txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash]
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
@@ -47,7 +48,7 @@ type chain struct {
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	txm             txmgr.TxManager
+	txm             txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash]
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -248,16 +249,16 @@ func (c *chain) HealthReport() map[string]error {
 	return report
 }
 
-func (c *chain) ID() *big.Int                             { return c.id }
-func (c *chain) Client() evmclient.Client                 { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
-func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
-func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
-func (c *chain) Logger() logger.Logger                    { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
+func (c *chain) ID() *big.Int                                                    { return c.id }
+func (c *chain) Client() evmclient.Client                                        { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig                             { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster                                 { return c.logBroadcaster }
+func (c *chain) LogPoller() logpoller.LogPoller                                  { return c.logPoller }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster                        { return c.headBroadcaster }
+func (c *chain) TxManager() txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash] { return c.txm }
+func (c *chain) HeadTracker() httypes.HeadTracker                                { return c.headTracker }
+func (c *chain) Logger() logger.Logger                                           { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor                          { return c.balanceMonitor }
 
 func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, nodes []*v2.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
