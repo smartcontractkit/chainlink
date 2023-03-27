@@ -163,7 +163,7 @@ func Test_EthKeyStore(t *testing.T) {
 		assert.EqualError(t, err, "chainID must be non-nil")
 	})
 
-	t.Run("GetEnabledAddressesForChain with specified chain ID", func(t *testing.T) {
+	t.Run("EnabledAddressesForChain with specified chain ID", func(t *testing.T) {
 		defer reset()
 		key, err := ethKeyStore.Create(testutils.FixtureChainID)
 		require.NoError(t, err)
@@ -175,19 +175,19 @@ func Test_EthKeyStore(t *testing.T) {
 		assert.Len(t, keys, 2)
 
 		//get enabled addresses for FixtureChainID
-		enabledAddresses, err := ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
+		enabledAddresses, err := ethKeyStore.EnabledAddressesForChain(testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
 		require.Equal(t, key.Address, enabledAddresses[0])
 
 		//get enabled addresses for chain 1337
-		enabledAddresses, err = ethKeyStore.GetEnabledAddressesForChain(big.NewInt(1337))
+		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
 		require.Equal(t, key2.Address, enabledAddresses[0])
 
 		// /get enabled addresses for nil chain ID
-		_, err = ethKeyStore.GetEnabledAddressesForChain(nil)
+		_, err = ethKeyStore.EnabledAddressesForChain(nil)
 		assert.Error(t, err)
 		assert.EqualError(t, err, "chainID must be non-nil")
 
@@ -195,14 +195,14 @@ func Test_EthKeyStore(t *testing.T) {
 		err = ethKeyStore.Disable(key.Address, testutils.FixtureChainID)
 		require.NoError(t, err)
 
-		enabledAddresses, err = ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
+		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(testutils.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, enabledAddresses, 0)
-		enabledAddresses, err = ethKeyStore.GetEnabledAddressesForChain(big.NewInt(1337))
+		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		assert.Len(t, enabledAddresses, 1)
+		require.Equal(t, key2.Address, enabledAddresses[0])
 	})
-
 }
 
 func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
@@ -643,7 +643,7 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		err := ks.Reset(k1.Address, testutils.FixtureChainID, newNonce)
 		assert.NoError(t, err)
 
-		nonce, err := ks.GetNextMetadata(k1.Address, testutils.FixtureChainID)
+		nonce, err := ks.NextSequence(k1.Address, testutils.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Equal(t, nonce, newNonce)
@@ -669,7 +669,7 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 	})
 }
 
-func Test_GetNextMetadata(t *testing.T) {
+func Test_NextSequence(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -681,26 +681,26 @@ func Test_GetNextMetadata(t *testing.T) {
 	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID, randNonce)
 	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
 
-	nonce, err := ks.GetNextMetadata(addr1, testutils.FixtureChainID)
+	nonce, err := ks.NextSequence(addr1, testutils.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, randNonce, nonce)
 
-	_, err = ks.GetNextMetadata(addr1, testutils.SimulatedChainID)
+	_, err = ks.NextSequence(addr1, testutils.SimulatedChainID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("GetNextMetadata failed: key with address %s is not enabled for chain %s: sql: no rows in result set", addr1.Hex(), testutils.SimulatedChainID.String()))
+	assert.Contains(t, err.Error(), fmt.Sprintf("NextSequence failed: key with address %s is not enabled for chain %s: sql: no rows in result set", addr1.Hex(), testutils.SimulatedChainID.String()))
 
 	randAddr1 := utils.RandomAddress()
-	_, err = ks.GetNextMetadata(randAddr1, testutils.FixtureChainID)
+	_, err = ks.NextSequence(randAddr1, testutils.FixtureChainID)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	_, err = ks.GetNextMetadata(randAddr2, testutils.NewRandomEVMChainID())
+	_, err = ks.NextSequence(randAddr2, testutils.NewRandomEVMChainID())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 }
 
-func Test_IncrementNextMetadata(t *testing.T) {
+func Test_IncrementNextSequence(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -712,25 +712,25 @@ func Test_IncrementNextMetadata(t *testing.T) {
 	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID, randNonce)
 	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
 
-	err := ks.IncrementNextMetadata(addr1, testutils.FixtureChainID, randNonce-1)
+	err := ks.IncrementNextSequence(addr1, testutils.FixtureChainID, randNonce-1)
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
-	err = ks.IncrementNextMetadata(addr1, testutils.FixtureChainID, randNonce)
+	err = ks.IncrementNextSequence(addr1, testutils.FixtureChainID, randNonce)
 	require.NoError(t, err)
 	var nonce int64
 	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
 	assert.Equal(t, randNonce+1, nonce)
 
-	err = ks.IncrementNextMetadata(addr1, testutils.SimulatedChainID, randNonce+1)
+	err = ks.IncrementNextSequence(addr1, testutils.SimulatedChainID, randNonce+1)
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
 	randAddr1 := utils.RandomAddress()
-	err = ks.IncrementNextMetadata(randAddr1, testutils.FixtureChainID, randNonce+1)
+	err = ks.IncrementNextSequence(randAddr1, testutils.FixtureChainID, randNonce+1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	err = ks.IncrementNextMetadata(randAddr2, testutils.NewRandomEVMChainID(), randNonce+1)
+	err = ks.IncrementNextSequence(randAddr2, testutils.NewRandomEVMChainID(), randNonce+1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 

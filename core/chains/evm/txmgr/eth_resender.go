@@ -99,7 +99,7 @@ func (er *EthResender) runLoop() {
 }
 
 func (er *EthResender) resendUnconfirmed() error {
-	addresses, err := er.ks.GetEnabledAddressesForChain(&er.chainID)
+	addresses, err := er.ks.EnabledAddressesForChain(&er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}

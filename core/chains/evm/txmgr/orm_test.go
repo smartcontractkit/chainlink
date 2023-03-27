@@ -1305,7 +1305,7 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 		err := borm.UpdateEthKeyNextNonce(int64(24), int64(0), fromAddress, *ethClient.ChainID())
 		require.NoError(t, err)
 
-		newNextNonce, err := ethKeyStore.GetNextMetadata(fromAddress, ethClient.ChainID())
+		newNextNonce, err := ethKeyStore.NextSequence(fromAddress, ethClient.ChainID())
 		require.NoError(t, err)
 		assert.Equal(t, int64(24), newNextNonce)
 	})

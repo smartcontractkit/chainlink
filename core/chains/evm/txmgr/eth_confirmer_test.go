@@ -2389,7 +2389,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	enabledAddresses, err := ethKeyStore.GetEnabledAddressesForChain(testutils.FixtureChainID)
+	enabledAddresses, err := ethKeyStore.EnabledAddressesForChain(testutils.FixtureChainID)
 	require.NoError(t, err)
 	// keyStates, err := ethKeyStore.GetStatesForKeys(keys)
 	// require.NoError(t, err)

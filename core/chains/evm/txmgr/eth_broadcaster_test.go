@@ -961,7 +961,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 }
 
 func getLocalNextNonce(t *testing.T, kst keystore.Eth, fromAddress gethCommon.Address) uint64 {
-	n, err := kst.GetNextMetadata(fromAddress, &cltest.FixtureChainID)
+	n, err := kst.NextSequence(fromAddress, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	require.NotNil(t, n)
 	return uint64(n)
@@ -1767,9 +1767,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		require.NoError(t, borm.InsertEthTx(&etx))
 
 		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
-		next, err := realKeystore.Eth().GetNextMetadata(fromAddress, testutils.FixtureChainID)
+		next, err := realKeystore.Eth().NextSequence(fromAddress, testutils.FixtureChainID)
 		require.NoError(t, err)
-		kst.On("GetNextMetadata", fromAddress, testutils.FixtureChainID, mock.Anything).Return(next, nil).Once()
+		kst.On("NextSequence", fromAddress, testutils.FixtureChainID, mock.Anything).Return(next, nil).Once()
 		kst.On("SignTx",
 			fromAddress,
 			mock.AnythingOfType("*types.Transaction"),
@@ -1818,9 +1818,9 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	// Cannot increment if supplied nonce doesn't match existing
-	require.Error(t, ethKeyStore.IncrementNextMetadata(keyState.Address.Address(), &cltest.FixtureChainID, int64(42)))
+	require.Error(t, ethKeyStore.IncrementNextSequence(keyState.Address.Address(), &cltest.FixtureChainID, int64(42)))
 
-	require.NoError(t, ethKeyStore.IncrementNextMetadata(keyState.Address.Address(), &cltest.FixtureChainID, int64(0)))
+	require.NoError(t, ethKeyStore.IncrementNextSequence(keyState.Address.Address(), &cltest.FixtureChainID, int64(0)))
 
 	// Nonce bumped to 1
 	var nonce int64

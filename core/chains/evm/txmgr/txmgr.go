@@ -160,7 +160,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrt
 // The provided context can be used to terminate Start sequence.
 func (b *Txm) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
-		enabledAddresses, err := b.keyStore.GetEnabledAddressesForChain(&b.chainID)
+		enabledAddresses, err := b.keyStore.EnabledAddressesForChain(&b.chainID)
 		if err != nil {
 			return errors.Wrap(err, "Txm: failed to load key states")
 		}
@@ -413,7 +413,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 				continue
 			}
 			var err error
-			enabledAddresses, err = b.keyStore.GetEnabledAddressesForChain(&b.chainID)
+			enabledAddresses, err = b.keyStore.EnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)

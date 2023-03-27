@@ -791,11 +791,11 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 }
 
 func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
-	return eb.ChainKeyStore.keystore.GetNextMetadata(address, &eb.chainID)
+	return eb.ChainKeyStore.keystore.NextSequence(address, &eb.chainID)
 }
 
 func (eb *EthBroadcaster) incrementNextNonce(address gethCommon.Address, currentNonce int64, qopts ...pg.QOpt) error {
-	return eb.ChainKeyStore.keystore.IncrementNextMetadata(address, &eb.chainID, currentNonce, qopts...)
+	return eb.ChainKeyStore.keystore.IncrementNextSequence(address, &eb.chainID, currentNonce, qopts...)
 }
 
 func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {

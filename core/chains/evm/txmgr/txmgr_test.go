@@ -473,7 +473,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
-	kst.On("GetEnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil).Twice()
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil).Twice()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -499,7 +499,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	kst.On("GetEnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{keyState.Address.Address()}, nil)
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{keyState.Address.Address()}, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), keyState.Address.Address()).Return(uint64(0), nil).Maybe()
 	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()

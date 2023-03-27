@@ -169,7 +169,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	enabledAddresses, err := w.bm.ethKeyStore.GetEnabledAddressesForChain(w.bm.chainID)
+	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
