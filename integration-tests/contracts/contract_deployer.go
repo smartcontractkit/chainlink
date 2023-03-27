@@ -12,7 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -83,7 +85,6 @@ type ContractDeployer interface {
 	DeployUpkeepResetter() (UpkeepResetter, error)
 	DeployStaking(params eth_contracts.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
-	DeployAtlasFunctions() (AtlasFunctions, error)
 	LoadVerifierProxy(address common.Address) (VerifierProxy, error)
 	DeployVerifierProxy(accessControllerAddr string) (VerifierProxy, error)
 	LoadVerifier(address common.Address) (Verifier, error)
@@ -91,6 +92,8 @@ type ContractDeployer interface {
 	LoadExchanger(address common.Address) (Exchanger, error)
 	DeployExchanger(verifierProxyAddr string, lookupURL string, maxDelay uint8) (Exchanger, error)
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
+	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
+	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -276,25 +279,8 @@ func (e *EthereumContractDeployer) DeployStaking(params eth_contracts.StakingPoo
 	}, nil
 }
 
-func (e *EthereumContractDeployer) DeployAtlasFunctions() (AtlasFunctions, error) {
-	address, _, instance, err := e.client.DeployContract("AtlasFunctions", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployAtlasFunctions(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumAtlasFunctions{
-		client:         e.client,
-		atlasFunctions: instance.(*eth_contracts.AtlasFunctions),
-		address:        address,
-	}, nil
-}
-
 func (e *EthereumContractDeployer) DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error) {
-	address, _, instance, err := e.client.DeployContract("EventsMock", func(
+	address, _, instance, err := e.client.DeployContract("FunctionsOracleEventsMock", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
@@ -306,6 +292,23 @@ func (e *EthereumContractDeployer) DeployFunctionsOracleEventsMock() (FunctionsO
 	return &EthereumFunctionsOracleEventsMock{
 		client:     e.client,
 		eventsMock: instance.(*functions_oracle_events_mock.FunctionsOracleEventsMock),
+		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("FunctionsBillingRegistryEventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return functions_billing_registry_events_mock.DeployFunctionsBillingRegistryEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsBillingRegistryEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMock),
 		address:    address,
 	}, nil
 }
@@ -913,5 +916,23 @@ func (e *EthereumContractDeployer) DeployUpkeepResetter() (UpkeepResetter, error
 		address:  addr,
 		client:   e.client,
 		consumer: instance.(*eth_contracts.UpkeepResetter),
+	}, err
+}
+
+// DeployMockAggregatorProxy deploys a mock aggregator proxy contract
+func (e *EthereumContractDeployer) DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error) {
+	addr, _, instance, err := e.client.DeployContract("MockAggregatorProxy", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return mock_aggregator_proxy.DeployMockAggregatorProxy(auth, backend, common.HexToAddress(aggregatorAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMockAggregatorProxy{
+		address:             addr,
+		client:              e.client,
+		mockAggregatorProxy: instance.(*mock_aggregator_proxy.MockAggregatorProxy),
 	}, err
 }

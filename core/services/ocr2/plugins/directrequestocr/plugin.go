@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/functions"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
@@ -25,7 +25,7 @@ type DROracle struct {
 	pipelineRunner pipeline.Runner
 	jobORM         job.ORM
 	pluginConfig   config.PluginConfig
-	pluginORM      directrequestocr.ORM
+	pluginORM      functions.ORM
 	chain          evm.Chain
 	lggr           logger.Logger
 	ocrLogger      commontypes.Logger
@@ -34,7 +34,7 @@ type DROracle struct {
 
 var _ plugins.OraclePlugin = &DROracle{}
 
-func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM directrequestocr.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger, mailMon *utils.MailboxMonitor) (*DROracle, error) {
+func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM functions.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger, mailMon *utils.MailboxMonitor) (*DROracle, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
@@ -72,14 +72,14 @@ func (o *DROracle) GetServices() ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "OCR2DirectRequest: failed to create an OCR2DROracle wrapper for address: %v", contractAddress)
 	}
-	svcLogger := o.lggr.Named("DRListener").
+	svcLogger := o.lggr.Named("FunctionsListener").
 		With(
 			"contract", contractAddress,
 			"jobName", o.jb.PipelineSpec.JobName,
 			"jobID", o.jb.PipelineSpec.JobID,
 			"externalJobID", o.jb.ExternalJobID,
 		)
-	logListener := directrequestocr.NewDRListener(oracle, o.jb, o.pipelineRunner, o.jobORM, o.pluginORM, o.pluginConfig, o.chain.LogBroadcaster(), svcLogger, o.mailMon)
+	logListener := functions.NewFunctionsListener(oracle, o.jb, o.pipelineRunner, o.jobORM, o.pluginORM, o.pluginConfig, o.chain.LogBroadcaster(), svcLogger, o.mailMon)
 	var services []job.ServiceCtx
 	services = append(services, logListener)
 	return services, nil

@@ -27,6 +27,7 @@ import (
 )
 
 type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+type EvmReceiptPlus = txmgrtypes.ReceiptPlus[evmtypes.Receipt]
 
 // EthTxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present

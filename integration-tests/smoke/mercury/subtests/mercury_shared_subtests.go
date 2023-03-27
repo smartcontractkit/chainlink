@@ -42,6 +42,7 @@ func RunTestMercuryServerHasReportForRecentBlockNum(t *testing.T, te *mercury.Te
 		})
 }
 
+// This will fail if https://smartcontract-it.atlassian.net/browse/MERC-337 not resolved
 func RunTestReportVerificationWithExchangerContract(t *testing.T, te *mercury.TestEnv,
 	exchangerContract contracts.Exchanger, feedId string) {
 	feedIdBytes := mercury.StringToByte32(feedId)
@@ -70,6 +71,7 @@ func RunTestReportVerificationWithExchangerContract(t *testing.T, te *mercury.Te
 			require.NoError(t, err)
 			// feedIdHex param is still not fixed in the Exchanger contract. Should be feedIDHex
 			fixedMerucyrUrlPath := strings.Replace(mercuryUrlPath, "feedIdHex", "feedIDHex", -1)
+			fixedMerucyrUrlPath2 := strings.Replace(fixedMerucyrUrlPath, "L2Blocknumber", "blockNumber", -1)
 
 			d := 3 * time.Second
 			log.Info().Msgf("Wait for %s report to be generated and available on the mercury server..", d)
@@ -78,7 +80,7 @@ func RunTestReportVerificationWithExchangerContract(t *testing.T, te *mercury.Te
 			// Get report from mercury server
 			msClient := client.NewMercuryServerClient(
 				te.MSInfo.LocalUrl, te.MSInfo.UserId, te.MSInfo.UserKey)
-			report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath))
+			report, resp, err := msClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath2))
 			log.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")

@@ -50,6 +50,7 @@ $SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
 
+$SCRIPTPATH/native_solc8_6_compile mocks/MockAggregatorProxy.sol
 $SCRIPTPATH/native_solc8_6_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc8_6_compile VRFRequestIDBase.sol
@@ -113,3 +114,4 @@ $SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
 
 # Mocks
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
