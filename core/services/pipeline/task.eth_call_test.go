@@ -225,7 +225,7 @@ func TestETHCallTask(t *testing.T) {
 					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
 					Return([]byte("baz quux"), nil).Maybe()
 			},
-			nil, nil, "chain not found",
+			nil, nil, "not found",
 		},
 	}
 

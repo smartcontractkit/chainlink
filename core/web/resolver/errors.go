@@ -4,6 +4,8 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/chains"
 )
 
 type ErrorCode string
@@ -23,7 +25,7 @@ type NotFoundErrorUnionType struct {
 
 // ToNotFoundError resolves to the not found error resolver
 func (e *NotFoundErrorUnionType) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	isErrFn := isNotFoundSQLError
+	isErrFn := isNotFoundError
 
 	if e.isExpectedErrorFn != nil {
 		isErrFn = e.isExpectedErrorFn
@@ -36,8 +38,9 @@ func (e *NotFoundErrorUnionType) ToNotFoundError() (*NotFoundErrorResolver, bool
 	return nil, false
 }
 
-func isNotFoundSQLError(err error) bool {
-	return errors.Is(err, sql.ErrNoRows)
+func isNotFoundError(err error) bool {
+	return errors.Is(err, sql.ErrNoRows) ||
+		errors.Is(err, chains.ErrNotFound)
 }
 
 type NotFoundErrorResolver struct {

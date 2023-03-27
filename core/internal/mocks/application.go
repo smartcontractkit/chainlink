@@ -94,15 +94,15 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 }
 
 // EVMORM provides a mock function with given fields:
-func (_m *Application) EVMORM() types.ORM {
+func (_m *Application) EVMORM() types.Configs {
 	ret := _m.Called()
 
-	var r0 types.ORM
-	if rf, ok := ret.Get(0).(func() types.ORM); ok {
+	var r0 types.Configs
+	if rf, ok := ret.Get(0).(func() types.Configs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.ORM)
+			r0 = ret.Get(0).(types.Configs)
 		}
 	}
 
