@@ -10,21 +10,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
 	// ErrChainIDEmpty is returned when chain is required but was empty.
 	ErrChainIDEmpty = errors.New("chain id empty")
-	// ErrChainIDInvalid is returned when a chain id does not match any configured chains.
-	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
+	ErrNotFound     = errors.New("not found")
 )
 
 // Chains is a generic interface for ChainConfig[I, C] configuration.
-type Chains[I ID, C Config] interface {
-	Show(id I) (ChainConfig[I, C], error)
-	Index(offset, limit int) ([]ChainConfig[I, C], int, error)
+type Chains[I ID] interface {
+	Show(id I) (ChainConfig, error)
+	Index(offset, limit int) ([]ChainConfig, int, error)
 }
 
 // Nodes is a generic interface for Node configuration.
@@ -34,9 +32,9 @@ type Nodes[I ID, N Node] interface {
 }
 
 // ChainSet manages a live set of ChainService instances.
-type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
+type ChainSet[I ID, N Node, S ChainService] interface {
 	services.ServiceCtx
-	Chains[I, C]
+	Chains[I]
 	Nodes[I, N]
 
 	Name() string
@@ -47,37 +45,37 @@ type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
 }
 
 // ChainService is a live, runtime chain instance, with supporting services.
-type ChainService[C Config] interface {
+type ChainService interface {
 	services.ServiceCtx
 }
 
 // ChainSetOpts holds options for configuring a ChainSet via NewChainSet.
-type ChainSetOpts[I ID, C Config, N Node] interface {
+type ChainSetOpts[I ID, N Node] interface {
 	Validate() error
-	ORMAndLogger() (ORM[I, C, N], logger.Logger)
+	ConfigsAndLogger() (Configs[I, N], logger.Logger)
 }
 
-type chainSet[I ID, C Config, N Node, S ChainService[C]] struct {
+type chainSet[I ID, N Node, S ChainService] struct {
 	utils.StartStopOnce
-	opts     ChainSetOpts[I, C, N]
+	opts     ChainSetOpts[I, N]
 	formatID func(I) string
-	orm      ORM[I, C, N]
+	orm      Configs[I, N]
 	lggr     logger.Logger
 	chains   map[string]S
 }
 
-// NewChainSetImmut returns a new immutable ChainSet for the given ChainSetOpts.
-func NewChainSetImmut[I ID, C Config, N Node, S ChainService[C]](chains map[string]S,
-	opts ChainSetOpts[I, C, N], formatID func(I) string,
-) (ChainSet[I, C, N, S], error) {
+// NewChainSet returns a new immutable ChainSet for the given ChainSetOpts.
+func NewChainSet[I ID, N Node, S ChainService](chains map[string]S,
+	opts ChainSetOpts[I, N], formatID func(I) string,
+) (ChainSet[I, N, S], error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	orm, lggr := opts.ORMAndLogger()
-	cs := chainSet[I, C, N, S]{
+	cfgs, lggr := opts.ConfigsAndLogger()
+	cs := chainSet[I, N, S]{
 		opts:     opts,
 		formatID: formatID,
-		orm:      orm,
+		orm:      cfgs,
 		lggr:     lggr.Named("ChainSet"),
 		chains:   chains,
 	}
@@ -85,7 +83,7 @@ func NewChainSetImmut[I ID, C Config, N Node, S ChainService[C]](chains map[stri
 	return &cs, nil
 }
 
-func (c *chainSet[I, C, N, S]) Chain(ctx context.Context, id I) (s S, err error) {
+func (c *chainSet[I, N, S]) Chain(ctx context.Context, id I) (s S, err error) {
 	sid := c.formatID(id)
 	if sid == "" {
 		err = ErrChainIDEmpty
@@ -96,29 +94,44 @@ func (c *chainSet[I, C, N, S]) Chain(ctx context.Context, id I) (s S, err error)
 	}
 	ch, ok := c.chains[sid]
 	if !ok {
-		err = ErrChainIDInvalid
+		err = ErrNotFound
 		return
 	}
 	return ch, nil
 }
 
-func (c *chainSet[I, C, N, S]) Show(id I) (ChainConfig[I, C], error) {
-	return c.orm.Chain(id)
+func (c *chainSet[I, N, S]) Show(id I) (cfg ChainConfig, err error) {
+	var cs []ChainConfig
+	cs, _, err = c.orm.Chains(0, -1, id)
+	if err != nil {
+		return
+	}
+	l := len(cs)
+	if l == 0 {
+		err = ErrNotFound
+		return
+	}
+	if l > 1 {
+		err = fmt.Errorf("multiple chains found: %d", len(cs))
+		return
+	}
+	cfg = cs[0]
+	return
 }
 
-func (c *chainSet[I, C, N, S]) Index(offset, limit int) ([]ChainConfig[I, C], int, error) {
+func (c *chainSet[I, N, S]) Index(offset, limit int) ([]ChainConfig, int, error) {
 	return c.orm.Chains(offset, limit)
 }
 
-func (c *chainSet[I, C, N, S]) GetNodes(ctx context.Context, offset, limit int) (nodes []N, count int, err error) {
-	return c.orm.Nodes(offset, limit, pg.WithParentCtx(ctx))
+func (c *chainSet[I, N, S]) GetNodes(ctx context.Context, offset, limit int) (nodes []N, count int, err error) {
+	return c.orm.Nodes(offset, limit)
 }
 
-func (c *chainSet[I, C, N, S]) GetNodesForChain(ctx context.Context, chainID I, offset, limit int) (nodes []N, count int, err error) {
-	return c.orm.NodesForChain(chainID, offset, limit, pg.WithParentCtx(ctx))
+func (c *chainSet[I, N, S]) GetNodesForChain(ctx context.Context, chainID I, offset, limit int) (nodes []N, count int, err error) {
+	return c.orm.NodesForChain(chainID, offset, limit)
 }
 
-func (c *chainSet[I, C, N, S]) Start(ctx context.Context) error {
+func (c *chainSet[I, N, S]) Start(ctx context.Context) error {
 	return c.StartOnce("ChainSet", func() error {
 		c.lggr.Debug("Starting")
 
@@ -133,7 +146,7 @@ func (c *chainSet[I, C, N, S]) Start(ctx context.Context) error {
 	})
 }
 
-func (c *chainSet[I, C, N, S]) Close() error {
+func (c *chainSet[I, N, S]) Close() error {
 	return c.StopOnce("ChainSet", func() (err error) {
 		c.lggr.Debug("Stopping")
 
@@ -144,7 +157,7 @@ func (c *chainSet[I, C, N, S]) Close() error {
 	})
 }
 
-func (c *chainSet[I, C, N, S]) Ready() (err error) {
+func (c *chainSet[I, N, S]) Ready() (err error) {
 	err = c.StartStopOnce.Ready()
 	for _, c := range c.chains {
 		err = multierr.Combine(err, c.Ready())
@@ -152,11 +165,11 @@ func (c *chainSet[I, C, N, S]) Ready() (err error) {
 	return
 }
 
-func (c *chainSet[I, C, N, S]) Name() string {
+func (c *chainSet[I, N, S]) Name() string {
 	return c.lggr.Name()
 }
 
-func (c *chainSet[I, C, N, S]) HealthReport() map[string]error {
+func (c *chainSet[I, N, S]) HealthReport() map[string]error {
 	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
 	for _, c := range c.chains {
 		maps.Copy(report, c.HealthReport())
