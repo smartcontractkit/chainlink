@@ -275,8 +275,8 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 			}
 		}
 
-		if len(meta.SeqNumbers) > 1 {
-			lgr = lgr.With("SeqNumbersMin", meta.SeqNumbers[0], "SeqNumbersMax", meta.SeqNumbers[1])
+		if len(meta.SeqNumbers) > 0 {
+			lgr = lgr.With("SeqNumbers", meta.SeqNumbers)
 		}
 	}
 
