@@ -151,10 +151,14 @@ type TestService struct {
 }
 
 func setupTestService(t *testing.T) *TestService {
+	t.Helper()
+
 	return setupTestServiceCfg(t, nil)
 }
 
 func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets)) *TestService {
+	t.Helper()
+
 	var (
 		orm          = mocks.NewORM(t)
 		jobORM       = jobmocks.NewORM(t)
@@ -3013,8 +3017,7 @@ func Test_Service_StartStop(t *testing.T) {
 				tt.beforeFunc(svc)
 			}
 
-			err = svc.Start(testutils.Context(t))
-			require.NoError(t, err)
+			require.NoError(t, svc.Start(testutils.Context(t)))
 
 			svc.Close()
 		})
