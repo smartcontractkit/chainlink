@@ -3,6 +3,14 @@ name: Build and Publish Chainlink
 description: A composite action that allows building and publishing signed chainlink images.
 
 inputs:
+  build-root:
+    description: When set to the string boolean value of "true", the root image will be built, publish-root overrides this if set to true
+    default: "false"
+    required: false
+  build-nonroot:
+    description: When set to the string boolean value of "true", the nonroot image will be built, publish-nonroot overrides this if set to true
+    default: "false"
+    required: false
   # Inputs for publishing
   publish-root:
     description: When set to the string boolean value of "true", the resulting built image will be published
@@ -112,6 +120,7 @@ runs:
       uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
 
     - name: Generate docker metadata for root image
+      if: inputs.build-root == 'true' || inputs.publish-root == 'true'
       id: meta-root
       uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
       with:
@@ -122,6 +131,7 @@ runs:
         tags: ${{ env.shared-tag-list }}
 
     - name: Build and push root docker image
+      if: inputs.build-root == 'true' || inputs.publish-root == 'true'
       id: buildpush-root
       uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
       with:
@@ -138,6 +148,7 @@ runs:
           ${{ env.shared-build-args }}
 
     - name: Save root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
+      if: inputs.build-root == 'true' || inputs.publish-root == 'true'
       id: save-root-image-name-env
       shell: sh
       run: |
@@ -151,6 +162,7 @@ runs:
         echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 
     - name: Generate docker metadata for non-root image
+      if: inputs.build-nonroot == 'true' || inputs.publish-nonroot == 'true'
       id: meta-nonroot
       uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
       with:
@@ -162,6 +174,7 @@ runs:
         tags: ${{ env.shared-tag-list }}
 
     - name: Build and push non-root docker image
+      if: inputs.build-nonroot == 'true' || inputs.publish-nonroot == 'true'
       id: buildpush-nonroot
       uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
       with:
@@ -178,6 +191,7 @@ runs:
           ${{ env.shared-build-args }}
 
     - name: Save non-root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
+      if: inputs.build-nonroot == 'true' || inputs.publish-nonroot == 'true'
       id: save-non-root-image-name-env
       shell: sh
       run: |
@@ -190,6 +204,7 @@ runs:
         echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 
     - name: Check if non-root image runs as root
+      if: inputs.build-nonroot == 'true' || inputs.publish-nonroot == 'true'
       id: check-nonroot-runs-root
       shell: sh
       env:
