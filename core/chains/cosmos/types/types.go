@@ -4,18 +4,13 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-// ORM manages cosmos chains and nodes.
-type ORM interface {
-	chains.ChainConfigs[string, *db.ChainCfg, ChainConfig]
+// Configs manages cosmos chains and nodes.
+type Configs interface {
+	chains.ChainConfigs[string]
 	chains.NodeConfigs[string, db.Node]
-
-	EnsureChains([]string, ...pg.QOpt) error
 }
-
-type ChainConfig = chains.ChainConfig[string, *db.ChainCfg]
 
 // NewNode defines a new node to create.
 type NewNode struct {

@@ -46,16 +46,16 @@ type chain struct {
 	id   string
 	cfg  coscfg.Config
 	txm  *cosmostxm.Txm
-	orm  types.ORM
+	cfgs types.Configs
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("cosmosChainID", id)
 	var ch = chain{
 		id:   id,
 		cfg:  cfg,
-		orm:  orm,
+		cfgs: cfgs,
 		lggr: lggr.Named("Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {
@@ -97,7 +97,7 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+		nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get nodes")
 		}
@@ -111,7 +111,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
-		node, err = c.orm.NodeNamed(name)
+		node, err = c.cfgs.NodeNamed(name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get node named %s", name)
 		}

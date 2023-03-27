@@ -1,4 +1,4 @@
-package directrequestocr_test
+package functions_test
 
 import (
 	"testing"
@@ -10,33 +10,33 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/functions"
 )
 
-func setupORM(t *testing.T) directrequestocr.ORM {
+func setupORM(t *testing.T) functions.ORM {
 	t.Helper()
 
 	var (
 		db       = pgtest.NewSqlxDB(t)
 		lggr     = logger.TestLogger(t)
 		contract = testutils.NewAddress()
-		orm      = directrequestocr.NewORM(db, lggr, pgtest.NewQConfig(true), contract)
+		orm      = functions.NewORM(db, lggr, pgtest.NewQConfig(true), contract)
 	)
 
 	return orm
 }
 
-func newRequestID() directrequestocr.RequestID {
+func newRequestID() functions.RequestID {
 	return testutils.Random32Byte()
 }
 
-func createRequest(t *testing.T, orm directrequestocr.ORM) (directrequestocr.RequestID, common.Hash, time.Time) {
+func createRequest(t *testing.T, orm functions.ORM) (functions.RequestID, common.Hash, time.Time) {
 	ts := time.Now().Round(time.Second)
 	id, hash := createRequestWithTimestamp(t, orm, ts)
 	return id, hash, ts
 }
 
-func createRequestWithTimestamp(t *testing.T, orm directrequestocr.ORM, ts time.Time) (directrequestocr.RequestID, common.Hash) {
+func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (functions.RequestID, common.Hash) {
 	id := newRequestID()
 	txHash := testutils.NewAddress().Hash()
 	err := orm.CreateRequest(id, ts, &txHash)
@@ -56,14 +56,14 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	require.Equal(t, id1, req1.RequestID)
 	require.Equal(t, &txHash1, req1.RequestTxHash)
 	require.Equal(t, ts1, req1.ReceivedAt)
-	require.Equal(t, directrequestocr.IN_PROGRESS, req1.State)
+	require.Equal(t, functions.IN_PROGRESS, req1.State)
 
 	req2, err := orm.FindById(id2)
 	require.NoError(t, err)
 	require.Equal(t, id2, req2.RequestID)
 	require.Equal(t, &txHash2, req2.RequestTxHash)
 	require.Equal(t, ts2, req2.ReceivedAt)
-	require.Equal(t, directrequestocr.IN_PROGRESS, req2.State)
+	require.Equal(t, functions.IN_PROGRESS, req2.State)
 
 	t.Run("missing ID", func(t *testing.T) {
 		req, err := orm.FindById(newRequestID())
@@ -95,7 +95,7 @@ func TestORM_SetResult(t *testing.T) {
 	require.Equal(t, ts, req.ReceivedAt)
 	require.NotNil(t, req.ResultReadyAt)
 	require.Equal(t, rdts, *req.ResultReadyAt)
-	require.Equal(t, directrequestocr.RESULT_READY, req.State)
+	require.Equal(t, functions.RESULT_READY, req.State)
 	require.Equal(t, []byte("result"), req.Result)
 	require.NotNil(t, req.RunID)
 	require.Equal(t, int64(123), *req.RunID)
@@ -108,7 +108,7 @@ func TestORM_SetError(t *testing.T) {
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, 123, directrequestocr.USER_ERROR, []byte("error"), rdts, true)
+	err := orm.SetError(id, 123, functions.USER_ERROR, []byte("error"), rdts, true)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -118,8 +118,8 @@ func TestORM_SetError(t *testing.T) {
 	require.NotNil(t, req.ResultReadyAt)
 	require.Equal(t, rdts, *req.ResultReadyAt)
 	require.NotNil(t, req.ErrorType)
-	require.Equal(t, directrequestocr.USER_ERROR, *req.ErrorType)
-	require.Equal(t, directrequestocr.RESULT_READY, req.State)
+	require.Equal(t, functions.USER_ERROR, *req.ErrorType)
+	require.Equal(t, functions.RESULT_READY, req.State)
 	require.Equal(t, []byte("error"), req.Error)
 	require.NotNil(t, req.RunID)
 	require.Equal(t, int64(123), *req.RunID)
@@ -132,15 +132,15 @@ func TestORM_SetError_Internal(t *testing.T) {
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, 123, directrequestocr.INTERNAL_ERROR, []byte("error"), rdts, false)
+	err := orm.SetError(id, 123, functions.INTERNAL_ERROR, []byte("error"), rdts, false)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
 	require.NoError(t, err)
 	require.Equal(t, id, req.RequestID)
 	require.Equal(t, ts, req.ReceivedAt)
-	require.Equal(t, directrequestocr.INTERNAL_ERROR, *req.ErrorType)
-	require.Equal(t, directrequestocr.IN_PROGRESS, req.State)
+	require.Equal(t, functions.INTERNAL_ERROR, *req.ErrorType)
+	require.Equal(t, functions.IN_PROGRESS, req.State)
 	require.Equal(t, []byte("error"), req.Error)
 	require.Equal(t, int64(123), *req.RunID)
 }
@@ -158,7 +158,7 @@ func TestORM_SetFinalized(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("result"), req.TransmittedResult)
 	require.Equal(t, []byte("error"), req.TransmittedError)
-	require.Equal(t, directrequestocr.FINALIZED, req.State)
+	require.Equal(t, functions.FINALIZED, req.State)
 }
 
 func TestORM_SetConfirmed(t *testing.T) {
@@ -172,7 +172,7 @@ func TestORM_SetConfirmed(t *testing.T) {
 
 	req, err := orm.FindById(id)
 	require.NoError(t, err)
-	require.Equal(t, directrequestocr.CONFIRMED, req.State)
+	require.Equal(t, functions.CONFIRMED, req.State)
 }
 
 func TestORM_StateTransitions(t *testing.T) {
@@ -183,31 +183,31 @@ func TestORM_StateTransitions(t *testing.T) {
 	id, _ := createRequestWithTimestamp(t, orm, now)
 	req, err := orm.FindById(id)
 	require.NoError(t, err)
-	require.Equal(t, directrequestocr.IN_PROGRESS, req.State)
+	require.Equal(t, functions.IN_PROGRESS, req.State)
 
 	err = orm.SetResult(id, 0, []byte{}, now)
 	require.NoError(t, err)
 	req, err = orm.FindById(id)
 	require.NoError(t, err)
-	require.Equal(t, directrequestocr.RESULT_READY, req.State)
+	require.Equal(t, functions.RESULT_READY, req.State)
 
 	_, err = orm.TimeoutExpiredResults(now.Add(time.Minute), 1)
 	require.NoError(t, err)
 	req, err = orm.FindById(id)
 	require.NoError(t, err)
-	require.Equal(t, directrequestocr.TIMED_OUT, req.State)
+	require.Equal(t, functions.TIMED_OUT, req.State)
 
 	err = orm.SetFinalized(id, nil, nil)
 	require.Error(t, err)
 	req, err = orm.FindById(id)
 	require.NoError(t, err)
-	require.Equal(t, directrequestocr.TIMED_OUT, req.State)
+	require.Equal(t, functions.TIMED_OUT, req.State)
 
 	err = orm.SetConfirmed(id)
 	require.NoError(t, err)
 	req, err = orm.FindById(id)
 	require.NoError(t, err)
-	require.Equal(t, directrequestocr.CONFIRMED, req.State)
+	require.Equal(t, functions.CONFIRMED, req.State)
 }
 
 func TestORM_FindOldestEntriesByState(t *testing.T) {
@@ -220,7 +220,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	id1, _ := createRequestWithTimestamp(t, orm, now.Add(1*time.Minute))
 
 	t.Run("with limit", func(t *testing.T) {
-		result, err := orm.FindOldestEntriesByState(directrequestocr.IN_PROGRESS, 2)
+		result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(result), "incorrect results length")
 		require.Equal(t, id1, result[0].RequestID, "incorrect results order")
@@ -228,13 +228,13 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	})
 
 	t.Run("with no limit", func(t *testing.T) {
-		result, err := orm.FindOldestEntriesByState(directrequestocr.IN_PROGRESS, 20)
+		result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 20)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(result), "incorrect results length")
 	})
 
 	t.Run("no matching entries", func(t *testing.T) {
-		result, err := orm.FindOldestEntriesByState(directrequestocr.RESULT_READY, 10)
+		result, err := orm.FindOldestEntriesByState(functions.RESULT_READY, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(result), "incorrect results length")
 	})
@@ -245,7 +245,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 
 	orm := setupORM(t)
 	now := time.Now()
-	var ids []directrequestocr.RequestID
+	var ids []functions.RequestID
 	for offset := -50; offset <= -10; offset += 10 {
 		id, _ := createRequestWithTimestamp(t, orm, now.Add(time.Duration(offset)*time.Minute))
 		ids = append(ids, id)
@@ -274,12 +274,12 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(results), "not idempotent")
 
-	expectedFinalStates := []directrequestocr.RequestState{
-		directrequestocr.TIMED_OUT,
-		directrequestocr.TIMED_OUT,
-		directrequestocr.CONFIRMED,
-		directrequestocr.TIMED_OUT,
-		directrequestocr.IN_PROGRESS,
+	expectedFinalStates := []functions.RequestState{
+		functions.TIMED_OUT,
+		functions.TIMED_OUT,
+		functions.CONFIRMED,
+		functions.TIMED_OUT,
+		functions.IN_PROGRESS,
 	}
 	for i, expectedState := range expectedFinalStates {
 		req, err := orm.FindById(ids[i])

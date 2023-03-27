@@ -6,15 +6,21 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
-	"gopkg.in/guregu/null.v4"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type CosmosConfigs []*CosmosConfig
@@ -65,7 +71,7 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) {
 	}
 }
 
-func (cs CosmosConfigs) Chains(ids ...string) (chains []types.ChainConfig) {
+func (cs CosmosConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -82,7 +88,15 @@ func (cs CosmosConfigs) Chains(ids ...string) (chains []types.ChainConfig) {
 				continue
 			}
 		}
-		chains = append(chains, ch.AsV1())
+		ch2 := chains.ChainConfig{
+			ID:      *ch.ChainID,
+			Enabled: ch.IsEnabled(),
+		}
+		ch2.Cfg, err = ch.TOMLString()
+		if err != nil {
+			return
+		}
+		r = append(r, ch2)
 	}
 	return
 }
@@ -220,23 +234,6 @@ func setFromChain(c, f *coscfg.Chain) {
 	}
 }
 
-func (c *CosmosConfig) SetFromDB(ch types.ChainConfig, nodes []db.Node) error {
-	c.ChainID = &ch.ID
-	c.Enabled = &ch.Enabled
-
-	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
-		return err
-	}
-	for _, db := range nodes {
-		var n coscfg.Node
-		if err := n.SetFromDB(db); err != nil {
-			return err
-		}
-		c.Nodes = append(c.Nodes, &n)
-	}
-	return nil
-}
-
 func (c *CosmosConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
 		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
@@ -251,30 +248,12 @@ func (c *CosmosConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *CosmosConfig) AsV1() types.ChainConfig {
-	return types.ChainConfig{
-		ID:      *c.ChainID,
-		Enabled: c.IsEnabled(),
-		Cfg: &db.ChainCfg{
-			BlockRate:             c.Chain.BlockRate,
-			BlocksUntilTxTimeout:  null.IntFromPtr(c.Chain.BlocksUntilTxTimeout),
-			ConfirmPollPeriod:     c.Chain.ConfirmPollPeriod,
-			FallbackGasPriceUAtom: nullString(c.Chain.FallbackGasPriceUAtom),
-			FCDURL:                nullString((*url.URL)(c.Chain.FCDURL)),
-			GasLimitMultiplier:    null.FloatFrom(c.Chain.GasLimitMultiplier.InexactFloat64()),
-			MaxMsgsPerBatch:       null.IntFromPtr(c.Chain.MaxMsgsPerBatch),
-			OCR2CachePollPeriod:   c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:          c.Chain.OCR2CacheTTL,
-			TxMsgTimeout:          c.Chain.TxMsgTimeout,
-		},
+func (c *CosmosConfig) TOMLString() (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
 	}
-}
-
-func nullString(s fmt.Stringer) null.String {
-	if s == nil {
-		return null.String{}
-	}
-	return null.StringFrom(s.String())
+	return string(b), nil
 }
 
 var _ coscfg.Config = &CosmosConfig{}
@@ -322,4 +301,13 @@ func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 	i := d.Shift(sdk.Precision)
 	return sdk.NewDecFromBigIntWithPrec(i.BigInt(), sdk.Precision)
+}
+
+func NewConfigs(cfgs chains.ConfigsV2[string, db.Node]) types.Configs {
+	return chains.NewConfigs(cfgs)
+}
+
+func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {
+	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
+	return chains.EnsureChains[utils.Big](q, "evm", ids)
 }

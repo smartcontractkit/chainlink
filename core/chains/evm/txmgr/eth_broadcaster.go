@@ -18,7 +18,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
@@ -91,9 +90,10 @@ type EthBroadcaster struct {
 	logger    logger.Logger
 	orm       ORM
 	ethClient evmclient.Client
-	ChainKeyStore
-	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
+	chainID        big.Int
+	config         Config
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
 	// when Start is called
@@ -102,6 +102,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
+	ks        KeyStore
 	keyStates []ethkey.State
 
 	checkerFactory TransmitCheckerFactory
@@ -120,23 +121,22 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	keyStates []ethkey.State, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash], resumeCallback ResumeCallback,
+	keyStates []ethkey.State, resumeCallback ResumeCallback,
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
 	return &EthBroadcaster{
-		logger:    logger,
-		orm:       orm,
-		ethClient: ethClient,
-		ChainKeyStore: ChainKeyStore{
-			chainID:  *ethClient.ChainID(),
-			config:   config,
-			keystore: keystore,
-		},
-		estimator:        estimator,
+		logger:           logger,
+		orm:              orm,
+		ethClient:        ethClient,
+		TxAttemptBuilder: txAttemptBuilder,
 		resumeCallback:   resumeCallback,
+		chainID:          *ethClient.ChainID(),
+		config:           config,
 		eventBroadcaster: eventBroadcaster,
+		ks:               keystore,
 		keyStates:        keyStates,
 		checkerFactory:   checkerFactory,
 		triggers:         triggers,
@@ -311,7 +311,7 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 		eb.logger.Infow("Skipping nonce sync for disabled key", "address", k.Address)
 		return
 	}
-	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ChainKeyStore.keystore)
+	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ks)
 	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
 	if err := syncer.Sync(ctx, k); err != nil {
 		// Enter retry loop with backoff
@@ -388,22 +388,10 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		}
 		n++
 		var a EthTxAttempt
-		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-		fee, gasLimit, err := eb.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
+		var retryable bool
+		a, _, _, retryable, err = eb.NewTxAttempt(ctx, *etx, eb.logger)
 		if err != nil {
-			return errors.Wrap(err, "failed to get fee"), true
-		}
-
-		if eb.config.EvmEIP1559DynamicFees() {
-			a, err = eb.NewDynamicFeeAttempt(*etx, *fee.Dynamic, gasLimit)
-			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed on NewDynamicFeeAttempt"), true
-			}
-		} else {
-			a, err = eb.NewLegacyAttempt(*etx, fee.Legacy, gasLimit)
-			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed on NewLegacyAttempt"), true
-			}
+			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), retryable
 		}
 
 		if err := eb.orm.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
@@ -542,7 +530,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 
 	// L2-specific cases
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if eb.ChainKeyStore.config.ChainType().IsL2() {
+		if eb.config.ChainType().IsL2() {
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}
 		return errors.Wrap(sendError, "this error type only handled for L2s"), false
@@ -696,28 +684,12 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 		"Consider increasing EVM.GasEstimator.PriceDefault (current value: %s)",
 		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
 
-	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	bumpedFee, bumpedFeeLimit, err := eb.estimator.BumpFee(ctx, attempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, nil)
+	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
-		return errors.Wrap(err, "tryAgainBumpFee failed"), true
+		return errors.Wrap(err, "tryAgainBumpFee failed"), retryable
 	}
 
-	switch attempt.TxType {
-	case 0x0:
-		return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, bumpedFee.Legacy, bumpedFeeLimit)
-	case 0x2:
-		if bumpedFee.Dynamic == nil {
-			err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", attempt.ID)
-			logger.Sugared(eb.logger).AssumptionViolation(err.Error())
-			return err, false
-		}
-		return eb.tryAgainWithNewDynamicFeeGas(ctx, lgr, etx, attempt, initialBroadcastAt, *bumpedFee.Dynamic, bumpedFeeLimit)
-	default:
-		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", attempt.ID, attempt.TxType)
-		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
-		return err, false
-	}
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit)
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
@@ -726,41 +698,23 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
 		return err, false
 	}
-	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	gasPrice, gasLimit, err := eb.estimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, txmgrtypes.OptForceRefetch)
+
+	replacementAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, txmgrtypes.OptForceRefetch)
 	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas"), true
+		return errors.Wrap(err, "tryAgainWithNewEstimation failed to build new attempt"), retryable
 	}
 	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
-		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
+		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
 
-	// TODO: nil handling for gasPrice.Legacy? will this ever be reached where EIP1559 is enabled on a L2 but a legacy tx?
-	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice.Legacy, gasLimit)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *assets.Wei, newGasLimit uint32) (err error, retyrable bool) {
-	replacementAttempt, err := eb.NewLegacyAttempt(etx, newGasPrice, newGasLimit)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
-	}
-
+func (eb *EthBroadcaster) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, replacementAttempt EthTxAttempt, initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32) (err error, retyrable bool) {
 	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
-		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
-	}
-	lgr.Debugw("Bumped legacy gas on initial send", "oldGasPrice", attempt.GasPrice, "newGasPrice", newGasPrice)
-	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
-}
-
-func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newDynamicFee gas.DynamicFee, newGasLimit uint32) (err error, retyrable bool) {
-	replacementAttempt, err := eb.NewDynamicFeeAttempt(etx, newDynamicFee, newGasLimit)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
+		return errors.Wrap(err, "tryAgainWithNewFee failed"), true
 	}
 
-	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
-		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
-	}
-	lgr.Debugw("Bumped dynamic fee gas on initial send", "oldFee", gas.MakeEvmPriorAttempt(attempt).DynamicFee(), "newFee", newDynamicFee)
+	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.Fee().String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
 	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 
@@ -795,11 +749,11 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 }
 
 func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
-	return eb.ChainKeyStore.keystore.GetNextNonce(address, &eb.chainID)
+	return eb.ks.GetNextNonce(address, &eb.chainID)
 }
 
 func (eb *EthBroadcaster) incrementNextNonce(address gethCommon.Address, currentNonce int64, qopts ...pg.QOpt) error {
-	return eb.ChainKeyStore.keystore.IncrementNextNonce(address, &eb.chainID, currentNonce, qopts...)
+	return eb.ks.IncrementNextNonce(address, &eb.chainID, currentNonce, qopts...)
 }
 
 func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {

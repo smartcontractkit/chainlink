@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -29,14 +30,13 @@ import (
 
 // ErrNoChains indicates that no EVM chains have been started
 var ErrNoChains = errors.New("no EVM chains loaded")
-var ErrChainNotFound = errors.New("chain not found")
 
 var _ ChainSet = &chainSet{}
 
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	chains.Chains[utils.Big, *types.ChainCfg]
+	chains.Chains[utils.Big]
 	chains.Nodes[utils.Big, types.Node]
 
 	Get(id *big.Int) (Chain, error)
@@ -45,7 +45,7 @@ type ChainSet interface {
 	Chains() []Chain
 	ChainCount() int
 
-	ORM() types.ORM
+	Configs() types.Configs
 
 	GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error)
 }
@@ -127,15 +127,30 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	if exists {
 		return c, nil
 	}
-	return nil, errors.Wrap(ErrChainNotFound, fmt.Sprintf("failed to get chain with id %s", id.String()))
+	return nil, errors.Wrap(chains.ErrNotFound, fmt.Sprintf("failed to get chain with id %s", id.String()))
 }
 
-func (cll *chainSet) Show(id utils.Big) (types.ChainConfig, error) {
-	return cll.opts.ORM.Chain(id)
+func (cll *chainSet) Show(id utils.Big) (cfg chains.ChainConfig, err error) {
+	var cs []chains.ChainConfig
+	cs, _, err = cll.opts.Configs.Chains(0, -1, id)
+	if err != nil {
+		return
+	}
+	l := len(cs)
+	if l == 0 {
+		err = chains.ErrNotFound
+		return
+	}
+	if l > 1 {
+		err = fmt.Errorf("multiple chains found: %d", len(cs))
+		return
+	}
+	cfg = cs[0]
+	return
 }
 
-func (cll *chainSet) Index(offset, limit int) ([]types.ChainConfig, int, error) {
-	return cll.opts.ORM.Chains(offset, limit)
+func (cll *chainSet) Index(offset, limit int) ([]chains.ChainConfig, int, error) {
+	return cll.opts.Configs.Chains(offset, limit)
 }
 
 func (cll *chainSet) Default() (Chain, error) {
@@ -169,12 +184,12 @@ func (cll *chainSet) ChainCount() int {
 	return len(cll.chains)
 }
 
-func (cll *chainSet) ORM() types.ORM {
-	return cll.opts.ORM
+func (cll *chainSet) Configs() types.Configs {
+	return cll.opts.Configs
 }
 
 func (cll *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []types.Node, count int, err error) {
-	nodes, count, err = cll.opts.ORM.Nodes(offset, limit, pg.WithParentCtx(ctx))
+	nodes, count, err = cll.opts.Configs.Nodes(offset, limit)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodes failed to load nodes from DB")
 		return
@@ -186,7 +201,7 @@ func (cll *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []t
 }
 
 func (cll *chainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error) {
-	nodes, count, err = cll.opts.ORM.NodesForChain(chainID, offset, limit, pg.WithParentCtx(ctx))
+	nodes, count, err = cll.opts.Configs.NodesForChain(chainID, offset, limit)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
 		return
@@ -198,7 +213,7 @@ func (cll *chainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, of
 }
 
 func (cll *chainSet) GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error) {
-	nodes, err = cll.opts.ORM.GetNodesByChainIDs(chainIDs, pg.WithParentCtx(ctx))
+	nodes, err = cll.opts.Configs.GetNodesByChainIDs(chainIDs)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
 		return
@@ -243,8 +258,9 @@ type ChainSetOpts struct {
 	DB               *sqlx.DB
 	KeyStore         keystore.Eth
 	EventBroadcaster pg.EventBroadcaster
-	ORM              types.ORM
+	Configs          types.Configs
 	MailMon          *utils.MailboxMonitor
+	GasEstimator     gas.EvmFeeEstimator
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -252,6 +268,7 @@ type ChainSetOpts struct {
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
 	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
 	GenTxManager      func(*big.Int) txmgr.TxManager
+	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
@@ -310,6 +327,6 @@ func (opts *ChainSetOpts) check() error {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.ORM = chains.NewORMImmut[utils.Big, *types.ChainCfg, types.Node](opts.Config.EVMConfigs())
+	opts.Configs = chains.NewConfigs[utils.Big, types.Node](opts.Config.EVMConfigs())
 	return nil
 }
