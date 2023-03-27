@@ -17,6 +17,8 @@ jobs:
       - name: Build chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
+          build-root: true
+          build-nonroot: true
           publish-root: false
           publish-nonroot: false
           sign-images: false
