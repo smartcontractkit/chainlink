@@ -1041,13 +1041,14 @@ func (lsn *listenerV2) simulateFulfillment(
 
 		return res
 	}
-	if len(trrs.FinalResult(lg).Values) != 1 {
-		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(trrs.FinalResult(lg).Values))
+	finalResult := trrs.FinalResult(lg)
+	if len(finalResult.Values) != 1 {
+		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(finalResult.Values))
 		return res
 	}
 
 	// Run succeeded, we expect a byte array representing the billing amount
-	b, ok := trrs.FinalResult(lg).Values[0].([]uint8)
+	b, ok := finalResult.Values[0].([]uint8)
 	if !ok {
 		res.err = errors.New("expected []uint8 final result")
 		return res
