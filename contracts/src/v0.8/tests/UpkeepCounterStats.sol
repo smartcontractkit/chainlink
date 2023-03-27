@@ -11,7 +11,7 @@ import "../automation/2_0/KeeperRegistry2_0.sol";
  * if it does not have enough LINKs, upkeeps won't perform due to low LINK balance of this contract.
  * this contract also must have plenty native tokens if we want to use the topUpTransmitters function.
  */
-contract UpkeepCounterStats {
+contract UpkeepCounterStats is ConfirmedOwner {
   error IndexOutOfRange();
 
   event UpkeepsRegistered(uint256[] upkeepIds);
@@ -59,7 +59,7 @@ contract UpkeepCounterStats {
   uint8 public minBalanceThresholdMultiplier = 50;
   uint8 public addFundsMinBalanceMultiplier = 100;
 
-  constructor(address registrarAddress) {
+  constructor(address registrarAddress) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
     (,,, address registryAddress,) = registrar.getRegistrationConfig();
     registry = KeeperRegistry2_0(payable(address(registryAddress)));
@@ -73,6 +73,11 @@ contract UpkeepCounterStats {
   function fundLink(uint256 amount) external {
     linkToken.approve(msg.sender, amount);
     linkToken.transferFrom(msg.sender, address(this), amount);
+  }
+
+  function withdrawLinks() external onlyOwner {
+    uint256 balance = linkToken.balanceOf(address(this));
+    linkToken.transfer(msg.sender, balance);
   }
 
   function setRegistrar(KeeperRegistrar2_0 newRegistrar) external {
@@ -190,11 +195,12 @@ contract UpkeepCounterStats {
 
       uint16 bucket = upkeepIdsToBucket[upkeepId];
       uint256[] memory bucketedDelays = upkeepIdsToBucketedDelays[upkeepId][bucket];
-      if (bucketedDelays.length == 100) {
+      if (bucketedDelays.length == 50) {
         bucket++;
       }
       upkeepIdsToBucketedDelays[upkeepId][bucket].push(delay);
       upkeepIdsToDelay[upkeepId].push(delay);
+      upkeepIdsToBucket[upkeepId] = bucket;
     }
 
     uint256 counter = upkeepIdsToCounter[upkeepId] + 1;
