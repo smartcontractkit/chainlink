@@ -65,7 +65,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 	for _, feedId := range feedIds {
 		feedIdStr := mercury.Byte32ToString(feedId)
 
-		subtests.RunTestMercuryServerHasReportForRecentBlockNum(t, &testEnv, feedIdStr)
+		subtests.RunTestGetReportByFeedIdStringForRecentBlockNum(t, &testEnv, feedIdStr)
 		subtests.RunTestReportVerificationWithExchangerContract(t, &testEnv, exchangerContract, feedIdStr)
 	}
 }
