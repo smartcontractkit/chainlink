@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -259,6 +260,7 @@ type ChainSetOpts struct {
 	EventBroadcaster pg.EventBroadcaster
 	Configs          types.Configs
 	MailMon          *utils.MailboxMonitor
+	GasEstimator     gas.EvmFeeEstimator
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -266,6 +268,7 @@ type ChainSetOpts struct {
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
 	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
 	GenTxManager      func(*big.Int) txmgr.TxManager
+	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.

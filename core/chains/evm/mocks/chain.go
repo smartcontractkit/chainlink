@@ -10,6 +10,8 @@ import (
 
 	context "context"
 
+	gas "github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
@@ -86,6 +88,22 @@ func (_m *Chain) Config() config.ChainScopedConfig {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.ChainScopedConfig)
+		}
+	}
+
+	return r0
+}
+
+// GasEstimator provides a mock function with given fields:
+func (_m *Chain) GasEstimator() gas.EvmFeeEstimator {
+	ret := _m.Called()
+
+	var r0 gas.EvmFeeEstimator
+	if rf, ok := ret.Get(0).(func() gas.EvmFeeEstimator); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(gas.EvmFeeEstimator)
 		}
 	}
 
