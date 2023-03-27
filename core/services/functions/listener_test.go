@@ -25,7 +25,7 @@ import (
 	functions_mocks "github.com/smartcontractkit/chainlink/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	job_mocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -75,7 +75,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 		},
 	}
 
-	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
+	oracle, err := functions.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
 	require.NoError(t, err)
 
 	serviceArray, err := oracle.GetServices()

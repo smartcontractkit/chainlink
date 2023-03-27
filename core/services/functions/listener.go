@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
