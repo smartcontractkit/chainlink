@@ -43,6 +43,10 @@ type contractTransmitter struct {
 	lggr                logger.Logger
 }
 
+func transmitterFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
+}
+
 func NewOCRContractTransmitter(
 	address gethcommon.Address,
 	caller contractReader,
@@ -55,8 +59,8 @@ func NewOCRContractTransmitter(
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	filterName := logpoller.FilterName("OCR ContractTransmitter", address.String())
-	err := lp.RegisterFilter(logpoller.Filter{Name: filterName, EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+
+	err := lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
 	}

@@ -114,6 +114,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:  "Displays the health of various services running inside the node.",
 			Action: client.Status,
 			Flags:  []cli.Flag{},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin status` instead.")
+				return nil
+			},
 		},
 		{
 			Name:   "profile",
@@ -130,6 +135,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Usage: "output directory of the captured profile",
 					Value: "/tmp/",
 				},
+			},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin profile` instead.")
+				return nil
 			},
 		},
 		{
@@ -581,7 +591,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, txBuilder, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
@@ -624,21 +635,6 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	renderList(headers, rows, rt.Writer)
 
 	return nil
-}
-
-// Status will display the health of various services
-func (cli *Client) Status(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")

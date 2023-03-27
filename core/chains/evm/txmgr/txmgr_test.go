@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -39,7 +39,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore txmgr.KeyStore, eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
+func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
@@ -62,9 +62,13 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
+
+	// build evm tx attempt builder
+	txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), cfg, keyStore, estimator)
+
 	// --------------------
 
-	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, fwdMgr)
+	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, fwdMgr, txAttemptBuilder)
 }
 
 func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
@@ -509,45 +513,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	require.NoError(t, txm.Close())
 	unsub.AwaitOrFail(t, 1*time.Second)
-}
-
-func TestTxm_SignTx(t *testing.T) {
-	t.Parallel()
-
-	addr := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
-	to := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
-	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
-		Nonce:    42,
-		To:       &to,
-		Value:    big.NewInt(142),
-		Gas:      242,
-		GasPrice: big.NewInt(342),
-		Data:     []byte{1, 2, 3},
-	})
-
-	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
-		chainID := big.NewInt(1)
-		cfg := txmmocks.NewConfig(t)
-		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
-		hash, rawBytes, err := cks.SignTx(addr, tx)
-		require.NoError(t, err)
-		require.NotNil(t, rawBytes)
-		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
-	})
-	// okex used to have a custom hash but now this just verifies that is it the same
-	t.Run("returns correct hash for okex chains", func(t *testing.T) {
-		chainID := big.NewInt(1)
-		cfg := txmmocks.NewConfig(t)
-		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
-		hash, rawBytes, err := cks.SignTx(addr, tx)
-		require.NoError(t, err)
-		require.NotNil(t, rawBytes)
-		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
-	})
 }
 
 type fnMock struct{ called atomic.Bool }
