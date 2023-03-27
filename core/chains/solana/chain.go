@@ -39,10 +39,9 @@ type chain struct {
 	utils.StartStopOnce
 	id             string
 	cfg            config.Config
-	cfgImmutable   bool // toml config is immutable
 	txm            *soltxm.Txm
 	balanceMonitor services.ServiceCtx
-	orm            ORM
+	nodes          func(chainID string, offset, limit int) (nodes []db.Node, count int, err error)
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
@@ -173,12 +172,12 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg config.Config, ks keystore.Solana, cfgs Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
-		orm:         orm,
+		nodes:       cfgs.NodesForChain,
 		lggr:        lggr.Named("Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -214,7 +213,7 @@ func (c *chain) Reader() (solanaclient.Reader, error) {
 func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	var node db.Node
 	var client solanaclient.ReaderWriter
-	nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+	nodes, cnt, err := c.nodes(c.id, 0, math.MaxInt) // opt: pass static nodes set to constructor
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}

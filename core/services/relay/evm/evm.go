@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -134,6 +135,24 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 		return nil, err
 	}
 	return configProvider, err
+}
+
+func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, err error) {
+	var addr ethkey.EIP55Address
+	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
+		return nil, err
+	}
+	var relayConfig types.RelayConfig
+	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if relayConfig.FeedID != nil {
+		filterNames = []string{mercury.FilterName(addr.Address())}
+	} else {
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
+	}
+	return filterNames, err
 }
 
 type ConfigPoller interface {

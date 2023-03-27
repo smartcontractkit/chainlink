@@ -591,7 +591,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, txBuilder, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }

@@ -5,15 +5,13 @@ import (
 	"net/url"
 	"time"
 
-	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
-	"gopkg.in/guregu/null.v4"
-
+	"github.com/pelletier/go-toml/v2"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
-	starknetdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
+	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
@@ -65,7 +63,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
 	}
 }
 
-func (cs StarknetConfigs) Chains(ids ...string) (chains []types.ChainConfig) {
+func (cs StarknetConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -82,7 +80,15 @@ func (cs StarknetConfigs) Chains(ids ...string) (chains []types.ChainConfig) {
 				continue
 			}
 		}
-		chains = append(chains, ch.AsV1())
+		ch2 := chains.ChainConfig{
+			ID:      *ch.ChainID,
+			Enabled: ch.IsEnabled(),
+		}
+		ch2.Cfg, err = ch.TOMLString()
+		if err != nil {
+			return
+		}
+		r = append(r, ch2)
 	}
 	return
 }
@@ -175,24 +181,6 @@ func setFromChain(c, f *stkcfg.Chain) {
 	}
 }
 
-func (c *StarknetConfig) SetFromDB(ch types.ChainConfig, nodes []db.Node) error {
-	c.ChainID = &ch.ID
-	c.Enabled = &ch.Enabled
-
-	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
-		return err
-	}
-	for _, db := range nodes {
-		var n stkcfg.Node
-		if err := n.SetFromDB(db); err != nil {
-			return err
-		}
-		c.Nodes = append(c.Nodes, &n)
-	}
-
-	return nil
-}
-
 func (c *StarknetConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
 		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
@@ -207,19 +195,12 @@ func (c *StarknetConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *StarknetConfig) AsV1() types.ChainConfig {
-	return types.ChainConfig{
-		ID:      *c.ChainID,
-		Enabled: c.IsEnabled(),
-		Cfg: &starknetdb.ChainCfg{
-			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,
-			RequestTimeout:      c.Chain.RequestTimeout,
-			TxTimeout:           c.Chain.TxTimeout,
-			TxSendFrequency:     c.Chain.TxSendFrequency,
-			TxMaxBatchSize:      null.IntFromPtr(c.Chain.TxMaxBatchSize),
-		},
+func (c *StarknetConfig) TOMLString() (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
 	}
+	return string(b), nil
 }
 
 type StarknetNodes []*stkcfg.Node

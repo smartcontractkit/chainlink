@@ -84,7 +84,7 @@ type Application interface {
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
-	EVMORM() evmtypes.ORM
+	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
@@ -662,8 +662,8 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 	return app.sessionORM
 }
 
-func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
-	return app.Chains.EVM.ORM()
+func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
+	return app.Chains.EVM.Configs()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {

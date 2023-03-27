@@ -118,9 +118,10 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.
 	orm       ORM[ADDR, BLOCK_HASH, TX_HASH]
 	lggr      logger.Logger
 	ethClient evmclient.Client
-	ChainKeyStore[ADDR, TX_HASH]
-	estimator      txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
 	resumeCallback ResumeCallback
+	config         Config
+	chainID        big.Int
 
 	ks        txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
 	addresses []ADDR
@@ -135,7 +136,7 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](orm ORM[ADDR, BLOCK_HASH, TX_HASH], ethClient evmclient.Client, config Config, keystore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
-	addresses []ADDR, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH], resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH] {
+	addresses []ADDR, estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH], resumeCallback ResumeCallback, txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]], lggr logger.Logger) *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH] {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
@@ -145,13 +146,10 @@ func NewEthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH typ
 		orm,
 		lggr,
 		ethClient,
-		ChainKeyStore[ADDR, TX_HASH]{
-			*ethClient.ChainID(),
-			config,
-			keystore,
-		},
-		estimator,
+		txAttemptBuilder,
 		resumeCallback,
+		config,
+		*ethClient.ChainID(),
 		keystore,
 		addresses,
 		utils.NewSingleMailbox[*evmtypes.Head](),
@@ -776,30 +774,17 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) bumpGas(ctx context.Context, 
 	}
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-	bytesFromAddress, _ := etx.FromAddress.MarshalText()
-	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(gethCommon.BytesToAddress(bytesFromAddress))
 
 	var bumpedFee gas.EvmFee
 	var bumpedFeeLimit uint32
-	bumpedFee, bumpedFeeLimit, err = ec.estimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpTxAttempt(ctx, etx, previousAttempt, priorAttempts, ec.lggr)
 
+	// if no error, return attempt
+	// if err, continue below
 	if err == nil {
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		switch previousAttempt.TxType {
-		case 0x0: // Legacy
-			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedFee.Legacy.String())...)
-			return ec.NewLegacyAttempt(etx, bumpedFee.Legacy, bumpedFeeLimit)
-		case 0x2: // EIP1559
-			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.Dynamic.TipCap.String(), "bumpedFeeCap", bumpedFee.Dynamic.FeeCap.String())...)
-			if bumpedFee.Dynamic == nil {
-				err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", previousAttempt.ID)
-			} else {
-				return ec.NewDynamicFeeAttempt(etx, *bumpedFee.Dynamic, bumpedFeeLimit)
-			}
-		default:
-			err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
-				"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
-		}
+		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String(), "bumpedFeeLimit", bumpedFeeLimit)...)
+		return bumpedAttempt, err
 	}
 
 	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
@@ -1089,7 +1074,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) ForceRebroadcast(beginningNon
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := ec.NewLegacyAttempt(*etx, assets.NewWeiI(int64(gasPriceWei)), etx.GasLimit)
+			attempt, _, err := ec.NewCustomTxAttempt(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
@@ -1109,7 +1094,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) sendEmptyTransaction(ctx cont
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.keystore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
+	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, uint64(nonce), gasLimit, int64(gasPriceWei), fromAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}

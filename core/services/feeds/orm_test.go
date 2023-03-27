@@ -949,7 +949,6 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 				assert.Equal(t, jpID, actual.ID)
 				assert.Equal(t, tc.wantProposalStatus, actual.Status)
 				assert.Equal(t, tc.wantProposalPendingUpdate, actual.PendingUpdate)
-				assert.Equal(t, uuid.NullUUID{Valid: false}, actual.ExternalJobID)
 			}
 		})
 	}

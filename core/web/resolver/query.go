@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -73,16 +74,18 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 		return nil, err
 	}
 
-	chain, err := r.App.EVMORM().Chain(id)
+	cs, _, err := r.App.EVMORM().Chains(0, -1, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewChainPayload(chain, err), nil
-		}
-
 		return nil, err
 	}
-
-	return NewChainPayload(chain, nil), nil
+	l := len(cs)
+	if l == 0 {
+		return NewChainPayload(chains.ChainConfig{}, chains.ErrNotFound), nil
+	}
+	if l > 1 {
+		return nil, fmt.Errorf("multiple chains found: %d", len(cs))
+	}
+	return NewChainPayload(cs[0], nil), nil
 }
 
 // Chains retrieves a paginated list of chains.

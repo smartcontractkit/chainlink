@@ -132,7 +132,7 @@ func (s *MercuryServer) GetUsers() ([]User, *http.Response, error) {
 
 func (s *MercuryServer) GetReportsByFeedIdStr(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
-	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber)
+	path := fmt.Sprintf("/client?feedIDStr=%s&blockNumber=%d", feedId, blockNumber)
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	resp, err := s.APIClient.R().
@@ -153,7 +153,7 @@ func (s *MercuryServer) GetReportsByFeedIdStr(feedId string, blockNumber uint64)
 
 func (s *MercuryServer) GetReportsByFeedIdHex(feedIdHex string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
-	path := fmt.Sprintf("/client?feedIDHex=%s&L2Blocknumber=%d", feedIdHex, blockNumber)
+	path := fmt.Sprintf("/client?feedIDHex=%s&blockNumber=%d", feedIdHex, blockNumber)
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	resp, err := s.APIClient.R().
