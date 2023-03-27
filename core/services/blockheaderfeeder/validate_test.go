@@ -85,7 +85,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]
 				require.Equal(t, utils.NewBigI(4), os.BlockHeaderFeederSpec.EVMChainID)
 				require.Equal(t, fromAddresses,
 					os.BlockHeaderFeederSpec.FromAddresses)
-				require.Equal(t, uint16(10),
+				require.Equal(t, uint16(100),
 					os.BlockHeaderFeederSpec.GetBlockhashesBatchSize)
 				require.Equal(t, uint16(10),
 					os.BlockHeaderFeederSpec.StoreBlockhashesBatchSize)

@@ -909,7 +909,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A",
 							"batchBlockhashStoreAddress": "0xd23BAE30019853Caf1D08b4C03291b10AD7743Df",
 							"getBlockhashesBatchSize": 5,
-							"storeBlockhashesBatchSize": 3,
+							"storeBlockhashesBatchSize": 3
 						}
 					}
 				}
