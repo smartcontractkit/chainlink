@@ -13,6 +13,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -38,6 +39,7 @@ type Chain interface {
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
+	GasEstimator() gas.EvmFeeEstimator
 }
 
 var _ Chain = &chain{}
@@ -55,6 +57,7 @@ type chain struct {
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
 	keyStore        keystore.Eth
+	gasEstimator    gas.EvmFeeEstimator
 }
 
 type errChainDisabled struct {
@@ -115,7 +118,8 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		}
 	}
 
-	txm := newEvmTxm(db, cfg, client, l, logPoller, opts)
+	// note: gas estimator is started as a part of the txm
+	txm, gasEstimator := newEvmTxm(db, cfg, client, l, logPoller, opts)
 
 	headBroadcaster.Subscribe(txm)
 
@@ -160,6 +164,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		logPoller:       logPoller,
 		balanceMonitor:  balanceMonitor,
 		keyStore:        opts.KeyStore,
+		gasEstimator:    gasEstimator,
 	}, nil
 }
 
@@ -258,6 +263,7 @@ func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
+func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
 func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, nodes []*v2.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
