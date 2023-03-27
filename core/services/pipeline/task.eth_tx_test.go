@@ -552,7 +552,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
 			},
-			nil, nil, "chain not found", pipeline.RunInfo{IsRetryable: true},
+			nil, nil, "not found", pipeline.RunInfo{IsRetryable: true},
 		},
 	}
 

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -14,6 +13,6 @@ func NewEVMChainsController(app chainlink.Application) ChainsController {
 		err = id.UnmarshalText([]byte(s))
 		return
 	}
-	return newChainsController[utils.Big, *types.ChainCfg, presenters.EVMChainResource](
+	return newChainsController[utils.Big, presenters.EVMChainResource](
 		"evm", app.GetChains().EVM, ErrEVMNotEnabled, parse, presenters.NewEVMChainResource, app.GetLogger(), app.GetAuditLogger())
 }
