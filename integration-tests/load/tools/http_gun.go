@@ -35,7 +35,7 @@ func NewHTTPGun(baseURL string, client *client.MercuryServer, feeds [][32]byte, 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *MercuryHTTPGun) Call(l *loadgen.Generator) loadgen.CallResult {
 	randFeedIdStr := mercurysetup.Byte32ToString(m.feeds[rand.Intn(len(m.feeds))])
-	answer, res, err := m.client.GetReportsByFeedIdStr(randFeedIdStr, m.Bn.Load())
+	answer, res, err := m.client.GetReportsByFeedId(randFeedIdStr, m.Bn.Load(), client.StringFeedId)
 	if err != nil {
 		return loadgen.CallResult{Error: "connection error", Failed: true}
 	}

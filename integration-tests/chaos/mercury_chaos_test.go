@@ -10,6 +10,7 @@ import (
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/stretchr/testify/require"
 
@@ -160,7 +161,7 @@ func TestMercuryChaos(t *testing.T) {
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
-				report, _, err := env.MSClient.GetReportsByFeedIdStr(mercury.Byte32ToString(feeds[0]), blockAfterChaos)
+				report, _, err := env.MSClient.GetReportsByFeedId(mercury.Byte32ToString(feeds[0]), blockAfterChaos, client.StringFeedId)
 				l.Info().Interface("Report", report).Msg("Last report received")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Error getting report from Mercury Server")
 				g.Expect(report.ChainlinkBlob).ShouldNot(gomega.BeEmpty(), "Report response does not contain chainlinkBlob")

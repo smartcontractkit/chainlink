@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/test-go/testify/require"
-	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
 
@@ -32,15 +31,15 @@ func RunTestGetReportNotFound(t *testing.T, te *mercury.TestEnv, feedId string) 
 
 			queryBlockNum := lastBlockNum + 500
 
-			reportStr, resp, err := te.MSClient.GetReportsByFeedIdStr(feedId, queryBlockNum)
+			reportStr, resp, err := te.MSClient.GetReportsByFeedId(feedId, queryBlockNum, client.StringFeedId)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.Equal(t, 404, resp.StatusCode)
 			require.Empty(t, reportStr.ChainlinkBlob, "Report response should not contain chainlinkBlob")
 		})
 }
 
-func RunTestGetReportByFeedIdStringForRecentBlockNum(t *testing.T, te *mercury.TestEnv, feedId string) {
-	t.Run(fmt.Sprintf("get report by feed id string for the recent block number, feedId: %s", feedId),
+func RunTestsGetBulkReportsForRecentBlockNum(t *testing.T, te *mercury.TestEnv, feedIdStr string, feedIdType client.FeedIdType) {
+	t.Run(fmt.Sprintf("bulk get reports by feed id %s, feedId: %s", feedIdType, feedIdStr),
 		func(t *testing.T) {
 			t.Parallel()
 
@@ -56,19 +55,29 @@ func RunTestGetReportByFeedIdStringForRecentBlockNum(t *testing.T, te *mercury.T
 				queryBlockNum = lastBlockNum - 10
 			}
 
-			reportStr, _, err := te.MSClient.GetReportsByFeedIdStr(feedId, queryBlockNum)
-			require.NoError(t, err, "Error getting report from Mercury Server")
-			require.NotEmpty(t, reportStr.ChainlinkBlob, "Report response does not contain chainlinkBlob")
-			reportBytes, err := hex.DecodeString(reportStr.ChainlinkBlob[2:])
-			require.NoError(t, err)
-			reportCtx, err := mercuryactions.DecodeReport(reportBytes)
-			require.NoError(t, err)
-			log.Info().Msgf("received report: %+v", reportCtx)
+			var limit uint64 = 100
+
+			var feedId string
+			if feedIdType == client.HexFeedId {
+				feedId = fmt.Sprintf("0x%x", mercury.StringToByte32(feedIdStr))
+			} else {
+				feedId = feedIdStr
+			}
+
+			result, _, err := te.MSClient.BulkGetReportsByFeedId(feedId, queryBlockNum, limit, feedIdType)
+			require.NoError(t, err, "Error getting reports from Mercury Server")
+			for _, blob := range result.ChainlinkBlob {
+				reportBytes, err := hex.DecodeString(blob[2:])
+				require.NoError(t, err)
+				reportCtx, err := mercuryactions.DecodeReport(reportBytes)
+				require.NoError(t, err)
+				log.Debug().Msgf("received report: %+v", reportCtx)
+			}
 		})
 }
 
-func RunTestGetReportByFeedIdHexForRecentBlockNum(t *testing.T, te *mercury.TestEnv, feedId string) {
-	t.Run(fmt.Sprintf("get report by feed id hex for the recent block number, feedId: %s", feedId),
+func RunTestGetReportByFeedIdForRecentBlockNum(t *testing.T, te *mercury.TestEnv, feedIdStr string, feedIdType client.FeedIdType) {
+	t.Run(fmt.Sprintf("get report by feed id %s for the recent block number, feedId: %s", feedIdType, feedIdStr),
 		func(t *testing.T) {
 			t.Parallel()
 
@@ -84,8 +93,14 @@ func RunTestGetReportByFeedIdHexForRecentBlockNum(t *testing.T, te *mercury.Test
 				queryBlockNum = lastBlockNum - 10
 			}
 
-			feedIdHex := fmt.Sprintf("0x%x", mercury.StringToByte32(feedId))
-			reportStr, _, err := te.MSClient.GetReportsByFeedIdHex(feedIdHex, queryBlockNum)
+			var feedId string
+			if feedIdType == client.HexFeedId {
+				feedId = fmt.Sprintf("0x%x", mercury.StringToByte32(feedIdStr))
+			} else {
+				feedId = feedIdStr
+			}
+
+			reportStr, _, err := te.MSClient.GetReportsByFeedId(feedId, queryBlockNum, client.StringFeedId)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.NotEmpty(t, reportStr.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 			reportBytes, err := hex.DecodeString(reportStr.ChainlinkBlob[2:])
@@ -96,13 +111,15 @@ func RunTestGetReportByFeedIdHexForRecentBlockNum(t *testing.T, te *mercury.Test
 		})
 }
 
-func RunTestGetReportByFeedIdHexFromWS(t *testing.T, te *mercury.TestEnv, feedId string) {
+func RunTestGetReportByFeedIdStrFromWS(t *testing.T, te *mercury.TestEnv, feedId string) {
 	t.Run("get report by feed id from /ws websocket", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		t.Parallel()
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s", feedId))
+		// c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s,abc1,def-", feedId))
+		c, _, err := te.MSClient.DialWS(ctx, "")
 		require.NoError(t, err)
-		defer c.Close(websocket.StatusNormalClosure, "")
+		// defer c.Close(websocket.StatusNormalClosure, "")
 
 		m := client.NewReportWSMessage{}
 		err = wsjson.Read(context.Background(), c, &m)
@@ -131,7 +148,7 @@ func RunTestReportVerificationWithVerifierContract(t *testing.T, te *mercury.Tes
 				queryBlockNum = lastBlockNum - 10
 			}
 
-			reportStr, _, err := te.MSClient.GetReportsByFeedIdStr(feedId, queryBlockNum)
+			reportStr, _, err := te.MSClient.GetReportsByFeedId(feedId, queryBlockNum, client.StringFeedId)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.NotEmpty(t, reportStr.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 			reportBytes, err := hex.DecodeString(reportStr.ChainlinkBlob[2:])
