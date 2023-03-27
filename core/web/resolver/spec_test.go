@@ -863,7 +863,6 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 						BatchBlockhashStoreAddress: batchBHSAddress,
 						GetBlockhashesBatchSize:    5,
 						StoreBlockhashesBatchSize:  3,
-						EstimateGasMultiplier:      1,
 					},
 				}, nil)
 			},
@@ -887,7 +886,6 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 									batchBlockhashStoreAddress
 									getBlockhashesBatchSize
 									storeBlockhashesBatchSize
-									estimateGasMultiplier
 								}
 							}
 						}
@@ -912,7 +910,6 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 							"batchBlockhashStoreAddress": "0xd23BAE30019853Caf1D08b4C03291b10AD7743Df",
 							"getBlockhashesBatchSize": 5,
 							"storeBlockhashesBatchSize": 3,
-							"estimateGasMultiplier": 1
 						}
 					}
 				}

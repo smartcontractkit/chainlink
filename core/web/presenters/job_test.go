@@ -547,7 +547,6 @@ func TestJob(t *testing.T) {
 					FromAddresses:              []ethkey.EIP55Address{fromAddress},
 					GetBlockhashesBatchSize:    5,
 					StoreBlockhashesBatchSize:  10,
-					EstimateGasMultiplier:      1,
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -593,7 +592,6 @@ func TestJob(t *testing.T) {
 							"fromAddresses": ["0xa8037A20989AFcBC51798de9762b351D63ff462e"],
 							"getBlockhashesBatchSize": 5,
 							"storeBlockhashesBatchSize": 10,
-							"estimateGasMultiplier": 1,
 							"createdAt": "0001-01-01T00:00:00Z",
 							"updatedAt": "0001-01-01T00:00:00Z"
 						},

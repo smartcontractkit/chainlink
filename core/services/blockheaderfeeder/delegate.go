@@ -119,7 +119,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		batchBlockhashStore,
 		chain.ID(),
 		d.ks,
-		uint8(jb.BlockHeaderFeederSpec.EstimateGasMultiplier),
 		d.logger,
 	)
 	if err != nil {

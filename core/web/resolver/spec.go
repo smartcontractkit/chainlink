@@ -883,17 +883,6 @@ func (b *BlockHeaderFeederSpecResolver) StoreBlockhashesBatchSize() int32 {
 	return int32(b.spec.StoreBlockhashesBatchSize)
 }
 
-// EstimateGasMultiplier returns the job's EstimateGasMultiplier param.
-func (b *BlockHeaderFeederSpecResolver) EstimateGasMultiplier() *int32 {
-	if b.spec.EstimateGasMultiplier == 0 {
-		return nil
-	}
-
-	estimateGasMultiplier := int32(b.spec.EstimateGasMultiplier)
-
-	return &estimateGasMultiplier
-}
-
 // CreatedAt resolves the spec's created at timestamp.
 func (b *BlockHeaderFeederSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: b.spec.CreatedAt}

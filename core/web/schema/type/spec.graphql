@@ -143,7 +143,6 @@ type BlockHeaderFeederSpec {
     getBlockhashesBatchSize: Int!
     storeBlockhashesBatchSize: Int!
     fromAddresses: [String!]
-    estimateGasMultiplier: Int
     createdAt: Time!
 }
 

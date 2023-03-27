@@ -264,7 +264,6 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockHeaderFeederSpec.FromAddresses, savedJob.BlockHeaderFeederSpec.FromAddresses)
 		require.Equal(t, jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.GetBlockhashesBatchSize)
 		require.Equal(t, jb.BlockHeaderFeederSpec.StoreBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.StoreBlockhashesBatchSize)
-		require.Equal(t, jb.BlockHeaderFeederSpec.EstimateGasMultiplier, savedJob.BlockHeaderFeederSpec.EstimateGasMultiplier)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		_, err = orm.FindJob(testutils.Context(t), jb.ID)

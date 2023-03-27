@@ -77,9 +77,6 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.GetBlockhashesBatchSize == 0 {
 		spec.GetBlockhashesBatchSize = 10
 	}
-	if spec.EstimateGasMultiplier == 0 {
-		spec.EstimateGasMultiplier = 1
-	}
 
 	if spec.WaitBlocks < 256 {
 		return jb, errors.New(`"waitBlocks" must be greater than or equal to 256`)

@@ -16,7 +16,6 @@ CREATE TABLE block_header_feeder_specs
     from_addresses          bytea[]                  DEFAULT '{}' NOT NULL,
     get_blockhashes_batch_size    integer                   NOT NULL,
     store_blockhashes_batch_size  integer                   NOT NULL,
-    estimate_gas_multiplier integer                  DEFAULT NULL,
     created_at              timestamp with time zone NOT NULL,
     updated_at              timestamp with time zone NOT NULL
         CONSTRAINT coordinator_v1_address_len_chk CHECK (octet_length(coordinator_v1_address) = 20)

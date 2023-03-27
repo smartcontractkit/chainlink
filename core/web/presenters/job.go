@@ -365,7 +365,6 @@ type BlockHeaderFeederSpec struct {
 	FromAddresses              []ethkey.EIP55Address `json:"fromAddresses"`
 	GetBlockhashesBatchSize    uint16                `json:"getBlockhashesBatchSize"`
 	StoreBlockhashesBatchSize  uint16                `json:"storeBlockhashesBatchSize"`
-	EstimateGasMultiplier      uint8                 `json:"estimateGasMultiplier"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -386,7 +385,6 @@ func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeede
 		FromAddresses:              spec.FromAddresses,
 		GetBlockhashesBatchSize:    spec.GetBlockhashesBatchSize,
 		StoreBlockhashesBatchSize:  spec.StoreBlockhashesBatchSize,
-		EstimateGasMultiplier:      spec.EstimateGasMultiplier,
 	}
 }
 

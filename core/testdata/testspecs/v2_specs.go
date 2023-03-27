@@ -656,7 +656,6 @@ type BlockHeaderFeederSpecParams struct {
 	FromAddresses              []string
 	GetBlockhashesBatchSize    uint16
 	StoreBlockhashesBatchSize  uint16
-	EstimateGasMultiplier      uint8
 }
 
 // BlockHeaderFeederSpec defines a block header feeder job spec.
@@ -720,10 +719,6 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 		params.StoreBlockhashesBatchSize = 5
 	}
 
-	if params.EstimateGasMultiplier == 0 {
-		params.EstimateGasMultiplier = 1
-	}
-
 	var formattedFromAddresses string
 	if params.FromAddresses == nil {
 		formattedFromAddresses = `["0xBe0b739f841bC113D4F4e4CdD16086ffAbB5f39f"]`
@@ -751,13 +746,12 @@ evmChainID = "%d"
 fromAddresses = %s
 getBlockhashesBatchSize = %d
 storeBlockhashesBatchSize = %d
-estimateGasMultiplier = %d
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
 		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.BatchBlockhashStoreAddress, params.PollPeriod.String(),
 		params.RunTimeout.String(), params.EVMChainID, formattedFromAddresses, params.GetBlockhashesBatchSize,
-		params.StoreBlockhashesBatchSize, params.EstimateGasMultiplier)
+		params.StoreBlockhashesBatchSize)
 
 	return BlockHeaderFeederSpec{BlockHeaderFeederSpecParams: params, toml: toml}
 }

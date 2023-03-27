@@ -574,9 +574,6 @@ type BlockHeaderFeederSpec struct {
 	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
 	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
 
-	// EstimateGasMultiplier is the multiplier to apply to result of estimate gas for batching store calls
-	EstimateGasMultiplier uint8 `toml:"estimateGasMultiplier"`
-
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
 
