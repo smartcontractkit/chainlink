@@ -1509,7 +1509,13 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 		return err
 	}
 	log.Info().
-		Str("OCRv2 Address", e.Address()).
+		Str("Address", e.Address()).
+		Interface("Signers", ocrConfig.Signers).
+		Interface("Transmitters", ocrConfig.Transmitters).
+		Uint8("F", ocrConfig.F).
+		Bytes("OnchainConfig", ocrConfig.OnchainConfig).
+		Uint64("OffchainConfigVersion", ocrConfig.OffchainConfigVersion).
+		Bytes("OffchainConfig", ocrConfig.OffchainConfig).
 		Msg("Setting OCRv2 Config")
 	tx, err := e.contract.SetConfig(
 		opts,
@@ -1531,9 +1537,6 @@ func (e *EthereumOffchainAggregatorV2) GetConfig(ctx context.Context) ([32]byte,
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
-	log.Info().
-		Str("OCRv2 Address", e.Address()).
-		Msg("Setting OCRv2 Config")
 	details, err := e.contract.LatestConfigDetails(opts)
 	if err != nil {
 		return [32]byte{}, 0, err

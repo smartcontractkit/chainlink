@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -104,17 +107,48 @@ func ConfigureOCRv2Contracts(
 
 // BuildDefaultOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard aggregation job
 func BuildDefaultOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
-	_, oracleIdentities, err := GetOracleIdentities(workerNodes)
+	S, oracleIdentities, err := GetOracleIdentities(workerNodes)
 	if err != nil {
 		return nil, err
 	}
-	signerAddresses, transmitterAddresses, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForEthereumIntegrationTest(
-		oracleIdentities,
-		1,
-		1,
+	signerKeys, transmitterAccounts, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		30*time.Second,   // deltaProgress time.Duration,
+		10*time.Second,   // deltaResend time.Duration,
+		10*time.Second,   // deltaRound time.Duration,
+		20*time.Second,   // deltaGrace time.Duration,
+		20*time.Second,   // deltaStage time.Duration,
+		3,                // rMax uint8,
+		S,                // s []int,
+		oracleIdentities, // oracles []OracleIdentityExtra,
+		median.OffchainConfig{
+			AlphaReportInfinite: false,
+			AlphaReportPPB:      1,
+			AlphaAcceptInfinite: false,
+			AlphaAcceptPPB:      1,
+			DeltaC:              0,
+		}.Encode(), // reportingPluginConfig []byte,
+		5*time.Second, // maxDurationQuery time.Duration,
+		5*time.Second, // maxDurationObservation time.Duration,
+		5*time.Second, // maxDurationReport time.Duration,
+		5*time.Second, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		5*time.Second, // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,             // f int,
+		nil,           // The median reporting plugin has an empty onchain config
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// Convert signers to addresses
+	var signerAddresses []common.Address
+	for _, signer := range signerKeys {
+		signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
+	}
+
+	// Convert transmitters to addresses
+	var transmitterAddresses []common.Address
+	for _, account := range transmitterAccounts {
+		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
 
 	return &contracts.OCRv2Config{
@@ -196,6 +230,13 @@ func GetOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
 			S[index] = 1
+			log.Warn().
+				Interface("OnChainPK", onchainPkBytes).
+				Interface("OffChainPK", offchainPkBytesFixed).
+				Interface("ConfigPK", configPkBytesFixed).
+				Str("PeerID", p2pKeyID).
+				Str("Address", address).
+				Msg("Oracle identity")
 			return nil
 		})
 	}
@@ -214,10 +255,12 @@ func CreateOCRv2Jobs(
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId uint64, // EVM chain ID
 ) error {
+	// Collect P2P ID
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	if err != nil {
 		return err
 	}
+	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.RemoteIP(), 6690)
 	// Set the value for the jobs to report on
 	err = mockserver.SetValuePath(mockServerPath, mockServerValue)
 	if err != nil {
@@ -228,8 +271,7 @@ func CreateOCRv2Jobs(
 	if err != nil {
 		return err
 	}
-	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
 			Name:    "ocr2 bootstrap node",
@@ -294,7 +336,7 @@ func CreateOCRv2Jobs(
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
-					P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
+					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
 				},
 			}
 			_, err = chainlinkNode.MustCreateJob(ocrSpec)

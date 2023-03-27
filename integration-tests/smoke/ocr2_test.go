@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
+// Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	testEnvironment, testNetwork := setupOCR2Test(t)
 
@@ -111,11 +113,11 @@ func setupOCR2Test(t *testing.T) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-		// AddChart(blockscout.New(&blockscout.Props{
-		// 	Name:    "geth-blockscout",
-		// 	WsURL:   testNetwork.URLs[0],
-		// 	HttpURL: testNetwork.HTTPURLs[0]}))
+		AddHelm(chainlinkChart).
+		AddChart(blockscout.New(&blockscout.Props{
+			Name:    "geth-blockscout",
+			WsURL:   testNetwork.URLs[0],
+			HttpURL: testNetwork.HTTPURLs[0]}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
