@@ -883,7 +883,9 @@ func (s *service) Start(ctx context.Context) error {
 			return err
 		}
 		if len(mgrs) < 1 {
-			return errors.New("no feeds managers registered")
+			s.lggr.Info("no feeds managers registered")
+
+			return nil
 		}
 
 		mgr := mgrs[0]

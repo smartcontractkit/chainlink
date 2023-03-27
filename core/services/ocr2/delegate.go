@@ -416,7 +416,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		reasonableGasPrice := reasonablegasprice.NewReasonableGasPriceProvider(
-			chain.TxManager().GetGasEstimator(),
+			chain.GasEstimator(),
 			timeout,
 			chain.Config().EvmMaxGasPriceWei(),
 			chain.Config().EvmEIP1559DynamicFees(),
