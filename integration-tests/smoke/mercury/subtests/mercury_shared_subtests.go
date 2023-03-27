@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/test-go/testify/require"
+	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
 
@@ -116,10 +117,9 @@ func RunTestGetReportByFeedIdStrFromWS(t *testing.T, te *mercury.TestEnv, feedId
 		t.Parallel()
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		// c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s,abc1,def-", feedId))
-		c, _, err := te.MSClient.DialWS(ctx, "")
+		c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s,abc1,def-", feedId))
 		require.NoError(t, err)
-		// defer c.Close(websocket.StatusNormalClosure, "")
+		defer c.Close(websocket.StatusNormalClosure, "")
 
 		m := client.NewReportWSMessage{}
 		err = wsjson.Read(context.Background(), c, &m)
