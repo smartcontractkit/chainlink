@@ -512,13 +512,13 @@ func (_m *LogPoller) Start(_a0 context.Context) error {
 	return r0
 }
 
-// UnregisterFilter provides a mock function with given fields: name
-func (_m *LogPoller) UnregisterFilter(name string) error {
-	ret := _m.Called(name)
+// UnregisterFilter provides a mock function with given fields: name, q
+func (_m *LogPoller) UnregisterFilter(name string, q pg.Queryer) error {
+	ret := _m.Called(name, q)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(name)
+	if rf, ok := ret.Get(0).(func(string, pg.Queryer) error); ok {
+		r0 = rf(name, q)
 	} else {
 		r0 = ret.Error(0)
 	}
