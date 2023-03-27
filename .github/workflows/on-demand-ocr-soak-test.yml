@@ -81,14 +81,20 @@ jobs:
         continue-on-error: true
       - name: Get Inputs
         run: |
-          echo "::add-mask::${{ inputs.fundingPrivateKey }}"
-          echo EVM_KEYS=${{inputs.fundingPrivateKey}} >> $GITHUB_ENV
-          echo "::add-mask::${{ inputs.wsURL }}"
-          echo EVM_URLS=${{inputs.wsURL}} >> $GITHUB_ENV
-          echo "::add-mask::${{ inputs.httpURL }}"
-          echo EVM_HTTP_URLS=${{inputs.httpURL}} >> $GITHUB_ENV
-          echo "::add-mask::${{ inputs.slackMemberID }}"
-          echo SLACK_USER=${{inputs.slackMemberID}} >> $GITHUB_ENV
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+          echo ::add-mask::$SLACK_USER
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
       - name: Checkout the repo
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
