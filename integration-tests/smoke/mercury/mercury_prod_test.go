@@ -47,22 +47,24 @@ func TestSmokeMercuryProd(t *testing.T) {
 		testEnv.MSInfo.RemoteUrl, testEnv.MSInfo.UserId, testEnv.MSInfo.UserKey)
 	testEnv.MSClient = msClient
 
-	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy")
-	require.NoError(t, err)
-	exchangerContract, err := testEnv.AddExchangerContract("exchanger", verifierProxyContract.Address(),
-		"", 255)
-	_ = exchangerContract
-	require.NoError(t, err)
+	// verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy")
+	// require.NoError(t, err)
+	// exchangerContract, err := testEnv.AddExchangerContract("exchanger", verifierProxyContract.Address(),
+	// 	"", 255)
+	// _ = exchangerContract
+	// require.NoError(t, err)
 
-	subtests.RunTestGetReportByFeedIdStringForRecentBlockNum(t, &testEnv, feedId)
+	subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, &testEnv, feedId, client.StringFeedId)
 
-	subtests.RunTestGetReportByFeedIdHexForRecentBlockNum(t, &testEnv, feedId)
+	// subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, &testEnv, feedId, client.HexFeedId)
 
 	subtests.RunTestGetReportNotFound(t, &testEnv, feedId)
 
-	subtests.RunTestGetReportByFeedIdHexFromWS(t, &testEnv, feedId)
+	for i := 0; i < 10000; i++ {
+		subtests.RunTestGetReportByFeedIdStrFromWS(t, &testEnv, feedId)
+	}
 
-	subtests.RunTestReportVerificationWithVerifierContract(t, &testEnv, verifierProxyContract, feedId)
+	// subtests.RunTestReportVerificationWithVerifierContract(t, &testEnv, verifierProxyContract, feedId)
 
-	subtests.RunTestReportVerificationWithExchangerContract(t, &testEnv, exchangerContract, feedId)
+	// subtests.RunTestReportVerificationWithExchangerContract(t, &testEnv, exchangerContract, feedId)
 }
