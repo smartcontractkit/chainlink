@@ -134,7 +134,8 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
+func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config,
+	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
 	addresses []gethCommon.Address, resumeCallback ResumeCallback,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
 	lggr logger.Logger) *EthConfirmer {
