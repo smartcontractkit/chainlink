@@ -96,7 +96,7 @@ func LimitReqIDs(reqs map[string]struct{}, maxLength int) []string {
 	return reqIDs
 }
 
-// DecreasingBlockRange creates a continugous block range starting with
+// DecreasingBlockRange creates a contiguous block range starting with
 // block `start` (inclusive) and ending at block `end` (inclusive).
 func DecreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
 	if start.Cmp(end) == -1 {

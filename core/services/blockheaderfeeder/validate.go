@@ -58,7 +58,6 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	}
 
 	// Defaults
-	// TODO: revisit defaults
 	if spec.WaitBlocks == 0 {
 		spec.WaitBlocks = 256
 	}
@@ -75,7 +74,7 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 		spec.StoreBlockhashesBatchSize = 10
 	}
 	if spec.GetBlockhashesBatchSize == 0 {
-		spec.GetBlockhashesBatchSize = 10
+		spec.GetBlockhashesBatchSize = 100
 	}
 
 	if spec.WaitBlocks < 256 {
@@ -97,6 +96,10 @@ func notSet(field string) error {
 	return errors.Errorf("%q must be set", field)
 }
 
+// validateChainID validates whether the given chain is supported
+// Avax chain is not supported because block header format
+// is different from go-ethereum types.Header.
+// Special handling for Avax chains is not yet supported
 func validateChainID(evmChainID int64) error {
 	if evmChainID == 43114 || // C-chain mainnet
 		evmChainID == 43113 { // Fuji testnet

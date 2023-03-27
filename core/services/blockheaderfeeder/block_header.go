@@ -25,6 +25,10 @@ func NewGethBlockHeaderProvider(client Client) *GethBlockHeaderProvider {
 	}
 }
 
+// RlpHeadersBatch retrieves RLP-encoded block headers
+// this function is not supported for Avax because Avalanche
+// block header format is different from go-ethereum types.Header.
+// validation for invalid chain ID is done upstream in blockheaderfeeder.validate.go
 func (p *GethBlockHeaderProvider) RlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error) {
 	var reqs []rpc.BatchElem
 	for _, num := range blockRange {

@@ -33,6 +33,7 @@ import (
 	evmlogger "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
@@ -93,6 +94,8 @@ type coordinatorV2Universe struct {
 	linkEthFeedAddress               common.Address
 	bhsContract                      *blockhash_store.BlockhashStore
 	bhsContractAddress               common.Address
+	batchBHSContract                 *batch_blockhash_store.BatchBlockhashStore
+	batchBHSContractAddress          common.Address
 	maliciousConsumerContract        *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
 	maliciousConsumerContractAddress common.Address
 	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
@@ -176,6 +179,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	// Deploy blockhash store
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend)
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
+
+	// Deploy batch blockhash store
+	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend, bhsAddress)
+	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
 
 	// Deploy VRF V2 coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
@@ -318,6 +325,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		linkEthFeedAddress:               linkEthFeed,
 		bhsContract:                      bhsContract,
 		bhsContractAddress:               bhsAddress,
+		batchBHSContract:                 batchBHSContract,
+		batchBHSContractAddress:          batchBHSAddress,
 		maliciousConsumerContract:        maliciousConsumerContract,
 		maliciousConsumerContractAddress: maliciousConsumerContractAddress,
 		backend:                          backend,
@@ -1154,6 +1163,22 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
 	testMultipleConsumersNeedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress)
+}
+
+func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	testBlockHeaderFeeder(
 		t,
 		ownerKey,
 		uni,

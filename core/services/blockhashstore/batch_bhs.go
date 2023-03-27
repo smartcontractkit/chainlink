@@ -22,12 +22,11 @@ type batchBHSConfig interface {
 }
 
 type BatchBlockhashStore struct {
-	config        batchBHSConfig
-	txm           txmgr.TxManager
-	abi           *abi.ABI
-	batchbhs      batch_blockhash_store.BatchBlockhashStoreInterface
-	lggr          logger.Logger
-	gasMultiplier uint8
+	config   batchBHSConfig
+	txm      txmgr.TxManager
+	abi      *abi.ABI
+	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface
+	lggr     logger.Logger
 }
 
 func NewBatchBHS(
@@ -37,7 +36,6 @@ func NewBatchBHS(
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
-	gasMultiplier uint8,
 	lggr logger.Logger,
 ) (*BatchBlockhashStore, error) {
 	abi, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
@@ -45,12 +43,11 @@ func NewBatchBHS(
 		return nil, errors.Wrap(err, "building ABI")
 	}
 	return &BatchBlockhashStore{
-		config:        config,
-		txm:           txm,
-		abi:           abi,
-		batchbhs:      batchbhs,
-		gasMultiplier: gasMultiplier,
-		lggr:          lggr,
+		config:   config,
+		txm:      txm,
+		abi:      abi,
+		batchbhs: batchbhs,
+		lggr:     lggr,
 	}, nil
 }
 
