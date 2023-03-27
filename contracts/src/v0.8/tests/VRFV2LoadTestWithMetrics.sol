@@ -19,7 +19,7 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
     uint256 public s_averageFulfillmentInMillions = 0; // in millions for better precision
     uint256 public s_slowestFulfillment = 0;
     uint256 public s_fastestFulfillment = 999;
-    mapping(uint256 => uint256) requestHeights;
+    mapping(uint256 => uint256) requestHeights; // requestIds to block number when rand request was made
 
     constructor(address _vrfCoordinator, address _link) VRFConsumerBaseV2(_vrfCoordinator) ConfirmedOwner(msg.sender) {
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
@@ -50,5 +50,13 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
             s_requestCount++;
             requestHeights[reqId] = block.number;
         }
+    }
+
+    function reset() external {
+        s_averageFulfillmentInMillions = 0; // in millions for better precision
+        s_slowestFulfillment = 0;
+        s_fastestFulfillment = 999;
+        s_requestCount = 0;
+        s_responseCount = 0;
     }
 }
