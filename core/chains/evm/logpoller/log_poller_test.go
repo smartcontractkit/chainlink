@@ -169,6 +169,9 @@ func TestLogPoller_Integration(t *testing.T) {
 // long as the logs returned for finalized blocks are consistent.
 func Test_BackupLogPoller(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
+
+	th.assertNotifyHasLen(t, 0)
+
 	// later, we will need at least 32 blocks filled with logs for cache invalidation
 	for i := int64(0); i < 32; i++ {
 		// to invalidate geth's internal read-cache, a matching log must be found in the bloom Filter
@@ -269,6 +272,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	currentBlock, _ = th.LogPoller.LatestBlock()
 
 	require.Equal(t, int64(37), currentBlock+1)
+	th.assertNotifyHasLen(t, 1)
 
 	// logs still shouldn't show up, because we don't want to backfill the last finalized log
 	//  to help with reorg detection
@@ -284,6 +288,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	currentBlock, _ = th.LogPoller.LatestBlock()
 
 	require.Equal(t, int64(38), currentBlock+1)
+	th.assertNotifyHasLen(t, 1)
 
 	// all 3 logs in block 34 should show up now, thanks to backup logger
 	logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
@@ -473,6 +478,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
 
+	th.assertNotifyHasLen(t, 0)
+
 	// Set up a log poller listening for log emitter logs.
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{
 		"Test Emitter 1 & 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
@@ -490,6 +497,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// DB: empty
 	newStart := th.PollAndSaveLogs(testutils.Context(t), 1)
 	assert.Equal(t, int64(2), newStart)
+	th.assertNotifyHasLen(t, 1)
 
 	// We expect to have saved block 1.
 	lpb, err := th.ORM.SelectBlockByNumber(1)
@@ -512,6 +520,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), latest.BlockNumber)
 	th.assertHaveCanonical(t, 1, 1)
+	th.assertNotifyHasLen(t, 0)
 
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
@@ -535,6 +544,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
 		lgs[0].Data)
+	th.assertNotifyHasLen(t, 1)
 
 	// Test scenario: single block reorg with log.
 	// Chain gen <- 1 <- 2 (L1_1)
@@ -566,6 +576,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
 	th.assertHaveCanonical(t, 1, 3)
+	th.assertNotifyHasLen(t, 1)
 
 	// Test scenario: reorg back to previous tip.
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
@@ -593,6 +604,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.assertHaveCanonical(t, 1, 1)
 	th.assertHaveCanonical(t, 3, 4)
 	th.assertDontHave(t, 2, 2) // 2 gets backfilled
+	th.assertNotifyHasLen(t, 1)
 
 	// Test scenario: multiple logs per block for many blocks (also after reorg).
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6)
@@ -625,6 +637,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.assertHaveCanonical(t, 1, 1)
 	th.assertDontHave(t, 2, 2) // 2 gets backfilled
 	th.assertHaveCanonical(t, 3, 6)
+	th.assertNotifyHasLen(t, 1)
 
 	// Test scenario: node down for exactly finality + 2 blocks
 	// Note we only backfill up to finalized - 1 blocks, because we need to save the
@@ -651,6 +664,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, int64(9), lgs[2].BlockNumber)
 	th.assertDontHave(t, 7, 7) // Do not expect to save backfilled blocks.
 	th.assertHaveCanonical(t, 8, 10)
+	th.assertNotifyHasLen(t, 1)
 
 	// Test scenario large backfill (multiple batches)
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
@@ -671,6 +685,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, 7, len(lgs))
 	th.assertHaveCanonical(t, 15, 16)
 	th.assertDontHave(t, 11, 14) // Do not expect to save backfilled blocks.
+	th.assertNotifyHasLen(t, 1)
 
 	// Verify that a custom block timestamp will get written to db correctly also
 	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)

@@ -43,6 +43,7 @@ type TestHarness struct {
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
 	EthDB                            ethdb.Database
+	Notify                           <-chan struct{}
 }
 
 func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64) TestHarness {
@@ -85,6 +86,7 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 		EmitterAddress1: emitterAddress1,
 		EmitterAddress2: emitterAddress2,
 		EthDB:           ethDB,
+		Notify:          lp.Notify(),
 	}
 }
 
@@ -108,5 +110,12 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 		chainBlk, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
 		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
+	}
+}
+
+func (th *TestHarness) assertNotifyHasLen(t *testing.T, len int) {
+	require.Len(t, th.Notify, len)
+	for i := 0; i < len; i++ {
+		<-th.Notify
 	}
 }

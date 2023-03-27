@@ -58,8 +58,13 @@ func TestMercuryConfigPoller(t *testing.T) {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
+
 	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
 	require.NoError(t, err)
+
+	notify := logPoller.Notify()
+	assert.Empty(t, notify)
+
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
@@ -140,6 +145,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	assert.Equal(t, encodedTransmitter, newConfig.Transmitters)
 	assert.Equal(t, offchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, offchainConfig, newConfig.OffchainConfig)
+	assert.Len(t, notify, 1)
 }
 
 func onchainPublicKeyToAddress(publicKeys []types.OnchainPublicKey) (addresses []common.Address, err error) {

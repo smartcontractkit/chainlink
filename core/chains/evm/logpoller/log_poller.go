@@ -36,6 +36,7 @@ type LogPoller interface {
 	UnregisterFilter(name string, q pg.Queryer) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
+	Notify() <-chan struct{}
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -97,6 +98,7 @@ type logPoller struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	done           chan struct{}
+	notify         chan struct{}
 }
 
 type ReplayRequest struct {
@@ -124,6 +126,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		replayStart:       make(chan ReplayRequest),
 		replayComplete:    make(chan error),
 		done:              make(chan struct{}),
+		notify:            make(chan struct{}, 1),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
@@ -612,7 +615,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
-		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+		err = lp.saveLogsInTx(ctx, func(tx pg.Queryer) error {
 			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID()), pg.WithQueryer(tx))
 		})
 		if err != nil {
@@ -780,7 +783,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Debugw("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash, "timestamp", currentBlock.Timestamp.Unix())
-		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+		err = lp.saveLogsInTx(ctx, func(tx pg.Queryer) error {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, pg.WithQueryer(tx)); err2 != nil {
 				return err2
 			}
@@ -813,6 +816,22 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 		currentBlockNumber = currentBlock.Number
 	}
+}
+
+func (lp *logPoller) saveLogsInTx(ctx context.Context, fn func(tx pg.Queryer) error) error {
+	err := lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+		return fn(tx)
+	})
+	if err != nil {
+		return err
+	}
+
+	select {
+	case lp.notify <- struct{}{}:
+	default:
+	}
+
+	return nil
 }
 
 // Find the first place where our chain and their chain have the same block,
@@ -1058,6 +1077,11 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	return blocksFoundFromRPC, nil
+}
+
+// Notify returns a channel that emits events when a new log is saved.
+func (lp *logPoller) Notify() <-chan struct{} {
+	return lp.notify
 }
 
 func EvmWord(i uint64) common.Hash {

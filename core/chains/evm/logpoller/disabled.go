@@ -40,6 +40,10 @@ func (disabled) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...p
 	return nil, ErrDisabled
 }
 
+func (disabled) Notify() <-chan struct{} {
+	return nil
+}
+
 func (disabled) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
