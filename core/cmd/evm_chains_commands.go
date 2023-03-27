@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -14,18 +13,7 @@ type EVMChainPresenter struct {
 
 // ToRow presents the EVMChainResource as a slice of strings.
 func (p *EVMChainPresenter) ToRow() []string {
-	// NOTE: it's impossible to omitempty null fields when serializing to JSON: https://github.com/golang/go/issues/11939
-	config, err := json.MarshalIndent(p.Config, "", "    ")
-	if err != nil {
-		panic(err)
-	}
-
-	row := []string{
-		p.GetID(),
-		strconv.FormatBool(p.Enabled),
-		string(config),
-	}
-	return row
+	return []string{p.GetID(), strconv.FormatBool(p.Enabled), p.Config}
 }
 
 // RenderTable implements TableRenderer
