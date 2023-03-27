@@ -62,10 +62,10 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       SELECTED_NETWORKS: ${{ inputs.network }}
-      EVM_KEYS: ${{ inputs.fundingPrivateKey }}
-      EVM_URLS: ${{ inputs.wsURL }}
-      EVM_HTTP_URLS: ${{ inputs.httpURL }}
-      SLACK_USER: ${{ inputs.slackMemberID }}
+      EVM_KEYS: ${{ secrets[github.event.inputs.fundingPrivateKey] }}
+      EVM_URLS: ${{ secrets[github.event.inputs.wsURL] }}
+      EVM_HTTP_URLS: ${{ secrets[github.event.inputs.httpURL] }}
+      SLACK_USER: ${{ secrets[github.event.inputs.slackMemberID] }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       OCR_TEST_DURATION: ${{ inputs.testDuration }}
