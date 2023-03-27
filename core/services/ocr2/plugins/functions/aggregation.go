@@ -1,11 +1,11 @@
-package directrequestocr
+package functions
 
 import (
 	"bytes"
 	"fmt"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
 )
 
 func CanAggregate(N int, F int, observations []*ProcessedRequest) bool {

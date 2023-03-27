@@ -1,4 +1,4 @@
-package directrequestocr
+package functions
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/functions"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )

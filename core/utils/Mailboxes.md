@@ -188,5 +188,5 @@ flowchart TB
     
     
     classDef package fill:none,stroke-dasharray: 10
-    class core/chains/evm,gas,headtracker-pkg,txmgr,log,services,directrequest,directrequestocr,keeper,ocr,promReporter,vrf package
+    class core/chains/evm,gas,headtracker-pkg,txmgr,log,services,directrequest,functions,keeper,ocr,promReporter,vrf package
 ```
