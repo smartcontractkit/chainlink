@@ -3,7 +3,7 @@ package presenters
 import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
 // StarkNetChainResource is an StarkNet chain JSONAPI resource.

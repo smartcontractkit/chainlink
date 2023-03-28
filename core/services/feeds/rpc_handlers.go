@@ -5,7 +5,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 )
 
 // RPCHandlers define handlers for RPC method calls from the Feeds Manager

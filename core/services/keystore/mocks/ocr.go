@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	ocrkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	ocrkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	mock "github.com/stretchr/testify/mock"
 )
 
