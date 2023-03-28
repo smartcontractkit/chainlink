@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -52,7 +53,7 @@ func initJobsSubCmds(client *Client) []cli.Command {
 	}
 }
 
-// JobRenderer wraps the JSONAPI Job Resource and adds rendering functionality
+// JobPresenter wraps the JSONAPI Job Resource and adds rendering functionality
 type JobPresenter struct {
 	JAID // This is needed to render the id for a JSONAPI Resource as normal JSON
 	presenters.JobResource
@@ -89,7 +90,10 @@ func (p JobPresenter) toRow(task string) []string {
 
 // GetTasks extracts the tasks from the dependency graph
 func (p JobPresenter) GetTasks() ([]string, error) {
-	types := []string{}
+	if strings.TrimSpace(p.PipelineSpec.DotDAGSource) == "" {
+		return nil, nil
+	}
+	var types []string
 	pipeline, err := pipeline.Parse(p.PipelineSpec.DotDAGSource)
 	if err != nil {
 		return nil, err
