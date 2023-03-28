@@ -209,6 +209,9 @@ func (p *Pipeline) ByDotID(id string) Task {
 }
 
 func Parse(text string) (*Pipeline, error) {
+	if strings.TrimSpace(text) == "" {
+		return nil, errors.New("empty pipeline")
+	}
 	g := NewGraph()
 	err := g.UnmarshalText([]byte(text))
 
