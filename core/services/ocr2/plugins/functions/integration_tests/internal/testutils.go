@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	drconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	drconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/store/models"
