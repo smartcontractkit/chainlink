@@ -8,6 +8,7 @@ union JobSpec =
     VRFSpec |
     WebhookSpec |
     BlockhashStoreSpec |
+    BlockHeaderFeederSpec |
     BootstrapSpec
 
 type CronSpec {
@@ -124,6 +125,22 @@ type BlockhashStoreSpec {
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type BlockHeaderFeederSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    batchBlockhashStoreAddress: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    getBlockhashesBatchSize: Int!
+    storeBlockhashesBatchSize: Int!
     fromAddresses: [String!]
     createdAt: Time!
 }

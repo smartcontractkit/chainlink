@@ -16,8 +16,12 @@ import (
 	"nhooyr.io/websocket"
 )
 
-type GetReportsResult struct {
+type GetReportResult struct {
 	ChainlinkBlob string `json:"chainlinkBlob"`
+}
+
+type GetReportsResult struct {
+	ChainlinkBlob []string `json:"chainlinkBlob"`
 }
 
 type User struct {
@@ -56,10 +60,16 @@ func NewMercuryServerClient(url string, userId string, userKey string) *MercuryS
 	}
 }
 
-func (s *MercuryServer) DialWS(ctx context.Context) (*websocket.Conn, *http.Response, error) {
+func (s *MercuryServer) DialWS(ctx context.Context, urlParams string) (*websocket.Conn, *http.Response, error) {
 	timestamp := genReqTimestamp()
-	hmacSignature := genHmacSignature("GET", "/ws", []byte{}, []byte(s.UserKey), s.UserId, timestamp)
-	return websocket.Dial(ctx, fmt.Sprintf("%s/ws", s.URL), &websocket.DialOptions{
+	var path string
+	if urlParams != "" {
+		path = fmt.Sprintf("/ws%s", urlParams)
+	} else {
+		path = "/ws"
+	}
+	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
+	return websocket.Dial(ctx, fmt.Sprintf("%s%s", s.URL, path), &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Authorization":                    []string{s.UserId},
 			"X-Authorization-Timestamp":        []string{timestamp},
@@ -130,9 +140,23 @@ func (s *MercuryServer) GetUsers() ([]User, *http.Response, error) {
 	return result, resp.RawResponse, err
 }
 
-func (s *MercuryServer) GetReportsByFeedIdStr(feedId string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
+type FeedIdType string
+
+const (
+	StringFeedId FeedIdType = "string"
+	HexFeedId    FeedIdType = "hex"
+)
+
+func (s *MercuryServer) BulkGetReportsByFeedId(feedId string, afterBlockNumber uint64, limit uint64, feedIdType FeedIdType) (*GetReportsResult, *http.Response, error) {
 	result := &GetReportsResult{}
-	path := fmt.Sprintf("/client?feedIDStr=%s&L2Blocknumber=%d", feedId, blockNumber)
+	path := fmt.Sprintf("/client/bulk?afterBlockNumber=%d&limit=%d", afterBlockNumber, limit)
+	if feedIdType == StringFeedId {
+		path = fmt.Sprintf("%s&feedIDStr=%s", path, feedId)
+	} else if feedIdType == HexFeedId {
+		path = fmt.Sprintf("%s&feedIDHex=%s", path, feedId)
+	} else {
+		return nil, nil, fmt.Errorf("%s not supported", feedIdType)
+	}
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	resp, err := s.APIClient.R().
@@ -151,9 +175,16 @@ func (s *MercuryServer) GetReportsByFeedIdStr(feedId string, blockNumber uint64)
 	return result, resp.RawResponse, err
 }
 
-func (s *MercuryServer) GetReportsByFeedIdHex(feedIdHex string, blockNumber uint64) (*GetReportsResult, *http.Response, error) {
-	result := &GetReportsResult{}
-	path := fmt.Sprintf("/client?feedIDHex=%s&L2Blocknumber=%d", feedIdHex, blockNumber)
+func (s *MercuryServer) GetReportsByFeedId(feedId string, blockNumber uint64, feedIdType FeedIdType) (*GetReportResult, *http.Response, error) {
+	result := &GetReportResult{}
+	path := fmt.Sprintf("/client?blockNumber=%d", blockNumber)
+	if feedIdType == StringFeedId {
+		path = fmt.Sprintf("%s&feedIDStr=%s", path, feedId)
+	} else if feedIdType == HexFeedId {
+		path = fmt.Sprintf("%s&feedIDHex=%s", path, feedId)
+	} else {
+		return nil, nil, fmt.Errorf("%s not supported", feedIdType)
+	}
 	timestamp := genReqTimestamp()
 	hmacSignature := genHmacSignature("GET", path, []byte{}, []byte(s.UserKey), s.UserId, timestamp)
 	resp, err := s.APIClient.R().

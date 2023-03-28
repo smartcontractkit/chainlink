@@ -14,9 +14,9 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initEthKeysSubCmd(client *Client) cli.Command {
@@ -30,11 +30,11 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 				Action: client.CreateETHKey,
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "evmChainID",
+						Name:  "evm-chain-id, evmChainID",
 						Usage: "Chain ID for the key. If left blank, default chain will be used.",
 					},
 					cli.Uint64Flag{
-						Name:  "maxGasPriceGWei",
+						Name:  "max-gas-price-gwei, maxGasPriceGWei",
 						Usage: "Optional maximum gas price (GWei) for the creating key.",
 					},
 				},
@@ -60,11 +60,11 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 				Usage: format(`Import an ETH key from a JSON file`),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "oldpassword, p",
+						Name:  "old-password, oldpassword, p",
 						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 					},
 					cli.StringFlag{
-						Name:  "evmChainID",
+						Name:  "evm-chain-id, evmChainID",
 						Usage: "Chain ID for the key. If left blank, default chain will be used.",
 					},
 				},
@@ -75,7 +75,7 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 				Usage: format(`Exports an ETH key to a JSON file`),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "newpassword, p",
+						Name:  "new-password, newpassword, p",
 						Usage: "`FILE` containing the password to encrypt the key (required)",
 					},
 					cli.StringFlag{
@@ -96,12 +96,12 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 						Required: true,
 					},
 					cli.StringFlag{
-						Name:     "evmChainID",
+						Name:     "evm-chain-id, evmChainID",
 						Usage:    "chain ID of the key",
 						Required: true,
 					},
 					cli.Uint64Flag{
-						Name:  "setNextNonce",
+						Name:  "set-next-nonce, setNextNonce",
 						Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
 					},
 					cli.BoolFlag{
@@ -189,11 +189,11 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	}
 	query := createUrl.Query()
 
-	if c.IsSet("evmChainID") {
-		query.Set("evmChainID", c.String("evmChainID"))
+	if c.IsSet("evm-chain-id") {
+		query.Set("evmChainID", c.String("evm-chain-id"))
 	}
-	if c.IsSet("maxGasPriceGWei") {
-		query.Set("maxGasPriceGWei", c.String("maxGasPriceGWei"))
+	if c.IsSet("max-gas-price-gwei") {
+		query.Set("maxGasPriceGWei", c.String("max-gas-price-gwei"))
 	}
 
 	createUrl.RawQuery = query.Encode()
@@ -255,9 +255,9 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
-	oldPasswordFile := c.String("oldpassword")
+	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
@@ -302,9 +302,9 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the address of the key to export"))
 	}
 
-	newPasswordFile := c.String("newpassword")
+	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
@@ -335,7 +335,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)
@@ -368,8 +368,8 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	abandon := c.String("abandon")
 	query.Set("abandon", abandon)
 
-	if c.IsSet("setNextNonce") {
-		query.Set("nextNonce", c.String("setNextNonce"))
+	if c.IsSet("set-next-nonce") {
+		query.Set("nextNonce", c.String("set-next-nonce"))
 	}
 	if c.IsSet("enable") && c.IsSet("disable") {
 		return cli.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
@@ -391,11 +391,7 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		resp, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return cli.errorOut(errors.Errorf("Error resetting key: %s", err.Error()))
-		}
-		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
+		return cli.errorOut(fmt.Errorf("error resetting key: %w", httpError(resp)))
 	}
 
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")

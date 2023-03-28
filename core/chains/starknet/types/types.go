@@ -3,15 +3,10 @@ package types
 import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
-type ORM interface {
-	chains.ChainConfigs[string, *db.ChainCfg, ChainConfig]
+type Configs interface {
+	chains.ChainConfigs[string]
 	chains.NodeConfigs[string, db.Node]
-
-	EnsureChains([]string, ...pg.QOpt) error
 }
-
-type ChainConfig = chains.ChainConfig[string, *db.ChainCfg]

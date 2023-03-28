@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/pkg/errors"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type HasEVMConfigs interface {
@@ -86,7 +86,7 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
 	}
 }
 
-func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.ChainConfig) {
+func (cs EVMConfigs) Chains(ids ...utils.Big) (r []chains.ChainConfig, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -103,14 +103,15 @@ func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.ChainConfig) {
 				continue
 			}
 		}
-		dbc := types.ChainConfig{
-			ID:  *ch.ChainID,
-			Cfg: ch.asV1(),
+		ch2 := chains.ChainConfig{
+			ID:      ch.ChainID.String(),
+			Enabled: ch.IsEnabled(),
 		}
-		if ch.IsEnabled() {
-			dbc.Enabled = true
+		ch2.Cfg, err = ch.TOMLString()
+		if err != nil {
+			return
 		}
-		chains = append(chains, dbc)
+		r = append(r, ch2)
 	}
 	return
 }
@@ -213,23 +214,6 @@ func (c *EVMConfig) SetFrom(f *EVMConfig) {
 	c.Nodes.SetFrom(&f.Nodes)
 }
 
-func (c *EVMConfig) SetFromDB(ch types.ChainConfig, nodes []types.Node) error {
-	c.ChainID = &ch.ID
-	c.Enabled = &ch.Enabled
-
-	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
-		return err
-	}
-	for _, db := range nodes {
-		var n Node
-		if err := n.SetFromDB(db); err != nil {
-			return err
-		}
-		c.Nodes = append(c.Nodes, &n)
-	}
-	return nil
-}
-
 func (c *EVMConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
 		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
@@ -275,6 +259,14 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	err = multierr.Append(err, c.Chain.ValidateConfig())
 
 	return
+}
+
+func (c *EVMConfig) TOMLString() (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 type Chain struct {
@@ -350,81 +342,6 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 	return
-}
-
-func (c *Chain) asV1() *types.ChainCfg {
-	cfg := types.ChainCfg{
-		BlockHistoryEstimatorBlockDelay:                nullIntFromPtr(c.RPCBlockQueryDelay),
-		BlockHistoryEstimatorBlockHistorySize:          nullIntFromPtr(c.GasEstimator.BlockHistory.BlockHistorySize),
-		BlockHistoryEstimatorEIP1559FeeCapBufferBlocks: nullIntFromPtr(c.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks),
-		ChainType:                      null.StringFromPtr(c.ChainType),
-		EthTxReaperThreshold:           c.Transactions.ReaperThreshold,
-		EthTxResendAfterThreshold:      c.Transactions.ResendAfterThreshold,
-		EvmEIP1559DynamicFees:          null.BoolFromPtr(c.GasEstimator.EIP1559DynamicFees),
-		EvmFinalityDepth:               nullInt(c.FinalityDepth),
-		EvmGasBumpPercent:              nullInt(c.GasEstimator.BumpPercent),
-		EvmGasBumpTxDepth:              nullInt(c.GasEstimator.BumpTxDepth),
-		EvmGasBumpWei:                  c.GasEstimator.BumpMin,
-		EvmGasFeeCapDefault:            c.GasEstimator.FeeCapDefault,
-		EvmGasLimitDefault:             nullInt(c.GasEstimator.LimitDefault),
-		EvmGasLimitMax:                 nullInt(c.GasEstimator.LimitMax),
-		EvmGasLimitMultiplier:          nullFloat(c.GasEstimator.LimitMultiplier),
-		EvmGasLimitOCRJobType:          nullInt(c.GasEstimator.LimitJobType.OCR),
-		EvmGasLimitDRJobType:           nullInt(c.GasEstimator.LimitJobType.DR),
-		EvmGasLimitVRFJobType:          nullInt(c.GasEstimator.LimitJobType.VRF),
-		EvmGasLimitFMJobType:           nullInt(c.GasEstimator.LimitJobType.FM),
-		EvmGasLimitKeeperJobType:       nullInt(c.GasEstimator.LimitJobType.Keeper),
-		EvmGasPriceDefault:             c.GasEstimator.PriceDefault,
-		EvmGasTipCapDefault:            c.GasEstimator.TipCapDefault,
-		EvmGasTipCapMinimum:            c.GasEstimator.TipCapMin,
-		EvmHeadTrackerHistoryDepth:     nullInt(c.HeadTracker.HistoryDepth),
-		EvmHeadTrackerMaxBufferSize:    nullInt(c.HeadTracker.MaxBufferSize),
-		EvmHeadTrackerSamplingInterval: c.HeadTracker.SamplingInterval,
-		EvmLogBackfillBatchSize:        nullInt(c.LogBackfillBatchSize),
-		EvmLogPollInterval:             c.LogPollInterval,
-		EvmLogKeepBlocksDepth:          nullInt(c.LogKeepBlocksDepth),
-		EvmMaxGasPriceWei:              c.GasEstimator.PriceMax,
-		EvmNonceAutoSync:               null.BoolFromPtr(c.NonceAutoSync),
-		EvmUseForwarders:               null.BoolFromPtr(c.Transactions.ForwardersEnabled),
-		EvmRPCDefaultBatchSize:         nullInt(c.RPCDefaultBatchSize),
-		FlagsContractAddress:           nullString(c.FlagsContractAddress),
-		GasEstimatorMode:               null.StringFromPtr(c.GasEstimator.Mode),
-		LinkContractAddress:            nullString(c.LinkContractAddress),
-		OperatorFactoryAddress:         nullString(c.OperatorFactoryAddress),
-		MinIncomingConfirmations:       nullInt(c.MinIncomingConfirmations),
-		MinimumContractPayment:         c.MinContractPayment,
-		NodeNoNewHeadsThreshold:        c.NoNewHeadsThreshold,
-	}
-	for _, ks := range c.KeySpecific {
-		if cfg.KeySpecific == nil {
-			cfg.KeySpecific = map[string]types.ChainCfg{}
-		}
-		cfg.KeySpecific[ks.Key.String()] = types.ChainCfg{
-			EvmMaxGasPriceWei: ks.GasEstimator.PriceMax,
-		}
-	}
-	return &cfg
-}
-
-func nullInt[I constraints.Integer](i *I) null.Int {
-	if i == nil {
-		return null.Int{}
-	}
-	return null.IntFrom(int64(*i))
-}
-
-func nullFloat(d *decimal.Decimal) null.Float {
-	if d == nil {
-		return null.Float{}
-	}
-	return null.FloatFrom(d.InexactFloat64())
-}
-
-func nullString[S fmt.Stringer](s *S) null.String {
-	if s == nil {
-		return null.String{}
-	}
-	return null.StringFrom((*s).String())
 }
 
 type Transactions struct {
@@ -751,179 +668,6 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 }
 
-func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
-	if cfg == nil {
-		return nil
-	}
-	if cfg.ChainType.Valid {
-		c.ChainType = &cfg.ChainType.String
-	}
-	if cfg.EthTxReaperThreshold != nil {
-		c.Transactions.ReaperThreshold = cfg.EthTxReaperThreshold
-	}
-	if cfg.EthTxResendAfterThreshold != nil {
-		c.Transactions.ResendAfterThreshold = cfg.EthTxResendAfterThreshold
-	}
-	if cfg.EvmFinalityDepth.Valid {
-		v := uint32(cfg.EvmFinalityDepth.Int64)
-		c.FinalityDepth = &v
-	}
-	if cfg.EvmHeadTrackerHistoryDepth.Valid {
-		v := uint32(cfg.EvmHeadTrackerHistoryDepth.Int64)
-		c.HeadTracker.HistoryDepth = &v
-	}
-	if cfg.EvmHeadTrackerMaxBufferSize.Valid {
-		v := uint32(cfg.EvmHeadTrackerMaxBufferSize.Int64)
-		c.HeadTracker.MaxBufferSize = &v
-	}
-	if i := cfg.EvmHeadTrackerSamplingInterval; i != nil {
-		c.HeadTracker.SamplingInterval = cfg.EvmHeadTrackerSamplingInterval
-	}
-	if cfg.EvmLogBackfillBatchSize.Valid {
-		v := uint32(cfg.EvmLogBackfillBatchSize.Int64)
-		c.LogBackfillBatchSize = &v
-	}
-	c.LogPollInterval = cfg.EvmLogPollInterval
-	if cfg.EvmNonceAutoSync.Valid {
-		c.NonceAutoSync = &cfg.EvmNonceAutoSync.Bool
-	}
-	if cfg.EvmUseForwarders.Valid {
-		c.Transactions.ForwardersEnabled = &cfg.EvmUseForwarders.Bool
-	}
-	if cfg.EvmRPCDefaultBatchSize.Valid {
-		v := uint32(cfg.EvmRPCDefaultBatchSize.Int64)
-		c.RPCDefaultBatchSize = &v
-	}
-	if cfg.BlockHistoryEstimatorBlockDelay.Valid {
-		v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
-		c.RPCBlockQueryDelay = &v
-	}
-	if cfg.FlagsContractAddress.Valid {
-		s := cfg.FlagsContractAddress.String
-		if !common.IsHexAddress(s) {
-			return errors.Errorf("invalid FlagsContractAddress: %s", s)
-		}
-		a := common.HexToAddress(s)
-		v := ethkey.EIP55AddressFromAddress(a)
-		c.FlagsContractAddress = &v
-	}
-	if cfg.GasEstimatorMode.Valid {
-		c.GasEstimator.Mode = &cfg.GasEstimatorMode.String
-	}
-	if cfg.EvmMaxGasPriceWei != nil {
-		c.GasEstimator.PriceMax = cfg.EvmMaxGasPriceWei
-	}
-	if cfg.EvmEIP1559DynamicFees.Valid {
-		c.GasEstimator.EIP1559DynamicFees = &cfg.EvmEIP1559DynamicFees.Bool
-	}
-	if cfg.EvmGasPriceDefault != nil {
-		c.GasEstimator.PriceDefault = cfg.EvmGasPriceDefault
-	}
-	if cfg.EvmGasLimitMultiplier.Valid {
-		v := decimal.NewFromFloat(cfg.EvmGasLimitMultiplier.Float64)
-		c.GasEstimator.LimitMultiplier = &v
-	}
-	if cfg.EvmGasTipCapDefault != nil {
-		c.GasEstimator.TipCapDefault = cfg.EvmGasTipCapDefault
-	}
-	if cfg.EvmGasTipCapMinimum != nil {
-		c.GasEstimator.TipCapMin = cfg.EvmGasTipCapMinimum
-	}
-	if cfg.EvmGasBumpPercent.Valid {
-		v := uint16(cfg.EvmGasBumpPercent.Int64)
-		c.GasEstimator.BumpPercent = &v
-	}
-	if cfg.EvmGasBumpTxDepth.Valid {
-		v := uint16(cfg.EvmGasBumpTxDepth.Int64)
-		c.GasEstimator.BumpTxDepth = &v
-	}
-	if cfg.EvmGasBumpWei != nil {
-		c.GasEstimator.BumpMin = cfg.EvmGasBumpWei
-	}
-	if cfg.EvmGasFeeCapDefault != nil {
-		c.GasEstimator.FeeCapDefault = cfg.EvmGasFeeCapDefault
-	}
-	if cfg.EvmGasLimitDefault.Valid {
-		v := uint32(cfg.EvmGasLimitDefault.Int64)
-		c.GasEstimator.LimitDefault = &v
-	}
-	if cfg.EvmGasLimitMax.Valid {
-		v := uint32(cfg.EvmGasLimitMax.Int64)
-		c.GasEstimator.LimitMax = &v
-	}
-	if cfg.EvmGasLimitOCRJobType.Valid {
-		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
-		c.GasEstimator.LimitJobType.OCR = &v
-	}
-	if cfg.EvmGasLimitDRJobType.Valid {
-		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
-		c.GasEstimator.LimitJobType.DR = &v
-	}
-	if cfg.EvmGasLimitVRFJobType.Valid {
-		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
-		c.GasEstimator.LimitJobType.VRF = &v
-	}
-	if cfg.EvmGasLimitFMJobType.Valid {
-		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
-		c.GasEstimator.LimitJobType.FM = &v
-	}
-	if cfg.EvmGasLimitKeeperJobType.Valid {
-		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
-		c.GasEstimator.LimitJobType.Keeper = &v
-	}
-
-	if cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
-		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
-			c.GasEstimator.BlockHistory.BlockHistorySize = &v
-		}
-		if cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Int64)
-			c.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = &v
-		}
-	}
-	for s, kcfg := range cfg.KeySpecific {
-		if !common.IsHexAddress(s) {
-			return errors.Errorf("invalid address KeySpecific: %s", s)
-		}
-		a := common.HexToAddress(s)
-		v := ethkey.EIP55AddressFromAddress(a)
-		c.KeySpecific = append(c.KeySpecific, KeySpecific{
-			Key: &v,
-			GasEstimator: KeySpecificGasEstimator{
-				PriceMax: kcfg.EvmMaxGasPriceWei,
-			},
-		})
-	}
-	if cfg.LinkContractAddress.Valid {
-		s := cfg.LinkContractAddress.String
-		if !common.IsHexAddress(s) {
-			return errors.Errorf("invalid LinkContractAddress: %s", s)
-		}
-		a := common.HexToAddress(s)
-		v := ethkey.EIP55AddressFromAddress(a)
-		c.LinkContractAddress = &v
-	}
-	if cfg.OperatorFactoryAddress.Valid {
-		s := cfg.OperatorFactoryAddress.String
-		if !common.IsHexAddress(s) {
-			return errors.Errorf("invalid OperatorFactoryAddress: %s", s)
-		}
-		a := common.HexToAddress(s)
-		v := ethkey.EIP55AddressFromAddress(a)
-		c.OperatorFactoryAddress = &v
-	}
-	if cfg.MinIncomingConfirmations.Valid {
-		v := uint32(cfg.MinIncomingConfirmations.Int64)
-		c.MinIncomingConfirmations = &v
-	}
-	c.MinContractPayment = cfg.MinimumContractPayment
-	if cfg.NodeNoNewHeadsThreshold != nil {
-		c.NoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
-	}
-	return nil
-}
-
 type Node struct {
 	Name     *string
 	WSURL    *models.URL
@@ -986,31 +730,6 @@ func (n *Node) SetFrom(f *Node) {
 	if f.SendOnly != nil {
 		n.SendOnly = f.SendOnly
 	}
-}
-
-func (n *Node) SetFromDB(db types.Node) (err error) {
-	n.Name = &db.Name
-	if db.WSURL.Valid {
-		var u *url.URL
-		u, err = url.Parse(db.WSURL.String)
-		if err != nil {
-			return
-		}
-		n.WSURL = (*models.URL)(u)
-	}
-	if db.HTTPURL.Valid {
-		var u *url.URL
-		u, err = url.Parse(db.HTTPURL.String)
-		if err != nil {
-			return
-		}
-		n.HTTPURL = (*models.URL)(u)
-	}
-	if db.SendOnly {
-		// Only necessary if true
-		n.SendOnly = &db.SendOnly
-	}
-	return
 }
 
 func nullIntFromPtr[I constraints.Integer](i *I) null.Int {

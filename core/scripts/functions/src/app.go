@@ -6,8 +6,8 @@ import (
 
 	"github.com/urfave/cli"
 
-	clcmd "github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
 func newApp(n *node, writer io.Writer) (*clcmd.Client, *cli.App) {

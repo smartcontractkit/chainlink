@@ -11,30 +11,30 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	jobmocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
@@ -151,10 +151,14 @@ type TestService struct {
 }
 
 func setupTestService(t *testing.T) *TestService {
+	t.Helper()
+
 	return setupTestServiceCfg(t, nil)
 }
 
 func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets)) *TestService {
+	t.Helper()
+
 	var (
 		orm          = mocks.NewORM(t)
 		jobORM       = jobmocks.NewORM(t)
@@ -1007,6 +1011,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom(multiaddr),
+				Plugins: feeds.Plugins{
+					Commit:  true,
+					Execute: true,
+					Median:  false,
+					Mercury: true,
+				},
 			},
 		}
 		chainConfigs = []feeds.ChainConfig{ccfg}
@@ -1051,6 +1061,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					Enabled:     true,
 					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
 					Multiaddr:   multiaddr,
+					Plugins: &proto.OCR2Config_Plugins{
+						Commit:  ccfg.OCR2Config.Plugins.Commit,
+						Execute: ccfg.OCR2Config.Plugins.Execute,
+						Median:  ccfg.OCR2Config.Plugins.Median,
+						Mercury: ccfg.OCR2Config.Plugins.Mercury,
+					},
 				},
 			},
 		},
@@ -2976,17 +2992,46 @@ func Test_Service_StartStop(t *testing.T) {
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
 
-	svc := setupTestService(t)
+	tests := []struct {
+		name       string
+		beforeFunc func(svc *TestService)
+	}{
+		{
+			name: "success with a feeds manager connection",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
+				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+				svc.connMgr.On("Close")
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+		},
+		{
+			name: "success with no registered managers",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers").Return([]feeds.FeedsManager{}, nil)
+				svc.connMgr.On("Close")
+			},
+		},
+	}
 
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
-	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
-	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
-	svc.connMgr.On("Close")
-	svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+	for _, tt := range tests {
+		tt := tt
 
-	err = svc.Start(testutils.Context(t))
-	require.NoError(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	svc.Close()
+			svc := setupTestService(t)
+
+			if tt.beforeFunc != nil {
+				tt.beforeFunc(svc)
+			}
+
+			require.NoError(t, svc.Start(testutils.Context(t)))
+
+			svc.Close()
+		})
+	}
 }

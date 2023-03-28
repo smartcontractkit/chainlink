@@ -81,3 +81,6 @@ issues:
       text: "^G404:"
       linters:
         - gosec
+    - path: \.go
+      linters:
+        - typecheck # re-enabled after https://github.com/golang/go/issues/58885
