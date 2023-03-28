@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -34,17 +35,18 @@ type CSAKeyInfo struct {
 }
 
 type NodeInfo struct {
-	//DisplayName           string
-	//AdminAddress          common.Address   `json:"adminAddress"`
-	NodeAddress []common.Address `json:"nodeAddress"`
-	//Status      string           `json:"status"`
-	PeerId  []string      `json:"peerId"`
-	CSAKeys []*CSAKeyInfo `json:"csaKeys"`
-	//PayeeAddress          common.Address   `json:"payeeAddress"`
-	Ocr2ID                []string `json:"ocr2ID,omitempty"`
-	Ocr2ConfigPublicKey   []string `json:"ocr2ConfigPublicKey,omitempty"`
-	Ocr2OffchainPublicKey []string `json:"ocr2OffchainPublicKey,omitempty"`
-	Ocr2OnchainPublicKey  []string `json:"ocr2OnchainPublicKey,omitempty"`
+	AdminAddress          common.Address   `json:"adminAddress"`
+	CSAKeys               []*CSAKeyInfo    `json:"csaKeys"`
+	DisplayName           string           `json:"displayName"`
+	Ocr2ConfigPublicKey   []string         `json:"ocr2ConfigPublicKey,omitempty"`
+	Ocr2ID                []string         `json:"ocr2ID,omitempty"`
+	Ocr2OffchainPublicKey []string         `json:"ocr2OffchainPublicKey,omitempty"`
+	Ocr2OnchainPublicKey  []string         `json:"ocr2OnchainPublicKey,omitempty"`
+	NodeAddress           []common.Address `json:"nodeAddress"`
+	OcrSigningAddress     []common.Address `json:"ocrSigningAddress"`
+	PayeeAddress          common.Address   `json:"payeeAddress"`
+	PeerId                []string         `json:"peerId"`
+	Status                string           `json:"status"`
 }
 
 type ContractInfo struct {
@@ -346,6 +348,13 @@ func (h *baseHandler) verifyNodes(ctx context.Context, log logger.Logger) []ocr2
 					TransmitAccount:   ocr2types.Account(ni.NodeAddress[0].String()),
 				},
 				ConfigEncryptionPublicKey: configPkBytesFixed,
+			}
+
+			web3.
+				ni.OcrSigningAddress = []common.Address{common.HexToAddress(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_"))}
+			err = writeJSON(ni, strconv.Itoa(i)+".json")
+			if err != nil {
+				panic(fmt.Errorf("failed to write node info to JSON: %v", err))
 			}
 
 		}(i, cl)
