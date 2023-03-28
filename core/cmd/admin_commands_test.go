@@ -86,7 +86,7 @@ func TestClient_ChangeRole(t *testing.T) {
 			cltest.FlagSetApplyFromAction(client.ChangeRole, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
-			require.NoError(t, set.Set("newrole", test.role))
+			require.NoError(t, set.Set("new-role", test.role))
 			c := cli.NewContext(nil, set, nil)
 			if test.err != "" {
 				assert.ErrorContains(t, client.ChangeRole(c), test.err)

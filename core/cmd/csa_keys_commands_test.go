@@ -101,7 +101,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c := cli.NewContext(nil, set, nil)
@@ -114,7 +114,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c = cli.NewContext(nil, set, nil)
@@ -130,7 +130,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ImportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
-	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportCSAKey(c))
