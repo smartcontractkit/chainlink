@@ -1,6 +1,6 @@
 package types
 
-import "github.com/smartcontractkit/chainlink/core/services/pg"
+import "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 // KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore[ADDR any, ID any, TX any, META any] interface {

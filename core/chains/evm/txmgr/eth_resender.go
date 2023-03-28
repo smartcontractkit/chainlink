@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -42,7 +42,7 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
