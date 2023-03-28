@@ -79,7 +79,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 						BroadcastBeforeBlockNum: nil,
 					},
 				}, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 				f.Mocks.evmORM.PutChains(chains.ChainConfig{ID: chainID.String()})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
@@ -135,7 +135,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 						BroadcastBeforeBlockNum: &num,
 					},
 				}, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 				f.Mocks.evmORM.PutChains(chains.ChainConfig{ID: chainID.String()})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
@@ -170,7 +170,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(nil, sql.ErrNoRows)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query:     query,
 			variables: variables,
@@ -187,7 +187,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(nil, gError)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query:     query,
 			variables: variables,
@@ -263,7 +263,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 						BroadcastBeforeBlockNum: &num,
 					},
 				}, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query: query,
 			result: `
@@ -294,7 +294,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query:  query,
 			result: `null`,
@@ -349,7 +349,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 						EthTx:                   txmgr.EthTx{},
 					},
 				}, 1, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query: query,
 			result: `
@@ -379,7 +379,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 						BroadcastBeforeBlockNum: nil,
 					},
 				}, 1, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query: query,
 			result: `
@@ -402,7 +402,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmORM)
 			},
 			query:  query,
 			result: `null`,

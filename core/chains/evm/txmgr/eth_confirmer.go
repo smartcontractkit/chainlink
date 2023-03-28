@@ -135,36 +135,33 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
+func NewEthConfirmer(
+	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
 	ethClient evmclient.Client,
 	config Config,
-	keystore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
-	addresses []ADDR,
-	resumeCallback ResumeCallback,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
+	keystore txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
+	addresses []*evmtypes.Address,
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]],
 	lggr logger.Logger,
-) *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH] {
+) *EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 
-	return &EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]{
-		utils.StartStopOnce{},
-		txStorageService,
-		lggr,
-		ethClient,
-		txAttemptBuilder,
-		resumeCallback,
-		config,
-		*ethClient.ChainID(),
-		keystore,
-		addresses,
-		utils.NewSingleMailbox[*evmtypes.Head](),
-		ctx,
-		cancel,
-		sync.WaitGroup{},
-		0,
+	return &EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]{
+		txStorageService:                txStorageService,
+		lggr:                            lggr,
+		ethClient:                       ethClient,
+		TxAttemptBuilder:                txAttemptBuilder,
+		config:                          config,
+		chainID:                         *ethClient.ChainID(),
+		ks:                              keystore,
+		addresses:                       addresses,
+		mb:                              utils.NewSingleMailbox[*evmtypes.Head](),
+		ctx:                             ctx,
+		ctxCancel:                       cancel,
+		wg:                              sync.WaitGroup{},
+		nConsecutiveBlocksChainTooShort: 0,
 	}
 }
 

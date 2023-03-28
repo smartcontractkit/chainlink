@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -31,13 +32,13 @@ const defaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
-	orm       ORM[ADDR, BLOCK_HASH, TX_HASH]
-	ethClient evmclient.Client
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
-	chainID   big.Int
-	interval  time.Duration
-	config    Config
-	logger    logger.Logger
+	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	ethClient        evmclient.Client
+	ks               txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
+	chainID          big.Int
+	interval         time.Duration
+	config           Config
+	logger           logger.Logger
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -45,14 +46,20 @@ type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.H
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](lggr logger.Logger, orm ORM[ADDR, BLOCK_HASH, TX_HASH], ethClient evmclient.Client, ks txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64], pollInterval time.Duration, config Config) *EthResender[ADDR, TX_HASH, BLOCK_HASH] {
+func NewEthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
+	lggr logger.Logger,
+	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
+	ethClient evmclient.Client, ks txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
+	pollInterval time.Duration,
+	config Config,
+) *EthResender[ADDR, TX_HASH, BLOCK_HASH] {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	// todo: add context to evmTxStorageService
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EthResender[ADDR, TX_HASH, BLOCK_HASH]{
-		orm,
+		txStorageService,
 		ethClient,
 		ks,
 		*ethClient.ChainID(),
@@ -109,7 +116,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	var allAttempts []EthTxAttempt[ADDR, TX_HASH]
 	for _, k := range keys {
 		var attempts []EthTxAttempt[ADDR, TX_HASH]
-		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStorageService.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
@@ -125,7 +132,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
-	reqs, err := batchSendTransactions(ctx, er.orm, allAttempts, batchSize, er.logger, er.ethClient)
+	reqs, err := batchSendTransactions(ctx, er.txStorageService, allAttempts, batchSize, er.logger, er.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}

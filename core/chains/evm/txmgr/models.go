@@ -157,6 +157,7 @@ func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
 }
 
 type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
+	txmgrtypes.Transaction
 	ID             int64
 	Nonce          *int64
 	FromAddress    ADDR

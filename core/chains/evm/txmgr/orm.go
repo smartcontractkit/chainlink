@@ -17,15 +17,12 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/common/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
-
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 var ErrKeyNotUpdated = errors.New("evmTxStorageService: Key not updated")
 var ErrInvalidQOpt = errors.New("evmTxStorageService: Invalid QOpt")
@@ -133,7 +130,7 @@ func NewTxStorageService(
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64] {
-	namedLogger := lggr.Named("TxmORM")
+	namedLogger := lggr.Named("TxmStorageService")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStorageService{
@@ -386,11 +383,11 @@ func (o *evmTxStorageService) LoadEthTxAttempts(etx *EthTx[*evmtypes.Address, *e
 	return o.LoadEthTxesAttempts([]*EthTx[*evmtypes.Address, *evmtypes.TxHash]{etx}, qopts...)
 }
 
-func loadEthTxAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, etx *EthTx[*evmtypes.Address, *evmtypes.TxHash]) (err error) {
+func loadEthTxAttemptsReceipts(q pg.Queryer, etx *EthTx[*evmtypes.Address, *evmtypes.TxHash]) (err error) {
 	return loadEthTxesAttemptsReceipts(q, []*EthTx[*evmtypes.Address, *evmtypes.TxHash]{etx})
 }
 
-func loadEthTxesAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, etxs []*EthTx[*evmtypes.Address, *evmtypes.TxHash]) (err error) {
+func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx[*evmtypes.Address, *evmtypes.TxHash]) (err error) {
 	if len(etxs) == 0 {
 		return nil
 	}
@@ -420,7 +417,7 @@ func loadEthTxesAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q 
 	return nil
 }
 
-func loadConfirmedAttemptsReceipts[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, attempts []EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]) error {
+func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]) error {
 	byHash := make(map[string]*EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], len(attempts))
 	hashes := make([][]byte, len(attempts))
 	for i, attempt := range attempts {
@@ -712,7 +709,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 	return
 }
 
-func updateEthTxAttemptUnbroadcast[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]) error {
+func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]) error {
 	if attempt.State != txmgrtypes.TxAttemptBroadcast {
 		return errors.New("expected eth_tx_attempt to be broadcast")
 	}
@@ -720,7 +717,7 @@ func updateEthTxAttemptUnbroadcast[ADDR types.Hashable, TX_HASH types.Hashable](
 	return errors.Wrap(err, "updateEthTxAttemptUnbroadcast failed")
 }
 
-func updateEthTxUnconfirm[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, etx EthTx[*evmtypes.Address, *evmtypes.TxHash]) error {
+func updateEthTxUnconfirm(q pg.Queryer, etx EthTx[*evmtypes.Address, *evmtypes.TxHash]) error {
 	if etx.State != EthTxConfirmed {
 		return errors.New("expected eth_tx state to be confirmed")
 	}
@@ -771,7 +768,7 @@ ORDER BY nonce ASC
 	return etxs, errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
-func saveAttemptWithNewState[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], broadcastAt time.Time) error {
+func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], broadcastAt time.Time) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return pg.SqlxTransaction(ctx, q, logger, func(tx pg.Queryer) error {
@@ -794,7 +791,7 @@ func (o *evmTxStorageService) SaveInsufficientEthAttempt(timeout time.Duration, 
 	return errors.Wrap(saveAttemptWithNewState(o.q, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
-func saveSentAttempt[ADDR types.Hashable, TX_HASH types.Hashable](q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], broadcastAt time.Time) error {
+func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], broadcastAt time.Time) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
@@ -1218,7 +1215,8 @@ func (o *evmTxStorageService) CheckEthTxQueueCapacity(fromAddress *evmtypes.Addr
 	return
 }
 
-func (o *evmTxStorageService) CreateEthTransaction(newTx NewTx[*evmtypes.Address], chainID big.Int, qopts ...pg.QOpt) (etx EthTx[*evmtypes.Address, *evmtypes.TxHash], err error) {
+func (o *evmTxStorageService) CreateEthTransaction(newTx NewTx[*evmtypes.Address], chainID big.Int, qopts ...pg.QOpt) (tx txmgrtypes.Transaction, err error) {
+	var etx EthTx[*evmtypes.Address, *evmtypes.TxHash]
 	qq := o.q.WithOpts(qopts...)
 	value := 0
 	err = qq.Transaction(func(tx pg.Queryer) error {
@@ -1253,7 +1251,7 @@ RETURNING "eth_txes".*
 		}
 		return nil
 	})
-	return
+	return etx, nil
 }
 
 func (o *evmTxStorageService) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {

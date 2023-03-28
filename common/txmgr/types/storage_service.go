@@ -11,12 +11,14 @@ import (
 )
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
+//
+//go:generate mockery --quiet --name TxStorageService --output ./mocks/ --case=underscore
 type TxStorageService[ADDR any, CHAINID any, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, NEWTX any, R any, TX any, TXATTEMPT any, TXID any, TXMETA any] interface {
 	UnstartedTxQueuePruner
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAINID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress ADDR, chainID CHAINID, qopts ...pg.QOpt) (count uint32, err error)
-	CreateEthTransaction(newTx NEWTX, chainID CHAINID, qopts ...pg.QOpt) (tx TX, err error)
+	CreateEthTransaction(newTx NEWTX, chainID CHAINID, qopts ...pg.QOpt) (tx Transaction, err error)
 	DeleteInProgressAttempt(ctx context.Context, attempt TXATTEMPT) error
 	EthTransactions(offset, limit int) ([]TX, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]TX, int, error)

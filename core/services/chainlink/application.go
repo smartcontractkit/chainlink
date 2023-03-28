@@ -24,6 +24,7 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -88,7 +89,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
-	TxmORM() txmgr.ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]
+	TxmStorageService() txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -121,7 +122,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
-	txmORM                   txmgr.ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]
+	txmStorageService        txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -471,7 +472,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
 		sessionORM:               sessionORM,
-		txmORM:                   txmORM,
+		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -670,8 +671,8 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmORM() txmgr.ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash] {
-	return app.txmORM
+func (app *ChainlinkApplication) TxmStorageService() txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64] {
+	return app.txmStorageService
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {

@@ -25,7 +25,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmORM(), 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmStorageService(), 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
 	// page 1
@@ -89,7 +89,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmORM(), 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmStorageService(), 0, 1, from)
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)

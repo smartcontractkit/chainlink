@@ -7,4 +7,5 @@ type Hashable interface {
 	UnmarshalText(text []byte) error
 	String() string
 	Equals(h Hashable) bool
+	IsEmpty() bool
 }

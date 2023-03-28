@@ -92,6 +92,7 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient        evmclient.Client
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
+	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        big.Int
 	config         Config
@@ -120,27 +121,27 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
+func NewEthBroadcaster(
+	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
 	ethClient evmclient.Client,
 	config Config,
-	keystore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
+	keystore txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
 	eventBroadcaster pg.EventBroadcaster,
-	addresses []ADDR,
-	resumeCallback ResumeCallback,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
+	addresses []*evmtypes.Address,
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]],
+	nonceSyncer NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
 	logger logger.Logger,
-	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
+	checkerFactory TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash],
 	autoSyncNonce bool,
-) *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH] {
+) *EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
 
 	logger = logger.Named("EthBroadcaster")
-	return &EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]{
+	return &EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]{
 		logger:           logger,
 		txStorageService: txStorageService,
 		ethClient:        ethClient,
 		TxAttemptBuilder: txAttemptBuilder,
-		resumeCallback:   resumeCallback,
+		nonceSyncer:      nonceSyncer,
 		chainID:          *ethClient.ChainID(),
 		config:           config,
 		eventBroadcaster: eventBroadcaster,
@@ -313,9 +314,8 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) monitorEthTxs(addr ADDR, tr
 
 // syncNonce tries to sync the key nonce, retrying indefinitely until success
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SyncNonce(ctx context.Context, addr ADDR) {
-	syncer := NewNonceSyncer(eb.txStorageService, eb.logger, eb.ethClient, eb.ks)
 	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
-	if err := syncer.Sync(ctx, addr); err != nil {
+	if err := eb.nonceSyncer.Sync(ctx, addr); err != nil {
 		// Enter retry loop with backoff
 		var attempt int
 		eb.logger.Errorw("Failed to sync with on-chain nonce", "address", addr.String(), "attempt", attempt, "err", err)
@@ -326,7 +326,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SyncNonce(ctx context.Conte
 			case <-time.After(nonceSyncRetryBackoff.Duration()):
 				attempt++
 
-				if err := syncer.Sync(ctx, addr); err != nil {
+				if err := eb.nonceSyncer.Sync(ctx, addr); err != nil {
 					if attempt > 5 {
 						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", addr.String(), "attempt", attempt, "err", err)
 						eb.SvcErrBuffer.Append(err)

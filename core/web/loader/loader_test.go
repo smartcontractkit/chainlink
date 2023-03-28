@@ -342,7 +342,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
 		attempt1, attempt2,
 	}, nil)
-	app.On("TxmORM").Return(txmORM)
+	app.On("TxmStorageService").Return(txmORM)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -440,7 +440,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		attempt1,
 	}, nil)
 
-	app.On("TxmORM").Return(txmORM)
+	app.On("TxmStorageService").Return(txmORM)
 
 	batcher := ethTransactionAttemptBatcher{app}
 

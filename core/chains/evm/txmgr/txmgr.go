@@ -63,7 +63,7 @@ type TxManager[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Has
 	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateEthTransaction(newTx NewTx[ADDR], qopts ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error)
+	CreateEthTransaction(newTx NewTx[ADDR], qopts ...pg.QOpt) (etx txmgrtypes.Transaction, err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	RegisterResumeCallback(fn ResumeCallback)
 	SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error)
@@ -107,28 +107,35 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable]
 	ethConfirmer     *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
+	nonceSyncer      NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 }
 
 func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
+	b.ethBroadcaster.resumeCallback = fn
+	b.ethConfirmer.resumeCallback = fn
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
+func NewTxm(
 	db *sqlx.DB,
 	ethClient evmclient.Client,
 	cfg Config,
-	keyStore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
+	keyStore txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
 	eventBroadcaster pg.EventBroadcaster,
 	lggr logger.Logger,
-	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
-	fwdMgr txmgrtypes.ForwarderManager[ADDR],
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
-) *Txm[ADDR, TX_HASH, BLOCK_HASH] {
-	b := Txm[ADDR, TX_HASH, BLOCK_HASH]{
+	checkerFactory TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash],
+	fwdMgr txmgrtypes.ForwarderManager[*evmtypes.Address],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]],
+	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
+	nonceSyncer NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+	ethBroadcaster EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+	ethConfirmer EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+) *Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
+	b := Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
-		txStorageService: NewTxStorageService(db, lggr, cfg),
+		txStorageService: txStorageService,
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -138,12 +145,15 @@ func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashab
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
-		trigger:          make(chan ADDR),
+		trigger:          make(chan *evmtypes.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
 		txAttemptBuilder: txAttemptBuilder,
+		nonceSyncer:      nonceSyncer,
+		ethBroadcaster:   &ethBroadcaster,
+		ethConfirmer:     &ethConfirmer,
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
@@ -176,8 +186,6 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Start(ctx context.Context) (merr error)
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster[ADDR, TX_HASH, BLOCK_HASH](b.txStorageService, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer[ADDR, TX_HASH, BLOCK_HASH](b.txStorageService, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
@@ -191,7 +199,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Start(ctx context.Context) (merr error)
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, enabledAddresses)
+		go b.runLoop(enabledAddresses)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -214,7 +222,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Start(ctx context.Context) (merr error)
 
 // Reset stops EthBroadcaster/EthConfirmer, executes callback, then starts them
 // again
-func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Reset(callback func(), addr common.Address, abandon bool) (err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Reset(callback func(), addr ADDR, abandon bool) (err error) {
 	ok := b.IfStarted(func() {
 		done := make(chan error)
 		f := func() {
@@ -236,9 +244,10 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Reset(callback func(), addr common.Addr
 // abandon, scoped to the key of this txm:
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
-func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) abandon(addr common.Address) (err error) {
-	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), addr)
-	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.Hex())
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) abandon(addr ADDR) (err error) {
+	nativeAddr, _ := addr.MarshalText()
+	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), common.BytesToAddress(nativeAddr))
+	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
 }
 
 func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Close() (merr error) {
@@ -287,7 +296,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH], ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH], addresses []ADDR) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(addresses []ADDR) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -308,10 +317,10 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
-		if err := eb.Close(); err != nil {
+		if err := b.ethBroadcaster.Close(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 		}
-		if err := ec.Close(); err != nil {
+		if err := b.ethConfirmer.Close(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 		}
 
@@ -320,8 +329,8 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.txStorageService, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.txStorageService, b.ethClient, b.config, b.keyStore, addresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
+		b.ethBroadcaster.addresses = addresses
+		b.ethConfirmer.addresses = addresses
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -341,7 +350,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := eb.Start(ctx); err != nil {
+					if err := b.ethBroadcaster.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -360,7 +369,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := ec.Start(ctx); err != nil {
+					if err := b.ethConfirmer.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -379,9 +388,9 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 	for {
 		select {
 		case address := <-b.trigger:
-			eb.Trigger(address.String())
+			b.ethBroadcaster.Trigger(address.String())
 		case head := <-b.chHeads:
-			ec.mb.Deliver(head)
+			b.ethConfirmer.mb.Deliver(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -401,10 +410,10 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 			//
 			// In this case, we don't care about stopping them since they are
 			// already "stopped", hence the usage of utils.EnsureClosed.
-			if err := utils.EnsureClosed(eb); err != nil {
+			if err := utils.EnsureClosed(b.ethBroadcaster); err != nil {
 				b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 			}
-			if err := utils.EnsureClosed(ec); err != nil {
+			if err := utils.EnsureClosed(b.ethConfirmer); err != nil {
 				b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 			}
 			return
@@ -477,12 +486,12 @@ type NewTx[ADDR types.Hashable] struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error) {
+func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QOpt) (tx txmgrtypes.Transaction, err error) {
 	if err = b.checkEnabled(newTx.FromAddress); err != nil {
-		return etx, err
+		return tx, err
 	}
 
-	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != nil) {
+	if b.config.EvmUseForwarders() && (!newTx.ForwarderAddress.IsEmpty()) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
@@ -504,10 +513,11 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 
 	err = b.txStorageService.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
-		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
+		return tx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	return b.txStorageService.CreateEthTransaction(newTx, b.chainID, qs...)
+	tx, err = b.txStorageService.CreateEthTransaction(newTx, b.chainID, qs...)
+	return
 }
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
@@ -521,7 +531,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder
 
 func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) checkEnabled(addr ADDR) error {
 	err := b.keyStore.CheckEnabled(addr, &b.chainID)
-	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.Hex(), b.chainID.String())
+	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.String(), b.chainID.String())
 }
 
 // SendEther creates a transaction that transfers the given value of ether
@@ -609,7 +619,7 @@ func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Close() error { return nil }
 
 // Trigger does noop for NullTxManager.
 func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Trigger(ADDR) { panic(n.ErrMsg) }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(NewTx[ADDR], ...pg.QOpt) (etx EthTx[ADDR, TX_HASH], err error) {
+func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(NewTx[ADDR], ...pg.QOpt) (etx txmgrtypes.Transaction, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {

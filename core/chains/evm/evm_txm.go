@@ -3,7 +3,6 @@ package evm
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/sqlx"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
@@ -24,11 +23,14 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) (txm txmgr.TxManager[*types.Address, *types.TxHash, *types.BlockHash], estimator gas.EvmFeeEstimator) {
+) (txm txmgr.TxManager[*types.Address, *types.TxHash, *types.BlockHash],
+	estimator gas.EvmFeeEstimator,
+	err error,
+) {
 	chainID := cfg.ChainID()
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager[*types.Address, *types.TxHash, *types.BlockHash]{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-		return txm, nil
+		return txm, nil, nil
 	}
 
 	lggr = lggr.Named("Txm")
@@ -48,7 +50,7 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
-		var fwdMgr txmgrtypes.ForwarderManager[common.Address]
+		var fwdMgr txmgrtypes.ForwarderManager[*types.Address]
 
 		if cfg.EvmUseForwarders() {
 			fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
@@ -56,14 +58,22 @@ func newEvmTxm(
 			lggr.Info("EvmForwarderManager: Disabled")
 		}
 
+		checker := &txmgr.CheckerFactory{Client: client}
 		// create tx attempt builder
 		txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*client.ChainID(), cfg, opts.KeyStore, estimator)
+		txStorageService := txmgr.NewTxStorageService(db, lggr, cfg)
+		txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, client, opts.KeyStore)
 
-		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm[*types.Address, *types.TxHash, *types.BlockHash](db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder)
+		addresses, err := opts.KeyStore.EnabledAddressesForChain(client.ChainID())
+		if err != nil {
+			return nil, nil, err
+		}
+		ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, client, cfg, opts.KeyStore, opts.EventBroadcaster, addresses, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
+		ethConfirmer := txmgr.NewEthConfirmer(txStorageService, client, cfg, opts.KeyStore, addresses, txAttemptBuilder, lggr)
+		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStorageService, txNonceSyncer, *ethBroadcaster, *ethConfirmer)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
 
-	return txm, estimator
+	return txm, estimator, nil
 }

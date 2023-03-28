@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -445,7 +446,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.TxmORM().FindEthTxByHash(hash)
+	etx, err := r.App.TxmStorageService().FindEthTxByHash(evmtypes.NewTxHash(hash))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -468,7 +469,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.TxmORM().EthTransactions(offset, limit)
+	txs, count, err := r.App.TxmStorageService().EthTransactions(offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +488,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	attempts, count, err := r.App.TxmORM().EthTxAttempts(offset, limit)
+	attempts, count, err := r.App.TxmStorageService().EthTxAttempts(offset, limit)
 	if err != nil {
 		return nil, err
 	}

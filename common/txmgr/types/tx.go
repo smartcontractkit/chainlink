@@ -26,3 +26,7 @@ const (
 	TxAttemptInsufficientEth = TxAttemptState("insufficient_eth")
 	TxAttemptBroadcast       = TxAttemptState("broadcast")
 )
+
+type Transaction interface {
+	GetID() string
+}

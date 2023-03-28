@@ -53,24 +53,29 @@ type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.H
 	Sync(ctx context.Context, addr ADDR) (err error)
 }
 
-type nonceSyncer struct {
+type nonceSyncerImpl struct {
 	NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	orm       ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]
-	ethClient evmclient.Client
-	chainID   *big.Int
-	logger    logger.Logger
-	kst       txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64]
+	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+	ethClient        evmclient.Client
+	chainID          *big.Int
+	logger           logger.Logger
+	kst              txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64]
 }
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(orm ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash], lggr logger.Logger, ethClient evmclient.Client, kst txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64]) NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
+func NewNonceSyncer(
+	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
+	lggr logger.Logger,
+	ethClient evmclient.Client,
+	kst txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
+) NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
 	lggr = lggr.Named("NonceSyncer")
-	return &nonceSyncer{
-		orm:       orm,
-		ethClient: ethClient,
-		chainID:   ethClient.ChainID(),
-		logger:    lggr,
-		kst:       kst,
+	return &nonceSyncerImpl{
+		txStorageService: txStorageService,
+		ethClient:        ethClient,
+		chainID:          ethClient.ChainID(),
+		logger:           lggr,
+		kst:              kst,
 	}
 }
 
@@ -78,12 +83,12 @@ func NewNonceSyncer(orm ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.Tx
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s nonceSyncer) Sync(ctx context.Context, addr *evmtypes.Address) (err error) {
+func (s nonceSyncerImpl) Sync(ctx context.Context, addr *evmtypes.Address) (err error) {
 	err = s.fastForwardNonceIfNecessary(ctx, *addr)
 	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
-func (s nonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address evmtypes.Address) error {
+func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address evmtypes.Address) error {
 	chainNonce, err := s.pendingNonceFromEthClient(ctx, *address.NativeAddress())
 	if err != nil {
 		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
@@ -98,7 +103,7 @@ func (s nonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address ev
 	}
 
 	localNonce := keyNextNonce
-	hasInProgressTransaction, err := s.orm.HasInProgressTransaction(&address, *s.chainID, pg.WithParentCtx(ctx))
+	hasInProgressTransaction, err := s.txStorageService.HasInProgressTransaction(&address, *s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.String())
 	} else if hasInProgressTransaction {
@@ -124,7 +129,7 @@ func (s nonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address ev
 		newNextNonce--
 	}
 
-	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, &address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.txStorageService.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, &address, *s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())
@@ -134,7 +139,7 @@ func (s nonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address ev
 	return err
 }
 
-func (s nonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
+func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
 	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
 }

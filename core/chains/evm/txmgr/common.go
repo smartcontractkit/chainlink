@@ -3,6 +3,7 @@ package txmgr
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,8 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -23,7 +26,7 @@ const batchSendTransactionTimeout = 30 * time.Second
 // elements in that batch.
 func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
 	ctx context.Context,
-	orm ORM[ADDR, BLOCK_HASH, TX_HASH],
+	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
 	attempts []EthTxAttempt[ADDR, TX_HASH],
 	batchSize int,
 	logger logger.Logger,
@@ -64,7 +67,7 @@ func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HA
 			return reqs, errors.Wrap(err, "failed to batch send transactions")
 		}
 
-		if err := orm.UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
+		if err := txStorageService.UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
 			return reqs, errors.Wrap(err, "failed to update last succeeded on attempts")
 		}
 	}
