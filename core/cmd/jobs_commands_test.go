@@ -223,6 +223,18 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 			now.Format(time.RFC3339),
 		},
 		{
+			"gets the blockheaderfeeder spec created at timestamp",
+			&cmd.JobPresenter{
+				JobResource: presenters.JobResource{
+					Type: presenters.BlockHeaderFeederJobSpec,
+					BlockHeaderFeederSpec: &presenters.BlockHeaderFeederSpec{
+						CreatedAt: now,
+					},
+				},
+			},
+			now.Format(time.RFC3339),
+		},
+		{
 			"invalid type",
 			&cmd.JobPresenter{
 				JobResource: presenters.JobResource{
