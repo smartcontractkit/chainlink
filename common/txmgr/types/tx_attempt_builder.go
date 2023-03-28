@@ -3,9 +3,9 @@ package types
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/common/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 // TxAttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)

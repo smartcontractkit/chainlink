@@ -5,14 +5,14 @@ package mocks
 import (
 	context "context"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
 	time "time"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
-	types "github.com/smartcontractkit/chainlink/common/types"
+	types "github.com/smartcontractkit/chainlink/v2/common/types"
 
 	uuid "github.com/satori/go.uuid"
 )

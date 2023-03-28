@@ -11,12 +11,12 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	functions_srv "github.com/smartcontractkit/chainlink/core/services/functions"
-	functions_mocks "github.com/smartcontractkit/chainlink/core/services/functions/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
+	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 )
 
 func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *functions.ReportCodec) {

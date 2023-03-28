@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	types "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	mock "github.com/stretchr/testify/mock"
 )
 

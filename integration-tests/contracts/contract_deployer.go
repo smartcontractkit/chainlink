@@ -12,25 +12,25 @@ import (
 	"github.com/rs/zerolog/log"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_billing_registry_events_mock"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_oracle_events_mock"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_aggregator_proxy"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic1_3"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic2_0"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations

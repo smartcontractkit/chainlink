@@ -3,7 +3,7 @@ package ocrkey
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 )
 
 func TestOCRKeys_ExportImport(t *testing.T) {

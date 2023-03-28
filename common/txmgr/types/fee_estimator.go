@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/common/types"
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 // Opt is an option for a gas estimator
@@ -19,6 +19,8 @@ const (
 type Fee fmt.Stringer
 
 // PriorAttempt provides a generic interface for reading tx data to be used in the fee esimators
+//
+//go:generate mockery --quiet --name PriorAttempt --output ./mocks/ --case=underscore
 type PriorAttempt[F any, TX_HASH types.Hashable] interface {
 	Fee() F
 	GetChainSpecificGasLimit() uint32

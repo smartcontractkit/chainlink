@@ -11,15 +11,15 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func testSingleConsumerHappyPath(
@@ -467,4 +467,106 @@ func testSingleConsumerNeedsTopUp(
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
+}
+
+// testBlockHeaderFeeder starts VRF and block header feeder jobs
+// subscription is unfunded initially and funded after 256 blocks
+// the function makes sure the block header feeder stored blockhash for
+// a block older than 256 blocks
+func testBlockHeaderFeeder(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2Universe,
+	consumers []*bind.TransactOpts,
+	consumerContracts []*vrf_consumer_v2.VRFConsumerV2,
+	consumerContractAddresses []common.Address,
+	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinatorAddress common.Address,
+	batchCoordinatorAddress common.Address,
+	assertions ...func(
+		t *testing.T,
+		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+) {
+	nConsumers := len(consumers)
+
+	vrfKey := cltest.MustGenerateRandomKey(t)
+	bhfKey := cltest.MustGenerateRandomKey(t)
+	bhfKeys := []string{bhfKey.Address.String()}
+
+	sendEth(t, ownerKey, uni.backend, bhfKey.Address, 10)
+	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
+
+	gasLanePriceWei := assets.GWei(10)
+
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_test_block_header_feeder", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, gasLanePriceWei, v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(vrfKey.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhfKey)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	vrfJobs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{vrfKey}},
+		app,
+		coordinator,
+		coordinatorAddress,
+		batchCoordinatorAddress,
+		uni,
+		false,
+		gasLanePriceWei)
+	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
+
+	_ = createAndStartBlockHeaderFeederJob(
+		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(), "",
+		coordinatorAddress.String())
+
+	for i := 0; i < nConsumers; i++ {
+		consumer := consumers[i]
+		consumerContract := consumerContracts[i]
+
+		// Create a subscription and fund with 0 LINK.
+		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int))
+		require.Equal(t, uint64(i+1), subID)
+
+		// Make the randomness request. It will not yet succeed since it is underfunded.
+		numWords := uint32(20)
+
+		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+
+		// Wait 256 blocks.
+		for i := 0; i < 256; i++ {
+			uni.backend.Commit()
+		}
+		verifyBlockhashStored(t, uni, requestBlock)
+
+		// Fund the subscription
+		_, err := consumerContract.TopUpSubscription(consumer, big.NewInt(5e18 /* 5 LINK */))
+		require.NoError(t, err)
+
+		// Wait for fulfillment to be queued.
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			uni.backend.Commit()
+			runs, err := app.PipelineORM().GetAllRuns()
+			require.NoError(t, err)
+			t.Log("runs", len(runs))
+			return len(runs) == 1
+		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+		mine(t, requestID, subID, uni, db)
+
+		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+		if len(assertions) > 0 {
+			assertions[0](t, coordinator, rwfe)
+		}
+
+		// Assert correct number of random words sent by coordinator.
+		assertNumRandomWords(t, consumerContract, numWords)
+	}
 }

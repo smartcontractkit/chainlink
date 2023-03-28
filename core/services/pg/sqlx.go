@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //go:generate mockery --quiet --name Queryer --output ./mocks/ --case=underscore

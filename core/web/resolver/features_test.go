@@ -3,8 +3,8 @@ package resolver
 import (
 	"testing"
 
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func Test_ToFeatures(t *testing.T) {

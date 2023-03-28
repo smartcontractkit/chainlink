@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 )
 
 func CanAggregate(N int, F int, observations []*ProcessedRequest) bool {

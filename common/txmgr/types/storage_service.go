@@ -6,8 +6,8 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/common/types"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks

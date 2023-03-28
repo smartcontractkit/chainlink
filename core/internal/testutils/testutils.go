@@ -30,7 +30,7 @@ import (
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/core"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 const (

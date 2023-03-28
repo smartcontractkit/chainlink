@@ -5,15 +5,15 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func newEvmTxm(
