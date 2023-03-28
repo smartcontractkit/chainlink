@@ -17,6 +17,7 @@ const (
 	SpecStatusApproved  SpecStatus = "APPROVED"
 	SpecStatusRejected  SpecStatus = "REJECTED"
 	SpecStatusCancelled SpecStatus = "CANCELLED"
+	SpecStatusRevoked   SpecStatus = "REVOKED"
 	// revive:enable
 )
 
@@ -31,6 +32,8 @@ func ToSpecStatus(s feeds.SpecStatus) SpecStatus {
 		return SpecStatusRejected
 	case feeds.SpecStatusCancelled:
 		return SpecStatusCancelled
+	case feeds.SpecStatusRevoked:
+		return SpecStatusRevoked
 	default:
 		return SpecStatusUnknown
 	}
