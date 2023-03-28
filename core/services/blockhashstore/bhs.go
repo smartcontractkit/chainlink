@@ -130,10 +130,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
 		GasLimit:       c.config.EvmGasLimitDefault(),
-
-		// Set a queue size of 256. At most we store the blockhash of every block, and only the
-		// latest 256 can possibly be stored.
-		Strategy: txmgr.NewSendEveryStrategy(),
+		Strategy:       txmgr.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
