@@ -885,7 +885,7 @@ func main() {
 			common.HexToAddress(*consumerAddress),
 			e.Ec)
 		helpers.PanicErr(err)
-		_, err = consumer.Reset(nil)
+		_, err = consumer.Reset(e.Owner)
 		helpers.PanicErr(err)
 		fmt.Println("Load Test Consumer With Metrics was reset ")
 	case "eoa-transfer-sub":
