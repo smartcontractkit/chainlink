@@ -22,16 +22,8 @@ const (
 
 var _ driver.Valuer = Limit(-1)
 
-var _ QConfig = &qConfig{}
-
 // Limit is a helper driver.Valuer for LIMIT queries which uses nil/NULL for negative values.
 type Limit int
-
-// qConfig implements pg.QCOnfig
-type qConfig struct {
-	logSQL              bool
-	defaultQueryTimeout time.Duration
-}
 
 func (l Limit) String() string {
 	if l < 0 {
@@ -45,6 +37,14 @@ func (l Limit) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return l, nil
+}
+
+var _ QConfig = &qConfig{}
+
+// qConfig implements pg.QCOnfig
+type qConfig struct {
+	logSQL              bool
+	defaultQueryTimeout time.Duration
 }
 
 func NewQConfig(logSQL bool) QConfig {
