@@ -115,6 +115,39 @@ func (_m *LogPoller) IndexedLogs(eventSig common.Hash, address common.Address, t
 	return r0, r1
 }
 
+// IndexedLogsByBlockRange provides a mock function with given fields: start, end, eventSig, address, topicIndex, topicValues, qopts
+func (_m *LogPoller) IndexedLogsByBlockRange(start int64, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, start, end, eventSig, address, topicIndex, topicValues)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(int64, int64, common.Hash, common.Address, int, []common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(start, end, eventSig, address, topicIndex, topicValues, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(int64, int64, common.Hash, common.Address, int, []common.Hash, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(start, end, eventSig, address, topicIndex, topicValues, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(int64, int64, common.Hash, common.Address, int, []common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(start, end, eventSig, address, topicIndex, topicValues, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IndexedLogsTopicGreaterThan provides a mock function with given fields: eventSig, address, topicIndex, topicValueMin, confs, qopts
 func (_m *LogPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
@@ -479,13 +512,13 @@ func (_m *LogPoller) Start(_a0 context.Context) error {
 	return r0
 }
 
-// UnregisterFilter provides a mock function with given fields: name
-func (_m *LogPoller) UnregisterFilter(name string) error {
-	ret := _m.Called(name)
+// UnregisterFilter provides a mock function with given fields: name, q
+func (_m *LogPoller) UnregisterFilter(name string, q pg.Queryer) error {
+	ret := _m.Called(name, q)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(name)
+	if rf, ok := ret.Get(0).(func(string, pg.Queryer) error); ok {
+		r0 = rf(name, q)
 	} else {
 		r0 = ret.Error(0)
 	}

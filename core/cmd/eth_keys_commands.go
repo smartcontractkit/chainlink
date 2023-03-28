@@ -335,7 +335,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)
@@ -391,11 +391,7 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		resp, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return cli.errorOut(errors.Errorf("Error resetting key: %s", err.Error()))
-		}
-		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
+		return cli.errorOut(fmt.Errorf("error resetting key: %w", httpError(resp)))
 	}
 
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")

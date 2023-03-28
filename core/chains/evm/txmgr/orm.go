@@ -27,57 +27,11 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, uint64]
-	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
-	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
-	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
-	FindEthTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error)
-	FindEthTxsRequiringResubmissionDueToInsufficientEth(address common.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EthTx, err error)
-	FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EthTxAttempt, err error)
-	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
-	FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EthTxAttempt, err error)
-	FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error)
-	FindEthTxByHash(hash common.Hash) (*EthTx, error)
-	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
-	FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error)
-	FindNextUnstartedTransactionFromAddress(etx *EthTx, fromAddress common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error)
-	GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EthTx, err error)
-	GetInProgressEthTxAttempts(ctx context.Context, address common.Address, chainID big.Int) (attempts []EthTxAttempt, err error)
-	HasInProgressTransaction(account common.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error)
-	InsertEthTx(etx *EthTx) error
-	InsertEthTxAttempt(attempt *EthTxAttempt) error
-	LoadEthTxAttempts(etx *EthTx, qopts ...pg.QOpt) error
-	LoadEthTxesAttempts(etxs []*EthTx, qopts ...pg.QOpt) error
-	MarkAllConfirmedMissingReceipt(chainID big.Int) (err error)
-	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID big.Int, qopts ...pg.QOpt) error
-	PreloadEthTxes(attempts []EthTxAttempt) error
-	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SaveInProgressAttempt(attempt *EthTxAttempt) error
-	SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error
-	SaveSentAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error
-	SetBroadcastBeforeBlockNum(blockNum int64, chainID big.Int) error
-	UpdateBroadcastAts(now time.Time, etxIDs []int64) error
-	UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error
-	UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error
-	UpdateEthTxsUnconfirmed(ids []int64) error
-	UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt, qopts ...pg.QOpt) error
-	UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error
-	UpdateEthTxForRebroadcast(etx EthTx, etxAttempt EthTxAttempt) error
-	Close()
+	txmgrtypes.TxStorageService[common.Address, big.Int, common.Hash, NewTx, evmtypes.Receipt, EthTx, EthTxAttempt, int64, int64]
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
 var ErrInvalidQOpt = errors.New("orm: Invalid QOpt")
-
-type QueryerFunc func(tx pg.Queryer) error
-
-type EthReceiptsPlus struct {
-	ID           uuid.UUID        `db:"id"`
-	Receipt      evmtypes.Receipt `db:"receipt"`
-	FailOnRevert bool             `db:"FailOnRevert"`
-}
 
 type orm struct {
 	q         pg.Q
@@ -87,6 +41,60 @@ type orm struct {
 }
 
 var _ ORM = (*orm)(nil)
+
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+type dbReceipt struct {
+	ID               int64
+	TxHash           common.Hash
+	BlockHash        common.Hash
+	BlockNumber      int64
+	TransactionIndex uint
+	Receipt          evmtypes.Receipt
+	CreatedAt        time.Time
+}
+
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+type dbRawReceipt = evmtypes.Receipt
+
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+//
+// Does not map to a single database table.
+// It's comprised of fields from different tables.
+type dbReceiptPlus struct {
+	ID           uuid.UUID        `db:"id"`
+	Receipt      evmtypes.Receipt `db:"receipt"`
+	FailOnRevert bool             `db:"FailOnRevert"`
+}
+
+func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
+	receipts := make([]EvmReceipt, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = EvmReceipt(rs[i])
+	}
+	return receipts
+}
+
+func fromDBReceiptsPlus(rs []dbReceiptPlus) []EvmReceiptPlus {
+	receipts := make([]EvmReceiptPlus, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = EvmReceiptPlus(rs[i])
+	}
+	return receipts
+}
+
+func toDBRawReceipt(rs []evmtypes.Receipt) []dbRawReceipt {
+	receipts := make([]dbRawReceipt, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = dbRawReceipt(rs[i])
+	}
+	return receipts
+}
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("TxmORM")
@@ -274,10 +282,17 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 }
 
 func (o *orm) InsertEthReceipt(receipt *EvmReceipt) error {
+	// convert to database representation
+	r := dbReceipt(*receipt)
+
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	err := o.q.GetNamed(insertEthReceiptSQL, receipt, receipt)
+	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
+
+	// method expects original (destination) receipt struct to be updated
+	*receipt = EvmReceipt(r)
+
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
 
@@ -351,10 +366,13 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
-	var receipts []EvmReceipt
-	if err = q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
+	var rs []dbReceipt
+	if err = q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
+
+	var receipts []EvmReceipt = fromDBReceipts(rs)
+
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
@@ -369,10 +387,11 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 		byHash[attempt.Hash] = &attempts[i]
 		hashes = append(hashes, attempt.Hash.Bytes())
 	}
-	var receipts []EvmReceipt
-	if err := q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
+	var rs []dbReceipt
+	if err := q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}
+	var receipts []EvmReceipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
 		attempt := byHash[receipt.TxHash]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
@@ -468,10 +487,12 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error) {
+func (o *orm) SaveFetchedReceipts(r []evmtypes.Receipt, chainID big.Int) (err error) {
+	receipts := toDBRawReceipt(r)
 	if len(receipts) == 0 {
 		return nil
 	}
+
 	// Notes on this query:
 	//
 	// # Receipts insert
@@ -612,8 +633,10 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
-	err = o.q.SelectContext(ctx, &receiptsPlus, `
+func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EvmReceiptPlus, err error) {
+	var rs []dbReceiptPlus
+
+	err = o.q.SelectContext(ctx, &rs, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
 	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id
@@ -621,11 +644,13 @@ func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum i
 	INNER JOIN eth_receipts ON eth_tx_attempts.hash = eth_receipts.tx_hash
 	WHERE pipeline_runs.state = 'suspended' AND eth_receipts.block_number <= ($1 - eth_txes.min_confirmations) AND eth_txes.evm_chain_id = $2
 	`, blockNum, chainID.String())
+
+	receiptsPlus = fromDBReceiptsPlus(rs)
 	return
 }
 
 // FindEthTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (etx *EthTx, err error) {
+func (o *orm) FindEthTxWithNonce(fromAddress common.Address, nonce int64) (etx *EthTx, err error) {
 	etx = new(EthTx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Get(etx, `
@@ -644,7 +669,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 }
 
 func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EthTxAttempt) error {
-	if attempt.State != EthTxAttemptBroadcast {
+	if attempt.State != txmgrtypes.TxAttemptBroadcast {
 		return errors.New("expected eth_tx_attempt to be broadcast")
 	}
 	_, err := q.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = NULL, state = 'in_progress' WHERE id = $1`, attempt.ID)
@@ -718,18 +743,18 @@ func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.
 }
 
 func (o *orm) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	if !(attempt.State == EthTxAttemptInProgress || attempt.State == EthTxAttemptInsufficientEth) {
+	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
-	attempt.State = EthTxAttemptInsufficientEth
+	attempt.State = txmgrtypes.TxAttemptInsufficientEth
 	return errors.Wrap(saveAttemptWithNewState(o.q, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
 func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
-	attempt.State = EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	return errors.Wrap(saveAttemptWithNewState(q, timeout, logger, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
@@ -754,7 +779,7 @@ func (o *orm) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout ti
 func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
 	if attempt.ID == 0 {
@@ -766,7 +791,7 @@ func (o *orm) DeleteInProgressAttempt(ctx context.Context, attempt EthTxAttempt)
 
 // SaveInProgressAttempt inserts or updates an attempt
 func (o *orm) SaveInProgressAttempt(attempt *EthTxAttempt) error {
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("SaveInProgressAttempt failed: attempt state must be in_progress")
 	}
 	// Insert is the usual mode because the attempt is new
@@ -941,7 +966,7 @@ GROUP BY e.id
 
 func (o *orm) SaveReplacementInProgressAttempt(oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
-	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
+	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}
 	if oldAttempt.ID == 0 {
@@ -990,7 +1015,7 @@ func (o *orm) UpdateEthTxFatalError(etx *EthTx, qopts ...pg.QOpt) error {
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, incrNextNonceCallback QueryerFunc, qopts ...pg.QOpt) error {
+func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.BroadcastAt == nil {
@@ -1002,10 +1027,10 @@ func (o *orm) UpdateEthTxAttemptInProgressToBroadcast(etx *EthTx, attempt EthTxA
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	if NewAttemptState != EthTxAttemptBroadcast {
+	if NewAttemptState != txmgrtypes.TxAttemptBroadcast {
 		return errors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
 	etx.State = EthTxUnconfirmed
@@ -1033,7 +1058,7 @@ func (o *orm) UpdateEthTxUnstartedToInProgress(etx *EthTx, attempt *EthTxAttempt
 	if etx.State != EthTxUnstarted {
 		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
-	if attempt.State != EthTxAttemptInProgress {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
 	etx.State = EthTxInProgress
@@ -1074,7 +1099,7 @@ func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (
 		if err = o.LoadEthTxAttempts(etx, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "GetEthTxInProgress failed while loading EthTxAttempts")
 		}
-		if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
+		if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
 			return errors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
 				"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", etx.ID)
 		}
@@ -1090,7 +1115,7 @@ func (o *orm) HasInProgressTransaction(account common.Address, chainID big.Int, 
 	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
 }
 
-func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (o *orm) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce int64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	return qq.Transaction(func(tx pg.Queryer) error {
 		//  We filter by next_nonce here as an optimistic lock to make sure it

@@ -37,7 +37,7 @@ var (
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
-			"capacity": "10Gi",
+			"capacity": "1Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "250m",

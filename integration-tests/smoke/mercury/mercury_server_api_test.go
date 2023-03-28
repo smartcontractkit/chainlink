@@ -1,4 +1,4 @@
-package smoke
+package mercury
 
 import (
 	"context"
@@ -63,7 +63,7 @@ func TestMercuryServerAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	admin := mercury.User{
-		Id:       testEnv.MSInfo.AdminId,
+		Id:       testEnv.MSInfo.UserId,
 		Key:      "admintestkey",
 		Secret:   "mz1I4AgYtvo3Wumrgtlyh9VWkCf/IzZ6JROnuw==",
 		Role:     "admin",
@@ -100,7 +100,7 @@ func TestMercuryServerAPI(t *testing.T) {
 		users, resp, err := c.GetUsers()
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
-		require.Equal(t, len(initUsers), len(users))
+		require.Equal(t, len(initUsers)+1, len(users)) // include bootstrap user
 	})
 
 	t.Run("GET /admin/user as user role", func(t *testing.T) {

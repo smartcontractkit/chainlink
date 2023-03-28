@@ -206,11 +206,7 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		errResult, err2 := io.ReadAll(resp.Body)
-		if err2 != nil {
-			return cli.errorOut(errors.Errorf("error exporting status code %d error reading body %s", resp.StatusCode, err2))
-		}
-		return cli.errorOut(errors.Errorf("error exporting status code %d body %s", resp.StatusCode, string(errResult)))
+		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)

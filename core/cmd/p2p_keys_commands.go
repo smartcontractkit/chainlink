@@ -253,7 +253,7 @@ func (cli *Client) ExportP2PKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)
