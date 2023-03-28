@@ -16,13 +16,13 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -121,7 +121,6 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterName    string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -359,18 +358,20 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
+func UpkeepFilterName(addr common.Address) string {
+	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+}
+
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 	err := r.poller.RegisterFilter(logpoller.Filter{
-		Name:      filterName,
+		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()
-		r.filterName = filterName
 		r.mu.Unlock()
 	}
 	return err

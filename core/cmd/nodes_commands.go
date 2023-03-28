@@ -6,8 +6,20 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
+
+func initCosmosNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("Cosmos", NewCosmosNodeClient(client),
+		cli.StringFlag{
+			Name:  "chain-id",
+			Usage: "chain ID",
+		},
+		cli.StringFlag{
+			Name:  "tendermint-url",
+			Usage: "Tendermint URL",
+		})
+}
 
 func initStarkNetNodeSubCmd(client *Client) cli.Command {
 	return nodeCommand("StarkNet", NewStarkNetNodeClient(client),

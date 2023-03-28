@@ -8,21 +8,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
@@ -230,7 +230,12 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", nil)
+	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Dialect = dialects.Postgres
+		// evm config is used in this test. but if set, it must be pass config validation.
+		// simplest to make it nil
+		c.EVM = nil
+	})
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -300,6 +305,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// the transaction cannot be seen from another connection.
 			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
+				// evm config is used in this test. but if set, it must be pass config validation.
+				// simplest to make it nil
+				c.EVM = nil
 			})
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)

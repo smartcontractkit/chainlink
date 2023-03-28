@@ -31,24 +31,25 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 var prometheus *ginprom.Prometheus
@@ -149,7 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
-	// Set up the versioning ORM
+	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
 
 	if static.Version != static.Unset {
@@ -200,7 +201,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
+			if err = cosmos.EnsureChains(db, appLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
@@ -221,6 +222,23 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
 
+	if cfg.CosmosEnabled() {
+		cosmosLggr := appLggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
+			Config:           cfg,
+			Logger:           cosmosLggr,
+			DB:               db,
+			KeyStore:         keyStore.Cosmos(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		cfgs := cfg.CosmosConfigs()
+		opts.Configs = cosmos.NewConfigs(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
+		}
+	}
+
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
 		opts := solana.ChainSetOpts{
@@ -235,12 +253,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
 		}
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		opts.Configs = solana.NewConfigs(cfgs)
+		chains.Solana, err = solana.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
@@ -260,12 +278,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
 			}
 		}
-		opts.ORM = starknet.NewORMImmut(cfgs)
-		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		opts.Configs = starknet.NewConfigs(cfgs)
+		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}

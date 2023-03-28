@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb

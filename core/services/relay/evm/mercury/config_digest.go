@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_exposed_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_exposed_verifier"
 )
 
 func makeConfigDigestArgs() abi.Arguments {

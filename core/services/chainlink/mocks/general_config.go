@@ -5,41 +5,43 @@ package mocks
 import (
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	config "github.com/smartcontractkit/chainlink/core/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
+	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
-	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+
+	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	net "net"
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
-	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
 
-	solana "github.com/smartcontractkit/chainlink/core/chains/solana"
+	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 
-	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet"
+	starknet "github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 
 	time "time"
 
 	url "net/url"
 
-	utils "github.com/smartcontractkit/chainlink/core/utils"
+	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -433,6 +435,36 @@ func (_m *GeneralConfig) ConfigTOML() (string, string) {
 	}
 
 	return r0, r1
+}
+
+// CosmosConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) CosmosConfigs() cosmos.CosmosConfigs {
+	ret := _m.Called()
+
+	var r0 cosmos.CosmosConfigs
+	if rf, ok := ret.Get(0).(func() cosmos.CosmosConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(cosmos.CosmosConfigs)
+		}
+	}
+
+	return r0
+}
+
+// CosmosEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) CosmosEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // DatabaseBackupDir provides a mock function with given fields:

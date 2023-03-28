@@ -22,14 +22,14 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier_proxy"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestMercuryConfigPoller(t *testing.T) {
@@ -58,7 +58,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress)
+	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
 	require.NoError(t, err)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))

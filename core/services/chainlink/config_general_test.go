@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
@@ -18,6 +18,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
+	assert.False(t, config.CosmosEnabled())
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
