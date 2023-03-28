@@ -251,16 +251,13 @@ func RunTestReportVerificationWithExchangerContract(t *testing.T, te *mercury.Te
 			require.NoError(t, err)
 			mercuryUrlPath, err := exchangerContract.ResolveTrade(encodedCommitment)
 			require.NoError(t, err)
-			// feedIdHex param is still not fixed in the Exchanger contract. Should be feedIDHex
-			fixedMerucyrUrlPath := strings.Replace(mercuryUrlPath, "feedIdHex", "feedIDHex", -1)
-			fixedMerucyrUrlPath2 := strings.Replace(fixedMerucyrUrlPath, "L2Blocknumber", "blockNumber", -1)
 
 			d := 2 * time.Second
 			log.Info().Msgf("Wait for %s report to be generated and available on the mercury server..", d)
 			time.Sleep(d)
 
 			// Get report from mercury server
-			report, resp, err := te.MSClient.CallGet(fmt.Sprintf("/client%s", fixedMerucyrUrlPath2))
+			report, resp, err := te.MSClient.CallGet(fmt.Sprintf("/client%s", mercuryUrlPath))
 			log.Info().Msgf("Got response from Mercury server. Response: %v. Report: %s", resp, report)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.NotEmpty(t, report["chainlinkBlob"], "Report response does not contain chainlinkBlob")
