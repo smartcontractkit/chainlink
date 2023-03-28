@@ -8,11 +8,11 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Client interface {

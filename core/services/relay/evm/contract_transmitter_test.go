@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	lpmocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var sampleAddress = testutils.NewAddress()

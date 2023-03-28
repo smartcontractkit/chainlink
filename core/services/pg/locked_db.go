@@ -10,9 +10,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 // LockedDB bounds DB connection and DB locks.

@@ -6,13 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/cosmostest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	. "github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
+	. "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 )
 
 func TestORM(t *testing.T) {

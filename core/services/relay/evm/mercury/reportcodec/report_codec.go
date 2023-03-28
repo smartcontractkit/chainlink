@@ -10,7 +10,7 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NOTE:

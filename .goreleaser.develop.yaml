@@ -34,8 +34,8 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: linux-amd64
     goos:
@@ -54,8 +54,8 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
 dockers:

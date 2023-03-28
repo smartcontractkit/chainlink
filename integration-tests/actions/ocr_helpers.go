@@ -20,9 +20,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are

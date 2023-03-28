@@ -3,7 +3,7 @@ package resolver
 import (
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 type TaskRunResolver struct {

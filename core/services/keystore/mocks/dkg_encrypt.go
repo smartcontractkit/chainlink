@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	dkgencryptkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
+	dkgencryptkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 
 	mock "github.com/stretchr/testify/mock"
 )

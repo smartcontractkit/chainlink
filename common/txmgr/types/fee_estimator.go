@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 // Opt is an option for a gas estimator

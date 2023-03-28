@@ -14,8 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NOTE: These metrics generate a new label per bridge, this should be safe

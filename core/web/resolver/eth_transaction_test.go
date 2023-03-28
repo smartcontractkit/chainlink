@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {

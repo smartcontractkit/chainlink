@@ -5,12 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 )

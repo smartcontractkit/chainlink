@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
