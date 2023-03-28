@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -12,8 +11,8 @@ import (
 )
 
 var (
-	_ Coordinator = &testCoordinator{}
-	_ BHS         = &testBHS{}
+	_ Coordinator = &TestCoordinator{}
+	_ BHS         = &TestBHS{}
 )
 
 func TestFeeder(t *testing.T) {
@@ -24,7 +23,7 @@ func TestFeeder(t *testing.T) {
 		wait           int
 		lookback       int
 		latest         uint64
-		bhs            testBHS
+		bhs            TestBHS
 		expectedStored []uint64
 		expectedErrMsg string
 	}{
@@ -51,7 +50,7 @@ func TestFeeder(t *testing.T) {
 			wait:           25,
 			lookback:       100,
 			latest:         200,
-			bhs:            testBHS{stored: []uint64{150}},
+			bhs:            TestBHS{Stored: []uint64{150}},
 			expectedStored: []uint64{150},
 		},
 		{
@@ -60,7 +59,7 @@ func TestFeeder(t *testing.T) {
 			wait:           25,
 			lookback:       100,
 			latest:         200,
-			bhs:            testBHS{errorsIsStored: []uint64{150}},
+			bhs:            TestBHS{ErrorsIsStored: []uint64{150}},
 			expectedStored: []uint64{150},
 			expectedErrMsg: "checking if stored: error checking if stored",
 		},
@@ -70,7 +69,7 @@ func TestFeeder(t *testing.T) {
 			wait:           25,
 			lookback:       100,
 			latest:         200,
-			bhs:            testBHS{errorsStore: []uint64{150}},
+			bhs:            TestBHS{ErrorsStore: []uint64{150}},
 			expectedStored: []uint64{151},
 			expectedErrMsg: "storing block: error storing",
 		},
@@ -193,9 +192,9 @@ func TestFeeder(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			coordinator := &testCoordinator{
-				requests:     test.requests,
-				fulfillments: test.fulfillments,
+			coordinator := &TestCoordinator{
+				RequestEvents:     test.requests,
+				FulfillmentEvents: test.fulfillments,
 			}
 
 			feeder := NewFeeder(
@@ -215,17 +214,17 @@ func TestFeeder(t *testing.T) {
 				require.EqualError(t, err, test.expectedErrMsg)
 			}
 
-			require.ElementsMatch(t, test.expectedStored, test.bhs.stored)
+			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
 		})
 	}
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
-	coordinator := &testCoordinator{
-		requests: []Event{{Block: 100, ID: "request"}},
+	coordinator := &TestCoordinator{
+		RequestEvents: []Event{{Block: 100, ID: "request"}},
 	}
 
-	bhs := &testBHS{}
+	bhs := &TestBHS{}
 
 	feeder := NewFeeder(
 		logger.TestLogger(t),
@@ -239,13 +238,13 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 
 	// Should store block 100
 	require.NoError(t, feeder.Run(testutils.Context(t)))
-	require.ElementsMatch(t, []uint64{100}, bhs.stored)
+	require.ElementsMatch(t, []uint64{100}, bhs.Stored)
 
 	// Remove 100 from the BHS and try again, it should not be stored since it's cached in the
 	// feeder
-	bhs.stored = nil
+	bhs.Stored = nil
 	require.NoError(t, feeder.Run(testutils.Context(t)))
-	require.Empty(t, bhs.stored)
+	require.Empty(t, bhs.Stored)
 
 	// Run the feeder on a later block and make sure the cache is pruned
 	feeder.latestBlock = func(ctx context.Context) (uint64, error) {
@@ -253,65 +252,4 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 	}
 	require.NoError(t, feeder.Run(testutils.Context(t)))
 	require.Empty(t, feeder.stored)
-}
-
-type testCoordinator struct {
-	requests     []Event
-	fulfillments []Event
-}
-
-func (t *testCoordinator) Requests(_ context.Context, fromBlock uint64, toBlock uint64) ([]Event, error) {
-	var result []Event
-	for _, req := range t.requests {
-		if req.Block >= fromBlock && req.Block <= toBlock {
-			result = append(result, req)
-		}
-	}
-	return result, nil
-}
-
-func (t *testCoordinator) Fulfillments(_ context.Context, fromBlock uint64) ([]Event, error) {
-	var result []Event
-	for _, ful := range t.fulfillments {
-		if ful.Block >= fromBlock {
-			result = append(result, ful)
-		}
-	}
-	return result, nil
-}
-
-type testBHS struct {
-	stored []uint64
-
-	// errorsStore defines which block numbers should return errors on Store.
-	errorsStore []uint64
-
-	// errorsIsStored defines which block numbers should return errors on IsStored.
-	errorsIsStored []uint64
-}
-
-func (t *testBHS) Store(_ context.Context, blockNum uint64) error {
-	for _, e := range t.errorsStore {
-		if e == blockNum {
-			return errors.New("error storing")
-		}
-	}
-
-	t.stored = append(t.stored, blockNum)
-	return nil
-}
-
-func (t *testBHS) IsStored(_ context.Context, blockNum uint64) (bool, error) {
-	for _, e := range t.errorsIsStored {
-		if e == blockNum {
-			return false, errors.New("error checking if stored")
-		}
-	}
-
-	for _, s := range t.stored {
-		if s == blockNum {
-			return true, nil
-		}
-	}
-	return false, nil
 }
