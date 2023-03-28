@@ -1,7 +1,7 @@
 package resolver
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
 type PluginsResolver struct {
