@@ -51,9 +51,9 @@ func RunTestsGetBulkReportsForRecentBlockNum(t *testing.T, te *mercury.TestEnv, 
 			switch te.EvmNetwork.ChainID {
 			// Arbitrum Goerli is fast so query for older reports
 			case 421613:
-				queryBlockNum = lastBlockNum - 15
+				queryBlockNum = lastBlockNum - 50
 			default:
-				queryBlockNum = lastBlockNum - 10
+				queryBlockNum = lastBlockNum - 25
 			}
 
 			var limit uint64 = 100
@@ -89,9 +89,9 @@ func RunTestGetReportByFeedIdForRecentBlockNum(t *testing.T, te *mercury.TestEnv
 			switch te.EvmNetwork.ChainID {
 			// Arbitrum Goerli is fast so query for older reports
 			case 421613:
-				queryBlockNum = lastBlockNum - 15
+				queryBlockNum = lastBlockNum - 50
 			default:
-				queryBlockNum = lastBlockNum - 10
+				queryBlockNum = lastBlockNum - 25
 			}
 
 			var feedId string
@@ -101,7 +101,7 @@ func RunTestGetReportByFeedIdForRecentBlockNum(t *testing.T, te *mercury.TestEnv
 				feedId = feedIdStr
 			}
 
-			reportStr, _, err := te.MSClient.GetReportsByFeedId(feedId, queryBlockNum, client.StringFeedId)
+			reportStr, _, err := te.MSClient.GetReportsByFeedId(feedId, queryBlockNum, feedIdType)
 			require.NoError(t, err, "Error getting report from Mercury Server")
 			require.NotEmpty(t, reportStr.ChainlinkBlob, "Report response does not contain chainlinkBlob")
 			reportBytes, err := hex.DecodeString(reportStr.ChainlinkBlob[2:])
@@ -205,9 +205,9 @@ func RunTestReportVerificationWithVerifierContract(t *testing.T, te *mercury.Tes
 			switch te.EvmNetwork.ChainID {
 			// Arbitrum Goerli is fast so query for older reports
 			case 421613:
-				queryBlockNum = lastBlockNum - 15
+				queryBlockNum = lastBlockNum - 50
 			default:
-				queryBlockNum = lastBlockNum - 10
+				queryBlockNum = lastBlockNum - 25
 			}
 
 			reportStr, _, err := te.MSClient.GetReportsByFeedId(feedId, queryBlockNum, client.StringFeedId)
