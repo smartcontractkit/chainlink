@@ -1692,8 +1692,8 @@ func (_c *ORM_RejectSpec_Call) RunAndReturn(run func(int64, ...pg.QOpt) error) *
 	return _c
 }
 
-// RevokeProposal provides a mock function with given fields: id, qopts
-func (_m *ORM) RevokeProposal(id int64, qopts ...pg.QOpt) error {
+// RevokeSpec provides a mock function with given fields: id, qopts
+func (_m *ORM) RevokeSpec(id int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -1713,20 +1713,20 @@ func (_m *ORM) RevokeProposal(id int64, qopts ...pg.QOpt) error {
 	return r0
 }
 
-// ORM_RevokeProposal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeProposal'
-type ORM_RevokeProposal_Call struct {
+// ORM_RevokeSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeSpec'
+type ORM_RevokeSpec_Call struct {
 	*mock.Call
 }
 
-// RevokeProposal is a helper method to define mock.On call
+// RevokeSpec is a helper method to define mock.On call
 //   - id int64
 //   - qopts ...pg.QOpt
-func (_e *ORM_Expecter) RevokeProposal(id interface{}, qopts ...interface{}) *ORM_RevokeProposal_Call {
-	return &ORM_RevokeProposal_Call{Call: _e.mock.On("RevokeProposal",
+func (_e *ORM_Expecter) RevokeSpec(id interface{}, qopts ...interface{}) *ORM_RevokeSpec_Call {
+	return &ORM_RevokeSpec_Call{Call: _e.mock.On("RevokeSpec",
 		append([]interface{}{id}, qopts...)...)}
 }
 
-func (_c *ORM_RevokeProposal_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_RevokeProposal_Call {
+func (_c *ORM_RevokeSpec_Call) Run(run func(id int64, qopts ...pg.QOpt)) *ORM_RevokeSpec_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		variadicArgs := make([]pg.QOpt, len(args)-1)
 		for i, a := range args[1:] {
@@ -1739,12 +1739,12 @@ func (_c *ORM_RevokeProposal_Call) Run(run func(id int64, qopts ...pg.QOpt)) *OR
 	return _c
 }
 
-func (_c *ORM_RevokeProposal_Call) Return(_a0 error) *ORM_RevokeProposal_Call {
+func (_c *ORM_RevokeSpec_Call) Return(_a0 error) *ORM_RevokeSpec_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ORM_RevokeProposal_Call) RunAndReturn(run func(int64, ...pg.QOpt) error) *ORM_RevokeProposal_Call {
+func (_c *ORM_RevokeSpec_Call) RunAndReturn(run func(int64, ...pg.QOpt) error) *ORM_RevokeSpec_Call {
 	_c.Call.Return(run)
 	return _c
 }

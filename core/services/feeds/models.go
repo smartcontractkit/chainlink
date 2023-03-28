@@ -170,6 +170,9 @@ const (
 	// but cancelled by the node op. A cancelled spec is not being run by the
 	// node.
 	SpecStatusCancelled SpecStatus = "cancelled"
+	// SpecStatusRevoked defines a spec status which was revoked. A revoked spec cannot be
+	// approved.
+	SpecStatusRevoked SpecStatus = "revoked"
 )
 
 // JobProposalSpec defines a versioned proposed spec for a JobProposal.

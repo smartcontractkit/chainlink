@@ -720,6 +720,7 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	// Update
 	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
 	jp.Name = null.StringFrom("jp1_updated")
+	jp.Status = feeds.JobProposalStatusDeleted
 
 	id, err = orm.UpsertJobProposal(jp)
 	require.NoError(t, err)
@@ -733,8 +734,21 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	// Ensure there is a difference in the created proposal and the upserted
 	// proposal
 	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
+	assert.NotEqual(t, createdActual.Status, actual.Status)
 	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
 	assert.True(t, actual.PendingUpdate)
+
+	// Update deleted proposal
+	jp.Status = feeds.JobProposalStatusRejected
+
+	id, err = orm.UpsertJobProposal(jp)
+	require.NoError(t, err)
+
+	// Ensure the deleted proposal does not get updated
+	actual, err = orm.GetJobProposal(id)
+	require.NoError(t, err)
+	assert.NotEqual(t, jp.Status, actual.Status)
+	assert.Equal(t, actual.Status, feeds.JobProposalStatusDeleted)
 }
 
 // Job Proposal Specs
@@ -954,13 +968,14 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 	}
 }
 
-func Test_ORM_RevokeJob(t *testing.T) {
+func Test_ORM_RevokeSpec(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		name               string
 		before             func(orm *TestORM) int64
 		wantProposalStatus feeds.JobProposalStatus
+		wantSpecStatus     feeds.SpecStatus
 		wantErr            string
 	}{
 		{
@@ -972,6 +987,7 @@ func Test_ORM_RevokeJob(t *testing.T) {
 				return jpID
 			},
 			wantProposalStatus: feeds.JobProposalStatusRevoked,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "approved proposal",
@@ -993,6 +1009,7 @@ func Test_ORM_RevokeJob(t *testing.T) {
 				return jpID
 			},
 			wantProposalStatus: feeds.JobProposalStatusApproved,
+			wantSpecStatus:     feeds.SpecStatusApproved,
 		},
 		{
 			name: "cancelled proposal",
@@ -1003,6 +1020,7 @@ func Test_ORM_RevokeJob(t *testing.T) {
 				return jpID
 			},
 			wantProposalStatus: feeds.JobProposalStatusRevoked,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "rejected proposal",
@@ -1013,6 +1031,7 @@ func Test_ORM_RevokeJob(t *testing.T) {
 				return jpID
 			},
 			wantProposalStatus: feeds.JobProposalStatusRevoked,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "deleted proposal",
@@ -1023,6 +1042,7 @@ func Test_ORM_RevokeJob(t *testing.T) {
 				return jpID
 			},
 			wantProposalStatus: feeds.JobProposalStatusDeleted,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "not found",
@@ -1041,7 +1061,7 @@ func Test_ORM_RevokeJob(t *testing.T) {
 
 			jpID := tc.before(orm)
 
-			err := orm.RevokeProposal(jpID)
+			err := orm.RevokeSpec(jpID)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)

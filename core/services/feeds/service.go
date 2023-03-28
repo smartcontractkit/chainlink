@@ -467,11 +467,21 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		return 0, errors.New("cannot revoke a job proposal belonging to another feeds manager")
 	}
 
+	// get the latest spec for the proposal
+	latest, err := s.orm.GetLatestSpec(proposal.ID)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetLatestSpec failed to get latest spec")
+	}
+
+	if canRevoke := s.isRevokable(proposal.Status, latest.Status); !canRevoke {
+		return 0, errors.New("only pending job proposals can be revoked")
+	}
+
 	pctx := pg.WithParentCtx(ctx)
-	if err = s.orm.RevokeProposal(proposal.ID, pctx); err != nil {
+	if err = s.orm.RevokeSpec(latest.ID, pctx); err != nil {
 		s.lggr.Errorw("Failed to revoke the proposal", "error", err)
 
-		return 0, errors.Wrap(err, "RevokeProposal failed")
+		return 0, errors.Wrap(err, "RevokeSpec failed")
 	}
 
 	return proposal.ID, nil
@@ -1252,6 +1262,8 @@ func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, s
 		return errors.New("cannot approve an approved spec")
 	case SpecStatusRejected:
 		return errors.New("cannot approve a rejected spec")
+	case SpecStatusRevoked:
+		return errors.New("cannot approve a revoked spec")
 	case SpecStatusCancelled:
 		// Allowed to approve a cancelled job if it is the latest job
 		latest, serr := s.orm.GetLatestSpec(proposalID)
@@ -1269,6 +1281,10 @@ func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, s
 	default:
 		return errors.New("invalid job spec status")
 	}
+}
+
+func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatus) bool {
+	return propStatus == JobProposalStatusPending && specStatus == SpecStatusPending
 }
 
 var _ Service = &NullService{}
