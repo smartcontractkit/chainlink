@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -47,9 +48,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {}
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
@@ -109,7 +111,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		d.pr,
 		chain.Client(),
 		chain.HeadBroadcaster(),
-		chain.TxManager().GetGasEstimator(),
+		chain.GasEstimator(),
 		svcLogger,
 		chain.Config(),
 		effectiveKeeperAddress,

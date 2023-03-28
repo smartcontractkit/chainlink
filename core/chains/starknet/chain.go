@@ -25,20 +25,19 @@ var _ starkChain.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id           string
-	cfg          config.Config
-	cfgImmutable bool // toml config is immutable
-	orm          types.ORM
-	lggr         logger.Logger
-	txm          txm.StarkTXM
+	id   string
+	cfg  config.Config
+	cfgs types.Configs
+	lggr logger.Logger
+	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM, lggr logger.Logger) (ch *chain, err error) {
+func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
 	lggr = lggr.With("starknetChainID", id)
 	ch = &chain{
 		id:   id,
 		cfg:  cfg,
-		orm:  orm,
+		cfgs: cfgs,
 		lggr: lggr.Named("Chain"),
 	}
 
@@ -74,7 +73,7 @@ func (c *chain) Reader() (starknet.Reader, error) {
 func (c *chain) getClient() (*starknet.Client, error) {
 	var node db.Node
 	var client *starknet.Client
-	nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+	nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}

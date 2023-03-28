@@ -1,4 +1,4 @@
-package directrequestocr_test
+package functions_test
 
 import (
 	"errors"
@@ -15,15 +15,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/core/services/functions"
 	functions_mocks "github.com/smartcontractkit/chainlink/core/services/functions/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/config"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *directrequestocr.ReportCodec) {
+func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *functions.ReportCodec) {
 	lggr := logger.TestLogger(t)
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
-	factory := directrequestocr.DirectRequestReportingPluginFactory{
+	factory := functions.DirectRequestReportingPluginFactory{
 		Logger:    ocrLogger,
 		PluginORM: orm,
 	}
@@ -41,7 +41,7 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *func
 		OffchainConfig: pluginConfigBytes,
 	})
 	require.NoError(t, err)
-	codec, err := directrequestocr.NewReportCodec()
+	codec, err := functions.NewReportCodec()
 	require.NoError(t, err)
 	return plugin, orm, codec
 }
@@ -71,7 +71,7 @@ func newRequestConfirmed() functions_srv.Request {
 }
 
 func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte {
-	queryProto := directrequestocr.Query{}
+	queryProto := functions.Query{}
 	queryProto.RequestIDs = [][]byte{}
 	for _, id := range reqIDs {
 		id := id
@@ -82,16 +82,16 @@ func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte 
 	return marshalled
 }
 
-func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *directrequestocr.ProcessedRequest {
-	return &directrequestocr.ProcessedRequest{
+func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *functions.ProcessedRequest {
+	return &functions.ProcessedRequest{
 		RequestID: requestId[:],
 		Result:    compResult,
 		Error:     compError,
 	}
 }
 
-func newObservation(t *testing.T, observerId uint8, requests ...*directrequestocr.ProcessedRequest) types.AttributedObservation {
-	observationProto := directrequestocr.Observation{ProcessedRequests: requests}
+func newObservation(t *testing.T, observerId uint8, requests ...*functions.ProcessedRequest) types.AttributedObservation {
+	observationProto := functions.Observation{ProcessedRequests: requests}
 	raw, err := proto.Marshal(&observationProto)
 	require.NoError(t, err)
 	return types.AttributedObservation{
@@ -110,7 +110,7 @@ func TestDRReporting_Query(t *testing.T) {
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 
-	queryProto := &directrequestocr.Query{}
+	queryProto := &functions.Query{}
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(queryProto.RequestIDs))
@@ -143,7 +143,7 @@ func TestDRReporting_Observation(t *testing.T) {
 	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
 	require.NoError(t, err)
 
-	observationProto := &directrequestocr.Observation{}
+	observationProto := &functions.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
 	require.Equal(t, len(observationProto.ProcessedRequests), 2)
@@ -236,11 +236,11 @@ func TestDRReporting_Report_IncorrectObservation(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getReportBytes(t *testing.T, codec *directrequestocr.ReportCodec, reqs ...functions_srv.Request) []byte {
-	var report []*directrequestocr.ProcessedRequest
+func getReportBytes(t *testing.T, codec *functions.ReportCodec, reqs ...functions_srv.Request) []byte {
+	var report []*functions.ProcessedRequest
 	for _, req := range reqs {
 		req := req
-		report = append(report, &directrequestocr.ProcessedRequest{RequestID: req.RequestID[:], Result: req.Result})
+		report = append(report, &functions.ProcessedRequest{RequestID: req.RequestID[:], Result: req.Result})
 	}
 	reportBytes, err := codec.EncodeReport(report)
 	require.NoError(t, err)

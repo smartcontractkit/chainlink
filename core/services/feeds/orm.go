@@ -559,7 +559,6 @@ func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals
 SET status = $1,
-    external_job_id = $2,
     pending_update = (
         CASE
             WHEN status = 'approved' THEN true
@@ -567,10 +566,10 @@ SET status = $1,
         END
     ),
     updated_at = NOW()
-WHERE id = $3;
+WHERE id = $2;
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, nil, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, id)
 	if err != nil {
 		return err
 	}
