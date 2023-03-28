@@ -55,14 +55,11 @@ func TestSmokeMercuryProd(t *testing.T) {
 	require.NoError(t, err)
 
 	subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, &testEnv, feedId, client.StringFeedId)
-
 	subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, &testEnv, feedId, client.HexFeedId)
-
 	subtests.RunTestGetReportNotFound(t, &testEnv, feedId)
-
 	subtests.RunTestGetReportByFeedIdStrFromWS(t, &testEnv, feedId)
-
+	subtests.RunTestsGetBulkReportsForRecentBlockNum(t, &testEnv, feedId, client.HexFeedId)
+	subtests.RunTestsGetBulkReportsForRecentBlockNum(t, &testEnv, feedId, client.StringFeedId)
 	subtests.RunTestReportVerificationWithVerifierContract(t, &testEnv, verifierProxyContract, feedId)
-
 	subtests.RunTestReportVerificationWithExchangerContract(t, &testEnv, exchangerContract, feedId)
 }
