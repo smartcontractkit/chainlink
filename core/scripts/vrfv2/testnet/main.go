@@ -11,9 +11,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -34,11 +31,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
