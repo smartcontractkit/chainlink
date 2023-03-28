@@ -1158,6 +1158,12 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2Config) (*pb.OCR2Config, error) {
 		Enabled:     true,
 		IsBootstrap: cfg.IsBootstrap,
 		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
+		Plugins: &pb.OCR2Config_Plugins{
+			Commit:  cfg.Plugins.Commit,
+			Execute: cfg.Plugins.Execute,
+			Median:  cfg.Plugins.Median,
+			Mercury: cfg.Plugins.Mercury,
+		},
 	}
 
 	// Fetch the P2P key bundle
