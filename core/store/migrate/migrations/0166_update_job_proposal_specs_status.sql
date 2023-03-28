@@ -1,7 +1,25 @@
 -- +goose Up
 -- +goose StatementBegin
+DROP INDEX idx_job_proposal_specs_job_proposal_id_and_status;
+
 ALTER TYPE job_proposal_spec_status
-ADD VALUE 'revoked';
+RENAME TO job_proposal_spec_status_old;
+
+CREATE TYPE job_proposal_spec_status AS ENUM(
+    'pending',
+    'approved',
+    'rejected',
+    'cancelled',
+    'revoked'
+);
+
+ALTER TABLE job_proposal_specs
+ALTER COLUMN status TYPE job_proposal_spec_status USING status::TEXT::job_proposal_spec_status;
+
+DROP TYPE job_proposal_spec_status_old;
+
+CREATE UNIQUE INDEX idx_job_proposal_specs_job_proposal_id_and_status ON job_proposal_specs(job_proposal_id)
+WHERE status = 'approved';
 
 -- +goose StatementEnd
 -- +goose Down
