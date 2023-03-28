@@ -3,8 +3,8 @@ package config
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 )
 
 // PluginConfig contains custom arguments for the OCR2VRF plugin.

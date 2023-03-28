@@ -11,8 +11,8 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/solana"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initSolanaTxSubCmd(client *Client) cli.Command {

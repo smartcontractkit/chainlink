@@ -3,8 +3,8 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/core/assets"
-	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
 	big "math/big"
 
@@ -12,21 +12,21 @@ import (
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
+	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 
-	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	net "net"
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
-	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
 
@@ -34,7 +34,7 @@ import (
 
 	url "net/url"
 
-	utils "github.com/smartcontractkit/chainlink/core/utils"
+	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 

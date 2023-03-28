@@ -3,8 +3,8 @@ package web
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // FeaturesController manages the feature flags

@@ -21,20 +21,21 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	mercuryconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ relaytypes.Relayer = &Relayer{}
@@ -133,6 +134,24 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 		return nil, err
 	}
 	return configProvider, err
+}
+
+func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, err error) {
+	var addr ethkey.EIP55Address
+	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
+		return nil, err
+	}
+	var relayConfig types.RelayConfig
+	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if relayConfig.FeedID != nil {
+		filterNames = []string{mercury.FilterName(addr.Address())}
+	} else {
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
+	}
+	return filterNames, err
 }
 
 type ConfigPoller interface {

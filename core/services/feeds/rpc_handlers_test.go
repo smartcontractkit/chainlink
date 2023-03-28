@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
-	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 )
 
 type TestRPCHandlers struct {

@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
