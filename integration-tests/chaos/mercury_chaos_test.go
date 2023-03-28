@@ -9,9 +9,10 @@ import (
 	"github.com/onsi/gomega"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 )

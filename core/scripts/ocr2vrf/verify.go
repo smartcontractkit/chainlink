@@ -15,10 +15,10 @@ import (
 	"go.dedis.ch/kyber/v3/group/mod"
 	"go.dedis.ch/kyber/v3/pairing"
 
-	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	dkgContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 )
 
 func getDKGLatestConfigDetails(e helpers.Environment, dkgAddress string) dkgContract.LatestConfigDetails {

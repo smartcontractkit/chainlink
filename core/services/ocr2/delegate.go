@@ -19,35 +19,34 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	functions_service "github.com/smartcontractkit/chainlink/core/services/functions"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
-	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
-	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
-	ocr2vrfcoordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/promwrapper"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	functions_service "github.com/smartcontractkit/chainlink/v2/core/services/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
+	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reportserializer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Delegate struct {
@@ -147,7 +146,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	var filters []string
 	switch spec.PluginType {
 	case job.OCR2VRF:
-		filters, err = ocr2vrfcoordinator.FilterNamesFromSpec(spec)
+		filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}

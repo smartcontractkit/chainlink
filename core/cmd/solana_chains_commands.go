@@ -3,7 +3,7 @@ package cmd
 import (
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // SolanaChainPresenter implements TableRenderer for a SolanaChainResource

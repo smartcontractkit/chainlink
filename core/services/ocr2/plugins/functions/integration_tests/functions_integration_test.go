@@ -13,8 +13,8 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	utils "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions/integration_tests/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/internal"
 )
 
 func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
