@@ -104,8 +104,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_amd64/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -127,8 +128,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_arm64/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -162,11 +164,13 @@ docker_signs:
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
-archives:
-  - files:
-      - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
-        dst: libs
-        strip_parent: true
+archives: []
+  # uncomment if using native libs / cgo enabled
+  # - rlcp: true
+  #   files:
+  #     - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
+  #       dst: libs
+  #       strip_parent: true
 
 checksum:
   name_template: "checksums.txt"

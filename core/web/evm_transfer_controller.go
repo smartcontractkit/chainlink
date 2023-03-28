@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -93,15 +94,21 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
-	var gasPrice *assets.Wei
+	var fees gas.EvmFee
 
 	gasLimit := chain.Config().EvmGasLimitTransfer()
-	estimator := chain.TxManager().GetGasEstimator()
+	estimator := chain.GasEstimator()
 
-	gasPrice, gasLimit, err = estimator.GetLegacyGas(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
+	fees, gasLimit, err = estimator.GetFee(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
 	if err != nil {
 		return errors.Wrap(err, "failed to estimate gas")
 	}
+
+	// TODO: support EIP-1559 transactions
+	if fees.Legacy == nil {
+		return errors.New("estimator did not return legacy tx fee estimates")
+	}
+	gasPrice := fees.Legacy
 
 	// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
 	amountAsBig := utils.NewBig(amount.ToInt())

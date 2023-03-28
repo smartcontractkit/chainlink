@@ -184,13 +184,13 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
 				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %x", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
 			if jb.OCROracleSpec.TransmitterAddress != nil {
 				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
 				}
 			}
 
@@ -235,26 +235,49 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %q", jb.OCR2OracleSpec.OCRKeyBundleID.ValueOrZero())
+				}
+			}
+
+			if jb.OCR2OracleSpec.PluginType == Mercury {
+				if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
+					return errors.New("feed ID is required for mercury plugin type")
+				}
+			} else {
+				if jb.OCR2OracleSpec.FeedID != (common.Hash{}) {
+					return errors.New("feed ID is not currently supported for non-mercury jobs")
 				}
 			}
 
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
-				switch jb.OCR2OracleSpec.Relay {
-				case relay.EVM:
-					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
+				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
+				if jb.OCR2OracleSpec.PluginType == Mercury {
+					_, err := o.keyStore.CSA().Get(transmitterID)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", transmitterID)
 					}
-				case relay.Solana:
-					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
-					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
-					}
-				case relay.StarkNet:
-					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
-					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+				} else {
+					switch jb.OCR2OracleSpec.Relay {
+					case relay.EVM:
+						_, err := o.keyStore.Eth().Get(transmitterID)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", transmitterID)
+						}
+					case relay.Cosmos:
+						_, err := o.keyStore.Cosmos().Get(transmitterID)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", transmitterID)
+						}
+					case relay.Solana:
+						_, err := o.keyStore.Solana().Get(transmitterID)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", transmitterID)
+						}
+					case relay.StarkNet:
+						_, err := o.keyStore.StarkNet().Get(transmitterID)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
+						}
 					}
 				}
 			}
@@ -274,10 +297,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
@@ -355,19 +378,19 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 		case BlockhashStore:
 			var specID int32
-			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_address, created_at, updated_at)
-			VALUES (:coordinator_v1_address, :coordinator_v2_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_address, NOW(), NOW())
+			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
+			VALUES (:coordinator_v1_address, :coordinator_v2_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
 			RETURNING id;`
-			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BlockhashStoreSpec); err != nil {
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockhashStoreSpecRow(jb.BlockhashStoreSpec)); err != nil {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")
 			}
 			jb.BlockhashStoreSpecID = &specID
 		case Bootstrap:
 			var specID int32
-			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
+			sql := `INSERT INTO bootstrap_specs (contract_id, feed_id, relay, relay_config, monitoring_endpoint,
 					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
+			VALUES (:contract_id, :feed_id, :relay, :relay_config, :monitoring_endpoint,
 					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
@@ -637,6 +660,7 @@ type OCRSpecConfig interface {
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	OCRKeyBundleID() (string, error)
+	OCRCaptureEATelemetry() bool
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
@@ -673,6 +697,8 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
+	os.CaptureEATelemetry = cfg.OCRCaptureEATelemetry()
+
 	return &os
 }
 
@@ -761,8 +787,8 @@ func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.
 		stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.evm_chain_id = $2 AND ocrspec.id = jobs.ocr_oracle_spec_id
-LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.evm_chain_id = $2 AND fmspec.id = jobs.flux_monitor_spec_id
+LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND (ocrspec.evm_chain_id = $2 OR ocrspec.evm_chain_id IS NULL) AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND (fmspec.evm_chain_id = $2 OR fmspec.evm_chain_id IS NULL) AND fmspec.id = jobs.flux_monitor_spec_id
 WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
 		err = tx.Get(&jobID, stmt, address, evmChainID)
@@ -1146,7 +1172,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		loadVRFJob(tx, job, job.VRFSpecID),
-		loadJobType(tx, job, "BlockhashStoreSpec", "blockhash_store_specs", job.BlockhashStoreSpecID),
+		loadBlockhashStoreJob(tx, job, job.BlockhashStoreSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 	)
 }
@@ -1210,6 +1236,45 @@ func (r vrfSpecRow) toVRFSpec() *VRFSpec {
 			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.VRFSpec
+}
+
+func loadBlockhashStoreJob(tx pg.Queryer, job *Job, id *int32) error {
+	if id == nil {
+		return nil
+	}
+
+	var row blockhashStoreSpecRow
+	err := tx.Get(&row, `SELECT * FROM blockhash_store_specs WHERE id = $1`, *id)
+	if err != nil {
+		return errors.Wrapf(err, `failed to load job type BlockhashStoreSpec with id %d`, *id)
+	}
+
+	job.BlockhashStoreSpec = row.toBlockhashStoreSpec()
+	return nil
+}
+
+// blockhashStoreSpecRow is a helper type for reading and writing blockhashStore specs to the database. This is necessary
+// because the bytea[] in the DB is not automatically convertible to or from the spec's
+// FromAddresses field. pq.ByteaArray must be used instead.
+type blockhashStoreSpecRow struct {
+	*BlockhashStoreSpec
+	FromAddresses pq.ByteaArray
+}
+
+func toBlockhashStoreSpecRow(spec *BlockhashStoreSpec) blockhashStoreSpecRow {
+	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
+	for i, a := range spec.FromAddresses {
+		addresses[i] = a.Bytes()
+	}
+	return blockhashStoreSpecRow{BlockhashStoreSpec: spec, FromAddresses: addresses}
+}
+
+func (r blockhashStoreSpecRow) toBlockhashStoreSpec() *BlockhashStoreSpec {
+	for _, a := range r.FromAddresses {
+		r.BlockhashStoreSpec.FromAddresses = append(r.BlockhashStoreSpec.FromAddresses,
+			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+	}
+	return r.BlockhashStoreSpec
 }
 
 func loadJobSpecErrors(tx pg.Queryer, jb *Job) error {

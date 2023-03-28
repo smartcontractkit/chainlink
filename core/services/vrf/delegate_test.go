@@ -19,13 +19,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	corecfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -60,7 +60,7 @@ type vrfUniverse struct {
 	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, db *sqlx.DB, cfg corecfg.GeneralConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
@@ -551,5 +551,122 @@ decode_log->vrf->encode_tx->submit_tx
 		require.NoError(t, err)
 
 		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+	})
+}
+
+func Test_CheckFromAddressesExist(t *testing.T) {
+	t.Run("from addresses exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		lggr := logger.TestLogger(t)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		require.NoError(t, ks.Unlock(testutils.Password))
+
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			k, err := ks.Eth().Create(big.NewInt(1337))
+			assert.NoError(t, err)
+			fromAddresses = append(fromAddresses, k.Address.Hex())
+		}
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		assert.NoError(t, err)
+
+		assert.NoError(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+	})
+
+	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		lggr := logger.TestLogger(t)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		require.NoError(t, ks.Unlock(testutils.Password))
+
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			k, err := ks.Eth().Create(big.NewInt(1337))
+			assert.NoError(t, err)
+			fromAddresses = append(fromAddresses, k.Address.Hex())
+		}
+		// add an address that isn't in the keystore
+		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		assert.NoError(t, err)
+
+		assert.Error(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+	})
+}
+
+func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
+	t.Run("all max gas prices equal", func(tt *testing.T) {
+		fromAddresses := []string{
+			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
+			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
+			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
+		}
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).Toml())
+		require.NoError(tt, err)
+
+		cfg := &vrf_mocks.Config{}
+		for _, a := range fromAddresses {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+		}
+		defer cfg.AssertExpectations(tt)
+
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+	})
+
+	t.Run("one max gas price not equal to others", func(tt *testing.T) {
+		fromAddresses := []string{
+			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
+			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
+			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
+			"0x86E7c45Bf013Bf1Df3C22c14d5fd6fc3051AC569",
+		}
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).Toml())
+		require.NoError(tt, err)
+
+		cfg := &vrf_mocks.Config{}
+		for _, a := range fromAddresses[:3] {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+		}
+		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+			Return(assets.GWei(200)) // doesn't match the rest
+		defer cfg.AssertExpectations(tt)
+
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
 	})
 }

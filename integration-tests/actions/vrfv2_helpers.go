@@ -3,10 +3,14 @@ package actions
 import (
 	"context"
 	"fmt"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"math/big"
 	"testing"
 
-	"github.com/rs/zerolog/log"
+	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
@@ -52,11 +56,12 @@ func CreateVRFV2Jobs(
 	c blockchain.EVMClient,
 	minIncomingConfirmations int,
 ) []VRFV2JobInfo {
+	l := utils.GetTestLogger(t)
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()
 		require.NoError(t, err, "Error creating VRF key")
-		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
+		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.NewV4()
 		os := &client.VRFV2TxPipelineSpec{
@@ -69,7 +74,7 @@ func CreateVRFV2Jobs(
 		job, err := n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddress:              oracleAddr,
+			FromAddresses:            []string{oracleAddr},
 			EVMChainID:               c.GetChainID().String(),
 			MinIncomingConfirmations: minIncomingConfirmations,
 			PublicKey:                pubKeyCompressed,
@@ -106,4 +111,13 @@ func VRFV2RegisterProvingKey(
 	)
 	require.NoError(t, err, "Error registering proving keys")
 	return provingKey
+}
+
+func FundVRFCoordinatorV2Subscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV2, chainClient blockchain.EVMClient, subscriptionID uint64, linkFundingAmount *big.Int) {
+	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
+	require.NoError(t, err, "Error Abi encoding subscriptionID")
+	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
+	require.NoError(t, err, "Error sending Link token")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for TXs to complete")
 }

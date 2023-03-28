@@ -143,6 +143,7 @@ type OffChainReportingSpec struct {
 	ObservationGracePeriodEnv                 bool                 `json:"observationGracePeriodEnv,omitempty"`
 	ContractTransmitterTransmitTimeout        *models.Interval     `json:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool                 `json:"contractTransmitterTransmitTimeoutEnv,omitempty"`
+	CollectTelemetry                          bool                 `json:"collectTelemetry,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -174,6 +175,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 		ObservationGracePeriodEnv:                 spec.ObservationGracePeriodEnv,
 		ContractTransmitterTransmitTimeout:        spec.ContractTransmitterTransmitTimeout,
 		ContractTransmitterTransmitTimeoutEnv:     spec.ContractTransmitterTransmitTimeoutEnv,
+		CollectTelemetry:                          spec.CaptureEATelemetry,
 	}
 }
 
@@ -191,6 +193,7 @@ type OffChainReporting2Spec struct {
 	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
 	CreatedAt                         time.Time              `json:"createdAt"`
 	UpdatedAt                         time.Time              `json:"updatedAt"`
+	CollectTelemetry                  bool                   `json:"collectTelemetry"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -208,6 +211,7 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		ContractConfigConfirmations:       spec.ContractConfigConfirmations,
 		CreatedAt:                         spec.CreatedAt,
 		UpdatedAt:                         spec.UpdatedAt,
+		CollectTelemetry:                  spec.CaptureEATelemetry,
 	}
 }
 
@@ -318,17 +322,17 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 
 // BlockhashStoreSpec defines the job parameters for a blockhash store feeder job.
 type BlockhashStoreSpec struct {
-	CoordinatorV1Address  *ethkey.EIP55Address `json:"coordinatorV1Address"`
-	CoordinatorV2Address  *ethkey.EIP55Address `json:"coordinatorV2Address"`
-	WaitBlocks            int32                `json:"waitBlocks"`
-	LookbackBlocks        int32                `json:"lookbackBlocks"`
-	BlockhashStoreAddress ethkey.EIP55Address  `json:"blockhashStoreAddress"`
-	PollPeriod            time.Duration        `json:"pollPeriod"`
-	RunTimeout            time.Duration        `json:"runTimeout"`
-	EVMChainID            *utils.Big           `json:"evmChainID"`
-	FromAddress           *ethkey.EIP55Address `json:"fromAddress"`
-	CreatedAt             time.Time            `json:"createdAt"`
-	UpdatedAt             time.Time            `json:"updatedAt"`
+	CoordinatorV1Address  *ethkey.EIP55Address  `json:"coordinatorV1Address"`
+	CoordinatorV2Address  *ethkey.EIP55Address  `json:"coordinatorV2Address"`
+	WaitBlocks            int32                 `json:"waitBlocks"`
+	LookbackBlocks        int32                 `json:"lookbackBlocks"`
+	BlockhashStoreAddress ethkey.EIP55Address   `json:"blockhashStoreAddress"`
+	PollPeriod            time.Duration         `json:"pollPeriod"`
+	RunTimeout            time.Duration         `json:"runTimeout"`
+	EVMChainID            *utils.Big            `json:"evmChainID"`
+	FromAddresses         []ethkey.EIP55Address `json:"fromAddresses"`
+	CreatedAt             time.Time             `json:"createdAt"`
+	UpdatedAt             time.Time             `json:"updatedAt"`
 }
 
 // NewBlockhashStoreSpec creates a new BlockhashStoreSpec for the given parameters.
@@ -342,7 +346,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 		PollPeriod:            spec.PollPeriod,
 		RunTimeout:            spec.RunTimeout,
 		EVMChainID:            spec.EVMChainID,
-		FromAddress:           spec.FromAddress,
+		FromAddresses:         spec.FromAddresses,
 	}
 }
 

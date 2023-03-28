@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -232,7 +232,7 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockhashStoreSpec.PollPeriod, savedJob.BlockhashStoreSpec.PollPeriod)
 		require.Equal(t, jb.BlockhashStoreSpec.RunTimeout, savedJob.BlockhashStoreSpec.RunTimeout)
 		require.Equal(t, jb.BlockhashStoreSpec.EVMChainID, savedJob.BlockhashStoreSpec.EVMChainID)
-		require.Equal(t, jb.BlockhashStoreSpec.FromAddress, savedJob.BlockhashStoreSpec.FromAddress)
+		require.Equal(t, jb.BlockhashStoreSpec.FromAddresses, savedJob.BlockhashStoreSpec.FromAddresses)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		_, err = orm.FindJob(testutils.Context(t), jb.ID)
@@ -255,7 +255,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 	scopedConfig := evmtest.NewChainScopedConfig(t, config)
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -470,7 +470,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
-	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
+	require.NoError(t, cosmos.EnsureChains(db, lggr, config, []utils.Big{*customChainID}))
 
 	defaultChainID := config.DefaultChainID()
 
@@ -605,7 +605,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
-	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
+	require.NoError(t, cosmos.EnsureChains(db, lggr, config, []utils.Big{*customChainID}))
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -761,10 +761,31 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Create a job with the legacy null evm chain id.
+	jobWithNullChain, err := ocr.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              uuid.NewV4().String(),
+			ContractAddress:    "0xB47f9a6D281B2A82F8692F8dE058E4249363A6fc",
+			TransmitterAddress: address.Hex(),
+			Name:               "ocr legacy null chain id",
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
 	err = orm.CreateJob(&job)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jobSameAddress)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jobWithNullChain)
+	require.NoError(t, err)
+
+	// Set the ChainID to null manually since we can't do this in the test helper
+	_, err = db.ExecContext(testutils.Context(t),
+		"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jobWithNullChain.ID)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -804,6 +825,24 @@ func Test_FindJob(t *testing.T) {
 		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
+	})
+
+	t.Run("by address with legacy null evm chain id", func(t *testing.T) {
+		jbID, err := orm.FindJobIDByAddress(
+			jobWithNullChain.OCROracleSpec.ContractAddress,
+			jobWithNullChain.OCROracleSpec.EVMChainID,
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobWithNullChain.ID, jbID)
+
+		jbID, err = orm.FindJobIDByAddress(
+			jobWithNullChain.OCROracleSpec.ContractAddress,
+			utils.NewBig(nil),
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobWithNullChain.ID, jbID)
 	})
 
 	t.Run("by address yet chain scoped", func(t *testing.T) {

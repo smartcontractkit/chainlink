@@ -11,12 +11,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) types.ORM {
-	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
-	return chains.NewORM[string, *starknetdb.ChainCfg, starknetdb.Node](q, "starknet", "url")
+func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []string) error {
+	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
+	return chains.EnsureChains[string](q, "starknet", ids)
 }
 
-func NewORMImmut(cfgs chains.ChainConfig[string, *starknetdb.ChainCfg, starknetdb.Node]) types.ORM {
-	return chains.NewORMImmut(cfgs)
+func NewConfigs(cfgs chains.ConfigsV2[string, starknetdb.Node]) types.Configs {
+	return chains.NewConfigs(cfgs)
 }

@@ -91,6 +91,9 @@ var upkeepStateEvents = []common.Hash{
 
 var upkeepActiveEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryStaleUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {
@@ -118,7 +121,6 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterName    string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -168,6 +170,10 @@ func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdenti
 	}
 
 	return id.Bytes(), nil
+}
+
+func (r *EvmRegistry) Name() string {
+	return r.lggr.Name()
 }
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
@@ -263,14 +269,14 @@ func (r *EvmRegistry) Ready() error {
 	return r.sync.Ready()
 }
 
-func (r *EvmRegistry) Healthy() error {
+func (r *EvmRegistry) HealthReport() map[string]error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if r.runState > 1 {
-		return fmt.Errorf("failed run state: %w", r.runError)
+		r.sync.SvcErrBuffer.Append(fmt.Errorf("failed run state: %w", r.runError))
 	}
-	return r.sync.Healthy()
+	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
 func (r *EvmRegistry) initialize() error {
@@ -352,18 +358,20 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
+func UpkeepFilterName(addr common.Address) string {
+	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+}
+
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 	err := r.poller.RegisterFilter(logpoller.Filter{
-		Name:      filterName,
+		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()
-		r.filterName = filterName
 		r.mu.Unlock()
 	}
 	return err

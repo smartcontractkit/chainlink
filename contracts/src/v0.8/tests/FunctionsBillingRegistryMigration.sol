@@ -3,8 +3,8 @@ pragma solidity ^0.8.6;
 
 import {LinkTokenInterface} from "../interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
-import {FunctionsBillingRegistryInterface} from "../dev/interfaces/FunctionsBillingRegistryInterface.sol";
-import {FunctionsOracleInterface} from "../dev/interfaces/FunctionsOracleInterface.sol";
+import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
+import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsClientInterface} from "../dev/interfaces/FunctionsClientInterface.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {ERC677ReceiverInterface} from "../interfaces/ERC677ReceiverInterface.sol";

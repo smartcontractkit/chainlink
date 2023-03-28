@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -174,14 +175,14 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm txm
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
-	attempt.State = txmgr.EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -217,7 +218,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, borm
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
-	attempt.State = txmgr.EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
@@ -241,7 +242,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm txm
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
-	attempt.State = txmgr.EthTxAttemptInsufficientEth
+	attempt.State = txmgrtypes.TxAttemptInsufficientEth
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
@@ -260,7 +261,7 @@ func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
-	attempt.State = txmgr.EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
@@ -277,7 +278,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm txmgr.ORM, non
 	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
-	attempt.State = txmgr.EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
@@ -294,7 +295,7 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm txmgr.ORM, nonce in
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
-	attempt.State = txmgr.EthTxAttemptInProgress
+	attempt.State = txmgrtypes.TxAttemptInProgress
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
@@ -326,7 +327,7 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:        utils.NewHash(),
-		State:       txmgr.EthTxAttemptInProgress,
+		State:       txmgrtypes.TxAttemptInProgress,
 	}
 }
 
@@ -342,12 +343,12 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:                  utils.NewHash(),
-		State:                 txmgr.EthTxAttemptInProgress,
+		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificGasLimit: 42,
 	}
 }
 
-func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.EthReceipt {
+func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.EvmReceipt {
 	transactionIndex := uint(NewRandomPositiveInt64())
 
 	receipt := evmtypes.Receipt{
@@ -358,7 +359,7 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 		Status:           status,
 	}
 
-	r := txmgr.EthReceipt{
+	r := txmgr.EvmReceipt{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
 		TxHash:           txHash,
@@ -368,13 +369,13 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 	return r
 }
 
-func MustInsertEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
+func MustInsertEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
 	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
 }
 
-func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
+func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
 	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
@@ -606,7 +607,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
-	korm := keeper.NewORM(db, logger.TestLogger(t), cfg, txmgr.SendEveryStrategy{})
+	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
 	mathrand.Seed(time.Now().UnixNano())
 	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{

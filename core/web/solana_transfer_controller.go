@@ -24,7 +24,7 @@ type SolanaTransfersController struct {
 	App chainlink.Application
 }
 
-// Create sends Luna and other native coins from the Chainlink's account to a specified address.
+// Create sends SOL and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	solanaChains := tc.App.GetChains().Solana
 	if solanaChains == nil {
@@ -43,7 +43,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 	chain, err := solanaChains.Chain(c.Request.Context(), tr.SolanaChainID)
 	switch err {
-	case chains.ErrChainIDInvalid, chains.ErrChainIDEmpty:
+	case chains.ErrNotFound, chains.ErrChainIDEmpty:
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	case nil:

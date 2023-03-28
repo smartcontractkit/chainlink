@@ -220,7 +220,7 @@ func (b *broadcaster) Name() string {
 }
 
 func (b *broadcaster) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -491,7 +491,10 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	if replayReq.forceBroadcast {
 		ctx, cancel := utils.ContextFromChan(b.chStop)
 		defer cancel()
-		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx))
+
+		// Use a longer timeout in the event that a very large amount of logs need to be marked
+		// as consumed.
+		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"error", err, "fromBlock", replayReq.fromBlock)
@@ -786,12 +789,11 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
-func (n *NullBroadcaster) Name() string { return "" }
+func (n *NullBroadcaster) Name() string { return "NullBroadcaster" }
 
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
-func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }
 func (n *NullBroadcaster) HealthReport() map[string]error                    { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}
