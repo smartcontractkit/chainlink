@@ -49,7 +49,7 @@ func NewEthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
-	// todo: add context to orm
+	// todo: add context to evmTxStorageService
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EthResender[ADDR, TX_HASH, BLOCK_HASH]{
 		orm,

@@ -89,7 +89,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
-				orm := txmgr.NewORM(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+				orm := txmgr.NewTxStorageService(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, *testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
@@ -193,7 +193,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
-		orm := txmgr.NewORM(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+		orm := txmgr.NewTxStorageService(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, *testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0

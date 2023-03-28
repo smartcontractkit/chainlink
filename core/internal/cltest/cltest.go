@@ -1630,7 +1630,7 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 }
 
 func NewTxmORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.ORM {
-	return txmgr.NewORM(db, logger.TestLogger(t), cfg)
+	return txmgr.NewTxStorageService(db, logger.TestLogger(t), cfg)
 }
 
 // ClearDBTables deletes all rows from the given tables

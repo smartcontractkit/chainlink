@@ -82,7 +82,7 @@ type reset struct {
 type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
-	orm              ORM[ADDR, BLOCK_HASH, TX_HASH]
+	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
@@ -122,7 +122,7 @@ func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashab
 	b := Txm[ADDR, TX_HASH, BLOCK_HASH]{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
-		orm:              NewORM(db, lggr, cfg),
+		txStorageService: NewTxStorageService(db, lggr, cfg),
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -141,7 +141,7 @@ func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashab
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, b.txStorageService, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
@@ -170,8 +170,8 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Start(ctx context.Context) (merr error)
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster[ADDR, TX_HASH, BLOCK_HASH](b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer[ADDR, TX_HASH, BLOCK_HASH](b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster[ADDR, TX_HASH, BLOCK_HASH](b.txStorageService, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer[ADDR, TX_HASH, BLOCK_HASH](b.txStorageService, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
@@ -239,7 +239,7 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) Close() (merr error) {
 	return b.StopOnce("Txm", func() error {
 		close(b.chStop)
 
-		b.orm.Close()
+		b.txStorageService.Close()
 
 		if b.reaper != nil {
 			b.reaper.Stop()
@@ -314,8 +314,8 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) runLoop(eb *EthBroadcaster[ADDR, TX_HAS
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, addresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
+		eb = NewEthBroadcaster(b.txStorageService, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, addresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.txStorageService, b.ethClient, b.config, b.keyStore, addresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -496,12 +496,12 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 		}
 	}
 
-	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
+	err = b.txStorageService.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	return b.orm.CreateEthTransaction(newTx, b.chainID, qs...)
+	return b.txStorageService.CreateEthTransaction(newTx, b.chainID, qs...)
 }
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.

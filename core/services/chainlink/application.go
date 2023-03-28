@@ -287,7 +287,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
+		txmORM         = txmgr.NewTxStorageService(db, globalLogger, cfg)
 	)
 
 	srvcs = append(srvcs, pipelineORM)
