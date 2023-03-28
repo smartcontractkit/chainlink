@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func buildSampleReport() []byte {

@@ -10,15 +10,16 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -100,7 +101,7 @@ func TestMercuryServerAPI(t *testing.T) {
 		users, resp, err := c.GetUsers()
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
-		require.Equal(t, len(initUsers), len(users))
+		require.Equal(t, len(initUsers)+1, len(users)) // include bootstrap user
 	})
 
 	t.Run("GET /admin/user as user role", func(t *testing.T) {

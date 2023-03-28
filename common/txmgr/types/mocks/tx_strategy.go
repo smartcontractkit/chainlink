@@ -3,8 +3,8 @@
 package mocks
 
 import (
-	types "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
 	uuid "github.com/satori/go.uuid"

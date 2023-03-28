@@ -3,7 +3,7 @@ package cosmostxm
 import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
 var _ cryptotypes.PrivKey = KeyWrapper{}

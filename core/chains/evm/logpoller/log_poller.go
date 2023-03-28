@@ -20,12 +20,12 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -33,7 +33,7 @@ type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
 	RegisterFilter(filter Filter) error
-	UnregisterFilter(name string) error
+	UnregisterFilter(name string, q pg.Queryer) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -238,15 +238,17 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	return nil
 }
 
-func (lp *logPoller) UnregisterFilter(name string) error {
+func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
 	_, ok := lp.filters[name]
 	if !ok {
-		return errors.Errorf("Filter %s not found", name)
+		lp.lggr.Errorf("Filter %s not found", name)
+		return nil
 	}
-	if err := lp.orm.DeleteFilter(name); err != nil {
+
+	if err := lp.orm.DeleteFilter(name, pg.WithQueryer(q)); err != nil {
 		return errors.Wrapf(err, "Failed to delete filter %s", name)
 	}
 	delete(lp.filters, name)

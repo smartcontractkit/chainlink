@@ -15,13 +15,13 @@ import (
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	registry "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	pluginevm "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	pluginevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type TransmitUnpacker interface {
@@ -35,7 +35,6 @@ type LogProvider struct {
 	runError          error
 	logger            logger.Logger
 	logPoller         logpoller.LogPoller
-	FilterName        string
 	registryAddress   common.Address
 	lookbackBlocks    int64
 	registry          *registry.KeeperRegistry
@@ -47,6 +46,10 @@ type LogProvider struct {
 
 var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
 
+func logProviderFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
+}
+
 func NewLogProvider(
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
@@ -55,7 +58,6 @@ func NewLogProvider(
 	lookbackBlocks int64,
 ) (*LogProvider, error) {
 	var err error
-	filterName := logpoller.FilterName("OCR2KeeperRegistry", registryAddress)
 
 	contract, err := registry.NewKeeperRegistry(common.HexToAddress("0x"), client)
 	if err != nil {
@@ -70,7 +72,7 @@ func NewLogProvider(
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: filterName,
+		Name: logProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
@@ -86,7 +88,6 @@ func NewLogProvider(
 	return &LogProvider{
 		logger:            logger,
 		logPoller:         logPoller,
-		FilterName:        filterName,
 		registryAddress:   registryAddress,
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,

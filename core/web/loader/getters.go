@@ -7,19 +7,20 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
 // ErrInvalidType indicates that results loaded is not the type expected
 var ErrInvalidType = errors.New("invalid type")
 
 // GetChainByID fetches the chain by it's id.
-func GetChainByID(ctx context.Context, id string) (*types.ChainConfig, error) {
+func GetChainByID(ctx context.Context, id string) (*chains.ChainConfig, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -28,7 +29,7 @@ func GetChainByID(ctx context.Context, id string) (*types.ChainConfig, error) {
 		return nil, err
 	}
 
-	chain, ok := result.(types.ChainConfig)
+	chain, ok := result.(chains.ChainConfig)
 	if !ok {
 		return nil, ErrInvalidType
 	}
