@@ -88,7 +88,7 @@ runs:
     - if: inputs.publish == 'true'
       # Log in to AWS for publish to ECR
       name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
+      uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838 # v1.7.0
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
@@ -101,7 +101,7 @@ runs:
         registry: ${{ inputs.ecr-hostname }}
 
     - name: Setup Docker Buildx
-      uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325 # v2.2.1
+      uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
 
     - name: Generate docker metadata for root image
       id: meta-root

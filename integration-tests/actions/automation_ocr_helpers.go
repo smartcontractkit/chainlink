@@ -10,18 +10,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func BuildAutoOCR2ConfigVars(
@@ -31,6 +32,7 @@ func BuildAutoOCR2ConfigVars(
 	registrar string,
 	deltaStage time.Duration,
 ) contracts.OCRConfig {
+	l := utils.GetTestLogger(t)
 	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -77,7 +79,7 @@ func BuildAutoOCR2ConfigVars(
 	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
-	log.Info().Msg("Done building OCR config")
+	l.Info().Msg("Done building OCR config")
 	return contracts.OCRConfig{
 		Signers:               signers,
 		Transmitters:          transmitters,
@@ -96,6 +98,7 @@ func CreateOCRKeeperJobs(
 	chainID int64,
 	keyIndex int,
 ) {
+	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -154,7 +157,7 @@ func CreateOCRKeeperJobs(
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
-	log.Info().Msg("Done creating OCR automation jobs")
+	l.Info().Msg("Done creating OCR automation jobs")
 }
 
 // DeployAutoOCRRegistryAndRegistrar registry and registrar

@@ -7,15 +7,15 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // JobSpecType defines the the the spec type of the job
@@ -34,6 +34,7 @@ const (
 	VRFJobSpec               JobSpecType = "vrf"
 	WebhookJobSpec           JobSpecType = "webhook"
 	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
+	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
 )
 
@@ -143,6 +144,7 @@ type OffChainReportingSpec struct {
 	ObservationGracePeriodEnv                 bool                 `json:"observationGracePeriodEnv,omitempty"`
 	ContractTransmitterTransmitTimeout        *models.Interval     `json:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool                 `json:"contractTransmitterTransmitTimeoutEnv,omitempty"`
+	CollectTelemetry                          bool                 `json:"collectTelemetry,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -174,6 +176,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 		ObservationGracePeriodEnv:                 spec.ObservationGracePeriodEnv,
 		ContractTransmitterTransmitTimeout:        spec.ContractTransmitterTransmitTimeout,
 		ContractTransmitterTransmitTimeoutEnv:     spec.ContractTransmitterTransmitTimeoutEnv,
+		CollectTelemetry:                          spec.CaptureEATelemetry,
 	}
 }
 
@@ -191,6 +194,7 @@ type OffChainReporting2Spec struct {
 	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
 	CreatedAt                         time.Time              `json:"createdAt"`
 	UpdatedAt                         time.Time              `json:"updatedAt"`
+	CollectTelemetry                  bool                   `json:"collectTelemetry"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -208,6 +212,7 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		ContractConfigConfirmations:       spec.ContractConfigConfirmations,
 		CreatedAt:                         spec.CreatedAt,
 		UpdatedAt:                         spec.UpdatedAt,
+		CollectTelemetry:                  spec.CaptureEATelemetry,
 	}
 }
 
@@ -346,6 +351,43 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	}
 }
 
+// BlockHeaderFeederSpec defines the job parameters for a blcok header feeder job.
+type BlockHeaderFeederSpec struct {
+	CoordinatorV1Address       *ethkey.EIP55Address  `json:"coordinatorV1Address"`
+	CoordinatorV2Address       *ethkey.EIP55Address  `json:"coordinatorV2Address"`
+	WaitBlocks                 int32                 `json:"waitBlocks"`
+	LookbackBlocks             int32                 `json:"lookbackBlocks"`
+	BlockhashStoreAddress      ethkey.EIP55Address   `json:"blockhashStoreAddress"`
+	BatchBlockhashStoreAddress ethkey.EIP55Address   `json:"batchBlockhashStoreAddress"`
+	PollPeriod                 time.Duration         `json:"pollPeriod"`
+	RunTimeout                 time.Duration         `json:"runTimeout"`
+	EVMChainID                 *utils.Big            `json:"evmChainID"`
+	FromAddresses              []ethkey.EIP55Address `json:"fromAddresses"`
+	GetBlockhashesBatchSize    uint16                `json:"getBlockhashesBatchSize"`
+	StoreBlockhashesBatchSize  uint16                `json:"storeBlockhashesBatchSize"`
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// NewBlockHeaderFeederSpec creates a new BlockHeaderFeederSpec for the given parameters.
+func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeederSpec {
+	return &BlockHeaderFeederSpec{
+		CoordinatorV1Address:       spec.CoordinatorV1Address,
+		CoordinatorV2Address:       spec.CoordinatorV2Address,
+		WaitBlocks:                 spec.WaitBlocks,
+		LookbackBlocks:             spec.LookbackBlocks,
+		BlockhashStoreAddress:      spec.BlockhashStoreAddress,
+		BatchBlockhashStoreAddress: spec.BatchBlockhashStoreAddress,
+		PollPeriod:                 spec.PollPeriod,
+		RunTimeout:                 spec.RunTimeout,
+		EVMChainID:                 spec.EVMChainID,
+		FromAddresses:              spec.FromAddresses,
+		GetBlockhashesBatchSize:    spec.GetBlockhashesBatchSize,
+		StoreBlockhashesBatchSize:  spec.StoreBlockhashesBatchSize,
+	}
+}
+
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
 	ContractID                             string                 `json:"contractID"`
@@ -411,6 +453,7 @@ type JobResource struct {
 	VRFSpec                *VRFSpec                `json:"vrfSpec"`
 	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
 	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
+	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
@@ -449,6 +492,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
 	case job.BlockhashStore:
 		resource.BlockhashStoreSpec = NewBlockhashStoreSpec(j.BlockhashStoreSpec)
+	case job.BlockHeaderFeeder:
+		resource.BlockHeaderFeederSpec = NewBlockHeaderFeederSpec(j.BlockHeaderFeederSpec)
 	case job.Bootstrap:
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	}

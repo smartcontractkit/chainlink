@@ -26,7 +26,6 @@ import "../KeeperBase.sol";
 import "../../interfaces/automation/KeeperCompatibleInterface.sol";
 import {Cron as CronInternal, Spec} from "../../libraries/internal/Cron.sol";
 import {Cron as CronExternal} from "../../libraries/external/Cron.sol";
-import {getRevertMsg} from "../../utils/utils.sol";
 
 /**
  * @title The CronUpkeep contract
@@ -37,12 +36,11 @@ import {getRevertMsg} from "../../utils/utils.sol";
 contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pausable, Proxy {
   using EnumerableSet for EnumerableSet.UintSet;
 
-  event CronJobExecuted(uint256 indexed id, uint256 timestamp);
+  event CronJobExecuted(uint256 indexed id, bool success);
   event CronJobCreated(uint256 indexed id, address target, bytes handler);
   event CronJobUpdated(uint256 indexed id, address target, bytes handler);
   event CronJobDeleted(uint256 indexed id);
 
-  error CallFailed(uint256 id, string reason);
   error CronJobIDNotFound(uint256 id);
   error ExceedsMaxJobs();
   error InvalidHandler();
@@ -92,11 +90,8 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     );
     validate(id, tickTime, target, handler);
     s_lastRuns[id] = block.timestamp;
-    (bool success, bytes memory payload) = target.call(handler);
-    if (!success) {
-      revert CallFailed(id, getRevertMsg(payload));
-    }
-    emit CronJobExecuted(id, block.timestamp);
+    (bool success, ) = target.call(handler);
+    emit CronJobExecuted(id, success);
   }
 
   /**

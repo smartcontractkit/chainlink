@@ -14,11 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 const formattedVRFJob = `

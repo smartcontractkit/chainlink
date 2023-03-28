@@ -20,22 +20,22 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 var (
@@ -570,13 +570,9 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-		if err != nil {
-			l.Errorw("Couldn't get next from address", "err", err)
-			continue
-		}
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 
 		// Cases:
 		// 1. Never simulated: in this case, we want to observe the time until simulated
@@ -593,7 +589,6 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
 				"maxGasPrice", maxGasPriceWei.String(),
-				"fromAddress", fromAddress,
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
@@ -647,7 +642,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		var processedRequestIDs []string
 		for _, batch := range batches.fulfillments {
 			l.Debugw("Processing batch", "batchSize", len(batch.proofs))
-			p := lsn.processBatch(l, subID, fromAddress, startBalanceNoReserveLink, batchMaxGas, batch)
+			p := lsn.processBatch(l, subID, startBalanceNoReserveLink, batchMaxGas, batch)
 			processedRequestIDs = append(processedRequestIDs, p...)
 		}
 
@@ -752,22 +747,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-		if err != nil {
-			l.Errorw("Couldn't get next from address", "err", err)
-			continue
-		}
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
-
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
-
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
 				"maxGasPrice", maxGasPriceWei.String(),
-				"fromAddress", fromAddress,
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
@@ -808,6 +796,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Infow("Insufficient link balance to fulfill a request, returning")
 				return processed
 			}
+
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			if err != nil {
+				l.Errorw("Couldn't get next from address", "err", err)
+				continue
+			}
+			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
 			var ethTX txmgr.EthTx
@@ -1046,13 +1041,14 @@ func (lsn *listenerV2) simulateFulfillment(
 
 		return res
 	}
-	if len(trrs.FinalResult(lg).Values) != 1 {
-		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(trrs.FinalResult(lg).Values))
+	finalResult := trrs.FinalResult(lg)
+	if len(finalResult.Values) != 1 {
+		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(finalResult.Values))
 		return res
 	}
 
 	// Run succeeded, we expect a byte array representing the billing amount
-	b, ok := trrs.FinalResult(lg).Values[0].([]uint8)
+	b, ok := finalResult.Values[0].([]uint8)
 	if !ok {
 		res.err = errors.New("expected []uint8 final result")
 		return res

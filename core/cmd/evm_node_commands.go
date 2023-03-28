@@ -6,9 +6,9 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // EVMNodePresenter implements TableRenderer for an EVMNodeResource.
@@ -24,14 +24,12 @@ func (p *EVMNodePresenter) ToRow() []string {
 		p.EVMChainID.ToInt().String(),
 		p.WSURL.ValueOrZero(),
 		p.HTTPURL.ValueOrZero(),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
 		p.State,
 	}
 	return row
 }
 
-var evmNodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated", "State"}
+var evmNodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "State"}
 
 // RenderTable implements TableRenderer
 func (p EVMNodePresenter) RenderTable(rt RendererTable) error {

@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ReplayController struct {
@@ -17,7 +17,8 @@ type ReplayController struct {
 
 // ReplayFromBlock causes the node to process blocks again from the given block number
 // Example:
-//  "<application>/v2/replay_from_block/:number"
+//
+//	"<application>/v2/replay_from_block/:number"
 func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 	if c.Param("number") == "" {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))

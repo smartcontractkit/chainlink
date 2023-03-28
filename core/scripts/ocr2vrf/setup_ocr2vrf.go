@@ -11,8 +11,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
 type jobType string
@@ -432,6 +432,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 				true, // forwardingAllowed
 				"",   // P2P Bootstrapper
 				e.ChainID,
+				sendingKeys[i],
 				dkgEncrypters[adjustedIndex],
 				dkgSigners[adjustedIndex],
 				*keyID,

@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {

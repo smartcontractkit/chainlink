@@ -17,20 +17,21 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	ocr2 "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 //go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
@@ -64,25 +65,27 @@ type Service interface {
 
 	CountManagers() (int64, error)
 	GetManager(id int64) (*FeedsManager, error)
-	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
+	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error)
 	UpdateManager(ctx context.Context, mgr FeedsManager) error
 
-	GetChainConfig(id int64) (*ChainConfig, error)
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
+	GetChainConfig(id int64) (*ChainConfig, error)
 	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
 	UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 
-	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
-	SyncNodeInfo(ctx context.Context, id int64) error
+	DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error)
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
+	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
+	RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error)
+	SyncNodeInfo(ctx context.Context, id int64) error
 
-	GetJobProposal(id int64) (*JobProposal, error)
-	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
-	ListJobProposals() ([]JobProposal, error)
 	CountJobProposalsByStatus() (*JobProposalCounts, error)
+	GetJobProposal(id int64) (*JobProposal, error)
+	ListJobProposals() ([]JobProposal, error)
+	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 
 	ApproveSpec(ctx context.Context, id int64, force bool) error
 	CancelSpec(ctx context.Context, id int64) error
@@ -406,6 +409,84 @@ func (s *service) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, err
 	return s.orm.ListJobProposalsByManagersIDs(ids)
 }
 
+// DeleteJobArgs are the arguments to provide to the DeleteJob method.
+type DeleteJobArgs struct {
+	FeedsManagerID int64
+	RemoteUUID     uuid.UUID
+}
+
+// DeleteJob deletes a job proposal if it exist. The feeds manager id check
+// ensures that only the intended feed manager can make this request.
+func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
+		}
+
+		return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID did not find any proposals to delete")
+	}
+
+	// Ensure that if the job proposal exists, that it belongs to the feeds
+	// manager which previously proposed a job using the remote UUID.
+	if args.FeedsManagerID != proposal.FeedsManagerID {
+		return 0, errors.New("cannot delete a job proposal belonging to another feeds manager")
+	}
+
+	pctx := pg.WithParentCtx(ctx)
+	if err = s.orm.DeleteProposal(proposal.ID, pctx); err != nil {
+		s.lggr.Errorw("Failed to delete the proposal", "error", err)
+
+		return 0, errors.Wrap(err, "DeleteProposal failed")
+	}
+
+	return proposal.ID, nil
+}
+
+// RevokeJobArgs are the arguments to provide the RevokeJob method
+type RevokeJobArgs struct {
+	FeedsManagerID int64
+	RemoteUUID     uuid.UUID
+}
+
+// RevokeJob revokes a pending job proposal if it exist. The feeds manager
+// id check ensures that only the intended feed manager can make this request.
+func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
+	proposal, err := s.orm.GetJobProposalByRemoteUUID(args.RemoteUUID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
+		}
+
+		return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID did not find any proposals to revoke")
+	}
+
+	// Ensure that if the job proposal exists, that it belongs to the feeds
+	// manager which previously proposed a job using the remote UUID.
+	if args.FeedsManagerID != proposal.FeedsManagerID {
+		return 0, errors.New("cannot revoke a job proposal belonging to another feeds manager")
+	}
+
+	// get the latest spec for the proposal
+	latest, err := s.orm.GetLatestSpec(proposal.ID)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetLatestSpec failed to get latest spec")
+	}
+
+	if canRevoke := s.isRevokable(proposal.Status, latest.Status); !canRevoke {
+		return 0, errors.New("only pending job proposals can be revoked")
+	}
+
+	pctx := pg.WithParentCtx(ctx)
+	if err = s.orm.RevokeSpec(latest.ID, pctx); err != nil {
+		s.lggr.Errorw("Failed to revoke the proposal", "error", err)
+
+		return 0, errors.Wrap(err, "RevokeSpec failed")
+	}
+
+	return proposal.ID, nil
+}
+
 // ProposeJobArgs are the arguments to provide to the ProposeJob method.
 type ProposeJobArgs struct {
 	FeedsManagerID int64
@@ -575,30 +656,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal spec")
 	}
 
-	switch spec.Status {
-	case SpecStatusApproved:
-		return errors.New("cannot approve an approved spec")
-	case SpecStatusRejected:
-		return errors.New("cannot approve a rejected spec")
-	case SpecStatusCancelled:
-		// Allowed to approve a cancelled job if it is the latest job
-		latest, serr := s.orm.GetLatestSpec(spec.JobProposalID)
-		if serr != nil {
-			return errors.Wrap(err, "failed to get latest spec")
-		}
-
-		if latest.ID != spec.ID {
-			return errors.New("cannot approve a cancelled spec")
-		}
-	case SpecStatusPending:
-		// NOOP - pending jobs are allowed to be approved
-	default:
-		return errors.New("invalid status")
-	}
-
 	proposal, err := s.orm.GetJobProposal(spec.JobProposalID, pctx)
 	if err != nil {
 		return errors.Wrap(err, "orm: job proposal")
+	}
+
+	if err = s.isApprovable(proposal.Status, proposal.ID, spec.Status, spec.ID); err != nil {
+		return err
 	}
 
 	logger := s.lggr.With(
@@ -625,30 +689,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")
 	}
 
-	var address ethkey.EIP55Address
-	var evmChainID *utils.Big
-	switch j.Type {
-	case job.OffchainReporting:
-		address = j.OCROracleSpec.ContractAddress
-		evmChainID = j.OCROracleSpec.EVMChainID
-	case job.OffchainReporting2:
-		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
-		if err != nil {
-			return errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
-		}
-
-		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
-		if chainErr != nil {
-			return errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
-		}
-
-		evmChainID = utils.NewBig(evmChain.ID())
-		address = eipAddress
-	case job.FluxMonitor:
-		address = j.FluxMonitorSpec.ContractAddress
-		evmChainID = j.FluxMonitorSpec.EVMChainID
-	default:
-		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	address, evmChainID, err := s.getAddressAndEVMChainIDFromJob(j)
+	if err != nil {
+		return err
 	}
 
 	q := s.q.WithOpts(pctx)
@@ -850,7 +893,9 @@ func (s *service) Start(ctx context.Context) error {
 			return err
 		}
 		if len(mgrs) < 1 {
-			return errors.New("no feeds managers registered")
+			s.lggr.Info("no feeds managers registered")
+
+			return nil
 		}
 
 		mgr := mgrs[0]
@@ -939,6 +984,51 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
+// getAddressAndChainIDFromJob extracts the address and evmChainID from a job
+func (s *service) getAddressAndEVMChainIDFromJob(j *job.Job) (ethkey.EIP55Address, *utils.Big, error) {
+	var address ethkey.EIP55Address
+	var evmChainID *utils.Big
+
+	switch j.Type {
+	case job.OffchainReporting:
+		address = j.OCROracleSpec.ContractAddress
+		evmChainID = j.OCROracleSpec.EVMChainID
+	case job.OffchainReporting2:
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
+		if addrErr != nil {
+			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
+		}
+
+		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
+		if chainErr != nil {
+			return eipAddress, nil, errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
+		}
+
+		evmChainID = utils.NewBig(evmChain.ID())
+		address = eipAddress
+	case job.Bootstrap:
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.BootstrapSpec.ContractID)
+		if addrErr != nil {
+			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from Bootstrap job spec")
+		}
+
+		evmChain, chainErr := job.EVMChainForBootstrapJob(j, s.chainSet)
+		if chainErr != nil {
+			return eipAddress, nil, errors.Wrap(chainErr, "failed to get evmChainID from Bootstrap job spec")
+		}
+
+		evmChainID = utils.NewBig(evmChain.ID())
+		address = eipAddress
+	case job.FluxMonitor:
+		address = j.FluxMonitorSpec.ContractAddress
+		evmChainID = j.FluxMonitorSpec.EVMChainID
+	default:
+		return address, nil, errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	}
+
+	return address, evmChainID, nil
+}
+
 // generateJob validates and generates a job from a spec.
 func (s *service) generateJob(spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
@@ -958,6 +1048,11 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 			return nil, ErrOCR2Disabled
 		}
 		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, spec)
+	case job.Bootstrap:
+		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting2() {
+			return nil, ErrOCR2Disabled
+		}
+		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
@@ -1063,6 +1158,12 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2Config) (*pb.OCR2Config, error) {
 		Enabled:     true,
 		IsBootstrap: cfg.IsBootstrap,
 		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
+		Plugins: &pb.OCR2Config_Plugins{
+			Commit:  cfg.Plugins.Commit,
+			Execute: cfg.Plugins.Execute,
+			Median:  cfg.Plugins.Median,
+			Mercury: cfg.Plugins.Mercury,
+		},
 	}
 
 	// Fetch the P2P key bundle
@@ -1143,11 +1244,53 @@ func extractName(defn string) null.String {
 		Name null.String
 	}{}
 
-	if err := toml.Unmarshal([]byte(defn), spec); err != nil {
+	if err := toml.Unmarshal([]byte(defn), &spec); err != nil {
 		return null.StringFromPtr(nil)
 	}
 
 	return spec.Name
+}
+
+// isApprovable returns nil if a spec can be approved based on the current
+// proposal and spec status, and if it can't be approved, the reason as an
+// error.
+func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, specStatus SpecStatus, specID int64) error {
+	if propStatus == JobProposalStatusDeleted {
+		return errors.New("cannot approve spec for a deleted job proposal")
+	}
+
+	if propStatus == JobProposalStatusRevoked {
+		return errors.New("cannot approve spec for a revoked job proposal")
+	}
+
+	switch specStatus {
+	case SpecStatusApproved:
+		return errors.New("cannot approve an approved spec")
+	case SpecStatusRejected:
+		return errors.New("cannot approve a rejected spec")
+	case SpecStatusRevoked:
+		return errors.New("cannot approve a revoked spec")
+	case SpecStatusCancelled:
+		// Allowed to approve a cancelled job if it is the latest job
+		latest, serr := s.orm.GetLatestSpec(proposalID)
+		if serr != nil {
+			return errors.Wrap(serr, "failed to get latest spec")
+		}
+
+		if latest.ID != specID {
+			return errors.New("cannot approve a cancelled spec")
+		}
+
+		return nil
+	case SpecStatusPending:
+		return nil
+	default:
+		return errors.New("invalid job spec status")
+	}
+}
+
+func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatus) bool {
+	return propStatus == JobProposalStatusPending && specStatus == SpecStatusPending
 }
 
 var _ Service = &NullService{}
@@ -1162,18 +1305,12 @@ func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
-	return ErrFeedsManagerDisabled
-}
 func (ns NullService) CountManagers() (int64, error) { return 0, nil }
 func (ns NullService) CountJobProposalsByStatus() (*JobProposalCounts, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
-}
-func (ns NullService) CreateJobProposal(jp *JobProposal) (int64, error) {
-	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) GetJobProposal(id int64) (*JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
@@ -1213,6 +1350,12 @@ func (ns NullService) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal,
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+func (ns NullService) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
+	return 0, ErrFeedsManagerDisabled
+}
+func (ns NullService) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
+	return 0, ErrFeedsManagerDisabled
+}
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
@@ -1220,9 +1363,6 @@ func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return nil }
-func (ns NullService) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	return ErrFeedsManagerDisabled
-}
 func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return ErrFeedsManagerDisabled
 }

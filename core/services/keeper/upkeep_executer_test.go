@@ -14,45 +14,45 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newHead() evmtypes.Head {
 	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
 }
 
-func mockEstimator(t *testing.T) (estimator *gasmocks.Estimator) {
-	estimator = gasmocks.NewEstimator(t)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
-	estimator.On("GetDynamicFee", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
-		FeeCap: assets.GWei(60),
-		TipCap: assets.GWei(60),
+func mockEstimator(t *testing.T) (estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]) {
+	// note: estimator will only return 1 of legacy or dynamic fees (not both)
+	// assumed to call legacy estimator only
+	estimator = txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash](t)
+	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
+		Legacy:  assets.GWei(60),
+		Dynamic: nil,
 	}, uint32(60), nil)
 	return
 }
 
-func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
+func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash], overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
 	*sqlx.DB,
-	config.GeneralConfig,
+	chainlink.GeneralConfig,
 	*evmmocks.Client,
 	*keeper.UpkeepExecuter,
 	keeper.Registry,
@@ -75,14 +75,13 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewTxManager(t)
-	txm.On("GetGasEstimator").Return(estimator)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg, GasEstimator: estimator})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config())
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 	lggr := logger.TestLogger(t)
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config(), job.KeeperSpec.FromAddress.Address())
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config(), job.KeeperSpec.FromAddress.Address())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start(testutils.Context(t))
 	t.Cleanup(func() { executer.Close() })
@@ -255,7 +254,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		jb.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
 		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 		lggr := logger.TestLogger(t)
-		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config(), jb.KeeperSpec.FromAddress.Address())
+		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config(), jb.KeeperSpec.FromAddress.Address())
 		err := executer.Start(testutils.Context(t))
 		require.NoError(t, err)
 		head := newHead()

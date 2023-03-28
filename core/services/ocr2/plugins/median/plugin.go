@@ -10,11 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 type MedianConfig interface {
@@ -30,6 +30,7 @@ func NewMedianServices(jb job.Job,
 	ocrLogger commontypes.Logger,
 	argsNoPlugin libocr2.OracleArgs,
 	cfg MedianConfig,
+	endpoint commontypes.MonitoringEndpoint,
 ) ([]job.ServiceCtx, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -52,6 +53,7 @@ func NewMedianServices(jb job.Job,
 			*jb.PipelineSpec,
 			lggr,
 			runResults,
+			endpoint,
 		),
 		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, juelsPerFeeCoinPipelineSpec, lggr),
 		OnchainConfigCodec:        ocr2Provider.OnchainConfigCodec(),
@@ -61,6 +63,9 @@ func NewMedianServices(jb job.Job,
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
 	if err != nil {
 		return nil, err
+	}
+	if !jb.OCR2OracleSpec.CaptureEATelemetry {
+		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
 	}
 	return []job.ServiceCtx{ocr2Provider, ocrcommon.NewResultRunSaver(
 		runResults,

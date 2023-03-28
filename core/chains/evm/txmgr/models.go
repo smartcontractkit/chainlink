@@ -16,14 +16,18 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	cnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
+type EvmReceiptPlus = txmgrtypes.ReceiptPlus[evmtypes.Receipt]
 
 // EthTxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present
@@ -70,7 +74,6 @@ type TransmitCheckerSpec struct {
 }
 
 type EthTxState string
-type EthTxAttemptState string
 
 // TransmitCheckerType describes the type of check that should be performed before a transaction is
 // executed on-chain.
@@ -83,10 +86,6 @@ const (
 	EthTxUnconfirmed             = EthTxState("unconfirmed")
 	EthTxConfirmed               = EthTxState("confirmed")
 	EthTxConfirmedMissingReceipt = EthTxState("confirmed_missing_receipt")
-
-	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
-	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
-	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
 
 	// TransmitCheckerTypeSimulate is a checker that simulates the transaction before executing on
 	// chain.
@@ -279,7 +278,7 @@ func (e EthTx) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ gas.PriorAttempt = EthTxAttempt{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt{}
 
 type EthTxAttempt struct {
 	ID      int64
@@ -296,9 +295,13 @@ type EthTxAttempt struct {
 	Hash                    common.Hash
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
-	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `json:"-"`
+	State                   txmgrtypes.TxAttemptState
+	EthReceipts             []EvmReceipt `json:"-"`
 	TxType                  int
+}
+
+func (a EthTxAttempt) String() string {
+	return fmt.Sprintf("EthTxAttempt(ID:%d,EthTxID:%d,GasPrice:%v,GasTipCap:%v,GasFeeCap:%v,TxType:%d", a.ID, a.EthTxID, a.GasPrice, a.GasTipCap, a.GasFeeCap, a.TxType)
 }
 
 // GetSignedTx decodes the SignedRawTx into a types.Transaction struct
@@ -311,7 +314,18 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
-func (a EthTxAttempt) DynamicFee() gas.DynamicFee {
+func (a EthTxAttempt) Fee() (fee gas.EvmFee) {
+	fee.Legacy = a.getGasPrice()
+
+	dynamic := a.dynamicFee()
+	// add dynamic struct only if values are not nil
+	if dynamic.FeeCap != nil && dynamic.TipCap != nil {
+		fee.Dynamic = &dynamic
+	}
+	return fee
+}
+
+func (a EthTxAttempt) dynamicFee() gas.DynamicFee {
 	return gas.DynamicFee{
 		FeeCap: a.GasFeeCap,
 		TipCap: a.GasTipCap,
@@ -326,7 +340,7 @@ func (a EthTxAttempt) GetChainSpecificGasLimit() uint32 {
 	return a.ChainSpecificGasLimit
 }
 
-func (a EthTxAttempt) GetGasPrice() *assets.Wei {
+func (a EthTxAttempt) getGasPrice() *assets.Wei {
 	return a.GasPrice
 }
 
@@ -336,14 +350,4 @@ func (a EthTxAttempt) GetHash() common.Hash {
 
 func (a EthTxAttempt) GetTxType() int {
 	return a.TxType
-}
-
-type EthReceipt struct {
-	ID               int64
-	TxHash           common.Hash
-	BlockHash        common.Hash
-	BlockNumber      int64
-	TransactionIndex uint
-	Receipt          evmtypes.Receipt
-	CreatedAt        time.Time
 }

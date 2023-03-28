@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newReaperWithChainID(t *testing.T, db *sqlx.DB, cfg txmgr.ReaperConfig, cid big.Int) *txmgr.Reaper {
@@ -81,7 +81,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
 
-	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least ETH_FINALITY_DEPTH blocks above their receipt", func(t *testing.T) {
+	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least EVM.FinalityDepth blocks above their receipt", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
 		config.On("EvmFinalityDepth").Return(uint32(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
@@ -98,12 +98,12 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		err = r.ReapEthTxes(12)
 		assert.NoError(t, err)
-		// Didn't delete because eth_tx although old enough, was still within ETH_FINALITY_DEPTH of the current head
+		// Didn't delete because eth_tx although old enough, was still within EVM.FinalityDepth of the current head
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		err = r.ReapEthTxes(42)
 		assert.NoError(t, err)
-		// Now it deleted because the eth_tx was past ETH_FINALITY_DEPTH
+		// Now it deleted because the eth_tx was past EVM.FinalityDepth
 		cltest.AssertCount(t, db, "eth_txes", 0)
 	})
 
