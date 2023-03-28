@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"log"
 	"math/big"
 	"os"
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -210,7 +210,7 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pgtest.NewQConfig(false))
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
 		err = keyStore.Unlock(*keystorePassword)
 		helpers.PanicErr(err)
 
@@ -302,7 +302,7 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pgtest.NewQConfig(false))
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
 		err = keyStore.Unlock(*keystorePassword)
 		helpers.PanicErr(err)
 
