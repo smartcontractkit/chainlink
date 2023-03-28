@@ -1,8 +1,6 @@
 package resolver
 
 import (
-	"fmt"
-
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -90,16 +88,6 @@ func (r *SpecResolver) ToBlockhashStoreSpec() (*BlockhashStoreSpecResolver, bool
 	}
 
 	return &BlockhashStoreSpecResolver{spec: *r.j.BlockhashStoreSpec}, true
-}
-
-// ToTransmissionSpec returns the TransmissionSpec from the SpecResolver if the job is a
-// Transmission job.
-func (r *SpecResolver) ToTransmissionSpec() (*TransmissionSpecResolver, bool) {
-	if r.j.Type != job.Transmission {
-		return nil, false
-	}
-
-	return &TransmissionSpecResolver{spec: *r.j.TransmissionSpec}, true
 }
 
 // ToBootstrapSpec resolves to the Booststrap Spec Resolver
@@ -548,7 +536,7 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// OcrKeyBundleID resolves the spec's key bundle id.
+// KeyBundleID resolves the spec's key bundle id.
 func (r *OCR2SpecResolver) OcrKeyBundleID() *string {
 	if !r.spec.OCRKeyBundleID.Valid {
 		return nil
@@ -605,11 +593,6 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 
 	addr := r.spec.TransmitterID.String
 	return &addr
-}
-
-// FeedID resolves the spec's feed ID
-func (r *OCR2SpecResolver) FeedID() string {
-	return r.spec.FeedID.String()
 }
 
 type VRFSpecResolver struct {
@@ -875,38 +858,4 @@ func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
 // CreatedAt resolves the spec's created at timestamp.
 func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
-}
-
-// TransmissionSpecResolver exposes the job parameters for a TransmissionSpec.
-type TransmissionSpecResolver struct {
-	spec job.TransmissionSpec
-}
-
-// RPCPort returns the job's RPCPort param.
-func (b *TransmissionSpecResolver) RPCPort() *string {
-	port := fmt.Sprintf("%d", b.spec.RPCPort)
-	return &port
-}
-
-// EVMChainID returns the job's EVMChainID param.
-func (b *TransmissionSpecResolver) EVMChainID() *string {
-	chainID := b.spec.EVMChainID.String()
-	return &chainID
-}
-
-// FromAddress returns the job's FromAddress param, if any.
-func (b *TransmissionSpecResolver) FromAddresses() *[]string {
-	if b.spec.FromAddresses == nil {
-		return nil
-	}
-	var addresses []string
-	for _, a := range b.spec.FromAddresses {
-		addresses = append(addresses, a.Address().String())
-	}
-	return &addresses
-}
-
-// CreatedAt resolves the spec's created at timestamp.
-func (b *TransmissionSpecResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: b.spec.CreatedAt}
 }

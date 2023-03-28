@@ -36,7 +36,6 @@ const (
 	Keeper             Type = (Type)(pipeline.KeeperJobType)
 	VRF                Type = (Type)(pipeline.VRFJobType)
 	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
-	Transmission       Type = (Type)(pipeline.TransmissionJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 )
@@ -96,7 +95,6 @@ var (
 		Webhook:            1,
 		BlockhashStore:     1,
 		Bootstrap:          1,
-		Transmission:       1,
 	}
 )
 
@@ -122,8 +120,6 @@ type Job struct {
 	BlockhashStoreSpecID *int32
 	BlockhashStoreSpec   *BlockhashStoreSpec
 	BootstrapSpec        *BootstrapSpec
-	TransmissionSpecID   *int32
-	TransmissionSpec     *TransmissionSpec
 	BootstrapSpecID      *int32
 	PipelineSpecID       int32
 	PipelineSpec         *pipeline.Spec
@@ -235,7 +231,6 @@ type OCROracleSpec struct {
 	ObservationGracePeriodEnv                 bool
 	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool
-	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }
@@ -307,8 +302,6 @@ const (
 	OCR2Keeper OCR2PluginType = "ocr2automation"
 
 	OCR2Functions OCR2PluginType = "functions"
-
-	Mercury OCR2PluginType = "mercury"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -316,9 +309,9 @@ const (
 type OCR2OracleSpec struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
-	FeedID                            common.Hash     `toml:"feedID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -330,7 +323,6 @@ type OCR2OracleSpec struct {
 	PluginType                        OCR2PluginType  `toml:"pluginType"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
-	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -528,32 +520,10 @@ type BlockhashStoreSpec struct {
 	UpdatedAt time.Time `toml:"-"`
 }
 
-// TransmissionSpec
-// TODO: Add more fields here
-type TransmissionSpec struct {
-	ID int32
-
-	// RPC port number
-	RPCPort uint16 `toml:"rpcPort"`
-
-	// EVMChainID defines the source chain ID for transactions
-	EVMChainID *utils.Big `toml:"evmChainID"`
-
-	// FromAddress is the sender address that should be used to submit transactions
-	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
-
-	// CreatedAt is the time this job was created.
-	CreatedAt time.Time `toml:"-"`
-
-	// UpdatedAt is the time this job was last updated.
-	UpdatedAt time.Time `toml:"-"`
-}
-
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
 	ID                                int32         `toml:"-"`
 	ContractID                        string        `toml:"contractID"`
-	FeedID                            *common.Hash  `toml:"feedID"`
 	Relay                             relay.Network `toml:"relay"`
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`

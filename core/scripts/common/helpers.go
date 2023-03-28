@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 )
@@ -123,7 +122,6 @@ func SetupEnv(overrideNonce bool) Environment {
 		owner.Nonce = big.NewInt(int64(nonce))
 		owner.GasPrice = gp.Mul(gp, big.NewInt(2))
 	}
-	owner.GasPrice = big.NewInt(0).Add(owner.GasPrice, (*big.Int)(assets.GWei(20)))
 
 	// the execution environment for the scripts
 	return Environment{

@@ -8,7 +8,6 @@ union JobSpec =
     VRFSpec |
     WebhookSpec |
     BlockhashStoreSpec |
-    TransmissionSpec |
     BootstrapSpec
 
 type CronSpec {
@@ -90,7 +89,6 @@ type OCR2Spec {
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
-    feedID: String!
 }
 
 type VRFSpec {
@@ -139,12 +137,5 @@ type BootstrapSpec {
     blockchainTimeout: String
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
-    createdAt: Time!
-}
-
-type TransmissionSpec {
-    rpcPort: String
-    evmChainID: String
-    fromAddresses: [String!]
     createdAt: Time!
 }

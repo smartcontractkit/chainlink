@@ -19,7 +19,6 @@ var (
 		OffchainReporting2: {},
 		Keeper:             {},
 		VRF:                {},
-		Transmission:       {},
 		Webhook:            {},
 		BlockhashStore:     {},
 		Bootstrap:          {},
@@ -60,6 +59,7 @@ func ValidateSpec(ts string) (Type, error) {
 	if jb.Pipeline.RequiresPreInsert() && !jb.Type.SupportsAsync() {
 		return "", errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
+
 	if strings.Contains(ts, "<{}>") {
 		return "", errors.Errorf("'<{}>' syntax is not supported. Please use \"{}\" instead")
 	}

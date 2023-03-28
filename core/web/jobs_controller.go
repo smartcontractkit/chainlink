@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -26,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/transmission"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -214,12 +212,9 @@ func (jc *JobsController) Update(c *gin.Context) {
 
 func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, statusCode int, err error) {
 	jobType, err := job.ValidateSpec(tomlString)
-	fmt.Println("ALMOST DONE WITH SPEC")
 	if err != nil {
 		return jb, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML")
 	}
-
-	fmt.Println("DONE WITH SPEC")
 
 	config := jc.App.GetConfig()
 	switch jobType {
@@ -249,8 +244,6 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 		jb, err = blockhashstore.ValidatedSpec(tomlString)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
-	case job.Transmission:
-		jb, err = transmission.ValidatedSpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}

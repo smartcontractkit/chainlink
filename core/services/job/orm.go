@@ -184,13 +184,13 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
 				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %x", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
 			if jb.OCROracleSpec.TransmitterAddress != nil {
 				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
 				}
 			}
 
@@ -235,49 +235,26 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %q", jb.OCR2OracleSpec.OCRKeyBundleID.ValueOrZero())
-				}
-			}
-
-			if jb.OCR2OracleSpec.PluginType == Mercury {
-				if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
-					return errors.New("feed ID is required for mercury plugin type")
-				}
-			} else {
-				if jb.OCR2OracleSpec.FeedID != (common.Hash{}) {
-					return errors.New("feed ID is not currently supported for non-mercury jobs")
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
 
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
-				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
-				if jb.OCR2OracleSpec.PluginType == Mercury {
-					_, err := o.keyStore.CSA().Get(transmitterID)
+				switch jb.OCR2OracleSpec.Relay {
+				case relay.EVM:
+					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", transmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-				} else {
-					switch jb.OCR2OracleSpec.Relay {
-					case relay.EVM:
-						_, err := o.keyStore.Eth().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", transmitterID)
-						}
-					case relay.Cosmos:
-						_, err := o.keyStore.Cosmos().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", transmitterID)
-						}
-					case relay.Solana:
-						_, err := o.keyStore.Solana().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", transmitterID)
-						}
-					case relay.StarkNet:
-						_, err := o.keyStore.StarkNet().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
-						}
+				case relay.Solana:
+					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				}
 			}
@@ -297,10 +274,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
@@ -385,21 +362,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")
 			}
 			jb.BlockhashStoreSpecID = &specID
-		case Transmission:
-			var specID int32
-			sql := `INSERT INTO transmission_specs (rpc_port, evm_chain_id, from_addresses, created_at, updated_at)
-			VALUES (:rpc_port, :evm_chain_id, :from_addresses, NOW(), NOW())
-			RETURNING id;`
-			if err := pg.PrepareQueryRowx(tx, sql, &specID, toTransmissionSpecRow(jb.TransmissionSpec)); err != nil {
-				return errors.Wrap(err, "failed to create Transmission spec")
-			}
-			jb.TransmissionSpecID = &specID
 		case Bootstrap:
 			var specID int32
-			sql := `INSERT INTO bootstrap_specs (contract_id, feed_id, relay, relay_config, monitoring_endpoint,
+			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
 					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :feed_id, :relay, :relay_config, :monitoring_endpoint,
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
 					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
@@ -444,15 +412,15 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	// if job has id, emplace otherwise insert with a new id.
 	if job.ID == 0 {
 		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, transmission_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :transmission_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 	} else {
 		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, transmission_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 	VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :transmission_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 	RETURNING *;`
 	}
 	return q.GetNamed(query, job, job)
@@ -669,7 +637,6 @@ type OCRSpecConfig interface {
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	OCRKeyBundleID() (string, error)
-	OCRCaptureEATelemetry() bool
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
@@ -706,8 +673,6 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
-	os.CaptureEATelemetry = cfg.OCRCaptureEATelemetry()
-
 	return &os
 }
 
@@ -1174,7 +1139,6 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 	return multierr.Combine(
 		loadJobType(tx, job, "PipelineSpec", "pipeline_specs", &job.PipelineSpecID),
 		loadJobType(tx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
-		loadTransmissionJob(tx, job, job.TransmissionSpecID),
 		loadJobType(tx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),
 		loadJobType(tx, job, "OCROracleSpec", "ocr_oracle_specs", job.OCROracleSpecID),
 		loadJobType(tx, job, "OCR2OracleSpec", "ocr2_oracle_specs", job.OCR2OracleSpecID),
@@ -1289,43 +1253,4 @@ func (r blockhashStoreSpecRow) toBlockhashStoreSpec() *BlockhashStoreSpec {
 
 func loadJobSpecErrors(tx pg.Queryer, jb *Job) error {
 	return errors.Wrapf(tx.Select(&jb.JobSpecErrors, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jb.ID), "failed to load job spec errors for job %d", jb.ID)
-}
-
-func loadTransmissionJob(tx pg.Queryer, job *Job, id *int32) error {
-	if id == nil {
-		return nil
-	}
-
-	var row transmissionSpecRow
-	err := tx.Get(&row, `SELECT * FROM transmission_specs WHERE id = $1`, *id)
-	if err != nil {
-		return errors.Wrapf(err, `failed to load job type TransmissionSpec with id %d`, *id)
-	}
-
-	job.TransmissionSpec = row.toTransmissionSpec()
-	return nil
-}
-
-// blockhashStoreSpecRow is a helper type for reading and writing blockhashStore specs to the database. This is necessary
-// because the bytea[] in the DB is not automatically convertible to or from the spec's
-// FromAddresses field. pq.ByteaArray must be used instead.
-type transmissionSpecRow struct {
-	*TransmissionSpec
-	FromAddresses pq.ByteaArray
-}
-
-func toTransmissionSpecRow(spec *TransmissionSpec) transmissionSpecRow {
-	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
-	for i, a := range spec.FromAddresses {
-		addresses[i] = a.Bytes()
-	}
-	return transmissionSpecRow{TransmissionSpec: spec, FromAddresses: addresses}
-}
-
-func (r transmissionSpecRow) toTransmissionSpec() *TransmissionSpec {
-	for _, a := range r.FromAddresses {
-		r.TransmissionSpec.FromAddresses = append(r.TransmissionSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
-	}
-	return r.TransmissionSpec
 }
