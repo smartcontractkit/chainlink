@@ -144,6 +144,7 @@ type OffChainReportingSpec struct {
 	ObservationGracePeriodEnv                 bool                 `json:"observationGracePeriodEnv,omitempty"`
 	ContractTransmitterTransmitTimeout        *models.Interval     `json:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool                 `json:"contractTransmitterTransmitTimeoutEnv,omitempty"`
+	CollectTelemetry                          bool                 `json:"collectTelemetry,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -175,6 +176,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 		ObservationGracePeriodEnv:                 spec.ObservationGracePeriodEnv,
 		ContractTransmitterTransmitTimeout:        spec.ContractTransmitterTransmitTimeout,
 		ContractTransmitterTransmitTimeoutEnv:     spec.ContractTransmitterTransmitTimeoutEnv,
+		CollectTelemetry:                          spec.CaptureEATelemetry,
 	}
 }
 
@@ -192,6 +194,7 @@ type OffChainReporting2Spec struct {
 	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
 	CreatedAt                         time.Time              `json:"createdAt"`
 	UpdatedAt                         time.Time              `json:"updatedAt"`
+	CollectTelemetry                  bool                   `json:"collectTelemetry"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -209,6 +212,7 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		ContractConfigConfirmations:       spec.ContractConfigConfirmations,
 		CreatedAt:                         spec.CreatedAt,
 		UpdatedAt:                         spec.UpdatedAt,
+		CollectTelemetry:                  spec.CaptureEATelemetry,
 	}
 }
 

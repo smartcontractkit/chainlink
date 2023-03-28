@@ -237,6 +237,7 @@ type OCROracleSpec struct {
 	ObservationGracePeriodEnv                 bool
 	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool
+	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }
@@ -308,6 +309,8 @@ const (
 	OCR2Keeper OCR2PluginType = "ocr2automation"
 
 	OCR2Functions OCR2PluginType = "functions"
+
+	Mercury OCR2PluginType = "mercury"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -315,9 +318,9 @@ const (
 type OCR2OracleSpec struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
+	FeedID                            common.Hash     `toml:"feedID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
-	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -329,6 +332,7 @@ type OCR2OracleSpec struct {
 	PluginType                        OCR2PluginType  `toml:"pluginType"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
+	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -581,6 +585,7 @@ type BlockHeaderFeederSpec struct {
 type BootstrapSpec struct {
 	ID                                int32         `toml:"-"`
 	ContractID                        string        `toml:"contractID"`
+	FeedID                            *common.Hash  `toml:"feedID"`
 	Relay                             relay.Network `toml:"relay"`
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
