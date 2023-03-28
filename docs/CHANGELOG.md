@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 
 ### Added
+- Add OCR2 Plugin selection for FMS
 - Added kebab case aliases for the following flags:
   - `evm-chain-id` alias for `evmChainID` in commands: `chainlink blocks replay`, `chainlink forwarders track`, `chainlink keys ... chain`
   - `old-password` alias for `oldpassword` in commands: `chainlink keys ... import`
