@@ -1124,22 +1124,22 @@ func (te *TestEnv) BuildOCRConfig() (*contracts.MercuryOCRConfig, error) {
 	}
 
 	// Use node CSA pub key as transmitter
-	transmitters := make([][32]byte, len(chainlinkNodes))
-	for i, n := range chainlinkNodes {
-		csaKeys, _, err := n.ReadCSAKeys()
-		if err != nil {
-			return nil, err
-		}
-		csaPubKey, err := hex.DecodeString(csaKeys.Data[0].Attributes.PublicKey)
-		if err != nil {
-			return nil, err
-		}
-		transmitters[i] = [32]byte(csaPubKey)
-	}
+	//transmitters := make([][32]byte, len(chainlinkNodes))
+	//for i, n := range chainlinkNodes {
+	//	csaKeys, _, err := n.ReadCSAKeys()
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	csaPubKey, err := hex.DecodeString(csaKeys.Data[0].Attributes.PublicKey)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	transmitters[i] = [32]byte(csaPubKey)
+	//}
 
 	return &contracts.MercuryOCRConfig{
-		Signers:               signers,
-		Transmitters:          transmitters,
+		Signers: signers,
+		//Transmitters:          transmitters,
 		F:                     f,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,

@@ -58,6 +58,7 @@ core/web/assets
 
 # Integration Tests
 integration-tests/**/logs/
+integration-tests/bin
 tests-*.xml
 *.test
 tmp-manifest-*.yaml

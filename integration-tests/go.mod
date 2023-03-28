@@ -21,7 +21,6 @@ require (
 	github.com/smartcontractkit/chainlink-env v0.30.23-0.20230327111055-d0c8557d3123
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230316183824-9f1e5e11e2b7
 	github.com/smartcontractkit/chainlink-testing-framework v1.11.1-0.20230323100510-2f1971041ea2
-	github.com/smartcontractkit/go-gauntlet v0.0.0-2023010111
 	github.com/smartcontractkit/libocr v0.0.0-20230301222433-aec519050c9a
 	github.com/smartcontractkit/ocr2keepers v0.6.14
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230313164535-dce9b4be73a3
@@ -133,7 +132,6 @@ require (
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/go-github/v45 v45.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
@@ -410,7 +408,6 @@ replace (
 
 	// Some dependency keeps trying to update this to an unstable version
 	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/go-gauntlet => ../../go-gauntlet
 
 	// The Loki - Grafana - Prometheus - Cortex stack is all sorts of wack
 	github.com/weaveworks/common => github.com/weaveworks/common v0.0.0-20200625145055-4b1847531bc9
