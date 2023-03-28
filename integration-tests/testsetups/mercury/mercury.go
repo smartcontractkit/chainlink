@@ -357,20 +357,7 @@ func (te *TestEnv) AddDON() error {
 
 	te.Env.
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(map[string]interface{}{
-			"app": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-				},
-			},
-		})).
+		AddHelm(mockserver.New(nil)).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
