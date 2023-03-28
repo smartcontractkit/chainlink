@@ -97,6 +97,8 @@ func TestMercuryServerAPI(t *testing.T) {
 	})
 
 	t.Run("GET /admin/user as admin role", func(t *testing.T) {
+		t.Skip("admin routes were removed")
+
 		c := client.NewMercuryServerClient(msUrl, admin.Id, admin.Key)
 		users, resp, err := c.GetUsers()
 		require.NoError(t, err)
@@ -105,6 +107,8 @@ func TestMercuryServerAPI(t *testing.T) {
 	})
 
 	t.Run("GET /admin/user as user role", func(t *testing.T) {
+		t.Skip("admin routes were removed")
+
 		c := client.NewMercuryServerClient(msUrl, user.Id, user.Key)
 		users, resp, err := c.GetUsers()
 		require.NoError(t, err)
