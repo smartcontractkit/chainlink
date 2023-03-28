@@ -8,6 +8,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
@@ -16,7 +18,7 @@ import (
 
 	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
-	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	types "github.com/smartcontractkit/chainlink/common/txmgr/types"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -259,19 +261,19 @@ func (_m *ORM) EthTxAttempts(offset int, limit int) ([]txmgr.EthTxAttempt, int, 
 }
 
 // FindEthReceiptsPendingConfirmation provides a mock function with given fields: ctx, blockNum, chainID
-func (_m *ORM) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) ([]txmgr.EthReceiptsPlus, error) {
+func (_m *ORM) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) ([]types.ReceiptPlus[evmtypes.Receipt], error) {
 	ret := _m.Called(ctx, blockNum, chainID)
 
-	var r0 []txmgr.EthReceiptsPlus
+	var r0 []types.ReceiptPlus[evmtypes.Receipt]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) ([]txmgr.EthReceiptsPlus, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) ([]types.ReceiptPlus[evmtypes.Receipt], error)); ok {
 		return rf(ctx, blockNum, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) []txmgr.EthReceiptsPlus); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, big.Int) []types.ReceiptPlus[evmtypes.Receipt]); ok {
 		r0 = rf(ctx, blockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgr.EthReceiptsPlus)
+			r0 = ret.Get(0).([]types.ReceiptPlus[evmtypes.Receipt])
 		}
 	}
 
@@ -465,15 +467,15 @@ func (_m *ORM) FindEthTxWithAttempts(etxID int64) (txmgr.EthTx, error) {
 }
 
 // FindEthTxWithNonce provides a mock function with given fields: fromAddress, nonce
-func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (*txmgr.EthTx, error) {
+func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce int64) (*txmgr.EthTx, error) {
 	ret := _m.Called(fromAddress, nonce)
 
 	var r0 *txmgr.EthTx
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, uint) (*txmgr.EthTx, error)); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, int64) (*txmgr.EthTx, error)); ok {
 		return rf(fromAddress, nonce)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, uint) *txmgr.EthTx); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, int64) *txmgr.EthTx); ok {
 		r0 = rf(fromAddress, nonce)
 	} else {
 		if ret.Get(0) != nil {
@@ -481,7 +483,7 @@ func (_m *ORM) FindEthTxWithNonce(fromAddress common.Address, nonce uint) (*txmg
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, uint) error); ok {
+	if rf, ok := ret.Get(1).(func(common.Address, int64) error); ok {
 		r1 = rf(fromAddress, nonce)
 	} else {
 		r1 = ret.Error(1)
@@ -713,11 +715,11 @@ func (_m *ORM) HasInProgressTransaction(account common.Address, chainID big.Int,
 }
 
 // InsertEthReceipt provides a mock function with given fields: receipt
-func (_m *ORM) InsertEthReceipt(receipt *txmgr.EthReceipt) error {
+func (_m *ORM) InsertEthReceipt(receipt *types.Receipt[evmtypes.Receipt, common.Hash]) error {
 	ret := _m.Called(receipt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgr.EthReceipt) error); ok {
+	if rf, ok := ret.Get(0).(func(*types.Receipt[evmtypes.Receipt, common.Hash]) error); ok {
 		r0 = rf(receipt)
 	} else {
 		r0 = ret.Error(0)
@@ -845,8 +847,8 @@ func (_m *ORM) PreloadEthTxes(attempts []txmgr.EthTxAttempt) error {
 	return r0
 }
 
-// PruneUnstartedEthTxQueue provides a mock function with given fields: queueSize, subject, qopts
-func (_m *ORM) PruneUnstartedEthTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (int64, error) {
+// PruneUnstartedTxQueue provides a mock function with given fields: queueSize, subject, qopts
+func (_m *ORM) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (int64, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -891,11 +893,11 @@ func (_m *ORM) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout t
 }
 
 // SaveFetchedReceipts provides a mock function with given fields: receipts, chainID
-func (_m *ORM) SaveFetchedReceipts(receipts []types.Receipt, chainID big.Int) error {
+func (_m *ORM) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) error {
 	ret := _m.Called(receipts, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]types.Receipt, big.Int) error); ok {
+	if rf, ok := ret.Get(0).(func([]evmtypes.Receipt, big.Int) error); ok {
 		r0 = rf(receipts, chainID)
 	} else {
 		r0 = ret.Error(0)
@@ -996,7 +998,7 @@ func (_m *ORM) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
 }
 
 // UpdateEthKeyNextNonce provides a mock function with given fields: newNextNonce, currentNextNonce, address, chainID, qopts
-func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce int64, currentNextNonce int64, address common.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -1007,7 +1009,7 @@ func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint6
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, uint64, common.Address, big.Int, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(int64, int64, common.Address, big.Int, ...pg.QOpt) error); ok {
 		r0 = rf(newNextNonce, currentNextNonce, address, chainID, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -1017,7 +1019,7 @@ func (_m *ORM) UpdateEthKeyNextNonce(newNextNonce uint64, currentNextNonce uint6
 }
 
 // UpdateEthTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextNonceCallback, qopts
-func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt txmgr.EthTxAttempt, NewAttemptState txmgr.EthTxAttemptState, incrNextNonceCallback txmgr.QueryerFunc, qopts ...pg.QOpt) error {
+func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt txmgr.EthTxAttempt, NewAttemptState types.TxAttemptState, incrNextNonceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -1028,7 +1030,7 @@ func (_m *ORM) UpdateEthTxAttemptInProgressToBroadcast(etx *txmgr.EthTx, attempt
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgr.EthTx, txmgr.EthTxAttempt, txmgr.EthTxAttemptState, txmgr.QueryerFunc, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*txmgr.EthTx, txmgr.EthTxAttempt, types.TxAttemptState, func(pg.Queryer) error, ...pg.QOpt) error); ok {
 		r0 = rf(etx, attempt, NewAttemptState, incrNextNonceCallback, qopts...)
 	} else {
 		r0 = ret.Error(0)

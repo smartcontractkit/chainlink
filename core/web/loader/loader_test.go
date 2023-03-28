@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -36,27 +37,15 @@ func TestLoader_Chains(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, app)
 	})
 
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte("1"))
-	require.NoError(t, err)
-
-	id2 := utils.Big{}
-	err = id2.UnmarshalText([]byte("2"))
-	require.NoError(t, err)
-
-	chainId3 := utils.Big{}
-	err = chainId3.UnmarshalText([]byte("3"))
-	require.NoError(t, err)
-
-	chain := types.ChainConfig{
-		ID:      id,
+	chain := chains.ChainConfig{
+		ID:      "1",
 		Enabled: true,
 	}
-	chain2 := types.ChainConfig{
-		ID:      id2,
+	chain2 := chains.ChainConfig{
+		ID:      "2",
 		Enabled: true,
 	}
-	evmORM := evmtest.NewMockORM([]types.ChainConfig{chain, chain2}, nil)
+	evmORM := evmtest.NewMockORM([]chains.ChainConfig{chain, chain2}, nil)
 	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}
@@ -65,11 +54,11 @@ func TestLoader_Chains(t *testing.T) {
 	results := batcher.loadByIDs(ctx, keys)
 
 	assert.Len(t, results, 3)
-	assert.Equal(t, chain2, results[0].Data.(types.ChainConfig))
-	assert.Equal(t, chain, results[1].Data.(types.ChainConfig))
+	assert.Equal(t, chain2, results[0].Data.(chains.ChainConfig))
+	assert.Equal(t, chain, results[1].Data.(chains.ChainConfig))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
-	assert.Equal(t, "chain not found", results[2].Error.Error())
+	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
 }
 
 func TestLoader_Nodes(t *testing.T) {
@@ -95,18 +84,18 @@ func TestLoader_Nodes(t *testing.T) {
 	err = chainId3.UnmarshalText([]byte("3"))
 	require.NoError(t, err)
 
-	node1 := types.Node{
+	node1 := evmtypes.Node{
 		ID:         int32(1),
 		Name:       "test-node-1",
 		EVMChainID: chainId1,
 	}
-	node2 := types.Node{
+	node2 := evmtypes.Node{
 		ID:         int32(2),
 		Name:       "test-node-1",
 		EVMChainID: chainId2,
 	}
 
-	evmChainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainId2, chainId1, chainId3}).Return([]types.Node{
+	evmChainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainId2, chainId1, chainId3}).Return([]evmtypes.Node{
 		node1, node2,
 	}, nil)
 	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
@@ -117,9 +106,9 @@ func TestLoader_Nodes(t *testing.T) {
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []types.Node{node2}, found[0].Data)
-	assert.Equal(t, []types.Node{node1}, found[1].Data)
-	assert.Equal(t, []types.Node{}, found[2].Data)
+	assert.Equal(t, []evmtypes.Node{node2}, found[0].Data)
+	assert.Equal(t, []evmtypes.Node{node1}, found[1].Data)
+	assert.Equal(t, []evmtypes.Node{}, found[2].Data)
 }
 
 func TestLoader_FeedsManagers(t *testing.T) {
@@ -435,7 +424,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	ethTxID := int64(3)
 	ethTxHash := utils.NewHash()
 
-	receipt := txmgr.EthReceipt{
+	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
 		TxHash: ethTxHash,
 	}
@@ -444,7 +433,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		ID:          int64(1),
 		EthTxID:     ethTxID,
 		Hash:        ethTxHash,
-		EthReceipts: []txmgr.EthReceipt{receipt},
+		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 
 	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EthTxAttempt{

@@ -31,6 +31,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -149,7 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
-	// Set up the versioning ORM
+	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
 
 	if static.Version != static.Unset {
@@ -200,7 +201,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
+			if err = cosmos.EnsureChains(db, appLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
@@ -221,6 +222,23 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
 
+	if cfg.CosmosEnabled() {
+		cosmosLggr := appLggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
+			Config:           cfg,
+			Logger:           cosmosLggr,
+			DB:               db,
+			KeyStore:         keyStore.Cosmos(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		cfgs := cfg.CosmosConfigs()
+		opts.Configs = cosmos.NewConfigs(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
+		}
+	}
+
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
 		opts := solana.ChainSetOpts{
@@ -235,12 +253,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
 		}
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		opts.Configs = solana.NewConfigs(cfgs)
+		chains.Solana, err = solana.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
@@ -260,12 +278,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
 			}
 		}
-		opts.ORM = starknet.NewORMImmut(cfgs)
-		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		opts.Configs = starknet.NewConfigs(cfgs)
+		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
@@ -310,7 +328,7 @@ func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, a
 		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
 		return nil
 	}
-	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
+	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
 	if err != nil {
@@ -734,7 +752,10 @@ func NewUserCache(subdir string) (*UserCache, error) {
 		return nil, err
 	}
 	dir := filepath.Join(cd, "chainlink", subdir)
-
+	err = os.MkdirAll(dir, 0700)
+	if err != nil {
+		return nil, err
+	}
 	return &UserCache{
 		dir: dir,
 	}, nil

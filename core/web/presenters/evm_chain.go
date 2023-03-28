@@ -3,13 +3,14 @@ package presenters
 import (
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {
-	chainResource[*evmtypes.ChainCfg]
+	ChainResource
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -18,9 +19,9 @@ func (r EVMChainResource) GetName() string {
 }
 
 // NewEVMChainResource returns a new EVMChainResource for chain.
-func NewEVMChainResource(chain evmtypes.ChainConfig) EVMChainResource {
-	return EVMChainResource{chainResource[*evmtypes.ChainCfg]{
-		JAID:    NewJAIDInt64(chain.ID.ToInt().Int64()),
+func NewEVMChainResource(chain chains.ChainConfig) EVMChainResource {
+	return EVMChainResource{ChainResource{
+		JAID:    NewJAID(chain.ID),
 		Config:  chain.Cfg,
 		Enabled: chain.Enabled,
 	}}
@@ -44,7 +45,7 @@ func (r EVMNodeResource) GetName() string {
 // NewEVMNodeResource returns a new EVMNodeResource for node.
 func NewEVMNodeResource(node evmtypes.Node) EVMNodeResource {
 	return EVMNodeResource{
-		JAID:       NewJAIDInt32(node.ID),
+		JAID:       NewJAID(node.Name),
 		Name:       node.Name,
 		EVMChainID: node.EVMChainID,
 		WSURL:      node.WSURL,

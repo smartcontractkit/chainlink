@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	"github.com/stretchr/testify/require"
@@ -109,7 +110,7 @@ func TestTransmitCheckers(t *testing.T) {
 			EthTx:     tx,
 			Hash:      common.Hash{},
 			CreatedAt: tx.CreatedAt,
-			State:     txmgr.EthTxAttemptInProgress,
+			State:     txmgrtypes.TxAttemptInProgress,
 		}
 
 		t.Run("success", func(t *testing.T) {
@@ -188,7 +189,7 @@ func TestTransmitCheckers(t *testing.T) {
 				EthTx:     tx,
 				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
-				State:     txmgr.EthTxAttemptInProgress,
+				State:     txmgrtypes.TxAttemptInProgress,
 			}
 		}
 
@@ -293,7 +294,7 @@ func TestTransmitCheckers(t *testing.T) {
 				EthTx:     tx,
 				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
-				State:     txmgr.EthTxAttemptInProgress,
+				State:     txmgrtypes.TxAttemptInProgress,
 			}
 		}
 

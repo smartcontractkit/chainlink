@@ -12,80 +12,14 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type ORM interface {
-	chains.ChainsORM[utils.Big, *ChainCfg, ChainConfig]
-	chains.NodesORM[utils.Big, Node]
-
-	EnsureChains([]utils.Big, ...pg.QOpt) error
+type Configs interface {
+	chains.ChainConfigs[utils.Big]
+	chains.NodeConfigs[utils.Big, Node]
 }
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-type ChainCfg struct {
-	BlockHistoryEstimatorBlockDelay                null.Int
-	BlockHistoryEstimatorBlockHistorySize          null.Int
-	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks null.Int
-	ChainType                                      null.String
-	EthTxReaperThreshold                           *models.Duration
-	EthTxResendAfterThreshold                      *models.Duration
-	EvmEIP1559DynamicFees                          null.Bool
-	EvmFinalityDepth                               null.Int
-	EvmGasBumpPercent                              null.Int
-	EvmGasBumpTxDepth                              null.Int
-	EvmGasBumpWei                                  *assets.Wei
-	EvmGasFeeCapDefault                            *assets.Wei
-	EvmGasLimitDefault                             null.Int
-	EvmGasLimitMax                                 null.Int
-	EvmGasLimitMultiplier                          null.Float
-	EvmGasLimitOCRJobType                          null.Int
-	EvmGasLimitDRJobType                           null.Int
-	EvmGasLimitVRFJobType                          null.Int
-	EvmGasLimitFMJobType                           null.Int
-	EvmGasLimitKeeperJobType                       null.Int
-	EvmGasPriceDefault                             *assets.Wei
-	EvmGasTipCapDefault                            *assets.Wei
-	EvmGasTipCapMinimum                            *assets.Wei
-	EvmHeadTrackerHistoryDepth                     null.Int
-	EvmHeadTrackerMaxBufferSize                    null.Int
-	EvmHeadTrackerSamplingInterval                 *models.Duration
-	EvmLogBackfillBatchSize                        null.Int
-	EvmLogPollInterval                             *models.Duration
-	EvmLogKeepBlocksDepth                          null.Int
-	EvmMaxGasPriceWei                              *assets.Wei
-	EvmNonceAutoSync                               null.Bool
-	EvmUseForwarders                               null.Bool
-	EvmRPCDefaultBatchSize                         null.Int
-	FlagsContractAddress                           null.String
-	GasEstimatorMode                               null.String
-	KeySpecific                                    map[string]ChainCfg
-	LinkContractAddress                            null.String
-	OperatorFactoryAddress                         null.String
-	MinIncomingConfirmations                       null.Int
-	MinimumContractPayment                         *assets.Link
-	OCRObservationTimeout                          *models.Duration
-	NodeNoNewHeadsThreshold                        *models.Duration
-}
-
-func (c *ChainCfg) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	return json.Unmarshal(b, c)
-}
-
-func (c *ChainCfg) Value() (driver.Value, error) {
-	return json.Marshal(c)
-}
-
-type ChainConfig = chains.ChainConfig[utils.Big, *ChainCfg]
 
 type Node struct {
 	ID         int32

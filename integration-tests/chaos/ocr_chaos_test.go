@@ -37,7 +37,7 @@ var (
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
-			"capacity": "10Gi",
+			"capacity": "1Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "250m",
@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
-	l := actions.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart

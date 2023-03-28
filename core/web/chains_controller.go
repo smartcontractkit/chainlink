@@ -19,12 +19,12 @@ type ChainsController interface {
 	Show(*gin.Context)
 }
 
-type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struct {
+type chainsController[I chains.ID, R jsonapi.EntityNamer] struct {
 	resourceName  string
-	chainSet      chains.ChainsConfig[I, C]
+	chainSet      chains.Chains[I]
 	errNotEnabled error
 	parseChainID  func(string) (I, error)
-	newResource   func(chains.ChainConfig[I, C]) R
+	newResource   func(chains.ChainConfig) R
 	lggr          logger.Logger
 	auditLogger   audit.AuditLogger
 }
@@ -38,9 +38,9 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.envVar)
 }
 
-func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.ChainsConfig[I, C], errNotEnabled error,
-	parseChainID func(string) (I, error), newResource func(chains.ChainConfig[I, C]) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[I, C, R] {
-	return &chainsController[I, C, R]{
+func newChainsController[I chains.ID, R jsonapi.EntityNamer](prefix string, chainSet chains.Chains[I], errNotEnabled error,
+	parseChainID func(string) (I, error), newResource func(chains.ChainConfig) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[I, R] {
+	return &chainsController[I, R]{
 		resourceName:  prefix + "_chain",
 		chainSet:      chainSet,
 		errNotEnabled: errNotEnabled,
@@ -51,7 +51,7 @@ func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](pr
 	}
 }
 
-func (cc *chainsController[I, C, R]) Index(c *gin.Context, size, page, offset int) {
+func (cc *chainsController[I, R]) Index(c *gin.Context, size, page, offset int) {
 	if cc.chainSet == nil {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
@@ -71,7 +71,7 @@ func (cc *chainsController[I, C, R]) Index(c *gin.Context, size, page, offset in
 	paginatedResponse(c, cc.resourceName, size, page, resources, count, err)
 }
 
-func (cc *chainsController[I, C, R]) Show(c *gin.Context) {
+func (cc *chainsController[I, R]) Show(c *gin.Context) {
 	if cc.chainSet == nil {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return

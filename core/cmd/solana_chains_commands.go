@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"encoding/json"
 	"strconv"
-
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -16,20 +13,7 @@ type SolanaChainPresenter struct {
 
 // ToRow presents the SolanaChainResource as a slice of strings.
 func (p *SolanaChainPresenter) ToRow() []string {
-	// NOTE: it's impossible to omitempty null fields when serializing to JSON: https://github.com/golang/go/issues/11939
-	config, err := json.MarshalIndent(p.Config, "", "    ")
-	if err != nil {
-		panic(err)
-	}
-
-	row := []string{
-		p.GetID(),
-		strconv.FormatBool(p.Enabled),
-		string(config),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
-	}
-	return row
+	return []string{p.GetID(), strconv.FormatBool(p.Enabled), p.Config}
 }
 
 // RenderTable implements TableRenderer
@@ -60,5 +44,5 @@ func (ps SolanaChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func SolanaChainClient(client *Client) ChainClient {
-	return newChainClient[*db.ChainCfg, presenters.SolanaChainResource, SolanaChainPresenter, SolanaChainPresenters](client, "solana")
+	return newChainClient[SolanaChainPresenters](client, "solana")
 }
