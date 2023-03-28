@@ -3,7 +3,7 @@ package cosmoskey
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 )
 
 func TestCosmosKeys_ExportImport(t *testing.T) {

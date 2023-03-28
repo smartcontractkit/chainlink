@@ -36,15 +36,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/zap/zapcore"
@@ -335,7 +335,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		case <-ticker.C:
 			var notFound = false
 			for _, feedId := range feedIds {
-				report, _, _ := te.MSClient.GetReportsByFeedIdStr(Byte32ToString(feedId), latestBlockNum)
+				report, _, _ := te.MSClient.GetReportsByFeedId(Byte32ToString(feedId), latestBlockNum, client.StringFeedId)
 				if report == nil || report.ChainlinkBlob == "" {
 					log.Debug().Msgf("Report not found for feedId: %s, blockNumber: %d", feedId, latestBlockNum)
 					notFound = true
@@ -350,27 +350,14 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 }
 
 // Add DON to existing env
-func (te *TestEnv) AddDON() error {
+func (te *TestEnv) AddDON(mockserverResources map[string]interface{}) error {
 	if te.EvmNetwork == nil {
 		return fmt.Errorf("setup evm network first")
 	}
 
 	te.Env.
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(map[string]interface{}{
-			"app": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-				},
-			},
-		})).
+		AddHelm(mockserver.New(mockserverResources)).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
@@ -459,8 +446,16 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 
 // Deploy or load exchanger contract
 func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr string, lookupURL string, maxDelay uint8) (contracts.Exchanger, error) {
-	if te.IsExistingEnv {
-		return te.LoadExchangerContract(contractId)
+	if te.Contracts[contractId] != nil {
+		addr := te.Contracts[contractId].Address
+		if addr == "" {
+			return nil, fmt.Errorf("no address in config for %s", contractId)
+		}
+		c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
 	} else {
 		c, err := te.ContractDeployer.DeployExchanger(verifierProxyAddr, lookupURL, maxDelay)
 		if err != nil {
@@ -473,18 +468,6 @@ func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr str
 		}
 		return c, err
 	}
-}
-
-func (te *TestEnv) LoadExchangerContract(contractId string) (contracts.Exchanger, error) {
-	addr := te.Contracts[contractId].Address
-	if addr == "" {
-		return nil, fmt.Errorf("no address in config for %s", contractId)
-	}
-	c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
 }
 
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
@@ -1266,7 +1249,7 @@ func SetupMultiFeedSingleVerifierEnv(
 	if err != nil {
 		return &testEnv, nil, err
 	}
-	if err = testEnv.AddDON(); err != nil {
+	if err = testEnv.AddDON(GetMockserverResources(len(feedIDs))); err != nil {
 		return &testEnv, nil, err
 	}
 	ocrConfig, err := testEnv.BuildOCRConfig()

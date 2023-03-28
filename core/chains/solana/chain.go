@@ -20,11 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	soltxm "github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // DefaultRequestTimeout is the default Solana client timeout.

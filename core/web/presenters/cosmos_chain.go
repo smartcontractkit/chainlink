@@ -3,7 +3,7 @@ package presenters
 import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
 // CosmosChainResource is an Cosmos chain JSONAPI resource.

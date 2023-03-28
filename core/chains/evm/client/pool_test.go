@@ -17,11 +17,11 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type poolConfig struct {

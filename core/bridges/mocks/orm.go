@@ -3,8 +3,8 @@
 package mocks
 
 import (
-	auth "github.com/smartcontractkit/chainlink/core/auth"
-	bridges "github.com/smartcontractkit/chainlink/core/bridges"
+	auth "github.com/smartcontractkit/chainlink/v2/core/auth"
+	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 
 	mock "github.com/stretchr/testify/mock"
 
