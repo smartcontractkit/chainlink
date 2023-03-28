@@ -114,10 +114,16 @@ func (b *Txm[ADDR, BLOCK_HASH, TX_HASH]) RegisterResumeCallback(fn ResumeCallbac
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
-	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH],
-	fwdMgr txmgrtypes.ForwarderManager[ADDR], txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
-
+func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
+	db *sqlx.DB,
+	ethClient evmclient.Client,
+	cfg Config,
+	keyStore txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
+	eventBroadcaster pg.EventBroadcaster,
+	lggr logger.Logger,
+	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH],
+	fwdMgr txmgrtypes.ForwarderManager[ADDR],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
 ) *Txm[ADDR, TX_HASH, BLOCK_HASH] {
 	b := Txm[ADDR, TX_HASH, BLOCK_HASH]{
 		StartStopOnce:    utils.StartStopOnce{},
