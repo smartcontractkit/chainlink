@@ -131,6 +131,68 @@ func RunTestGetReportByFeedIdStrFromWS(t *testing.T, te *mercury.TestEnv, feedId
 	})
 }
 
+func RunAllWSTests(t *testing.T, te *mercury.TestEnv, feedId string) {
+	RunTestGetReportByFeedIdStrFromWS(t, te, feedId)
+
+	t.Run("open 2 /ws connections sequentially and get reports", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s,abc1,def-", feedId))
+		require.NoError(t, err)
+
+		m := client.NewReportWSMessage{}
+		err = wsjson.Read(context.Background(), c, &m)
+		require.NoError(t, err, "failed read ws msg from instance")
+
+		r, err := mercuryactions.DecodeReport(m.FullReport)
+		require.NoError(t, err)
+		log.Info().Msgf("received report: %+v", r)
+
+		err = c.Close(websocket.StatusNormalClosure, "")
+		require.NoError(t, err)
+
+		c2, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s,abc1,def-", feedId))
+		require.NoError(t, err)
+		defer c2.Close(websocket.StatusNormalClosure, "")
+
+		m2 := client.NewReportWSMessage{}
+		err = wsjson.Read(context.Background(), c2, &m2)
+		require.NoError(t, err, "failed read ws msg from instance")
+
+		r2, err := mercuryactions.DecodeReport(m.FullReport)
+		require.NoError(t, err)
+		log.Info().Msgf("received report: %+v", r2)
+	})
+
+	t.Run("read 2 reports by feed id from /ws", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		c, _, err := te.MSClient.DialWS(ctx, fmt.Sprintf("?feedIds=%s,abc1,def-", feedId))
+		require.NoError(t, err)
+		defer c.Close(websocket.StatusNormalClosure, "")
+
+		m := client.NewReportWSMessage{}
+		err = wsjson.Read(context.Background(), c, &m)
+		require.NoError(t, err, "failed read ws msg from instance")
+
+		r, err := mercuryactions.DecodeReport(m.FullReport)
+		require.NoError(t, err)
+		log.Info().Msgf("received report: %+v", r)
+
+		m2 := client.NewReportWSMessage{}
+		err = wsjson.Read(context.Background(), c, &m2)
+		require.NoError(t, err, "failed read ws msg from instance")
+
+		r2, err := mercuryactions.DecodeReport(m.FullReport)
+		require.NoError(t, err)
+		log.Info().Msgf("received report: %+v", r2)
+	})
+}
+
 func RunTestReportVerificationWithVerifierContract(t *testing.T, te *mercury.TestEnv, verifierProxy contracts.VerifierProxy, feedId string) {
 	t.Run("verify report using verifier contract",
 		func(t *testing.T) {
