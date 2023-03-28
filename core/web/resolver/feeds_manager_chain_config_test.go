@@ -59,7 +59,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":    false,
 				"ocr2P2PPeerID":      peerID.String,
 				"ocr2KeyBundleID":    keyBundleID.String,
-				"ocr2Plugins":        `{"median": true}`,
+				"ocr2Plugins":        `{"commit":true,"execute":true,"median":false,"mercury":true}`,
 			},
 		}
 	)
@@ -90,7 +90,10 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
-							Median: true,
+							Commit:  true,
+							Execute: true,
+							Median:  false,
+							Mercury: true,
 						},
 					},
 				}).Return(cfgID, nil)
@@ -113,7 +116,10 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
-							Median: true,
+							Commit:  true,
+							Execute: true,
+							Median:  false,
+							Mercury: true,
 						},
 					},
 				}, nil)
@@ -298,7 +304,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":    false,
 				"ocr2P2PPeerID":      peerID.String,
 				"ocr2KeyBundleID":    keyBundleID.String,
-				"ocr2Plugins":        `{"median": true}`,
+				"ocr2Plugins":        `{"commit":true,"execute":true,"median":false,"mercury":true}`,
 			},
 		}
 	)
@@ -327,7 +333,10 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
-							Median: true,
+							Commit:  true,
+							Execute: true,
+							Median:  false,
+							Mercury: true,
 						},
 					},
 				}).Return(cfgID, nil)
@@ -348,7 +357,10 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
-							Median: true,
+							Commit:  true,
+							Execute: true,
+							Median:  false,
+							Mercury: true,
 						},
 					},
 				}, nil)

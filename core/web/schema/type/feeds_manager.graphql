@@ -5,7 +5,10 @@ enum JobType {
 }
 
 type Plugins {
+	commit: Boolean!
+	execute: Boolean!
 	median: Boolean!
+	mercury: Boolean!
 }
 
 type FeedsManager {

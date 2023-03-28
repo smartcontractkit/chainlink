@@ -1147,7 +1147,10 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2Config) (*pb.OCR2Config, error) {
 		IsBootstrap: cfg.IsBootstrap,
 		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
 		Plugins: &pb.OCR2Config_Plugins{
-			Median: cfg.Plugins.Median,
+			Commit:  cfg.Plugins.Commit,
+			Execute: cfg.Plugins.Execute,
+			Median:  cfg.Plugins.Median,
+			Mercury: cfg.Plugins.Mercury,
 		},
 	}
 

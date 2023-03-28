@@ -1008,7 +1008,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom(multiaddr),
 				Plugins: feeds.Plugins{
-					Median: true,
+					Commit:  true,
+					Execute: true,
+					Median:  false,
+					Mercury: true,
 				},
 			},
 		}
@@ -1055,7 +1058,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
 					Multiaddr:   multiaddr,
 					Plugins: &proto.OCR2Config_Plugins{
-						Median: ccfg.OCR2Config.Plugins.Median,
+						Commit:  ccfg.OCR2Config.Plugins.Commit,
+						Execute: ccfg.OCR2Config.Plugins.Execute,
+						Median:  ccfg.OCR2Config.Plugins.Median,
+						Mercury: ccfg.OCR2Config.Plugins.Mercury,
 					},
 				},
 			},
