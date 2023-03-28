@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
 )
 
 func Test_JuelsPerFeeCoin(t *testing.T) {

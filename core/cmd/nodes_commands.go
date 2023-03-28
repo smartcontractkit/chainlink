@@ -6,7 +6,7 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
 func initCosmosNodeSubCmd(client *Client) cli.Command {

@@ -10,13 +10,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	config2 "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	config2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ValidationConfig interface {

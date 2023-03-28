@@ -8,14 +8,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/blockheaderfeeder"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
 func GenerateProofResponseFromProof(p vrfkey.Proof, s proof.PreSeedData) (

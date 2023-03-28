@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	keystoremocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
 func TestFeeder(t *testing.T) {

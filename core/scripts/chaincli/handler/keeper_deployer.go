@@ -17,11 +17,11 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 // canceller describes the behavior to cancel upkeeps

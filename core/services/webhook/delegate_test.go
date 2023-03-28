@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 )
 
 func TestWebhookDelegate(t *testing.T) {

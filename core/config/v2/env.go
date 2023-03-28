@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (

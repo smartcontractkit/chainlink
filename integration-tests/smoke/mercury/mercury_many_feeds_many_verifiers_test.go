@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/smoke/mercury/subtests"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 )
@@ -22,7 +23,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 
 	testEnv.AddEvmNetwork()
 
-	err = testEnv.AddDON()
+	err = testEnv.AddDON(mercury.GetMockserverResources(len(feedIds)))
 	require.NoError(t, err)
 
 	ocrConfig, err := testEnv.BuildOCRConfig()
@@ -65,7 +66,8 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 	for _, feedId := range feedIds {
 		feedIdStr := mercury.Byte32ToString(feedId)
 
-		subtests.RunTestMercuryServerHasReportForRecentBlockNum(t, &testEnv, feedIdStr)
+		subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, &testEnv, feedIdStr, client.StringFeedId)
+		subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, &testEnv, feedIdStr, client.HexFeedId)
 		subtests.RunTestReportVerificationWithExchangerContract(t, &testEnv, exchangerContract, feedIdStr)
 	}
 }

@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 type CosmosKeyPresenter struct {
