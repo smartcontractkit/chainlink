@@ -3,7 +3,7 @@ package types
 import (
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // TxStrategy controls how txes are queued and sent

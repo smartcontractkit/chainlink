@@ -15,30 +15,29 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
 
-	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ starkChain.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id           string
-	cfg          config.Config
-	cfgImmutable bool // toml config is immutable
-	orm          types.ORM
-	lggr         logger.Logger
-	txm          txm.StarkTXM
+	id   string
+	cfg  config.Config
+	cfgs types.Configs
+	lggr logger.Logger
+	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM, lggr logger.Logger) (ch *chain, err error) {
+func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
 	lggr = lggr.With("starknetChainID", id)
 	ch = &chain{
 		id:   id,
 		cfg:  cfg,
-		orm:  orm,
+		cfgs: cfgs,
 		lggr: lggr.Named("Chain"),
 	}
 
@@ -74,7 +73,7 @@ func (c *chain) Reader() (starknet.Reader, error) {
 func (c *chain) getClient() (*starknet.Client, error) {
 	var node db.Node
 	var client *starknet.Client
-	nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+	nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}

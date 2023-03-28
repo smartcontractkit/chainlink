@@ -7,21 +7,19 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/shopspring/decimal"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
-
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/cosmostest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func Test_CosmosChainsController_Show(t *testing.T) {
@@ -33,29 +31,37 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 		name           string
 		inputId        string
 		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *db.Chain
+		want           func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig
 	}{
 		{
 			inputId: validId,
 			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
-				chain := db.Chain{
+			want: func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig {
+				return &chains.ChainConfig{
 					ID:      validId,
 					Enabled: true,
-					Cfg: db.ChainCfg{
-						FallbackGasPriceUAtom: null.StringFrom("9.999"),
-						GasLimitMultiplier:    null.FloatFrom(1.55555),
-					},
+					Cfg: `ChainID = 'Chainlink-12'
+Enabled = true
+BlockRate = '6s'
+BlocksUntilTxTimeout = 30
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '9.999'
+FCDURL = ''
+GasLimitMultiplier = '1.55555'
+MaxMsgsPerBatch = 100
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
+Nodes = []
+`,
 				}
-
-				return &chain
 			},
 			wantStatusCode: http.StatusOK,
 		},
 		{
 			inputId: "234",
 			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
+			want: func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig {
 				return nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -68,7 +74,9 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupCosmosChainsControllerTestV2(t, &cosmos.CosmosConfig{ChainID: ptr(validId), Enabled: ptr(true),
+			controller := setupCosmosChainsControllerTestV2(t, &cosmos.CosmosConfig{
+				ChainID: ptr(validId),
+				Enabled: ptr(true),
 				Chain: coscfg.Chain{
 					FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
 					GasLimitMultiplier:    ptr(decimal.RequireFromString("1.55555")),
@@ -86,9 +94,8 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 
-				assert.Equal(t, resource1.ID, wantedResult.ID)
-				assert.Equal(t, resource1.Config.FallbackGasPriceUAtom, wantedResult.Cfg.FallbackGasPriceUAtom)
-				assert.Equal(t, resource1.Config.GasLimitMultiplier, wantedResult.Cfg.GasLimitMultiplier)
+				assert.Equal(t, wantedResult.ID, resource1.ID)
+				assert.Equal(t, wantedResult.Cfg, resource1.Config)
 			}
 		})
 	}
@@ -137,8 +144,9 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	assert.Len(t, links, 1)
 	assert.Equal(t, *chainA.ChainID, chains[0].ID)
-	assert.Equal(t, chainA.Chain.FallbackGasPriceUAtom.String(), chains[0].Config.FallbackGasPriceUAtom.String)
-	assert.Equal(t, chainA.Chain.GasLimitMultiplier.InexactFloat64(), chains[0].Config.GasLimitMultiplier.Float64)
+	tomlA, err := chainA.TOMLString()
+	require.NoError(t, err)
+	assert.Equal(t, tomlA, chains[0].Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -152,8 +160,9 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	assert.Len(t, links, 1)
 	assert.Equal(t, *chainB.ChainID, chains[0].ID)
-	assert.Equal(t, chainB.Chain.FallbackGasPriceUAtom.String(), chains[0].Config.FallbackGasPriceUAtom.String)
-	assert.Equal(t, chainB.Chain.GasLimitMultiplier.InexactFloat64(), chains[0].Config.GasLimitMultiplier.Float64)
+	tomlB, err := chainB.TOMLString()
+	require.NoError(t, err)
+	assert.Equal(t, tomlB, chains[0].Config)
 }
 
 type TestCosmosChainsController struct {
