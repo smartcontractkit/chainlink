@@ -350,14 +350,14 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 }
 
 // Add DON to existing env
-func (te *TestEnv) AddDON() error {
+func (te *TestEnv) AddDON(mockserverResources map[string]interface{}) error {
 	if te.EvmNetwork == nil {
 		return fmt.Errorf("setup evm network first")
 	}
 
 	te.Env.
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
+		AddHelm(mockserver.New(mockserverResources)).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
@@ -1253,7 +1253,7 @@ func SetupMultiFeedSingleVerifierEnv(
 	if err != nil {
 		return &testEnv, nil, err
 	}
-	if err = testEnv.AddDON(); err != nil {
+	if err = testEnv.AddDON(GetMockserverResources(len(feedIDs))); err != nil {
 		return &testEnv, nil, err
 	}
 	ocrConfig, err := testEnv.BuildOCRConfig()

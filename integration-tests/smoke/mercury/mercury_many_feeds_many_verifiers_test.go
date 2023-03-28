@@ -23,7 +23,7 @@ func TestMercuryManyFeedsManyVerifiers(t *testing.T) {
 
 	testEnv.AddEvmNetwork()
 
-	err = testEnv.AddDON()
+	err = testEnv.AddDON(mercury.GetMockserverResources(len(feedIds)))
 	require.NoError(t, err)
 
 	ocrConfig, err := testEnv.BuildOCRConfig()
