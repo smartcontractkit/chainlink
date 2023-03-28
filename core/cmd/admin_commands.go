@@ -104,11 +104,11 @@ func initAdminSubCmds(client *Client) []cli.Command {
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:     "email",
-							Usage:    "email of user to be editted",
+							Usage:    "email of user to be edited",
 							Required: true,
 						},
 						cli.StringFlag{
-							Name:     "newrole",
+							Name:     "new-role, newrole",
 							Usage:    "new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
 							Required: true,
 						},
@@ -252,7 +252,7 @@ func (cli *Client) ChangeRole(c *cli.Context) (err error) {
 		NewRole string `json:"newRole"`
 	}{
 		Email:   c.String("email"),
-		NewRole: c.String("newrole"),
+		NewRole: c.String("new-role"),
 	}
 
 	requestData, err := json.Marshal(request)

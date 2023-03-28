@@ -143,7 +143,7 @@ func TestClient_ImportExportOCRKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportOCRKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/new_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/new_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c := cli.NewContext(nil, set, nil)
@@ -156,7 +156,7 @@ func TestClient_ImportExportOCRKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportOCRKey, set, "")
 
 	require.NoError(t, set.Parse([]string{key.ID()}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/new_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/new_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c = cli.NewContext(nil, set, nil)
@@ -171,7 +171,7 @@ func TestClient_ImportExportOCRKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ImportOCRKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
-	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/new_password.txt"))
+	require.NoError(t, set.Set("old-password", "../internal/fixtures/new_password.txt"))
 
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportOCRKey(c))
