@@ -51,7 +51,7 @@ type OCR2JobConfig {
 	multiaddr: String
 	p2pPeerID: String
 	keyBundleID: String
-	plugins: Plugins!
+	plugins: Plugins
 }
 
 # FeedsManagerPayload defines the response to fetch a single feeds manager by id
