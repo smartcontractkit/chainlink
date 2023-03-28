@@ -973,25 +973,26 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 
 	testCases := []struct {
 		name               string
-		before             func(orm *TestORM) int64
+		before             func(orm *TestORM) (int64, int64)
 		wantProposalStatus feeds.JobProposalStatus
 		wantSpecStatus     feeds.SpecStatus
 		wantErr            string
 	}{
 		{
 			name: "pending proposal",
-			before: func(orm *TestORM) int64 {
+			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
 
-				return jpID
+				return jpID, specID
 			},
 			wantProposalStatus: feeds.JobProposalStatusRevoked,
 			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "approved proposal",
-			before: func(orm *TestORM) int64 {
+			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, int64(jpID))
@@ -1006,48 +1007,51 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 				err := orm.ApproveSpec(specID, externalJobID.UUID)
 				require.NoError(t, err)
 
-				return jpID
+				return jpID, specID
 			},
 			wantProposalStatus: feeds.JobProposalStatusApproved,
 			wantSpecStatus:     feeds.SpecStatusApproved,
 		},
 		{
 			name: "cancelled proposal",
-			before: func(orm *TestORM) int64 {
+			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
 
-				return jpID
+				return jpID, specID
 			},
 			wantProposalStatus: feeds.JobProposalStatusRevoked,
 			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "rejected proposal",
-			before: func(orm *TestORM) int64 {
+			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusRejected, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
 
-				return jpID
+				return jpID, specID
 			},
 			wantProposalStatus: feeds.JobProposalStatusRevoked,
 			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "deleted proposal",
-			before: func(orm *TestORM) int64 {
+			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
 
-				return jpID
+				return jpID, specID
 			},
 			wantProposalStatus: feeds.JobProposalStatusDeleted,
 			wantSpecStatus:     feeds.SpecStatusRevoked,
 		},
 		{
 			name: "not found",
-			before: func(orm *TestORM) int64 {
-				return 0
+			before: func(orm *TestORM) (int64, int64) {
+				return 0, 0
 			},
 			wantErr: "sql: no rows in result set",
 		},
@@ -1059,9 +1063,9 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			orm := setupORM(t)
 
-			jpID := tc.before(orm)
+			jpID, specID := tc.before(orm)
 
-			err := orm.RevokeSpec(jpID)
+			err := orm.RevokeSpec(specID)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)

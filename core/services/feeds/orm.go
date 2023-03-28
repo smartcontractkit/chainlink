@@ -704,15 +704,20 @@ func (o *orm) RevokeSpec(id int64, qopts ...pg.QOpt) error {
 	// Update the status of the spec
 	stmt := `
 UPDATE job_proposal_specs
-SET status = $1,
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_spec_status
+			ELSE $2
+		END
+	),
 	status_updated_at = NOW(),
 	updated_at = NOW()
-WHERE id = $2
+WHERE id = $1
 RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusRevoked, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, id, SpecStatusRevoked); err != nil {
 		return err
 	}
 
@@ -721,15 +726,22 @@ UPDATE job_proposals
 SET status = (
 		CASE
 			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
-			ELSE 'revoked'::job_proposal_status
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			ELSE $3
 		END
 	),
 	pending_update = FALSE,
+	external_job_id = (
+		CASE
+			WHEN status <> 'approved' THEN $2
+			ELSE job_proposals.external_job_id
+		END
+	),
 	updated_at = NOW()
 WHERE id = $1
 	`
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil, JobProposalStatusRevoked)
 	if err != nil {
 		return err
 	}
