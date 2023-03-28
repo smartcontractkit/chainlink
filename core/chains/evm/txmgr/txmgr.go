@@ -52,8 +52,6 @@ type Config interface {
 // For more information about the Txm architecture, see the design doc:
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
-var _ TxManager = &Txm{}
-
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
@@ -104,7 +102,7 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable]
 	wg       sync.WaitGroup
 
 	reaper           *Reaper
-	ethResender      *EthResender[ADDR, TX_HASH]
+	ethResender      *EthResender[ADDR, TX_HASH, BLOCK_HASH]
 	ethBroadcaster   *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]
 	ethConfirmer     *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
@@ -120,11 +118,11 @@ func NewTxm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashab
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, TX_HASH],
 	fwdMgr txmgrtypes.ForwarderManager[ADDR], txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
 
-) *Txm {
-	b := Txm{
+) *Txm[ADDR, TX_HASH, BLOCK_HASH] {
+	b := Txm[ADDR, TX_HASH, BLOCK_HASH]{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
-		orm:              NewORM[ADDR, BLOCK_HASH, TX_HASH](db, lggr, cfg),
+		orm:              NewORM(db, lggr, cfg),
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -589,8 +587,6 @@ func sendEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
 }
-
-var _ TxManager = &NullTxManager{}
 
 type NullTxManager[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ErrMsg string

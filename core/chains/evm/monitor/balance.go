@@ -177,11 +177,11 @@ func (w *worker) WorkCtx(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	wg.Add(len(enabledAddresses))
-	for _, key := range enabledAddresses {
+	for _, address := range enabledAddresses {
 		go func(k gethCommon.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
-		}(key)
+		}(*address.NativeAddress())
 	}
 	wg.Wait()
 }

@@ -28,7 +28,7 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM[ADDR types.Hashable, BLOCK_HASH types.Hashable, TX_HASH types.Hashable] interface {
-	txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 }
 
 var ErrKeyNotUpdated = errors.New("orm: Key not updated")
@@ -66,7 +66,7 @@ func dbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
 		BlockHash:        *blockHash,
 		BlockNumber:      evmReceipt.BlockNumber,
 		TransactionIndex: evmReceipt.TransactionIndex,
-		Receipt:          evmReceipt.Receipt,
+		Receipt:          *evmReceipt.Receipt,
 		CreatedAt:        evmReceipt.CreatedAt,
 	}
 }
@@ -77,11 +77,11 @@ func dbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
 
 	return EvmReceipt{
 		ID:               receipt.ID,
-		TxHash:           *txHash,
-		BlockHash:        *blockHash,
+		TxHash:           txHash,
+		BlockHash:        blockHash,
 		BlockNumber:      receipt.BlockNumber,
 		TransactionIndex: receipt.TransactionIndex,
-		Receipt:          receipt.Receipt,
+		Receipt:          &receipt.Receipt,
 		CreatedAt:        receipt.CreatedAt,
 	}
 }
@@ -119,19 +119,19 @@ func fromDBReceiptsPlus(rs []dbReceiptPlus) []EvmReceiptPlus {
 	return receipts
 }
 
-func toDBRawReceipt(rs []evmtypes.Receipt) []dbRawReceipt {
+func toDBRawReceipt(rs []*evmtypes.Receipt) []dbRawReceipt {
 	receipts := make([]dbRawReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = dbRawReceipt(rs[i])
+		receipts[i] = dbRawReceipt(*rs[i])
 	}
 	return receipts
 }
 
-func NewORM[ADDR types.Hashable, BLOCK_HASH types.Hashable, TX_HASH types.Hashable](db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM[ADDR, BLOCK_HASH, TX_HASH] {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash] {
 	namedLogger := lggr.Named("TxmORM")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
-	return &orm[ADDR, BLOCK_HASH, TX_HASH]{
+	return &orm[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]{
 		q:         q,
 		logger:    namedLogger,
 		ctx:       ctx,
@@ -526,7 +526,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveFetchedReceipts(r []evmtypes.Receipt, chainID big.Int) (err error) {
+func (o *orm[ADDR, BLOCK_HASH, TX_HASH]) SaveFetchedReceipts(r []*evmtypes.Receipt, chainID big.Int) (err error) {
 	receipts := toDBRawReceipt(r)
 	if len(receipts) == 0 {
 		return nil

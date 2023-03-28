@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, evmtypes.TxHash, evmtypes.BlockHash]
-type EvmReceiptPlus = txmgrtypes.ReceiptPlus[evmtypes.Receipt]
+type EvmReceipt = txmgrtypes.Receipt[*evmtypes.Receipt, *evmtypes.TxHash, *evmtypes.BlockHash]
+type EvmReceiptPlus = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 
 // EthTxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present

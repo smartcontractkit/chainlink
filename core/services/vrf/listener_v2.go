@@ -83,7 +83,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager,
+	txm txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -151,7 +151,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager
+	txm            txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
@@ -805,7 +805,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
-			var ethTX txmgr.EthTx
+			var ethTX txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash]
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -817,9 +817,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
-					FromAddress:    fromAddress,
-					ToAddress:      lsn.coordinator.Address(),
+				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
+					FromAddress:    evmtypes.NewAddress(fromAddress),
+					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{

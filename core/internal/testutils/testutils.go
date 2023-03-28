@@ -29,6 +29,8 @@ import (
 	"github.com/stretchr/testify/require"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/core"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
 
 const (
@@ -57,6 +59,11 @@ func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
+}
+
+// NewAddress return a random new address
+func NewEvmAddress() *evmtypes.Address {
+	return evmtypes.NewAddress(NewAddress())
 }
 
 func NewAddressPtr() *common.Address {

@@ -88,7 +88,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
-	TxmORM() txmgr.ORM
+	TxmORM() txmgr.ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -121,7 +121,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
-	txmORM                   txmgr.ORM
+	txmORM                   txmgr.ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash]
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -670,7 +670,7 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmORM() txmgr.ORM {
+func (app *ChainlinkApplication) TxmORM() txmgr.ORM[*evmtypes.Address, *evmtypes.BlockHash, *evmtypes.TxHash] {
 	return app.txmORM
 }
 
