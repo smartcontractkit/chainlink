@@ -4,7 +4,6 @@ import "../contracts/SCALibrary.sol";
 
 pragma solidity ^0.8.15;
 
-/// TODO: delete this file. Move all logic into Go, or into the smart contract account factory.
 library SmartContractAccountHelper {
   bytes constant initailizeCode = type(SCA).creationCode;
 

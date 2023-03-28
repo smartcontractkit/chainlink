@@ -1,21 +1,19 @@
 package transmission_test
 
 import (
-	"crypto/ecdsa"
-	"encoding/hex"
+	"context"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_mock"
 
@@ -30,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/smart_contract_account_helper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/transmission"
 )
 
@@ -41,26 +38,13 @@ var (
 )
 
 func Test4337Basic(t *testing.T) {
-	// Create a private key for holder1 that we can use to sign
-	accountKey := os.Getenv("ACCOUNT_KEY")
-	require.NotEmpty(t, accountKey)
-	b, err := hex.DecodeString(accountKey)
-	require.NoError(t, err)
-	d := new(big.Int).SetBytes(b)
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
-	holder1Key := ethkey.FromPrivateKey(&privateKey)
+	// Create a key for holder1 that we can use to sign
+	holder1Key := cltest.MustGenerateRandomKey(t)
 	t.Log("Holder key:", holder1Key.String())
 
 	// Construct simulated blockchain environmnet.
 	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 	var (
 		metaERC20Owner = testutils.MustNewSimTransactor(t)
 		holder1        = holder1Transactor
@@ -154,7 +138,7 @@ func Test4337Basic(t *testing.T) {
 	tx, err := entryPoint.DepositTo(holder1, toDeployAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(testutils.Context(t), backend, tx)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := entryPoint.BalanceOf(nil, toDeployAddress)
 	require.NoError(t, err)
@@ -164,7 +148,7 @@ func Test4337Basic(t *testing.T) {
 	tx, err = entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(testutils.Context(t), backend, tx)
 
 	// Ensure "bye" was successfully set as the greeting.
 	greetingResult, err := greeter.GetGreeting(nil)
@@ -180,26 +164,13 @@ func Test4337Basic(t *testing.T) {
 }
 
 func Test4337WithLinkTokenPaymaster(t *testing.T) {
-	// Create a private key for holder1 that we can use to sign
-	accountKey := os.Getenv("ACCOUNT_KEY")
-	require.NotEmpty(t, accountKey)
-	b, err := hex.DecodeString(accountKey)
-	require.NoError(t, err)
-	d := new(big.Int).SetBytes(b)
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
-	holder1Key := ethkey.FromPrivateKey(&privateKey)
+	// Create a key for holder1 that we can use to sign
+	holder1Key := cltest.MustGenerateRandomKey(t)
 	t.Log("Holder key:", holder1Key.String())
 
 	// Construct simulated blockchain environmnet.
 	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 	var (
 		metaERC20Owner = testutils.MustNewSimTransactor(t)
 		holder1        = holder1Transactor
@@ -265,7 +236,14 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	// Deposit to LINK paymaster.
 	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend)
 	require.NoError(t, err)
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress)
+	linkEthFeedAddress, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		holder1,
+		backend,
+		18,
+		(*big.Int)(assets.GWei(5000000)), // .005 ETH
+	)
+	require.NoError(t, err)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress, linkEthFeedAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	tx, err := linkToken.TransferAndCall(
@@ -276,7 +254,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(testutils.Context(t), backend, tx)
 
 	// Construct and execute user operation.
 	userOp := entry_point.UserOperation{
@@ -309,7 +287,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	tx, err = entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(testutils.Context(t), backend, tx)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := entryPoint.BalanceOf(nil, paymasterAddress)
 	require.NoError(t, err)
@@ -319,7 +297,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	tx, err = entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(testutils.Context(t), backend, tx)
 
 	// Ensure "bye" was successfully set as the greeting.
 	greetingResult, err := greeter.GetGreeting(nil)
@@ -335,26 +313,13 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 }
 
 func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
-	// Create a private key for holder1 that we can use to sign
-	accountKey := os.Getenv("ACCOUNT_KEY")
-	require.NotEmpty(t, accountKey)
-	b, err := hex.DecodeString(accountKey)
-	require.NoError(t, err)
-	d := new(big.Int).SetBytes(b)
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
-	holder1Key := ethkey.FromPrivateKey(&privateKey)
+	// Create a key for holder1 that we can use to sign
+	holder1Key := cltest.MustGenerateRandomKey(t)
 	t.Log("Holder key:", holder1Key.String())
 
 	// Construct simulated blockchain environmnet.
 	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 	var (
 		metaERC20Owner = testutils.MustNewSimTransactor(t)
 		holder1        = holder1Transactor
@@ -379,6 +344,13 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	_, _, helper, err := smart_contract_account_helper.DeploySmartContractAccountHelper(holder1, backend)
 	require.NoError(t, err)
 	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend)
+	require.NoError(t, err)
+	linkEthFeedAddress, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		holder1,
+		backend,
+		18,
+		(*big.Int)(assets.GWei(5000000)), // .005 ETH
+	)
 	require.NoError(t, err)
 	vrfCoordinatorAddress, _, vrfCoordinator, err := vrf_coordinator_mock.DeployVRFCoordinatorMock(holder1, backend, linkTokenAddress)
 	require.NoError(t, err)
@@ -420,7 +392,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
 	// Deposit to LINK paymaster.
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress, linkEthFeedAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	tx, err := linkToken.TransferAndCall(
@@ -431,7 +403,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(context.Background(), backend, tx)
 
 	// Generate encoded paymaster data to fund the VRF consumer.
 	encodedPaymasterData, err := helper.GetAbiEncodedDirectRequestData(nil, vrfConsumerAddress, fee, fee)
@@ -468,7 +440,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	tx, err = entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(nil, backend, tx)
+	bind.WaitMined(testutils.Context(t), backend, tx)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := entryPoint.BalanceOf(nil, paymasterAddress)
 	require.NoError(t, err)

@@ -26,6 +26,7 @@ contract SCA is IAccount {
   }
 
   /// @dev Validates the user operation via a signature check.
+  /// TODO: Utilize a "validAfter" for a tx to be only valid _after_ a certain time.
   function validateUserOp(
     UserOperation calldata userOp,
     bytes32 userOpHash,
@@ -49,18 +50,20 @@ contract SCA is IAccount {
     if (ecrecover(fullHash, v + 27, r, s) != s_owner) {
       return _packValidationData(true, 0, 0); // signature error
     }
-
     s_nonce++;
-    return _packValidationData(false, 0, 0); // success, with indefinite validity
+
+    // Unpack deadline, return successful signature.
+    (, , uint48 deadline, ) = abi.decode(userOp.callData[4:], (address, uint256, uint48, bytes));
+    return _packValidationData(false, deadline, 0);
   }
 
   /// @dev Execute a transaction on behalf of the owner. This function can only
   /// @dev be called by the EntryPoint contract, and assumes that `validateUserOp` has succeeded.
-  function executeTransactionFromEntryPoint(address to, uint256 value, uint256 deadline, bytes calldata data) external {
+  function executeTransactionFromEntryPoint(address to, uint256 value, uint48 deadline, bytes calldata data) external {
     if (msg.sender != s_entryPoint) {
       revert NotAuthorized(msg.sender);
     }
-    if (block.timestamp > deadline) {
+    if (deadline != 0 && block.timestamp > deadline) {
       revert TransactionExpired(deadline, block.timestamp);
     }
     to.call{value: value}(data);

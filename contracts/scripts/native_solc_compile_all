@@ -115,3 +115,11 @@ $SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
 # Mocks
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
+
+# Transmission
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/SCA.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/Paymaster.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/contracts/SmartContractAccountFactory.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/testhelpers/SmartContractAccountHelper.sol
+$SCRIPTPATH/native_solc8_15_compile dev/transmission/entrypoint_implementation/testhelpers/Greeter.sol
+$SCRIPTPATH/native_solc8_15_compile dev/vendor/entrypoint/core/EntryPoint.sol

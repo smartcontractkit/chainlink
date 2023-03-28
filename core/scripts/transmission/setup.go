@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/entry_point"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/transmission/generated/greeter_wrapper"
@@ -41,11 +42,12 @@ func prepareSetGreeting(e helpers.Environment) {
 	greeterAddressString := cmd.String("greeter-address", "", "greeter contract address")
 	greetingString := cmd.String("greeting", "hello", "the greeting to be set")
 	linkTokenAddressString := cmd.String("link-address", "", "link token contract address")
+	linkEthFeedAddressString := cmd.String("link-eth-feed", "", "link/eth feed contract address")
 	paymasterAddressString := cmd.String("paymaster-address", "", "paymaster contract address")
 
 	topupAmountString := cmd.String("topup-amount", "0", "amount to top up paymaster subscription")
 	paymasterTopupAmountString := cmd.String("paymaster-topup-amount", "0", "amount to top up paymaster's entrypoint deposit")
-	deadlineString := cmd.String("deadline", "1000000", "deadline for meta-tx")
+	deadlineString := cmd.String("deadline", "2679952951", "deadline for meta-tx - default to some time in 2050")
 	valueString := cmd.String("value", "0", "value to be paid for meta-tx")
 
 	callGasLimit := cmd.Int64("call-gas-limit", 1_000_000, "end-tx gas limit")
@@ -65,6 +67,7 @@ func prepareSetGreeting(e helpers.Environment) {
 		smartContractAccountFactoryAddress common.Address = common.HexToAddress(*smartContractAccountFactoryAddressString)
 		greeterAddress                     common.Address = common.HexToAddress(*greeterAddressString)
 		linkTokenAddress                   common.Address = common.HexToAddress(*linkTokenAddressString)
+		linkEthFeedAddress                 common.Address = common.HexToAddress(*linkEthFeedAddressString)
 		linkToken                          *link_token_interface.LinkToken
 		paymasterAddress                   common.Address = common.HexToAddress(*paymasterAddressString)
 	)
@@ -101,10 +104,24 @@ func prepareSetGreeting(e helpers.Environment) {
 		helpers.PanicErr(err)
 	}
 
+	// Deploy LINK token if not provided. Otherwise, assign link token.
+	if len(*linkEthFeedAddressString) == 0 {
+		fmt.Println("\nDeploying link/eth feed...")
+		address, tx, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			e.Owner,
+			e.Ec,
+			18,
+			(*big.Int)(assets.GWei(5000000)),
+		)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+		linkEthFeedAddress = address
+	}
+
 	// Deploy Paymaster if not provided.
 	if len(*paymasterAddressString) == 0 {
 		fmt.Println("\nDeploying paymaster...")
-		address, tx, _, err := paymaster_wrapper.DeployPaymaster(e.Owner, e.Ec, linkTokenAddress)
+		address, tx, _, err := paymaster_wrapper.DeployPaymaster(e.Owner, e.Ec, linkTokenAddress, linkEthFeedAddress)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 		paymasterAddress = address
@@ -208,6 +225,7 @@ func prepareSetGreeting(e helpers.Environment) {
 		D: d,
 	}
 	sig, err := transmission.SignMessage(&privateKey, fullHash[:])
+	helpers.PanicErr(err)
 	userOp.Signature = sig
 
 	// Top up paymaster deposit.
@@ -274,6 +292,7 @@ func prepareVRFRequest(e helpers.Environment) {
 	smartContractAccountHelperAddressString := cmd.String("helper-address", "", "smart contract account helper contract address")
 	smartContractAccountFactoryAddressString := cmd.String("factory-address", "", "smart contract account factory contract address")
 	linkTokenAddressString := cmd.String("link-address", "", "link token contract address")
+	linkEthFeedAddressString := cmd.String("link-eth-feed", "", "link/eth feed contract address")
 	paymasterAddressString := cmd.String("paymaster-address", "", "paymaster contract address")
 
 	vrfConsumerAddressString := cmd.String("consumer-address", "", "vrf consumer contract address")
@@ -283,7 +302,7 @@ func prepareVRFRequest(e helpers.Environment) {
 
 	topupAmountString := cmd.String("topup-amount", "0", "amount to top up paymaster subscription")
 	paymasterTopupAmountString := cmd.String("paymaster-topup-amount", "0", "amount to top up paymaster's entrypoint deposit")
-	deadlineString := cmd.String("deadline", "1000000", "deadline for meta-tx")
+	deadlineString := cmd.String("deadline", "2679952951", "deadline for meta-tx - default to some time in 2050")
 	valueString := cmd.String("value", "0", "value to be paid for meta-tx")
 
 	callGasLimit := cmd.Int64("call-gas-limit", 1_000_000, "end-tx gas limit")
@@ -302,6 +321,7 @@ func prepareVRFRequest(e helpers.Environment) {
 	var (
 		smartContractAccountFactoryAddress common.Address = common.HexToAddress(*smartContractAccountFactoryAddressString)
 		linkTokenAddress                   common.Address = common.HexToAddress(*linkTokenAddressString)
+		linkEthFeedAddress                 common.Address = common.HexToAddress(*linkEthFeedAddressString)
 		linkToken                          *link_token_interface.LinkToken
 		paymasterAddress                   common.Address = common.HexToAddress(*paymasterAddressString)
 		vrfConsumerAddress                 common.Address = common.HexToAddress(*vrfConsumerAddressString)
@@ -330,10 +350,24 @@ func prepareVRFRequest(e helpers.Environment) {
 		helpers.PanicErr(err)
 	}
 
+	// Deploy LINK token if not provided. Otherwise, assign link token.
+	if len(*linkEthFeedAddressString) == 0 {
+		fmt.Println("\nDeploying link/eth feed...")
+		address, tx, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			e.Owner,
+			e.Ec,
+			18,
+			(*big.Int)(assets.GWei(5000000)),
+		)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+		linkEthFeedAddress = address
+	}
+
 	// Deploy Paymaster if not provided.
 	if len(*paymasterAddressString) == 0 {
 		fmt.Println("\nDeploying paymaster...")
-		address, tx, _, err := paymaster_wrapper.DeployPaymaster(e.Owner, e.Ec, linkTokenAddress)
+		address, tx, _, err := paymaster_wrapper.DeployPaymaster(e.Owner, e.Ec, linkTokenAddress, linkEthFeedAddress)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 		paymasterAddress = address
@@ -456,6 +490,7 @@ func prepareVRFRequest(e helpers.Environment) {
 		D: d,
 	}
 	sig, err := transmission.SignMessage(&privateKey, fullHash[:])
+	helpers.PanicErr(err)
 	userOp.Signature = sig
 
 	// Top up paymaster deposit.
