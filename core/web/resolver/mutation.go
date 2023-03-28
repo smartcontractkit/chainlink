@@ -165,6 +165,7 @@ type createFeedsManagerChainConfigInput struct {
 	OCR2Multiaddr      *string
 	OCR2P2PPeerID      *string
 	OCR2KeyBundleID    *string
+	OCR2Plugins        string
 }
 
 func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -208,12 +209,18 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.OCR2Enabled {
+		var plugins feeds.Plugins
+		if err = plugins.Scan(args.Input.OCR2Plugins); err != nil {
+			return nil, err
+		}
+
 		params.OCR2Config = feeds.OCR2Config{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
 			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
 			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:     plugins,
 		}
 	}
 
@@ -291,6 +298,7 @@ type updateFeedsManagerChainConfigInput struct {
 	OCR2Multiaddr      *string
 	OCR2P2PPeerID      *string
 	OCR2KeyBundleID    *string
+	OCR2Plugins        string
 }
 
 func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -328,12 +336,18 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.OCR2Enabled {
+		var plugins feeds.Plugins
+		if err = plugins.Scan(args.Input.OCR2Plugins); err != nil {
+			return nil, err
+		}
+
 		params.OCR2Config = feeds.OCR2Config{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
 			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
 			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:     plugins,
 		}
 	}
 
