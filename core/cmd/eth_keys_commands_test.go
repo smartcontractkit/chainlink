@@ -12,12 +12,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -283,7 +283,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyfilepath))
 	require.NoError(t, set.Parse([]string{address}))
 
@@ -308,7 +308,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+	set.String("old-password", "../internal/fixtures/incorrect_password.txt", "")
 	set.Parse([]string{keyfilepath})
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
@@ -331,7 +331,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"999"}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/apicredentials"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("output", "keyName"))
 
 	c = cli.NewContext(nil, set, nil)
@@ -386,7 +386,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyfilepath))
 	require.NoError(t, set.Parse([]string{address}))
 
@@ -411,7 +411,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
 
-	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Parse([]string{keyfilepath}))
 
 	c = cli.NewContext(nil, set, nil)
@@ -435,7 +435,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"999"}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/apicredentials"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c = cli.NewContext(nil, set, nil)

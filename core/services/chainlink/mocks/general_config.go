@@ -5,43 +5,43 @@ package mocks
 import (
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	config "github.com/smartcontractkit/chainlink/core/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	cosmos "github.com/smartcontractkit/chainlink/core/chains/cosmos"
+	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
-	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
+	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 
-	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	net "net"
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
-	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
 
-	solana "github.com/smartcontractkit/chainlink/core/chains/solana"
+	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 
-	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet"
+	starknet "github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 
 	time "time"
 
 	url "net/url"
 
-	utils "github.com/smartcontractkit/chainlink/core/utils"
+	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 
 	zapcore "go.uber.org/zap/zapcore"
 )

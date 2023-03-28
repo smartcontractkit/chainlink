@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/static"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
