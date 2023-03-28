@@ -61,33 +61,29 @@ var (
 
 // Get mockserver resources depending on number of feeds in the DON
 func GetMockserverResources(feedCount int) map[string]interface{} {
-	if feedCount > 3 {
-		return map[string]interface{}{
-			"app": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-				},
-			},
-		}
+	var cpu, memory string
+
+	if feedCount > 4 {
+		cpu = "8000m"
+		memory = "8048Mi"
+	} else if feedCount > 1 {
+		cpu = "4000m"
+		memory = "4048Mi"
 	} else {
-		return map[string]interface{}{
-			"app": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "200m",
-					"memory": "256Mi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "200m",
-					"memory": "256Mi",
-				},
+		cpu = "2000m"
+		memory = "2560Mi"
+	}
+
+	return map[string]interface{}{
+		"app": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    cpu,
+				"memory": memory,
 			},
-		}
+			"limits": map[string]interface{}{
+				"cpu":    cpu,
+				"memory": memory,
+			},
+		},
 	}
 }

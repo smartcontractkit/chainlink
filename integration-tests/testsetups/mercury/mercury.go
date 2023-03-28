@@ -446,8 +446,16 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 
 // Deploy or load exchanger contract
 func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr string, lookupURL string, maxDelay uint8) (contracts.Exchanger, error) {
-	if te.IsExistingEnv {
-		return te.LoadExchangerContract(contractId)
+	if te.Contracts[contractId] != nil {
+		addr := te.Contracts[contractId].Address
+		if addr == "" {
+			return nil, fmt.Errorf("no address in config for %s", contractId)
+		}
+		c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
 	} else {
 		c, err := te.ContractDeployer.DeployExchanger(verifierProxyAddr, lookupURL, maxDelay)
 		if err != nil {
@@ -460,18 +468,6 @@ func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr str
 		}
 		return c, err
 	}
-}
-
-func (te *TestEnv) LoadExchangerContract(contractId string) (contracts.Exchanger, error) {
-	addr := te.Contracts[contractId].Address
-	if addr == "" {
-		return nil, fmt.Errorf("no address in config for %s", contractId)
-	}
-	c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
 }
 
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
