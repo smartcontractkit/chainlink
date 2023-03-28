@@ -2,12 +2,13 @@ package pgtest
 
 import (
 	"database/sql"
+	"testing"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"

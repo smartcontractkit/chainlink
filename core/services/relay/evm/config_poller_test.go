@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"math/big"
 	"strings"
 	"testing"
@@ -57,7 +56,7 @@ func TestConfigPoller(t *testing.T) {
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pg.NewQConfig(false)
+	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
