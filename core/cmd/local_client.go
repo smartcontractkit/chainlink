@@ -950,6 +950,10 @@ func dumpSchema(dbURL url.URL) (string, error) {
 
 	schema, err := cmd.Output()
 	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
+		}
 		return "", fmt.Errorf("failed to dump schema: %v", err)
 	}
 	return string(schema), nil
