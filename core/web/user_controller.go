@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	clsession "github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	clsession "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // UserController manages the current Session's User.
@@ -123,7 +123,7 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 	if request.NewRole == "" {
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("newrole flag is empty, must specify a new role, possible options are 'admin', 'edit', 'run', 'view'"))
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("new-role flag is empty, must specify a new role, possible options are 'admin', 'edit', 'run', 'view'"))
 		return
 	}
 	_, err := clsession.GetUserRole(request.NewRole)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // CosmosNodePresenter implements TableRenderer for a CosmosNodeResource.

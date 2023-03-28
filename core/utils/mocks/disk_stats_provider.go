@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	utils "github.com/smartcontractkit/chainlink/core/utils"
+	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	mock "github.com/stretchr/testify/mock"
 )
 
