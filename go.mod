@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink
+module github.com/smartcontractkit/chainlink/v2
 
 go 1.20
 

@@ -11,8 +11,8 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 )
 
 type StarknetConfigs []*StarknetConfig

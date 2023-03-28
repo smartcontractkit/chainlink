@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{

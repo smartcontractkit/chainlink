@@ -5,41 +5,41 @@ package mocks
 import (
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
-	bridges "github.com/smartcontractkit/chainlink/core/bridges"
+	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 
-	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	context "context"
 
-	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
+	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 
-	job "github.com/smartcontractkit/chainlink/core/services/job"
+	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
-	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
+	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	logger "github.com/smartcontractkit/chainlink/core/logger"
+	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
-	services "github.com/smartcontractkit/chainlink/core/services"
+	services "github.com/smartcontractkit/chainlink/v2/core/services"
 
-	sessions "github.com/smartcontractkit/chainlink/core/sessions"
+	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
 	sqlx "github.com/smartcontractkit/sqlx"
 
-	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	uuid "github.com/satori/go.uuid"
 
-	webhook "github.com/smartcontractkit/chainlink/core/services/webhook"
+	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
