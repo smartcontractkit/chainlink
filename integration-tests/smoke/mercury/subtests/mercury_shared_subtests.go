@@ -252,7 +252,7 @@ func RunTestReportVerificationWithExchangerContract(t *testing.T, te *mercury.Te
 			mercuryUrlPath, err := exchangerContract.ResolveTrade(encodedCommitment)
 			require.NoError(t, err)
 
-			d := 2 * time.Second
+			d := 5 * time.Second
 			log.Info().Msgf("Wait for %s report to be generated and available on the mercury server..", d)
 			time.Sleep(d)
 
