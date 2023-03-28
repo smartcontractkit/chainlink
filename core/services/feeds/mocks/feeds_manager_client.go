@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	proto "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
+	proto "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 	mock "github.com/stretchr/testify/mock"
 )
 

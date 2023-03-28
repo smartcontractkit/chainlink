@@ -1,4 +1,4 @@
-package directrequestocr_test
+package functions_test
 
 import (
 	"fmt"
@@ -6,15 +6,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 )
 
 func TestDRCodec_EncodeDecodeSuccess(t *testing.T) {
 	t.Parallel()
-	codec, err := directrequestocr.NewReportCodec()
+	codec, err := functions.NewReportCodec()
 	require.NoError(t, err)
 
-	var report = []*directrequestocr.ProcessedRequest{
+	var report = []*functions.ProcessedRequest{
 		{
 			RequestID: []byte(fmt.Sprintf("%032d", 123)),
 			Result:    []byte("abcd"),

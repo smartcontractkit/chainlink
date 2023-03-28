@@ -4,10 +4,10 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	functions "github.com/smartcontractkit/chainlink/core/services/functions"
+	functions "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	time "time"
 )

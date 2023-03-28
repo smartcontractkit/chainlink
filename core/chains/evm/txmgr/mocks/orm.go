@@ -8,17 +8,17 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	time "time"
 
-	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	types "github.com/smartcontractkit/chainlink/common/txmgr/types"
+	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	uuid "github.com/satori/go.uuid"
 )
