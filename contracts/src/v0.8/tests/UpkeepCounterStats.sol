@@ -195,7 +195,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
 
       uint16 bucket = upkeepIdsToBucket[upkeepId];
       uint256[] memory bucketedDelays = upkeepIdsToBucketedDelays[upkeepId][bucket];
-      if (bucketedDelays.length == 50) {
+      if (bucketedDelays.length == 100) {
         bucket++;
       }
       upkeepIdsToBucketedDelays[upkeepId][bucket].push(delay);
