@@ -14,8 +14,11 @@ import (
 	"github.com/urfave/cli"
 
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -29,9 +32,18 @@ import (
 
 func TestClient_SendCosmosCoins(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
-	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
+	accounts, _, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID)
+	node := coscfg.Node{
+		Name:          ptr("second"),
+		TendermintURL: utils.MustParseURL(tendermintURL),
+	}
+	chaincfg := cosmos.CosmosConfig{
+		ChainID: ptr(chainID),
+		Enabled: ptr(true),
+		Nodes:   cosmos.CosmosNodes{&node},
+	}
 	require.Greater(t, len(accounts), 1)
-	app := cosmosStartNewApplication(t)
+	app := cosmosStartNewApplication(t, &chaincfg)
 
 	from := accounts[0]
 	to := accounts[1]
