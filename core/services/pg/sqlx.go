@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name Queryer --output ./mocks/ --case=underscore
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext
