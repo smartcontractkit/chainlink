@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -47,16 +46,6 @@ type Config interface {
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
-}
-
-// KeyStore encompasses the subset of keystore used by txmgr
-type KeyStore interface {
-	CheckEnabled(address common.Address, chainID *big.Int) error
-	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
-	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 }
 
 // For more information about the Txm architecture, see the design doc:
@@ -99,7 +88,7 @@ type Txm struct {
 	q                pg.Q
 	ethClient        evmclient.Client
 	config           Config
-	keyStore         KeyStore
+	keyStore         txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	eventBroadcaster pg.EventBroadcaster
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
@@ -126,7 +115,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrtypes.KeyStore[common.Address, *big.Int, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
 	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx, EthTxAttempt],
 ) *Txm {
@@ -169,20 +158,20 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 // The provided context can be used to terminate Start sequence.
 func (b *Txm) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
-		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
+		enabledAddresses, err := b.keyStore.EnabledAddressesForChain(&b.chainID)
 		if err != nil {
 			return errors.Wrap(err, "Txm: failed to load key states")
 		}
 
-		if len(keyStates) > 0 {
-			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(keyStates)), "keys", keyStates)
+		if len(enabledAddresses) > 0 {
+			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(enabledAddresses)), "keys", enabledAddresses)
 		} else {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
-		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
@@ -195,7 +184,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, keyStates)
+		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, enabledAddresses)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -291,7 +280,7 @@ func (b *Txm) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
+func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []common.Address) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -324,8 +313,8 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, keyStates, b.resumeCallback, b.txAttemptBuilder, b.logger)
+		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
+		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -422,13 +411,13 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 				continue
 			}
 			var err error
-			keyStates, err = b.keyStore.GetStatesForChain(&b.chainID)
+			enabledAddresses, err = b.keyStore.EnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
-			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", enabledAddresses)
 
 			execReset(nil)
 		}
