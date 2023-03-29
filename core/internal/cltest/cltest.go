@@ -398,7 +398,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if len(ids) > 0 {
 		o := chainCfgs
 		if o == nil {
-			if err = cosmos.EnsureChains(db, lggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, lggr, cfg, ids); err != nil {
 				t.Fatal(err)
 			}
 		}
