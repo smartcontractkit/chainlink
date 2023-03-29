@@ -146,6 +146,8 @@ var (
 	BlockInterval, _        = strconv.ParseInt(getEnv("BLOCKINTERVAL", "20"), 0, 64)
 	NumberOfNodes, _        = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 	ChainlinkNodeFunding, _ = strconv.ParseFloat(getEnv("CHAINLINKNODEFUNDING", "0.5"), 64)
+	MaxPerformGas, _        = strconv.ParseInt(getEnv("MAXPERFORMGAS", "5000000"), 0, 32)
+	UpkeepGasLimit, _       = strconv.ParseInt(getEnv("UPKEEPGASLIMIT", string(MaxPerformGas+50000)), 0, 64)
 )
 
 type BenchmarkTestEntry struct {
@@ -183,7 +185,7 @@ func TestAutomationBenchmark(t *testing.T) {
 				CheckGasLimit:        uint32(45000000), //45M
 				StalenessSeconds:     big.NewInt(90000),
 				GasCeilingMultiplier: uint16(2),
-				MaxPerformGas:        uint32(5000000), //5M
+				MaxPerformGas:        uint32(MaxPerformGas),
 				MinUpkeepSpend:       big.NewInt(0),
 				FallbackGasPrice:     big.NewInt(2e11),
 				FallbackLinkPrice:    big.NewInt(2e18),
@@ -195,7 +197,7 @@ func TestAutomationBenchmark(t *testing.T) {
 			BlockRange:            BlockRange,
 			BlockInterval:         BlockInterval,
 			ChainlinkNodeFunding:  benchmarkTestEntry.funding,
-			UpkeepGasLimit:        PerformGasToBurn + 50000,
+			UpkeepGasLimit:        UpkeepGasLimit,
 			UpkeepSLA:             benchmarkTestEntry.upkeepSLA,
 			FirstEligibleBuffer:   1,
 			PreDeployedConsumers:  benchmarkTestEntry.predeployedConsumers,
