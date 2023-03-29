@@ -61,10 +61,9 @@ type Config struct {
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
 
-	// Node config verification
+	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
-	AutomationURL string `mapstructure:"AUTOMATION_URL"`
-	LookBackDepth uint64 `mapstructure:"LOOK_BACK_DEPTH"`
+	VerifyNodes   bool   `mapstructure:"VERIFY_NODES"`
 
 	// Feeds config
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
@@ -125,7 +124,7 @@ func init() {
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 1)
 	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
-	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.8.0-root")
+	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.13.0-root")
 	viper.SetDefault("POSTGRES_DOCKER_IMAGE", "postgres:latest")
 
 	// Represented in WEI, which is 100 Ether
