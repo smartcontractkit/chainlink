@@ -105,15 +105,15 @@ func ConfigureOCRv2Contracts(
 	return client.WaitForEvents()
 }
 
-// BuildDefaultOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard aggregation job
-func BuildDefaultOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
+// BuildMedianOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard median aggregation job
+func BuildMedianOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentities(workerNodes)
 	if err != nil {
 		return nil, err
 	}
 	signerKeys, transmitterAccounts, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		30*time.Second,   // deltaProgress time.Duration,
-		10*time.Second,   // deltaResend time.Duration,
+		30*time.Second,   // deltaResend time.Duration,
 		10*time.Second,   // deltaRound time.Duration,
 		20*time.Second,   // deltaGrace time.Duration,
 		20*time.Second,   // deltaStage time.Duration,
@@ -125,7 +125,7 @@ func BuildDefaultOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Co
 			AlphaReportPPB:      1,
 			AlphaAcceptInfinite: false,
 			AlphaAcceptPPB:      1,
-			DeltaC:              0,
+			DeltaC:              time.Minute * 30,
 		}.Encode(), // reportingPluginConfig []byte,
 		5*time.Second, // maxDurationQuery time.Duration,
 		5*time.Second, // maxDurationObservation time.Duration,
@@ -230,7 +230,7 @@ func GetOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
 			S[index] = 1
-			log.Warn().
+			log.Debug().
 				Interface("OnChainPK", onchainPkBytes).
 				Interface("OffChainPK", offchainPkBytesFixed).
 				Interface("ConfigPK", configPkBytesFixed).

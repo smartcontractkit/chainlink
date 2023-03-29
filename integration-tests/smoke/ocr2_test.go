@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -60,7 +59,7 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	ocrv2Config, err := actions.BuildDefaultOCR2Config(workerNodes)
+	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
 
 	err = actions.ConfigureOCRv2Contracts(chainClient, ocrv2Config, aggregatorContracts)
@@ -102,7 +101,7 @@ func setupOCR2Test(t *testing.T) (
 		})
 	}
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCR2TomlConfig, testNetwork),
+		"toml":     client.AddNetworksConfig(config.BaseOCR2Config, testNetwork),
 		"replicas": 6,
 	})
 
@@ -113,11 +112,7 @@ func setupOCR2Test(t *testing.T) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart).
-		AddChart(blockscout.New(&blockscout.Props{
-			Name:    "geth-blockscout",
-			WsURL:   testNetwork.URLs[0],
-			HttpURL: testNetwork.HTTPURLs[0]}))
+		AddHelm(chainlinkChart)
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
