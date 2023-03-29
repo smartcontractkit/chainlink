@@ -2,6 +2,10 @@ package smoke
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+	"testing"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -9,9 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"math/big"
-	"strings"
-	"testing"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -85,6 +86,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 }
 
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
+	t.Skip("Skipping TestOCR2VRFFulfillmentModel until https://smartcontract-it.atlassian.net/browse/VRF-422 is resolved")
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
