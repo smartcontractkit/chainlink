@@ -9,35 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// Event contains metadata about a VRF randomness request or fulfillment.
-type Event struct {
-	// ID of the relevant VRF request. For a VRF V1 request, this will an encoded 32 byte array.
-	// For VRF V2, it will be an integer in string form.
-	ID string
-
-	// Block that the request or fulfillment was included in.
-	Block uint64
-}
-
-// Coordinator defines an interface for fetching request and fulfillment metadata from a VRF
-// coordinator.
-type Coordinator interface {
-	// Requests fetches VRF requests that occurred within the specified blocks.
-	Requests(ctx context.Context, fromBlock uint64, toBlock uint64) ([]Event, error)
-
-	// Fulfillments fetches VRF fulfillments that occurred since the specified block.
-	Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error)
-}
-
-// BHS defines an interface for interacting with a BlockhashStore contract.
-type BHS interface {
-	// Store the hash associated with blockNum.
-	Store(ctx context.Context, blockNum uint64) error
-
-	// IsStored checks whether the hash associated with blockNum is already stored.
-	IsStored(ctx context.Context, blockNum uint64) (bool, error)
-}
-
 // NewFeeder creates a new Feeder instance.
 func NewFeeder(
 	logger logger.Logger,
@@ -81,51 +52,16 @@ func (f *Feeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	var (
-		fromBlock        = int(latestBlock) - f.lookbackBlocks
-		toBlock          = int(latestBlock) - f.waitBlocks
-		blockToRequests  = make(map[uint64]map[string]struct{})
-		requestIDToBlock = make(map[string]uint64)
-	)
-	if fromBlock < 0 {
-		fromBlock = 0
-	}
-	if toBlock < 0 {
+	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks)
+	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
 	}
-	reqs, err := f.coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
-	if err != nil {
-		f.lggr.Errorw("Failed to fetch VRF requests",
-			"error", err,
-			"latestBlock", latestBlock,
-			"fromBlock", fromBlock,
-			"toBlock", toBlock)
-		return errors.Wrap(err, "fetching VRF requests")
-	}
-	for _, req := range reqs {
-		if _, ok := blockToRequests[req.Block]; !ok {
-			blockToRequests[req.Block] = make(map[string]struct{})
-		}
-		blockToRequests[req.Block][req.ID] = struct{}{}
-		requestIDToBlock[req.ID] = req.Block
-	}
 
-	fuls, err := f.coordinator.Fulfillments(ctx, uint64(fromBlock))
+	lggr := f.lggr.With("latestBlock", latestBlock, "fromBlock", fromBlock, "toBlock", toBlock)
+	blockToRequests, err := GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
 	if err != nil {
-		f.lggr.Errorw("Failed to fetch VRF fulfillments",
-			"error", err,
-			"latestBlock", latestBlock,
-			"fromBlock", fromBlock,
-			"toBlock", toBlock)
-		return errors.Wrap(err, "fetching VRF fulfillments")
-	}
-	for _, ful := range fuls {
-		requestBlock, ok := requestIDToBlock[ful.ID]
-		if !ok {
-			continue
-		}
-		delete(blockToRequests[requestBlock], ful.ID)
+		return err
 	}
 
 	var errs error
@@ -146,7 +82,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		} else if stored {
 			f.lggr.Infow("Blockhash already stored",
 				"block", block, "latestBlock", latestBlock,
-				"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
+				"unfulfilledReqIDs", LimitReqIDs(unfulfilledReqs, 50))
 			f.stored[block] = struct{}{}
 			continue
 		}
@@ -161,13 +97,13 @@ func (f *Feeder) Run(ctx context.Context) error {
 
 		f.lggr.Infow("Stored blockhash",
 			"block", block, "latestBlock", latestBlock,
-			"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
+			"unfulfilledReqIDs", LimitReqIDs(unfulfilledReqs, 50))
 		f.stored[block] = struct{}{}
 	}
 
 	if f.lastRunBlock != 0 {
 		// Prune stored, anything older than fromBlock can be discarded
-		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < uint64(fromBlock); block++ {
+		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ {
 			if _, ok := f.stored[block]; ok {
 				delete(f.stored, block)
 				f.lggr.Debugw("Pruned block from stored cache",
@@ -177,16 +113,4 @@ func (f *Feeder) Run(ctx context.Context) error {
 	}
 	f.lastRunBlock = latestBlock
 	return errs
-}
-
-// limitReqIDs converts a set of request IDs to a slice limited to 50 IDs max.
-func limitReqIDs(reqs map[string]struct{}) []string {
-	var reqIDs []string
-	for id := range reqs {
-		reqIDs = append(reqIDs, id)
-		if len(reqIDs) >= 50 {
-			break
-		}
-	}
-	return reqIDs
 }

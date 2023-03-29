@@ -37,6 +37,7 @@ const (
 	KeeperJobType             string = "keeper"
 	VRFJobType                string = "vrf"
 	BlockhashStoreJobType     string = "blockhashstore"
+	BlockHeaderFeederJobType  string = "blockheaderfeeder"
 	WebhookJobType            string = "webhook"
 	BootstrapJobType          string = "bootstrap"
 )
