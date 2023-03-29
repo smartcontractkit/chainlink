@@ -2,10 +2,6 @@ package smoke
 
 import (
 	"fmt"
-	"math/big"
-	"strings"
-	"testing"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -13,6 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"math/big"
+	"strings"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -74,6 +73,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
 		subID,
 		ocr2vrf_constants.ConfirmationDelay,
+		ocr2vrf_constants.RandomnessRedeemTransmissionEventTimeout,
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
@@ -125,7 +125,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		testNetwork,
 	)
 
-	requestID := ocr2vrf_actions.RequestRandomnessFulfillment(
+	requestID := ocr2vrf_actions.RequestRandomnessFulfillmentAndWaitForFulfilment(
 		t,
 		consumerContract,
 		chainClient,
@@ -133,6 +133,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
 		subID,
 		ocr2vrf_constants.ConfirmationDelay,
+		ocr2vrf_constants.RandomnessFulfilmentTransmissionEventTimeout,
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
