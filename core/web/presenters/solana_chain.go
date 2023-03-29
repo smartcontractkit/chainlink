@@ -3,7 +3,7 @@ package presenters
 import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
 // SolanaChainResource is an Solana chain JSONAPI resource.

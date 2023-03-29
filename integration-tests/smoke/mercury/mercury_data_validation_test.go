@@ -178,7 +178,7 @@ func validateNewReportsEveryBlock(
 			time.Sleep(callTimeout)
 
 			requestTime := time.Now()
-			reportData, _, err := msClient.GetReportsByFeedIdStr(string(mercury.Byte32ToString(feedId)), bn)
+			reportData, _, err := msClient.GetReportsByFeedId(string(mercury.Byte32ToString(feedId)), bn, client.StringFeedId)
 			if err != nil {
 				resultChan <- testResult{Id: validatorId, Err: err}
 				break

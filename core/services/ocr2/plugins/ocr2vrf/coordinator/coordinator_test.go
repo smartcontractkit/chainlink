@@ -23,17 +23,17 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	lp_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evm_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 func TestCoordinator_BeaconPeriod(t *testing.T) {

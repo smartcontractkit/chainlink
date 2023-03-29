@@ -14,17 +14,17 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 )
 
 const (
@@ -36,6 +36,7 @@ const (
 	Keeper             Type = (Type)(pipeline.KeeperJobType)
 	VRF                Type = (Type)(pipeline.VRFJobType)
 	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
+	BlockHeaderFeeder  Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 )
@@ -70,6 +71,7 @@ var (
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
+		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
 	}
 	supportsAsync = map[Type]bool{
@@ -82,6 +84,7 @@ var (
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
+		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
 	}
 	schemaVersions = map[Type]uint32{
@@ -94,44 +97,47 @@ var (
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
+		BlockHeaderFeeder:  1,
 		Bootstrap:          1,
 	}
 )
 
 type Job struct {
-	ID                   int32     `toml:"-"`
-	ExternalJobID        uuid.UUID `toml:"externalJobID"`
-	OCROracleSpecID      *int32
-	OCROracleSpec        *OCROracleSpec
-	OCR2OracleSpecID     *int32
-	OCR2OracleSpec       *OCR2OracleSpec
-	CronSpecID           *int32
-	CronSpec             *CronSpec
-	DirectRequestSpecID  *int32
-	DirectRequestSpec    *DirectRequestSpec
-	FluxMonitorSpecID    *int32
-	FluxMonitorSpec      *FluxMonitorSpec
-	KeeperSpecID         *int32
-	KeeperSpec           *KeeperSpec
-	VRFSpecID            *int32
-	VRFSpec              *VRFSpec
-	WebhookSpecID        *int32
-	WebhookSpec          *WebhookSpec
-	BlockhashStoreSpecID *int32
-	BlockhashStoreSpec   *BlockhashStoreSpec
-	BootstrapSpec        *BootstrapSpec
-	BootstrapSpecID      *int32
-	PipelineSpecID       int32
-	PipelineSpec         *pipeline.Spec
-	JobSpecErrors        []SpecError
-	Type                 Type
-	SchemaVersion        uint32
-	GasLimit             clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed    bool          `toml:"forwardingAllowed"`
-	Name                 null.String
-	MaxTaskDuration      models.Interval
-	Pipeline             pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt            time.Time
+	ID                      int32     `toml:"-"`
+	ExternalJobID           uuid.UUID `toml:"externalJobID"`
+	OCROracleSpecID         *int32
+	OCROracleSpec           *OCROracleSpec
+	OCR2OracleSpecID        *int32
+	OCR2OracleSpec          *OCR2OracleSpec
+	CronSpecID              *int32
+	CronSpec                *CronSpec
+	DirectRequestSpecID     *int32
+	DirectRequestSpec       *DirectRequestSpec
+	FluxMonitorSpecID       *int32
+	FluxMonitorSpec         *FluxMonitorSpec
+	KeeperSpecID            *int32
+	KeeperSpec              *KeeperSpec
+	VRFSpecID               *int32
+	VRFSpec                 *VRFSpec
+	WebhookSpecID           *int32
+	WebhookSpec             *WebhookSpec
+	BlockhashStoreSpecID    *int32
+	BlockhashStoreSpec      *BlockhashStoreSpec
+	BlockHeaderFeederSpecID *int32
+	BlockHeaderFeederSpec   *BlockHeaderFeederSpec
+	BootstrapSpec           *BootstrapSpec
+	BootstrapSpecID         *int32
+	PipelineSpecID          int32
+	PipelineSpec            *pipeline.Spec
+	JobSpecErrors           []SpecError
+	Type                    Type
+	SchemaVersion           uint32
+	GasLimit                clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed       bool          `toml:"forwardingAllowed"`
+	Name                    null.String
+	MaxTaskDuration         models.Interval
+	Pipeline                pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt               time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -495,11 +501,11 @@ type BlockhashStoreSpec struct {
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
 
-	// WaitBlocks defines the number of blocks to wait before a hash is stored.
-	WaitBlocks int32 `toml:"waitBlocks"`
-
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
@@ -516,6 +522,57 @@ type BlockhashStoreSpec struct {
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
+}
+
+// BlockHeaderFeederSpec defines the job spec for the blockhash store feeder.
+type BlockHeaderFeederSpec struct {
+	ID int32
+
+	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
+	// no V1 coordinator will be watched.
+	CoordinatorV1Address *ethkey.EIP55Address `toml:"coordinatorV1Address"`
+
+	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
+	// no V2 coordinator will be watched.
+	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
+
+	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
+	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
+
+	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
+	// into.
+	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
+
+	// BatchBlockhashStoreAddress is the address of the BatchBlockhashStore contract to store blockhashes
+	// into.
+	BatchBlockhashStoreAddress ethkey.EIP55Address `toml:"batchBlockhashStoreAddress"`
+
+	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
+	PollPeriod time.Duration `toml:"pollPeriod"`
+
+	// RunTimeout defines the timeout for a single run of the blockhash store feeder.
+	RunTimeout time.Duration `toml:"runTimeout"`
+
+	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// FromAddress is the sender address that should be used to store blockhashes.
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// GetBlockHashesBatchSize is the RPC call batch size for retrieving blockhashes
+	GetBlockhashesBatchSize uint16 `toml:"getBlockhashesBatchSize"`
+
+	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
+	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

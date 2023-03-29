@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
@@ -124,7 +124,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
-		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c := cli.NewContext(nil, set, nil)
@@ -137,7 +137,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
-		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c = cli.NewContext(nil, set, nil)
@@ -152,7 +152,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ImportKey, set, "solana")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
-		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(t, cmd.NewSolanaKeysClient(client).ImportKey(c))
 

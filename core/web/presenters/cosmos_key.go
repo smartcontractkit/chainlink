@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
 // CosmosKeyResource represents a Cosmos key JSONAPI resource.

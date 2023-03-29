@@ -10,7 +10,7 @@ import (
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 type ConnectionConfig interface {

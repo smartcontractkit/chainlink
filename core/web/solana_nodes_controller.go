@@ -3,8 +3,8 @@ package web
 import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // ErrSolanaNotEnabled is returned when Solana.Enabled is not true.

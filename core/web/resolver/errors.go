@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
 type ErrorCode string

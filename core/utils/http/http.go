@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type httpClientConfig interface {

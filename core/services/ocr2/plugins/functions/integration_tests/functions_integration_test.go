@@ -1,4 +1,4 @@
-package directrequestocr_test
+package functions_test
 
 import (
 	"encoding/hex"
@@ -13,11 +13,11 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	utils "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/test/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/internal"
 )
 
-func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
+func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	// a batch of 8 max-length results uses around 1M gas (assuming 70k gas per client callback - see FunctionsClientExample.sol)
 	nOracleNodes := 4
 	nClients := 50

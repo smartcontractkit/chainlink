@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,13 +18,13 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type encryptedKeyRing struct {

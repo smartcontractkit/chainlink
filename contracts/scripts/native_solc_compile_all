@@ -85,6 +85,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFSingleConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFOwnerlessConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestOwnerlessConsumer.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestExternalSubOwner.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2LoadTestWithMetrics.sol
 
 # Keepers x VRF v2
 $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol

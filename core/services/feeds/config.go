@@ -1,9 +1,9 @@
 package feeds
 
 import (
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

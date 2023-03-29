@@ -22,6 +22,7 @@ var (
 		Webhook:            {},
 		BlockhashStore:     {},
 		Bootstrap:          {},
+		BlockHeaderFeeder:  {},
 	}
 )
 
