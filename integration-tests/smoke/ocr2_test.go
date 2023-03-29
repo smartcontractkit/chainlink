@@ -30,6 +30,9 @@ import (
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	testEnvironment, testNetwork := setupOCR2Test(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")

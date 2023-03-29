@@ -262,6 +262,8 @@ func CreateOCRJobsWithForwarder(
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
 ) {
+	err := mockserver.SetValuePath(mockPath, mockValue)
+	require.NoError(t, err, "Shouldn't fail setting mock value")
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
