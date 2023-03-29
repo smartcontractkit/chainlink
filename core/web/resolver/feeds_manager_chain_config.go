@@ -119,6 +119,10 @@ func (r *OCR2JobConfigResolver) KeyBundleID() *string {
 	return r.cfg.KeyBundleID.Ptr()
 }
 
+func (r *OCR2JobConfigResolver) Plugins() *PluginsResolver {
+	return &PluginsResolver{plugins: r.cfg.Plugins}
+}
+
 // -- CreateFeedsManagerChainConfig Mutation --
 
 // CreateFeedsManagerChainConfigPayloadResolver resolves the response to

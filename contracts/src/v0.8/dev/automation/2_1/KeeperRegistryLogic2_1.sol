@@ -407,8 +407,13 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins, bytes[] memory offchainConfigs) = abi
-      .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
+    (
+      uint256[] memory ids,
+      Upkeep[] memory upkeeps,
+      bytes[] memory checkDatas,
+      address[] memory upkeepAdmins,
+      bytes[] memory offchainConfigs
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       _createUpkeep(
         ids[idx],

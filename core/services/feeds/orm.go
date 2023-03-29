@@ -40,7 +40,6 @@ type ORM interface {
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	ListJobProposals() (jps []JobProposal, err error)
 	ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
-	RevokeProposal(id int64, qopts ...pg.QOpt) error
 	UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...pg.QOpt) error // NEEDED?
 	UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (int64, error)
 
@@ -53,6 +52,7 @@ type ORM interface {
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
+	RevokeSpec(id int64, qopts ...pg.QOpt) error
 	UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) error
 
 	IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error)
@@ -422,6 +422,12 @@ DO
 	UPDATE SET
 		pending_update = TRUE,
 		name = EXCLUDED.name,
+		status = (
+			CASE
+				WHEN job_proposals.status = 'deleted' THEN 'deleted'::job_proposal_status
+				ELSE EXCLUDED.status
+			END
+		),
 		multiaddrs = EXCLUDED.multiaddrs,
 		updated_at = EXCLUDED.updated_at
 RETURNING id;
@@ -498,7 +504,6 @@ UPDATE job_proposals
 SET status = (
 		CASE
 			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
-			WHEN status = 'revoked' THEN 'revoked'::job_proposal_status
 			ELSE 'cancelled'::job_proposal_status
 		END
 	),
@@ -692,25 +697,51 @@ WHERE id = $1
 	return nil
 }
 
-// RevokeProposal revokes a job proposal with a pending job spec. An approved
+// RevokeSpec revokes a job proposal with a pending job spec. An approved
 // proposal cannot be revoked. A revoked proposal's job spec cannot be approved
 // or edited, but the job can be reproposed by FMS.
-func (o *orm) RevokeProposal(id int64, qopts ...pg.QOpt) error {
+func (o *orm) RevokeSpec(id int64, qopts ...pg.QOpt) error {
+	// Update the status of the spec
 	stmt := `
+UPDATE job_proposal_specs
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_spec_status
+			ELSE $2
+		END
+	),
+	status_updated_at = NOW(),
+	updated_at = NOW()
+WHERE id = $1
+RETURNING job_proposal_id;
+`
+
+	var jpID int64
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, id, SpecStatusRevoked); err != nil {
+		return err
+	}
+
+	stmt = `
 UPDATE job_proposals
 SET status = (
 		CASE
-			WHEN status = 'approved' THEN 'approved'::job_proposal_status
 			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
-			ELSE 'revoked'::job_proposal_status
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			ELSE $3
 		END
 	),
 	pending_update = FALSE,
+	external_job_id = (
+		CASE
+			WHEN status <> 'approved' THEN $2
+			ELSE job_proposals.external_job_id
+		END
+	),
 	updated_at = NOW()
 WHERE id = $1
 	`
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil, JobProposalStatusRevoked)
 	if err != nil {
 		return err
 	}
