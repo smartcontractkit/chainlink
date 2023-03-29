@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+...
+
+## 2.0.0 - UNRELEASED
+
 ### Added
 - Add OCR2 Plugin selection for FMS
 - Added kebab case aliases for the following flags:
