@@ -20,12 +20,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	cnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -37,6 +37,7 @@ const (
 	KeeperJobType             string = "keeper"
 	VRFJobType                string = "vrf"
 	BlockhashStoreJobType     string = "blockhashstore"
+	BlockHeaderFeederJobType  string = "blockheaderfeeder"
 	WebhookJobType            string = "webhook"
 	BootstrapJobType          string = "bootstrap"
 )

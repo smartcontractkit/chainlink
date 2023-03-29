@@ -8,9 +8,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestResolver_Nodes(t *testing.T) {
@@ -53,7 +54,7 @@ func TestResolver_Nodes(t *testing.T) {
 					},
 				}, 1, nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(types.ChainConfig{ID: chainID})
+				f.Mocks.evmORM.PutChains(chains.ChainConfig{ID: chainID.String()})
 			},
 			query: query,
 			result: `

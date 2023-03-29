@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	cosmoskey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
+	cosmoskey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 
 	mock "github.com/stretchr/testify/mock"
 )

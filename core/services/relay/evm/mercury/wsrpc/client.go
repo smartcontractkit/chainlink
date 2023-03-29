@@ -8,11 +8,11 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Client interface {
@@ -32,9 +32,14 @@ type client struct {
 	client pb.MercuryClient
 }
 
-func NewClient(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+// Consumers of wsrpc package should not usually call NewClient directly, but instead use the Pool
+func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+	return newClient(lggr, clientPrivKey, serverPubKey, serverURL)
+}
+
+func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *client {
 	return &client{
-		csaKey:       privKey,
+		csaKey:       clientPrivKey,
 		serverPubKey: serverPubKey,
 		serverURL:    serverURL,
 		logger:       lggr.Named("WSRPC"),

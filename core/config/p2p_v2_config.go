@@ -3,7 +3,7 @@ package config
 import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // P2PV2Networking is a subset of global config relevant to p2p v2 networking.

@@ -24,7 +24,7 @@ var (
 		},
 		DONDBResources: map[string]interface{}{
 			"stateful": "true",
-			"capacity": "10Gi",
+			"capacity": "2Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "500m",
@@ -58,3 +58,32 @@ var (
 		},
 	}
 )
+
+// Get mockserver resources depending on number of feeds in the DON
+func GetMockserverResources(feedCount int) map[string]interface{} {
+	var cpu, memory string
+
+	if feedCount > 4 {
+		cpu = "8000m"
+		memory = "8048Mi"
+	} else if feedCount > 1 {
+		cpu = "4000m"
+		memory = "4048Mi"
+	} else {
+		cpu = "2000m"
+		memory = "2560Mi"
+	}
+
+	return map[string]interface{}{
+		"app": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    cpu,
+				"memory": memory,
+			},
+			"limits": map[string]interface{}{
+				"cpu":    cpu,
+				"memory": memory,
+			},
+		},
+	}
+}

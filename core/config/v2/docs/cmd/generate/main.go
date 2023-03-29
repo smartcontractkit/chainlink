@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/smartcontractkit/chainlink/core/config/v2/docs"
+	"github.com/smartcontractkit/chainlink/v2/core/config/v2/docs"
 )
 
 var outDir = flag.String("o", "", "output directory")

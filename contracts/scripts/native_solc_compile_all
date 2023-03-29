@@ -50,6 +50,7 @@ $SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
 
+$SCRIPTPATH/native_solc8_6_compile mocks/MockAggregatorProxy.sol
 $SCRIPTPATH/native_solc8_6_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc8_6_compile VRFRequestIDBase.sol
@@ -84,6 +85,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFSingleConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFOwnerlessConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestOwnerlessConsumer.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestExternalSubOwner.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2LoadTestWithMetrics.sol
 
 # Keepers x VRF v2
 $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
@@ -110,3 +112,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
 $SCRIPTPATH/native_solc8_6_compile Verifier.sol
 $SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
 $SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
+
+# Mocks
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol

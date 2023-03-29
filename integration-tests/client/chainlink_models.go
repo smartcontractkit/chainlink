@@ -9,7 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -428,9 +428,9 @@ type CosmosChainConfig struct {
 
 // CosmosChainAttributes is the model that represents the terra chain
 type CosmosChainAttributes struct {
-	ChainID string           `json:"chainID"`
+	ChainID string            `json:"chainID"`
 	Config  CosmosChainConfig `json:"config"`
-	FCDURL  string           `json:"fcdURL" db:"fcd_url"`
+	FCDURL  string            `json:"fcdURL" db:"fcd_url"`
 }
 
 // CosmosChain is the model that represents the terra chain when read
@@ -446,7 +446,7 @@ type CosmosChainCreate struct {
 // CosmosNodeAttributes is the model that represents the terra noded
 type CosmosNodeAttributes struct {
 	Name          string `json:"name"`
-	CosmosChainID  string `json:"cosmosChainId"`
+	CosmosChainID string `json:"cosmosChainId"`
 	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
 }
 
@@ -965,6 +965,7 @@ type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
 	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
+	ForwardingAllowed bool   `toml:"forwardingAllowed"`
 	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
@@ -982,6 +983,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		Name                     string
 		JobType                  string
 		MaxTaskDuration          string
+		ForwardingAllowed        bool
 		ContractID               string
 		FeedID                   string
 		Relay                    string
@@ -1019,6 +1021,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
+forwardingAllowed                      = {{.ForwardingAllowed}}
 {{if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
 {{if .PluginType}}

@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type block struct {
@@ -377,6 +377,25 @@ func TestORM_IndexedLogs(t *testing.T) {
 	lgs, err = o1.SelectIndexedLogs(addr, eventSig, 1, []common.Hash{logpoller.EvmWord(1), logpoller.EvmWord(2)}, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
+
+	lgs, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 1, addr, eventSig, 1, []common.Hash{logpoller.EvmWord(1)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	lgs, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 2, addr, eventSig, 1, []common.Hash{logpoller.EvmWord(2)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	lgs, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 2, addr, eventSig, 1, []common.Hash{logpoller.EvmWord(1)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	_, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 2, addr, eventSig, 0, []common.Hash{logpoller.EvmWord(1)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid index for topic: 0")
+	_, err = o1.SelectIndexedLogsByBlockRangeFilter(1, 2, addr, eventSig, 4, []common.Hash{logpoller.EvmWord(1)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid index for topic: 4")
 
 	lgs, err = o1.SelectIndexLogsTopicGreaterThan(addr, eventSig, 1, logpoller.EvmWord(2), 0)
 	require.NoError(t, err)

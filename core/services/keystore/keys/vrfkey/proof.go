@@ -6,9 +6,9 @@ import (
 
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	bm "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // Proof represents a proof that Gamma was constructed from the Seed

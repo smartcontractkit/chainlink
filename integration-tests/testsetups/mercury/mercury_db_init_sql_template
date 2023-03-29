@@ -89,6 +89,34 @@ CREATE TABLE IF NOT EXISTS reports  (
     UPDATE users SET username = id; -- Copy the uuid for the user (id) to the username column so we can set a NOT NULL constraint
     ALTER TABLE users ALTER COLUMN username SET NOT NULL;
     CREATE INDEX IF NOT EXISTS users_username_idx ON users (username);
+
+-- This will send a message to the "new_report_added" channel when a report is created.
+-- Mercury Server listens to this channel, and each instance will notify clients about this new report via WS.
+CREATE OR REPLACE FUNCTION notify_new_report_added()
+    RETURNS trigger AS
+$$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        RAISE NOTICE '% has created, sending notify message to new_report_added', NEW.id::text;
+        PERFORM pg_notify('new_report_added', NEW.id::text); --id is an int, but the second param of pg_notify requires text, so cast
+        RETURN NEW;
+    END IF;
+
+    RAISE NOTICE 'notify_new_report_added() only works on INSERT, not %', TG_OP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER create_report_notify_new_report_added_channel
+    AFTER INSERT
+    ON reports
+    FOR EACH ROW
+EXECUTE PROCEDURE notify_new_report_added();
+
+ALTER TABLE reports ADD COLUMN bid NUMERIC(58, 0);
+ALTER TABLE reports ADD COLUMN ask NUMERIC(58, 0);
+ALTER TABLE reports ADD COLUMN operator_name TEXT;
+
     {{range .}}
     INSERT INTO users (id, secret, role, disabled, username) VALUES ('{{ .Id }}', '{{ .Secret }}', '{{ .Role }}', '{{ .Disabled }}', '{{ .Id }}');
     {{end}}

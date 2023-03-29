@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type (
@@ -124,12 +124,12 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		"address", address.Hex(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
 	// Need to remember to decrement the chain nonce by one to account for in_progress transaction
-	newNextNonce := chainNonce
+	newNextNonce := int64(chainNonce)
 	if hasInProgressTransaction {
 		newNextNonce--
 	}
 
-	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, uint64(keyNextNonce), address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.orm.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, address, *s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())

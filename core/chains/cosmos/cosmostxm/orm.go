@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // ORM manages the data model for cosmos tx management.
@@ -22,7 +22,7 @@ type ORM struct {
 
 // NewORM creates an ORM scoped to chainID.
 func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
-	namedLogger := lggr.Named("ORM")
+	namedLogger := lggr.Named("Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
 		chainID: chainID,
