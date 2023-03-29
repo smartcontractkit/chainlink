@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -102,8 +101,8 @@ type EthBroadcaster struct {
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
-	ks        KeyStore
-	keyStates []ethkey.State
+	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64]
+	addresses []gethCommon.Address
 
 	checkerFactory TransmitCheckerFactory
 
@@ -119,9 +118,10 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keystore KeyStore,
+func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config,
+	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
 	eventBroadcaster pg.EventBroadcaster,
-	keyStates []ethkey.State, resumeCallback ResumeCallback,
+	addresses []gethCommon.Address, resumeCallback ResumeCallback,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
 	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
@@ -137,7 +137,7 @@ func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keyst
 		config:           config,
 		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,
-		keyStates:        keyStates,
+		addresses:        addresses,
 		checkerFactory:   checkerFactory,
 		triggers:         triggers,
 		chStop:           make(chan struct{}),
@@ -155,10 +155,10 @@ func (eb *EthBroadcaster) Start(ctx context.Context) error {
 			return errors.Wrap(err, "EthBroadcaster could not start")
 		}
 
-		eb.wg.Add(len(eb.keyStates))
-		for _, k := range eb.keyStates {
+		eb.wg.Add(len(eb.addresses))
+		for _, k := range eb.addresses {
 			triggerCh := make(chan struct{}, 1)
-			eb.triggers[k.Address.Address()] = triggerCh
+			eb.triggers[k] = triggerCh
 			go eb.monitorEthTxs(k, triggerCh)
 		}
 
@@ -244,20 +244,20 @@ func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
 	}
 }
 
-func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{}) {
+func (eb *EthBroadcaster) monitorEthTxs(k gethCommon.Address, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 
 	ctx, cancel := utils.ContextFromChan(eb.chStop)
 	defer cancel()
 
 	if eb.autoSyncNonce {
-		eb.logger.Debugw("Auto-syncing nonce", "address", k.Address)
+		eb.logger.Debugw("Auto-syncing nonce", "address", k)
 		eb.SyncNonce(ctx, k)
 		if ctx.Err() != nil {
 			return
 		}
 	} else {
-		eb.logger.Debugw("Skipping nonce auto-sync", "address", k.Address)
+		eb.logger.Debugw("Skipping nonce auto-sync", "address", k)
 	}
 
 	// errorRetryCh allows retry on exponential backoff in case of timeout or
@@ -306,17 +306,13 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 }
 
 // syncNonce tries to sync the key nonce, retrying indefinitely until success
-func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
-	if k.Disabled {
-		eb.logger.Infow("Skipping nonce sync for disabled key", "address", k.Address)
-		return
-	}
+func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k gethCommon.Address) {
 	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ks)
 	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
 	if err := syncer.Sync(ctx, k); err != nil {
 		// Enter retry loop with backoff
 		var attempt int
-		eb.logger.Errorw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+		eb.logger.Errorw("Failed to sync with on-chain nonce", "address", k, "attempt", attempt, "err", err)
 		for {
 			select {
 			case <-eb.chStop:
@@ -326,10 +322,10 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 
 				if err := syncer.Sync(ctx, k); err != nil {
 					if attempt > 5 {
-						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", k, "attempt", attempt, "err", err)
 						eb.SvcErrBuffer.Append(err)
 					} else {
-						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
+						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", k, "attempt", attempt, "err", err)
 					}
 					continue
 				}
@@ -341,8 +337,8 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 
 // ProcessUnstartedEthTxs picks up and handles all eth_txes in the queue
 // revive:disable:error-return
-func (eb *EthBroadcaster) ProcessUnstartedEthTxs(ctx context.Context, keyState ethkey.State) (err error, retryable bool) {
-	return eb.processUnstartedEthTxs(ctx, keyState.Address.Address())
+func (eb *EthBroadcaster) ProcessUnstartedEthTxs(ctx context.Context, address gethCommon.Address) (err error, retryable bool) {
+	return eb.processUnstartedEthTxs(ctx, address)
 }
 
 // NOTE: This MUST NOT be run concurrently for the same address or it could
@@ -749,11 +745,11 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 }
 
 func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
-	return eb.ks.GetNextNonce(address, &eb.chainID)
+	return eb.ks.NextSequence(address, &eb.chainID)
 }
 
 func (eb *EthBroadcaster) incrementNextNonce(address gethCommon.Address, currentNonce int64, qopts ...pg.QOpt) error {
-	return eb.ks.IncrementNextNonce(address, &eb.chainID, currentNonce, qopts...)
+	return eb.ks.IncrementNextSequence(address, &eb.chainID, currentNonce, qopts...)
 }
 
 func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {
