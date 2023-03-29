@@ -40,7 +40,9 @@ Enabled = true
 [P2P.V2]
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
+ListenAddresses = ["0.0.0.0:6690"]
+[Keeper]
+TurnLookBack = 0`
 
 	simulatedEVMNonDevTOML = `
 [[EVM]]
@@ -55,9 +57,7 @@ HistoryDepth = 100
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
-LimitDefault = 5_000_000
-[Keeper]
-TurnLookBack = 0`
+LimitDefault = 5_000_000`
 
 	keeperBenchmarkEnvVars = map[string]any{
 		"FEATURE_LOG_POLLER":                   "true",
