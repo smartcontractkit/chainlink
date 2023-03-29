@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -44,7 +44,7 @@ type contractTrackerUni struct {
 	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
 	hb                  *htmocks.HeadBroadcaster
-	ec                  *evmmocks.Client
+	ec                  *evmclimocks.Client
 	requestRoundTracker *evm.RequestRoundTracker
 }
 
@@ -76,7 +76,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.db = mocks.NewRequestRoundDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
 	uni.hb = htmocks.NewHeadBroadcaster(t)
-	uni.ec = evmmocks.NewClient(t)
+	uni.ec = evmclimocks.NewClient(t)
 
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
