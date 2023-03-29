@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
-	utilsmocks "github.com/smartcontractkit/chainlink/core/utils/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	utilsmocks "github.com/smartcontractkit/chainlink/v2/core/utils/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

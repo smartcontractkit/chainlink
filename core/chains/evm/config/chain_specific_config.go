@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 )
 
 // TODO move to evmtest?

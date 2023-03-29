@@ -16,14 +16,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	cnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type EvmReceipt = txmgrtypes.Receipt[evmtypes.Receipt, common.Hash]
@@ -56,6 +56,11 @@ type EthTxMeta struct {
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
 	FwdrDestAddress *common.Address `json:"ForwarderDestAddress,omitempty"`
+
+	// MessageIDs is used by CCIP for tx to executed messages correlation in logs
+	MessageIDs []string `json:"MessageIDs,omitempty"`
+	// SeqNumbers is used by CCIP for tx to committed sequence numbers correlation in logs
+	SeqNumbers []uint64 `json:"SeqNumbers,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -262,6 +267,16 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 
 		if meta.FwdrDestAddress != nil {
 			lgr = lgr.With("FwdrDestAddress", *meta.FwdrDestAddress)
+		}
+
+		if len(meta.MessageIDs) > 0 {
+			for _, mid := range meta.MessageIDs {
+				lgr = lgr.With("messageID", mid)
+			}
+		}
+
+		if len(meta.SeqNumbers) > 0 {
+			lgr = lgr.With("SeqNumbers", meta.SeqNumbers)
 		}
 	}
 

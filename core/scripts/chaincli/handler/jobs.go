@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func (k *Keeper) CreateJob(ctx context.Context) {

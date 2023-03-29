@@ -13,25 +13,25 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainScopedConfig {
@@ -231,22 +231,22 @@ func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]ev
 	panic("not implemented")
 }
 
-func NewEthClientMock(t *testing.T) *evmMocks.Client {
-	return evmMocks.NewClient(t)
+func NewEthClientMock(t *testing.T) *evmclimocks.Client {
+	return evmclimocks.NewClient(t)
 }
 
-func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
+func NewEthClientMockWithDefaultChain(t *testing.T) *evmclimocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(testutils.FixtureChainID).Maybe()
 	return c
 }
 
 type MockEth struct {
-	EthClient       *evmMocks.Client
+	EthClient       *evmclimocks.Client
 	CheckFilterLogs func(int64, int64)
 
 	subsMu           sync.RWMutex
-	subs             []*evmMocks.Subscription
+	subs             []*evmmocks.Subscription
 	errChs           []chan error
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
@@ -262,7 +262,7 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Add(1)
-	sub := evmMocks.NewSubscription(t)
+	sub := evmmocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
 		Return(func() <-chan error { return errCh }).Maybe()
