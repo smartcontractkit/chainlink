@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -25,8 +25,8 @@ import (
 
 var nilBigInt *big.Int
 
-func newEthClientMock(t *testing.T) *evmmocks.Client {
-	mockEth := evmmocks.NewClient(t)
+func newEthClientMock(t *testing.T) *evmclimocks.Client {
+	mockEth := evmclimocks.NewClient(t)
 	mockEth.On("ChainID").Maybe().Return(big.NewInt(0))
 	return mockEth
 }

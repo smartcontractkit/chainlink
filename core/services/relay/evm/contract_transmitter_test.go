@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,7 +35,7 @@ func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	c := evmmocks.NewClient(t)
+	c := evmclimocks.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	// scanLogs = false
 	digestAndEpochDontScanLogs, _ := hex.DecodeString(
