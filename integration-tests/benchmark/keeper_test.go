@@ -271,7 +271,7 @@ var tests = map[string]*BenchmarkTestEntry{
 		int64(20),
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
-		time.Second,
+		3 * time.Second,
 	},
 	"GoerliTestnetRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
@@ -363,7 +363,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	l := utils.GetTestLogger(t)
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
-	blockTime := "1"
+	blockTime := "3"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
 	if registryToTest == "Registry_2_0" {
