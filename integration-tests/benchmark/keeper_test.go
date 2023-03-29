@@ -333,7 +333,15 @@ var tests = map[string]*BenchmarkTestEntry{
 		int64(10),
 		predeployedConsumersMumbai,
 		upkeepResetterContractMumbai,
-		5 * time.Second,
+		3 * time.Second,
+	},
+	"PolygonMumbaiRegistry_1_2": {
+		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
+		big.NewFloat(ChainlinkNodeFunding),
+		int64(10),
+		predeployedConsumersMumbai,
+		upkeepResetterContractMumbai,
+		3 * time.Second,
 	},
 }
 
