@@ -55,7 +55,9 @@ HistoryDepth = 100
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
+LimitDefault = 5_000_000
+[Keeper]
+TurnLookBack = 0`
 
 	keeperBenchmarkEnvVars = map[string]any{
 		"FEATURE_LOG_POLLER":                   "true",
