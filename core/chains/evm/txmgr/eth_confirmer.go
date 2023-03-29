@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -122,7 +121,7 @@ type EthConfirmer struct {
 	config         Config
 	chainID        big.Int
 
-	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64]
+	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64]
 	addresses []gethCommon.Address
 
 	mb        *utils.Mailbox[*evmtypes.Head]
@@ -135,7 +134,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config,
-	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
+	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
 	addresses []gethCommon.Address, resumeCallback ResumeCallback,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
 	lggr logger.Logger) *EthConfirmer {

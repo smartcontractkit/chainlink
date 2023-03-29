@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -102,7 +101,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
-	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64]
+	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64]
 	addresses []gethCommon.Address
 
 	checkerFactory TransmitCheckerFactory
@@ -120,7 +119,7 @@ type EthBroadcaster struct {
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config,
-	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, gethTypes.Transaction, int64],
+	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
 	eventBroadcaster pg.EventBroadcaster,
 	addresses []gethCommon.Address, resumeCallback ResumeCallback,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],

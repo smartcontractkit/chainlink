@@ -61,7 +61,7 @@ type eth struct {
 
 var _ Eth = &eth{}
 
-var _ txmgrtypes.KeyStore[common.Address, *big.Int, types.Transaction, int64] = (*eth)(nil)
+var _ txmgrtypes.KeyStore[common.Address, *big.Int, int64] = (*eth)(nil)
 
 func newEthKeyStore(km *keyManager) *eth {
 	return &eth{

@@ -88,7 +88,7 @@ type Txm struct {
 	q                pg.Q
 	ethClient        evmclient.Client
 	config           Config
-	keyStore         txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64]
+	keyStore         txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	eventBroadcaster pg.EventBroadcaster
 	chainID          big.Int
 	checkerFactory   TransmitCheckerFactory
@@ -115,7 +115,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrtypes.KeyStore[common.Address, *big.Int, gethTypes.Transaction, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrtypes.KeyStore[common.Address, *big.Int, int64], eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory,
 	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx, EthTxAttempt],
 ) *Txm {
