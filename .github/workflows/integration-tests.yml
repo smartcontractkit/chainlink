@@ -175,6 +175,10 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr-evm-simulated
+          - name: ocr2
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: runlog
             nodes: 1
             os: ubuntu-latest
@@ -339,7 +343,13 @@ jobs:
       contents: read
     name: Solana Build Artifacts
     runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes, get_projectserum_version, solana-test-image-exists, get_solana_sha]
+    needs:
+      [
+        changes,
+        get_projectserum_version,
+        solana-test-image-exists,
+        get_solana_sha,
+      ]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:
@@ -375,7 +385,14 @@ jobs:
       contents: read
     name: Solana Smoke Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink, solana-build-contracts, solana-test-image-exists, changes, get_solana_sha]
+    needs:
+      [
+        build-chainlink,
+        solana-build-contracts,
+        solana-test-image-exists,
+        changes,
+        get_solana_sha,
+      ]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
