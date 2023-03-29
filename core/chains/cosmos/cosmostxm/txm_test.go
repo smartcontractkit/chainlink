@@ -72,7 +72,7 @@ func TestTxm_Integration(t *testing.T) {
 
 	// TODO: find a way to pull this test artifact from
 	// the chainlink-cosmos repo instead of copying it to cores testdata
-	contractID := cosmosclient.DeployTestContract(t, tendermintURL, accounts[0], cosmosclient.Account{
+	contractID := cosmosclient.DeployTestContract(t, chainID, tendermintURL, accounts[0], cosmosclient.Account{
 		Name:       "transmitter",
 		PrivateKey: cosmostxm.NewKeyWrapper(transmitterKey),
 		Address:    transmitterID,
