@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -31,8 +32,8 @@ type Eth interface {
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+	NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	IncrementNextSequence(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
@@ -46,6 +47,7 @@ type Eth interface {
 	GetState(id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	EnabledAddressesForChain(chainID *big.Int) (addresses []common.Address, err error)
 
 	XXXTestingOnlySetState(ethkey.State)
 	XXXTestingOnlyAdd(key ethkey.KeyV2)
@@ -58,6 +60,8 @@ type eth struct {
 }
 
 var _ Eth = &eth{}
+
+var _ txmgrtypes.KeyStore[common.Address, *big.Int, int64] = (*eth)(nil)
 
 func newEthKeyStore(km *keyManager) *eth {
 	return &eth{
@@ -178,13 +182,13 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 }
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
-func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
+func (ks *eth) NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
 	if !ks.exists(address) {
 		return 0, errors.Errorf("key with address %s does not exist", address.Hex())
 	}
 	nonce, err = ks.orm.getNextNonce(address, chainID, qopts...)
 	if err != nil {
-		return 0, errors.Wrap(err, "GetNextNonce failed")
+		return 0, errors.Wrap(err, "NextSequence failed")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
@@ -201,7 +205,7 @@ func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...p
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
-func (ks *eth) IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+func (ks *eth) IncrementNextSequence(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
 	if !ks.exists(address) {
 		return errors.Errorf("key with address %s does not exist", address.Hex())
 	}
@@ -486,6 +490,23 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 		states = append(states, *s)
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].KeyID() < states[j].KeyID() })
+	return
+}
+
+func (ks *eth) EnabledAddressesForChain(chainID *big.Int) (addresses []common.Address, err error) {
+	if chainID == nil {
+		return nil, errors.New("chainID must be non-nil")
+	}
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	for _, s := range ks.keyStates.ChainIDKeyID[chainID.String()] {
+		if !s.Disabled {
+			addresses = append(addresses, s.Address.Address())
+		}
+	}
 	return
 }
 
