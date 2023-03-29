@@ -264,12 +264,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 
-	if cfg.StarkNetEnabled() {
-		starkLggr := appLggr.Named("StarkNet")
+	if cfg.StarknetEnabled() {
+		starkLggr := appLggr.Named("Starknet")
 		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
+			KeyStore: keyStore.Starknet(),
 		}
 		cfgs := cfg.StarknetConfigs()
 		var ids []string
@@ -279,13 +279,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 		if len(ids) > 0 {
 			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
+				return nil, errors.Wrap(err, "failed to setup Starknet chains")
 			}
 		}
 		opts.Configs = starknet.NewConfigs(cfgs)
-		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
+		chains.Starknet, err = starknet.NewChainSet(opts, cfgs)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
+			return nil, errors.Wrap(err, "failed to load Starknet chainset")
 		}
 	}
 

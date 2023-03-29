@@ -2384,8 +2384,8 @@ func (_m *GeneralConfig) SolanaEnabled() bool {
 	return r0
 }
 
-// StarkNetEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) StarkNetEnabled() bool {
+// StarknetEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) StarknetEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool

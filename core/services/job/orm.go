@@ -273,8 +273,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", transmitterID)
 						}
-					case relay.StarkNet:
-						_, err := o.keyStore.StarkNet().Get(transmitterID)
+					case relay.Starknet:
+						_, err := o.keyStore.Starknet().Get(transmitterID)
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
 						}

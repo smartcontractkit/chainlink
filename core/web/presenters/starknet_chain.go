@@ -6,27 +6,27 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
-// StarkNetChainResource is an StarkNet chain JSONAPI resource.
-type StarkNetChainResource struct {
+// StarknetChainResource is an Starknet chain JSONAPI resource.
+type StarknetChainResource struct {
 	ChainResource
 }
 
 // GetName implements the api2go EntityNamer interface
-func (r StarkNetChainResource) GetName() string {
+func (r StarknetChainResource) GetName() string {
 	return "starknet_chain"
 }
 
-// NewStarkNetChainResource returns a new StarkNetChainResource for chain.
-func NewStarkNetChainResource(chain chains.ChainConfig) StarkNetChainResource {
-	return StarkNetChainResource{ChainResource{
+// NewStarknetChainResource returns a new StarknetChainResource for chain.
+func NewStarknetChainResource(chain chains.ChainConfig) StarknetChainResource {
+	return StarknetChainResource{ChainResource{
 		JAID:    NewJAID(chain.ID),
 		Config:  chain.Cfg,
 		Enabled: chain.Enabled,
 	}}
 }
 
-// StarkNetNodeResource is a StarkNet node JSONAPI resource.
-type StarkNetNodeResource struct {
+// StarknetNodeResource is a Starknet node JSONAPI resource.
+type StarknetNodeResource struct {
 	JAID
 	Name    string `json:"name"`
 	ChainID string `json:"chainID"`
@@ -34,13 +34,13 @@ type StarkNetNodeResource struct {
 }
 
 // GetName implements the api2go EntityNamer interface
-func (r StarkNetNodeResource) GetName() string {
+func (r StarknetNodeResource) GetName() string {
 	return "starknet_node"
 }
 
-// NewStarkNetNodeResource returns a new StarkNetNodeResource for node.
-func NewStarkNetNodeResource(node db.Node) StarkNetNodeResource {
-	return StarkNetNodeResource{
+// NewStarknetNodeResource returns a new StarknetNodeResource for node.
+func NewStarknetNodeResource(node db.Node) StarknetNodeResource {
+	return StarknetNodeResource{
 		JAID:    NewJAID(node.Name),
 		Name:    node.Name,
 		ChainID: node.ChainID,

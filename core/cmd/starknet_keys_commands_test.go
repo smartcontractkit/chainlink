@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
+func TestStarknetKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -31,9 +31,9 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 		r           = cmd.RendererTable{Writer: buffer}
 	)
 
-	p := cmd.StarkNetKeyPresenter{
+	p := cmd.StarknetKeyPresenter{
 		JAID: cmd.JAID{ID: id},
-		StarkNetKeyResource: presenters.StarkNetKeyResource{
+		StarknetKeyResource: presenters.StarknetKeyResource{
 			JAID:        presenters.NewJAID(id),
 			AccountAddr: accountAddr,
 			StarkKey:    starkKey,
@@ -49,7 +49,7 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 
 	// Render many resources
 	buffer.Reset()
-	ps := cmd.StarkNetKeyPresenters{p}
+	ps := cmd.StarknetKeyPresenters{p}
 	require.NoError(t, ps.RenderTable(r))
 
 	output = buffer.String()
@@ -58,88 +58,88 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, starkKey)
 }
 
-func TestClient_StarkNetKeys(t *testing.T) {
+func TestClient_StarknetKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
-	ks := app.GetKeyStore().StarkNet()
+	ks := app.GetKeyStore().Starknet()
 	cleanup := func() {
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		for _, key := range keys {
 			require.NoError(t, utils.JustError(ks.Delete(key.ID())))
 		}
-		requireStarkNetKeyCount(t, app, 0)
+		requireStarknetKeyCount(t, app, 0)
 	}
 
-	t.Run("ListStarkNetKeys", func(tt *testing.T) {
+	t.Run("ListStarknetKeys", func(tt *testing.T) {
 		defer cleanup()
 		client, r := app.NewClientAndRenderer()
-		key, err := app.GetKeyStore().StarkNet().Create()
+		key, err := app.GetKeyStore().Starknet().Create()
 		require.NoError(t, err)
-		requireStarkNetKeyCount(t, app, 1)
-		assert.Nil(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		requireStarknetKeyCount(t, app, 1)
+		assert.Nil(t, cmd.NewStarknetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Equal(t, 1, len(r.Renders))
-		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
+		keys := *r.Renders[0].(*cmd.StarknetKeyPresenters)
 		assert.True(t, key.AccountAddressStr() == keys[0].AccountAddr)
 		assert.True(t, key.StarkKeyStr() == keys[0].StarkKey)
 
 	})
 
-	t.Run("CreateStarkNetKey", func(tt *testing.T) {
+	t.Run("CreateStarknetKey", func(tt *testing.T) {
 		defer cleanup()
 		client, _ := app.NewClientAndRenderer()
-		require.NoError(t, cmd.NewStarkNetKeysClient(client).CreateKey(nilContext))
-		keys, err := app.GetKeyStore().StarkNet().GetAll()
+		require.NoError(t, cmd.NewStarknetKeysClient(client).CreateKey(nilContext))
+		keys, err := app.GetKeyStore().Starknet().GetAll()
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 	})
 
-	t.Run("DeleteStarkNetKey", func(tt *testing.T) {
+	t.Run("DeleteStarknetKey", func(tt *testing.T) {
 		defer cleanup()
 		client, _ := app.NewClientAndRenderer()
-		key, err := app.GetKeyStore().StarkNet().Create()
+		key, err := app.GetKeyStore().Starknet().Create()
 		require.NoError(t, err)
-		requireStarkNetKeyCount(t, app, 1)
+		requireStarknetKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).DeleteKey, set, "starknet")
+		cltest.FlagSetApplyFromAction(cmd.NewStarknetKeysClient(client).DeleteKey, set, "starknet")
 
 		require.NoError(tt, set.Set("yes", "true"))
 
 		strID := key.ID()
 		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
-		err = cmd.NewStarkNetKeysClient(client).DeleteKey(c)
+		err = cmd.NewStarknetKeysClient(client).DeleteKey(c)
 		require.NoError(t, err)
-		requireStarkNetKeyCount(t, app, 0)
+		requireStarknetKeyCount(t, app, 0)
 	})
 
-	t.Run("ImportExportStarkNetKey", func(tt *testing.T) {
+	t.Run("ImportExportStarknetKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
 		client, _ := app.NewClientAndRenderer()
 
-		_, err := app.GetKeyStore().StarkNet().Create()
+		_, err := app.GetKeyStore().Starknet().Create()
 		require.NoError(t, err)
 
-		keys := requireStarkNetKeyCount(t, app, 1)
+		keys := requireStarknetKeyCount(t, app, 1)
 		key := keys[0]
 		keyName := keyNameForTest(t)
 
 		// Export test invalid id
-		set := flag.NewFlagSet("test StarkNet export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
+		set := flag.NewFlagSet("test Starknet export", 0)
+		cltest.FlagSetApplyFromAction(cmd.NewStarknetKeysClient(client).ExportKey, set, "starknet")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c := cli.NewContext(nil, set, nil)
-		err = cmd.NewStarkNetKeysClient(client).ExportKey(c)
+		err = cmd.NewStarknetKeysClient(client).ExportKey(c)
 		require.Error(t, err, "Error exporting")
 		require.Error(t, utils.JustError(os.Stat(keyName)))
 
 		// Export test
-		set = flag.NewFlagSet("test StarkNet export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
+		set = flag.NewFlagSet("test Starknet export", 0)
+		cltest.FlagSetApplyFromAction(cmd.NewStarknetKeysClient(client).ExportKey, set, "starknet")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -147,28 +147,28 @@ func TestClient_StarkNetKeys(t *testing.T) {
 
 		c = cli.NewContext(nil, set, nil)
 
-		require.NoError(t, cmd.NewStarkNetKeysClient(client).ExportKey(c))
+		require.NoError(t, cmd.NewStarknetKeysClient(client).ExportKey(c))
 		require.NoError(t, utils.JustError(os.Stat(keyName)))
 
-		require.NoError(t, utils.JustError(app.GetKeyStore().StarkNet().Delete(key.ID())))
-		requireStarkNetKeyCount(t, app, 0)
+		require.NoError(t, utils.JustError(app.GetKeyStore().Starknet().Delete(key.ID())))
+		requireStarknetKeyCount(t, app, 0)
 
-		set = flag.NewFlagSet("test StarkNet import", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ImportKey, set, "starknet")
+		set = flag.NewFlagSet("test Starknet import", 0)
+		cltest.FlagSetApplyFromAction(cmd.NewStarknetKeysClient(client).ImportKey, set, "starknet")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
 		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 
 		c = cli.NewContext(nil, set, nil)
-		require.NoError(t, cmd.NewStarkNetKeysClient(client).ImportKey(c))
+		require.NoError(t, cmd.NewStarknetKeysClient(client).ImportKey(c))
 
-		requireStarkNetKeyCount(t, app, 1)
+		requireStarknetKeyCount(t, app, 1)
 	})
 }
 
-func requireStarkNetKeyCount(t *testing.T, app chainlink.Application, length int) []starkkey.Key {
+func requireStarknetKeyCount(t *testing.T, app chainlink.Application, length int) []starkkey.Key {
 	t.Helper()
-	keys, err := app.GetKeyStore().StarkNet().GetAll()
+	keys, err := app.GetKeyStore().Starknet().GetAll()
 	require.NoError(t, err)
 	require.Len(t, keys, length)
 	return keys

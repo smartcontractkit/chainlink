@@ -327,7 +327,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"solana", NewSolanaKeysController(app)},
 			{"cosmos", NewCosmosKeysController(app)},
-			{"starknet", NewStarkNetKeysController(app)},
+			{"starknet", NewStarknetKeysController(app)},
 			{"dkgsign", NewDKGSignKeysController(app)},
 			{"dkgencrypt", NewDKGEncryptKeysController(app)},
 		} {
@@ -375,7 +375,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
-			{"starknet", NewStarkNetChainsController(app)},
+			{"starknet", NewStarknetChainsController(app)},
 			{"cosmos", NewCosmosChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
@@ -389,7 +389,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
-			{"starknet", NewStarkNetNodesController(app)},
+			{"starknet", NewStarknetNodesController(app)},
 			{"cosmos", NewCosmosNodesController(app)},
 		} {
 			if chain.path == "evm" {

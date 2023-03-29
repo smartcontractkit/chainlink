@@ -370,7 +370,7 @@ func (g *generalConfig) CosmosEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) StarkNetEnabled() bool {
+func (g *generalConfig) StarknetEnabled() bool {
 	for _, c := range g.c.Starknet {
 		if c.IsEnabled() {
 			return true

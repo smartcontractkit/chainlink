@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const keyTypeIdentifier = "StarkNet"
+const keyTypeIdentifier = "Starknet"
 
 // FromEncryptedJSON gets key from json and password
 func FromEncryptedJSON(keyJSON []byte, password string) (stark.Key, error) {

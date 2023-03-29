@@ -150,7 +150,7 @@ type keyRing struct {
 	P2P        map[string]p2pkey.KeyV2
 	Cosmos     map[string]cosmoskey.Key
 	Solana     map[string]solkey.Key
-	StarkNet   map[string]starkkey.Key
+	Starknet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
 	DKGEncrypt map[string]dkgencryptkey.Key
@@ -166,7 +166,7 @@ func newKeyRing() *keyRing {
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Cosmos:     make(map[string]cosmoskey.Key),
 		Solana:     make(map[string]solkey.Key),
-		StarkNet:   make(map[string]starkkey.Key),
+		Starknet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
 		DKGEncrypt: make(map[string]dkgencryptkey.Key),
@@ -224,8 +224,8 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
 	}
-	for _, starkkey := range kr.StarkNet {
-		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
+	for _, starkkey := range kr.Starknet {
+		rawKeys.Starknet = append(rawKeys.Starknet, starkkey.Raw())
 	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
@@ -270,7 +270,7 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
 	var starknetIDs []string
-	for _, starkkey := range kr.StarkNet {
+	for _, starkkey := range kr.Starknet {
 		starknetIDs = append(starknetIDs, starkkey.ID())
 	}
 	var vrfIDs []string
@@ -307,7 +307,7 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
 	}
 	if len(starknetIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
+		lggr.Infow(fmt.Sprintf("Unlocked %d Starknet keys", len(starknetIDs)), "keys", starknetIDs)
 	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
@@ -334,7 +334,7 @@ type rawKeyRing struct {
 	P2P        []p2pkey.Raw
 	Cosmos     []cosmoskey.Raw
 	Solana     []solkey.Raw
-	StarkNet   []starkkey.Raw
+	Starknet   []starkkey.Raw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw
@@ -372,9 +372,9 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		solKey := rawSolKey.Key()
 		keyRing.Solana[solKey.ID()] = solKey
 	}
-	for _, rawStarkNetKey := range rawKeys.StarkNet {
-		starkKey := rawStarkNetKey.Key()
-		keyRing.StarkNet[starkKey.ID()] = starkKey
+	for _, rawStarknetKey := range rawKeys.Starknet {
+		starkKey := rawStarknetKey.Key()
+		keyRing.Starknet[starkKey.ID()] = starkKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()

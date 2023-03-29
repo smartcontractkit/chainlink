@@ -194,16 +194,16 @@ func (_m *Master) Solana() keystore.Solana {
 	return r0
 }
 
-// StarkNet provides a mock function with given fields:
-func (_m *Master) StarkNet() keystore.StarkNet {
+// Starknet provides a mock function with given fields:
+func (_m *Master) Starknet() keystore.Starknet {
 	ret := _m.Called()
 
-	var r0 keystore.StarkNet
-	if rf, ok := ret.Get(0).(func() keystore.StarkNet); ok {
+	var r0 keystore.Starknet
+	if rf, ok := ret.Get(0).(func() keystore.Starknet); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(keystore.StarkNet)
+			r0 = ret.Get(0).(keystore.Starknet)
 		}
 	}
 

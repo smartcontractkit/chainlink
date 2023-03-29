@@ -208,7 +208,7 @@ func ExampleRun_keys() {
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
 	//    cosmos      Remote commands for administering the node's Cosmos keys
 	//    solana      Remote commands for administering the node's Solana keys
-	//    starknet    Remote commands for administering the node's StarkNet keys
+	//    starknet    Remote commands for administering the node's Starknet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
 	//    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
 	//    vrf         Remote commands for administering the node's vrf keys
@@ -361,17 +361,17 @@ func ExampleRun_keys_starknet() {
 	Run("keys", "starknet", "--help")
 	// Output:
 	// NAME:
-	//    core.test keys starknet - Remote commands for administering the node's StarkNet keys
+	//    core.test keys starknet - Remote commands for administering the node's Starknet keys
 	//
 	// USAGE:
 	//    core.test keys starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a StarkNet key
-	//    import  Import StarkNet key from keyfile
-	//    export  Export StarkNet key to keyfile
-	//    delete  Delete StarkNet key if present
-	//    list    List the StarkNet keys
+	//    create  Create a Starknet key
+	//    import  Import Starknet key from keyfile
+	//    export  Export Starknet key to keyfile
+	//    delete  Delete Starknet key if present
+	//    list    List the Starknet keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -588,7 +588,7 @@ func ExampleRun_chains() {
 	//    evm       Commands for handling EVM chains
 	//    cosmos    Commands for handling Cosmos chains
 	//    solana    Commands for handling Solana chains
-	//    starknet  Commands for handling StarkNet chains
+	//    starknet  Commands for handling Starknet chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -630,13 +630,13 @@ func ExampleRun_chains_starknet() {
 	Run("chains", "starknet", "--help")
 	// Output:
 	// NAME:
-	//    core.test chains starknet - Commands for handling StarkNet chains
+	//    core.test chains starknet - Commands for handling Starknet chains
 	//
 	// USAGE:
 	//    core.test chains starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    list  List all existing StarkNet chains
+	//    list  List all existing Starknet chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -671,7 +671,7 @@ func ExampleRun_nodes() {
 	//    evm       Commands for handling EVM node configuration
 	//    cosmos    Commands for handling Cosmos node configuration
 	//    solana    Commands for handling Solana node configuration
-	//    starknet  Commands for handling StarkNet node configuration
+	//    starknet  Commands for handling Starknet node configuration
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -726,13 +726,13 @@ func ExampleRun_nodes_starknet() {
 	Run("nodes", "starknet", "--help")
 	// Output:
 	// NAME:
-	//    core.test nodes starknet - Commands for handling StarkNet node configuration
+	//    core.test nodes starknet - Commands for handling Starknet node configuration
 	//
 	// USAGE:
 	//    core.test nodes starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    list  List all existing StarkNet nodes
+	//    list  List all existing Starknet nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

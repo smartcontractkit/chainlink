@@ -38,7 +38,7 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	CosmosEnabled() bool
 	SolanaEnabled() bool
-	StarkNetEnabled() bool
+	StarknetEnabled() bool
 }
 
 type LogFn func(...any)

@@ -6,19 +6,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-// StarkNetChainPresenter implements TableRenderer for a StarkNetChainResource
-type StarkNetChainPresenter struct {
-	presenters.StarkNetChainResource
+// StarknetChainPresenter implements TableRenderer for a StarknetChainResource
+type StarknetChainPresenter struct {
+	presenters.StarknetChainResource
 }
 
-// ToRow presents the StarkNetChainResource as a slice of strings.
-func (p *StarkNetChainPresenter) ToRow() []string {
+// ToRow presents the StarknetChainResource as a slice of strings.
+func (p *StarknetChainPresenter) ToRow() []string {
 	return []string{p.GetID(), strconv.FormatBool(p.Enabled), p.Config}
 }
 
 // RenderTable implements TableRenderer
 // Just renders a single row
-func (p StarkNetChainPresenter) RenderTable(rt RendererTable) error {
+func (p StarknetChainPresenter) RenderTable(rt RendererTable) error {
 	rows := [][]string{}
 	rows = append(rows, p.ToRow())
 
@@ -27,11 +27,11 @@ func (p StarkNetChainPresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// StarkNetChainPresenters implements TableRenderer for a slice of StarkNetChainPresenters.
-type StarkNetChainPresenters []StarkNetChainPresenter
+// StarknetChainPresenters implements TableRenderer for a slice of StarknetChainPresenters.
+type StarknetChainPresenters []StarknetChainPresenter
 
 // RenderTable implements TableRenderer
-func (ps StarkNetChainPresenters) RenderTable(rt RendererTable) error {
+func (ps StarknetChainPresenters) RenderTable(rt RendererTable) error {
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -43,6 +43,6 @@ func (ps StarkNetChainPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func StarkNetChainClient(client *Client) ChainClient {
-	return newChainClient[StarkNetChainPresenters](client, "starknet")
+func StarknetChainClient(client *Client) ChainClient {
+	return newChainClient[StarknetChainPresenters](client, "starknet")
 }

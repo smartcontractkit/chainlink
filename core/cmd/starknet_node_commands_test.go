@@ -26,7 +26,7 @@ func starknetStartNewApplication(t *testing.T, cfgs ...*starknet.StarknetConfig)
 	})
 }
 
-func TestClient_IndexStarkNetNodes(t *testing.T) {
+func TestClient_IndexStarknetNodes(t *testing.T) {
 	t.Parallel()
 
 	id := "starknet chain ID"
@@ -45,9 +45,9 @@ func TestClient_IndexStarkNetNodes(t *testing.T) {
 	app := starknetStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, cmd.NewStarkNetNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.NewStarknetNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
-	nodes := *r.Renders[0].(*cmd.StarkNetNodePresenters)
+	nodes := *r.Renders[0].(*cmd.StarknetNodePresenters)
 	require.Len(t, nodes, 2)
 	n1 := nodes[0]
 	n2 := nodes[1]

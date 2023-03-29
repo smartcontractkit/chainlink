@@ -21,8 +21,8 @@ func initCosmosNodeSubCmd(client *Client) cli.Command {
 		})
 }
 
-func initStarkNetNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("StarkNet", NewStarkNetNodeClient(client),
+func initStarknetNodeSubCmd(client *Client) cli.Command {
+	return nodeCommand("Starknet", NewStarknetNodeClient(client),
 		cli.StringFlag{
 			Name:  "chain-id",
 			Usage: "chain ID",

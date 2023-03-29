@@ -7,11 +7,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-// ErrStarkNetNotEnabled is returned when Starknet.Enabled is not true.
-var ErrStarkNetNotEnabled = errChainDisabled{name: "StarkNet", envVar: "Starknet.Enabled"}
+// ErrStarknetNotEnabled is returned when Starknet.Enabled is not true.
+var ErrStarknetNotEnabled = errChainDisabled{name: "Starknet", envVar: "Starknet.Enabled"}
 
-func NewStarkNetNodesController(app chainlink.Application) NodesController {
+func NewStarknetNodesController(app chainlink.Application) NodesController {
 	parse := func(s string) (string, error) { return s, nil }
-	return newNodesController[string, db.Node, presenters.StarkNetNodeResource](
-		app.GetChains().StarkNet, ErrStarkNetNotEnabled, parse, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
+	return newNodesController[string, db.Node, presenters.StarknetNodeResource](
+		app.GetChains().Starknet, ErrStarknetNotEnabled, parse, presenters.NewStarknetNodeResource, app.GetAuditLogger())
 }

@@ -46,8 +46,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 		return newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
 	case chaintype.Solana:
 		return newKeyBundleRand(chaintype.Solana, newSolanaKeyring)
-	case chaintype.StarkNet:
-		return newKeyBundleRand(chaintype.StarkNet, starknet.NewOCR2Key)
+	case chaintype.Starknet:
+		return newKeyBundleRand(chaintype.Starknet, starknet.NewOCR2Key)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -61,8 +61,8 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewKeyBundleInsecure(chaintype.Cosmos, newCosmosKeyring, reader)
 	case chaintype.Solana:
 		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
-	case chaintype.StarkNet:
-		return mustNewKeyBundleInsecure(chaintype.StarkNet, starknet.NewOCR2Key, reader)
+	case chaintype.Starknet:
+		return mustNewKeyBundleInsecure(chaintype.Starknet, starknet.NewOCR2Key, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -110,7 +110,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 		kb = newKeyBundle(new(cosmosKeyring))
 	case chaintype.Solana:
 		kb = newKeyBundle(new(solanaKeyring))
-	case chaintype.StarkNet:
+	case chaintype.Starknet:
 		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:
 		return nil

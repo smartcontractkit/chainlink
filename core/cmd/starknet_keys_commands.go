@@ -6,17 +6,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-type StarkNetKeyPresenter struct {
+type StarknetKeyPresenter struct {
 	JAID
-	presenters.StarkNetKeyResource
+	presenters.StarknetKeyResource
 }
 
 // RenderTable implements TableRenderer
-func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
+func (p StarknetKeyPresenter) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Account Address", "Stark Public Key"}
 	rows := [][]string{p.ToRow()}
 
-	if _, err := rt.Write([]byte("🔑 StarkNet Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 Starknet Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -24,7 +24,7 @@ func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *StarkNetKeyPresenter) ToRow() []string {
+func (p *StarknetKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.AccountAddr,
@@ -34,10 +34,10 @@ func (p *StarkNetKeyPresenter) ToRow() []string {
 	return row
 }
 
-type StarkNetKeyPresenters []StarkNetKeyPresenter
+type StarknetKeyPresenters []StarknetKeyPresenter
 
 // RenderTable implements TableRenderer
-func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
+func (ps StarknetKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Account Address", "Stark Public Key"}
 	rows := [][]string{}
 
@@ -45,7 +45,7 @@ func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 		rows = append(rows, p.ToRow())
 	}
 
-	if _, err := rt.Write([]byte("🔑 StarkNet Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 Starknet Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -53,6 +53,6 @@ func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewStarkNetKeysClient(c *Client) KeysClient {
-	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
+func NewStarknetKeysClient(c *Client) KeysClient {
+	return newKeysClient[starkkey.Key, StarknetKeyPresenter, StarknetKeyPresenters]("Starknet", c)
 }

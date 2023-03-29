@@ -16,17 +16,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
+func TestStarknetKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupStarkNetKeysControllerTests(t)
-	keys, _ := keyStore.StarkNet().GetAll()
+	client, keyStore := setupStarknetKeysControllerTests(t)
+	keys, _ := keyStore.Starknet().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/starknet")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	resources := []presenters.StarkNetKeyResource{}
+	resources := []presenters.StarknetKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
 	assert.NoError(t, err)
 
@@ -37,7 +37,7 @@ func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].StarkKeyStr(), resources[0].StarkKey)
 }
 
-func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
+func TestStarknetKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -49,10 +49,10 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	keys, _ := keyStore.StarkNet().GetAll()
+	keys, _ := keyStore.Starknet().GetAll()
 	require.Len(t, keys, 1)
 
-	resource := presenters.StarkNetKeyResource{}
+	resource := presenters.StarknetKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
@@ -60,46 +60,46 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].AccountAddressStr(), resource.AccountAddr)
 	assert.Equal(t, keys[0].StarkKeyStr(), resource.StarkKey)
 
-	_, err = keyStore.StarkNet().Get(resource.ID)
+	_, err = keyStore.Starknet().Get(resource.ID)
 	require.NoError(t, err)
 }
 
-func TestStarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
+func TestStarknetKeysController_Delete_NonExistentStarknetKeyID(t *testing.T) {
 	t.Parallel()
 
-	client, _ := setupStarkNetKeysControllerTests(t)
+	client, _ := setupStarknetKeysControllerTests(t)
 
-	nonExistentStarkNetKeyID := "foobar"
-	response, cleanup := client.Delete("/v2/keys/starknet/" + nonExistentStarkNetKeyID)
+	nonExistentStarknetKeyID := "foobar"
+	response, cleanup := client.Delete("/v2/keys/starknet/" + nonExistentStarknetKeyID)
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestStarkNetKeysController_Delete_HappyPath(t *testing.T) {
+func TestStarknetKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupStarkNetKeysControllerTests(t)
+	client, keyStore := setupStarknetKeysControllerTests(t)
 
-	keys, _ := keyStore.StarkNet().GetAll()
+	keys, _ := keyStore.Starknet().GetAll()
 	initialLength := len(keys)
-	key, _ := keyStore.StarkNet().Create()
+	key, _ := keyStore.Starknet().Create()
 
 	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/starknet/%s", key.ID()))
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(keyStore.StarkNet().Get(key.ID())))
+	assert.Error(t, utils.JustError(keyStore.Starknet().Get(key.ID())))
 
-	keys, _ = keyStore.StarkNet().GetAll()
+	keys, _ = keyStore.Starknet().GetAll()
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setupStarkNetKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
+func setupStarknetKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.StarkNet().Add(cltest.DefaultStarkNetKey))
+	require.NoError(t, app.KeyStore.Starknet().Add(cltest.DefaultStarknetKey))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

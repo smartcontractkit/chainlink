@@ -167,7 +167,7 @@ func NewApp(client *Client) *cli.App {
 
 				keysCommand("Cosmos", NewCosmosKeysClient(client)),
 				keysCommand("Solana", NewSolanaKeysClient(client)),
-				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
+				keysCommand("Starknet", NewStarknetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
 				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
 
@@ -217,7 +217,7 @@ func NewApp(client *Client) *cli.App {
 				chainCommand("Cosmos", CosmosChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
-				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Starknet", StarknetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
 		{
@@ -227,7 +227,7 @@ func NewApp(client *Client) *cli.App {
 				initEVMNodeSubCmd(client),
 				initCosmosNodeSubCmd(client),
 				initSolanaNodeSubCmd(client),
-				initStarkNetNodeSubCmd(client),
+				initStarknetNodeSubCmd(client),
 			},
 		},
 		{

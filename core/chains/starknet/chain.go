@@ -32,7 +32,7 @@ type chain struct {
 	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
+func newChain(id string, cfg config.Config, ks keystore.Starknet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
 	lggr = lggr.With("starknetChainID", id)
 	ch = &chain{
 		id:   id,
