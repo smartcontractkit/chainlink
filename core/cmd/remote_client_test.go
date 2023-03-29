@@ -20,7 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -87,12 +87,12 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) *evmmocks.Client {
+func newEthMock(t *testing.T) *evmclimocks.Client {
 	t.Helper()
 	return cltest.NewEthMocksWithStartupAssertions(t)
 }
 
-func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmmocks.Client {
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmclimocks.Client {
 	t.Helper()
 
 	return cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
