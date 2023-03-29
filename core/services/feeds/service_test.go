@@ -889,11 +889,48 @@ func Test_Service_RevokeJob(t *testing.T) {
 			RemoteUUID:     remoteUUID,
 		}
 
-		pendingProposal = feeds.JobProposal{
+		defn = `
+name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
+type               = "offchainreporting2"
+pluginType         = "median"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID 		 = '00000000-0000-0000-0000-000000000001'
+observationSource  = """
+// data source 1
+ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+ds1_parse [type=jsonparse path="result"];
+ds1_multiply [type=multiply times=1000000000000000000];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+
+answer1 [type=median index=0];
+"""
+[relayConfig]
+chainID = 0
+[pluginConfig]
+juelsPerFeeCoinSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`
+
+		pendingProposal = &feeds.JobProposal{
 			ID:             1,
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
 			Status:         feeds.JobProposalStatusPending,
+		}
+
+		pendingSpec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusPending,
+			JobProposalID: pendingProposal.ID,
+			Version:       1,
+			Definition:    defn,
 		}
 
 		httpTimeout = models.MustMakeDuration(1 * time.Second)
@@ -909,8 +946,9 @@ func Test_Service_RevokeJob(t *testing.T) {
 		{
 			name: "Revoke success",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
-				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
+				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -946,13 +984,38 @@ func Test_Service_RevokeJob(t *testing.T) {
 			wantErr: "GetJobProposalByRemoteUUID did not find any proposals to revoke",
 		},
 		{
-			name: "Revoke proposal error",
+			name: "Get latest spec error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
-				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(nil, sql.ErrNoRows)
 			},
 			args:    args,
-			wantErr: "RevokeProposal failed",
+			wantErr: "GetLatestSpec failed to get latest spec",
+		},
+		{
+			name: "Not revokable error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+					ID:            20,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: pendingProposal.ID,
+					Version:       1,
+					Definition:    defn,
+				}, nil)
+			},
+			args:    args,
+			wantErr: "only pending job proposals can be revoked",
+		},
+		{
+			name: "Revoke proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
+				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "RevokeSpec failed",
 		},
 	}
 
@@ -1011,6 +1074,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom(multiaddr),
+				Plugins: feeds.Plugins{
+					Commit:  true,
+					Execute: true,
+					Median:  false,
+					Mercury: true,
+				},
 			},
 		}
 		chainConfigs = []feeds.ChainConfig{ccfg}
@@ -1055,6 +1124,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					Enabled:     true,
 					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
 					Multiaddr:   multiaddr,
+					Plugins: &proto.OCR2Config_Plugins{
+						Commit:  ccfg.OCR2Config.Plugins.Commit,
+						Execute: ccfg.OCR2Config.Plugins.Execute,
+						Median:  ccfg.OCR2Config.Plugins.Median,
+						Mercury: ccfg.OCR2Config.Plugins.Mercury,
+					},
 				},
 			},
 		},
