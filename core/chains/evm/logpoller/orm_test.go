@@ -655,3 +655,133 @@ func BenchmarkLogs(b *testing.B) {
 		require.NoError(b, err)
 	}
 }
+
+func TestSelectLogsWithSigsExcluding(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+	orm := th.ORM
+	sourceAddr := common.HexToAddress("0x12345")
+	eventSigA := common.HexToHash("0x01")
+	eventSigB := common.HexToHash("0x02")
+
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       1,
+			BlockHash:      common.HexToHash("0x1"),
+			BlockNumber:    1,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{common.HexToHash("0x0001").Bytes()},
+			EventSig:       eventSigA,
+			Address:        sourceAddr,
+			TxHash:         common.HexToHash("0x0001"),
+			Data:           []byte("requestID-0001 data"),
+		},
+	}))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
+
+	logs, err := orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+
+	require.NoError(t, err)
+	require.Len(t, *logs, 1)
+	require.Equal(t, (*logs)[0].Data, []byte("requestID-0001 data"))
+
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       2,
+			BlockHash:      common.HexToHash("0x2"),
+			BlockNumber:    2,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{common.HexToHash("0x0001").Bytes()},
+			EventSig:       eventSigB,
+			Address:        sourceAddr,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte(""),
+		},
+	}))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
+
+	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+
+	require.NoError(t, err)
+	require.Len(t, *logs, 0)
+
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       3,
+			BlockHash:      common.HexToHash("0x3"),
+			BlockNumber:    3,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{common.HexToHash("0x0002").Bytes()},
+			EventSig:       eventSigA,
+			Address:        sourceAddr,
+			TxHash:         common.HexToHash("0x0003"),
+			Data:           []byte("requestID-0002 data"),
+		},
+	}))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x3"), 3, time.Now()))
+	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	require.NoError(t, err)
+	require.Len(t, *logs, 1)
+	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       4,
+			BlockHash:      common.HexToHash("0x3"),
+			BlockNumber:    3,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{common.HexToHash("0x0003").Bytes()},
+			EventSig:       eventSigA,
+			Address:        sourceAddr,
+			TxHash:         common.HexToHash("0x0004"),
+			Data:           []byte("requestID-0003 data"),
+		},
+	}))
+
+	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	require.NoError(t, err)
+	require.Len(t, *logs, 2)
+	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+	require.Equal(t, (*logs)[1].Data, []byte("requestID-0003 data"))
+
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       5,
+			BlockHash:      common.HexToHash("0x4"),
+			BlockNumber:    4,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{common.HexToHash("0x0003").Bytes()},
+			EventSig:       eventSigB,
+			Address:        sourceAddr,
+			TxHash:         common.HexToHash("0x0005"),
+			Data:           []byte("requestID-0003 data"),
+		},
+	}))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x4"), 4, time.Now()))
+
+	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 4, 0)
+	require.NoError(t, err)
+	require.Len(t, *logs, 1)
+	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+
+	//No enough confirmations
+	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 5, 5)
+	require.NoError(t, err)
+	require.Len(t, *logs, 0)
+
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x5"), 5, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x6"), 6, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x7"), 7, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x8"), 8, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x9"), 9, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x10"), 10, time.Now()))
+
+	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 10, 5)
+	require.NoError(t, err)
+	require.Len(t, *logs, 1)
+	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+}

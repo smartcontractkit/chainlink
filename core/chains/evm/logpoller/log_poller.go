@@ -1052,6 +1052,14 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	return blocksFoundFromRPC, nil
 }
 
+// GetLogsWithSigsExcluding returns the set difference(A-B) of logs with signature sigA and sigB, matching is done on the topics index
+//
+// For example, query for all unfulfilled requests: request log events which don't have a matching fulfillment log event.
+func (lp *logPoller) GetLogsWithSigsExcluding(ctx context.Context, address common.Address, sigA, sigB common.Hash, topicIndex int, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) (*[]Log, error) {
+	qopts = append(qopts, pg.WithParentCtx(ctx))
+	return lp.orm.SelectLogsWithSigsExcluding(sigA, sigB, topicIndex, address, startBlock, endBlock, confs, qopts...)
+}
+
 func EvmWord(i uint64) common.Hash {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)

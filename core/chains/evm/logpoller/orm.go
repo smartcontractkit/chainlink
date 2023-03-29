@@ -368,3 +368,41 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 	}
 	return logs, nil
 }
+
+// SelectLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index
+func (o *ORM) SelectLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) (*[]Log, error) {
+	q := o.q.WithOpts(qopts...)
+	var logs []Log
+
+	err := q.Select(&logs, `
+		SELECT *
+		FROM   evm_logs
+		WHERE  evm_chain_id = $1
+		AND    address = $2
+		AND    event_sig = $3
+		AND block_number BETWEEN $6 AND $7
+		AND (block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		
+		EXCEPT
+		
+		SELECT     a.*
+		FROM       evm_logs AS a
+		INNER JOIN evm_logs B
+		ON         a.evm_chain_id = b.evm_chain_id
+		AND        a.address = b.address
+		AND        a.topics[$5] = b.topics[$5]
+		AND        a.event_sig = $3
+		AND        b.event_sig = $4
+		AND (b.block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		WHERE      a.evm_chain_id = $1
+		AND        a.address = $2
+		AND        a.event_sig = $3
+
+		ORDER BY block_number,log_index ASC
+			`, utils.NewBig(o.chainID), address, sigA.Bytes(), sigB.Bytes(), topicIndex+1, startBlock, endBlock, confs)
+	if err != nil {
+		return nil, err
+	}
+	return &logs, nil
+
+}
