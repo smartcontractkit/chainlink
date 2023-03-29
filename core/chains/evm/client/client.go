@@ -21,8 +21,8 @@ import (
 
 const queryTimeout = 10 * time.Second
 
-//go:generate mockery --quiet --name Client --output ../mocks/ --case=underscore
-//go:generate mockery --quiet --name Subscription --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
