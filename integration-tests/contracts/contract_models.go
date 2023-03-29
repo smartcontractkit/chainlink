@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
@@ -110,29 +109,11 @@ type OffChainAggregatorConfig struct {
 	OracleIdentities []ocrConfigHelper.OracleIdentityExtra
 }
 
-type OffChainAggregatorV2Config struct {
-	DeltaProgress                           time.Duration
-	DeltaResend                             time.Duration
-	DeltaRound                              time.Duration
-	DeltaGrace                              time.Duration
-	DeltaStage                              time.Duration
-	RMax                                    uint8
-	S                                       []int
-	Oracles                                 []ocrConfigHelper2.OracleIdentityExtra
-	ReportingPluginConfig                   []byte
-	MaxDurationQuery                        time.Duration
-	MaxDurationObservation                  time.Duration
-	MaxDurationReport                       time.Duration
-	MaxDurationShouldAcceptFinalizedReport  time.Duration
-	MaxDurationShouldTransmitAcceptedReport time.Duration
-	F                                       int
-	OnchainConfig                           []byte
-}
-
 type OffchainAggregatorData struct {
 	LatestRoundData RoundData // Data about the latest round
 }
 
+// TODO: OffchainAggregator and OffchainAggregatorV2 can probably be merged into one interface if we're clever about it
 type OffchainAggregator interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
@@ -145,6 +126,18 @@ type OffchainAggregator interface {
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)
+}
+
+type OffchainAggregatorV2 interface {
+	Address() string
+	Fund(nativeAmount *big.Float) error
+	RequestNewRound() error
+	SetConfig(ocrConfig *OCRv2Config) error
+	GetConfig(ctx context.Context) ([32]byte, uint32, error)
+	SetPayees(transmitters, payees []string) error
+	GetLatestAnswer(ctx context.Context) (*big.Int, error)
+	GetLatestRound(ctx context.Context) (*RoundData, error)
+	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 }
 
 type Oracle interface {

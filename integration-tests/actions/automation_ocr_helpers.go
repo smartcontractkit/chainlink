@@ -10,19 +10,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func BuildAutoOCR2ConfigVars(
@@ -31,9 +32,9 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
-) contracts.OCRConfig {
-	l := utils.GetTestLogger(t)
-	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+) contracts.OCRv2Config {
+	S, oracleIdentities, err := GetOracleIdentities(chainlinkNodes)
+	require.NoError(t, err, "failed to get oracle identities")
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
@@ -79,8 +80,7 @@ func BuildAutoOCR2ConfigVars(
 	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
 	require.NoError(t, err, "Shouldn't fail encoding config")
 
-	l.Info().Msg("Done building OCR config")
-	return contracts.OCRConfig{
+	return contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,

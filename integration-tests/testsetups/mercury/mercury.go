@@ -26,6 +26,10 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -36,20 +40,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	testconfig "github.com/smartcontractkit/chainlink/integration-tests/config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/slices"
-	"gopkg.in/guregu/null.v4"
+
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	testconfig "github.com/smartcontractkit/chainlink/integration-tests/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 type TestEnv struct {
@@ -230,9 +232,8 @@ func NewEnv(testEnvId string, namespacePrefix string, r *ResourcesConfig) (TestE
 	mschart := os.Getenv("MERCURY_CHART")
 	if mschart == "" {
 		return te, errors.New("MERCURY_CHART must be provided, a local path or a name of a mercury-server helm chart")
-	} else {
-		te.MSChartPath = mschart
 	}
+	te.MSChartPath = mschart
 
 	te.ChainId = networks.SelectedNetwork.ChainID
 
@@ -445,7 +446,12 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 }
 
 // Deploy or load exchanger contract
-func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr string, lookupURL string, maxDelay uint8) (contracts.Exchanger, error) {
+func (te *TestEnv) AddExchangerContract(
+	contractId string,
+	verifierProxyAddr string,
+	lookupURL string,
+	maxDelay uint8,
+) (contracts.Exchanger, error) {
 	if te.Contracts[contractId] != nil {
 		addr := te.Contracts[contractId].Address
 		if addr == "" {
@@ -743,7 +749,7 @@ func buildMockedRpcNodesConf() ([]RpcNode, []CsaKeyWrapper) {
 
 // Build config with nodes for Mercury server
 func buildRpcNodesConf(chainlinkNodes []*client.Chainlink) ([]*oracle, error) {
-	var msRpcNodesConf []*oracle = []*oracle{}
+	var msRpcNodesConf = []*oracle{}
 	for i, chainlinkNode := range chainlinkNodes {
 		nodeName := fmt.Sprint(i)
 		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
