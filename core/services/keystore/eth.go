@@ -494,11 +494,11 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 }
 
 func (ks *eth) EnabledAddressesForChain(chainID *big.Int) (addresses []common.Address, err error) {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
 	if chainID == nil {
 		return nil, errors.New("chainID must be non-nil")
 	}
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
