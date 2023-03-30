@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
+import "../../interfaces/LinkTokenInterface.sol";
+import "../../interfaces/VRFCoordinatorV2Interface.sol";
 import "../VRFConsumerBaseV2.sol";
-import "../ConfirmedOwner.sol";
+import "../../ConfirmedOwner.sol";
 
 /**
  * @title The VRFLoadTestExternalSubOwner contract.

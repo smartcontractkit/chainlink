@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../VRFConsumerBase.sol";
-import "../interfaces/ERC677ReceiverInterface.sol";
+import "../../interfaces/ERC677ReceiverInterface.sol";
 
 /**
  * @title The VRFLoadTestOwnerlessConsumer contract.

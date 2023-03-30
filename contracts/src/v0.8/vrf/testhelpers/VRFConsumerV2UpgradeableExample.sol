@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../VRFConsumerBaseV2.sol";
+import "../../interfaces/LinkTokenInterface.sol";
+import "../../interfaces/VRFCoordinatorV2Interface.sol";
+import "../../dev/VRFConsumerBaseV2Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
 
-contract VRFConsumerV2 is VRFConsumerBaseV2 {
+contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  VRFCoordinatorV2Interface COORDINATOR;
-  LinkTokenInterface LINKTOKEN;
+  VRFCoordinatorV2Interface public COORDINATOR;
+  LinkTokenInterface public LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
 
-  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
-    LINKTOKEN = LinkTokenInterface(link);
+  function initialize(address _vrfCoordinator, address _link) public initializer {
+    __VRFConsumerBaseV2_init(_vrfCoordinator);
+    COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
+    LINKTOKEN = LinkTokenInterface(_link);
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
