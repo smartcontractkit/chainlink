@@ -3,7 +3,6 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"math/big"
 	"strings"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	uuid "github.com/satori/go.uuid"
