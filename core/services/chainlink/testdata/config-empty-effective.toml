@@ -192,3 +192,9 @@ Debug = false
 DSN = ''
 Environment = ''
 Release = ''
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
