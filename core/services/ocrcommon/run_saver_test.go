@@ -13,7 +13,7 @@ import (
 )
 
 func TestRunSaver(t *testing.T) {
-	pipelineRunner := new(mocks.Runner)
+	pipelineRunner := mocks.NewRunner(t)
 	rr := make(chan pipeline.Run, 100)
 	rs := NewResultRunSaver(
 		rr,

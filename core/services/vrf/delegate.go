@@ -38,7 +38,6 @@ type Delegate struct {
 	mailMon *utils.MailboxMonitor
 }
 
-//go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
 type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
