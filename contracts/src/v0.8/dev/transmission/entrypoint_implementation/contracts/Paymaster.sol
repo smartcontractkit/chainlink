@@ -70,6 +70,7 @@ contract Paymaster is IPaymaster {
 
   /// @dev Calculates any extra LINK cost for the user operation, based on the funding type passed to the
   /// @dev paymaster.
+  /// TODO: add logic for subscription top-up.
   function extractExtraCostJuels(UserOperation calldata userOp) internal returns (uint256 extraCost) {
     if (userOp.paymasterAndData.length == 20) {
       return 0; // no extra data, stop here

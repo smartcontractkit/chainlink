@@ -10,7 +10,7 @@ library SCALibrary {
 
   enum LinkPaymentType {
     DIRECT_FUNDING,
-    SUBSCRIPTION
+    SUBSCRIPTION // TODO: implement
   }
 
   struct DirectFundingData {
