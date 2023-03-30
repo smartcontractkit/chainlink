@@ -360,7 +360,7 @@ func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash
 	return c.b.HeaderByHash(ctx, h)
 }
 
-func (c *SimulatedBackendClient) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.ClientErrorType, error) {
+func (c *SimulatedBackendClient) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
 	if err == nil {
 		return clienttypes.Successful, nil

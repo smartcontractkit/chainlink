@@ -414,7 +414,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, testutils.WaitTimeout(t), 500*time.Millisecond)
 }
 
-func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
+func TestEthClient_SendTransactionAndReturnCode(t *testing.T) {
 	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
@@ -441,7 +441,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.Fatal)
 	})
@@ -467,7 +467,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.TransactionAlreadyKnown)
 	})
@@ -492,7 +492,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.NoError(t, err)
 		assert.Equal(t, errType, clienttypes.Successful)
 	})
@@ -518,7 +518,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.Underpriced)
 	})
@@ -544,7 +544,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.Unsupported)
 	})
@@ -570,7 +570,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.Retryable)
 	})
@@ -596,7 +596,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.InsufficientFunds)
 	})
@@ -622,7 +622,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.ExceedsMaxFee)
 	})
@@ -648,7 +648,7 @@ func TestEthClient_SendTransactionAndReturnErrorType(t *testing.T) {
 		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
-		errType, err := ethClient.SendTransactionAndReturnErrorType(testutils.Context(t), tx, fromAddress)
+		errType, err := ethClient.SendTransactionAndReturnCode(testutils.Context(t), tx, fromAddress)
 		assert.Error(t, err)
 		assert.Equal(t, errType, clienttypes.Unknown)
 	})

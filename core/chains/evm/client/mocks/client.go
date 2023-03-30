@@ -575,19 +575,19 @@ func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	return r0
 }
 
-// SendTransactionAndReturnErrorType provides a mock function with given fields: ctx, tx, fromAddress
-func (_m *Client) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.ClientErrorType, error) {
+// SendTransactionAndReturnCode provides a mock function with given fields: ctx, tx, fromAddress
+func (_m *Client) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	ret := _m.Called(ctx, tx, fromAddress)
 
-	var r0 commonclient.ClientErrorType
+	var r0 commonclient.SendTxReturnCode
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (commonclient.ClientErrorType, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (commonclient.SendTxReturnCode, error)); ok {
 		return rf(ctx, tx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) commonclient.ClientErrorType); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) commonclient.SendTxReturnCode); ok {
 		r0 = rf(ctx, tx, fromAddress)
 	} else {
-		r0 = ret.Get(0).(commonclient.ClientErrorType)
+		r0 = ret.Get(0).(commonclient.SendTxReturnCode)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction, common.Address) error); ok {

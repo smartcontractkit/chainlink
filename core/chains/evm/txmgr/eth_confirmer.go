@@ -16,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	"go.uber.org/multierr"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -868,7 +868,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 	}
 
 	lggr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "gasLimit", etx.GasLimit, "attempt", attempt, "etx", etx)
-	errType, sendError := ec.ethClient.SendTransactionAndReturnErrorType(ctx, signedTx, fromAddress)
+	errType, sendError := ec.ethClient.SendTransactionAndReturnCode(ctx, signedTx, fromAddress)
 
 	switch errType {
 	case clienttypes.Underpriced:
@@ -930,7 +930,6 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case clienttypes.InsufficientFunds:
-		ec.SvcErrBuffer.Append(sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	case clienttypes.Successful:

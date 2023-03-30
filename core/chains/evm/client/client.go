@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -58,7 +58,7 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
-	SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.ClientErrorType, error)
+	SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
@@ -203,9 +203,12 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return client.pool.HeaderByHash(ctx, h)
 }
 
-func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.ClientErrorType, error) {
+func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
 	sendError := NewSendError(err)
+	if sendError == nil {
+		return clienttypes.Successful, err
+	}
 	if sendError.Fatal() {
 		client.logger.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
@@ -223,9 +226,6 @@ func (client *client) SendTransactionAndReturnErrorType(ctx context.Context, tx 
 			tx.Hash(), err), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap)
 
 		// Assume success and hand off to the next cycle.
-		return clienttypes.Successful, err
-	}
-	if sendError == nil {
 		return clienttypes.Successful, err
 	}
 	if sendError.IsTransactionAlreadyInMempool() {
