@@ -21,7 +21,7 @@ import (
 func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := &mocks.ORM{}
+	sessionORM := mocks.NewORM(t)
 	sessionStore := cookie.NewStore([]byte("secret"))
 
 	r := gin.Default()
@@ -44,7 +44,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := &mocks.ORM{}
+	sessionORM := mocks.NewORM(t)
 	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
 	sessionID := "sessionID"
 

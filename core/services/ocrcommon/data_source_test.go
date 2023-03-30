@@ -24,7 +24,7 @@ var (
 )
 
 func Test_InMemoryDataSource(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
@@ -43,7 +43,7 @@ func Test_InMemoryDataSource(t *testing.T) {
 }
 
 func Test_InMemoryDataSourceWithProm(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 
 	jsonParseTask := pipeline.JSONParseTask{
 		BaseTask: pipeline.BaseTask{},
@@ -92,7 +92,7 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 }
 
 func Test_NewDataSourceV2(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
@@ -113,7 +113,7 @@ func Test_NewDataSourceV2(t *testing.T) {
 }
 
 func Test_NewDataSourceV1(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{

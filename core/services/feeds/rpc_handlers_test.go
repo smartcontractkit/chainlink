@@ -22,7 +22,7 @@ type TestRPCHandlers struct {
 
 func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 	var (
-		svc            = &mocks.Service{}
+		svc            = mocks.NewService(t)
 		feedsManagerID = int64(1)
 	)
 
