@@ -417,7 +417,7 @@ func (lp *logPoller) run() {
 					}
 				} else {
 					// Serially process replay requests.
-					lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
 					lp.PollAndSaveLogs(replayReq.ctx, fromBlock)
 				}
 			} else {
