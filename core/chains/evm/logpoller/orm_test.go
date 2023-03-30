@@ -698,11 +698,11 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
 
-	logs, err := orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err := orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
 
 	require.NoError(t, err)
-	require.Len(t, *logs, 1)
-	require.Equal(t, (*logs)[0].Data, []byte("requestID-0001 data"))
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-0001 data"))
 
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
@@ -720,10 +720,10 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
 
-	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
 
 	require.NoError(t, err)
-	require.Len(t, *logs, 0)
+	require.Len(t, logs, 0)
 
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
@@ -740,10 +740,10 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x3"), 3, time.Now()))
-	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
 	require.NoError(t, err)
-	require.Len(t, *logs, 1)
-	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
 
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
@@ -760,11 +760,11 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 
-	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
 	require.NoError(t, err)
-	require.Len(t, *logs, 2)
-	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
-	require.Equal(t, (*logs)[1].Data, []byte("requestID-0003 data"))
+	require.Len(t, logs, 2)
+	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
+	require.Equal(t, logs[1].Data, []byte("requestID-0003 data"))
 
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
@@ -782,15 +782,15 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x4"), 4, time.Now()))
 
-	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 4, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 4, 0)
 	require.NoError(t, err)
-	require.Len(t, *logs, 1)
-	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
 
 	//No enough confirmations
-	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 5, 5)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 5, 5)
 	require.NoError(t, err)
-	require.Len(t, *logs, 0)
+	require.Len(t, logs, 0)
 
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x5"), 5, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x6"), 6, time.Now()))
@@ -799,8 +799,8 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x9"), 9, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x10"), 10, time.Now()))
 
-	logs, err = orm.SelectLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 10, 5)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 10, 5)
 	require.NoError(t, err)
-	require.Len(t, *logs, 1)
-	require.Equal(t, (*logs)[0].Data, []byte("requestID-0002 data"))
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
 }

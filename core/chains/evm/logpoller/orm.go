@@ -413,8 +413,8 @@ func validateTopicIndex(index int) error {
 	return nil
 }
 
-// SelectLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index
-func (o *ORM) SelectLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) (*[]Log, error) {
+// SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index
+func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	q := o.q.WithOpts(qopts...)
 	var logs []Log
 
@@ -447,6 +447,6 @@ func (o *ORM) SelectLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int
 	if err != nil {
 		return nil, err
 	}
-	return &logs, nil
+	return logs, nil
 
 }
