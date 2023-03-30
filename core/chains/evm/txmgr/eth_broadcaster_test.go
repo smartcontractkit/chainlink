@@ -50,7 +50,7 @@ import (
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -454,7 +454,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -569,7 +569,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -637,7 +637,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 		lm := decimal.RequireFromString("1.3")
 		c.EVM[0].GasEstimator.LimitMultiplier = &lm
 	})
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -685,7 +685,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("cannot be more than one transaction per address in an unfinished state", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -720,7 +720,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce but never broadcast", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -758,7 +758,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast but it fatally errored before we could save", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -796,7 +796,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast and is now in mempool", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -833,7 +833,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast and now the transaction has been confirmed", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -872,7 +872,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("previous run assigned nonce and then failed to reach node for some reason and node is still down", func(t *testing.T) {
 		failedToReachNodeError := context.DeadlineExceeded
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -909,7 +909,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast transaction then crashed and rebooted with a different configured gas price", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
@@ -980,7 +980,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -1746,7 +1746,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 
 	realKeystore := cltest.NewKeyStore(t, db, cfg)
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, realKeystore.Eth())
@@ -1838,7 +1838,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	eb := cltest.NewEthBroadcaster(t, borm, evmtest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{}, false)
@@ -1851,7 +1851,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_tx_triggers", nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -1880,7 +1880,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(true)
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	k1, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)

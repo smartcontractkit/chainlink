@@ -121,18 +121,18 @@ func NewTxm(
 	db *sqlx.DB,
 	ethClient evmclient.Client,
 	cfg Config,
-	keyStore txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
+	keyStore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	lggr logger.Logger,
-	checkerFactory TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash],
-	fwdMgr txmgrtypes.ForwarderManager[*evmtypes.Address],
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]],
-	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
-	nonceSyncer NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
-	ethBroadcaster EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
-	ethConfirmer EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
-) *Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
-	b := Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]{
+	checkerFactory EvmTransmitCheckerFactory,
+	fwdMgr EvmFwdMgr,
+	txAttemptBuilder EvmTxAttemptBuilder,
+	txStorageService EvmTxStorageService,
+	nonceSyncer EvmNonceSyncer,
+	ethBroadcaster EvmEthBroadcaster,
+	ethConfirmer EvmEthConfirmer,
+) *EvmTxm {
+	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		txStorageService: txStorageService,

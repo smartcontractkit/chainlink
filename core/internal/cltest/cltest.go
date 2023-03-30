@@ -200,7 +200,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.EvmTransmitCheckerFactory, nonceAutoSync bool) (*txmgr.EvmEthBroadcaster, error) {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
@@ -209,9 +209,13 @@ func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, 
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
-	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, nil, txBuilder, lggr,
-		checkerFactory, nonceAutoSync)
+	txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, keyStore)
+	addresses, err := keyStore.EnabledAddressesForChain(ethClient.ChainID())
+	if err != nil {
+		return nil, err
+	}
+	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, ethClient, config, keyStore, eventBroadcaster, addresses, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	return ethBroadcaster, nil
 }
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
@@ -219,13 +223,17 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
+func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth) (*txmgr.EvmEthConfirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ks, estimator)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, fn, txBuilder, lggr)
-	return ec
+	addresses, err := ks.EnabledAddressesForChain(ethClient.ChainID())
+	if err != nil {
+		return nil, err
+	}
+	ec := txmgr.NewEthConfirmer(txStorageService, ethClient, config, ks, addresses, txBuilder, lggr)
+	return ec, nil
 }
 
 // TestApplication holds the test application and test servers
@@ -1012,13 +1020,13 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, wa
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.EvmEthTxAttempt {
 	g := gomega.NewWithT(t)
 
-	var txas []txmgr.EthTxAttempt
+	var txas []txmgr.EvmEthTxAttempt
 	var err error
-	g.Consistently(func() []txmgr.EthTxAttempt {
-		txas = make([]txmgr.EthTxAttempt, 0)
+	g.Consistently(func() []txmgr.EvmEthTxAttempt {
+		txas = make([]txmgr.EvmEthTxAttempt, 0)
 		err = db.Select(&txas, `SELECT * FROM eth_tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
 		return txas
@@ -1629,7 +1637,7 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	return states[0]
 }
 
-func NewTxmORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.ORM {
+func NewTxmStorageService(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStorageService {
 	return txmgr.NewTxStorageService(db, logger.TestLogger(t), cfg)
 }
 

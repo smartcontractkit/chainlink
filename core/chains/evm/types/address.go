@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commontypes "github.com/smartcontractkit/chainlink/common/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 var _ commontypes.Hashable = &Address{}

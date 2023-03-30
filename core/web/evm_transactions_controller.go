@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -35,7 +36,7 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 
-	ethTxAttempt, err := tc.App.TxmStorageService().FindEthTxAttempt(hash)
+	ethTxAttempt, err := tc.App.TxmStorageService().FindEthTxAttempt(evmtypes.NewTxHash(hash))
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 		return

@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -236,9 +237,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 		effectiveTransmitterAddress := concreteSpec.TransmitterAddress.Address()
 		if jb.ForwardingAllowed {
-			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(concreteSpec.TransmitterAddress.Address())
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(types.NewAddress(effectiveTransmitterAddress))
 			if fwderr == nil {
-				effectiveTransmitterAddress = fwdrAddress
+				effectiveTransmitterAddress = *fwdrAddress.NativeAddress()
 			} else {
 				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
 			}

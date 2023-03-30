@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -592,7 +593,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	orm := txmgr.NewTxStorageService(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), addresses, nil, txBuilder, chain.Logger())
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), addresses, txBuilder, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }

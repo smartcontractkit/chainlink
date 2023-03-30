@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -805,7 +806,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
-			var ethTX txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash]
+			var transaction txmgrtypes.Transaction
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -817,7 +818,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
+				transaction, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
 					FromAddress:    evmtypes.NewAddress(fromAddress),
 					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -841,7 +842,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 				continue
 			}
-			ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
+			ll.Infow("Enqueued fulfillment", "ethTxID", transaction.GetID())
 
 			// If we successfully enqueued for the txm, subtract that balance
 			// And loop to attempt to enqueue another fulfillment

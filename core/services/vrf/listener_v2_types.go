@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -143,7 +144,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
-	var ethTX txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash]
+	var ethTX txmgrtypes.Transaction
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -180,7 +181,7 @@ func (lsn *listenerV2) processBatch(
 		ll.Errorw("Error enqueuing batch fulfillments, requeuing requests", "err", err)
 		return
 	}
-	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
+	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.GetID())
 
 	// mark requests as processed since the fulfillment has been successfully enqueued
 	// to the txm.

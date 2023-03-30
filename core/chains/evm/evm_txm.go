@@ -5,10 +5,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/builder"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -50,30 +49,17 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
-		var fwdMgr txmgrtypes.ForwarderManager[*types.Address]
-
-		if cfg.EvmUseForwarders() {
-			fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
-		} else {
-			lggr.Info("EvmForwarderManager: Disabled")
-		}
-
-		checker := &txmgr.CheckerFactory{Client: client}
-		// create tx attempt builder
-		txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*client.ChainID(), cfg, opts.KeyStore, estimator)
-		txStorageService := txmgr.NewTxStorageService(db, lggr, cfg)
-		txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, client, opts.KeyStore)
-
-		addresses, err := opts.KeyStore.EnabledAddressesForChain(client.ChainID())
-		if err != nil {
-			return nil, nil, err
-		}
-		ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, client, cfg, opts.KeyStore, opts.EventBroadcaster, addresses, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
-		ethConfirmer := txmgr.NewEthConfirmer(txStorageService, client, cfg, opts.KeyStore, addresses, txAttemptBuilder, lggr)
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStorageService, txNonceSyncer, *ethBroadcaster, *ethConfirmer)
+		txm, err = builder.BuildNewTxm(
+			db,
+			cfg,
+			client,
+			lggr,
+			logPoller,
+			opts.KeyStore,
+			opts.EventBroadcaster,
+			estimator)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-
-	return txm, estimator, nil
+	return
 }

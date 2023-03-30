@@ -122,21 +122,21 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(
-	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
+	txStorageService EvmTxStorageService,
 	ethClient evmclient.Client,
 	config Config,
-	keystore txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
+	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	addresses []*evmtypes.Address,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]],
-	nonceSyncer NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+	txAttemptBuilder EvmTxAttemptBuilder,
+	nonceSyncer EvmNonceSyncer,
 	logger logger.Logger,
-	checkerFactory TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash],
+	checkerFactory EvmTransmitCheckerFactory,
 	autoSyncNonce bool,
-) *EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
+) *EvmEthBroadcaster {
 
 	logger = logger.Named("EthBroadcaster")
-	return &EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]{
+	return &EvmEthBroadcaster{
 		logger:           logger,
 		txStorageService: txStorageService,
 		ethClient:        ethClient,

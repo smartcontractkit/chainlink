@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -35,7 +34,7 @@ type Chain interface {
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
-	TxManager() txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	TxManager() txmgr.EvmTxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
@@ -50,7 +49,7 @@ type chain struct {
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	txm             txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	txm             txmgr.EvmTxManager
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -263,7 +262,7 @@ func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
+func (c *chain) TxManager() txmgr.EvmTxManager {
 	return c.txm
 }
 func (c *chain) HeadTracker() httypes.HeadTracker       { return c.headTracker }

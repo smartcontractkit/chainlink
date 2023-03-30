@@ -239,7 +239,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-	borm := cltest.NewTxmORM(t, sqlxDB, config)
+	borm := cltest.NewTxmStorageService(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := mocks.NewApplication(t)
@@ -314,7 +314,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-			borm := cltest.NewTxmORM(t, sqlxDB, config)
+			borm := cltest.NewTxmStorageService(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := mocks.NewApplication(t)

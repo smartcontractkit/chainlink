@@ -12,11 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -52,7 +51,7 @@ type UpkeepExecuter struct {
 	config                 Config
 	executionQueue         chan struct{}
 	headBroadcaster        httypes.HeadBroadcasterRegistry
-	gasEstimator           txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]
+	gasEstimator           txmgr.EvmFeeEstimator
 	job                    job.Job
 	mailbox                *utils.Mailbox[*evmtypes.Head]
 	orm                    ORM
@@ -70,7 +69,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	gasEstimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
+	gasEstimator txmgr.EvmFeeEstimator,
 	logger logger.Logger,
 	config Config,
 	effectiveKeeperAddress common.Address,

@@ -27,7 +27,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -53,7 +53,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -75,7 +75,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 	t.Run("does nothing if chain nonce is behind local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -100,7 +100,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 	t.Run("fast forwards if chain nonce is ahead of local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -130,7 +130,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))

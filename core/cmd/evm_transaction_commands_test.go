@@ -65,7 +65,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	db := app.GetSqlxDB()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	borm := cltest.NewTxmORM(t, db, app.GetConfig())
+	borm := cltest.NewTxmStorageService(t, db, app.GetConfig())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 

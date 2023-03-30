@@ -7,10 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -19,7 +18,7 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateEthTransaction(newTx txmgr.NewTx[*evmtypes.Address], qopts ...pg.QOpt) (etx txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], err error)
+	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx types.Transaction, err error)
 }
 
 type Transmitter interface {

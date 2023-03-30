@@ -42,7 +42,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	subj1 := uuid.NewV4()

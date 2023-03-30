@@ -36,7 +36,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	borm := cltest.NewTxmORM(t, db, logCfg)
+	borm := cltest.NewTxmStorageService(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 
@@ -103,7 +103,7 @@ func Test_EthResender_Start(t *testing.T) {
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
-	borm := cltest.NewTxmORM(t, db, cfg)
+	borm := cltest.NewTxmStorageService(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)

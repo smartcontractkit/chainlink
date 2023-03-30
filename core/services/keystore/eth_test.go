@@ -14,15 +14,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_EthKeyStore(t *testing.T) {
@@ -112,7 +112,7 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 1)
 
 		// add one eth_tx
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxmStorageService(t, db, cfg)
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, key.Address)
 
 		_, err = ethKeyStore.Delete(key.ID())
