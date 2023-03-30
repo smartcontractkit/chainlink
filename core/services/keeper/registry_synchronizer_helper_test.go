@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -29,7 +29,7 @@ const syncUpkeepQueueSize = 10
 func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*evmmocks.Client,
+	*evmclimocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
