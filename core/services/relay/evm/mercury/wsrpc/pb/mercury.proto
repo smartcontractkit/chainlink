@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/smartcontractkit/chainlink/services/relay/evm/mercury/wsrpc/pb";
+option go_package = "github.com/smartcontractkit/chainlink/v2/services/relay/evm/mercury/wsrpc/pb";
 
 package pb;
 

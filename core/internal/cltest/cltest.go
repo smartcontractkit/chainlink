@@ -42,56 +42,57 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/cosmoskey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
-	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 const (
@@ -200,7 +201,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, addresses []common.Address, checkerFactory txmgr.TransmitCheckerFactory, nonceAutoSync bool) *txmgr.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
@@ -210,7 +211,7 @@ func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, 
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
 	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, nil, txBuilder, lggr,
+		addresses, nil, txBuilder, lggr,
 		checkerFactory, nonceAutoSync)
 }
 
@@ -219,12 +220,12 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
+func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, addresses []common.Address, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ks, estimator)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, keyStates, fn, txBuilder, lggr)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, addresses, fn, txBuilder, lggr)
 	return ec
 }
 
@@ -285,8 +286,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case evmtypes.ChainConfig:
-			chainID = v.ID
 		case *utils.Big:
 			chainID = *v
 		}
@@ -370,7 +369,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
-	var chainORM evmtypes.ORM
+	var chainCfgs evmtypes.Configs
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -397,18 +396,17 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		o := chainORM
+		o := chainCfgs
 		if o == nil {
-			o = evm.NewORM(db, lggr, cfg)
-		}
-		if err = o.EnsureChains(ids); err != nil {
-			t.Fatal(err)
+			if err = cosmos.EnsureChains(db, lggr, cfg, ids); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
-		ORM:              chainORM,
+		Configs:          chainCfgs,
 		Config:           cfg,
 		Logger:           lggr,
 		DB:               db,
@@ -435,8 +433,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			EventBroadcaster: eventBroadcaster,
 		}
 		cfgs := cfg.CosmosConfigs()
-		opts.ORM = cosmos.NewORMImmut(cfgs)
-		chains.Cosmos, err = cosmos.NewChainSetImmut(opts, cfgs)
+		opts.Configs = cosmos.NewConfigs(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
 		if err != nil {
 			lggr.Fatal(err)
 		}
@@ -449,14 +447,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			KeyStore: keyStore.Solana(),
 		}
 		cfgs := cfg.SolanaConfigs()
-		opts.ORM = solana.NewORMImmut(cfgs)
-		chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		opts.Configs = solana.NewConfigs(cfgs)
+		chains.Solana, err = solana.NewChainSet(opts, cfgs)
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -472,14 +470,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			KeyStore: keyStore.StarkNet(),
 		}
 		cfgs := cfg.StarknetConfigs()
-		opts.ORM = starknet.NewORMImmut(cfgs)
-		chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		opts.Configs = starknet.NewConfigs(cfgs)
+		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -525,18 +523,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *evmclimocks.Client) {
 	testutils.SkipShortDB(t)
 	c = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) *evmMocks.Client {
-	return evmMocks.NewClient(t)
+func NewEthMocks(t testing.TB) *evmclimocks.Client {
+	return evmclimocks.NewClient(t)
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
+func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 	testutils.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
@@ -558,7 +556,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
-func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Client {
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Client {
 	testutils.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
@@ -1312,7 +1310,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client, sub *evmMocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *evmMocks.Subscription) {
 	t.Helper()
 
 	// Start

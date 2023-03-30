@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ORM struct {
@@ -22,7 +22,7 @@ type ORM struct {
 
 // NewORM creates an ORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
-	namedLogger := lggr.Named("ORM")
+	namedLogger := lggr.Named("Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
 		chainID: chainID,

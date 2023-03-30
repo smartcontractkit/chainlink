@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -32,7 +32,7 @@ func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrD
 
 func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(name string) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 

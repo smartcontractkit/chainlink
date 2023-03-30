@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -200,6 +200,7 @@ func RequestAndRedeemRandomness(
 	numberOfRandomWordsToRequest uint16,
 	subscriptionID,
 	confirmationDelay *big.Int,
+	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
 	l := utils.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomness(
@@ -215,7 +216,7 @@ func RequestAndRedeemRandomness(
 
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
+	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
 
@@ -227,7 +228,7 @@ func RequestAndRedeemRandomness(
 	return requestID
 }
 
-func RequestRandomnessFulfillment(
+func RequestRandomnessFulfillmentAndWaitForFulfilment(
 	t *testing.T,
 	consumer contracts.VRFBeaconConsumer,
 	chainClient blockchain.EVMClient,
@@ -235,6 +236,7 @@ func RequestRandomnessFulfillment(
 	numberOfRandomWordsToRequest uint16,
 	subscriptionID *big.Int,
 	confirmationDelay *big.Int,
+	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
 	l := utils.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomnessFulfillment(
@@ -252,7 +254,7 @@ func RequestRandomnessFulfillment(
 
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
+	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness Fulfillment transmitted by DON")
 

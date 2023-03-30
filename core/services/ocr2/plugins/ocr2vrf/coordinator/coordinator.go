@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
@@ -21,16 +22,19 @@ import (
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -168,12 +172,11 @@ func New(
 	}
 
 	t := newTopics()
-	filterName := logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: filterName,
+		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
 			t.randomnessFulfillmentRequestedTopic,
@@ -1101,4 +1104,28 @@ func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	numCallbacks int) {
 	promBlocksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
 	promCallbacksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
+}
+
+func filterName(beaconAddress, coordinatorAddress, dkgAddress common.Address) string {
+	return logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
+}
+
+func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
+	var cfg ocr2vrfconfig.PluginConfig
+	var beaconAddress, coordinatorAddress, dkgAddress ethkey.EIP55Address
+
+	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
+		err = errors.Wrap(err, "failed to unmarshal ocr2vrf plugin config")
+		return nil, err
+	}
+
+	if beaconAddress, err = ethkey.NewEIP55Address(spec.ContractID); err == nil {
+		if coordinatorAddress, err = ethkey.NewEIP55Address(cfg.VRFCoordinatorAddress); err == nil {
+			if dkgAddress, err = ethkey.NewEIP55Address(cfg.DKGContractAddress); err == nil {
+				return []string{filterName(beaconAddress.Address(), coordinatorAddress.Address(), dkgAddress.Address())}, nil
+			}
+		}
+	}
+
+	return nil, err
 }

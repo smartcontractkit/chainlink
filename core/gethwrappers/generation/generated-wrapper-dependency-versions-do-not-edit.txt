@@ -30,9 +30,9 @@ mercury_verifier: ../../contracts/solc/v0.8.6/Verifier.abi ../../contracts/solc/
 mercury_verifier_proxy: ../../contracts/solc/v0.8.6/VerifierProxy.abi ../../contracts/solc/v0.8.6/VerifierProxy.bin 7a2ef1ee00d0f929a2e319a8da0cc252d2771318517da3679a04463e3e6b08e1
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin 22ea93fc25a620183fc2a03664c1fbb631566d4667d1e6237846979f938bf29b
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
-ocr2dr: ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Functions.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
-ocr2dr_client: ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin bee85cefe5304bee7c11beccf34edb78f2ce7d8fefe228bf1e108f6057ad4bd4
-ocr2dr_client_example: ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin 52d378dba1f51500f7ce06ec9441c1f4c7e6eec501f1f56c72724e5dd8c7233b
+ocr2dr: ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Functions.bin d9a794b33f47cc57563d216f7cf3a612309fc3062356a27e30005cf1d59e449d
+ocr2dr_client: ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin 84aa63f9dbc5c7eac240db699b09e613ca4c6cd56dab10bdc25b02461b717e21
+ocr2dr_client_example: ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin 77a8069eb303a99c6aec59e56a6d9bb1ac7acf00284cdeb0385bf8304003e3b4
 ocr2dr_oracle: ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.abi ../../contracts/solc/v0.8.6/FunctionsOracleWithInit.bin 74bf1d900a48a69acc534691173a1234cb590873f1f220e50fa041530c271a40
 ocr2dr_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin 9d629d27dfc7af026cfacb8d1a463fe9e8407769f97ce9e5c7df6769d36e4c3e
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
@@ -56,6 +56,7 @@ vrf_coordinator_v2: ../../contracts/solc/v0.8.6/VRFCoordinatorV2.abi ../../contr
 vrf_external_sub_owner_example: ../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.abi ../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.bin 14f888eb313930b50233a6f01ea31eba0206b7f41a41f6311670da8bb8a26963
 vrf_load_test_external_sub_owner: ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.abi ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.bin 2097faa70265e420036cc8a3efb1f1e0836ad2d7323b295b9a26a125dbbe6c7d
 vrf_load_test_ownerless_consumer: ../../contracts/solc/v0.8.6/VRFLoadTestOwnerlessConsumer.abi ../../contracts/solc/v0.8.6/VRFLoadTestOwnerlessConsumer.bin 74f914843cbc70b9c3079c3e1c709382ce415225e8bb40113e7ac018bfcb0f5c
+vrf_load_test_with_metrics: ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics.abi ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics.bin 67081640d4071dc367593cf0042f582c45846f008b0105bc76ede3f1ea227d46
 vrf_malicious_consumer_v2: ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.abi ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.bin fe81f869c49051c2cb4116204a1d6521fa3a70ce2d8f8467e8ee92268a5beea2
 vrf_ownerless_consumer_example: ../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.abi ../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.bin 9893b3805863273917fb282eed32274e32aa3d5c2a67a911510133e1218132be
 vrf_single_consumer_example: ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin 892a5ed35da2e933f7fd7835cd6f7f70ef3aa63a9c03a22c5b1fd026711b0ece

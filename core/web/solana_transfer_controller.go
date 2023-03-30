@@ -12,11 +12,11 @@ import (
 
 	solanaGo "github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	solanamodels "github.com/smartcontractkit/chainlink/core/store/models/solana"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	solanamodels "github.com/smartcontractkit/chainlink/v2/core/store/models/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // SolanaTransfersController can send LINK tokens to another address
@@ -43,7 +43,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 	chain, err := solanaChains.Chain(c.Request.Context(), tr.SolanaChainID)
 	switch err {
-	case chains.ErrChainIDInvalid, chains.ErrChainIDEmpty:
+	case chains.ErrNotFound, chains.ErrChainIDEmpty:
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	case nil:

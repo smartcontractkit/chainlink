@@ -8,7 +8,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //go:generate mockery --quiet --name iLogPool --output ./ --inpackage --testonly

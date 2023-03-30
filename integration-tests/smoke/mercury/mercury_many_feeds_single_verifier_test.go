@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mercuryactions "github.com/smartcontractkit/chainlink/integration-tests/actions/mercury"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/smoke/mercury/subtests"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups/mercury"
 )
@@ -26,7 +27,11 @@ func TestMercuryManyFeedsSingleVerifier(t *testing.T) {
 	for _, feedIdBytes := range feedIds {
 		feedIdStr := mercury.Byte32ToString(feedIdBytes)
 
-		subtests.RunTestMercuryServerHasReportForRecentBlockNum(t, testEnv, feedIdStr)
+		subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, testEnv, feedIdStr, client.StringFeedId)
+		subtests.RunTestGetReportByFeedIdForRecentBlockNum(t, testEnv, feedIdStr, client.HexFeedId)
+		subtests.RunAllWSTests(t, testEnv, feedIdStr)
+		subtests.RunTestsGetBulkReportsForRecentBlockNum(t, testEnv, feedIdStr, client.StringFeedId)
+		subtests.RunTestsGetBulkReportsForRecentBlockNum(t, testEnv, feedIdStr, client.HexFeedId)
 		subtests.RunTestReportVerificationWithExchangerContract(t, testEnv, exchangerContract, feedIdStr)
 	}
 }

@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestDKGSignKeyPresenter_RenderTable(t *testing.T) {
@@ -123,7 +123,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
-		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c := cli.NewContext(nil, set, nil)
@@ -136,7 +136,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
-		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 
 		c = cli.NewContext(nil, set, nil)
@@ -151,7 +151,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ImportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
-		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(tt, cmd.NewDKGSignKeysClient(client).ImportKey(c))

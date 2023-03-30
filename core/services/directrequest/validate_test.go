@@ -47,8 +47,6 @@ func TestValidatedDirectRequestSpec_MinIncomingConfirmations(t *testing.T) {
 		type                = "directrequest"
 		schemaVersion       = 1
 		name                = "example eth request event spec"
-		observationSource   = """
-		"""
 		`
 
 		s, err := ValidatedDirectRequestSpec(toml)
@@ -65,8 +63,6 @@ func TestValidatedDirectRequestSpec_MinIncomingConfirmations(t *testing.T) {
 		schemaVersion       = 1
 		name                = "example eth request event spec"
 		minIncomingConfirmations = 100
-		observationSource   = """
-		"""
 		`
 
 		s, err := ValidatedDirectRequestSpec(toml)
