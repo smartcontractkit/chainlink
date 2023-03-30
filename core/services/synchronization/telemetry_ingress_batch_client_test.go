@@ -24,7 +24,7 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	// Create mocks
-	telemClient := new(mocks.TelemClient)
+	telemClient := mocks.NewTelemClient(t)
 	csaKeystore := new(ksmocks.CSA)
 
 	// Set mock handlers for keystore

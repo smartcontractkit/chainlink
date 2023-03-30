@@ -35,7 +35,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 	payload := []byte{1, 2, 3}
 	strategy := newMockTxStrategy(t)
 	checker := txmgr.TransmitCheckerSpec{CheckerType: txmgr.TransmitCheckerTypeSimulate}
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 
 	transmitter := ocrcommon.NewPipelineTransmitter(
 		lggr,

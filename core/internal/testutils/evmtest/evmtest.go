@@ -246,7 +246,7 @@ type MockEth struct {
 	CheckFilterLogs func(int64, int64)
 
 	subsMu           sync.RWMutex
-	subs             []*evmmocks.Subscription
+	subs             []*evmclimocks.Subscription
 	errChs           []chan error
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
@@ -262,7 +262,7 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Add(1)
-	sub := evmmocks.NewSubscription(t)
+	sub := evmclimocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
 		Return(func() <-chan error { return errCh }).Maybe()
