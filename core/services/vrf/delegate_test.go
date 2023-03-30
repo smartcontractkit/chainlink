@@ -11,11 +11,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	eth_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -50,7 +50,7 @@ type vrfUniverse struct {
 	pr        pipeline.Runner
 	prm       pipeline.ORM
 	lb        *log_mocks.Broadcaster
-	ec        *eth_mocks.Client
+	ec        *evmclimocks.Client
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
@@ -64,7 +64,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
-	ec := eth_mocks.NewClient(t)
+	ec := evmclimocks.NewClient(t)
 	ec.On("ChainID").Return(testutils.FixtureChainID)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
@@ -72,7 +72,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
-	txm := new(txmmocks.TxManager)
+	txm := txmmocks.NewTxManager(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
@@ -494,7 +494,7 @@ decode_log->vrf->encode_tx->submit_tx
 		jb, err := vrf.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
 	})
 
@@ -504,7 +504,7 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
@@ -531,7 +531,7 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
@@ -632,7 +632,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
@@ -659,7 +659,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses[:3] {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
 		}

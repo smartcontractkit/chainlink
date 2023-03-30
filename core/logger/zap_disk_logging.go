@@ -37,16 +37,16 @@ var _ Logger = &zapDiskLogger{}
 
 // zapDiskLoggerConfig defines the struct that serves as config when spinning up a the zap logger
 type zapDiskLoggerConfig struct {
-	local          Config
-	diskStats      utils.DiskStatsProvider
-	diskPollConfig zapDiskPollConfig
+	local              Config
+	diskSpaceAvailable diskSpaceAvailableFn
+	diskPollConfig     zapDiskPollConfig
 
 	// This is for tests only
 	testDiskLogLvlChan chan zapcore.Level
 }
 
 func (cfg zapDiskLoggerConfig) newDiskCore(diskLogLevel zap.AtomicLevel) (zapcore.Core, error) {
-	availableSpace, err := cfg.diskStats.AvailableSpace(cfg.local.Dir)
+	availableSpace, err := cfg.diskSpaceAvailable(cfg.local.Dir)
 	if err != nil || availableSpace < cfg.local.RequiredDiskSpace() {
 		// Won't log to disk if the directory is not found or there's not enough disk space
 		diskLogLevel.SetLevel(disabledLevel)
@@ -155,7 +155,7 @@ func (l *zapDiskLogger) pollDiskSpace() {
 		case <-l.config.diskPollConfig.pollChan:
 			lvl := zapcore.DebugLevel
 
-			diskUsage, err := l.config.diskStats.AvailableSpace(l.config.local.Dir)
+			diskUsage, err := l.config.diskSpaceAvailable(l.config.local.Dir)
 			if err != nil {
 				// Will no longer log to disk
 				lvl = disabledLevel
