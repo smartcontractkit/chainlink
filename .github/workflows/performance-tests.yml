@@ -7,6 +7,8 @@ on:
         required: true
         default: suite
         type: string
+env:
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
 jobs:
   build-chainlink:
     environment: integration
