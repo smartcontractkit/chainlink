@@ -114,7 +114,7 @@ func TestLoader_Nodes(t *testing.T) {
 func TestLoader_FeedsManagers(t *testing.T) {
 	t.Parallel()
 
-	fsvc := &feedsMocks.Service{}
+	fsvc := feedsMocks.NewService(t)
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -157,7 +157,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 func TestLoader_JobProposals(t *testing.T) {
 	t.Parallel()
 
-	fsvc := &feedsMocks.Service{}
+	fsvc := feedsMocks.NewService(t)
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -320,7 +320,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txmORM := &txmgrMocks.ORM{}
+	txmORM := txmgrMocks.NewORM(t)
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(testutils.Context(t), app)
 
