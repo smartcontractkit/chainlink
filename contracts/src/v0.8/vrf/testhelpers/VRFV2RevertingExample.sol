@@ -1,30 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../dev/VRFConsumerBaseV2Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
+import "../../interfaces/LinkTokenInterface.sol";
+import "../../interfaces/VRFCoordinatorV2Interface.sol";
+import "../VRFConsumerBaseV2.sol";
 
-contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
+// VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
+contract VRFV2RevertingExample is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  VRFCoordinatorV2Interface public COORDINATOR;
-  LinkTokenInterface public LINKTOKEN;
+  VRFCoordinatorV2Interface COORDINATOR;
+  LinkTokenInterface LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
 
-  function initialize(address _vrfCoordinator, address _link) public initializer {
-    __VRFConsumerBaseV2_init(_vrfCoordinator);
-    COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
-    LINKTOKEN = LinkTokenInterface(_link);
+  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
+    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
+    LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-    require(requestId == s_requestId, "request ID is incorrect");
-
-    s_gasAvailable = gasleft();
-    s_randomWords = randomWords;
+  function fulfillRandomWords(uint256, uint256[] memory) internal override {
+    revert();
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
