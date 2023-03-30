@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import "../VRFV2WrapperConsumerBase.sol";
-import "../ConfirmedOwner.sol";
+import "../../ConfirmedOwner.sol";
 
 contract VRFV2WrapperRevertingConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   constructor(address _link, address _vrfV2Wrapper)
