@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
 //go:generate mockery --quiet --name ServiceCtx --output ./mocks/ --case=underscore
 
 type Service interface {
