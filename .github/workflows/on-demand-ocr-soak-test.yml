@@ -59,6 +59,7 @@ jobs:
       id-token: write
       contents: read
     env:
+      INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
       CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       SELECTED_NETWORKS: ${{ inputs.network }}
