@@ -70,7 +70,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	gasLimit := uint32(242)
 
 	t.Run("no eth_txes at all", func(t *testing.T) {
-		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), evmtypes.NewAddress(keyState.Address.Address()))
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), evmtypes.NewAddress(fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	})
@@ -1796,7 +1796,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
 		next, err := realKeystore.Eth().NextSequence(evmtypes.NewAddress(fromAddress), testutils.FixtureChainID)
 		require.NoError(t, err)
-		kst.On("GetNextNonce", fromAddress, testutils.FixtureChainID, mock.Anything).Return(next, nil).Once()
+		kst.On("NextSequence", fromAddress, testutils.FixtureChainID, mock.Anything).Return(next, nil).Once()
 		kst.On("SignTx",
 			fromAddress,
 			mock.AnythingOfType("*types.Transaction"),
@@ -1991,7 +1991,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 		// Check keyState to make sure it has correct nonce assigned
 		var nonce int64
-		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 

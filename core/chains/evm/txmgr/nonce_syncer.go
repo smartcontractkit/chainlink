@@ -54,12 +54,12 @@ type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.H
 }
 
 type nonceSyncerImpl struct {
-	NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+	EvmNonceSyncer
+	txStorageService EvmTxStorageService
 	ethClient        evmclient.Client
 	chainID          *big.Int
 	logger           logger.Logger
-	kst              txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64]
+	kst              EvmKeyStore
 }
 
 // NewNonceSyncer returns a new syncer

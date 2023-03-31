@@ -2421,6 +2421,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	_, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.NoError(t, err)
+	// keyStates, err := ethKeyStore.GetStatesForKeys(keys)
+	// require.NoError(t, err)
 
 	config := newTestChainScopedConfig(t)
 	currentHead := int64(30)

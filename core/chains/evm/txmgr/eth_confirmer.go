@@ -144,7 +144,6 @@ func NewEthConfirmer(
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
 ) *EvmEthConfirmer {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 

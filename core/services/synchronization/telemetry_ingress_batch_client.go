@@ -19,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-//go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
-
 //go:generate mockery --quiet --name TelemetryIngressBatchClient --output ./mocks --case=underscore
 
 // TelemetryIngressBatchClient encapsulates all the functionality needed to

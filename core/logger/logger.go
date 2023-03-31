@@ -161,9 +161,9 @@ func (c *Config) New() (Logger, func() error) {
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, closeLogger, err := zapDiskLoggerConfig{
-		local:          *c,
-		diskStats:      utils.NewDiskStatsProvider(),
-		diskPollConfig: newDiskPollConfig(diskPollInterval),
+		local:              *c,
+		diskSpaceAvailable: diskSpaceAvailable,
+		diskPollConfig:     newDiskPollConfig(diskPollInterval),
 	}.newLogger(cfg)
 	if err != nil {
 		log.Fatal(err)

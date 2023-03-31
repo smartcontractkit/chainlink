@@ -195,7 +195,7 @@ func TestRunner(t *testing.T) {
 		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
-		cs := new(evmmocks.ChainSet)
+		cs := evmmocks.NewChainSet(t)
 		cs.On("Get", mock.Anything).Return(c, nil)
 
 		jb, err := ocr.ValidatedOracleSpecToml(cs, `
@@ -227,7 +227,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		cfg2 := new(ocr2mocks.Config)
+		cfg2 := ocr2mocks.NewConfig(t)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
 		cfg2.On("Dev").Return(true)

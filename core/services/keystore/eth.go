@@ -189,7 +189,7 @@ func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts .
 	}
 	nonce, err = ks.orm.getNextNonce(*address.NativeAddress(), chainID, qopts...)
 	if err != nil {
-		return 0, errors.Wrap(err, "GetNextNonce failed")
+		return 0, errors.Wrap(err, "NextSequence failed")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
