@@ -1183,7 +1183,7 @@ func (o *evmTxStorageService) UpdateEthKeyNextNonce(newNextNonce, currentNextNon
 func (o *evmTxStorageService) countTransactionsWithState(fromAddress *evmtypes.Address, state EthTxState, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
-		fromAddress, state, chainID.String())
+		*fromAddress.NativeAddress(), state, chainID.String())
 	return count, errors.Wrap(err, "failed to countTransactionsWithState")
 }
 
@@ -1203,7 +1203,7 @@ func (o *evmTxStorageService) CheckEthTxQueueCapacity(fromAddress *evmtypes.Addr
 		return nil
 	}
 	var count uint64
-	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, fromAddress, chainID.String())
+	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, *fromAddress.NativeAddress(), chainID.String())
 	if err != nil {
 		err = errors.Wrap(err, "CheckEthTxQueueCapacity query failed")
 		return

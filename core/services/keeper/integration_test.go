@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
@@ -417,7 +418,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.Chains.EVM.Chains()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		addr, err := app.Chains.EVM.Chains()[0].TxManager().GetForwarderForEOA(evmtypes.NewAddress(nodeAddress))
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 

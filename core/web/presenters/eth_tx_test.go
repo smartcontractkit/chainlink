@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestEthTxResource(t *testing.T) {
@@ -18,11 +19,11 @@ func TestEthTxResource(t *testing.T) {
 
 	from := common.HexToAddress("0x1")
 	to := common.HexToAddress("0x2")
-	tx := txmgr.EthTx{
+	tx := txmgr.EvmEthTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
-		FromAddress:    from,
-		ToAddress:      to,
+		FromAddress:    evmtypes.NewAddress(from),
+		ToAddress:      evmtypes.NewAddress(to),
 		GasLimit:       uint32(5000),
 		State:          txmgr.EthTxConfirmed,
 		Value:          assets.NewEthValue(1),
@@ -66,9 +67,9 @@ func TestEthTxResource(t *testing.T) {
 	)
 
 	tx.Nonce = &nonce
-	txa := txmgr.EthTxAttempt{
+	txa := txmgr.EvmEthTxAttempt{
 		EthTx:                   tx,
-		Hash:                    hash,
+		Hash:                    evmtypes.NewTxHash(hash),
 		GasPrice:                gasPrice,
 		SignedRawTx:             hexutil.MustDecode("0xcafe"),
 		BroadcastBeforeBlockNum: &broadcastBefore,

@@ -54,7 +54,7 @@ type vrfUniverse struct {
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *txmmocks.TxManager
+	txm       *txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int
@@ -72,7 +72,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash](t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
@@ -300,15 +300,15 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.NewTx) bool {
+			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
 				meta := newTx.Meta
-				return newTx.FromAddress == vuni.submitter &&
-					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+				return newTx.FromAddress.String() == vuni.submitter.String() &&
+					newTx.ToAddress.String() == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()).String() &&
 					newTx.GasLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EthTx{}, nil)
+		).Once().Return(txmgr.EvmEthTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -407,7 +407,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.EthTx
+	var ethTxes []txmgr.EvmEthTx
 	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)

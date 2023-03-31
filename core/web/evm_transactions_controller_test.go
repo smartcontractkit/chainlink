@@ -89,7 +89,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	attempt := tx.EthTxAttempts[0]
 	attempt.EthTx = tx
 
-	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.Hex())
+	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.String())
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 

@@ -110,15 +110,17 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 
 	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
+	kst := cltest.NewKeyStore(t, c.db, globalConfig)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  globalConfig,
 		DB:             c.db,
+		KeyStore:       kst.Eth(),
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
-	kst := cltest.NewKeyStore(t, c.db, globalConfig)
+
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst, nil, nil)
 
 	return &broadcasterHelper{

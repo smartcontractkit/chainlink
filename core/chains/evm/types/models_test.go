@@ -87,7 +87,7 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestEthTx_GetID(t *testing.T) {
-	tx := txmgr.EthTx{ID: math.MinInt64}
+	tx := txmgr.EvmEthTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
@@ -100,13 +100,13 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(evmtypes.NewAddress(fromAddress), tx, chainID)
 	require.NoError(t, err)
 	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := txmgr.EthTxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := txmgr.EvmEthTxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := attempt.GetSignedTx()
 	require.NoError(t, err)

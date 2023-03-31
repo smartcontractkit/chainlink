@@ -631,7 +631,7 @@ func assertNumRandomWords(
 func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []txmgr.EthTx
+		var txs []txmgr.EvmEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -651,7 +651,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []txmgr.EthTx
+		var txs []txmgr.EvmEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -1972,7 +1972,7 @@ func TestMaliciousConsumer(t *testing.T) {
 
 	// We expect the request to be serviced
 	// by the node.
-	var attempts []txmgr.EthTxAttempt
+	var attempts []txmgr.EvmEthTxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
 		attempts, _, err = app.TxmStorageService().EthTxAttempts(0, 1000)
@@ -1989,7 +1989,8 @@ func TestMaliciousConsumer(t *testing.T) {
 	// The fulfillment tx should succeed
 	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
-	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
+	txHashBytes, _ := attempts[0].Hash.MarshalText()
+	r, err := ch.Client().TransactionReceipt(testutils.Context(t), common.BytesToHash(txHashBytes))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 
@@ -2273,10 +2274,10 @@ func TestStartingCountsV1(t *testing.T) {
 	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
 	chainID := utils.NewBig(big.NewInt(1337))
-	confirmedTxes := []txmgr.EthTx{
+	confirmedTxes := []txmgr.EvmEthTx{
 		{
 			Nonce:              &n1,
-			FromAddress:        k.Address,
+			FromAddress:        evmtypes.NewAddress(k.Address),
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2288,7 +2289,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n2,
-			FromAddress:        k.Address,
+			FromAddress:        evmtypes.NewAddress(k.Address),
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2300,7 +2301,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n3,
-			FromAddress:        k.Address,
+			FromAddress:        evmtypes.NewAddress(k.Address),
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2312,7 +2313,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n4,
-			FromAddress:        k.Address,
+			FromAddress:        evmtypes.NewAddress(k.Address),
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2324,7 +2325,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 	}
 	// add unconfirmed txes
-	unconfirmedTxes := []txmgr.EthTx{}
+	unconfirmedTxes := []txmgr.EvmEthTx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
 		md, err := json.Marshal(&txmgr.EthTxMeta{
@@ -2333,9 +2334,9 @@ func TestStartingCountsV1(t *testing.T) {
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
 		newNonce := i + 1
-		unconfirmedTxes = append(unconfirmedTxes, txmgr.EthTx{
+		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmEthTx{
 			Nonce:              &newNonce,
-			FromAddress:        k.Address,
+			FromAddress:        evmtypes.NewAddress(k.Address),
 			Error:              null.String{},
 			CreatedAt:          b,
 			State:              txmgr.EthTxUnconfirmed,
@@ -2356,13 +2357,13 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 
 	// add eth_tx_attempts for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := []txmgr.EthTxAttempt{}
+	txAttempts := []txmgr.EvmEthTxAttempt{}
 	for i := range confirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
+		txAttempts = append(txAttempts, txmgr.EvmEthTxAttempt{
 			EthTxID:                 int64(i + 1),
 			GasPrice:                assets.NewWeiI(100),
 			SignedRawTx:             []byte(`blah`),
-			Hash:                    utils.NewHash(),
+			Hash:                    evmtypes.NewTxHash(utils.NewHash()),
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
@@ -2371,11 +2372,11 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
+		txAttempts = append(txAttempts, txmgr.EvmEthTxAttempt{
 			EthTxID:               int64(i + 1 + len(confirmedTxes)),
 			GasPrice:              assets.NewWeiI(100),
 			SignedRawTx:           []byte(`blah`),
-			Hash:                  utils.NewHash(),
+			Hash:                  evmtypes.NewTxHash(utils.NewHash()),
 			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint32(100),
@@ -2395,11 +2396,11 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
 		receipts = append(receipts, txmgr.EvmReceipt{
-			BlockHash:        utils.NewHash(),
+			BlockHash:        evmtypes.NewBlockHash(utils.NewHash()),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,
-			Receipt:          evmtypes.Receipt{},
+			Receipt:          &evmtypes.Receipt{},
 			CreatedAt:        time.Now(),
 		})
 	}

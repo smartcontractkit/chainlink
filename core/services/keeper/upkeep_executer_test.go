@@ -39,10 +39,10 @@ func newHead() evmtypes.Head {
 	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
 }
 
-func mockEstimator(t *testing.T) (estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash]) {
+func mockEstimator(t *testing.T) (estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, *evmtypes.TxHash]) {
 	// note: estimator will only return 1 of legacy or dynamic fees (not both)
 	// assumed to call legacy estimator only
-	estimator = txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash](t)
+	estimator = txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, *evmtypes.TxHash](t)
 	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
 		Legacy:  assets.GWei(60),
 		Dynamic: nil,
@@ -50,7 +50,7 @@ func mockEstimator(t *testing.T) (estimator *txmgrmocks.FeeEstimator[*evmtypes.H
 	return
 }
 
-func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash], overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
+func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, *evmtypes.TxHash], overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
 	*sqlx.DB,
 	chainlink.GeneralConfig,
 	*evmclimocks.Client,
@@ -59,7 +59,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keeper.UpkeepRegistration,
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
-	*txmmocks.TxManager,
+	*txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
 	keystore.Master,
 	evm.Chain,
 	keeper.ORM,
@@ -74,7 +74,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash](t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg, GasEstimator: estimator})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, cc)
@@ -128,10 +128,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(txmgr.EthTx{
+			Return(txmgr.EvmEthTx{
 				ID: 1,
 			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -171,10 +171,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
-				mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
+				mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
 			).
 				Once().
-				Return(txmgr.EthTx{
+				Return(txmgr.EvmEthTx{
 					ID: 1,
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -273,10 +273,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(txmgr.EthTx{}, nil).
+			Return(txmgr.EvmEthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
