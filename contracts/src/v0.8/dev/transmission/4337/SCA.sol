@@ -38,7 +38,7 @@ contract SCA is IAccount {
     }
 
     // Verify signature on hash.
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash);
+    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, address(this));
     bytes memory signature = userOp.signature;
     bytes32 r;
     bytes32 s;

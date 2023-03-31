@@ -19,8 +19,8 @@ library SmartContractAccountHelper {
     );
   }
 
-  function getFullHashForSigning(bytes32 userOpHash) public pure returns (bytes32) {
-    return SCALibrary.getUserOpFullHash(userOpHash);
+  function getFullHashForSigning(bytes32 userOpHash, address scaAddress) public view returns (bytes32) {
+    return SCALibrary.getUserOpFullHash(userOpHash, scaAddress);
   }
 
   function getSCAInitCodeWithConstructor(

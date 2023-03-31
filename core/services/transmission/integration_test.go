@@ -125,7 +125,7 @@ func Test4337Basic(t *testing.T) {
 	// Generate hash from user operation, sign it, and include it in the user operation.
 	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
 	require.NoError(t, err)
-	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
+	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
 	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
@@ -274,7 +274,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	// Generate hash from user operation, sign it, and include it in the user operation.
 	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
 	require.NoError(t, err)
-	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
+	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
 	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
@@ -427,7 +427,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	// Generate hash from user operation, sign it, and include it in the user operation.
 	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
 	require.NoError(t, err)
-	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash)
+	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
 	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
