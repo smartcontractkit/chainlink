@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
@@ -18,9 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type CosmosConfigs []*CosmosConfig
@@ -305,9 +301,4 @@ func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 
 func NewConfigs(cfgs chains.ConfigsV2[string, db.Node]) types.Configs {
 	return chains.NewConfigs(cfgs)
-}
-
-func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {
-	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[utils.Big](q, "evm", ids)
 }

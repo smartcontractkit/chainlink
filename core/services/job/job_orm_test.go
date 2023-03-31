@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -501,7 +501,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
-	require.NoError(t, cosmos.EnsureChains(db, lggr, config, []utils.Big{*customChainID}))
+	require.NoError(t, evm.EnsureChains(db, lggr, config, []utils.Big{*customChainID}))
 
 	defaultChainID := config.DefaultChainID()
 
@@ -636,7 +636,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
-	require.NoError(t, cosmos.EnsureChains(db, lggr, config, []utils.Big{*customChainID}))
+	require.NoError(t, evm.EnsureChains(db, lggr, config, []utils.Big{*customChainID}))
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 

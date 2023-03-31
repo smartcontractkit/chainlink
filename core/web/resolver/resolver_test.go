@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
+	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	txmgrMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -50,7 +51,7 @@ type mocks struct {
 	solana      *keystoreMocks.Solana
 	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
-	ethClient   *evmORMMocks.Client
+	ethClient   *evmClientMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
 	txmORM      *txmgrMocks.ORM
@@ -108,7 +109,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		solana:      keystoreMocks.NewSolana(t),
 		chain:       evmORMMocks.NewChain(t),
 		chainSet:    evmORMMocks.NewChainSet(t),
-		ethClient:   evmORMMocks.NewClient(t),
+		ethClient:   evmClientMocks.NewClient(t),
 		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
 		balM:        evmORMMocks.NewBalanceMonitor(t),
 		txmORM:      txmgrMocks.NewORM(t),

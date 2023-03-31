@@ -165,8 +165,7 @@ go generate ./...
 5. Prepare your development environment:
 
 ```bash
-export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-export CL_DATABASE_URL=$DATABASE_URL
+export CL_DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
 ```
 
 Note: Other environment variables should not be set for all tests to pass
@@ -219,6 +218,24 @@ go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 ```
 
 https://go.dev/doc/fuzz/
+
+### Go Modules
+
+This repository contains three Go modules:
+
+```mermaid
+flowchart RL
+    github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/integration-tests --> github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
+
+```
+The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
+so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
+can be run on all three modules using:
+```
+make gomodtidy
+```
 
 ### Solidity
 

@@ -24,6 +24,7 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -1049,6 +1050,27 @@ func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 
 func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+}
+
+// Insecure config
+func (g *generalConfig) DevWebServer() bool {
+	return build.Dev && g.c.Insecure.DevWebServer != nil &&
+		*g.c.Insecure.DevWebServer
+}
+
+func (g *generalConfig) OCRDevelopmentMode() bool {
+	return build.Dev && g.c.Insecure.OCRDevelopmentMode != nil &&
+		*g.c.Insecure.OCRDevelopmentMode
+}
+
+func (g *generalConfig) DisableRateLimiting() bool {
+	return build.Dev && g.c.Insecure.DisableRateLimiting != nil &&
+		*g.c.Insecure.DisableRateLimiting
+}
+
+func (g *generalConfig) InfiniteDepthQueries() bool {
+	return build.Dev && g.c.Insecure.InfiniteDepthQueries != nil &&
+		*g.c.Insecure.InfiniteDepthQueries
 }
 
 var (
