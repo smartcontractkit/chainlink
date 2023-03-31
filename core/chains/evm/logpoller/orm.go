@@ -415,6 +415,10 @@ func validateTopicIndex(index int) error {
 
 // SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index
 func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
 	q := o.q.WithOpts(qopts...)
 	var logs []Log
 
