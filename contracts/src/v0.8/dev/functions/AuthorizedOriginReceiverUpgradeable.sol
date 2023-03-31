@@ -23,6 +23,7 @@ abstract contract AuthorizedOriginReceiverUpgradeable is Initializable {
 
   bool private s_active;
   EnumerableSet.AddressSet private s_authorizedSenders;
+  address[] private s_authorizedSendersList; // DEPRECATED, TODO: remove on proxy re-deploy
 
   /**
    * @dev Initializes the contract in active state.
