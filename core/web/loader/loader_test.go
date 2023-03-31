@@ -30,12 +30,8 @@ import (
 func TestLoader_Chains(t *testing.T) {
 	t.Parallel()
 
-	app := &coremocks.Application{}
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app)
-	})
 
 	chain := chains.ChainConfig{
 		ID:      "1",
@@ -67,10 +63,6 @@ func TestLoader_Nodes(t *testing.T) {
 	evmChainSet := evmmocks.NewChainSet(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, evmChainSet)
-	})
 
 	chainId1 := utils.Big{}
 	err := chainId1.UnmarshalText([]byte("1"))
@@ -115,12 +107,8 @@ func TestLoader_FeedsManagers(t *testing.T) {
 	t.Parallel()
 
 	fsvc := feedsMocks.NewService(t)
-	app := &coremocks.Application{}
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, fsvc)
-	})
 
 	mgr1 := feeds.FeedsManager{
 		ID:   int64(1),
@@ -158,12 +146,8 @@ func TestLoader_JobProposals(t *testing.T) {
 	t.Parallel()
 
 	fsvc := feedsMocks.NewService(t)
-	app := &coremocks.Application{}
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, fsvc)
-	})
 
 	jp1 := feeds.JobProposal{
 		ID:             int64(1),
@@ -200,13 +184,9 @@ func TestLoader_JobProposals(t *testing.T) {
 func TestLoader_JobRuns(t *testing.T) {
 	t.Parallel()
 
-	jobsORM := &jobORMMocks.ORM{}
-	app := &coremocks.Application{}
+	jobsORM := jobORMMocks.NewORM(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, jobsORM)
-	})
 
 	run1 := pipeline.Run{ID: int64(1)}
 	run2 := pipeline.Run{ID: int64(2)}
@@ -234,13 +214,9 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 	t.Run("with out errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		job1 := job.Job{ID: int32(2), PipelineSpecID: int32(1)}
 		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
@@ -265,13 +241,9 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 	t.Run("with errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
@@ -293,13 +265,9 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 	t.Run("with out errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		ejID := uuid.NewV4()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
@@ -321,12 +289,8 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
 	txmORM := txmgrMocks.NewORM(t)
-	app := &coremocks.Application{}
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, txmORM)
-	})
 
 	ethTxIDs := []int64{1, 2, 3}
 
@@ -361,13 +325,9 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 	t.Run("without errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		specErr1 := job.SpecError{ID: int64(2), JobID: int32(1)}
 		specErr2 := job.SpecError{ID: int64(3), JobID: int32(2)}
@@ -392,13 +352,9 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 	t.Run("with errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
