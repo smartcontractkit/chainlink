@@ -7,7 +7,6 @@ on:
       - "*"
 
 env:
-  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   REF_NAME: ${{ github.head_ref || github.ref_name }}
   DEVELOP_REF: develop
   BUILD_SHA_REF: chaos.${{ github.sha }}
