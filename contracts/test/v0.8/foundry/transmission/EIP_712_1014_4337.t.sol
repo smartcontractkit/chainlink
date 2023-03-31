@@ -1,15 +1,15 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "../../../../src/v0.8/dev/transmission/entrypoint_implementation/contracts/SmartContractAccountFactory.sol";
-import "../../../../src/v0.8/dev/transmission/entrypoint_implementation/testhelpers/SmartContractAccountHelper.sol";
-import "../../../../src/v0.8/dev/transmission/entrypoint_implementation/contracts/SCA.sol";
-import "../../../../src/v0.8/dev/transmission/entrypoint_implementation/testhelpers/Greeter.sol";
-import "../../../../src/v0.8/dev/transmission/entrypoint_implementation/contracts/Paymaster.sol";
+import "../../../../src/v0.8/dev/transmission/4337/SmartContractAccountFactory.sol";
+import "../../../../src/v0.8/dev/transmission/testhelpers/SmartContractAccountHelper.sol";
+import "../../../../src/v0.8/dev/transmission/4337/SCA.sol";
+import "../../../../src/v0.8/dev/transmission/testhelpers/Greeter.sol";
+import "../../../../src/v0.8/dev/transmission/4337/Paymaster.sol";
 import "../../../../src/v0.8/dev/vendor/entrypoint/interfaces/UserOperation.sol";
 import "../../../../src/v0.8/dev/vendor/entrypoint/core/EntryPoint.sol";
 import "../../../../src/v0.8/dev/vendor/entrypoint/interfaces/IEntryPoint.sol";
-import "../../../../src/v0.8/dev/transmission/entrypoint_implementation/contracts/SCALibrary.sol";
+import "../../../../src/v0.8/dev/transmission/4337/SCALibrary.sol";
 import "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import "../../../../src/v0.8/interfaces/LinkTokenInterface.sol";
 import "../../../../src/v0.8/mocks/VRFCoordinatorMock.sol";

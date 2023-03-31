@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "../../../vendor/entrypoint/interfaces/IPaymaster.sol";
+import "../../vendor/entrypoint/interfaces/IPaymaster.sol";
 import "./SCALibrary.sol";
-import "../../../vendor/entrypoint/core/Helpers.sol";
-import "../../../../interfaces/LinkTokenInterface.sol";
-import "../../../../interfaces/AggregatorV3Interface.sol";
+import "../../vendor/entrypoint/core/Helpers.sol";
+import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../interfaces/AggregatorV3Interface.sol";
 import "./SCALibrary.sol";
 
 /// @dev LINK token paymaster implementation.
@@ -58,7 +58,7 @@ contract Paymaster is IPaymaster {
       revert UserOperationAlreadyTried(userOpHash);
     }
 
-    uint256 extraCostJuels = extractExtraCostJuels(userOp);
+    uint256 extraCostJuels = handleExtraCostJuels(userOp);
     uint256 costJuels = getCostJuels(maxCost) + extraCostJuels;
     if (subscriptions[userOp.sender] < costJuels) {
       revert InsufficientFunds(costJuels, subscriptions[userOp.sender]);
@@ -69,9 +69,9 @@ contract Paymaster is IPaymaster {
   }
 
   /// @dev Calculates any extra LINK cost for the user operation, based on the funding type passed to the
-  /// @dev paymaster.
+  /// @dev paymaster. Handles funding the LINK token funding described in the user operation.
   /// TODO: add logic for subscription top-up.
-  function extractExtraCostJuels(UserOperation calldata userOp) internal returns (uint256 extraCost) {
+  function handleExtraCostJuels(UserOperation calldata userOp) internal returns (uint256 extraCost) {
     if (userOp.paymasterAndData.length == 20) {
       return 0; // no extra data, stop here
     }

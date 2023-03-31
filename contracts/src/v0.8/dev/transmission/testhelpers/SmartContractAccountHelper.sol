@@ -1,6 +1,6 @@
-import "../contracts/SCA.sol";
-import "../contracts/SmartContractAccountFactory.sol";
-import "../contracts/SCALibrary.sol";
+import "../4337/SCA.sol";
+import "../4337/SmartContractAccountFactory.sol";
+import "../4337/SCALibrary.sol";
 
 pragma solidity ^0.8.15;
 
