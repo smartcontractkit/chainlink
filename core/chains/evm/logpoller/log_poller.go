@@ -418,7 +418,7 @@ func (lp *logPoller) run() {
 					}
 				} else {
 					// Serially process replay requests.
-					lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
 					lp.PollAndSaveLogs(replayReq.ctx, fromBlock)
 				}
 			} else {
@@ -513,8 +513,8 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBloc
 		// If this is our first run, start max(finalityDepth+1, backupPollerBlockDelay) blocks behind the last processed
 		// (or at block 0 if whole blockchain is too short)
 		lp.backupPollerNextBlock = lastProcessed.BlockNumber - mathutil.Max(lp.finalityDepth+1, backupPollerBlockDelay)
-		if lastProcessed.BlockNumber > backupPollerBlockDelay {
-			lp.backupPollerNextBlock = lastProcessed.BlockNumber - backupPollerBlockDelay
+		if lp.backupPollerNextBlock < 0 {
+			lp.backupPollerNextBlock = 0
 		}
 	}
 
