@@ -689,7 +689,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			BlockHash:      common.HexToHash("0x1"),
 			BlockNumber:    1,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{common.HexToHash("0x0001").Bytes()},
+			Topics:         [][]byte{eventSigA.Bytes(), common.HexToHash("0x0001").Bytes()},
 			EventSig:       eventSigA,
 			Address:        sourceAddr,
 			TxHash:         common.HexToHash("0x0001"),
@@ -698,7 +698,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
 
-	logs, err := orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err := orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
 
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
@@ -711,7 +711,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			BlockHash:      common.HexToHash("0x2"),
 			BlockNumber:    2,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{common.HexToHash("0x0001").Bytes()},
+			Topics:         [][]byte{eventSigB.Bytes(), common.HexToHash("0x0001").Bytes()},
 			EventSig:       eventSigB,
 			Address:        sourceAddr,
 			TxHash:         common.HexToHash("0x0002"),
@@ -720,7 +720,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
 
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
 
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
@@ -732,7 +732,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			BlockHash:      common.HexToHash("0x3"),
 			BlockNumber:    3,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{common.HexToHash("0x0002").Bytes()},
+			Topics:         [][]byte{eventSigA.Bytes(), common.HexToHash("0x0002").Bytes()},
 			EventSig:       eventSigA,
 			Address:        sourceAddr,
 			TxHash:         common.HexToHash("0x0003"),
@@ -740,7 +740,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x3"), 3, time.Now()))
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
@@ -752,7 +752,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			BlockHash:      common.HexToHash("0x3"),
 			BlockNumber:    3,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{common.HexToHash("0x0003").Bytes()},
+			Topics:         [][]byte{eventSigA.Bytes(), common.HexToHash("0x0003").Bytes()},
 			EventSig:       eventSigA,
 			Address:        sourceAddr,
 			TxHash:         common.HexToHash("0x0004"),
@@ -760,7 +760,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 3, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 2)
 	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
@@ -773,7 +773,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			BlockHash:      common.HexToHash("0x4"),
 			BlockNumber:    4,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{common.HexToHash("0x0003").Bytes()},
+			Topics:         [][]byte{eventSigB.Bytes(), common.HexToHash("0x0003").Bytes()},
 			EventSig:       eventSigB,
 			Address:        sourceAddr,
 			TxHash:         common.HexToHash("0x0005"),
@@ -782,13 +782,13 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x4"), 4, time.Now()))
 
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 4, 0)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 4, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
 
 	//No enough confirmations
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 5, 5)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 5, 5)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
@@ -799,7 +799,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x9"), 9, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x10"), 10, time.Now()))
 
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 0, sourceAddr, 0, 10, 5)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 10, 5)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
