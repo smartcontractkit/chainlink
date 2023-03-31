@@ -36,15 +36,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/zap/zapcore"
@@ -320,7 +320,7 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		return err
 	}
 
-	timeout := time.Minute * 5
+	timeout := time.Minute * 8
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 	to := time.NewTimer(timeout)
@@ -335,8 +335,9 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 		case <-ticker.C:
 			var notFound = false
 			for _, feedId := range feedIds {
-				report, _, _ := te.MSClient.GetReports(Byte32ToString(feedId), latestBlockNum)
+				report, _, _ := te.MSClient.GetReportsByFeedId(Byte32ToString(feedId), latestBlockNum, client.StringFeedId)
 				if report == nil || report.ChainlinkBlob == "" {
+					log.Debug().Msgf("Report not found for feedId: %s, blockNumber: %d", feedId, latestBlockNum)
 					notFound = true
 				}
 			}
@@ -349,27 +350,14 @@ func (te *TestEnv) WaitForReportsInMercuryDb(feedIds [][32]byte) error {
 }
 
 // Add DON to existing env
-func (te *TestEnv) AddDON() error {
+func (te *TestEnv) AddDON(mockserverResources map[string]interface{}) error {
 	if te.EvmNetwork == nil {
 		return fmt.Errorf("setup evm network first")
 	}
 
 	te.Env.
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(map[string]interface{}{
-			"app": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "8000m",
-						"memory": "8048Mi",
-					},
-				},
-			},
-		})).
+		AddHelm(mockserver.New(mockserverResources)).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "5",
 			"toml": client.AddNetworksConfig(
@@ -458,8 +446,16 @@ func (te *TestEnv) AddVerifierContract(contractId string, verifierProxyAddr stri
 
 // Deploy or load exchanger contract
 func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr string, lookupURL string, maxDelay uint8) (contracts.Exchanger, error) {
-	if te.IsExistingEnv {
-		return te.LoadExchangerContract(contractId)
+	if te.Contracts[contractId] != nil {
+		addr := te.Contracts[contractId].Address
+		if addr == "" {
+			return nil, fmt.Errorf("no address in config for %s", contractId)
+		}
+		c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
 	} else {
 		c, err := te.ContractDeployer.DeployExchanger(verifierProxyAddr, lookupURL, maxDelay)
 		if err != nil {
@@ -474,23 +470,11 @@ func (te *TestEnv) AddExchangerContract(contractId string, verifierProxyAddr str
 	}
 }
 
-func (te *TestEnv) LoadExchangerContract(contractId string) (contracts.Exchanger, error) {
-	addr := te.Contracts[contractId].Address
-	if addr == "" {
-		return nil, fmt.Errorf("no address in config for %s", contractId)
-	}
-	c, err := te.ContractDeployer.LoadExchanger(common.HexToAddress(addr))
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
 func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 	actionId string, verifierContractId string, verifierProxyContractId string,
-	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint32, error) {
+	feedId [32]byte, ocrConfig contracts.MercuryOCRConfig) (uint64, error) {
 	if te.IsExistingEnv {
-		return uint32(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
+		return uint64(te.ActionLog[actionId].Logs["blockNumber"].(float64)), nil
 	} else {
 		verifierContract := te.Contracts[verifierContractId].Contract.(contracts.Verifier)
 		verifierProxyContract := te.Contracts[verifierProxyContractId].Contract.(contracts.VerifierProxy)
@@ -503,22 +487,36 @@ func (te *TestEnv) SetConfigAndInitializeVerifierContract(
 		if err != nil {
 			return 0, err
 		}
-		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v Config digest:%x", feedId, configDetails, configDetails.ConfigDigest)
+		if configDetails.ConfigCount != 1 {
+			return 0, fmt.Errorf("verifier config count should be 1 but is %d", configDetails.ConfigCount)
+		}
+		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v\nConfig digest: %x", feedId, configDetails, configDetails.ConfigDigest)
 
 		err = verifierProxyContract.InitializeVerifier(configDetails.ConfigDigest, verifierContract.Address())
 		if err != nil {
 			return 0, err
 		}
-		log.Info().Msgf("Verifier.LatestConfigDetails for feedId: %s: %v Config digest:%x", feedId, configDetails, configDetails.ConfigDigest)
+
+		// Use latest block number from L2
+		// Don't use block block number from config details as Arbitrum uses block numbers from L1
+		latestBlockNum, err := te.EvmClient.LatestBlockNumber(context.Background())
+		if err != nil {
+			return 0, nil
+		}
+		log.Info().Msgf("Latest block number: %d", latestBlockNum)
+
+		// TODO: Remove and use bn from config digest when https://smartcontract-it.atlassian.net/browse/MERC-248 resolved
+		bnForJobs := uint64(latestBlockNum) - 200
+		log.Info().Msgf("Block number used for job specs: %d", bnForJobs)
 
 		te.ActionLog[actionId] = &envAction{
 			Done: true,
 			Logs: map[string]interface{}{
-				"blockNumber": configDetails.BlockNumber,
+				"blockNumber": bnForJobs,
 			},
 		}
 
-		return configDetails.BlockNumber, nil
+		return bnForJobs, nil
 	}
 }
 
@@ -856,6 +854,53 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 	if te.IsExistingEnv {
 		rpcPubKey = te.MSInfo.RpcPubKey
 		nodesCsaKeys = te.MSInfo.RpcNodesCsaKeys
+
+		// Provide dump values in chart settings for helm to not complain when reusing env
+		chartSettings = map[string]interface{}{
+			"image": map[string]interface{}{
+				"repository": os.Getenv("MERCURY_SERVER_IMAGE"),
+				"tag":        os.Getenv("MERCURY_SERVER_TAG"),
+			},
+			"resources": te.ResourcesConfig.MercuryResources,
+			"postgresql": map[string]interface{}{
+				"enabled": true,
+				"primary": map[string]interface{}{
+					"resources": te.ResourcesConfig.MercuryDBResources,
+				},
+				"mercury": map[string]interface{}{
+					"initDbSql": "anything",
+				},
+			},
+			"config": map[string]interface{}{
+				"rpc": map[string]interface{}{
+					"publicKey": "anything",
+				},
+			},
+			"secrets": map[string]interface{}{
+				"config": map[string]interface{}{
+					"rpc": map[string]interface{}{
+						"privateKey": "anything",
+					},
+					"database": map[string]interface{}{
+						"url":           "postgres://postgres:testpass@mercury-server-postgresql:5432/testdb?sslmode=disable",
+						"encryptionKey": "key",
+					},
+					"bootstrap": map[string]interface{}{
+						"adminUsername": "admin2",
+						"adminPassword": "admintestkey",
+					},
+				},
+			},
+			"chainlinkDONConfig": "anything",
+			"ingress": map[string]interface{}{
+				"private": map[string]interface{}{
+					"enabled": false,
+				},
+				"public": map[string]interface{}{
+					"enabled": false,
+				},
+			},
+		}
 	} else {
 		// Build conf for rpc nodes
 		var rpcNodesConf interface{}
@@ -871,11 +916,11 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 
 			log.Info().Msg("Use rpc node json mock for mercury server as chainlink nodes not created")
 		}
-		rpcNodesJsonConf, err := json.Marshal(rpcNodesConf)
+		chainlinkDONConfig, err := json.Marshal(rpcNodesConf)
 		if err != nil {
 			return nil, nil, err
 		}
-		log.Info().Msgf("RPC node json conf for mercury server: %s", rpcNodesJsonConf)
+		log.Info().Msgf("RPC node json conf for mercury server: %s", chainlinkDONConfig)
 
 		// Generate keys for Mercury RPC server
 		var rpcPrivKey ed25519.PrivateKey
@@ -916,13 +961,39 @@ func (te *TestEnv) AddMercuryServer(users *[]User) (ed25519.PublicKey, []CsaKeyW
 				"primary": map[string]interface{}{
 					"resources": te.ResourcesConfig.MercuryDBResources,
 				},
+				"mercury": map[string]interface{}{
+					"initDbSql": initDbSql,
+				},
 			},
-			"envSecrets": map[string]interface{}{
-				"RPC_PRIVATE_KEY": hex.EncodeToString(rpcPrivKey),
+			"config": map[string]interface{}{
+				"rpc": map[string]interface{}{
+					"publicKey": hex.EncodeToString(rpcPubKey),
+				},
 			},
-			"initDbSql":    initDbSql,
-			"rpcNodesConf": string(rpcNodesJsonConf),
-			"prometheus":   "true",
+			"secrets": map[string]interface{}{
+				"config": map[string]interface{}{
+					"rpc": map[string]interface{}{
+						"privateKey": hex.EncodeToString(rpcPrivKey),
+					},
+					"database": map[string]interface{}{
+						"url":           "postgres://postgres:testpass@mercury-server-postgresql:5432/testdb?sslmode=disable",
+						"encryptionKey": "key",
+					},
+					"bootstrap": map[string]interface{}{
+						"adminUsername": "admin2",
+						"adminPassword": "admintestkey",
+					},
+				},
+			},
+			"chainlinkDONConfig": string(chainlinkDONConfig),
+			"ingress": map[string]interface{}{
+				"private": map[string]interface{}{
+					"enabled": false,
+				},
+				"public": map[string]interface{}{
+					"enabled": false,
+				},
+			},
 		}
 	}
 	te.Env.
@@ -973,6 +1044,9 @@ type ReportTableRow struct {
 	Id                    int       `db:"id"`
 	FeedId                []byte    `db:"feed_id"`
 	Price                 float64   `db:"price"`
+	Bid                   float64   `db:"bid"`
+	Ask                   float64   `db:"ask"`
+	OperatorName          string    `db:"operator_name"`
 	FullReport            []byte    `db:"full_report"`
 	Blob                  []byte    `db:"blob"`
 	ValidFromBlockNumber  int64     `db:"valid_from_block_number"`
@@ -1161,36 +1235,40 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 	return S, oracleIdentities
 }
 
-func SetupMercuryMultiFeedEnv(
-	name string,
-	prefix string,
+func SetupMultiFeedSingleVerifierEnv(
+	envId string,
+	nsPrefix string,
 	feedIDs [][32]byte,
 	r *ResourcesConfig,
-) (TestEnv, error) {
-	testEnv, err := NewEnv(name, prefix, r)
+) (*TestEnv, contracts.VerifierProxy, error) {
+	testEnv, err := NewEnv(envId, nsPrefix, r)
 	if err != nil {
-		return TestEnv{}, err
+		return nil, nil, err
 	}
-	testEnv.AddEvmNetwork()
-	if err = testEnv.AddDON(); err != nil {
-		return TestEnv{}, err
+	err = testEnv.AddEvmNetwork()
+	if err != nil {
+		return &testEnv, nil, err
+	}
+	if err = testEnv.AddDON(GetMockserverResources(len(feedIDs))); err != nil {
+		return &testEnv, nil, err
 	}
 	ocrConfig, err := testEnv.BuildOCRConfig()
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	_, _, err = testEnv.AddMercuryServer(nil)
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	verifierProxyContract, err := testEnv.AddVerifierProxyContract("verifierProxy1")
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, nil, err
 	}
 	verifierContract, err := testEnv.AddVerifierContract("verifier1", verifierProxyContract.Address())
 	if err != nil {
-		return TestEnv{}, err
+		return &testEnv, verifierProxyContract, err
 	}
+	// Use single verifier contract for all feeds
 	for _, feedId := range feedIDs {
 		blockNumber, err := testEnv.SetConfigAndInitializeVerifierContract(
 			fmt.Sprintf("setAndInitialize%sVerifier", feedId),
@@ -1200,21 +1278,21 @@ func SetupMercuryMultiFeedEnv(
 			*ocrConfig,
 		)
 		if err != nil {
-			return TestEnv{}, err
+			return &testEnv, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddBootstrapJob(fmt.Sprintf("createBoostrapFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return TestEnv{}, err
+			return &testEnv, verifierProxyContract, err
 		}
 
 		if err = testEnv.AddOCRJobs(fmt.Sprintf("createOcrJobsFor%s", feedId), verifierContract.Address(), uint64(blockNumber), feedId); err != nil {
-			return TestEnv{}, err
+			return &testEnv, verifierProxyContract, err
 		}
 	}
 	if err = testEnv.WaitForReportsInMercuryDb(feedIDs); err != nil {
-		return TestEnv{}, err
+		return &testEnv, verifierProxyContract, err
 	}
-	return testEnv, nil
+	return &testEnv, verifierProxyContract, nil
 }
 
 func StringToByte32(str string) [32]byte {

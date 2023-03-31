@@ -20,12 +20,12 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos/cosmostxm"
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // DefaultRequestTimeout is the default Cosmos client timeout.
@@ -36,9 +36,6 @@ import (
 // TODO(BCI-979): Remove this, or make this configurable with the updated client.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
 var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
@@ -46,16 +43,16 @@ type chain struct {
 	id   string
 	cfg  coscfg.Config
 	txm  *cosmostxm.Txm
-	orm  types.ORM
+	cfgs types.Configs
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("cosmosChainID", id)
 	var ch = chain{
 		id:   id,
 		cfg:  cfg,
-		orm:  orm,
+		cfgs: cfgs,
 		lggr: lggr.Named("Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {
@@ -97,7 +94,7 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+		nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get nodes")
 		}
@@ -111,7 +108,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
-		node, err = c.orm.NodeNamed(name)
+		node, err = c.cfgs.NodeNamed(name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get node named %s", name)
 		}

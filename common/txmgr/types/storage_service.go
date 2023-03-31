@@ -6,7 +6,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
@@ -20,7 +20,7 @@ type TxStorageService[ADDR any, CHAINID any, HASH any, NEWTX any, R any, TX any,
 	EthTransactions(offset, limit int) ([]TX, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]TX, int, error)
 	EthTxAttempts(offset, limit int) ([]TXATTEMPT, int, error)
-	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID) (receipts []ReceiptPlus[R], err error)
+	FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAINID) (receiptsPlus []ReceiptPlus[R], err error)
 	FindEthTxAttempt(hash HASH) (*TXATTEMPT, error)
 	FindEthTxAttemptConfirmedByEthTxIDs(ids []TXID) ([]TXATTEMPT, error)
 	FindEthTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAINID) (etxs []*TX, err error)
@@ -69,9 +69,9 @@ type UnstartedTxQueuePruner interface {
 
 // R is the raw unparsed transaction receipt
 type ReceiptPlus[R any] struct {
-	ID           uuid.UUID `db:"id"`
+	ID           uuid.UUID `db:"pipeline_run_id"`
 	Receipt      R         `db:"receipt"`
-	FailOnRevert bool      `db:"FailOnRevert"`
+	FailOnRevert bool      `db:"fail_on_revert"`
 }
 
 // R is the raw unparsed transaction receipt

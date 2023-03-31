@@ -9,12 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos/types"
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -31,7 +31,7 @@ type ChainSetOpts struct {
 	DB               *sqlx.DB
 	KeyStore         keystore.Cosmos
 	EventBroadcaster pg.EventBroadcaster
-	ORM              types.ORM
+	Configs          types.Configs
 }
 
 func (o *ChainSetOpts) Validate() (err error) {
@@ -53,37 +53,35 @@ func (o *ChainSetOpts) Validate() (err error) {
 	if o.EventBroadcaster == nil {
 		err = multierr.Append(err, required("EventBroadcaster"))
 	}
-	if o.ORM == nil {
-		err = multierr.Append(err, required("ORM"))
+	if o.Configs == nil {
+		err = multierr.Append(err, required("Configs"))
 	}
 	return
 }
 
-func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node], logger.Logger) {
-	return o.ORM, o.Logger
+func (o *ChainSetOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
+	return o.Configs, o.Logger
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.Configs, o.Logger)
 	if err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
-
-// ChainSet extends adapters.ChainSet with mutability and exposes the underlying ORM.
+// ChainSet extends adapters.ChainSet with mutability and exposes the underlying Configs.
 type ChainSet interface {
 	adapters.ChainSet
 	chains.Nodes[string, db.Node]
-	chains.Chains[string, *db.ChainCfg]
+	chains.Chains[string]
 }
 
-func NewChainSetImmut(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
+func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 	solChains := map[string]adapters.Chain{}
 	var err error
 	for _, chain := range cfgs {
@@ -100,5 +98,5 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load some Cosmos chains")
 	}
-	return chains.NewChainSetImmut[string, *db.ChainCfg, db.Node, adapters.Chain](solChains, &opts, func(s string) string { return s })
+	return chains.NewChainSet[string, db.Node, adapters.Chain](solChains, &opts, func(s string) string { return s })
 }

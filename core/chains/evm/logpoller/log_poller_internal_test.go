@@ -17,16 +17,20 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -65,11 +69,10 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	err := lp.RegisterFilter(filter)
 	require.Error(t, err, "RegisterFilter failed to save Filter to db")
 	require.Equal(t, 1, observedLogs.Len())
-	assertForeignConstraintError(t, observedLogs.All()[0], "evm_log_poller_filters", "evm_log_poller_filters_evm_chain_id_fkey")
+	assertForeignConstraintError(t, observedLogs.TakeAll()[0], "evm_log_poller_filters", "evm_log_poller_filters_evm_chain_id_fkey")
 
 	db.Close()
 	db = pgtest.NewSqlxDB(t)
-	lggr = logger.TestLogger(t)
 	orm = NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
 	// disable check that chain id exists for rest of tests
@@ -111,9 +114,11 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.Error(t, err)
 	validateFiltersTable(t, lp, orm)
 
-	// Removing non-existence Filter should error.
-	err = lp.UnregisterFilter("Filter doesn't exist")
-	require.Error(t, err)
+	// Removing non-existence Filter should log error but return nil
+	err = lp.UnregisterFilter("Filter doesn't exist", nil)
+	require.NoError(t, err)
+	require.Equal(t, observedLogs.Len(), 1)
+	require.Contains(t, observedLogs.TakeAll()[0].Entry.Message, "not found")
 
 	// Check that all filters are still there
 	_, ok := lp.filters["Emitter Log 1"]
@@ -124,16 +129,16 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.True(t, ok, "'Emitter Log 1 + 2 dupe' Filter missing")
 
 	// Removing an existing Filter should remove it from both memory and db
-	err = lp.UnregisterFilter("Emitter Log 1 + 2")
+	err = lp.UnregisterFilter("Emitter Log 1 + 2", nil)
 	require.NoError(t, err)
 	_, ok = lp.filters["Emitter Log 1 + 2"]
 	require.False(t, ok, "'Emitter Log 1 Filter' should have been removed by UnregisterFilter()")
 	require.Len(t, lp.filters, 2)
 	validateFiltersTable(t, lp, orm)
 
-	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe")
+	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe", nil)
 	require.NoError(t, err)
-	err = lp.UnregisterFilter("Emitter Log 1")
+	err = lp.UnregisterFilter("Emitter Log 1", nil)
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
 	filters, err := lp.orm.LoadFilters()
@@ -282,6 +287,52 @@ func TestFilterName(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "a - b:c:d", FilterName("a", "b", "c", "d"))
 	assert.Equal(t, "empty args test", FilterName("empty args test"))
+}
+
+func TestLogPoller_BackupPollerStartup(t *testing.T) {
+	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
+
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
+
+	head := evmtypes.Head{Number: 3}
+	events := []common.Hash{EmitterABI.Events["Log1"].ID}
+	log1 := types.Log{
+		Index:       0,
+		BlockHash:   common.Hash{},
+		BlockNumber: uint64(3),
+		Topics:      events,
+		Address:     addr,
+		TxHash:      common.HexToHash("0x1234"),
+		Data:        EvmWord(uint64(300)).Bytes(),
+	}
+
+	ec := evmclimocks.NewClient(t)
+	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
+	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
+	ec.On("ChainID").Return(chainID, nil)
+
+	ctx := testutils.Context(t)
+
+	lp := NewLogPoller(orm, ec, lggr, 1*time.Hour, 2, 3, 2, 1000)
+	lp.BackupPollAndSaveLogs(ctx, 100)
+	assert.Equal(t, int64(0), lp.backupPollerNextBlock)
+	assert.Equal(t, 1, observedLogs.FilterMessageSnippet("ran before first successful log poller run").Len())
+
+	lp.PollAndSaveLogs(ctx, 3)
+
+	lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
+	require.NoError(t, err)
+	require.Equal(t, int64(3), lastProcessed.BlockNumber)
+
+	lp.BackupPollAndSaveLogs(ctx, 100)
+	assert.Equal(t, int64(1), lp.backupPollerNextBlock) // Ensure non-negative!
 }
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {

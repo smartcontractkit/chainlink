@@ -32,17 +32,18 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -114,6 +115,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:  "Displays the health of various services running inside the node.",
 			Action: client.Status,
 			Flags:  []cli.Flag{},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin status` instead.")
+				return nil
+			},
 		},
 		{
 			Name:   "profile",
@@ -131,6 +137,16 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Value: "/tmp/",
 				},
 			},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin profile` instead.")
+				return nil
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
 		},
 		{
 			Name:        "db",
@@ -248,7 +264,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
-	if cli.Config.Dev() {
+	if cli.Config.Dev() || build.Dev {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
@@ -570,13 +586,14 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
+	enabledAddresses, err := keyStore.Eth().EnabledAddressesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
 	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), enabledAddresses, nil, txBuilder, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
@@ -621,22 +638,20 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// Status will display the health of various services
-func (cli *Client) Status(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
-}
-
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+// ConfigValidate validate the client configuration and pretty-prints results
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	fmt.Println("Valid configuration.")
+	return nil
+}
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to setup the database for testing
@@ -936,6 +951,10 @@ func dumpSchema(dbURL url.URL) (string, error) {
 
 	schema, err := cmd.Output()
 	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
+		}
 		return "", fmt.Errorf("failed to dump schema: %v", err)
 	}
 	return string(schema), nil

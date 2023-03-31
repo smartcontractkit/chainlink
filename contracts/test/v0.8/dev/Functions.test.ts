@@ -117,7 +117,7 @@ describe('FunctionsTestHelper', () => {
           language: 0,
           codeLocation: 0,
           source: js,
-          secretsLocation: 0,
+          secretsLocation: 1,
           secrets: hexToBuf(secrets),
         },
       )

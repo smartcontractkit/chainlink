@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
@@ -87,24 +87,24 @@ func configFromLog(logData []byte) (FullConfigFromLog, error) {
 // ConfigPoller defines the Mercury Config Poller
 type ConfigPoller struct {
 	lggr               logger.Logger
-	filterName         string
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
 }
 
+func FilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR2 Mercury ConfigPoller", addr.String())
+}
+
 // NewConfigPoller creates a new Mercury ConfigPoller
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
-	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
 
 	cp := &ConfigPoller{
 		lggr:               lggr,
-		filterName:         configFilterName,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 		feedId:             feedId,

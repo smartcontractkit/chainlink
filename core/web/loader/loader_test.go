@@ -10,20 +10,21 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgrMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestLoader_Chains(t *testing.T) {
@@ -36,27 +37,15 @@ func TestLoader_Chains(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, app)
 	})
 
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte("1"))
-	require.NoError(t, err)
-
-	id2 := utils.Big{}
-	err = id2.UnmarshalText([]byte("2"))
-	require.NoError(t, err)
-
-	chainId3 := utils.Big{}
-	err = chainId3.UnmarshalText([]byte("3"))
-	require.NoError(t, err)
-
-	chain := evmtypes.ChainConfig{
-		ID:      id,
+	chain := chains.ChainConfig{
+		ID:      "1",
 		Enabled: true,
 	}
-	chain2 := evmtypes.ChainConfig{
-		ID:      id2,
+	chain2 := chains.ChainConfig{
+		ID:      "2",
 		Enabled: true,
 	}
-	evmORM := evmtest.NewMockORM([]evmtypes.ChainConfig{chain, chain2}, nil)
+	evmORM := evmtest.NewMockORM([]chains.ChainConfig{chain, chain2}, nil)
 	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}
@@ -65,11 +54,11 @@ func TestLoader_Chains(t *testing.T) {
 	results := batcher.loadByIDs(ctx, keys)
 
 	assert.Len(t, results, 3)
-	assert.Equal(t, chain2, results[0].Data.(evmtypes.ChainConfig))
-	assert.Equal(t, chain, results[1].Data.(evmtypes.ChainConfig))
+	assert.Equal(t, chain2, results[0].Data.(chains.ChainConfig))
+	assert.Equal(t, chain, results[1].Data.(chains.ChainConfig))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
-	assert.Equal(t, "chain not found", results[2].Error.Error())
+	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
 }
 
 func TestLoader_Nodes(t *testing.T) {
@@ -125,7 +114,7 @@ func TestLoader_Nodes(t *testing.T) {
 func TestLoader_FeedsManagers(t *testing.T) {
 	t.Parallel()
 
-	fsvc := &feedsMocks.Service{}
+	fsvc := feedsMocks.NewService(t)
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -168,7 +157,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 func TestLoader_JobProposals(t *testing.T) {
 	t.Parallel()
 
-	fsvc := &feedsMocks.Service{}
+	fsvc := feedsMocks.NewService(t)
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -331,7 +320,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txmORM := &txmgrMocks.ORM{}
+	txmORM := txmgrMocks.NewORM(t)
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(testutils.Context(t), app)
 

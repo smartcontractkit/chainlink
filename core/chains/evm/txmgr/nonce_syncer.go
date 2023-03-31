@@ -8,15 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type (
 	NonceSyncerKeyStore interface {
-		GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+		NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	}
 	// NonceSyncer manages the delicate task of syncing the local nonce with the
 	// chain nonce in case of divergence.
@@ -80,11 +79,8 @@ func NewNonceSyncer(orm ORM, lggr logger.Logger, ethClient evmclient.Client, kst
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) Sync(ctx context.Context, keyState ethkey.State) (err error) {
-	if keyState.Disabled {
-		return errors.Errorf("cannot sync disabled key state: %s", keyState.Address)
-	}
-	err = s.fastForwardNonceIfNecessary(ctx, keyState.Address.Address())
+func (s NonceSyncer) Sync(ctx context.Context, address common.Address) (err error) {
+	err = s.fastForwardNonceIfNecessary(ctx, address)
 	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
@@ -97,7 +93,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return nil
 	}
 
-	keyNextNonce, err := s.kst.GetNextNonce(address, s.chainID, pg.WithParentCtx(ctx))
+	keyNextNonce, err := s.kst.NextSequence(address, s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}

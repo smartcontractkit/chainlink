@@ -7,17 +7,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestAddClose(t *testing.T) {
@@ -53,8 +53,8 @@ func TestAddClose(t *testing.T) {
 
 	chainSet.Close()
 
-	chains[0].Client().(*evmmocks.Client).AssertCalled(t, "Close")
-	chains[1].Client().(*evmmocks.Client).AssertCalled(t, "Close")
+	chains[0].Client().(*evmclimocks.Client).AssertCalled(t, "Close")
+	chains[1].Client().(*evmclimocks.Client).AssertCalled(t, "Close")
 
 	assert.Error(t, chains[0].Ready())
 	assert.Error(t, chains[1].Ready())

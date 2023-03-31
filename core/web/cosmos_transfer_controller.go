@@ -10,12 +10,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos/denom"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	cosmosmodels "github.com/smartcontractkit/chainlink/core/store/models/cosmos"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	cosmosmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // maxGasUsedTransfer is an upper bound on how much gas we expect a MsgSend for a single coin to use.

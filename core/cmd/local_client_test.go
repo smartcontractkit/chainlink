@@ -8,21 +8,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
@@ -58,9 +58,9 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			// initialUser user created above
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			app := new(mocks.Application)
-			app.On("SessionORM").Return(sessionORM)
-			app.On("GetKeyStore").Return(keyStore)
+			app := mocks.NewApplication(t)
+			app.On("SessionORM").Return(sessionORM).Maybe()
+			app.On("GetKeyStore").Return(keyStore).Maybe()
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
@@ -147,7 +147,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
-			app := new(mocks.Application)
+			app := mocks.NewApplication(t)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
@@ -155,8 +155,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
-			prompter := new(cmdMocks.Prompter)
-			prompter.On("IsTerminal").Return(false).Once().Maybe()
+			prompter := cmdMocks.NewPrompter(t)
 
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			lggr := logger.TestLogger(t)

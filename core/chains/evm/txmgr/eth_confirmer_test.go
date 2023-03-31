@@ -20,24 +20,23 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
@@ -118,10 +117,10 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	state := cltest.MustGetStateForKey(t, ethKeyStore, key)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	// state := cltest.MustGetStateForKey(t, ethKeyStore, key)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	nonce := int64(0)
 	ctx := testutils.Context(t)
@@ -533,13 +532,13 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -599,8 +598,8 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 	ctx := testutils.Context(t)
 	// tx is not forwarded and doesn't have meta set. EthConfirmer should handle nil meta values
 	etx := cltest.MustInsertUnconfirmedEthTx(t, borm, 0, fromAddress)
@@ -647,13 +646,13 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -704,11 +703,11 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -733,15 +732,15 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	chainId1, chainId2 := 1, 2
 
-	state1_1, fromAddress1_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
-	state1_2, fromAddress1_2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
-	state2_1, fromAddress2_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId2)
+	_, fromAddress1_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
+	_, fromAddress1_2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
+	_, fromAddress2_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId2)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(20), nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state1_1, state1_2, state2_1}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress1_1, fromAddress1_2, fromAddress2_1}, nil)
 	ctx := testutils.Context(t)
 
 	// STATE
@@ -802,13 +801,13 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -1059,13 +1058,13 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -1138,13 +1137,13 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -1202,13 +1201,13 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	ctx := testutils.Context(t)
 
@@ -1273,7 +1272,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	currentHead := int64(30)
 	gasBumpThreshold := int64(10)
@@ -1289,7 +1288,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
 		etxs, err := ec.FindEthTxsRequiringRebroadcast(testutils.Context(t), lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
@@ -1556,15 +1555,16 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		borm := cltest.NewTxmORM(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-		state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		keys := []ethkey.State{state}
+		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		keys := []gethCommon.Address{fromAddress}
 		kst := ksmocks.NewEth(t)
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, feeEstimator)
 		// Create confirmer with necessary state
-		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
+		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, nil, txBuilder, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)
@@ -1596,15 +1596,16 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		borm := cltest.NewTxmORM(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-		state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		keys := []ethkey.State{state}
+		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		keys := []gethCommon.Address{fromAddress}
 		kst := ksmocks.NewEth(t)
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
-		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, feeEstimator, nil, lggr)
+		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, feeEstimator)
+		ec := txmgr.NewEthConfirmer(borm, ethClient, evmcfg, kst, keys, nil, txBuilder, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)
@@ -1643,9 +1644,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	otherKey, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	keys := []ethkey.State{state, otherKey}
+	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	keys := []gethCommon.Address{otherAddress, fromAddress}
 
 	kst := ksmocks.NewEth(t)
 	// Use a mock keystore for this test
@@ -2281,9 +2282,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	otherKey, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	keys := []ethkey.State{state, otherKey}
+	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	keys := []gethCommon.Address{otherAddress, fromAddress}
 
 	// Use a mock keystore for this test
 	kst := ksmocks.NewEth(t)
@@ -2390,10 +2391,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	keys, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
+	enabledAddresses, err := ethKeyStore.EnabledAddressesForChain(testutils.FixtureChainID)
 	require.NoError(t, err)
-	keyStates, err := ethKeyStore.GetStatesForKeys(keys)
-	require.NoError(t, err)
+	// keyStates, err := ethKeyStore.GetStatesForKeys(keys)
+	// require.NoError(t, err)
 
 	config := newTestChainScopedConfig(t)
 	currentHead := int64(30)
@@ -2409,7 +2410,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 
 	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, keyStates, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, enabledAddresses, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -2435,7 +2436,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, keyStates, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, enabledAddresses, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -2460,7 +2461,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, keyStates, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, enabledAddresses, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -2492,7 +2493,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 			c.EVM[0].GasEstimator.BumpTxDepth = ptr(uint16(depth))
 		})
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, keyStates, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, enabledAddresses, nil)
 
 		for i := 0; i < etxCount; i++ {
 			n := nonce
@@ -2521,12 +2522,12 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	config := newTestChainScopedConfig(t)
-	ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+	ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 	head := evmtypes.Head{
 		Hash:   utils.NewHash(),
@@ -2694,7 +2695,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	config := newTestChainScopedConfig(t)
 	mustInsertUnstartedEthTx(t, borm, fromAddress)
@@ -2707,7 +2708,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) &&
@@ -2722,7 +2723,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) &&
@@ -2737,7 +2738,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == uint64(overrideGasLimit)
@@ -2751,7 +2752,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(1)
@@ -2776,7 +2777,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, config, ethKeyStore, []gethCommon.Address{fromAddress}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint32(tx.Gas()) == config.EvmGasLimitDefault()
@@ -2795,8 +2796,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	state := cltest.MustGetStateForKey(t, ethKeyStore, key)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	// state := cltest.MustGetStateForKey(t, ethKeyStore, key)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
@@ -2821,7 +2822,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(uuid.UUID, interface{}, error) error {
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2840,7 +2841,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(uuid.UUID, interface{}, error) error {
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2862,7 +2863,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
 		var err error
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}, thisErr error) error {
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil
@@ -2902,7 +2903,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
 		ch := make(chan interface{})
 		var err error
-		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}, thisErr error) error {
+		ec := cltest.NewEthConfirmer(t, borm, ethClient, evmcfg, ethKeyStore, []gethCommon.Address{fromAddress}, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil

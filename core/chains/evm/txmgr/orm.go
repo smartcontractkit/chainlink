@@ -16,12 +16,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -41,6 +41,60 @@ type orm struct {
 }
 
 var _ ORM = (*orm)(nil)
+
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+type dbReceipt struct {
+	ID               int64
+	TxHash           common.Hash
+	BlockHash        common.Hash
+	BlockNumber      int64
+	TransactionIndex uint
+	Receipt          evmtypes.Receipt
+	CreatedAt        time.Time
+}
+
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+type dbRawReceipt = evmtypes.Receipt
+
+// Directly maps to database schema.
+// Do not modify type unless you
+// intend to modify the database schema
+//
+// Does not map to a single database table.
+// It's comprised of fields from different tables.
+type dbReceiptPlus struct {
+	ID           uuid.UUID        `db:"id"`
+	Receipt      evmtypes.Receipt `db:"receipt"`
+	FailOnRevert bool             `db:"FailOnRevert"`
+}
+
+func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
+	receipts := make([]EvmReceipt, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = EvmReceipt(rs[i])
+	}
+	return receipts
+}
+
+func fromDBReceiptsPlus(rs []dbReceiptPlus) []EvmReceiptPlus {
+	receipts := make([]EvmReceiptPlus, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = EvmReceiptPlus(rs[i])
+	}
+	return receipts
+}
+
+func toDBRawReceipt(rs []evmtypes.Receipt) []dbRawReceipt {
+	receipts := make([]dbRawReceipt, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = dbRawReceipt(rs[i])
+	}
+	return receipts
+}
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("TxmORM")
@@ -228,10 +282,17 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 }
 
 func (o *orm) InsertEthReceipt(receipt *EvmReceipt) error {
+	// convert to database representation
+	r := dbReceipt(*receipt)
+
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	err := o.q.GetNamed(insertEthReceiptSQL, receipt, receipt)
+	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
+
+	// method expects original (destination) receipt struct to be updated
+	*receipt = EvmReceipt(r)
+
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
 
@@ -305,10 +366,13 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
-	var receipts []EvmReceipt
-	if err = q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
+	var rs []dbReceipt
+	if err = q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
+
+	var receipts []EvmReceipt = fromDBReceipts(rs)
+
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
@@ -323,10 +387,11 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) error 
 		byHash[attempt.Hash] = &attempts[i]
 		hashes = append(hashes, attempt.Hash.Bytes())
 	}
-	var receipts []EvmReceipt
-	if err := q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
+	var rs []dbReceipt
+	if err := q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}
+	var receipts []EvmReceipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
 		attempt := byHash[receipt.TxHash]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
@@ -422,10 +487,12 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *orm) SaveFetchedReceipts(receipts []evmtypes.Receipt, chainID big.Int) (err error) {
+func (o *orm) SaveFetchedReceipts(r []evmtypes.Receipt, chainID big.Int) (err error) {
+	receipts := toDBRawReceipt(r)
 	if len(receipts) == 0 {
 		return nil
 	}
+
 	// Notes on this query:
 	//
 	// # Receipts insert
@@ -566,8 +633,10 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
-func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []txmgrtypes.ReceiptPlus[evmtypes.Receipt], err error) {
-	err = o.q.SelectContext(ctx, &receiptsPlus, `
+func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID big.Int) (receiptsPlus []EvmReceiptPlus, err error) {
+	var rs []dbReceiptPlus
+
+	err = o.q.SelectContext(ctx, &rs, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
 	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id
@@ -575,6 +644,8 @@ func (o *orm) FindEthReceiptsPendingConfirmation(ctx context.Context, blockNum i
 	INNER JOIN eth_receipts ON eth_tx_attempts.hash = eth_receipts.tx_hash
 	WHERE pipeline_runs.state = 'suspended' AND eth_receipts.block_number <= ($1 - eth_txes.min_confirmations) AND eth_txes.evm_chain_id = $2
 	`, blockNum, chainID.String())
+
+	receiptsPlus = fromDBReceiptsPlus(rs)
 	return
 }
 

@@ -11,10 +11,10 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // nolint
@@ -99,7 +99,6 @@ type BasicConfig interface {
 	FMSimulateTransactions() bool
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
-	InsecureFastScrypt() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
 	JobPipelineMaxSuccessfulRuns() uint64
@@ -166,6 +165,13 @@ type BasicConfig interface {
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	VRFPassword() string
+
+	// Insecure config
+	DevWebServer() bool
+	InsecureFastScrypt() bool
+	OCRDevelopmentMode() bool
+	DisableRateLimiting() bool
+	InfiniteDepthQueries() bool
 
 	OCR1Config
 	OCR2Config

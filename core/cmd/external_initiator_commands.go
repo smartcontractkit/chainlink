@@ -4,7 +4,7 @@ import (
 	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initInitiatorsSubCmds(client *Client, devMode bool) []cli.Command {

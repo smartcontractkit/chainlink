@@ -16,14 +16,15 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var ErrUnsupported = errors.New("unsupported with config v2")
@@ -53,6 +54,7 @@ type Core struct {
 	AutoPprof        AutoPprof               `toml:",omitempty"`
 	Pyroscope        Pyroscope               `toml:",omitempty"`
 	Sentry           Sentry                  `toml:",omitempty"`
+	Insecure         Insecure                `toml:",omitempty"`
 }
 
 var (
@@ -106,6 +108,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
+	c.Insecure.setFrom(&f.Insecure)
 }
 
 type Secrets struct {
@@ -956,5 +959,46 @@ func (s *Sentry) setFrom(f *Sentry) {
 	}
 	if v := f.Release; v != nil {
 		s.Release = f.Release
+	}
+}
+
+type Insecure struct {
+	DevWebServer         *bool
+	OCRDevelopmentMode   *bool
+	InfiniteDepthQueries *bool
+	DisableRateLimiting  *bool
+}
+
+func (ins *Insecure) ValidateConfig() (err error) {
+	if build.Dev {
+		return
+	}
+	if ins.DevWebServer != nil && *ins.DevWebServer {
+		err = multierr.Append(err, ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
+	}
+	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode {
+		err = multierr.Append(err, ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
+	}
+	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
+		err = multierr.Append(err, ErrInvalid{Name: "InfiniteDepthQueries", Value: *ins.InfiniteDepthQueries, Msg: "insecure configs are not allowed on secure builds"})
+	}
+	if ins.DisableRateLimiting != nil && *ins.DisableRateLimiting {
+		err = multierr.Append(err, ErrInvalid{Name: "DisableRateLimiting", Value: *ins.DisableRateLimiting, Msg: "insecure configs are not allowed on secure builds"})
+	}
+	return err
+}
+
+func (ins *Insecure) setFrom(f *Insecure) {
+	if v := f.DevWebServer; v != nil {
+		ins.DevWebServer = f.DevWebServer
+	}
+	if v := f.InfiniteDepthQueries; v != nil {
+		ins.InfiniteDepthQueries = f.InfiniteDepthQueries
+	}
+	if v := f.DisableRateLimiting; v != nil {
+		ins.DisableRateLimiting = f.DisableRateLimiting
+	}
+	if v := f.OCRDevelopmentMode; v != nil {
+		ins.OCRDevelopmentMode = f.OCRDevelopmentMode
 	}
 }

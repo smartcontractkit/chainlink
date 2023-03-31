@@ -31,7 +31,7 @@ ShutdownGracePeriod = '5s' # Default
 ```toml
 ExplorerURL = 'ws://explorer.url' # Example
 ```
-ExplorerURL is the websocket URL for the node to push stats to.
+ExplorerURL is the websocket URL used by the node to push stats. This variable is required to deliver telemetry.
 
 ### InsecureFastScrypt
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -96,13 +96,13 @@ MigrateOnStartup = true # Default
 ```toml
 DefaultIdleInTxSessionTimeout = '1h' # Default
 ```
-DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
+DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
 
 ### DefaultLockTimeout
 ```toml
 DefaultLockTimeout = '15s' # Default
 ```
-DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take a lock before timing out.
+DefaultLockTimeout is the maximum time allowed to wait for database lock of any kind before timing out. See Postgres `lock_timeout` for more details.
 
 ### DefaultQueryTimeout
 ```toml
@@ -160,7 +160,7 @@ _none_ - Disables backups.
 `lite` - Dumps small tables including configuration and keys that are essential for the node to function, which excludes historical data like job runs, transaction history, etc.
 `full` - Dumps the entire database.
 
-It will write to a file like `$ROOT/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
+It will write to a file like `'Dir'/backup/cl_backup_<VERSION>.dump`. There is one backup dump file per version of the Chainlink node. If you upgrade the node, it will keep the backup taken right before the upgrade migration so you can restore to an older version if necessary.
 
 ### Dir
 ```toml
@@ -1049,13 +1049,22 @@ Note: V1.Enabled is true by default, so it must be set false in order to run V2 
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in host:port form as accepted by net.Dial. The addresses should be reachable by peers of interest.
+AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
+The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
+a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
 
 ### DefaultBootstrappers
 ```toml
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 ```
 DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
+
+Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
+DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
+Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
+(which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
+received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
+nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
 
 ### DeltaDial
 ```toml
@@ -1073,7 +1082,8 @@ DeltaReconcile controls how often a Reconcile message is sent to every peer.
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
+but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
 ## Keeper
 ```toml
@@ -1095,18 +1105,21 @@ DefaultTransactionQueueDepth = 1 # Default
 DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
 
 ### GasPriceBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 GasPriceBufferPercent = 20 # Default
 ```
 GasPriceBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in legacy mode (EIP-1559 off).
 
 ### GasTipCapBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 GasTipCapBufferPercent = 20 # Default
 ```
 GasTipCapBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
 
 ### BaseFeeBufferPercent
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 BaseFeeBufferPercent = 20 # Default
 ```
@@ -1317,6 +1330,41 @@ Environment overrides the Sentry environment to the given value. Otherwise autod
 Release = 'v1.2.3' # Example
 ```
 Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
+
+## Insecure
+```toml
+[Insecure]
+DevWebServer = false # Default
+OCRDevelopmentMode = false # Default
+InfiniteDepthQueries = false # Default
+DisableRateLimiting = false # Default
+```
+Insecure config family is only allowed in development builds.
+
+### DevWebServer
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+DevWebServer = false # Default
+```
+DevWebServer skips secure configuration for webserver AllowedHosts, SSL, etc.
+
+### OCRDevelopmentMode
+```toml
+OCRDevelopmentMode = false # Default
+```
+OCRDevelopmentMode run OCR in development mode.
+
+### InfiniteDepthQueries
+```toml
+InfiniteDepthQueries = false # Default
+```
+InfiniteDepthQueries skips graphql query depth limit checks.
+
+### DisableRateLimiting
+```toml
+DisableRateLimiting = false # Default
+```
+DisableRateLimiting skips ratelimiting on asset requests.
 
 ## EVM
 EVM defaults depend on ChainID:
