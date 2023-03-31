@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/transmission/generated/smart_contract_account_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/transmission"
 )
 
@@ -37,7 +39,26 @@ var (
 	entrypointABI = evmtypes.MustGetABI(entry_point.EntryPointABI)
 )
 
-func Test4337Basic(t *testing.T) {
+type EntryPointUniverse struct {
+	holder1               *bind.TransactOpts
+	holder1Key            ethkey.KeyV2
+	holder2               *bind.TransactOpts
+	backend               *backends.SimulatedBackend
+	entryPointAddress     common.Address
+	entryPoint            *entry_point.EntryPoint
+	factoryAddress        common.Address
+	helper                *smart_contract_account_helper.SmartContractAccountHelper
+	greeterAddress        common.Address
+	greeter               *greeter_wrapper.Greeter
+	linkTokenAddress      common.Address
+	linkToken             *link_token_interface.LinkToken
+	linkEthFeedAddress    common.Address
+	vrfCoordinatorAddress common.Address
+	vrfCoordinator        *vrf_coordinator_mock.VRFCoordinatorMock
+	vrfConsumerAddress    common.Address
+}
+
+func deployTransmissionUniverse(t *testing.T) *EntryPointUniverse {
 	// Create a key for holder1 that we can use to sign
 	holder1Key := cltest.MustGenerateRandomKey(t)
 	t.Log("Holder key:", holder1Key.String())
@@ -46,22 +67,18 @@ func Test4337Basic(t *testing.T) {
 	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	var (
-		metaERC20Owner = testutils.MustNewSimTransactor(t)
-		holder1        = holder1Transactor
-		holder2        = testutils.MustNewSimTransactor(t)
-		relay          = testutils.MustNewSimTransactor(t)
+		holder1 = holder1Transactor
+		holder2 = testutils.MustNewSimTransactor(t)
 	)
 	genesisData := core.GenesisAlloc{
-		metaERC20Owner.From: {Balance: assets.Ether(1000).ToInt()},
-		holder1.From:        {Balance: assets.Ether(1000).ToInt()},
-		holder2.From:        {Balance: assets.Ether(1000).ToInt()},
-		relay.From:          {Balance: assets.Ether(1000).ToInt()},
+		holder1.From: {Balance: assets.Ether(1000).ToInt()},
+		holder2.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	gasLimit := uint32(30e6)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	backend.Commit()
 
-	// Deploy Entry Point, and Smart Contract Account factory and helper.
+	// Setup all contracts and addresses used by tests.
 	entryPointAddress, _, entryPoint, err := entry_point.DeployEntryPoint(holder1, backend)
 	require.NoError(t, err)
 	factoryAddress, _, _, _ := smart_contract_account_factory.DeploySmartContractAccountFactory(holder1, backend)
@@ -70,25 +87,65 @@ func Test4337Basic(t *testing.T) {
 	require.NoError(t, err)
 	greeterAddress, _, greeter, err := greeter_wrapper.DeployGreeter(holder1, backend)
 	require.NoError(t, err)
+	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend)
+	require.NoError(t, err)
+	linkEthFeedAddress, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		holder1,
+		backend,
+		18,
+		(*big.Int)(assets.GWei(5000000)), // .005 ETH
+	)
+	require.NoError(t, err)
+	vrfCoordinatorAddress, _, vrfCoordinator, err := vrf_coordinator_mock.DeployVRFCoordinatorMock(holder1, backend, linkTokenAddress)
+	require.NoError(t, err)
+	vrfConsumerAddress, _, _, err := solidity_vrf_consumer_interface_v08.DeployVRFConsumer(holder1, backend, vrfCoordinatorAddress, linkTokenAddress)
+	require.NoError(t, err)
 	backend.Commit()
 
+	return &EntryPointUniverse{
+		holder1:               holder1,
+		holder1Key:            holder1Key,
+		holder2:               holder2,
+		backend:               backend,
+		entryPointAddress:     entryPointAddress,
+		entryPoint:            entryPoint,
+		factoryAddress:        factoryAddress,
+		helper:                helper,
+		greeterAddress:        greeterAddress,
+		greeter:               greeter,
+		linkTokenAddress:      linkTokenAddress,
+		linkToken:             linkToken,
+		linkEthFeedAddress:    linkEthFeedAddress,
+		vrfCoordinatorAddress: vrfCoordinatorAddress,
+		vrfCoordinator:        vrfCoordinator,
+		vrfConsumerAddress:    vrfConsumerAddress,
+	}
+}
+
+func Test4337Basic(t *testing.T) {
+	// Deploy universe.
+	universe := deployTransmissionUniverse(t)
+	holder1 := universe.holder1
+	holder2 := universe.holder2
+	backend := universe.backend
+
 	// Ensure no greeting is already set.
-	initialGreeting, err := greeter.GetGreeting(nil)
+	initialGreeting, err := universe.greeter.GetGreeting(nil)
 	require.NoError(t, err)
 	require.Equal(t, "", initialGreeting)
 
 	// Get the address at which the Smart Contract Account will be deployed.
-	toDeployAddress, err := helper.CalculateSmartContractAccountAddress(
+	toDeployAddress, err := universe.helper.CalculateSmartContractAccountAddress(
 		nil,
 		holder1.From,
-		entryPointAddress,
-		factoryAddress,
+		universe.entryPointAddress,
+		universe.factoryAddress,
 	)
 	require.NoError(t, err)
-	t.Log("Smart Contrac Account Address:", holder1Key.String())
+	t.Log("Smart Contract Account Address:", toDeployAddress)
 
 	// Get the initialization code for the Smart Contract Account.
-	fullInitializeCode, err := helper.GetInitCode(nil, factoryAddress, holder1.From, entryPointAddress)
+	fullInitializeCode, err := universe.helper.GetInitCode(nil, universe.factoryAddress, holder1.From, universe.entryPointAddress)
 	require.NoError(t, err)
 	t.Log("Full initialization code:", common.Bytes2Hex(fullInitializeCode))
 
@@ -103,7 +160,7 @@ func Test4337Basic(t *testing.T) {
 		nonce    = big.NewInt(0)
 		deadline = big.NewInt(1000)
 	)
-	fullEncoding, err := helper.GetFullEndTxEncoding(nil, greeterAddress, value, deadline, encodedGreetingCall)
+	fullEncoding, err := universe.helper.GetFullEndTxEncoding(nil, universe.greeterAddress, value, deadline, encodedGreetingCall)
 	require.NoError(t, err)
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
@@ -123,35 +180,35 @@ func Test4337Basic(t *testing.T) {
 	}
 
 	// Generate hash from user operation, sign it, and include it in the user operation.
-	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
+	userOpHash, err := universe.entryPoint.GetUserOpHash(nil, userOp)
 	require.NoError(t, err)
-	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
+	fullHash, err := universe.helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
-	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	sig, err := transmission.SignMessage(universe.holder1Key.ToEcdsaPrivKey(), fullHash[:])
 	require.NoError(t, err)
 	t.Log("Signature:", common.Bytes2Hex(sig))
 	userOp.Signature = sig
 
 	// Deposit to the SCA's account to pay for this transaction.
 	holder1.Value = assets.Ether(10).ToInt()
-	tx, err := entryPoint.DepositTo(holder1, toDeployAddress)
+	tx, err := universe.entryPoint.DepositTo(holder1, toDeployAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	bind.WaitMined(testutils.Context(t), backend, tx)
 	holder1.Value = assets.Ether(0).ToInt()
-	balance, err := entryPoint.BalanceOf(nil, toDeployAddress)
+	balance, err := universe.entryPoint.BalanceOf(nil, toDeployAddress)
 	require.NoError(t, err)
 	require.Equal(t, assets.Ether(10).ToInt(), balance)
 
 	// Run handleOps from holder2's account, to demonstrate that any account can execute this signed user operation.
-	tx, err = entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
+	tx, err = universe.entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
 	bind.WaitMined(testutils.Context(t), backend, tx)
 
 	// Ensure "bye" was successfully set as the greeting.
-	greetingResult, err := greeter.GetGreeting(nil)
+	greetingResult, err := universe.greeter.GetGreeting(nil)
 	require.NoError(t, err)
 	require.Equal(t, "bye", greetingResult)
 
@@ -164,57 +221,29 @@ func Test4337Basic(t *testing.T) {
 }
 
 func Test4337WithLinkTokenPaymaster(t *testing.T) {
-	// Create a key for holder1 that we can use to sign
-	holder1Key := cltest.MustGenerateRandomKey(t)
-	t.Log("Holder key:", holder1Key.String())
-
-	// Construct simulated blockchain environmnet.
-	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-	require.NoError(t, err)
-	var (
-		metaERC20Owner = testutils.MustNewSimTransactor(t)
-		holder1        = holder1Transactor
-		holder2        = testutils.MustNewSimTransactor(t)
-		relay          = testutils.MustNewSimTransactor(t)
-	)
-	genesisData := core.GenesisAlloc{
-		metaERC20Owner.From: {Balance: assets.Ether(1000).ToInt()},
-		holder1.From:        {Balance: assets.Ether(1000).ToInt()},
-		holder2.From:        {Balance: assets.Ether(1000).ToInt()},
-		relay.From:          {Balance: assets.Ether(1000).ToInt()},
-	}
-	gasLimit := uint32(30e6)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	backend.Commit()
-
-	// Deploy Entry Point, Smart Contract Account factory and helper, and a LINK token contract.
-	entryPointAddress, _, entryPoint, err := entry_point.DeployEntryPoint(holder1, backend)
-	require.NoError(t, err)
-	factoryAddress, _, _, _ := smart_contract_account_factory.DeploySmartContractAccountFactory(holder1, backend)
-	require.NoError(t, err)
-	_, _, helper, err := smart_contract_account_helper.DeploySmartContractAccountHelper(holder1, backend)
-	require.NoError(t, err)
-	greeterAddress, _, greeter, err := greeter_wrapper.DeployGreeter(holder1, backend)
-	require.NoError(t, err)
-	backend.Commit()
+	// Deploy universe.
+	universe := deployTransmissionUniverse(t)
+	holder1 := universe.holder1
+	holder2 := universe.holder2
+	backend := universe.backend
 
 	// Ensure no greeting is already set.
-	initialGreeting, err := greeter.GetGreeting(nil)
+	initialGreeting, err := universe.greeter.GetGreeting(nil)
 	require.NoError(t, err)
 	require.Equal(t, "", initialGreeting)
 
 	// Get the address at which the Smart Contract Account will be deployed.
-	toDeployAddress, err := helper.CalculateSmartContractAccountAddress(
+	toDeployAddress, err := universe.helper.CalculateSmartContractAccountAddress(
 		nil,
 		holder1.From,
-		entryPointAddress,
-		factoryAddress,
+		universe.entryPointAddress,
+		universe.factoryAddress,
 	)
 	require.NoError(t, err)
-	t.Log("Smart Contrac Account Address:", holder1Key.String())
+	t.Log("Smart Contract Account Address:", toDeployAddress)
 
 	// Get the initialization code for the Smart Contract Account.
-	fullInitializeCode, err := helper.GetInitCode(nil, factoryAddress, holder1.From, entryPointAddress)
+	fullInitializeCode, err := universe.helper.GetInitCode(nil, universe.factoryAddress, holder1.From, universe.entryPointAddress)
 	require.NoError(t, err)
 	t.Log("Full initialization code:", common.Bytes2Hex(fullInitializeCode))
 
@@ -229,7 +258,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 		nonce    = big.NewInt(0)
 		deadline = big.NewInt(1000)
 	)
-	fullEncoding, err := helper.GetFullEndTxEncoding(nil, greeterAddress, value, deadline, encodedGreetingCall)
+	fullEncoding, err := universe.helper.GetFullEndTxEncoding(nil, universe.greeterAddress, value, deadline, encodedGreetingCall)
 	require.NoError(t, err)
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
@@ -272,35 +301,35 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	}
 
 	// Generate hash from user operation, sign it, and include it in the user operation.
-	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
+	userOpHash, err := universe.entryPoint.GetUserOpHash(nil, userOp)
 	require.NoError(t, err)
-	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
+	fullHash, err := universe.helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
-	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	sig, err := transmission.SignMessage(universe.holder1Key.ToEcdsaPrivKey(), fullHash[:])
 	require.NoError(t, err)
 	t.Log("Signature:", common.Bytes2Hex(sig))
 	userOp.Signature = sig
 
 	// Deposit to the Paymaster's account to pay for this transaction.
 	holder1.Value = assets.Ether(10).ToInt()
-	tx, err = entryPoint.DepositTo(holder1, paymasterAddress)
+	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	bind.WaitMined(testutils.Context(t), backend, tx)
 	holder1.Value = assets.Ether(0).ToInt()
-	balance, err := entryPoint.BalanceOf(nil, paymasterAddress)
+	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
 	require.NoError(t, err)
 	require.Equal(t, assets.Ether(10).ToInt(), balance)
 
 	// Run handleOps from holder2's account, to demonstrate that any account can execute this signed user operation.
-	tx, err = entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
+	tx, err = universe.entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
 	bind.WaitMined(testutils.Context(t), backend, tx)
 
 	// Ensure "bye" was successfully set as the greeting.
-	greetingResult, err := greeter.GetGreeting(nil)
+	greetingResult, err := universe.greeter.GetGreeting(nil)
 	require.NoError(t, err)
 	require.Equal(t, "bye", greetingResult)
 
@@ -313,63 +342,24 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 }
 
 func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
-	// Create a key for holder1 that we can use to sign
-	holder1Key := cltest.MustGenerateRandomKey(t)
-	t.Log("Holder key:", holder1Key.String())
-
-	// Construct simulated blockchain environmnet.
-	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-	require.NoError(t, err)
-	var (
-		metaERC20Owner = testutils.MustNewSimTransactor(t)
-		holder1        = holder1Transactor
-		holder2        = testutils.MustNewSimTransactor(t)
-		relay          = testutils.MustNewSimTransactor(t)
-	)
-	genesisData := core.GenesisAlloc{
-		metaERC20Owner.From: {Balance: assets.Ether(1000).ToInt()},
-		holder1.From:        {Balance: assets.Ether(1000).ToInt()},
-		holder2.From:        {Balance: assets.Ether(1000).ToInt()},
-		relay.From:          {Balance: assets.Ether(1000).ToInt()},
-	}
-	gasLimit := uint32(30e6)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	backend.Commit()
-
-	// Deploy Entry Point, Smart Contract Account factory and helper, a LINK token contract, and VRF contracts.
-	entryPointAddress, _, entryPoint, err := entry_point.DeployEntryPoint(holder1, backend)
-	require.NoError(t, err)
-	factoryAddress, _, _, _ := smart_contract_account_factory.DeploySmartContractAccountFactory(holder1, backend)
-	require.NoError(t, err)
-	_, _, helper, err := smart_contract_account_helper.DeploySmartContractAccountHelper(holder1, backend)
-	require.NoError(t, err)
-	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend)
-	require.NoError(t, err)
-	linkEthFeedAddress, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-		holder1,
-		backend,
-		18,
-		(*big.Int)(assets.GWei(5000000)), // .005 ETH
-	)
-	require.NoError(t, err)
-	vrfCoordinatorAddress, _, vrfCoordinator, err := vrf_coordinator_mock.DeployVRFCoordinatorMock(holder1, backend, linkTokenAddress)
-	require.NoError(t, err)
-	vrfConsumerAddress, _, _, err := solidity_vrf_consumer_interface_v08.DeployVRFConsumer(holder1, backend, vrfCoordinatorAddress, linkTokenAddress)
-	require.NoError(t, err)
-	backend.Commit()
+	// Deploy universe.
+	universe := deployTransmissionUniverse(t)
+	holder1 := universe.holder1
+	holder2 := universe.holder2
+	backend := universe.backend
 
 	// Get the address at which the Smart Contract Account will be deployed.
-	toDeployAddress, err := helper.CalculateSmartContractAccountAddress(
+	toDeployAddress, err := universe.helper.CalculateSmartContractAccountAddress(
 		nil,
 		holder1.From,
-		entryPointAddress,
-		factoryAddress,
+		universe.entryPointAddress,
+		universe.factoryAddress,
 	)
 	require.NoError(t, err)
-	t.Log("Smart Contrac Account Address:", holder1Key.String())
+	t.Log("Smart Contract Account Address:", toDeployAddress)
 
 	// Get the initialization code for the Smart Contract Account.
-	fullInitializeCode, err := helper.GetInitCode(nil, factoryAddress, holder1.From, entryPointAddress)
+	fullInitializeCode, err := universe.helper.GetInitCode(nil, universe.factoryAddress, holder1.From, universe.entryPointAddress)
 	require.NoError(t, err)
 	t.Log("Full initialization code:", common.Bytes2Hex(fullInitializeCode))
 
@@ -387,15 +377,15 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 		nonce    = big.NewInt(0)
 		deadline = big.NewInt(1000)
 	)
-	fullEncoding, err := helper.GetFullEndTxEncoding(nil, vrfConsumerAddress, value, deadline, encodedVRFRequest)
+	fullEncoding, err := universe.helper.GetFullEndTxEncoding(nil, universe.vrfConsumerAddress, value, deadline, encodedVRFRequest)
 	require.NoError(t, err)
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
 	// Deposit to LINK paymaster.
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress, linkEthFeedAddress)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, universe.linkTokenAddress, universe.linkEthFeedAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	tx, err := linkToken.TransferAndCall(
+	tx, err := universe.linkToken.TransferAndCall(
 		holder1,
 		paymasterAddress,
 		assets.Ether(1000).ToInt(),
@@ -406,7 +396,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	bind.WaitMined(context.Background(), backend, tx)
 
 	// Generate encoded paymaster data to fund the VRF consumer.
-	encodedPaymasterData, err := helper.GetAbiEncodedDirectRequestData(nil, vrfConsumerAddress, fee, fee)
+	encodedPaymasterData, err := universe.helper.GetAbiEncodedDirectRequestData(nil, universe.vrfConsumerAddress, fee, fee)
 	require.NoError(t, err)
 
 	// Construct and execute user operation.
@@ -425,24 +415,24 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	}
 
 	// Generate hash from user operation, sign it, and include it in the user operation.
-	userOpHash, err := entryPoint.GetUserOpHash(nil, userOp)
+	userOpHash, err := universe.entryPoint.GetUserOpHash(nil, userOp)
 	require.NoError(t, err)
-	fullHash, err := helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
+	fullHash, err := universe.helper.GetFullHashForSigning(nil, userOpHash, toDeployAddress)
 	require.NoError(t, err)
 	t.Log("Full hash for signing:", common.Bytes2Hex(fullHash[:]))
-	sig, err := transmission.SignMessage(holder1Key.ToEcdsaPrivKey(), fullHash[:])
+	sig, err := transmission.SignMessage(universe.holder1Key.ToEcdsaPrivKey(), fullHash[:])
 	require.NoError(t, err)
 	t.Log("Signature:", common.Bytes2Hex(sig))
 	userOp.Signature = sig
 
 	// Deposit to the Paymaster's account to pay for this transaction.
 	holder1.Value = assets.Ether(10).ToInt()
-	tx, err = entryPoint.DepositTo(holder1, paymasterAddress)
+	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	bind.WaitMined(testutils.Context(t), backend, tx)
 	holder1.Value = assets.Ether(0).ToInt()
-	balance, err := entryPoint.BalanceOf(nil, paymasterAddress)
+	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
 	require.NoError(t, err)
 	require.Equal(t, assets.Ether(10).ToInt(), balance)
 
@@ -456,7 +446,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	require.NoError(t, err)
 	gas, err := backend.EstimateGas(testutils.Context(t), ethereum.CallMsg{
 		From:     holder2.From,
-		To:       &entryPointAddress,
+		To:       &universe.entryPointAddress,
 		Gas:      0,
 		Data:     payload,
 		GasPrice: gasPrice,
@@ -464,7 +454,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	unsigned := types.NewTx(&types.LegacyTx{
 		Nonce:    accountNonce,
 		Gas:      gas,
-		To:       &entryPointAddress,
+		To:       &universe.entryPointAddress,
 		Value:    big.NewInt(0),
 		Data:     payload,
 		GasPrice: gasPrice,
@@ -481,15 +471,15 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 
 	// Assert the VRF request was correctly made.
 	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{
-		Addresses: []common.Address{vrfCoordinatorAddress},
+		Addresses: []common.Address{universe.vrfCoordinatorAddress},
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
-	randomnessRequestLog, err := vrfCoordinator.ParseRandomnessRequest(logs[0])
+	randomnessRequestLog, err := universe.vrfCoordinator.ParseRandomnessRequest(logs[0])
 	require.NoError(t, err)
 	require.Equal(t, fee, randomnessRequestLog.Fee)
 	require.Equal(t, keyhash, randomnessRequestLog.KeyHash)
-	require.Equal(t, vrfConsumerAddress, randomnessRequestLog.Sender)
+	require.Equal(t, universe.vrfConsumerAddress, randomnessRequestLog.Sender)
 
 	// Assert smart contract account is created and nonce incremented.
 	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
