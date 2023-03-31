@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -22,6 +22,7 @@ import (
 //
 //go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 type Eth interface {
+	txmgr.EvmKeyStore
 	Get(id string) (ethkey.KeyV2, error)
 	GetAll() ([]ethkey.KeyV2, error)
 	Create(chainIDs ...*big.Int) (ethkey.KeyV2, error)
@@ -32,9 +33,6 @@ type Eth interface {
 	Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
-
-	NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
@@ -62,7 +60,7 @@ type eth struct {
 
 var _ Eth = &eth{}
 
-var _ txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, types.Transaction, int64] = (*eth)(nil)
+var _ txmgr.EvmKeyStore = (*eth)(nil)
 
 func newEthKeyStore(km *keyManager) *eth {
 	return &eth{
@@ -206,11 +204,11 @@ func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts .
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
-func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
 	if !ks.exists(*address.NativeAddress()) {
 		return errors.Errorf("key with address %s does not exist", address.String())
 	}
-	incrementedNonce, err := ks.orm.incrementNextNonce(*address.NativeAddress(), chainID, currentNonce, qopts...)
+	incrementedNonce, err := ks.orm.incrementNextNonce(*address.NativeAddress(), chainID, currentSequence, qopts...)
 	if err != nil {
 		return errors.Wrap(err, "failed IncrementNextNonce")
 	}

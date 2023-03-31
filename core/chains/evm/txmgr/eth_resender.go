@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"time"
 
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
@@ -34,7 +33,7 @@ const defaultResenderPollInterval = 5 * time.Second
 type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient        evmclient.Client
-	ks               txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
+	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	chainID          big.Int
 	interval         time.Duration
 	config           Config
@@ -49,7 +48,7 @@ type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.H
 func NewEthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
 	lggr logger.Logger,
 	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
-	ethClient evmclient.Client, ks txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64],
+	ethClient evmclient.Client, ks txmgrtypes.KeyStore[ADDR, *big.Int, int64],
 	pollInterval time.Duration,
 	config Config,
 ) *EthResender[ADDR, TX_HASH, BLOCK_HASH] {

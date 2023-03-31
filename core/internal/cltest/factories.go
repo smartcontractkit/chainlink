@@ -398,7 +398,8 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStorageServic
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	txStorageService.SaveFetchedReceipts([]evmtypes.Receipt{receipt}, chainID)
+	err := txStorageService.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, chainID)
+	require.NoError(t, err)
 	return etx
 }
 

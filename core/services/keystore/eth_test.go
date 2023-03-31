@@ -645,7 +645,6 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		assert.NoError(t, err)
 
 		nonce, err := ks.NextSequence(evmtypes.NewAddress(k1.Address), testutils.FixtureChainID)
-		nonce, err := ks.NextSequence(k1.Address, testutils.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Equal(t, nonce, newNonce)

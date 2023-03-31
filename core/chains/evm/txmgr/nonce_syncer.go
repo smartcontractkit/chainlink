@@ -6,10 +6,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -64,11 +62,11 @@ type nonceSyncerImpl struct {
 
 // NewNonceSyncer returns a new syncer
 func NewNonceSyncer(
-	txStorageService txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64],
+	txStorageService EvmTxStorageService,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	kst txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, gethTypes.Transaction, int64],
-) NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
+	kst EvmKeyStore,
+) EvmNonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	return &nonceSyncerImpl{
 		txStorageService: txStorageService,

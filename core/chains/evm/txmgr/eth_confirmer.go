@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -123,7 +122,7 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.
 	config         Config
 	chainID        big.Int
 
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
+	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	addresses []ADDR
 
 	mb        *utils.Mailbox[*evmtypes.Head]

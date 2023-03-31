@@ -39,16 +39,20 @@ func (a *hash) NativeHash() *common.Hash {
 	return &a.nativeHash
 }
 
-type BlockHash = hash
-type TxHash = hash
+type BlockHash struct {
+	hash
+}
+type TxHash struct {
+	hash
+}
 
 func NewBlockHash(h common.Hash) *BlockHash {
-	return &hash{
-		nativeHash: h,
+	return &BlockHash{
+		hash: hash{nativeHash: h},
 	}
 }
 func NewTxHash(h common.Hash) *TxHash {
-	return &hash{
-		nativeHash: h,
+	return &TxHash{
+		hash: hash{nativeHash: h},
 	}
 }

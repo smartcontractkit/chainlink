@@ -70,7 +70,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	gasLimit := uint32(242)
 
 	t.Run("no eth_txes at all", func(t *testing.T) {
-		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), evmtypes.NewAddress(fromAddress)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), evmtypes.NewAddress(fromAddress))
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	})

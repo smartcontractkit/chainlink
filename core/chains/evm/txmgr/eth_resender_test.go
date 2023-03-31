@@ -36,30 +36,30 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	borm := cltest.NewTxmStorageService(t, db, logCfg)
+	txStorageService := cltest.NewTxmStorageService(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 
 	var addr1TxesRawHex, addr2TxesRawHex, addr3TxesRawHex []string
 	// fewer than EvmMaxInFlightTransactions
 	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions()/2; i++ {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress, originalBroadcastAt)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, int64(i), fromAddress, originalBroadcastAt)
 		addr1TxesRawHex = append(addr1TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
 	// exactly EvmMaxInFlightTransactions
 	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions(); i++ {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress2, originalBroadcastAt)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, int64(i), fromAddress2, originalBroadcastAt)
 		addr2TxesRawHex = append(addr2TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
 	// more than EvmMaxInFlightTransactions
 	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions()*2; i++ {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress3, originalBroadcastAt)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, int64(i), fromAddress3, originalBroadcastAt)
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEthResender(lggr, borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+	er := txmgr.NewEthResender(lggr, txStorageService, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 	t.Run("sends up to EvmMaxInFlightTransactions per key", func(t *testing.T) {
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -103,7 +103,7 @@ func Test_EthResender_Start(t *testing.T) {
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
-	borm := cltest.NewTxmStorageService(t, db, cfg)
+	txStorageService := cltest.NewTxmStorageService(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -112,12 +112,12 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEthResender(lggr, borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+		er := txmgr.NewEthResender(lggr, txStorageService, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, originalBroadcastAt)
-		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, originalBroadcastAt)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Now().Add(1*time.Hour))
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, 0, fromAddress, originalBroadcastAt)
+		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, 1, fromAddress, originalBroadcastAt)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, 2, fromAddress, time.Now().Add(1*time.Hour))
 
 		// First batch of 1
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {

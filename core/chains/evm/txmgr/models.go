@@ -31,7 +31,7 @@ import (
 type EvmEthConfirmer = EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmEthBroadcaster = EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmTxStorageService = txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
-type EvmKeyStore = txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, types.Transaction, int64]
+type EvmKeyStore = txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, int64]
 type EvmTxAttemptBuilder = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]]
 type EvmNonceSyncer = NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmTransmitCheckerFactory = TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash]

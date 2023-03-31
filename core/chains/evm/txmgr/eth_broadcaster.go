@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -104,7 +103,7 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, gethTypes.Transaction, int64]
+	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	addresses []ADDR
 
 	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH]
