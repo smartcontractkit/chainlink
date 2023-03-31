@@ -179,7 +179,7 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
 func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
-	if !ks.exists(*address.NativeAddress()) {
+	if address == nil || !ks.exists(*address.NativeAddress()) {
 		return 0, errors.Errorf("key with address %s does not exist", address.String())
 	}
 	nonce, err = ks.orm.getNextNonce(*address.NativeAddress(), chainID, qopts...)
@@ -202,7 +202,7 @@ func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts .
 
 // IncrementNextNonce increments keys.next_nonce by 1
 func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
-	if !ks.exists(*address.NativeAddress()) {
+	if address == nil || !ks.exists(*address.NativeAddress()) {
 		return errors.Errorf("key with address %s does not exist", address.String())
 	}
 	incrementedNonce, err := ks.orm.incrementNextNonce(*address.NativeAddress(), chainID, currentSequence, qopts...)
@@ -411,6 +411,9 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 // CheckEnabled returns nil if state is present and enabled
 // The complexity here comes because we want to return nice, useful error messages
 func (ks *eth) CheckEnabled(address *evmtypes.Address, chainID *big.Int) error {
+	if address == nil || address.IsEmpty() {
+		return errors.Errorf("nil/empty address provided as input")
+	}
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {

@@ -134,7 +134,11 @@ func (f *FwdMgr) ForwarderFor(addr *evmtypes.Address) (forwarder *evmtypes.Addre
 }
 
 func (f *FwdMgr) ConvertPayload(dest *evmtypes.Address, origPayload []byte) ([]byte, error) {
-	databytes, err := f.getForwardedPayload(*dest.NativeAddress(), origPayload)
+	destAddr := common.Address{}
+	if dest != nil {
+		destAddr = *dest.NativeAddress()
+	}
+	databytes, err := f.getForwardedPayload(destAddr, origPayload)
 	if err != nil {
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",

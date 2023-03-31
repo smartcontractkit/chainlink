@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
@@ -46,7 +47,11 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EthTx[*evmty
 // NewTxAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
 func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EthTx[*evmtypes.Address, *evmtypes.TxHash], lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
-	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(*etx.FromAddress.NativeAddress())
+	fromAddr := common.Address{}
+	if etx.FromAddress != nil {
+		fromAddr = *etx.FromAddress.NativeAddress()
+	}
+	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(fromAddr)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
 		return attempt, fee, feeLimit, true, errors.Wrap(err, "failed to get fee") // estimator errors are retryable
@@ -59,7 +64,11 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EthT
 // NewBumpTxAttempt builds a new attempt with a bumped fee - based on the previous attempt tx type
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
 func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EthTx[*evmtypes.Address, *evmtypes.TxHash], previousAttempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], priorAttempts []txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash], lggr logger.Logger) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
-	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(*etx.FromAddress.NativeAddress())
+	fromAddr := common.Address{}
+	if etx.FromAddress != nil {
+		fromAddr = *etx.FromAddress.NativeAddress()
+	}
+	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(fromAddr)
 	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, errors.Wrap(err, "failed to bump fee") // estimator errors are retryable
@@ -106,7 +115,11 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, f
 		return attempt, errors.New("NewEmptyTranscation: legacy fee cannot be nil")
 	}
 
-	tx := types.NewTransaction(nonce, *fromAddress.NativeAddress(), value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
+	fromAddr := common.Address{}
+	if fromAddress != nil {
+		fromAddr = *fromAddress.NativeAddress()
+	}
+	tx := types.NewTransaction(nonce, fromAddr, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
 
 	hash, signedTxBytes, err := c.SignTx(fromAddress, tx)
 	if err != nil {
@@ -177,8 +190,12 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 		return errors.Errorf("gas fee cap must be greater than or equal to gas tip cap (fee cap: %s, tip cap: %s)", gasFeeCap.String(), gasTipCap.String())
 	}
 
+	fromAddr := common.Address{}
+	if etx.FromAddress != nil {
+		fromAddr = *etx.FromAddress.NativeAddress()
+	}
 	// Configuration sanity-check
-	max := cfg.KeySpecificMaxGasPriceWei(*etx.FromAddress.NativeAddress())
+	max := cfg.KeySpecificMaxGasPriceWei(fromAddr)
 	if gasFeeCap.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.String())
 	}
@@ -191,13 +208,17 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 }
 
 func newDynamicFeeTransaction(nonce uint64, to *evmtypes.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+	var toAddr *common.Address = nil
+	if to != nil {
+		toAddr = to.NativeAddress()
+	}
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
 		Nonce:      nonce,
 		GasTipCap:  gasTipCap.ToInt(),
 		GasFeeCap:  gasFeeCap.ToInt(),
 		Gas:        uint64(gasLimit),
-		To:         to.NativeAddress(),
+		To:         toAddr,
 		Value:      value.ToInt(),
 		Data:       data,
 		AccessList: accessList,
@@ -242,7 +263,11 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Et
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
-	max := cfg.KeySpecificMaxGasPriceWei(*etx.FromAddress.NativeAddress())
+	fromAddr := common.Address{}
+	if etx.FromAddress != nil {
+		fromAddr = *etx.FromAddress.NativeAddress()
+	}
+	max := cfg.KeySpecificMaxGasPriceWei(fromAddr)
 	if gasPrice.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
 	}
@@ -269,9 +294,13 @@ func (c *evmTxAttemptBuilder) newSignedAttempt(etx EthTx[*evmtypes.Address, *evm
 }
 
 func newLegacyTransaction(nonce uint64, to *evmtypes.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
+	var toAddr *common.Address = nil
+	if to != nil {
+		toAddr = to.NativeAddress()
+	}
 	return types.LegacyTx{
 		Nonce:    nonce,
-		To:       to.NativeAddress(),
+		To:       toAddr,
 		Value:    value,
 		Gas:      uint64(gasLimit),
 		GasPrice: gasPrice.ToInt(),

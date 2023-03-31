@@ -129,9 +129,9 @@ func NewTxm(
 	txAttemptBuilder EvmTxAttemptBuilder,
 	txStorageService EvmTxStorageService,
 	nonceSyncer EvmNonceSyncer,
-	ethBroadcaster EvmEthBroadcaster,
-	ethConfirmer EvmEthConfirmer,
-	ethResender EvmEthResender,
+	ethBroadcaster *EvmEthBroadcaster,
+	ethConfirmer *EvmEthConfirmer,
+	ethResender *EvmEthResender,
 ) *EvmTxm {
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -153,14 +153,12 @@ func NewTxm(
 		fwdMgr:           fwdMgr,
 		txAttemptBuilder: txAttemptBuilder,
 		nonceSyncer:      nonceSyncer,
-		ethBroadcaster:   &ethBroadcaster,
-		ethConfirmer:     &ethConfirmer,
-		ethResender:      nil,
+		ethBroadcaster:   ethBroadcaster,
+		ethConfirmer:     ethConfirmer,
+		ethResender:      ethResender,
 	}
 
-	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = &ethResender
-	} else {
+	if cfg.EthTxResendAfterThreshold() <= 0 {
 		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.EthTxReaperThreshold() > 0 && cfg.EthTxReaperInterval() > 0 {

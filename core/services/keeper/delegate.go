@@ -86,7 +86,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
 	if spec.ForwardingAllowed {
 		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(evmtypes.NewAddress(spec.KeeperSpec.FromAddress.Address()))
-		if fwderr == nil {
+		if fwderr == nil && fwdrAddress != nil {
 			effectiveKeeperAddress = *fwdrAddress.NativeAddress()
 		} else {
 			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", spec.Name, "err", fwderr)

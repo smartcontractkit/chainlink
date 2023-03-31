@@ -178,10 +178,12 @@ func (w *worker) WorkCtx(ctx context.Context) {
 
 	wg.Add(len(enabledAddresses))
 	for _, address := range enabledAddresses {
-		go func(k gethCommon.Address) {
-			defer wg.Done()
-			w.checkAccountBalance(ctx, k)
-		}(*address.NativeAddress())
+		if address != nil {
+			go func(k gethCommon.Address) {
+				defer wg.Done()
+				w.checkAccountBalance(ctx, k)
+			}(*address.NativeAddress())
+		}
 	}
 	wg.Wait()
 }
