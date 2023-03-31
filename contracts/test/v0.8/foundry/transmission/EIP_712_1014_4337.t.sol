@@ -14,7 +14,7 @@ import "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import "../../../../src/v0.8/interfaces/LinkTokenInterface.sol";
 import "../../../../src/v0.8/mocks/VRFCoordinatorMock.sol";
 import "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import "../../../../src/v0.8/tests/VRFConsumer.sol";
+import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
 | EIP 712 + 1014 + 4337                                                                                               |
