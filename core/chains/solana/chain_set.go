@@ -56,8 +56,6 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 	return c, nil
 }
 
-//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
-
 // ChainSet extends solana.ChainSet with mutability.
 type ChainSet interface {
 	solana.ChainSet

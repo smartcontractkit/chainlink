@@ -193,6 +193,12 @@ DSN = 'sentry-dsn'
 Environment = 'dev'
 Release = 'v1.2.3'
 
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
 [[EVM]]
 ChainID = '1'
 Enabled = false

@@ -19,7 +19,7 @@ func init() {
 		if v2.EnvDev.IsTrue() {
 			return
 		}
-		log.Println(`Version was unset but dev mode is enabled. Chainlink should be built with static.Version set to a valid semver for production builds.`)
+		log.Println(`Version was unset but dev mode is not enabled. Chainlink should be built with static.Version set to a valid semver for production builds.`)
 	} else if _, err := semver.NewVersion(static.Version); err != nil {
 		panic(fmt.Sprintf("Version invalid: %q is not valid semver", static.Version))
 	}

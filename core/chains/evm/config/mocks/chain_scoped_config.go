@@ -862,6 +862,34 @@ func (_m *ChainScopedConfig) Dev() bool {
 	return r0
 }
 
+// DevWebServer provides a mock function with given fields:
+func (_m *ChainScopedConfig) DevWebServer() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// DisableRateLimiting provides a mock function with given fields:
+func (_m *ChainScopedConfig) DisableRateLimiting() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // EVMEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) EVMEnabled() bool {
 	ret := _m.Called()
@@ -1657,6 +1685,20 @@ func (_m *ChainScopedConfig) HTTPServerWriteTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// InfiniteDepthQueries provides a mock function with given fields:
+func (_m *ChainScopedConfig) InfiniteDepthQueries() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2474,6 +2516,20 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// OCRDevelopmentMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRDevelopmentMode() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
