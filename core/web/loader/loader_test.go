@@ -2,6 +2,7 @@ package loader
 
 import (
 	"database/sql"
+	"math/big"
 	"testing"
 
 	"github.com/graph-gophers/dataloader"
@@ -10,10 +11,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	txmgrtypesMocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmgrMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -288,25 +289,25 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txmORM := txmgrMocks.NewORM(t)
+	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmEthTx, txmgr.EvmEthTxAttempt, int64, int64](t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	ethTxIDs := []int64{1, 2, 3}
 
-	attempt1 := txmgr.EthTxAttempt{
+	attempt1 := txmgr.EvmEthTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[0],
 	}
-	attempt2 := txmgr.EthTxAttempt{
+	attempt2 := txmgr.EvmEthTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[1],
 	}
 
-	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
+	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmEthTxAttempt{
 		attempt1, attempt2,
 	}, nil)
-	app.On("TxmStorageService").Return(txmORM)
+	app.On("TxmStorageService").Return(txStorageService)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -314,9 +315,9 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []txmgr.EthTxAttempt{}, found[0].Data)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt2}, found[1].Data)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[2].Data)
+	assert.Equal(t, []txmgr.EvmEthTxAttempt{}, found[0].Data)
+	assert.Equal(t, []txmgr.EvmEthTxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []txmgr.EvmEthTxAttempt{attempt1}, found[2].Data)
 }
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
@@ -373,7 +374,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txmORM := txmgrMocks.NewORM(t)
+	txStorageService := txmgrtypesMocks.NewTxStorageService(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -382,21 +383,21 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 
 	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
-		TxHash: ethTxHash,
+		TxHash: evmtypes.NewTxHash(ethTxHash),
 	}
 
-	attempt1 := txmgr.EthTxAttempt{
+	attempt1 := txmgr.EvmEthTxAttempt{
 		ID:          int64(1),
 		EthTxID:     ethTxID,
-		Hash:        ethTxHash,
+		Hash:        evmtypes.NewTxHash(ethTxHash),
 		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 
-	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EthTxAttempt{
+	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmEthTxAttempt{
 		attempt1,
 	}, nil)
 
-	app.On("TxmStorageService").Return(txmORM)
+	app.On("TxmStorageService").Return(txStorageService)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -404,5 +405,5 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 1)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[0].Data)
+	assert.Equal(t, []txmgr.EvmEthTxAttempt{attempt1}, found[0].Data)
 }

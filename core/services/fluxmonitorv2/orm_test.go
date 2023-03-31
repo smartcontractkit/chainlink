@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -174,23 +175,23 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	strategy := commontxmmocks.NewTxStrategy(t)
 
 	var (
-		txm = txmmocks.NewTxManager(t)
+		txm = txmmocks.NewTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash](t)
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		to       = testutils.NewAddress()
+		to       = testutils.NewEvmAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint32(21000)
 	)
 
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    from,
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:    evmtypes.NewAddress(from),
 		ToAddress:      to,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(txmgr.EthTx{}, nil).Once()
+	}).Return(txmgr.EvmEthTx{}, nil).Once()
 
 	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

@@ -40,7 +40,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	renderedTxs := *r.Renders[0].(*cmd.EthTxPresenters)
 	assert.Equal(t, 1, len(renderedTxs))
-	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
+	assert.Equal(t, attempt.Hash.String(), renderedTxs[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test txattempts", 0)
@@ -72,7 +72,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	set := flag.NewFlagSet("test get tx", 0)
 	cltest.FlagSetApplyFromAction(client.ShowTransaction, set, "")
 
-	require.NoError(t, set.Parse([]string{attempt.Hash.Hex()}))
+	require.NoError(t, set.Parse([]string{attempt.Hash.String()}))
 
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ShowTransaction(c))
@@ -103,7 +103,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	renderedAttempts := *r.Renders[0].(*cmd.EthTxPresenters)
 	require.Len(t, tx.EthTxAttempts, 1)
-	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+	assert.Equal(t, tx.EthTxAttempts[0].Hash.String(), renderedAttempts[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
@@ -155,11 +155,11 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EthTx{}
+	etx := txmgr.EvmEthTx{}
 	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.Hex())
+	require.Equal(t, to, etx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
 	assert.Equal(t, &etx.FromAddress, output.From)
@@ -208,11 +208,11 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EthTx{}
+	etx := txmgr.EvmEthTx{}
 	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "1.000000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.Hex())
+	require.Equal(t, to, etx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
 	assert.Equal(t, &etx.FromAddress, output.From)
