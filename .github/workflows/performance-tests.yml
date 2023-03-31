@@ -7,6 +7,8 @@ on:
         required: true
         default: suite
         type: string
+env:
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
 jobs:
   build-chainlink:
     environment: integration
@@ -17,9 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@e1e17a757e536f70e52b5a12b2e8d1d1c60e04ef # v2.0.0
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -28,7 +30,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325 # v2.2.1
+        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
       - name: Build and Push
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
         with:
@@ -54,9 +56,9 @@ jobs:
     needs: build-chainlink
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           test_command_to_run: cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 10 ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod

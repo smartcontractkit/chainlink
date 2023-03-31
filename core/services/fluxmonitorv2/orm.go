@@ -8,9 +8,10 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type transmitter interface {
@@ -32,13 +33,13 @@ type ORM interface {
 type orm struct {
 	q        pg.Q
 	txm      transmitter
-	strategy txmgr.TxStrategy
+	strategy types.TxStrategy
 	checker  txmgr.TransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{

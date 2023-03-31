@@ -8,16 +8,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {

@@ -8,10 +8,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+...
+
+## 2.0.0 - UNRELEASED
+
+### Added
+- Add OCR2 Plugin selection for FMS
+- Added kebab case aliases for the following flags:
+  - `evm-chain-id` alias for `evmChainID` in commands: `chainlink blocks replay`, `chainlink forwarders track`, `chainlink keys ... chain`
+  - `old-password` alias for `oldpassword` in commands: `chainlink keys ... import`
+  - `new-password` alias for `newpassword` in commands: `chainlink keys ... export`
+  - `new-role` alias for `newrole` in commands: `admin users chrole`
+  - `set-next-nonce` alias for `setNextNonce` in commands: `chainlink keys ... chain`
+
+### Changed
+
+- TOML configuration and secrets are now scoped to `chainlink node` command rather than being global flags.
+- TOML configuration validation has been moved from `chainlink config validate` to `chainlink node validate`.
+- Move `chainlink node {status,profile}` to `chainlink admin {status,profile}`.
+
+### Removed
+
+- Configuration with legacy environment variables is no longer supported. TOML is required.
+
+<!-- unreleasedstop -->
+
+## 1.13.0 - 2023-03-16
+
 ### Added
 
+- Support for sending Bootstrap job specs to the feeds manager
 - Support for sending OCR2 job specs to the feeds manager
 - Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
+- Add support for new job type `mercury` (low-latency oracle)
+- New config option for EVM-based chains `AutoCreateKey`. If set to false, chainlink will not automatically create any keys for this chain. This can be used in conjunction with mercury to prevent creating useless keys. Example:
+```
+[[EVM]]
+ChainID = "1"
+AutoCreateKey = false
+```
+- Add new option for relayConfig `feedID` that handles multi-config contracts. Can be applied to any OCR2 job.
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
+of any values provided via configuration files.
 
 ### Changed
 
@@ -20,17 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Terra is no longer supported
-
-...
-
-## 1.12.1 - UNRELEASED
-
-### Updated
-
-- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override 
-of any values provided via configuration files.
-
-...
 
 ## 1.12.0 - 2023-02-15
 

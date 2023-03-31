@@ -33,12 +33,12 @@ import (
 	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
-	"github.com/smartcontractkit/chainlink/core/web/resolver"
-	"github.com/smartcontractkit/chainlink/core/web/schema"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/web/resolver"
+	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
 // NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
@@ -257,14 +257,14 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ets := EVMTransfersController{app}
 		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
 		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
+		tts := CosmosTransfersController{app}
+		authv2.POST("/transfers/cosmos", auth.RequiresAdminRole(tts.Create))
 		sts := SolanaTransfersController{app}
 		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
-		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/dump-v1-as-v2", cc.Dump)
-		authv2.GET("/config/v2", cc.Show2)
+		authv2.GET("/config/v2", cc.Show)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -288,7 +288,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
-		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
 		authv2.DELETE("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/eth/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
@@ -296,7 +295,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		// legacy ones remain for backwards compatibility
 		authv2.GET("/keys/evm", ekc.Index)
 		authv2.POST("/keys/evm", auth.RequiresEditRole(ekc.Create))
-		authv2.PUT("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Update))
 		authv2.DELETE("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/evm/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/evm/export/:address", auth.RequiresAdminRole(ekc.Export))
@@ -328,6 +326,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			kc   KeysController
 		}{
 			{"solana", NewSolanaKeysController(app)},
+			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"dkgsign", NewDKGSignKeysController(app)},
 			{"dkgencrypt", NewDKGEncryptKeysController(app)},
@@ -377,12 +376,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
+			{"cosmos", NewCosmosChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
-			chains.POST(chain.path, auth.RequiresEditRole(chain.cc.Create))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
-			chains.PATCH(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Update))
-			chains.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Delete))
 		}
 
 		nodes := authv2.Group("nodes")
@@ -393,17 +390,14 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
+			{"cosmos", NewCosmosNodesController(app)},
 		} {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
 				nodes.GET("", paginatedRequest(chain.nc.Index))
-				nodes.POST("", auth.RequiresEditRole(chain.nc.Create))
-				nodes.DELETE("/:ID", auth.RequiresEditRole(chain.nc.Delete))
 			}
 			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
 			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
-			nodes.POST(chain.path, auth.RequiresEditRole(chain.nc.Create))
-			nodes.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.nc.Delete))
 		}
 
 		efc := EVMForwardersController{app}

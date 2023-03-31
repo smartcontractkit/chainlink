@@ -7,16 +7,16 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
@@ -38,7 +38,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 	})
 
-	t.Run("with one p2p key and matching P2P_PEER_ID returns nil", func(t *testing.T) {
+	t.Run("with one p2p key and matching P2P.PeerID returns nil", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 		})
@@ -58,7 +58,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.Equal(t, k.PeerID(), pw.PeerID)
 	})
 
-	t.Run("with one p2p key and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
+	t.Run("with one p2p key and mismatching P2P.PeerID returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
@@ -70,7 +70,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
 
-	t.Run("with multiple p2p keys and valid P2P_PEER_ID returns nil", func(t *testing.T) {
+	t.Run("with multiple p2p keys and valid P2P.PeerID returns nil", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 		})
@@ -90,7 +90,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.Equal(t, k2.PeerID(), pw.PeerID)
 	})
 
-	t.Run("with multiple p2p keys and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
+	t.Run("with multiple p2p keys and mismatching P2P.PeerID returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))

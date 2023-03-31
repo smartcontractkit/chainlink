@@ -39,38 +39,38 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/consumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
@@ -466,6 +466,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
+	require.Len(t, sendingKeys, 1)
 
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
@@ -1077,7 +1078,6 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
 		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, fmt.Sprintf("b_%d", 1), b, ocrnetworking.NetworkingStackV2, nil)
-		// bootstrapCfg.Overrides.GlobalEvmUseForwarders = null.BoolFrom(true)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra
@@ -1378,11 +1378,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	}
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
-	estimator := chain.TxManager().GetGasEstimator()
-	gasPrice, gasLimit, err := estimator.GetLegacyGas(testutils.Context(t), nil, 500_000, maxGasPrice)
+	estimator := chain.GasEstimator()
+	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(500000), gasLimit)
-	assert.Equal(t, "41.5 gwei", gasPrice.String())
+	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
@@ -1401,9 +1401,9 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
-		gasPrice, _, err := estimator.GetLegacyGas(testutils.Context(t), nil, 500000, maxGasPrice)
+		gasPrice, _, err := estimator.GetFee(testutils.Context(t), nil, 500000, maxGasPrice)
 		require.NoError(t, err)
-		return gasPrice.String()
+		return gasPrice.Legacy.String()
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
 }
 

@@ -7,9 +7,10 @@ on:
       - "*"
 
 env:
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   REF_NAME: ${{ github.head_ref || github.ref_name }}
   DEVELOP_REF: develop
-  BUILD_SHA_REF: ci.${{ github.sha }}
+  BUILD_SHA_REF: chaos.${{ github.sha }}
   CHAINLINK_ECR_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
   TEST_SUITE: chaos
@@ -31,10 +32,10 @@ jobs:
       push: ${{ steps.push.outputs.tag }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Build Image
         if: ${{ env.REF_NAME != env.DEVELOP_REF }}
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -75,16 +76,16 @@ jobs:
       testtag: ${{ steps.testtag.outputs.tag }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: build test runner
         if: ${{ env.REF_NAME != env.DEVELOP_REF }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           tags: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ env.BUILD_SHA_REF }}
           file: ./integration-tests/test.Dockerfile
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.16
+            IMAGE_VERSION=v0.3.24
             SUITES="${{ env.TEST_SUITE }}"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -132,9 +133,9 @@ jobs:
         continue-on-error: true
       - run: echo "${{ needs.build-test-runner.outputs.testtag }}"
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ env.ENV_JOB_IMAGE_BASE }}:${{ needs.build-test-runner.outputs.testtag }} && make test_need_operator_assets && cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

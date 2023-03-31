@@ -57,6 +57,7 @@ jobs:
     name: ${{ inputs.network }} Automation Benchmark Test
     runs-on: ubuntu-latest
     env:
+      INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: C03KJ5S7KEK
@@ -96,23 +97,23 @@ jobs:
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
       - name: Checkout the repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ env.REF_NAME }}
       - name: build test runner
         if: ${{ env.REF_NAME != 'develop' }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         with:
           tags: ${{ steps.push.outputs.tag }}
           file: ./integration-tests/test.Dockerfile
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.8
+            IMAGE_VERSION=v0.3.24
             SUITES="benchmark"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark

@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name ReaperConfig --output ./mocks/ --case=underscore
@@ -109,7 +109,7 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 func (r *Reaper) ReapEthTxes(headNum int64) error {
 	threshold := r.config.EthTxReaperThreshold()
 	if threshold == 0 {
-		r.log.Debug("TxmReaper: ETH_TX_REAPER_THRESHOLD set to 0; skipping ReapEthTxes")
+		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapEthTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.config.EvmFinalityDepth())

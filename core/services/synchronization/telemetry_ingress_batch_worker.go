@@ -5,14 +5,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // telemetryIngressBatchWorker pushes telemetry in batches to the ingress server via wsrpc.
 // A worker is created per ContractID.
 type telemetryIngressBatchWorker struct {
+	services.ServiceCtx
+
 	telemMaxBatchSize uint
 	telemSendInterval time.Duration
 	telemSendTimeout  time.Duration

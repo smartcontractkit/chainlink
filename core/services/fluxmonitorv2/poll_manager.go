@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type PollManagerConfig struct {
