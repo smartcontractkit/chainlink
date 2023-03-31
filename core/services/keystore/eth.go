@@ -35,18 +35,15 @@ type Eth interface {
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
-	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 
 	SignTx(fromAddress *evmtypes.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
-	CheckEnabled(address *evmtypes.Address, chainID *big.Int) error
 
 	GetState(id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
-	EnabledAddressesForChain(chainID *big.Int) (addresses []*evmtypes.Address, err error)
 
 	XXXTestingOnlySetState(ethkey.State)
 	XXXTestingOnlyAdd(key ethkey.KeyV2)

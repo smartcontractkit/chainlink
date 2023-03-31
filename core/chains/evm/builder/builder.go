@@ -46,6 +46,7 @@ func BuildNewTxm(
 	}
 	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, client, cfg, keyStore, eventBroadcaster, addresses, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
 	ethConfirmer := txmgr.NewEthConfirmer(txStorageService, client, cfg, keyStore, addresses, txAttemptBuilder, lggr)
-	txm = txmgr.NewTxm(db, client, cfg, keyStore, eventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStorageService, txNonceSyncer, *ethBroadcaster, *ethConfirmer)
+	ethResender := txmgr.NewEthResender(lggr, txStorageService, client, keyStore, txmgr.DefaultResenderPollInterval, cfg)
+	txm = txmgr.NewTxm(db, client, cfg, keyStore, eventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStorageService, txNonceSyncer, *ethBroadcaster, *ethConfirmer, *ethResender)
 	return txm, nil
 }

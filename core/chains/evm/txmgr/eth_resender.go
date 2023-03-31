@@ -20,7 +20,7 @@ import (
 
 // pollInterval is the maximum amount of time in addition to
 // EthTxResendAfterThreshold that we will wait before resending an attempt
-const defaultResenderPollInterval = 5 * time.Second
+const DefaultResenderPollInterval = 5 * time.Second
 
 // EthResender periodically picks up transactions that have been languishing
 // unconfirmed for a configured amount of time without being sent, and sends
@@ -45,19 +45,19 @@ type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.H
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
+func NewEthResender(
 	lggr logger.Logger,
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
-	ethClient evmclient.Client, ks txmgrtypes.KeyStore[ADDR, *big.Int, int64],
+	txStorageService EvmTxStorageService,
+	ethClient evmclient.Client, ks EvmKeyStore,
 	pollInterval time.Duration,
 	config Config,
-) *EthResender[ADDR, TX_HASH, BLOCK_HASH] {
+) *EvmEthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	// todo: add context to evmTxStorageService
 	ctx, cancel := context.WithCancel(context.Background())
-	return &EthResender[ADDR, TX_HASH, BLOCK_HASH]{
+	return &EvmEthResender{
 		txStorageService,
 		ethClient,
 		ks,

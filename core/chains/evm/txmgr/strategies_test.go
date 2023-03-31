@@ -59,7 +59,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
-	initialEtxs := []txmgr.EthTx{
+	initialEtxs := []txmgr.EvmEthTx{
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj2),
 		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress, subj1),
@@ -77,7 +77,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
 		cltest.AssertCount(t, db, "eth_txes", 7)
 
-		var etxs []txmgr.EthTx
+		var etxs []txmgr.EvmEthTx
 		require.NoError(t, db.Select(&etxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
 
 		require.Len(t, etxs, 3)

@@ -131,6 +131,7 @@ func NewTxm(
 	nonceSyncer EvmNonceSyncer,
 	ethBroadcaster EvmEthBroadcaster,
 	ethConfirmer EvmEthConfirmer,
+	ethResender EvmEthResender,
 ) *EvmTxm {
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -154,10 +155,11 @@ func NewTxm(
 		nonceSyncer:      nonceSyncer,
 		ethBroadcaster:   &ethBroadcaster,
 		ethConfirmer:     &ethConfirmer,
+		ethResender:      nil,
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, b.txStorageService, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = &ethResender
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}

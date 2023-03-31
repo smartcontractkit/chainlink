@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -16,8 +17,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"errors"
 
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"golang.org/x/exp/constraints"
