@@ -200,7 +200,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.EvmTransmitCheckerFactory, nonceAutoSync bool) (*txmgr.EvmEthBroadcaster, error) {
+func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, checkerFactory txmgr.EvmTransmitCheckerFactory, nonceAutoSync bool) (*txmgr.EvmEthBroadcaster, error) {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
