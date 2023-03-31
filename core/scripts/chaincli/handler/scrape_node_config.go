@@ -33,10 +33,10 @@ type NodeInfo struct {
 	AdminAddress          common.Address `json:"adminAddress"`
 	CSAKeys               []*CSAKeyInfo  `json:"csaKeys"`
 	DisplayName           string         `json:"displayName"`
-	Ocr2ConfigPublicKey   []string       `json:"ocr2ConfigPublicKey,omitempty"`
-	Ocr2ID                []string       `json:"ocr2ID,omitempty"`
-	Ocr2OffchainPublicKey []string       `json:"ocr2OffchainPublicKey,omitempty"`
-	Ocr2OnchainPublicKey  []string       `json:"ocr2OnchainPublicKey,omitempty"`
+	Ocr2ConfigPublicKey   []string       `json:"ocr2ConfigPublicKey"`
+	Ocr2ID                []string       `json:"ocr2ID"`
+	Ocr2OffchainPublicKey []string       `json:"ocr2OffchainPublicKey"`
+	Ocr2OnchainPublicKey  []string       `json:"ocr2OnchainPublicKey"`
 	NodeAddress           []string       `json:"nodeAddress"`
 	OcrSigningAddress     []string       `json:"ocrSigningAddress"`
 	PayeeAddress          common.Address `json:"payeeAddress"`
@@ -44,8 +44,8 @@ type NodeInfo struct {
 	Status                string         `json:"status"`
 }
 
-func (node NodeInfo) Equals(ni NodeInfo, log logger.Logger) (diffs uint8) {
-	diffs = 0
+func (node NodeInfo) Equals(ni NodeInfo, log logger.Logger) bool {
+	diffs := 0
 
 	if len(node.CSAKeys) != len(ni.CSAKeys) {
 		log.Errorf("CSA Keys length differs. The node returns %d but weiwatcher has %d", len(node.CSAKeys), len(ni.CSAKeys))
@@ -92,7 +92,7 @@ func (node NodeInfo) Equals(ni NodeInfo, log logger.Logger) (diffs uint8) {
 		log.Errorf("OCR2 Config Public Key differs. The node returns %s but weiwatcher has %s", node.Ocr2ConfigPublicKey, ni.Ocr2ConfigPublicKey)
 	}
 
-	return diffs
+	return diffs == 0
 }
 
 func (h *baseHandler) ScrapeNodes() {
@@ -148,11 +148,10 @@ func (h *baseHandler) scrapeNodes(ctx context.Context, log logger.Logger) {
 		cnt++
 
 		log.Infof("start comparing data for node %s", nodeAddr)
-		diffs := node.Equals(ni, log)
-		if diffs == 0 {
+		if node.Equals(ni, log) {
 			log.Infof("node %s info is correct", nodeAddr)
 		} else {
-			log.Errorf("node %s info is incorrect with %d discrepancies", nodeAddr, diffs)
+			log.Errorf("node %s info differs between the node instance and weiwatcher", nodeAddr)
 		}
 	}
 
