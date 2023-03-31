@@ -106,41 +106,85 @@ func (cs SolanaConfigs) Node(name string) (soldb.Node, error) {
 			}
 		}
 	}
-	return soldb.Node{}, nil
+	return soldb.Node{}, chains.ErrNotFound
 }
 
-func (cs SolanaConfigs) Nodes() (ns []soldb.Node) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n == nil {
-				continue
-			}
-			ns = append(ns, legacySolNode(n, *cs[i].ChainID))
+func (cs SolanaConfigs) nodes(chainID string) (ns SolanaNodes) {
+	for _, c := range cs {
+		if *c.ChainID == chainID {
+			return c.Nodes
 		}
 	}
-	return
+	return nil
 }
 
-func (cs SolanaConfigs) NodesByID(chainIDs ...string) (ns []soldb.Node) {
-	for i := range cs {
-		var match bool
-		for _, id := range chainIDs {
-			if id == *cs[i].ChainID {
-				match = true
-				break
-			}
-		}
-		if !match {
+func (cs SolanaConfigs) Nodes(chainID string) (ns []soldb.Node, err error) {
+	nodes := cs.nodes(chainID)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
 			continue
 		}
+		ns = append(ns, legacySolNode(n, chainID))
+	}
+	return
+}
+
+func (cs SolanaConfigs) NodeStatus(name string) (chains.NodeStatus, error) {
+	for i := range cs {
 		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, *cs[i].ChainID)
+			}
+		}
+	}
+	return chains.NodeStatus{}, chains.ErrNotFound
+}
+
+func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, *cs[i].ChainID)
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
+			}
+		}
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
 			}
-			ns = append(ns, legacySolNode(n, *cs[i].ChainID))
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
 		}
 	}
 	return
+}
+
+func nodeStatus(n *solcfg.Node, chainID string) (chains.NodeStatus, error) {
+	var s chains.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return chains.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
 }
 
 type SolanaNodes []*solcfg.Node
