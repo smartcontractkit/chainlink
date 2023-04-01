@@ -67,8 +67,8 @@ github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d/go.mod h1:
 github.com/ClickHouse/clickhouse-go v1.5.4/go.mod h1:EaI/sW7Azgz9UATzd5ZdZHRUhHgv5+JMS9NSr2smCJI=
 github.com/CosmWasm/wasmd v0.30.0 h1:oUVz3TgO/+24JZQdoTOlOv+IK7N9hEa/s3M4eR9i4FQ=
 github.com/CosmWasm/wasmd v0.30.0/go.mod h1:umLGeYyowAMMEdOYfDOf8jsDrQ75Qkm1+ogBXT/w01c=
-github.com/CosmWasm/wasmvm v1.0.0 h1:NRmnHe3xXsKn2uEcB1F5Ha323JVAhON+BI6L177dlKc=
-github.com/CosmWasm/wasmvm v1.0.0/go.mod h1:ei0xpvomwSdONsxDuONzV7bL1jSET1M8brEx0FCXc+A=
+github.com/CosmWasm/wasmvm v1.1.1 h1:0xtdrmmsP9fibe+x42WcMkp5aQ738BICgcH3FNVLzm4=
+github.com/CosmWasm/wasmvm v1.1.1/go.mod h1:ei0xpvomwSdONsxDuONzV7bL1jSET1M8brEx0FCXc+A=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/Depado/ginprom v1.7.4 h1:4cV9RYKIkT28tZhBDam0p8me2RLypxS0in5Jw4zbcgg=
 github.com/Depado/ginprom v1.7.4/go.mod h1:Nq+O+mTGpOGotBcNbBqJJYnst5F/U0yP9T+wAInwYeg=
