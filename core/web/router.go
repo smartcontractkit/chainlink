@@ -28,9 +28,9 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
-	"github.com/ulule/limiter"
-	mgin "github.com/ulule/limiter/drivers/middleware/gin"
-	"github.com/ulule/limiter/drivers/store/memory"
+	"github.com/ulule/limiter/v3"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,6 +44,7 @@ import (
 // NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
 func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
+	engine.RemoteIPHeaders = nil // don't trust default headers: "X-Forwarded-For", "X-Real-IP"
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
