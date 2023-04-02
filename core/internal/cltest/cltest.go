@@ -1020,18 +1020,18 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, wa
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.EvmEthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []int64 {
 	g := gomega.NewWithT(t)
 
-	var txas []txmgr.EvmEthTxAttempt
+	var txaIds []int64
 	var err error
-	g.Consistently(func() []txmgr.EvmEthTxAttempt {
-		txas = make([]txmgr.EvmEthTxAttempt, 0)
-		err = db.Select(&txas, `SELECT * FROM eth_tx_attempts ORDER BY id ASC`)
+	g.Consistently(func() []int64 {
+		txaIds = make([]int64, 0)
+		err = db.Select(&txaIds, `SELECT ID FROM eth_tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
-		return txas
+		return txaIds
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txas
+	return txaIds
 }
 
 // Head given the value convert it into an Head
