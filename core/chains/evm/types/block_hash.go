@@ -16,11 +16,12 @@ type BlockHash struct {
 var _ commontypes.Hashable = &BlockHash{}
 
 func (a *BlockHash) MarshalText() (text []byte, err error) {
-	return a.nativeHash.MarshalText()
+	return a.nativeHash.Bytes(), nil
 }
 
 func (a *BlockHash) UnmarshalText(text []byte) error {
-	return a.nativeHash.UnmarshalText(text)
+	a.nativeHash = common.BytesToHash(text)
+	return nil
 }
 
 func (a *BlockHash) String() string {
@@ -32,7 +33,7 @@ func (a *BlockHash) Equals(h commontypes.Hashable) bool {
 }
 
 func (a *BlockHash) IsEmpty() bool {
-	return a.nativeHash == common.Hash{}
+	return a == nil || a.nativeHash == common.Hash{}
 }
 
 func (a *BlockHash) NativeHash() *common.Hash {

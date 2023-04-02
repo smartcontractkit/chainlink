@@ -16,11 +16,12 @@ type Address struct {
 }
 
 func (a *Address) MarshalText() (text []byte, err error) {
-	return a.nativeAddress.MarshalText()
+	return a.nativeAddress.Bytes(), nil
 }
 
 func (a *Address) UnmarshalText(text []byte) error {
-	return a.nativeAddress.UnmarshalText(text)
+	a.nativeAddress = common.BytesToAddress(text)
+	return nil
 }
 
 func (a *Address) String() string {

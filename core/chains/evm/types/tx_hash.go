@@ -16,11 +16,12 @@ type TxHash struct {
 var _ commontypes.Hashable = &TxHash{}
 
 func (a *TxHash) MarshalText() (text []byte, err error) {
-	return a.nativeHash.MarshalText()
+	return a.nativeHash.Bytes(), nil
 }
 
 func (a *TxHash) UnmarshalText(text []byte) error {
-	return a.nativeHash.UnmarshalText(text)
+	a.nativeHash = common.BytesToHash(text)
+	return nil
 }
 
 func (a *TxHash) String() string {
@@ -32,7 +33,7 @@ func (a *TxHash) Equals(h commontypes.Hashable) bool {
 }
 
 func (a *TxHash) IsEmpty() bool {
-	return a.nativeHash == common.Hash{}
+	return a == nil || a.nativeHash == common.Hash{}
 }
 
 func (a *TxHash) NativeHash() *common.Hash {
