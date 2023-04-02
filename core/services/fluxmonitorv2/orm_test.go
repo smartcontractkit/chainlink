@@ -179,14 +179,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		to       = testutils.NewEvmAddress()
+		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint32(21000)
 	)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
 		FromAddress:    evmtypes.NewAddress(from),
-		ToAddress:      to,
+		ToAddress:      evmtypes.NewAddress(to),
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta:           nil,

@@ -132,17 +132,17 @@ func (_m *Eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 	return r0
 }
 
-// EnabledAddressesForChain provides a mock function with given fields: chainID
-func (_m *Eth) EnabledAddressesForChain(chainID *big.Int) ([]*types.Address, error) {
-	ret := _m.Called(chainID)
+// EnabledAddressesForChain provides a mock function with given fields: chainId
+func (_m *Eth) EnabledAddressesForChain(chainId *big.Int) ([]*types.Address, error) {
+	ret := _m.Called(chainId)
 
 	var r0 []*types.Address
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*big.Int) ([]*types.Address, error)); ok {
-		return rf(chainID)
+		return rf(chainId)
 	}
 	if rf, ok := ret.Get(0).(func(*big.Int) []*types.Address); ok {
-		r0 = rf(chainID)
+		r0 = rf(chainId)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*types.Address)
@@ -150,7 +150,7 @@ func (_m *Eth) EnabledAddressesForChain(chainID *big.Int) ([]*types.Address, err
 	}
 
 	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(chainID)
+		r1 = rf(chainId)
 	} else {
 		r1 = ret.Error(1)
 	}
