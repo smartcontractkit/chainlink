@@ -619,7 +619,7 @@ JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN (
 WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
 ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
 LIMIT $4
-`, olderThan, chainID.String(), address, limit)
+`, olderThan, chainID.String(), *address.NativeAddress(), limit)
 
 	attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
 	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
@@ -833,7 +833,7 @@ func (o *evmTxStorageService) GetInProgressEthTxAttempts(ctx context.Context, ad
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
 INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
-`, address, chainID.String())
+`, *address.NativeAddress(), chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
 		}
@@ -867,7 +867,7 @@ func (o *evmTxStorageService) FindEthTxWithNonce(fromAddress *evmtypes.Address, 
 		var dbEtx dbEthTx
 		err = tx.Get(&dbEtx, `
 SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-`, fromAddress, nonce)
+`, *fromAddress.NativeAddress(), nonce)
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxWithNonce failed to load eth_txes")
 		}
@@ -1053,7 +1053,7 @@ WHERE eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL AND eth_txes
 ORDER BY nonce ASC
 `
 		var dbEtxs []dbEthTx
-		if err = tx.Select(&dbEtxs, stmt, address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
+		if err = tx.Select(&dbEtxs, stmt, *address.NativeAddress(), chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
 		}
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
@@ -1075,7 +1075,7 @@ SELECT DISTINCT eth_txes.* FROM eth_txes
 INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'
 WHERE eth_txes.from_address = $1 AND eth_txes.state = 'unconfirmed' AND eth_txes.evm_chain_id = $2
 ORDER BY nonce ASC
-`, address, chainID.String())
+`, *address.NativeAddress(), chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
 		}
