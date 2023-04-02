@@ -32,7 +32,7 @@ func (a *Address) Equals(h commontypes.Hashable) bool {
 }
 
 func (a *Address) IsEmpty() bool {
-	return a.nativeAddress == common.Address{}
+	return a == nil || a.nativeAddress == common.Address{}
 }
 
 func (a *Address) NativeAddress() *common.Address {

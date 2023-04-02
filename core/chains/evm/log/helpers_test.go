@@ -196,7 +196,7 @@ func (helper *broadcasterHelper) stop() {
 func newMockContract() *logmocks.AbigenContract {
 	addr := testutils.NewAddress()
 	contract := new(logmocks.AbigenContract)
-	contract.On("evmHashable").Return(addr)
+	contract.On("Address").Return(addr)
 	return contract
 }
 

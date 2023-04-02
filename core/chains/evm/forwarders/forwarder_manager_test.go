@@ -70,7 +70,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
 	addr, err := fwdMgr.ForwarderFor(evmtypes.NewAddress(owner.From))
 	require.NoError(t, err)
-	require.Equal(t, addr, forwarderAddr)
+	require.Equal(t, addr.String(), forwarderAddr.String())
 	err = fwdMgr.Close()
 	require.NoError(t, err)
 }
@@ -111,7 +111,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	require.NoError(t, err)
 	addr, err := fwdMgr.ForwarderFor(evmtypes.NewAddress(owner.From))
 	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
-	require.Equal(t, addr, common.Address{})
+	require.True(t, addr.IsEmpty())
 	err = fwdMgr.Close()
 	require.NoError(t, err)
 }
