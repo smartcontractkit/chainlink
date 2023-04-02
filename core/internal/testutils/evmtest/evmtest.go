@@ -26,7 +26,6 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -118,9 +117,6 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 	}
 	if opts.MailMon == nil {
 		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
-	}
-	if opts.KeyStore == nil {
-		opts.KeyStore = cltest.NewKeyStore(t, testopts.DB, testopts.GeneralConfig).Eth()
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
