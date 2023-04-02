@@ -50,7 +50,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 	variables := map[string]interface{}{
 		"hash": "0x5431F5F973781809D18643b87B44921b11355d81",
 	}
-	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
+	hash := evmtypes.NewTxHash(common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81"))
 	chainID := *utils.NewBigI(22)
 	gError := errors.New("error")
 
@@ -74,7 +74,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 				f.Mocks.txmStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmEthTxAttempt{
 					{
 						EthTxID:                 1,
-						Hash:                    evmtypes.NewTxHash(hash),
+						Hash:                    hash,
 						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
@@ -130,7 +130,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 				f.Mocks.txmStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmEthTxAttempt{
 					{
 						EthTxID:                 1,
-						Hash:                    evmtypes.NewTxHash(hash),
+						Hash:                    hash,
 						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,

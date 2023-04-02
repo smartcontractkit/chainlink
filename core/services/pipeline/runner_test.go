@@ -476,8 +476,8 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
 

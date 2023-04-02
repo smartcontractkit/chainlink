@@ -98,10 +98,6 @@ func (e evmPriorAttempt) DynamicFee() DynamicFee {
 	return *fee
 }
 
-func (e evmPriorAttempt) GetHash() *evmtypes.TxHash {
-	return e.GetHash()
-}
-
 func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]) (out []EvmPriorAttempt) {
 	for i := range attempts {
 		out = append(out, MakeEvmPriorAttempt(attempts[i]))
