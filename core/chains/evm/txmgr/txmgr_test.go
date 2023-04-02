@@ -117,7 +117,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		subject := uuid.NewV4()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.txStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("&txmgr.evmTxStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmtypes.NewAddress(fromAddress),
@@ -403,7 +403,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.txStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("&txmgr.evmTxStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmFromAddress,
@@ -427,7 +427,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.txStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("&txmgr.evmTxStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmFromAddress,
@@ -449,7 +449,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.txStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("&txmgr.evmTxStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
