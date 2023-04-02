@@ -470,6 +470,7 @@ func (o *evmTxStorageService) InsertEthTxAttempt(attempt *EvmEthTxAttempt) error
 ) RETURNING *`
 	dbTxAttempt := dbEthTxAttemptFromEthTxAttempt(attempt)
 	err := o.q.GetNamed(insertEthTxAttemptSQL, &dbTxAttempt, &dbTxAttempt)
+	dbEthTxAttemptToEthTxAttempt(dbTxAttempt, attempt)
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
