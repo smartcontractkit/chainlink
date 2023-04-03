@@ -98,9 +98,9 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 	return cp, nil
 }
 
-// Notify abstracts the logpoller.LogPoller Notify() implementation
+// Notify noop method
 func (cp *configPoller) Notify() <-chan struct{} {
-	return cp.destChainLogPoller.Notify()
+	return nil
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation

@@ -456,13 +456,13 @@ func (_m *LogPoller) Name() string {
 	return r0
 }
 
-// Notify provides a mock function with given fields:
-func (_m *LogPoller) Notify() <-chan struct{} {
-	ret := _m.Called()
+// Notify provides a mock function with given fields: topicIndex, topicValue
+func (_m *LogPoller) Notify(topicIndex int, topicValue common.Hash) <-chan struct{} {
+	ret := _m.Called(topicIndex, topicValue)
 
 	var r0 <-chan struct{}
-	if rf, ok := ret.Get(0).(func() <-chan struct{}); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(int, common.Hash) <-chan struct{}); ok {
+		r0 = rf(topicIndex, topicValue)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan struct{})

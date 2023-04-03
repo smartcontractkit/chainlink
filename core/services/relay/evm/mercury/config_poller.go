@@ -115,7 +115,7 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 
 // Notify abstracts the logpoller.LogPoller Notify() implementation
 func (lp *ConfigPoller) Notify() <-chan struct{} {
-	return lp.destChainLogPoller.Notify()
+	return lp.destChainLogPoller.Notify(feedIdTopicIndex, lp.feedId)
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation

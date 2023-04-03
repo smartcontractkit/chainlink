@@ -40,7 +40,7 @@ func (disabled) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...p
 	return nil, ErrDisabled
 }
 
-func (disabled) Notify() <-chan struct{} {
+func (disabled) Notify(topicIndex int, topicValue common.Hash) <-chan struct{} {
 	return nil
 }
 
