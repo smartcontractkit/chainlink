@@ -273,6 +273,14 @@ var tests = map[string]*BenchmarkTestEntry{
 		upkeepResetterContractEmpty,
 		3 * time.Second,
 	},
+	"simulatedRegistry_1_2": {
+		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
+		big.NewFloat(100000),
+		int64(20),
+		predeployedConsumersEmpty,
+		upkeepResetterContractEmpty,
+		3 * time.Second,
+	},
 	"GoerliTestnetRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 		big.NewFloat(ChainlinkNodeFunding),
