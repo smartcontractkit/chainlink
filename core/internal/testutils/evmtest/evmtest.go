@@ -80,6 +80,7 @@ func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
 }
 
 func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
+	require.NotNil(t, testopts.KeyStore)
 	opts := evm.ChainSetOpts{
 		Config:           testopts.GeneralConfig,
 		Logger:           logger.TestLogger(t),
