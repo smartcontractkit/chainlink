@@ -204,6 +204,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	defer th.LogPoller.UnregisterFilter("filter2", nil)
 
 	log1NotifyCh := th.LogPoller.Notify(0, EmitterABI.Events["Log1"].ID)
+	log2NotifyCh := th.LogPoller.Notify(0, EmitterABI.Events["Log2"].ID)
 
 	// generate some tx's with logs
 	tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
@@ -240,6 +241,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	currentBlock := th.PollAndSaveLogs(ctx, 1)
 	assert.Equal(t, int64(35), currentBlock)
 	th.assertNotifyHasLen(t, log1NotifyCh, 1)
+	th.assertNotifyHasLen(t, log2NotifyCh, 0)
 
 	// simulate logs becoming available
 	rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
@@ -263,6 +265,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
 	th.assertNotifyHasLen(t, log1NotifyCh, 0)
+	th.assertNotifyHasLen(t, log2NotifyCh, 0)
 
 	th.Client.Commit()
 	th.Client.Commit()
@@ -281,6 +284,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
 	th.assertNotifyHasLen(t, log1NotifyCh, 1)
+	th.assertNotifyHasLen(t, log2NotifyCh, 0)
 
 	th.Client.Commit()
 
@@ -302,6 +306,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(logs))
 	th.assertNotifyHasLen(t, log1NotifyCh, 1)
+	th.assertNotifyHasLen(t, log2NotifyCh, 1)
 }
 
 func TestLogPoller_BlockTimestamps(t *testing.T) {
@@ -494,6 +499,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 
 	log1NotifyCh := th.LogPoller.Notify(0, EmitterABI.Events["Log1"].ID)
 	log1NotifyCh2 := th.LogPoller.Notify(0, EmitterABI.Events["Log1"].ID)
+	log2NotifyCh := th.LogPoller.Notify(0, EmitterABI.Events["Log2"].ID)
+	oobNotifyCh := th.LogPoller.Notify(100, EmitterABI.Events["Log1"].ID)
 
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
@@ -514,8 +521,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
 	th.assertHaveCanonical(t, 1, 1)
-	th.assertNotifyHasLen(t, log1NotifyCh, 0)
-	th.assertNotifyHasLen(t, log1NotifyCh2, 0)
 
 	// Polling again should be a noop, since we are at the latest.
 	newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
@@ -526,6 +531,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.assertHaveCanonical(t, 1, 1)
 	th.assertNotifyHasLen(t, log1NotifyCh, 0)
 	th.assertNotifyHasLen(t, log1NotifyCh2, 0)
+	th.assertNotifyHasLen(t, log2NotifyCh, 0)
+	th.assertNotifyHasLen(t, oobNotifyCh, 0)
 
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
@@ -551,6 +558,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		lgs[0].Data)
 	th.assertNotifyHasLen(t, log1NotifyCh, 1)
 	th.assertNotifyHasLen(t, log1NotifyCh2, 1)
+	th.assertNotifyHasLen(t, log2NotifyCh, 0)
+	th.assertNotifyHasLen(t, oobNotifyCh, 0)
 
 	// Test scenario: single block reorg with log.
 	// Chain gen <- 1 <- 2 (L1_1)
