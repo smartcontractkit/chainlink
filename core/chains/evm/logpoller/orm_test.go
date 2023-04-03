@@ -678,10 +678,21 @@ func BenchmarkLogs(b *testing.B) {
 func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 	orm := th.ORM
-	sourceAddr := common.HexToAddress("0x12345")
-	eventSigA := common.HexToHash("0x01")
-	eventSigB := common.HexToHash("0x02")
+	addressA := common.HexToAddress("0x11111")
+	addressB := common.HexToAddress("0x22222")
+	addressC := common.HexToAddress("0x33333")
 
+	requestSigA := common.HexToHash("0x01")
+	responseSigA := common.HexToHash("0x02")
+	requestSigB := common.HexToHash("0x03")
+	responseSigB := common.HexToHash("0x04")
+
+	topicA := common.HexToHash("0x000a")
+	topicB := common.HexToHash("0x000b")
+	topicC := common.HexToHash("0x000c")
+	topicD := common.HexToHash("0x000d")
+
+	//Insert two logs that mimics an oracle request from 2 different addresses (matching will be on topic index 1)
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
 			EvmChainId:     (*utils.Big)(th.ChainID),
@@ -689,109 +700,166 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			BlockHash:      common.HexToHash("0x1"),
 			BlockNumber:    1,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{eventSigA.Bytes(), common.HexToHash("0x0001").Bytes()},
-			EventSig:       eventSigA,
-			Address:        sourceAddr,
+			Topics:         [][]byte{requestSigA.Bytes(), topicA.Bytes(), topicB.Bytes()},
+			EventSig:       requestSigA,
+			Address:        addressA,
 			TxHash:         common.HexToHash("0x0001"),
-			Data:           []byte("requestID-0001 data"),
+			Data:           []byte("requestID-A1"),
+		},
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       2,
+			BlockHash:      common.HexToHash("0x1"),
+			BlockNumber:    1,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{requestSigB.Bytes(), topicA.Bytes(), topicB.Bytes()},
+			EventSig:       requestSigB,
+			Address:        addressB,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("requestID-B1"),
 		},
 	}))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
 
-	logs, err := orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
-
+	//Get any requestSigA from addressA that do not have a equivalent responseSigA
+	logs, err := orm.SelectIndexedLogsWithSigsExcluding(requestSigA, responseSigA, 1, addressA, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
-	require.Equal(t, logs[0].Data, []byte("requestID-0001 data"))
+	require.Equal(t, logs[0].Data, []byte("requestID-A1"))
 
-	require.NoError(t, orm.InsertLogs([]logpoller.Log{
-		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
-			LogIndex:       2,
-			BlockHash:      common.HexToHash("0x2"),
-			BlockNumber:    2,
-			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{eventSigB.Bytes(), common.HexToHash("0x0001").Bytes()},
-			EventSig:       eventSigB,
-			Address:        sourceAddr,
-			TxHash:         common.HexToHash("0x0002"),
-			Data:           []byte(""),
-		},
-	}))
-	require.NoError(t, orm.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
-
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
-
+	//Get any requestSigB from addressB that do not have a equivalent responseSigB
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 1, addressB, 0, 3, 0)
 	require.NoError(t, err)
-	require.Len(t, logs, 0)
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-B1"))
 
+	//Insert a log that mimics response for requestID-A1
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
 			EvmChainId:     (*utils.Big)(th.ChainID),
 			LogIndex:       3,
-			BlockHash:      common.HexToHash("0x3"),
-			BlockNumber:    3,
+			BlockHash:      common.HexToHash("0x2"),
+			BlockNumber:    2,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{eventSigA.Bytes(), common.HexToHash("0x0002").Bytes()},
-			EventSig:       eventSigA,
-			Address:        sourceAddr,
-			TxHash:         common.HexToHash("0x0003"),
-			Data:           []byte("requestID-0002 data"),
+			Topics:         [][]byte{responseSigA.Bytes(), topicA.Bytes(), topicC.Bytes(), topicD.Bytes()},
+			EventSig:       responseSigA,
+			Address:        addressA,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("responseID-A1"),
 		},
 	}))
-	require.NoError(t, orm.InsertBlock(common.HexToHash("0x3"), 3, time.Now()))
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x2"), 2, time.Now()))
+
+	//Should return nothing as requestID-A1 has been fulfilled
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigA, responseSigA, 1, addressA, 0, 3, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+
+	//requestID-B1 should still be unfulfilled
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 1, addressB, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
-	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
+	require.Equal(t, logs[0].Data, []byte("requestID-B1"))
 
-	require.NoError(t, orm.InsertLogs([]logpoller.Log{
-		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
-			LogIndex:       4,
-			BlockHash:      common.HexToHash("0x3"),
-			BlockNumber:    3,
-			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{eventSigA.Bytes(), common.HexToHash("0x0003").Bytes()},
-			EventSig:       eventSigA,
-			Address:        sourceAddr,
-			TxHash:         common.HexToHash("0x0004"),
-			Data:           []byte("requestID-0003 data"),
-		},
-	}))
-
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 3, 0)
-	require.NoError(t, err)
-	require.Len(t, logs, 2)
-	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
-	require.Equal(t, logs[1].Data, []byte("requestID-0003 data"))
-
+	//Insert 3 request from addressC (matching will be on topic index 3)
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
 			EvmChainId:     (*utils.Big)(th.ChainID),
 			LogIndex:       5,
-			BlockHash:      common.HexToHash("0x4"),
-			BlockNumber:    4,
+			BlockHash:      common.HexToHash("0x2"),
+			BlockNumber:    3,
 			BlockTimestamp: time.Now(),
-			Topics:         [][]byte{eventSigB.Bytes(), common.HexToHash("0x0003").Bytes()},
-			EventSig:       eventSigB,
-			Address:        sourceAddr,
-			TxHash:         common.HexToHash("0x0005"),
-			Data:           []byte("requestID-0003 data"),
+			Topics:         [][]byte{requestSigB.Bytes(), topicD.Bytes(), topicB.Bytes(), topicC.Bytes()},
+			EventSig:       requestSigB,
+			Address:        addressC,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("requestID-C1"),
+		},
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       6,
+			BlockHash:      common.HexToHash("0x2"),
+			BlockNumber:    3,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{requestSigB.Bytes(), topicD.Bytes(), topicB.Bytes(), topicA.Bytes()},
+			EventSig:       requestSigB,
+			Address:        addressC,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("requestID-C2"),
+		}, {
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       7,
+			BlockHash:      common.HexToHash("0x2"),
+			BlockNumber:    3,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{requestSigB.Bytes(), topicD.Bytes(), topicB.Bytes(), topicD.Bytes()},
+			EventSig:       requestSigB,
+			Address:        addressC,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("requestID-C3"),
 		},
 	}))
-	require.NoError(t, orm.InsertBlock(common.HexToHash("0x4"), 4, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x3"), 3, time.Now()))
 
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 4, 0)
+	//Get all unfulfilled requests from addressC, match on topic index 3
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 4, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 3)
+	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
+	require.Equal(t, logs[1].Data, []byte("requestID-C2"))
+	require.Equal(t, logs[2].Data, []byte("requestID-C3"))
+
+	//Fulfill requestID-C2
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       8,
+			BlockHash:      common.HexToHash("0x3"),
+			BlockNumber:    3,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{responseSigB.Bytes(), topicC.Bytes(), topicD.Bytes(), topicA.Bytes()},
+			EventSig:       responseSigB,
+			Address:        addressC,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("responseID-C2"),
+		},
+	}))
+
+	//Verify that requestID-C2 is now fulfilled (not returned)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 4, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 2)
+	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
+	require.Equal(t, logs[1].Data, []byte("requestID-C3"))
+
+	//Fulfill requestID-C3
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       9,
+			BlockHash:      common.HexToHash("0x3"),
+			BlockNumber:    3,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{responseSigB.Bytes(), topicC.Bytes(), topicD.Bytes(), topicD.Bytes()},
+			EventSig:       responseSigB,
+			Address:        addressC,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("responseID-C3"),
+		},
+	}))
+
+	//Verify that requestID-C3 is now fulfilled (not returned)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 4, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
-	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
+	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
 
-	//No enough confirmations
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 5, 5)
+	//Should return no logs as the number of confirmations is not satisfied
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 4, 3)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x4"), 4, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x5"), 5, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x6"), 6, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x7"), 7, time.Now()))
@@ -799,8 +867,56 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x9"), 9, time.Now()))
 	require.NoError(t, orm.InsertBlock(common.HexToHash("0x10"), 10, time.Now()))
 
-	logs, err = orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, 1, sourceAddr, 0, 10, 5)
+	//Fulfill requestID-C3
+	require.NoError(t, orm.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:     (*utils.Big)(th.ChainID),
+			LogIndex:       10,
+			BlockHash:      common.HexToHash("0x2"),
+			BlockNumber:    10,
+			BlockTimestamp: time.Now(),
+			Topics:         [][]byte{responseSigB.Bytes(), topicD.Bytes(), topicB.Bytes(), topicC.Bytes()},
+			EventSig:       responseSigB,
+			Address:        addressC,
+			TxHash:         common.HexToHash("0x0002"),
+			Data:           []byte("responseID-C1"),
+		},
+	}))
+
+	//All logs for addressC should be fulfilled, query should return 0 logs
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 10, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+
+	//Should return 1 log as it does not satisfy the required number of confirmations
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 10, 3)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
-	require.Equal(t, logs[0].Data, []byte("requestID-0002 data"))
+	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
+
+	//Insert 3 more blocks so that the requestID-C1 has enough confirmations
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x11"), 11, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x12"), 12, time.Now()))
+	require.NoError(t, orm.InsertBlock(common.HexToHash("0x13"), 13, time.Now()))
+
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 3, addressC, 0, 10, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+
+	//AddressB should still have an unfulfilled log (requestID-B1)
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 1, addressB, 0, 3, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-B1"))
+
+	//Should return requestID-A1 as the fulfillment event is out of the block range
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigA, responseSigA, 1, addressA, 0, 1, 10)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Equal(t, logs[0].Data, []byte("requestID-A1"))
+
+	//Should return nothing as requestID-B1 is before the block range
+	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 1, addressB, 2, 13, 0)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
 }

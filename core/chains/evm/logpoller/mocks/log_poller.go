@@ -214,32 +214,32 @@ func (_m *LogPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.
 	return r0, r1
 }
 
-// IndexedLogsWithSigsExcluding provides a mock function with given fields: ctx, address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts
-func (_m *LogPoller) IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA common.Hash, eventSigB common.Hash, topicIndex int, fromBlock int64, toBlock int64, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+// IndexedLogsWithSigsExcluding provides a mock function with given fields: address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts
+func (_m *LogPoller) IndexedLogsWithSigsExcluding(address common.Address, eventSigA common.Hash, eventSigB common.Hash, topicIndex int, fromBlock int64, toBlock int64, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, ctx, address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs)
+	_ca = append(_ca, address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 []logpoller.Log
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Hash, common.Hash, int, int64, int64, int, ...pg.QOpt) ([]logpoller.Log, error)); ok {
-		return rf(ctx, address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, common.Hash, common.Hash, int, int64, int64, int, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Hash, common.Hash, int, int64, int64, int, ...pg.QOpt) []logpoller.Log); ok {
-		r0 = rf(ctx, address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, common.Hash, common.Hash, int, int64, int64, int, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]logpoller.Log)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Hash, common.Hash, int, int64, int64, int, ...pg.QOpt) error); ok {
-		r1 = rf(ctx, address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts...)
+	if rf, ok := ret.Get(1).(func(common.Address, common.Hash, common.Hash, int, int64, int64, int, ...pg.QOpt) error); ok {
+		r1 = rf(address, eventSigA, eventSigB, topicIndex, fromBlock, toBlock, confs, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
