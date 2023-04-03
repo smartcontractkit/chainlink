@@ -5,6 +5,7 @@ package paymaster_wrapper
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
 var (
@@ -42,15 +44,15 @@ type UserOperation struct {
 }
 
 var PaymasterMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"linkToken\",\"type\":\"address\"},{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"linkEthFeed\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"juelsNeeded\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"subscriptionBalance\",\"type\":\"uint256\"}],\"name\":\"InsufficientFunds\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidCalldata\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableFromLink\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"userOpHash\",\"type\":\"bytes32\"}],\"name\":\"UserOperationAlreadyTried\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LINK\",\"outputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"LINK_ETH_FEED\",\"outputs\":[{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"enumIPaymaster.PostOpMode\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"context\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"actualGasCost\",\"type\":\"uint256\"}],\"name\":\"postOp\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_config\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"stalenessSeconds\",\"type\":\"uint32\"},{\"internalType\":\"int256\",\"name\":\"fallbackWeiPerUnitLink\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"stalenessSeconds\",\"type\":\"uint32\"},{\"internalType\":\"int256\",\"name\":\"fallbackWeiPerUnitLink\",\"type\":\"int256\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"initCode\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"callData\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"callGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"verificationGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"preVerificationGas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxFeePerGas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxPriorityFeePerGas\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"paymasterAndData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"}],\"internalType\":\"structUserOperation\",\"name\":\"userOp\",\"type\":\"tuple\"},{\"internalType\":\"bytes32\",\"name\":\"userOpHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"maxCost\",\"type\":\"uint256\"}],\"name\":\"validatePaymasterUserOp\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"context\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"validationData\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x60c060405234801561001057600080fd5b50604051610edf380380610edf83398101604081905261002f9161005e565b6001600160a01b039182166080521660a052610098565b6001600160a01b038116811461005b57600080fd5b50565b6000806040838503121561007157600080fd5b825161007c81610046565b602084015190925061008d81610046565b809150509250929050565b60805160a051610e076100d86000396000818161018c015261081d01526000818160bc015281816101e70152818161063001526106e80152610e076000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c8063a4c0ed361161005b578063a4c0ed3614610161578063a9a2340914610174578063ad17836114610187578063f465c77e146101ae57600080fd5b8063088070f5146100825780631b6b6d23146100b75780638a38f36514610103575b600080fd5b6000546001546100969163ffffffff169082565b6040805163ffffffff90931683526020830191909152015b60405180910390f35b6100de7f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016100ae565b61015f6101113660046108c3565b6040805180820190915263ffffffff9092168083526020909201819052600080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000016909217909155600155565b005b61015f61016f366004610966565b6101cf565b61015f6101823660046109c2565b6102cc565b6100de7f000000000000000000000000000000000000000000000000000000000000000081565b6101c16101bc366004610a22565b610335565b6040516100ae929190610a76565b3373ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000161461023e576040517f44b0e3c300000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60208114610278576040517f8129bbcd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600061028682840184610af1565b73ffffffffffffffffffffffffffffffffffffffff81166000908152600360205260408120805492935086929091906102c0908490610b44565b90915550505050505050565b6000806102db84860186610b5c565b91509150806102e984610525565b6102f39190610b44565b73ffffffffffffffffffffffffffffffffffffffff831660009081526003602052604081208054909190610328908490610b7a565b9091555050505050505050565b6000828152600260205260408120546060919060ff161561038a576040517f7413dcf8000000000000000000000000000000000000000000000000000000008152600481018590526024015b60405180910390fd5b600061039586610554565b90506000816103a386610525565b6103ad9190610b44565b905080600360006103c160208b018b610af1565b73ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054101561048c57806003600061041460208b018b610af1565b73ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020546040517f03eb8b54000000000000000000000000000000000000000000000000000000008152600401610381929190918252602082015260400190565b600086815260026020908152604090912080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660011790556104d290880188610af1565b6040805173ffffffffffffffffffffffffffffffffffffffff909216602083015281018390526060016040516020818303038152906040526105176000806000610790565b935093505050935093915050565b6000806105306107c8565b61054284670de0b6b3a7640000610b91565b61054c9190610bce565b905050919050565b6000610564610120830183610c09565b905060140361057557506000919050565b6000610585610120840184610c09565b601481811061059657610596610c6e565b919091013560f81c915081905061078a5760006105b7610120850185610c09565b6105c5916015908290610c9d565b8101906105d29190610cc7565b9050806020015160001415801561069f5750602081015181516040517f70a0823100000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff91821660048201527f0000000000000000000000000000000000000000000000000000000000000000909116906370a0823190602401602060405180830381865afa158015610679573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061069d9190610d50565b105b1561078857805160408083015190517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000169263a9059cbb9261073c9260040173ffffffffffffffffffffffffffffffffffffffff929092168252602082015260400190565b6020604051808303816000875af115801561075b573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061077f9190610d69565b50806040015192505b505b50919050565b600060d08265ffffffffffff16901b60a08465ffffffffffff16901b856107b85760006107bb565b60015b60ff161717949350505050565b60008054604080517ffeaf968c000000000000000000000000000000000000000000000000000000008152905163ffffffff90921691821515918491829173ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000169163feaf968c9160048082019260a0929091908290030181865afa158015610869573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061088d9190610daa565b5094509092508491505080156108b157506108a88242610b7a565b8463ffffffff16105b156108bb57506001545b949350505050565b600080604083850312156108d657600080fd5b823563ffffffff811681146108ea57600080fd5b946020939093013593505050565b73ffffffffffffffffffffffffffffffffffffffff8116811461091a57600080fd5b50565b60008083601f84011261092f57600080fd5b50813567ffffffffffffffff81111561094757600080fd5b60208301915083602082850101111561095f57600080fd5b9250929050565b6000806000806060858703121561097c57600080fd5b8435610987816108f8565b935060208501359250604085013567ffffffffffffffff8111156109aa57600080fd5b6109b68782880161091d565b95989497509550505050565b600080600080606085870312156109d857600080fd5b8435600381106109e757600080fd5b9350602085013567ffffffffffffffff811115610a0357600080fd5b610a0f8782880161091d565b9598909750949560400135949350505050565b600080600060608486031215610a3757600080fd5b833567ffffffffffffffff811115610a4e57600080fd5b84016101608187031215610a6157600080fd5b95602085013595506040909401359392505050565b604081526000835180604084015260005b81811015610aa45760208187018101516060868401015201610a87565b81811115610ab6576000606083860101525b50602083019390935250601f919091017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01601606001919050565b600060208284031215610b0357600080fd5b8135610b0e816108f8565b9392505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60008219821115610b5757610b57610b15565b500190565b60008060408385031215610b6f57600080fd5b82356108ea816108f8565b600082821015610b8c57610b8c610b15565b500390565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610bc957610bc9610b15565b500290565b600082610c04577f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b500490565b60008083357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe1843603018112610c3e57600080fd5b83018035915067ffffffffffffffff821115610c5957600080fd5b60200191503681900382131561095f57600080fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b60008085851115610cad57600080fd5b83861115610cba57600080fd5b5050820193919092039150565b600060608284031215610cd957600080fd5b6040516060810181811067ffffffffffffffff82111715610d23577f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040528235610d31816108f8565b8152602083810135908201526040928301359281019290925250919050565b600060208284031215610d6257600080fd5b5051919050565b600060208284031215610d7b57600080fd5b81518015158114610b0e57600080fd5b805169ffffffffffffffffffff81168114610da557600080fd5b919050565b600080600080600060a08688031215610dc257600080fd5b610dcb86610d8b565b9450602086015193506040860151925060608601519150610dee60808701610d8b565b9050929550929590935056fea164736f6c634300080f000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"linkToken\",\"type\":\"address\"},{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"linkEthFeed\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"entryPoint\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"juelsNeeded\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"subscriptionBalance\",\"type\":\"uint256\"}],\"name\":\"InsufficientFunds\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidCalldata\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableFromLink\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"userOpHash\",\"type\":\"bytes32\"}],\"name\":\"UserOperationAlreadyTried\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"i_entryPoint\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"i_linkEthFeed\",\"outputs\":[{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"i_linkToken\",\"outputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"enumIPaymaster.PostOpMode\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"context\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"actualGasCost\",\"type\":\"uint256\"}],\"name\":\"postOp\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_config\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"stalenessSeconds\",\"type\":\"uint32\"},{\"internalType\":\"int256\",\"name\":\"fallbackWeiPerUnitLink\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"stalenessSeconds\",\"type\":\"uint32\"},{\"internalType\":\"int256\",\"name\":\"fallbackWeiPerUnitLink\",\"type\":\"int256\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"initCode\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"callData\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"callGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"verificationGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"preVerificationGas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxFeePerGas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxPriorityFeePerGas\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"paymasterAndData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"}],\"internalType\":\"structUserOperation\",\"name\":\"userOp\",\"type\":\"tuple\"},{\"internalType\":\"bytes32\",\"name\":\"userOpHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"maxCost\",\"type\":\"uint256\"}],\"name\":\"validatePaymasterUserOp\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"context\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"validationData\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60e06040523480156200001157600080fd5b50604051620014fb380380620014fb8339810160408190526200003491620001a3565b33806000816200008b5760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615620000be57620000be81620000df565b5050506001600160a01b0392831660805290821660a0521660c052620001f7565b336001600160a01b03821603620001395760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640162000082565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b6001600160a01b0381168114620001a057600080fd5b50565b600080600060608486031215620001b957600080fd5b8351620001c6816200018a565b6020850151909350620001d9816200018a565b6040850151909250620001ec816200018a565b809150509250925092565b60805160a05160c05161129c6200025f600039600081816101080152818161049f01528181610507015281816105cd015261063501526000818161018f0152610cb60152600081816101dc015281816103a201528181610ac90152610b81015261129c6000f3fe608060405234801561001057600080fd5b50600436106100c95760003560e01c80639b9bd4de11610081578063db37983b1161005b578063db37983b146101d7578063f2fde38b146101fe578063f465c77e1461021157600080fd5b80639b9bd4de1461018a578063a4c0ed36146101b1578063a9a23409146101c457600080fd5b806379ba5097116100b257806379ba50971461014f5780638a38f365146101595780638da5cb5b1461016c57600080fd5b8063088070f5146100ce578063140fcfb114610103575b600080fd5b6002546003546100e29163ffffffff169082565b6040805163ffffffff90931683526020830191909152015b60405180910390f35b61012a7f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016100fa565b610157610232565b005b610157610167366004610d5b565b610334565b60005473ffffffffffffffffffffffffffffffffffffffff1661012a565b61012a7f000000000000000000000000000000000000000000000000000000000000000081565b6101576101bf366004610dfb565b61038a565b6101576101d2366004610e57565b610487565b61012a7f000000000000000000000000000000000000000000000000000000000000000081565b61015761020c366004610eb7565b61059d565b61022461021f366004610edb565b6105b1565b6040516100fa929190610f2f565b60015473ffffffffffffffffffffffffffffffffffffffff1633146102b8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064015b60405180910390fd5b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b61033c610849565b6040805180820190915263ffffffff9092168083526020909201819052600280547fffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000016909217909155600355565b3373ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000000016146103f9576040517f44b0e3c300000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60208114610433576040517f8129bbcd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600061044182840184610eb7565b73ffffffffffffffffffffffffffffffffffffffff811660009081526005602052604081208054929350869290919061047b908490610fd9565b90915550505050505050565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610534576040517f295a81c100000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001660248201526044016102af565b60008061054384860186610ff1565b9150915080610551846108cc565b61055b9190610fd9565b73ffffffffffffffffffffffffffffffffffffffff83166000908152600560205260408120805490919061059090849061100f565b9091555050505050505050565b6105a5610849565b6105ae816108f8565b50565b606060003373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610662576040517f295a81c100000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001660248201526044016102af565b60008481526004602052604090205460ff16156106ae576040517f7413dcf8000000000000000000000000000000000000000000000000000000008152600481018590526024016102af565b60006106b9866109ed565b90506000816106c7866108cc565b6106d19190610fd9565b905080600560006106e560208b018b610eb7565b73ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205410156107b057806005600061073860208b018b610eb7565b73ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020546040517f03eb8b540000000000000000000000000000000000000000000000000000000081526004016102af929190918252602082015260400190565b600086815260046020908152604090912080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660011790556107f690880188610eb7565b6040805173ffffffffffffffffffffffffffffffffffffffff9092166020830152810183905260600160405160208183030381529060405261083b6000806000610c29565b935093505050935093915050565b60005473ffffffffffffffffffffffffffffffffffffffff1633146108ca576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000060448201526064016102af565b565b60006108d6610c61565b6108e883670de0b6b3a7640000611026565b6108f29190611063565b92915050565b3373ffffffffffffffffffffffffffffffffffffffff821603610977576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c6600000000000000000060448201526064016102af565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60006109fd61012083018361109e565b9050601403610a0e57506000919050565b6000610a1e61012084018461109e565b6014818110610a2f57610a2f611103565b919091013560f81c9150819050610c23576000610a5061012085018561109e565b610a5e916015908290611132565b810190610a6b919061115c565b90508060200151600014158015610b385750602081015181516040517f70a0823100000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff91821660048201527f0000000000000000000000000000000000000000000000000000000000000000909116906370a0823190602401602060405180830381865afa158015610b12573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610b3691906111e5565b105b15610c2157805160408083015190517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000169263a9059cbb92610bd59260040173ffffffffffffffffffffffffffffffffffffffff929092168252602082015260400190565b6020604051808303816000875af1158015610bf4573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610c1891906111fe565b50806040015192505b505b50919050565b600060d08265ffffffffffff16901b60a08465ffffffffffff16901b85610c51576000610c54565b60015b60ff161717949350505050565b600254604080517ffeaf968c000000000000000000000000000000000000000000000000000000008152905160009263ffffffff1691821515918491829173ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000169163feaf968c9160048083019260a09291908290030181865afa158015610d01573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610d25919061123f565b509450909250849150508015610d495750610d40824261100f565b8463ffffffff16105b15610d5357506003545b949350505050565b60008060408385031215610d6e57600080fd5b823563ffffffff81168114610d8257600080fd5b946020939093013593505050565b73ffffffffffffffffffffffffffffffffffffffff811681146105ae57600080fd5b60008083601f840112610dc457600080fd5b50813567ffffffffffffffff811115610ddc57600080fd5b602083019150836020828501011115610df457600080fd5b9250929050565b60008060008060608587031215610e1157600080fd5b8435610e1c81610d90565b935060208501359250604085013567ffffffffffffffff811115610e3f57600080fd5b610e4b87828801610db2565b95989497509550505050565b60008060008060608587031215610e6d57600080fd5b843560038110610e7c57600080fd5b9350602085013567ffffffffffffffff811115610e9857600080fd5b610ea487828801610db2565b9598909750949560400135949350505050565b600060208284031215610ec957600080fd5b8135610ed481610d90565b9392505050565b600080600060608486031215610ef057600080fd5b833567ffffffffffffffff811115610f0757600080fd5b84016101608187031215610f1a57600080fd5b95602085013595506040909401359392505050565b604081526000835180604084015260005b81811015610f5d5760208187018101516060868401015201610f40565b81811115610f6f576000606083860101525b50602083019390935250601f919091017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01601606001919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60008219821115610fec57610fec610faa565b500190565b6000806040838503121561100457600080fd5b8235610d8281610d90565b60008282101561102157611021610faa565b500390565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048311821515161561105e5761105e610faa565b500290565b600082611099577f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b500490565b60008083357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe18436030181126110d357600080fd5b83018035915067ffffffffffffffff8211156110ee57600080fd5b602001915036819003821315610df457600080fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b6000808585111561114257600080fd5b8386111561114f57600080fd5b5050820193919092039150565b60006060828403121561116e57600080fd5b6040516060810181811067ffffffffffffffff821117156111b8577f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b60405282356111c681610d90565b8152602083810135908201526040928301359281019290925250919050565b6000602082840312156111f757600080fd5b5051919050565b60006020828403121561121057600080fd5b81518015158114610ed457600080fd5b805169ffffffffffffffffffff8116811461123a57600080fd5b919050565b600080600080600060a0868803121561125757600080fd5b61126086611220565b945060208601519350604086015192506060860151915061128360808701611220565b9050929550929590935056fea164736f6c634300080f000a",
 }
 
 var PaymasterABI = PaymasterMetaData.ABI
 
 var PaymasterBin = PaymasterMetaData.Bin
 
-func DeployPaymaster(auth *bind.TransactOpts, backend bind.ContractBackend, linkToken common.Address, linkEthFeed common.Address) (common.Address, *types.Transaction, *Paymaster, error) {
+func DeployPaymaster(auth *bind.TransactOpts, backend bind.ContractBackend, linkToken common.Address, linkEthFeed common.Address, entryPoint common.Address) (common.Address, *types.Transaction, *Paymaster, error) {
 	parsed, err := PaymasterMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -59,7 +61,7 @@ func DeployPaymaster(auth *bind.TransactOpts, backend bind.ContractBackend, link
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(PaymasterBin), backend, linkToken, linkEthFeed)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(PaymasterBin), backend, linkToken, linkEthFeed, entryPoint)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -182,9 +184,9 @@ func (_Paymaster *PaymasterTransactorRaw) Transact(opts *bind.TransactOpts, meth
 	return _Paymaster.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_Paymaster *PaymasterCaller) LINK(opts *bind.CallOpts) (common.Address, error) {
+func (_Paymaster *PaymasterCaller) IEntryPoint(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _Paymaster.contract.Call(opts, &out, "LINK")
+	err := _Paymaster.contract.Call(opts, &out, "i_entryPoint")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -196,17 +198,17 @@ func (_Paymaster *PaymasterCaller) LINK(opts *bind.CallOpts) (common.Address, er
 
 }
 
-func (_Paymaster *PaymasterSession) LINK() (common.Address, error) {
-	return _Paymaster.Contract.LINK(&_Paymaster.CallOpts)
+func (_Paymaster *PaymasterSession) IEntryPoint() (common.Address, error) {
+	return _Paymaster.Contract.IEntryPoint(&_Paymaster.CallOpts)
 }
 
-func (_Paymaster *PaymasterCallerSession) LINK() (common.Address, error) {
-	return _Paymaster.Contract.LINK(&_Paymaster.CallOpts)
+func (_Paymaster *PaymasterCallerSession) IEntryPoint() (common.Address, error) {
+	return _Paymaster.Contract.IEntryPoint(&_Paymaster.CallOpts)
 }
 
-func (_Paymaster *PaymasterCaller) LINKETHFEED(opts *bind.CallOpts) (common.Address, error) {
+func (_Paymaster *PaymasterCaller) ILinkEthFeed(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _Paymaster.contract.Call(opts, &out, "LINK_ETH_FEED")
+	err := _Paymaster.contract.Call(opts, &out, "i_linkEthFeed")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -218,12 +220,56 @@ func (_Paymaster *PaymasterCaller) LINKETHFEED(opts *bind.CallOpts) (common.Addr
 
 }
 
-func (_Paymaster *PaymasterSession) LINKETHFEED() (common.Address, error) {
-	return _Paymaster.Contract.LINKETHFEED(&_Paymaster.CallOpts)
+func (_Paymaster *PaymasterSession) ILinkEthFeed() (common.Address, error) {
+	return _Paymaster.Contract.ILinkEthFeed(&_Paymaster.CallOpts)
 }
 
-func (_Paymaster *PaymasterCallerSession) LINKETHFEED() (common.Address, error) {
-	return _Paymaster.Contract.LINKETHFEED(&_Paymaster.CallOpts)
+func (_Paymaster *PaymasterCallerSession) ILinkEthFeed() (common.Address, error) {
+	return _Paymaster.Contract.ILinkEthFeed(&_Paymaster.CallOpts)
+}
+
+func (_Paymaster *PaymasterCaller) ILinkToken(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Paymaster.contract.Call(opts, &out, "i_linkToken")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_Paymaster *PaymasterSession) ILinkToken() (common.Address, error) {
+	return _Paymaster.Contract.ILinkToken(&_Paymaster.CallOpts)
+}
+
+func (_Paymaster *PaymasterCallerSession) ILinkToken() (common.Address, error) {
+	return _Paymaster.Contract.ILinkToken(&_Paymaster.CallOpts)
+}
+
+func (_Paymaster *PaymasterCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Paymaster.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_Paymaster *PaymasterSession) Owner() (common.Address, error) {
+	return _Paymaster.Contract.Owner(&_Paymaster.CallOpts)
+}
+
+func (_Paymaster *PaymasterCallerSession) Owner() (common.Address, error) {
+	return _Paymaster.Contract.Owner(&_Paymaster.CallOpts)
 }
 
 func (_Paymaster *PaymasterCaller) SConfig(opts *bind.CallOpts) (SConfig,
@@ -254,6 +300,18 @@ func (_Paymaster *PaymasterCallerSession) SConfig() (SConfig,
 
 	error) {
 	return _Paymaster.Contract.SConfig(&_Paymaster.CallOpts)
+}
+
+func (_Paymaster *PaymasterTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Paymaster.contract.Transact(opts, "acceptOwnership")
+}
+
+func (_Paymaster *PaymasterSession) AcceptOwnership() (*types.Transaction, error) {
+	return _Paymaster.Contract.AcceptOwnership(&_Paymaster.TransactOpts)
+}
+
+func (_Paymaster *PaymasterTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _Paymaster.Contract.AcceptOwnership(&_Paymaster.TransactOpts)
 }
 
 func (_Paymaster *PaymasterTransactor) OnTokenTransfer(opts *bind.TransactOpts, arg0 common.Address, _amount *big.Int, _data []byte) (*types.Transaction, error) {
@@ -292,6 +350,18 @@ func (_Paymaster *PaymasterTransactorSession) SetConfig(stalenessSeconds uint32,
 	return _Paymaster.Contract.SetConfig(&_Paymaster.TransactOpts, stalenessSeconds, fallbackWeiPerUnitLink)
 }
 
+func (_Paymaster *PaymasterTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return _Paymaster.contract.Transact(opts, "transferOwnership", to)
+}
+
+func (_Paymaster *PaymasterSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _Paymaster.Contract.TransferOwnership(&_Paymaster.TransactOpts, to)
+}
+
+func (_Paymaster *PaymasterTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _Paymaster.Contract.TransferOwnership(&_Paymaster.TransactOpts, to)
+}
+
 func (_Paymaster *PaymasterTransactor) ValidatePaymasterUserOp(opts *bind.TransactOpts, userOp UserOperation, userOpHash [32]byte, maxCost *big.Int) (*types.Transaction, error) {
 	return _Paymaster.contract.Transact(opts, "validatePaymasterUserOp", userOp, userOpHash, maxCost)
 }
@@ -304,9 +374,301 @@ func (_Paymaster *PaymasterTransactorSession) ValidatePaymasterUserOp(userOp Use
 	return _Paymaster.Contract.ValidatePaymasterUserOp(&_Paymaster.TransactOpts, userOp, userOpHash, maxCost)
 }
 
+type PaymasterOwnershipTransferRequestedIterator struct {
+	Event *PaymasterOwnershipTransferRequested
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *PaymasterOwnershipTransferRequestedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(PaymasterOwnershipTransferRequested)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(PaymasterOwnershipTransferRequested)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *PaymasterOwnershipTransferRequestedIterator) Error() error {
+	return it.fail
+}
+
+func (it *PaymasterOwnershipTransferRequestedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type PaymasterOwnershipTransferRequested struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_Paymaster *PaymasterFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*PaymasterOwnershipTransferRequestedIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _Paymaster.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &PaymasterOwnershipTransferRequestedIterator{contract: _Paymaster.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
+}
+
+func (_Paymaster *PaymasterFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *PaymasterOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _Paymaster.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(PaymasterOwnershipTransferRequested)
+				if err := _Paymaster.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_Paymaster *PaymasterFilterer) ParseOwnershipTransferRequested(log types.Log) (*PaymasterOwnershipTransferRequested, error) {
+	event := new(PaymasterOwnershipTransferRequested)
+	if err := _Paymaster.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type PaymasterOwnershipTransferredIterator struct {
+	Event *PaymasterOwnershipTransferred
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *PaymasterOwnershipTransferredIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(PaymasterOwnershipTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(PaymasterOwnershipTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *PaymasterOwnershipTransferredIterator) Error() error {
+	return it.fail
+}
+
+func (it *PaymasterOwnershipTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type PaymasterOwnershipTransferred struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_Paymaster *PaymasterFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*PaymasterOwnershipTransferredIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _Paymaster.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &PaymasterOwnershipTransferredIterator{contract: _Paymaster.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+}
+
+func (_Paymaster *PaymasterFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *PaymasterOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _Paymaster.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(PaymasterOwnershipTransferred)
+				if err := _Paymaster.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_Paymaster *PaymasterFilterer) ParseOwnershipTransferred(log types.Log) (*PaymasterOwnershipTransferred, error) {
+	event := new(PaymasterOwnershipTransferred)
+	if err := _Paymaster.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type SConfig struct {
 	StalenessSeconds       uint32
 	FallbackWeiPerUnitLink *big.Int
+}
+
+func (_Paymaster *Paymaster) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	switch log.Topics[0] {
+	case _Paymaster.abi.Events["OwnershipTransferRequested"].ID:
+		return _Paymaster.ParseOwnershipTransferRequested(log)
+	case _Paymaster.abi.Events["OwnershipTransferred"].ID:
+		return _Paymaster.ParseOwnershipTransferred(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
+func (PaymasterOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (PaymasterOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
 func (_Paymaster *Paymaster) Address() common.Address {
@@ -314,13 +676,19 @@ func (_Paymaster *Paymaster) Address() common.Address {
 }
 
 type PaymasterInterface interface {
-	LINK(opts *bind.CallOpts) (common.Address, error)
+	IEntryPoint(opts *bind.CallOpts) (common.Address, error)
 
-	LINKETHFEED(opts *bind.CallOpts) (common.Address, error)
+	ILinkEthFeed(opts *bind.CallOpts) (common.Address, error)
+
+	ILinkToken(opts *bind.CallOpts) (common.Address, error)
+
+	Owner(opts *bind.CallOpts) (common.Address, error)
 
 	SConfig(opts *bind.CallOpts) (SConfig,
 
 		error)
+
+	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 
 	OnTokenTransfer(opts *bind.TransactOpts, arg0 common.Address, _amount *big.Int, _data []byte) (*types.Transaction, error)
 
@@ -328,7 +696,23 @@ type PaymasterInterface interface {
 
 	SetConfig(opts *bind.TransactOpts, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int) (*types.Transaction, error)
 
+	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
 	ValidatePaymasterUserOp(opts *bind.TransactOpts, userOp UserOperation, userOpHash [32]byte, maxCost *big.Int) (*types.Transaction, error)
+
+	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*PaymasterOwnershipTransferRequestedIterator, error)
+
+	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *PaymasterOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferRequested(log types.Log) (*PaymasterOwnershipTransferRequested, error)
+
+	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*PaymasterOwnershipTransferredIterator, error)
+
+	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *PaymasterOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferred(log types.Log) (*PaymasterOwnershipTransferred, error)
+
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

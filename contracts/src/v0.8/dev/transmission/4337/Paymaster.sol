@@ -7,17 +7,20 @@ import "../../vendor/entrypoint/core/Helpers.sol";
 import "../../../interfaces/LinkTokenInterface.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "./SCALibrary.sol";
+import "../../../ConfirmedOwner.sol";
 
 /// @dev LINK token paymaster implementation.
 /// TODO: more documentation.
-contract Paymaster is IPaymaster {
+contract Paymaster is IPaymaster, ConfirmedOwner {
   error OnlyCallableFromLink();
   error InvalidCalldata();
+  error Unauthorized(address sender, address validator);
   error UserOperationAlreadyTried(bytes32 userOpHash);
   error InsufficientFunds(uint256 juelsNeeded, uint256 subscriptionBalance);
 
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
+  LinkTokenInterface public immutable i_linkToken;
+  AggregatorV3Interface public immutable i_linkEthFeed;
+  address public immutable i_entryPoint;
 
   struct Config {
     uint32 stalenessSeconds;
@@ -28,17 +31,18 @@ contract Paymaster is IPaymaster {
   mapping(bytes32 => bool) userOpHashMapping;
   mapping(address => uint256) subscriptions;
 
-  constructor(LinkTokenInterface linkToken, AggregatorV3Interface linkEthFeed) {
-    LINK = linkToken;
-    LINK_ETH_FEED = linkEthFeed;
+  constructor(LinkTokenInterface linkToken, AggregatorV3Interface linkEthFeed, address entryPoint) ConfirmedOwner(msg.sender)  {
+    i_linkToken = linkToken;
+    i_linkEthFeed = linkEthFeed;
+    i_entryPoint = entryPoint;
   }
 
-  function setConfig(uint32 stalenessSeconds, int256 fallbackWeiPerUnitLink) external {
+  function setConfig(uint32 stalenessSeconds, int256 fallbackWeiPerUnitLink) external onlyOwner {
     s_config = Config({stalenessSeconds: stalenessSeconds, fallbackWeiPerUnitLink: fallbackWeiPerUnitLink});
   }
 
   function onTokenTransfer(address /* _sender */, uint256 _amount, bytes calldata _data) external {
-    if (msg.sender != address(LINK)) {
+    if (msg.sender != address(i_linkToken)) {
       revert OnlyCallableFromLink();
     }
     if (_data.length != 32) {
@@ -54,6 +58,9 @@ contract Paymaster is IPaymaster {
     bytes32 userOpHash,
     uint256 maxCost
   ) external returns (bytes memory context, uint256 validationData) {
+    if (msg.sender != i_entryPoint) {
+      revert Unauthorized(msg.sender, i_entryPoint);
+    }
     if (userOpHashMapping[userOpHash]) {
       revert UserOperationAlreadyTried(userOpHash);
     }
@@ -86,9 +93,9 @@ contract Paymaster is IPaymaster {
       );
       if (
         directFundingData.topupThreshold != 0 &&
-        LINK.balanceOf(directFundingData.recipient) < directFundingData.topupThreshold
+        i_linkToken.balanceOf(directFundingData.recipient) < directFundingData.topupThreshold
       ) {
-        LINK.transfer(directFundingData.recipient, directFundingData.topupAmount);
+        i_linkToken.transfer(directFundingData.recipient, directFundingData.topupAmount);
         extraCost = directFundingData.topupAmount;
       }
     }
@@ -96,12 +103,15 @@ contract Paymaster is IPaymaster {
 
   /// @dev Deducts user subscription balance after execution.
   function postOp(PostOpMode /* mode */, bytes calldata context, uint256 actualGasCost) external {
+    if (msg.sender != i_entryPoint) {
+      revert Unauthorized(msg.sender, i_entryPoint);
+    }
     (address sender, uint256 extraCostJuels) = abi.decode(context, (address, uint256));
     subscriptions[sender] -= (getCostJuels(actualGasCost) + extraCostJuels);
   }
 
   function getCostJuels(uint256 costWei) internal view returns (uint256 costJuels) {
-    uint256 costJuels = (1e18 * costWei) / uint256(getFeedData());
+    costJuels = (1e18 * costWei) / uint256(getFeedData());
   }
 
   function getFeedData() internal view returns (int256) {
@@ -109,7 +119,7 @@ contract Paymaster is IPaymaster {
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = i_linkEthFeed.latestRoundData();
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_config.fallbackWeiPerUnitLink;
     }

@@ -272,7 +272,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 		(*big.Int)(assets.GWei(5000000)), // .005 ETH
 	)
 	require.NoError(t, err)
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress, linkEthFeedAddress)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress, linkEthFeedAddress, universe.entryPointAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	tx, err := linkToken.TransferAndCall(
@@ -382,7 +382,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
 	// Deposit to LINK paymaster.
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, universe.linkTokenAddress, universe.linkEthFeedAddress)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, universe.linkTokenAddress, universe.linkEthFeedAddress, universe.entryPointAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	tx, err := universe.linkToken.TransferAndCall(

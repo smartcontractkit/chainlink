@@ -103,7 +103,7 @@ contract EIP_712_1014_4337 is Test {
       contractCodeSize := extcodesize(toDeployAddress)
     }
     assertTrue(contractCodeSize > 0);
-    assertEq(END_USER, SCA(toDeployAddress).s_owner());
+    assertEq(END_USER, SCA(toDeployAddress).i_owner());
 
     // Create the calldata for a setGreeting call.
     string memory greeting = "hi";
@@ -209,7 +209,7 @@ contract EIP_712_1014_4337 is Test {
     // Assert that the greeting was set.
     assertEq("bye", Greeter(greeter).getGreeting());
     assertEq(SCA(toDeployAddress).s_nonce(), uint256(1));
-    assertEq(SCA(toDeployAddress).s_owner(), END_USER);
+    assertEq(SCA(toDeployAddress).i_owner(), END_USER);
   }
 
   /// @dev Test case for a user executing a setGreeting with a LINK token paymaster.
@@ -239,7 +239,7 @@ contract EIP_712_1014_4337 is Test {
 
     // Create Link token, and deposit into paymaster.
     MockLinkToken linkToken = new MockLinkToken();
-    Paymaster paymaster = new Paymaster(LinkTokenInterface(address(linkToken)), linkEthFeed);
+    Paymaster paymaster = new Paymaster(LinkTokenInterface(address(linkToken)), linkEthFeed, ENTRY_POINT);
     linkToken.transferAndCall(address(paymaster), 1000 ether, abi.encode(address(toDeployAddress)));
 
     // Construct the user opeartion.
@@ -311,7 +311,7 @@ contract EIP_712_1014_4337 is Test {
     );
 
     // Create Link token, and deposit into paymaster.
-    Paymaster paymaster = new Paymaster(LinkTokenInterface(address(linkToken)), linkEthFeed);
+    Paymaster paymaster = new Paymaster(LinkTokenInterface(address(linkToken)), linkEthFeed, ENTRY_POINT);
     linkToken.transferAndCall(address(paymaster), 1000 ether, abi.encode(address(toDeployAddress)));
 
     // Construct direct funding data.

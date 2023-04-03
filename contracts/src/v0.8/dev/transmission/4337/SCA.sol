@@ -11,8 +11,8 @@ pragma solidity 0.8.15;
 /// TODO: Consider making the Smart Contract Account upgradeable.
 contract SCA is IAccount {
   uint256 public s_nonce;
-  address public immutable s_owner;
-  address public immutable s_entryPoint;
+  address public immutable i_owner;
+  address public immutable i_entryPoint;
 
   error IncorrectNonce(uint256 currentNonce, uint256 nonceGiven);
   error NotAuthorized(address sender);
@@ -21,8 +21,8 @@ contract SCA is IAccount {
 
   // Assign the owner of this contract upon deployment.
   constructor(address owner, address entryPoint) {
-    s_owner = owner;
-    s_entryPoint = entryPoint;
+    i_owner = owner;
+    i_entryPoint = entryPoint;
   }
 
   /// @dev Validates the user operation via a signature check.
@@ -47,7 +47,7 @@ contract SCA is IAccount {
       s := mload(add(signature, 0x40))
     }
     uint8 v = uint8(signature[64]);
-    if (ecrecover(fullHash, v + 27, r, s) != s_owner) {
+    if (ecrecover(fullHash, v + 27, r, s) != i_owner) {
       return _packValidationData(true, 0, 0); // signature error
     }
     s_nonce++;
@@ -60,7 +60,7 @@ contract SCA is IAccount {
   /// @dev Execute a transaction on behalf of the owner. This function can only
   /// @dev be called by the EntryPoint contract, and assumes that `validateUserOp` has succeeded.
   function executeTransactionFromEntryPoint(address to, uint256 value, uint48 deadline, bytes calldata data) external {
-    if (msg.sender != s_entryPoint) {
+    if (msg.sender != i_entryPoint) {
       revert NotAuthorized(msg.sender);
     }
     if (deadline != 0 && block.timestamp > deadline) {
