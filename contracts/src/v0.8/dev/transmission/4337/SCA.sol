@@ -16,6 +16,7 @@ contract SCA is IAccount {
 
   error IncorrectNonce(uint256 currentNonce, uint256 nonceGiven);
   error NotAuthorized(address sender);
+  error BadFormatOrOOG();
   error TransactionExpired(uint256 deadline, uint256 currentTimestamp);
   error InvalidSignature(bytes32 operationHash, address owner);
 
@@ -66,6 +67,14 @@ contract SCA is IAccount {
     if (deadline != 0 && block.timestamp > deadline) {
       revert TransactionExpired(deadline, block.timestamp);
     }
-    to.call{value: value}(data);
+
+    // Execute transaction. Bubble up an error if found. 
+    (bool success, bytes memory returnData) = to.call{value: value}(data);
+    if (!success) {
+        if (returnData.length == 0) revert BadFormatOrOOG();
+        assembly {
+            revert(add(32, returnData), mload(returnData))
+        }
+    }
   }
 }
