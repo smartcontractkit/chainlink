@@ -50,13 +50,7 @@ contract EIP_712_1014_4337 is Test {
   event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed, uint256 fee);
 
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
-  address internal constant LINK_WHALE_2 = 0xeFF41C8725be95e66F6B10489B6bF34b08055853;
-  address internal constant FEE_TOKEN = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
-  address internal constant ROUTER = 0xc4f3c3bb9e58AB406450cC1704f20F94E60b02F3;
-  address internal constant CONTRACT_ADDRESS = 0xdF525f47cFE6FC994E1dC9779EbD746880eC8E70;
-  address internal constant CREATE2_FACTORY = 0x93a5d90FBD40fEeBCE2ae5e80A2d7D2EfDbb39B4;
-  address internal constant ENTRY_POINT = 0x0576a174D229E3cFA37253523E645A78A0C91B57;
-  address internal constant SENDER_CREATOR = 0x932a3A220aC2CD48fab18118954601f565f19681;
+  address internal ENTRY_POINT;
 
   Greeter greeter;
   EntryPoint entryPoint;
@@ -67,24 +61,21 @@ contract EIP_712_1014_4337 is Test {
   address END_USER = 0xB6708257D4E1bf0b8C144793fc2Ff3193C737ed1;
 
   function setUp() public {
-    // Fork Goerli.
-    uint256 mainnetFork = vm.createFork(
-      "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161" // public ETH Goerli RPC URL
-    );
-    vm.selectFork(mainnetFork);
-    vm.rollFork(8598894);
+    // Fund user accounts;
     vm.deal(END_USER, 10_000 ether);
+    vm.deal(LINK_WHALE, 10_000 ether);
 
     // Impersonate a LINK whale.
     changePrank(LINK_WHALE);
 
     // Create simople greeter contract.
-    greeter = Greeter(0x5BF01BcFBAf58DC33f2Ca062bf5f6fBe055Ac11b);
+    greeter = new Greeter();
     assertEq("", greeter.getGreeting());
 
-    // Use existing entry point contract.
-    entryPoint = EntryPoint(payable(ENTRY_POINT));
-
+    // Create entry point contract.
+    entryPoint = new EntryPoint();
+    ENTRY_POINT = address(entryPoint);
+  
     // Deploy link/eth feed.
     linkEthFeed = new MockV3Aggregator(18, 5000000000000000); // .005 ETH
   }
@@ -101,7 +92,6 @@ contract EIP_712_1014_4337 is Test {
     );
 
     // Deploy the end-contract.
-    changePrank(SENDER_CREATOR);
     bytes32 salt = bytes32(uint256(uint160(END_USER)) << 96);
     bytes memory fullInitializeCode = SmartContractAccountHelper.getSCAInitCodeWithConstructor(END_USER, ENTRY_POINT);
     factory.deploySmartContractAccount(salt, fullInitializeCode);
