@@ -128,7 +128,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
 	strategy := txmgr.NewSendEveryStrategy()
 
-	forwarderAddress := evmtypes.NewAddress(common.Address{})
+	var forwarderAddress *evmtypes.Address = nil
 	evmFromAddr := evmtypes.NewAddress(fromAddr)
 	if t.forwardingAllowed {
 		var fwderr error
