@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -169,6 +170,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		p2pKeystore  = ksmocks.NewP2P(t)
 		ocr1Keystore = ksmocks.NewOCR(t)
 		ocr2Keystore = ksmocks.NewOCR2(t)
+		ethKeyStore  = ksmocks.NewEth(t)
 	)
 
 	lggr := logger.TestLogger(t)
@@ -177,8 +179,9 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
 	keyStore := new(ksmocks.Master)
 	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
+	ethKeyStore.On("EnabledAddressesForChain", gcfg.DefaultChainID()).Return([]*evmtypes.Address{evmtypes.NewAddress(common.Address{})})
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
-		HeadTracker: headtracker.NullTracker, KeyStore: keyStore.Eth()})
+		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)

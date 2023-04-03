@@ -53,12 +53,13 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(toAddress),
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
+		FromAddress:      evmtypes.NewAddress(fromAddress),
+		ToAddress:        evmtypes.NewAddress(toAddress),
+		EncodedPayload:   payload,
+		GasLimit:         gasLimit,
+		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		Meta:             nil,
+		Strategy:         strategy,
 	}, mock.Anything).Return(txmgr.EvmEthTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
@@ -94,20 +95,22 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	require.NoError(t, err)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(toAddress),
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
+		FromAddress:      evmtypes.NewAddress(fromAddress),
+		ToAddress:        evmtypes.NewAddress(toAddress),
+		EncodedPayload:   payload,
+		GasLimit:         gasLimit,
+		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		Meta:             nil,
+		Strategy:         strategy,
 	}, mock.Anything).Return(txmgr.EvmEthTx{}, nil).Once()
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress2),
-		ToAddress:      evmtypes.NewAddress(toAddress),
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
+		FromAddress:      evmtypes.NewAddress(fromAddress2),
+		ToAddress:        evmtypes.NewAddress(toAddress),
+		EncodedPayload:   payload,
+		GasLimit:         gasLimit,
+		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		Meta:             nil,
+		Strategy:         strategy,
 	}, mock.Anything).Return(txmgr.EvmEthTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
