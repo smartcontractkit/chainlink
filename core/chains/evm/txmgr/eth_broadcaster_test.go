@@ -609,7 +609,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 
 	etx := txmgr.EvmEthTx{
 		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      testutils.NewEvmAddress(),
+		ToAddress:      evmtypes.NewAddress(testutils.NewAddress()),
 		EncodedPayload: []byte{42, 42, 0},
 		Value:          *assets.NewEth(0),
 		GasLimit:       500000,
@@ -1454,7 +1454,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		{
 			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), evmFromAddress)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.False(t, retryable)
 		}
 
@@ -1779,6 +1779,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	kst := ksmocks.NewEth(t)
+	addresses := []*evmtypes.Address{evmtypes.NewAddress(fromAddress)}
+	kst.On("EnabledAddressesForChain", mock.Anything).Return(addresses, nil)
 	eb, err := cltest.NewEthBroadcaster(t, txStorageService, ethClient, kst, evmcfg, &testCheckerFactory{}, false)
 	require.NoError(t, err)
 
@@ -1796,9 +1798,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
 		next, err := realKeystore.Eth().NextSequence(evmtypes.NewAddress(fromAddress), testutils.FixtureChainID)
 		require.NoError(t, err)
-		kst.On("NextSequence", fromAddress, testutils.FixtureChainID, mock.Anything).Return(next, nil).Once()
+		kst.On("NextSequence", evmtypes.NewAddress(fromAddress), testutils.FixtureChainID, mock.Anything).Return(next, nil).Once()
 		kst.On("SignTx",
-			fromAddress,
+			evmtypes.NewAddress(fromAddress),
 			mock.AnythingOfType("*types.Transaction"),
 			mock.MatchedBy(func(chainID *big.Int) bool {
 				return chainID.Cmp(evmcfg.ChainID()) == 0

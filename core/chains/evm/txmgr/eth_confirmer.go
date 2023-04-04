@@ -473,9 +473,10 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 	}
 
 	for _, attempt := range attempts {
+		hashBytes, _ := attempt.Hash.MarshalText()
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
-			Args:   []interface{}{attempt.Hash},
+			Args:   []interface{}{gethCommon.BytesToHash(hashBytes)},
 			Result: &evmtypes.Receipt{},
 		}
 		reqs = append(reqs, req)

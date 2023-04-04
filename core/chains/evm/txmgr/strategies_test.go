@@ -77,13 +77,13 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
 		cltest.AssertCount(t, db, "eth_txes", 7)
 
-		var etxs []txmgr.EvmEthTx
-		require.NoError(t, db.Select(&etxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
+		var dbEtxs []txmgr.DbEthTx
+		require.NoError(t, db.Select(&dbEtxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
 
-		require.Len(t, etxs, 3)
+		require.Len(t, dbEtxs, 3)
 
-		assert.Equal(t, initialEtxs[1].ID, etxs[0].ID)
-		assert.Equal(t, initialEtxs[3].ID, etxs[1].ID)
-		assert.Equal(t, initialEtxs[4].ID, etxs[2].ID)
+		assert.Equal(t, initialEtxs[1].ID, dbEtxs[0].ID)
+		assert.Equal(t, initialEtxs[3].ID, dbEtxs[1].ID)
+		assert.Equal(t, initialEtxs[4].ID, dbEtxs[2].ID)
 	})
 }

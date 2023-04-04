@@ -542,7 +542,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, etx0.EthTxAttempts, 1)
 	require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
-	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash)
+	require.Equal(t, txmReceipt.BlockHash, *etx0.EthTxAttempts[0].EthReceipts[0].BlockHash.NativeHash())
 	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }
 
@@ -1078,11 +1078,12 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 		q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
+		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&newAttempt)
 		q.Transaction(func(tx pg.Queryer) error {
 			const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 				:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 				) RETURNING *`
-			_, err := tx.NamedExec(insertEthTxAttemptSQL, newAttempt)
+			_, err := tx.NamedExec(insertEthTxAttemptSQL, dbAttempt)
 			require.NoError(t, err)
 
 			err = txStorageService.LoadEthTxesAttempts([]*txmgr.EvmEthTx{&etx}, pg.WithQueryer(tx))

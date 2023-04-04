@@ -536,8 +536,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) checkEnabled(addr ADDR) error {
 // SendEther creates a transaction that transfers the given value of ether
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	// TODO: Remove this hard-coding on evm package
-	toBytes, _ := to.MarshalText()
-	if common.BytesToAddress(toBytes) == utils.ZeroAddress {
+	if to.IsEmpty() {
 		return etx, errors.New("cannot send ether to zero address")
 	}
 	etx = EthTx[ADDR, TX_HASH]{
@@ -549,10 +548,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to AD
 		State:          EthTxUnstarted,
 		EVMChainID:     *utils.NewBig(chainID),
 	}
-	query := `INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, evm_chain_id, created_at) VALUES (
-:from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :evm_chain_id, NOW()
-) RETURNING eth_txes.*`
-	err = b.q.GetNamed(query, &etx, etx)
+	b.txStorageService.InsertEthTx(&etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 

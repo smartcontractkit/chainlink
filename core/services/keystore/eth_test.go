@@ -334,7 +334,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	chainID := big.NewInt(evmclient.NullClientChainID)
 	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
-	randomAddress := testutils.NewEvmAddress()
+	randomAddress := evmtypes.NewAddress(testutils.NewAddress())
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
 	require.EqualError(t, err, fmt.Sprintf("unable to find eth key with id %s", randomAddress.String()))
 

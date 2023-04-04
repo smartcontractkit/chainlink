@@ -27,6 +27,10 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
+func NewEvmAddress() *evmtypes.Address {
+	return evmtypes.NewAddress(testutils.NewAddress())
+}
+
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
 
@@ -45,7 +49,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := txmmocks.NewConfig(t)
 		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		kst.On("SignTx", evmtypes.NewAddress(to), tx, chainID).Return(tx, nil).Once()
 		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, kst, nil)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
@@ -57,7 +61,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := txmmocks.NewConfig(t)
 		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		kst.On("SignTx", evmtypes.NewAddress(to), tx, chainID).Return(tx, nil).Once()
 		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, kst, nil)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
@@ -67,7 +71,7 @@ func TestTxm_SignTx(t *testing.T) {
 }
 
 func TestTxm_NewDynamicFeeTx(t *testing.T) {
-	addr := testutils.NewEvmAddress()
+	addr := NewEvmAddress()
 	tx := types.NewTx(&types.DynamicFeeTx{})
 	kst := ksmocks.NewEth(t)
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
@@ -130,7 +134,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 }
 
 func TestTxm_NewLegacyAttempt(t *testing.T) {
-	addr := testutils.NewEvmAddress()
+	addr := NewEvmAddress()
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(50)
 		c.EVM[0].GasEstimator.PriceMin = assets.NewWeiI(10)
