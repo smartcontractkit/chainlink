@@ -1019,8 +1019,9 @@ func (o *evmTxStorageService) SaveInProgressAttempt(attempt *EvmEthTxAttempt) er
 		if e != nil {
 			return errors.Wrap(e, "SaveInProgressAttempt failed to BindNamed")
 		}
-		return errors.Wrap(o.q.Get(&dbAttempt, query, args...), "SaveInProgressAttempt failed to insert into eth_tx_attempts")
+		e = o.q.Get(&dbAttempt, query, args...)
 		dbEthTxAttemptToEthTxAttempt(dbAttempt, attempt)
+		return errors.Wrap(e, "SaveInProgressAttempt failed to insert into eth_tx_attempts")
 	}
 	// Update only applies to case of insufficient eth and simply changes the state to in_progress
 	res, err := o.q.Exec(`UPDATE eth_tx_attempts SET state=$1, broadcast_before_block_num=$2 WHERE id=$3`, dbAttempt.State, dbAttempt.BroadcastBeforeBlockNum, dbAttempt.ID)

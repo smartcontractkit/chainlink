@@ -1488,29 +1488,30 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			Meta:           nil,
 			Strategy:       strategy,
 		}, *ethClient.ChainID())
-		etx := tx.(*txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmEthTx)
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress)
-		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, fromAddress, *etx.FromAddress.NativeAddress())
+		assert.Equal(t, toAddress, *etx.ToAddress.NativeAddress())
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEthTx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
-		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress)
-		assert.Equal(t, toAddress, etx.ToAddress)
-		assert.Equal(t, payload, etx.EncodedPayload)
-		assert.Equal(t, assets.NewEthValue(0), etx.Value)
-		assert.Equal(t, subject, etx.Subject.UUID)
+		assert.Equal(t, dbEthTx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, gasLimit, dbEthTx.GasLimit)
+		assert.Equal(t, fromAddress, dbEthTx.FromAddress)
+		assert.Equal(t, toAddress, dbEthTx.ToAddress)
+		assert.Equal(t, payload, dbEthTx.EncodedPayload)
+		assert.Equal(t, assets.NewEthValue(0), dbEthTx.Value)
+		assert.Equal(t, subject, dbEthTx.Subject.UUID)
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {

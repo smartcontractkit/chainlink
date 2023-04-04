@@ -116,6 +116,8 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	chStop chan struct{}
 	wg     sync.WaitGroup
 
+	initSync  sync.Mutex
+	isStarted bool
 	utils.StartStopOnce
 }
 
@@ -149,7 +151,8 @@ func NewEthBroadcaster(
 		checkerFactory:   checkerFactory,
 		triggers:         make(map[string]chan struct{}),
 		chStop:           make(chan struct{}),
-		wg:               sync.WaitGroup{},
+		initSync:         sync.Mutex{},
+		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
 	}
 }
@@ -158,36 +161,61 @@ func NewEthBroadcaster(
 // The provided context can be used to terminate Start sequence.
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
-		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
-		if err != nil {
-			return errors.Wrap(err, "EthBroadcaster could not start")
-		}
-
-		eb.wg.Add(len(eb.addresses))
-		for _, k := range eb.addresses {
-			triggerCh := make(chan struct{}, 1)
-			eb.triggers[k.String()] = triggerCh
-			go eb.monitorEthTxs(k, triggerCh)
-		}
-
-		eb.wg.Add(1)
-		go eb.ethTxInsertTriggerer()
-
-		return nil
+		return eb.startInternal(ctx)
 	})
+}
+
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal(ctx context.Context) error {
+	eb.initSync.Lock()
+	defer eb.initSync.Unlock()
+	if eb.isStarted == true {
+		return errors.New("EthBroadcaster is already started")
+	}
+	var err error
+	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
+	if err != nil {
+		return errors.Wrap(err, "EthBroadcaster could not start")
+	}
+	eb.chStop = make(chan struct{})
+	eb.wg = sync.WaitGroup{}
+	eb.wg.Add(len(eb.addresses))
+	for _, k := range eb.addresses {
+		triggerCh := make(chan struct{}, 1)
+		eb.triggers[k.String()] = triggerCh
+		go eb.monitorEthTxs(k, triggerCh)
+	}
+
+	eb.wg.Add(1)
+	go eb.ethTxInsertTriggerer()
+
+	eb.isStarted = true
+	return nil
 }
 
 // Close closes the EthBroadcaster
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Close() error {
 	return eb.StopOnce("EthBroadcaster", func() error {
-		if eb.ethTxInsertListener != nil {
-			eb.ethTxInsertListener.Close()
-		}
-
-		close(eb.chStop)
-		eb.wg.Wait()
-		return nil
+		return eb.closeInternal()
 	})
+}
+
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) closeInternal() error {
+	eb.initSync.Lock()
+	defer eb.initSync.Unlock()
+	if eb.isStarted == false {
+		return errors.Wrap(utils.ErrAlreadyStopped, "EthBroadcaster is not started")
+	}
+	if eb.ethTxInsertListener != nil {
+		eb.ethTxInsertListener.Close()
+	}
+	close(eb.chStop)
+	eb.wg.Wait()
+	eb.isStarted = false
+	return nil
+}
+
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SetResumeCallback(callback ResumeCallback) {
+	eb.resumeCallback = callback
 }
 
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Name() string {
@@ -201,7 +229,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]e
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addrStr string) {
-	ok := eb.IfStarted(func() {
+	if eb.isStarted == true {
 		triggerCh, exists := eb.triggers[addrStr]
 		if !exists {
 			// ignoring trigger for address which is not registered with this EthBroadcaster
@@ -211,9 +239,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addrStr string) {
 		case triggerCh <- struct{}{}:
 		default:
 		}
-	})
-
-	if !ok {
+	} else {
 		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addrStr)
 	}
 }

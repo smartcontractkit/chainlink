@@ -141,12 +141,14 @@ func Test_EthResender_Start(t *testing.T) {
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
 		}()
 
-		err := db.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
+		var dbEtx txmgr.DbEthTx
+		err := db.Get(&dbEtx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
 		require.NoError(t, err)
-		err = db.Get(&etx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
+		var dbEtx2 txmgr.DbEthTx
+		err = db.Get(&dbEtx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
 		require.NoError(t, err)
 
-		assert.Greater(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
-		assert.Greater(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		assert.Greater(t, dbEtx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		assert.Greater(t, dbEtx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
 }

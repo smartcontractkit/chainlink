@@ -112,8 +112,8 @@ type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable]
 
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
-	b.ethBroadcaster.resumeCallback = fn
-	b.ethConfirmer.resumeCallback = fn
+	b.ethBroadcaster.SetResumeCallback(fn)
+	b.ethConfirmer.SetResumeCallback(fn)
 }
 
 // NewTxm creates a new Txm with the given configuration.
@@ -316,10 +316,10 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(addresses []ADDR) {
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
-		if err := b.ethBroadcaster.Close(); err != nil {
+		if err := b.ethBroadcaster.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 		}
-		if err := b.ethConfirmer.Close(); err != nil {
+		if err := b.ethConfirmer.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 		}
 
@@ -349,7 +349,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(addresses []ADDR) {
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.ethBroadcaster.Start(ctx); err != nil {
+					if err := b.ethBroadcaster.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -368,7 +368,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(addresses []ADDR) {
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.ethConfirmer.Start(ctx); err != nil {
+					if err := b.ethConfirmer.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue

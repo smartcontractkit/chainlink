@@ -129,6 +129,8 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
+	initSync  sync.Mutex
+	isStarted bool
 
 	nConsecutiveBlocksChainTooShort int
 }
@@ -143,7 +145,7 @@ func NewEthConfirmer(
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
 ) *EvmEthConfirmer {
-	ctx, cancel := context.WithCancel(context.Background())
+
 	lggr = lggr.Named("EthConfirmer")
 
 	return &EvmEthConfirmer{
@@ -151,20 +153,20 @@ func NewEthConfirmer(
 		lggr:                            lggr,
 		ethClient:                       ethClient,
 		TxAttemptBuilder:                txAttemptBuilder,
+		resumeCallback:                  nil,
 		config:                          config,
 		chainID:                         *ethClient.ChainID(),
 		ks:                              keystore,
 		addresses:                       addresses,
 		mb:                              utils.NewSingleMailbox[*evmtypes.Head](),
-		ctx:                             ctx,
-		ctxCancel:                       cancel,
-		wg:                              sync.WaitGroup{},
+		initSync:                        sync.Mutex{},
+		isStarted:                       false,
 		nConsecutiveBlocksChainTooShort: 0,
 	}
 }
 
 // Start is a comment to appease the linter
-func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) error {
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EvmGasBumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (EVM.GasEstimator.BumpThreshold set to 0)", "ethGasBumpThreshold", 0)
@@ -172,20 +174,45 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) erro
 			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EvmGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EvmGasBumpThreshold())
 		}
 
-		ec.wg.Add(1)
-		go ec.runLoop()
-
-		return nil
+		return ec.startInternal(ctx)
 	})
+}
+
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) startInternal(_ context.Context) error {
+	ec.initSync.Lock()
+	defer ec.initSync.Unlock()
+	if ec.isStarted == true {
+		return errors.New("EthConfirmer is already started")
+	}
+	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
+	ec.wg = sync.WaitGroup{}
+	ec.wg.Add(1)
+	go ec.runLoop()
+	ec.isStarted = true
+	return nil
 }
 
 // Close is a comment to appease the linter
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
-		ec.ctxCancel()
-		ec.wg.Wait()
-		return nil
+		return ec.closeInternal()
 	})
+}
+
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) closeInternal() error {
+	ec.initSync.Lock()
+	defer ec.initSync.Unlock()
+	if ec.isStarted == false {
+		return errors.Wrap(utils.ErrAlreadyStopped, "EthConfirmer is not started")
+	}
+	ec.ctxCancel()
+	ec.wg.Wait()
+	ec.isStarted = false
+	return nil
+}
+
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) SetResumeCallback(callback ResumeCallback) {
+	ec.resumeCallback = callback
 }
 
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Name() string {

@@ -223,7 +223,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth) (*txmgr.EvmEthConfirmer, error) {
+func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmEthConfirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
@@ -233,6 +233,7 @@ func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, e
 		return nil, err
 	}
 	ec := txmgr.NewEthConfirmer(txStorageService, ethClient, config, ks, addresses, txBuilder, lggr)
+	ec.SetResumeCallback(fn)
 	return ec, nil
 }
 
