@@ -134,20 +134,21 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress)
-		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, fromAddress, *etx.FromAddress.NativeAddress())
+		assert.Equal(t, toAddress, *etx.ToAddress.NativeAddress())
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress)
-		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, fromAddress, *etx.FromAddress.NativeAddress())
+		assert.Equal(t, toAddress, *etx.ToAddress.NativeAddress())
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
@@ -247,7 +248,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 		etx := tx.(txmgr.EvmEthTx)
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
 		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
@@ -288,7 +290,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 		etx := tx.(txmgr.EvmEthTx)
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
@@ -326,7 +329,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		etx := tx.(txmgr.EvmEthTx)
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
@@ -489,6 +493,8 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
+	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)
 
 	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst, eventBroadcaster)
 	require.NoError(t, err)
@@ -514,8 +520,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	addr := []*evmtypes.Address{evmtypes.NewAddress(keyState.Address.Address())}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
-	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), keyState.Address.Address()).Return(uint64(0), nil).Maybe()
-	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
+
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())

@@ -907,7 +907,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, txmgr.EthTxConfirmed, etx3.State)
 
 		ethReceipt := etx3.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, txmReceipt3.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, txmReceipt3.BlockHash, *ethReceipt.BlockHash.NativeHash())
 
 		etx2, err = txStorageService.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
@@ -923,7 +923,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Len(t, etx0.EthTxAttempts, 2)
 		require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
 		ethReceipt = etx0.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, txmReceipt0.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, txmReceipt0.BlockHash, *ethReceipt.BlockHash.NativeHash())
 	})
 
 	// STATE
@@ -971,7 +971,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, txmgr.EthTxConfirmed, etx2.State)
 
 		ethReceipt := etx2.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, txmReceipt.BlockHash, *ethReceipt.BlockHash.NativeHash())
 
 		etx1, err = txStorageService.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)

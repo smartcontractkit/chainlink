@@ -383,8 +383,8 @@ func MustInsertRevertedEthReceipt(t *testing.T, txStorageService txmgr.EvmTxStor
 
 // Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmEthTx) {
-	txHashBytes, _ := etx.EthTxAttempts[0].Hash.MarshalText()
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStorageService, nonce, blockNum, fromAddress)
+	txHashBytes, _ := etx.EthTxAttempts[0].Hash.MarshalText()
 	MustInsertEthReceipt(t, txStorageService, blockNum, utils.NewHash(), common.BytesToHash(txHashBytes))
 	return etx
 }

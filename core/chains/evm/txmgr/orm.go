@@ -68,7 +68,7 @@ func dbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
 
 func dbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
 	txHash := evmtypes.NewTxHash(receipt.TxHash)
-	blockHash := evmtypes.NewBlockHash(receipt.TxHash)
+	blockHash := evmtypes.NewBlockHash(receipt.BlockHash)
 
 	return EvmReceipt{
 		ID:               receipt.ID,
