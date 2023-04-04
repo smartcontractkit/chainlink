@@ -420,14 +420,17 @@ func (c *coordinator) ReportBlocks(
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
 	fulfilledBlocks := c.getFulfilledBlocks(outputsServedLogs)
+	fulfilledBlocksMapping := make(map[block]struct{})
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
+		fulfilledBlocksMapping[f] = struct{}{}
 	}
 
 	c.lggr.Tracew("got fulfilled blocks", "fulfilled", fulfilledBlocks)
 
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
+	finalBlocksRequested := make(map[block]struct{})
 	for block := range blocksRequested {
 		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
 			blocks = append(blocks, ocr2vrftypes.Block{
@@ -435,6 +438,7 @@ func (c *coordinator) ReportBlocks(
 				Height:            block.blockNumber,
 				ConfirmationDelay: block.confDelay,
 			})
+			finalBlocksRequested[block] = struct{}{}
 			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 		} else {
 			break
@@ -445,7 +449,7 @@ func (c *coordinator) ReportBlocks(
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
-	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
+	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit, fulfilledBlocksMapping, finalBlocksRequested)
 	c.emitReportBlocksMetrics(len(blocks), len(callbacks))
 
 	// Pull request IDs from elligible callbacks for logging. There should only be
@@ -574,6 +578,8 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	confirmationDelays map[uint32]struct{},
 	currentHeight uint64,
 	currentBatchGasLimit int64,
+	fulfilledBlocks map[block]struct{},
+	blocksRequested map[block]struct{},
 ) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
 
 	/**
@@ -605,6 +611,20 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		// can fit into the current batch or reaches the end of the sorted callbacks slice.
 		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (int64(r.GasAllowance) + c.coordinatorConfig.CallbackOverhead) {
 			continue
+		}
+
+		// If the block for a callback has not been fulfilled on-chain, is not in-flight, and is not included in the current batch,
+		// then ignore the request.
+		requestBlock := block{confDelay: uint32(r.ConfDelay.Int64()), blockNumber: r.NextBeaconOutputHeight}
+		if _, ok := fulfilledBlocks[requestBlock]; !ok {
+			if _, ok := blocksRequested[requestBlock]; !ok {
+				cacheKey := getBlockCacheKey(r.NextBeaconOutputHeight, r.ConfDelay.Uint64())
+				t := c.toBeTransmittedBlocks.GetItem(cacheKey)
+
+				if t == nil {
+					continue
+				}
+			}
 		}
 
 		requestID := r.RequestID

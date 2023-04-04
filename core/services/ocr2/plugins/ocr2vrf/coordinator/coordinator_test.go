@@ -329,6 +329,73 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
+	t.Run("happy path, callback requests and an already fulfilled block", func(t *testing.T) {
+		beaconAddress := newAddress(t)
+		coordinatorAddress := newAddress(t)
+
+		latestHeadNumber := uint64(200)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		require.NoError(t, err)
+
+		tp := newTopics()
+
+		lookbackBlocks := uint64(5)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true, true, lookbackBlocks)
+		lp.On(
+			"LogsWithSigs",
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.outputsServedTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000, coordinatorAddress),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000, coordinatorAddress),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000, coordinatorAddress),
+			newOutputsServedLog(t, []vrf_coordinator.VRFBeaconTypesOutputServed{
+				{
+					Height:            195,
+					ConfirmationDelay: big.NewInt(3),
+					ProofG1X:          proofG1X,
+					ProofG1Y:          proofG1Y,
+				},
+			}, coordinatorAddress),
+		}, nil).Once()
+
+		c := &coordinator{
+			onchainRouter:            onchainRouter,
+			beaconAddress:            beaconAddress,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
+		}
+
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 0)
+		assert.Len(t, callbacks, 3)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
+	})
+
 	t.Run("happy path, beacon requests, beacon fulfillments", func(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
