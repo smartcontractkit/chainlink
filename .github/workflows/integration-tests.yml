@@ -155,7 +155,7 @@ jobs:
           - name: automation
             nodes: 9
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: ci-smoke-automation-evm-simulated
           - name: cron
             nodes: 1
             os: ubuntu-latest
@@ -167,11 +167,11 @@ jobs:
           - name: keeper
             nodes: 30
             os: ubuntu20.04-4cores-16GB
-            pyroscope_env: ""
+            pyroscope_env: ci-smoke-keeper-evm-simulated
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: ocr
             nodes: 1
             os: ubuntu-latest
@@ -183,15 +183,15 @@ jobs:
           - name: vrf
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: ocr2vrf
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: ci-smoke-ocr2vrf-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
@@ -204,7 +204,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
