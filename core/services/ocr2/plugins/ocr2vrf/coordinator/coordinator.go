@@ -839,11 +839,13 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	blocksRequested := []blockInReport{}
 	callbacksRequested := []callbackInReport{}
 
+	var zeroProof = [32]byte{}
+
 	// Get all requested blocks and callbacks.
 	for _, output := range report.Outputs {
-		// If the VRF proof size is 0, the block is not included in this output. We still
-		// check for callbacks in the ouptut.
-		if len(output.VRFProof) > 0 {
+		// If the VRF proof is the zero string, the block is not included in this
+		// output. We still check for callbacks in the ouptut.
+		if !bytes.Equal(output.VRFProof[:], zeroProof[:]) {
 			bR := blockInReport{
 				block: block{
 					blockNumber: output.BlockHeight,
