@@ -402,7 +402,11 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) processUnstartedEthTxs(ctx 
 					return errors.Wrap(err, "CountUnstartedTransactions failed"), true
 				}
 				eb.logger.Warnw(fmt.Sprintf(`Transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, nUnstarted, maxInFlightTransactions, label.MaxInFlightTransactionsWarning), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
-				time.Sleep(InFlightTransactionRecheckInterval)
+				select {
+				case <-time.After(InFlightTransactionRecheckInterval):
+				case <-ctx.Done():
+					return context.Cause(ctx), false
+				}
 				continue
 			}
 		}

@@ -295,7 +295,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(addresses []ADDR) {
+func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -328,8 +328,8 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(addresses []ADDR) {
 			close(r.done)
 		}
 
-		b.ethBroadcaster.addresses = addresses
-		b.ethConfirmer.addresses = addresses
+		b.ethBroadcaster.addresses = enabledAddresses
+		b.ethConfirmer.addresses = enabledAddresses
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -426,13 +426,13 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(addresses []ADDR) {
 				continue
 			}
 			var err error
-			addresses, err = b.keyStore.EnabledAddressesForChain(&b.chainID)
+			enabledAddresses, err = b.keyStore.EnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
-			b.logger.Debugw("Keys changed, reloading", "keyStates", addresses)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", enabledAddresses)
 
 			execReset(nil)
 		}
