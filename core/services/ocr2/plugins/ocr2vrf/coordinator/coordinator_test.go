@@ -698,6 +698,87 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
+	t.Run("happy path, callback requests & block fulfillment in-flight", func(t *testing.T) {
+		beaconAddress := newAddress(t)
+		coordinatorAddress := newAddress(t)
+
+		latestHeadNumber := uint64(200)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		require.NoError(t, err)
+
+		tp := newTopics()
+
+		lookbackBlocks := uint64(5)
+		// Do not include latestHeadNumber in "GetBlocksRange" call for initial "ReportWillBeTransmitted."
+		// Do not include recent blockhashes in range either.
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, false, false /* includeLatestHeadInRange */, 0)
+
+		c := &coordinator{
+			onchainRouter:            onchainRouter,
+			beaconAddress:            beaconAddress,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(int64(lookbackBlocks) * int64(time.Second))),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			blockhashLookback:        lookbackBlocks,
+		}
+
+		report := ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 195,
+			RecentBlockHash:   common.HexToHash("0x001"),
+			Outputs: []ocr2vrftypes.AbstractVRFOutput{
+				{
+					BlockHeight:       195,
+					ConfirmationDelay: 195,
+					Callbacks:         []ocr2vrftypes.AbstractCostedCallbackRequest{},
+				},
+			},
+		}
+
+		err = c.ReportWillBeTransmitted(testutils.Context(t), report)
+		require.NoError(t, err)
+
+		// Include latestHeadNumber in "GetBlocksRange" call for "ReportBlocks" call.
+		// Include recent blockhashes in range.
+		lp = getLogPoller(t, []uint64{195}, latestHeadNumber, true, true /* includeLatestHeadInRange */, lookbackBlocks)
+		c.lp = lp
+		lp.On(
+			"LogsWithSigs",
+			int64(latestHeadNumber-lookbackBlocks),
+			int64(latestHeadNumber),
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.outputsServedTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000, coordinatorAddress),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000, coordinatorAddress),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000, coordinatorAddress),
+		}, nil).Once()
+
+		blocks, callbacks, recentHeightStart, recentBlocks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 1)
+		assert.Len(t, callbacks, 3)
+		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Len(t, recentBlocks, int(lookbackBlocks))
+	})
+
 	t.Run("happy path, blocks requested hits batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
