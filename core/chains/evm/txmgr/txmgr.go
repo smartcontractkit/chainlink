@@ -184,7 +184,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(b.ethBroadcaster, b.ethConfirmer, enabledAddresses)
+		go b.runLoop(enabledAddresses)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -280,7 +280,7 @@ func (b *Txm) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []common.Address) {
+func (b *Txm) runLoop(enabledAddresses []common.Address) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -301,10 +301,10 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
-		if err := eb.Close(); err != nil {
+		if err := b.ethBroadcaster.Close(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 		}
-		if err := ec.Close(); err != nil {
+		if err := b.ethConfirmer.Close(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 		}
 
@@ -313,8 +313,8 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
-		ec = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, false)
+		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
@@ -334,7 +334,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := eb.Start(ctx); err != nil {
+					if err := b.ethBroadcaster.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -353,7 +353,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := ec.Start(ctx); err != nil {
+					if err := b.ethConfirmer.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -372,9 +372,9 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 	for {
 		select {
 		case address := <-b.trigger:
-			eb.Trigger(address)
+			b.ethBroadcaster.Trigger(address)
 		case head := <-b.chHeads:
-			ec.mb.Deliver(head)
+			b.ethConfirmer.mb.Deliver(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -394,10 +394,10 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, enabledAddresses []c
 			//
 			// In this case, we don't care about stopping them since they are
 			// already "stopped", hence the usage of utils.EnsureClosed.
-			if err := utils.EnsureClosed(eb); err != nil {
+			if err := utils.EnsureClosed(b.ethBroadcaster); err != nil {
 				b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 			}
-			if err := utils.EnsureClosed(ec); err != nil {
+			if err := utils.EnsureClosed(b.ethConfirmer); err != nil {
 				b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 			}
 			return
