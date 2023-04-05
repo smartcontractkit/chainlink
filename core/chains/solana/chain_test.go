@@ -48,7 +48,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	testChain := chain{
 		id:          "devnet",
-		nodes:       solORM.NodesForChain,
+		nodes:       solORM.Nodes,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
@@ -219,20 +219,18 @@ type mockConfigs struct {
 	nodesForChain []db.Node
 }
 
-func (m *mockConfigs) GetNodesByChainIDs(chainIDs []string) (nodes []db.Node, err error) {
-	panic("implement me")
-}
-
-func (m *mockConfigs) NodesForChain(chainID string, offset, limit int) (nodes []db.Node, count int, err error) {
-	return m.nodesForChain, len(m.nodesForChain), nil
+func (m *mockConfigs) Nodes(chainID string) (nodes []db.Node, err error) {
+	return m.nodesForChain, nil
 }
 
 func (m *mockConfigs) Chains(offset, limit int, ids ...string) ([]chains.ChainConfig, int, error) {
 	panic("unimplemented")
 }
 
-func (m *mockConfigs) NodeNamed(s string) (db.Node, error) { panic("unimplemented") }
+func (m *mockConfigs) Node(s string) (db.Node, error) { panic("unimplemented") }
 
-func (m *mockConfigs) Nodes(offset, limit int) (nodes []db.Node, count int, err error) {
+func (m *mockConfigs) NodeStatus(s string) (chains.NodeStatus, error) { panic("unimplemented") }
+
+func (m *mockConfigs) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []chains.NodeStatus, count int, err error) {
 	panic("unimplemented")
 }
