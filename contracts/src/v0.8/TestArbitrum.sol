@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {ArbSys} from "./ArbSys.sol";
+import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {ChainSpecificUtil} from "./ChainSpecificUtil.sol";
 
 contract TestArbitrum {
