@@ -264,7 +264,6 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
-	require.NoError(t, set.Set("skip-address-checks", "true"))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
 	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(endingNonce, 10)))
 	require.NoError(t, set.Set("gasPriceWei", "100000000000"))
@@ -338,12 +337,12 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
 			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
-			require.NoError(t, set.Set("skip-address-checks", "true"))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
 			require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
 			require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
 			require.NoError(t, set.Set("gasLimit", strconv.FormatUint(gasLimit, 10)))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
+
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
 
@@ -363,13 +362,13 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	tests := []struct {
-		name             string
-		checkAddressFlag string
-		shouldError      bool
-		errorContains    string
+		name          string
+		enableAddress bool
+		shouldError   bool
+		errorContains string
 	}{
-		{"skip address check", "true", false, ""},
-		{"dont skip address check", "false", true, "exists but is has not been enabled for chain"},
+		{"Rebroadcast: enabled address", true, false, ""},
+		{"Rebroadcast: disabled address", false, true, "exists but is disabled for chain"},
 	}
 
 	for _, test := range tests {
@@ -383,6 +382,10 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+
+			if !test.enableAddress {
+				keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+			}
 
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
@@ -408,7 +411,6 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
-			require.NoError(t, set.Set("skip-address-checks", test.checkAddressFlag))
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
 			if test.shouldError {

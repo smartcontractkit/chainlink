@@ -108,10 +108,6 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:  "gasLimit, gas-limit",
 					Usage: "OPTIONAL: gas limit to use for each transaction ",
 				},
-				cli.BoolFlag{
-					Name:  "skip-address-checks",
-					Usage: "OPTIONAL: skip address verification checks ",
-				},
 			},
 		},
 		{
@@ -529,7 +525,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	overrideGasLimit := c.Uint("gasLimit")
 	addressHex := c.String("address")
 	chainIDStr := c.String("evmChainID")
-	skipAddressChecks := c.Bool("skip-address-checks")
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
@@ -589,8 +584,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	err = keyStore.Eth().CheckEnabled(address, chainID)
-	if err != nil && !skipAddressChecks {
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
