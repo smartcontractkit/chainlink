@@ -84,7 +84,7 @@ func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (
 
 func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := cfg.ChainID()
-	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
+	l := opts.Logger.With("evmChainID", chainID.String())
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
