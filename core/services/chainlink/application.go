@@ -102,7 +102,7 @@ type Application interface {
 
 	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
 	// set to true, consumers will reprocess data even if it has already been processed.
-	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
+	ReplayFromBlock(ctx context.Context, chainID *big.Int, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -791,16 +791,19 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 }
 
 // ReplayFromBlock implements the Application interface.
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
+func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainID *big.Int, number uint64, forceBroadcast bool) error {
 	chain, err := app.Chains.EVM.Get(chainID)
 	if err != nil {
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	if app.Config.FeatureLogPoller() {
-		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
-			return err
-		}
+		go func() {
+			err := chain.LogPoller().Replay(ctx, int64(number))
+			if err != nil {
+				app.logger.Error(err)
+			}
+		}()
 	}
 	return nil
 }
