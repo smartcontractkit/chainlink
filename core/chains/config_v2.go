@@ -49,27 +49,28 @@ func (o *configChains[I]) Chains(offset, limit int, ids ...I) (chains []ChainCon
 	return
 }
 
-// configNodes is a generic Configs for nodes.
-type configNodes[I ID, N Node] struct {
-	v2 nodeConfigsV2[I, N]
-}
-
 type nodeConfigsV2[I ID, N Node] interface {
 	Node(name string) (N, error)
-	Nodes() []N
-	NodesByID(...I) []N
+	Nodes(chainID I) ([]N, error)
+
+	NodeStatus(name string) (NodeStatus, error)
+	NodeStatuses(chainIDs ...string) (nodes []NodeStatus, err error)
+}
+
+// configNodes is a generic Configs for nodes.
+type configNodes[I ID, N Node] struct {
+	nodeConfigsV2[I, N]
 }
 
 func newConfigNodes[I ID, N Node](d nodeConfigsV2[I, N]) *configNodes[I, N] {
-	return &configNodes[I, N]{v2: d}
+	return &configNodes[I, N]{d}
 }
 
-func (o *configNodes[I, N]) NodeNamed(name string) (node N, err error) {
-	return o.v2.Node(name)
-}
-
-func (o *configNodes[I, N]) Nodes(offset, limit int) (nodes []N, count int, err error) {
-	nodes = o.v2.Nodes()
+func (o *configNodes[I, N]) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []NodeStatus, count int, err error) {
+	nodes, err = o.nodeConfigsV2.NodeStatuses(chainIDs...)
+	if err != nil {
+		return
+	}
 	count = len(nodes)
 	if offset < len(nodes) {
 		nodes = nodes[offset:]
@@ -79,24 +80,5 @@ func (o *configNodes[I, N]) Nodes(offset, limit int) (nodes []N, count int, err 
 	if limit > 0 && len(nodes) > limit {
 		nodes = nodes[:limit]
 	}
-	return
-}
-
-func (o *configNodes[I, N]) NodesForChain(chainID I, offset, limit int) (nodes []N, count int, err error) {
-	nodes = o.v2.NodesByID(chainID)
-	count = len(nodes)
-	if offset < len(nodes) {
-		nodes = nodes[offset:]
-	} else {
-		nodes = nil
-	}
-	if limit > 0 && len(nodes) > limit {
-		nodes = nodes[:limit]
-	}
-	return
-}
-
-func (o *configNodes[I, N]) GetNodesByChainIDs(chainIDs []I) (nodes []N, err error) {
-	nodes = o.v2.NodesByID(chainIDs...)
 	return
 }

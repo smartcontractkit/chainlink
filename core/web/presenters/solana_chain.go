@@ -1,8 +1,6 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
@@ -27,10 +25,7 @@ func NewSolanaChainResource(chain chains.ChainConfig) SolanaChainResource {
 
 // SolanaNodeResource is a Solana node JSONAPI resource.
 type SolanaNodeResource struct {
-	JAID
-	Name          string `json:"name"`
-	SolanaChainID string `json:"solanaChainID"`
-	SolanaURL     string `json:"solanaURL"`
+	NodeResource
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -39,11 +34,12 @@ func (r SolanaNodeResource) GetName() string {
 }
 
 // NewSolanaNodeResource returns a new SolanaNodeResource for node.
-func NewSolanaNodeResource(node db.Node) SolanaNodeResource {
-	return SolanaNodeResource{
-		JAID:          NewJAID(node.Name),
-		Name:          node.Name,
-		SolanaChainID: node.SolanaChainID,
-		SolanaURL:     node.SolanaURL,
-	}
+func NewSolanaNodeResource(node chains.NodeStatus) SolanaNodeResource {
+	return SolanaNodeResource{NodeResource{
+		JAID:    NewJAID(node.Name),
+		ChainID: node.ChainID,
+		Name:    node.Name,
+		State:   node.State,
+		Config:  node.Config,
+	}}
 }

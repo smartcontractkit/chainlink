@@ -34,7 +34,7 @@ import (
 
 type mocks struct {
 	bridgeORM   *bridgeORMMocks.ORM
-	evmORM      *evmtest.MockORM
+	evmORM      *evmtest.TestConfigs
 	jobORM      *jobORMMocks.ORM
 	sessionsORM *sessionsMocks.ORM
 	pipelineORM *pipelineMocks.ORM
@@ -92,7 +92,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
 		bridgeORM:   bridgeORMMocks.NewORM(t),
-		evmORM:      evmtest.NewMockORM(nil, nil),
+		evmORM:      evmtest.NewTestConfigs(),
 		jobORM:      jobORMMocks.NewORM(t),
 		feedsSvc:    feedsMocks.NewService(t),
 		sessionsORM: sessionsMocks.NewORM(t),

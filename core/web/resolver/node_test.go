@@ -6,11 +6,11 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -19,7 +19,6 @@ func TestResolver_Nodes(t *testing.T) {
 
 	var (
 		chainID = *utils.NewBigI(1)
-		nodeID  = int32(200)
 
 		query = `
 			query GetNodes {
@@ -46,15 +45,15 @@ func TestResolver_Nodes(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.chainSet.On("GetNodes", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.Node{
+				f.Mocks.chainSet.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]chains.NodeStatus{
 					{
-						ID:         nodeID,
-						Name:       "node-name",
-						EVMChainID: chainID,
+						Name:    "node-name",
+						ChainID: chainID.String(),
+						Config:  `Name = 'node-name'`,
 					},
 				}, 1, nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(chains.ChainConfig{ID: chainID.String()})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 			},
 			query: query,
 			result: `
@@ -77,7 +76,7 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.chainSet.On("GetNodes", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.Node{}, 0, gError)
+				f.Mocks.chainSet.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]chains.NodeStatus{}, 0, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:  query,
@@ -114,8 +113,7 @@ func Test_NodeQuery(t *testing.T) {
 			}
 		}`
 
-	nodeID := int32(200)
-	const name = "node-name"
+	var name = "node-name"
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "node"),
@@ -124,12 +122,11 @@ func Test_NodeQuery(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.AddNodes(types.Node{
-					ID:      nodeID,
-					Name:    name,
-					WSURL:   null.StringFrom("ws://some-url"),
-					HTTPURL: null.StringFrom("http://some-url"),
-				})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{Nodes: []*v2.Node{{
+					Name:    &name,
+					WSURL:   models.MustParseURL("ws://some-url"),
+					HTTPURL: models.MustParseURL("http://some-url"),
+				}}})
 			},
 			query: query,
 			result: `
