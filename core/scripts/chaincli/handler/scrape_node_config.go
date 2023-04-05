@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
@@ -33,11 +34,11 @@ type NodeInfo struct {
 	AdminAddress          common.Address `json:"adminAddress"`
 	CSAKeys               []*CSAKeyInfo  `json:"csaKeys"`
 	DisplayName           string         `json:"displayName"`
+	NodeAddress           []string       `json:"nodeAddress"`
 	Ocr2ConfigPublicKey   []string       `json:"ocr2ConfigPublicKey"`
-	Ocr2ID                []string       `json:"ocr2ID"`
+	Ocr2Id                []string       `json:"ocr2Id"`
 	Ocr2OffchainPublicKey []string       `json:"ocr2OffchainPublicKey"`
 	Ocr2OnchainPublicKey  []string       `json:"ocr2OnchainPublicKey"`
-	NodeAddress           []string       `json:"nodeAddress"`
 	OcrSigningAddress     []string       `json:"ocrSigningAddress"`
 	PayeeAddress          common.Address `json:"payeeAddress"`
 	PeerId                []string       `json:"peerId"`
@@ -57,9 +58,9 @@ func (node NodeInfo) Equals(ni NodeInfo, log logger.Logger) bool {
 		}
 	}
 
-	if !cmp.Equal(node.Ocr2ID, ni.Ocr2ID) {
+	if !cmp.Equal(node.Ocr2Id, ni.Ocr2Id) {
 		diffs++
-		log.Errorf("OCR2 ID differs. The node returns %s but weiwatcher has %s", node.Ocr2ID, ni.Ocr2ID)
+		log.Errorf("OCR2 ID differs. The node returns %s but weiwatcher has %s", node.Ocr2Id, ni.Ocr2Id)
 	}
 
 	if !cmp.Equal(node.NodeAddress, ni.NodeAddress) {
@@ -67,12 +68,7 @@ func (node NodeInfo) Equals(ni NodeInfo, log logger.Logger) bool {
 		log.Errorf("Node address differs. The node returns %s but weiwatcher has %s", node.NodeAddress, ni.NodeAddress)
 	}
 
-	// preprocess the Peer ID from node bc it has p2p_ prefix
-	var peerIds []string
-	for _, pid := range node.PeerId {
-		peerIds = append(peerIds, pid[4:])
-	}
-	if !cmp.Equal(peerIds, ni.PeerId) {
+	if !cmp.Equal(node.PeerId, ni.PeerId) {
 		diffs++
 		log.Errorf("Peer Id differs. The node returns %s but weiwatcher has %s", node.PeerId, ni.PeerId)
 	}
@@ -137,9 +133,15 @@ func (h *baseHandler) scrapeNodes(ctx context.Context, log logger.Logger) {
 	if !h.cfg.VerifyNodes {
 		return
 	}
-	nodeInfos := h.fetchNodeInfos(ctx, log)
+	nodeInfos := h.fetchNodeInfosFromWeiwatchers(ctx, log)
 	cnt := 0
 	for _, ni := range nodeInfos {
+		if len(ni.NodeAddress) == 0 {
+			log.Fatalf("%s node is missing node address in RDD weiwatchers.", ni.DisplayName)
+		}
+		if len(ni.NodeAddress) > 1 {
+			log.Warnf("%s node has more than 1 node addresses. is this a multi-chain node? or this node used to serve another chain?", ni.DisplayName)
+		}
 		nodeAddr := ni.NodeAddress[0]
 		node := nodes[nodeAddr]
 		if node == nil {
@@ -160,8 +162,8 @@ func (h *baseHandler) scrapeNodes(ctx context.Context, log logger.Logger) {
 	}
 }
 
-func (h *baseHandler) fetchNodeInfos(ctx context.Context, log logger.Logger) []NodeInfo {
-	client := http.DefaultClient
+func (h *baseHandler) fetchNodeInfosFromWeiwatchers(ctx context.Context, log logger.Logger) []NodeInfo {
+	client := http.Client{Timeout: 1 * time.Minute}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.cfg.NodeConfigURL, nil)
 	if err != nil {
@@ -182,11 +184,8 @@ func (h *baseHandler) fetchNodeInfos(ctx context.Context, log logger.Logger) []N
 	return nodeInfos
 }
 
-func (h *baseHandler) scrapeNodeInfo(wg *sync.WaitGroup, i int, cl cmd.HTTPClient, nodes map[string]*NodeInfo, log logger.Logger) {
-	defer wg.Done()
-
-	// get node addresses
-	resp, err := nodeRequest(cl, "/v2/keys/eth")
+func (h *baseHandler) fetchNodeInfosFromNodes(i int, cl cmd.HTTPClient, log logger.Logger) ([]string, *cmd.OCR2KeyBundlePresenter, string, *cmd.CSAKeyPresenters) {
+	resp, err := nodeRequest(cl, ethKeysEndpoint)
 	if err != nil {
 		log.Fatalf("failed to get ETH keys: %s", err)
 	}
@@ -198,33 +197,24 @@ func (h *baseHandler) scrapeNodeInfo(wg *sync.WaitGroup, i int, cl cmd.HTTPClien
 	for index := range ethKeys {
 		nodeAddresses = append(nodeAddresses, common.HexToAddress(ethKeys[index].Address).Hex())
 	}
-	ni := &NodeInfo{
-		NodeAddress: nodeAddresses,
+	if len(nodeAddresses) == 0 {
+		log.Fatalf("%d th node is missing a node address. Has this node been properly configured by infra?", i)
+	}
+	if len(nodeAddresses) > 1 {
+		log.Warnf("%d th node has more than 1 node addresses. is this a multi-chain node? or this node used to serve another chain?", i)
 	}
 
-	// get node ocr2 config
 	ocr2Config, err := getNodeOCR2Config(cl)
 	if err != nil {
 		log.Fatalf("failed to get node OCR2 config: %s", err)
 	}
-	ni.Ocr2ID = []string{ocr2Config.ID}
-	ni.Ocr2OnchainPublicKey = []string{ocr2Config.OnchainPublicKey}
-	ni.Ocr2OffchainPublicKey = []string{ocr2Config.OffChainPublicKey}
-	ni.Ocr2ConfigPublicKey = []string{ocr2Config.ConfigPublicKey}
 
-	// get node p2p config
-	resp, err = nodeRequest(cl, "/v2/keys/p2p")
+	peerId, err := getP2PKeyID(cl)
 	if err != nil {
 		log.Fatalf("failed to get p2p keys: %s", err)
 	}
-	var p2pKeys cmd.P2PKeyPresenters
-	if err = jsonapi.Unmarshal(resp, &p2pKeys); err != nil {
-		log.Fatalf("failed to unmarshal response body: %s", err)
-	}
-	ni.PeerId = []string{p2pKeys[0].PeerID}
 
-	// get node csa config
-	resp, err = nodeRequest(cl, "/v2/keys/csa")
+	resp, err = nodeRequest(cl, csaKeysEndpoint)
 	if err != nil {
 		log.Fatalf("failed to get CSA keys: %s", err)
 	}
@@ -232,18 +222,41 @@ func (h *baseHandler) scrapeNodeInfo(wg *sync.WaitGroup, i int, cl cmd.HTTPClien
 	if err = jsonapi.Unmarshal(resp, &csaKeys); err != nil {
 		log.Fatalf("failed to unmarshal response body: %s", err)
 	}
+	if len(csaKeys) == 0 {
+		log.Fatalf("%d th node does not have CSA keys configured", i)
+	}
+	if len(csaKeys) > 1 {
+		log.Warnf("%d th node has more than 1 CSA keys configured. Please verify with RTSP about which CSA key to use.", i)
+	}
+
+	return nodeAddresses, ocr2Config, peerId, &csaKeys
+}
+
+func (h *baseHandler) scrapeNodeInfo(wg *sync.WaitGroup, i int, cl cmd.HTTPClient, nodes map[string]*NodeInfo, log logger.Logger) {
+	defer wg.Done()
+
+	nodeAddresses, ocr2Config, peerId, csaKeys := h.fetchNodeInfosFromNodes(i, cl, log)
+
 	// this assumes the nodes are not multichain nodes and have only 1 node address assigned.
 	// for a multichain node, we can pass in a chain id and filter `ethKeys` array based on the chain id
 	// in terms of CSA keys, we need to wait for RTSP to support multichain nodes, which may involve creating one
 	// CSA key for each chain. but this is still pending so assume only 1 CSA key on a node for now.
 	csaKey := &CSAKeyInfo{
 		NodeAddress: nodeAddresses[0],
-		PublicKey:   csaKeys[0].PubKey,
+		PublicKey:   (*csaKeys)[0].PubKey,
 	}
-	ni.CSAKeys = []*CSAKeyInfo{csaKey}
+	ni := &NodeInfo{
+		CSAKeys:               []*CSAKeyInfo{csaKey},
+		NodeAddress:           nodeAddresses,
+		Ocr2ConfigPublicKey:   []string{ocr2Config.ConfigPublicKey},
+		Ocr2Id:                []string{ocr2Config.ID},
+		Ocr2OffchainPublicKey: []string{ocr2Config.OffChainPublicKey},
+		Ocr2OnchainPublicKey:  []string{ocr2Config.OnchainPublicKey},
+		OcrSigningAddress:     []string{common.HexToAddress(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_")).Hex()},
+		PeerId:                []string{peerId},
+	}
 
-	ni.OcrSigningAddress = []string{common.HexToAddress(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_")).Hex()}
-	err = writeJSON(ni, strconv.Itoa(i)+".json")
+	err := writeJSON(ni, strconv.Itoa(i)+".json")
 	if err != nil {
 		panic(fmt.Errorf("failed to write node info to JSON: %v", err))
 	}
