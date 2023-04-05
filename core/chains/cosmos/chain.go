@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -94,11 +93,11 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
+		nodes, err := c.cfgs.Nodes(c.id)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get nodes")
 		}
-		if cnt == 0 {
+		if len(nodes) == 0 {
 			return nil, errors.New("no nodes available")
 		}
 		nodeIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(nodes))))
@@ -108,7 +107,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
-		node, err = c.cfgs.NodeNamed(name)
+		node, err = c.cfgs.Node(name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get node named %s", name)
 		}
