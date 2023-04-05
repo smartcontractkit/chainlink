@@ -9,8 +9,8 @@ import "./ChainSpecificUtil.sol";
  *   the 256 block limit imposed by the BLOCKHASH opcode.
  *   You may assume that any blockhash stored by the contract is correct.
  *   Note that the contract depends on the format of serialized Ethereum
- *   blocks. If a future hardfork of Ethereum changes that format, the 
- *   logic in this contract may become incorrect and an updated version 
+ *   blocks. If a future hardfork of Ethereum changes that format, the
+ *   logic in this contract may become incorrect and an updated version
  *   would have to be deployed.
  */
 contract BlockhashStore {
@@ -32,7 +32,7 @@ contract BlockhashStore {
    * @notice stores blockhash of the earliest block still available through BLOCKHASH.
    */
   function storeEarliest() external {
-    store(block.number - 256);
+    store(ChainSpecificUtil.getBlockNumber() - 256);
   }
 
   /**
