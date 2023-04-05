@@ -134,98 +134,6 @@ func (_m *ChainSet) Get(id *big.Int) (evm.Chain, error) {
 	return r0, r1
 }
 
-// GetNodes provides a mock function with given fields: ctx, offset, limit
-func (_m *ChainSet) GetNodes(ctx context.Context, offset int, limit int) ([]types.Node, int, error) {
-	ret := _m.Called(ctx, offset, limit)
-
-	var r0 []types.Node
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.Node, int, error)); ok {
-		return rf(ctx, offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.Node); ok {
-		r0 = rf(ctx, offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Node)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int, int) int); ok {
-		r1 = rf(ctx, offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, int, int) error); ok {
-		r2 = rf(ctx, offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// GetNodesByChainIDs provides a mock function with given fields: ctx, chainIDs
-func (_m *ChainSet) GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) ([]types.Node, error) {
-	ret := _m.Called(ctx, chainIDs)
-
-	var r0 []types.Node
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []utils.Big) ([]types.Node, error)); ok {
-		return rf(ctx, chainIDs)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, []utils.Big) []types.Node); ok {
-		r0 = rf(ctx, chainIDs)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Node)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, []utils.Big) error); ok {
-		r1 = rf(ctx, chainIDs)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetNodesForChain provides a mock function with given fields: ctx, chainID, offset, limit
-func (_m *ChainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, offset int, limit int) ([]types.Node, int, error) {
-	ret := _m.Called(ctx, chainID, offset, limit)
-
-	var r0 []types.Node
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, int, int) ([]types.Node, int, error)); ok {
-		return rf(ctx, chainID, offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, int, int) []types.Node); ok {
-		r0 = rf(ctx, chainID, offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Node)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, int, int) int); ok {
-		r1 = rf(ctx, chainID, offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, utils.Big, int, int) error); ok {
-		r2 = rf(ctx, chainID, offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
 // HealthReport provides a mock function with given fields:
 func (_m *ChainSet) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -287,6 +195,46 @@ func (_m *ChainSet) Name() string {
 	}
 
 	return r0
+}
+
+// NodeStatuses provides a mock function with given fields: ctx, offset, limit, chainIDs
+func (_m *ChainSet) NodeStatuses(ctx context.Context, offset int, limit int, chainIDs ...string) ([]chains.NodeStatus, int, error) {
+	_va := make([]interface{}, len(chainIDs))
+	for _i := range chainIDs {
+		_va[_i] = chainIDs[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, offset, limit)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []chains.NodeStatus
+	var r1 int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...string) ([]chains.NodeStatus, int, error)); ok {
+		return rf(ctx, offset, limit, chainIDs...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...string) []chains.NodeStatus); ok {
+		r0 = rf(ctx, offset, limit, chainIDs...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]chains.NodeStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int, int, ...string) int); ok {
+		r1 = rf(ctx, offset, limit, chainIDs...)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, int, int, ...string) error); ok {
+		r2 = rf(ctx, offset, limit, chainIDs...)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // Ready provides a mock function with given fields:

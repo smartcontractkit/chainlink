@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-var ErrEVMNotEnabled = errChainDisabled{name: "EVM", envVar: "EVM.Enabled"}
+var ErrEVMNotEnabled = errChainDisabled{name: "EVM", tomlKey: "EVM.Enabled"}
 
 func NewEVMChainsController(app chainlink.Application) ChainsController {
 	parse := func(s string) (id utils.Big, err error) {

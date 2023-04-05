@@ -115,3 +115,6 @@ $SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
 # Mocks	
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol	
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol	
+
+# Transmission
+$SCRIPTPATH/transmission/native_solc_compile_all_transmission

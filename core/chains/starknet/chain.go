@@ -2,7 +2,6 @@ package starknet
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"time"
 
@@ -73,11 +72,11 @@ func (c *chain) Reader() (starknet.Reader, error) {
 func (c *chain) getClient() (*starknet.Client, error) {
 	var node db.Node
 	var client *starknet.Client
-	nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
+	nodes, err := c.cfgs.Nodes(c.id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
-	if cnt == 0 {
+	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
 	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
