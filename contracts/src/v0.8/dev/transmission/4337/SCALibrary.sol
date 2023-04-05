@@ -23,4 +23,16 @@ library SCALibrary {
     bytes32 hashOfEncoding = keccak256(abi.encode(SCALibrary.TYPEHASH, userOpHash));
     fullHash = keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), SCALibrary.DOMAIN_SEPARATOR, block.chainid, scaAddress, hashOfEncoding));
   }
+
+  function recoverSignature(bytes memory signature, bytes32 fullHash) internal pure returns (address) {
+    bytes32 r;
+    bytes32 s;
+    assembly {
+      r := mload(add(signature, 0x20))
+      s := mload(add(signature, 0x40))
+    }
+    uint8 v = uint8(signature[64]);
+
+    return ecrecover(fullHash, v + 27, r, s);
+  }
 }

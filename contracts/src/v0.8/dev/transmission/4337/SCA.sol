@@ -41,14 +41,7 @@ contract SCA is IAccount {
     // Verify signature on hash.
     bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, address(this));
     bytes memory signature = userOp.signature;
-    bytes32 r;
-    bytes32 s;
-    assembly {
-      r := mload(add(signature, 0x20))
-      s := mload(add(signature, 0x40))
-    }
-    uint8 v = uint8(signature[64]);
-    if (ecrecover(fullHash, v + 27, r, s) != i_owner) {
+    if (SCALibrary.recoverSignature(signature, fullHash) != i_owner) {
       return _packValidationData(true, 0, 0); // signature error
     }
     s_nonce++;
