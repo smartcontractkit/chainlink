@@ -103,8 +103,8 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
-	addresses []ADDR
+	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
+	enabledAddresses []ADDR
 
 	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH]
 
@@ -128,7 +128,7 @@ func NewEthBroadcaster(
 	config Config,
 	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	addresses []*evmtypes.Address,
+	enabledAddresses []*evmtypes.Address,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	nonceSyncer EvmNonceSyncer,
 	logger logger.Logger,
@@ -146,11 +146,9 @@ func NewEthBroadcaster(
 		chainID:          *ethClient.ChainID(),
 		config:           config,
 		eventBroadcaster: eventBroadcaster,
-		addresses:        addresses,
+		enabledAddresses: enabledAddresses,
 		ks:               keystore,
 		checkerFactory:   checkerFactory,
-		triggers:         make(map[string]chan struct{}),
-		chStop:           make(chan struct{}),
 		initSync:         sync.Mutex{},
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
@@ -165,6 +163,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) 
 	})
 }
 
+// startInternal can be called multiple times, in conjunction with closeInternal. The TxMgr uses this functionality to reset broadcaster multiple times in its own lifetime.
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal(ctx context.Context) error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
@@ -178,8 +177,9 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal(ctx context.C
 	}
 	eb.chStop = make(chan struct{})
 	eb.wg = sync.WaitGroup{}
-	eb.wg.Add(len(eb.addresses))
-	for _, k := range eb.addresses {
+	eb.wg.Add(len(eb.enabledAddresses))
+	eb.triggers = make(map[string]chan struct{})
+	for _, k := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
 		eb.triggers[k.String()] = triggerCh
 		go eb.monitorEthTxs(k, triggerCh)

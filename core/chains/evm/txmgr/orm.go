@@ -32,7 +32,7 @@ var ErrKeyNotUpdated = errors.New("evmTxStorageService: Key not updated")
 var ErrInvalidQOpt = errors.New("evmTxStorageService: Invalid QOpt")
 
 type evmTxStorageService struct {
-	txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EvmEthTx, EvmEthTxAttempt, int64, int64]
+	EvmTxStorageService
 	q         pg.Q
 	logger    logger.Logger
 	ctx       context.Context
@@ -41,7 +41,7 @@ type evmTxStorageService struct {
 
 var _ txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EvmEthTx, EvmEthTxAttempt, int64, int64] = &evmTxStorageService{}
 
-// Directly maps to database schema.
+// Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
 // intend to modify the database schema
 type dbReceipt struct {
@@ -84,10 +84,7 @@ func dbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
 // Directly maps to onchain receipt schema.
 type rawOnchainReceipt = evmtypes.Receipt
 
-// Directly maps to database schema.
-// Do not modify type unless you
-// intend to modify the database schema
-//
+// Directly maps to some columns of few database tables.
 // Does not map to a single database table.
 // It's comprised of fields from different tables.
 type dbReceiptPlus struct {
@@ -124,6 +121,8 @@ func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 	return receipts
 }
 
+// Directly maps to columns of database table "eth_txes".
+// This is exported, as tests and other external code still directly reads DB using this schema.
 type DbEthTx struct {
 	ID             int64
 	Nonce          *int64
@@ -219,6 +218,8 @@ func dbEthTxsToEvmEthTxPtrs(dbEthTxs []DbEthTx, evmEthTxs []*EvmEthTx) {
 	}
 }
 
+// Directly maps to columns of database table "eth_tx_attempts".
+// This is exported, as tests and other external code still directly reads DB using this schema.
 type DbEthTxAttempt struct {
 	ID                      int64
 	EthTxID                 int64

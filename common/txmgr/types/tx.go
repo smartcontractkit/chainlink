@@ -27,6 +27,7 @@ const (
 	TxAttemptBroadcast       = TxAttemptState("broadcast")
 )
 
+// Transaction is the type that callers get back, when they create a Transaction using the Txm.
 type Transaction interface {
 	GetID() string
 }

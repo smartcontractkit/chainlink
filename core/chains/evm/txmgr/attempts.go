@@ -36,7 +36,7 @@ func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSi
 
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
 // used for when a brand new transaction is being created in the txm
-func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EthTx[*evmtypes.Address, *evmtypes.TxHash], lggr logger.Logger, opts ...txmgrtypes.Opt) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmEthTx, lggr logger.Logger, opts ...txmgrtypes.Opt) (attempt EvmEthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	txType := 0x0
 	if c.config.EvmEIP1559DynamicFees() {
 		txType = 0x2
@@ -46,7 +46,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EthTx[*evmty
 
 // NewTxAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
-func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EthTx[*evmtypes.Address, *evmtypes.TxHash], lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmEthTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EvmEthTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	fromAddr := common.Address{}
 	if etx.FromAddress != nil {
 		fromAddr = *etx.FromAddress.NativeAddress()
@@ -63,7 +63,7 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EthT
 
 // NewBumpTxAttempt builds a new attempt with a bumped fee - based on the previous attempt tx type
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
-func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EthTx[*evmtypes.Address, *evmtypes.TxHash], previousAttempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], priorAttempts []txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash], lggr logger.Logger) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EvmEthTx, previousAttempt EvmEthTxAttempt, priorAttempts []EvmPriorAttempt, lggr logger.Logger) (attempt EvmEthTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
 	fromAddr := common.Address{}
 	if etx.FromAddress != nil {
 		fromAddr = *etx.FromAddress.NativeAddress()
@@ -80,7 +80,7 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EthTx[*e
 
 // NewCustomTxAttempt is the lowest level func where the fee parameters + tx type must be passed in
 // used in the txm for force rebroadcast where fees and tx type are pre-determined without an estimator
-func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EthTx[*evmtypes.Address, *evmtypes.TxHash], fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EvmEthTx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt EvmEthTxAttempt, retryable bool, err error) {
 	switch txType {
 	case 0x0: // legacy
 		if fee.Legacy == nil {
@@ -107,7 +107,7 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EthTx[*evmtypes.Address, *e
 }
 
 // NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress *evmtypes.Address) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], err error) {
+func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress *evmtypes.Address) (attempt EvmEthTxAttempt, err error) {
 	value := big.NewInt(0)
 	payload := []byte{}
 
@@ -132,7 +132,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, f
 
 }
 
-func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EthTx[*evmtypes.Address, *evmtypes.TxHash], fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], err error) {
+func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmEthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EvmEthTxAttempt, err error) {
 	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -168,7 +168,7 @@ var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EthTx[*evmtypes.Address, *evmtypes.TxHash]) error {
+func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EvmEthTx) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -225,7 +225,7 @@ func newDynamicFeeTransaction(nonce uint64, to *evmtypes.Address, value *assets.
 	}
 }
 
-func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EthTx[*evmtypes.Address, *evmtypes.TxHash], gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], err error) {
+func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmEthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EvmEthTxAttempt, err error) {
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -259,7 +259,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EthTx[*evmtypes.Address, *evm
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx EthTx[*evmtypes.Address, *evmtypes.TxHash]) error {
+func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx EvmEthTx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
@@ -278,7 +278,7 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Et
 	return nil
 }
 
-func (c *evmTxAttemptBuilder) newSignedAttempt(etx EthTx[*evmtypes.Address, *evmtypes.TxHash], tx *types.Transaction) (attempt EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], err error) {
+func (c *evmTxAttemptBuilder) newSignedAttempt(etx EvmEthTx, tx *types.Transaction) (attempt EvmEthTxAttempt, err error) {
 	hash, signedTxBytes, err := c.SignTx(etx.FromAddress, tx)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)

@@ -122,8 +122,8 @@ type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.
 	config         Config
 	chainID        big.Int
 
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
-	addresses []ADDR
+	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
+	enabledAddresses []ADDR
 
 	mb        *utils.Mailbox[*evmtypes.Head]
 	ctx       context.Context
@@ -141,7 +141,7 @@ func NewEthConfirmer(
 	ethClient evmclient.Client,
 	config Config,
 	keystore EvmKeyStore,
-	addresses []*evmtypes.Address,
+	enabledAddresses []*evmtypes.Address,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
 ) *EvmEthConfirmer {
@@ -157,7 +157,7 @@ func NewEthConfirmer(
 		config:                          config,
 		chainID:                         *ethClient.ChainID(),
 		ks:                              keystore,
-		addresses:                       addresses,
+		enabledAddresses:                enabledAddresses,
 		mb:                              utils.NewSingleMailbox[*evmtypes.Head](),
 		initSync:                        sync.Mutex{},
 		isStarted:                       false,
@@ -615,10 +615,10 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) RebroadcastWhereNecessary(ctx
 
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	wg.Add(len(ec.addresses))
+	wg.Add(len(ec.enabledAddresses))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, address := range ec.addresses {
+	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -1011,8 +1011,8 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) EnsureConfirmedTransactionsIn
 	var wg sync.WaitGroup
 	errors := []error{}
 	var errMu sync.Mutex
-	wg.Add(len(ec.addresses))
-	for _, address := range ec.addresses {
+	wg.Add(len(ec.enabledAddresses))
+	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()

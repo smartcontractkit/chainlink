@@ -328,8 +328,8 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 			close(r.done)
 		}
 
-		b.ethBroadcaster.addresses = enabledAddresses
-		b.ethConfirmer.addresses = enabledAddresses
+		b.ethBroadcaster.enabledAddresses = enabledAddresses
+		b.ethConfirmer.enabledAddresses = enabledAddresses
 
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:

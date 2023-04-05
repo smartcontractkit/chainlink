@@ -24,7 +24,6 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -90,7 +89,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
-	TxmStorageService() txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+	TxmStorageService() txmgr.EvmTxStorageService
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -123,7 +122,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
-	txmStorageService        txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+	txmStorageService        txmgr.EvmTxStorageService
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -676,7 +675,7 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmStorageService() txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64] {
+func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStorageService {
 	return app.txmStorageService
 }
 
