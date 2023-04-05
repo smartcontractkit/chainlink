@@ -71,8 +71,9 @@ type Client interface {
 
 var (
 	_                          LogPollerTest = &logPoller{}
-	ErrReplayAbortedByClient                 = errors.New("replay aborted by client")
-	ErrReplayAbortedOnShutdown               = errors.New("replay aborted, log poller shutdown")
+	ErrReplayAbortedByClient                 = errors.New("client aborted, replay request cancelled")
+	ErrReplayInProgress                      = errors.New("client aborted, but replay is already in progress")
+	ErrReplayAbortedOnShutdown               = errors.New("replay aborted due to log poller shutdown")
 )
 
 type logPoller struct {
@@ -93,16 +94,11 @@ type logPoller struct {
 	cachedAddresses []common.Address
 	cachedEventSigs []common.Hash
 
-	replayStart    chan ReplayRequest
+	replayStart    chan int64
 	replayComplete chan error
 	ctx            context.Context
 	cancel         context.CancelFunc
 	done           chan struct{}
-}
-
-type ReplayRequest struct {
-	fromBlock int64
-	ctx       context.Context
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -122,7 +118,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
-		replayStart:       make(chan ReplayRequest),
+		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
@@ -306,6 +302,9 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
+// If ctx is cancelled before the replay request has been initiated, ErrReplayAbortedByClient is returned.  If the replay
+// is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
+// guarantee that the replay is complete before proceeding, it must wait for a nil return value.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -316,9 +315,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
-	case lp.replayStart <- ReplayRequest{fromBlock, ctx}:
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
+	case lp.replayStart <- fromBlock:
 	case <-ctx.Done():
 		return ErrReplayAbortedByClient
 	}
@@ -326,10 +323,12 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	select {
 	case err := <-lp.replayComplete:
 		return err
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
-		return ErrReplayAbortedByClient
+		// Note: this will not abort the actual replay, it just means the client gave up on waiting for it to complete
+		go func() {
+			<-lp.replayComplete
+		}()
+		return ErrReplayInProgress
 	}
 }
 
@@ -408,29 +407,30 @@ func (lp *logPoller) run() {
 		select {
 		case <-lp.ctx.Done():
 			return
-		case replayReq := <-lp.replayStart:
-			fromBlock, err := lp.GetReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
+		case fromBlockReq := <-lp.replayStart:
+			fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
 			if err == nil {
 				if !filtersLoaded {
-					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
 					if err = loadFilters(); err != nil {
 						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
 				} else {
 					// Serially process replay requests.
-					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-					lp.PollAndSaveLogs(replayReq.ctx, fromBlock)
+					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
+					lp.PollAndSaveLogs(lp.ctx, fromBlock)
 				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
 			select {
 			case <-lp.ctx.Done():
-				// We're shutting down, lets return.
+				// We're shutting down, notify client and exit
+				select {
+				case lp.replayComplete <- ErrReplayAbortedOnShutdown:
+				default:
+				}
 				return
-			case <-replayReq.ctx.Done():
-				// Client gave up, lets continue.
-				continue
 			case lp.replayComplete <- err:
 			}
 		case <-logPollTick:
