@@ -2,64 +2,87 @@ package resolver
 
 import (
 	"context"
+	"errors"
 
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 // NodeResolver resolves the Node type.
 type NodeResolver struct {
-	node types.Node
+	node   v2.Node
+	status chains.NodeStatus
 }
 
-func NewNode(node types.Node) *NodeResolver {
-	return &NodeResolver{node: node}
+func NewNode(status chains.NodeStatus) (nr *NodeResolver, warn error) {
+	nr = &NodeResolver{status: status}
+	warn = toml.Unmarshal([]byte(status.Config), &nr.node)
+	return
 }
 
-func NewNodes(nodes []types.Node) []*NodeResolver {
-	var resolvers []*NodeResolver
+func NewNodes(nodes []chains.NodeStatus) (resolvers []*NodeResolver, warns error) {
 	for _, n := range nodes {
-		resolvers = append(resolvers, NewNode(n))
+		nr, warn := NewNode(n)
+		if warn != nil {
+			warns = errors.Join(warns, warn)
+		}
+		resolvers = append(resolvers, nr)
 	}
 
-	return resolvers
+	return
+}
+
+func orZero[P any](s *P) P {
+	if s == nil {
+		var zero P
+		return zero
+	}
+	return *s
 }
 
 // ID resolves the node's unique identifier.
 func (r *NodeResolver) ID() graphql.ID {
-	return graphql.ID(r.node.Name)
+	return graphql.ID(r.Name())
 }
 
 // Name resolves the node's name field.
 func (r *NodeResolver) Name() string {
-	return r.node.Name
+	return orZero(r.node.Name)
 }
 
 // WSURL resolves the node's websocket url field.
 func (r *NodeResolver) WSURL() string {
-	return r.node.WSURL.String
+	if r.node.WSURL == nil {
+		return ""
+	}
+	return r.node.WSURL.String()
 }
 
 // HTTPURL resolves the node's http url field.
 func (r *NodeResolver) HTTPURL() string {
-	return r.node.HTTPURL.String
+	if r.node.HTTPURL == nil {
+		return ""
+	}
+	return r.node.HTTPURL.String()
 }
 
 // State resolves the node state
 func (r *NodeResolver) State() string {
-	return r.node.State
+	return r.status.State
 }
 
 // SendOnly resolves the node's sendOnly bool
 func (r *NodeResolver) SendOnly() bool {
-	return r.node.SendOnly
+	return orZero(r.node.SendOnly)
 }
 
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, r.node.EVMChainID.String())
+	chain, err := loader.GetChainByID(ctx, r.status.ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,116 +90,44 @@ func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
 	return NewChain(*chain), nil
 }
 
-// CreatedAt resolves the node's created at field.
-func (r *NodeResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.node.CreatedAt}
-}
-
-// UpdatedAt resolves the node's updated at field.
-func (r *NodeResolver) UpdatedAt() graphql.Time {
-	return graphql.Time{Time: r.node.UpdatedAt}
-}
-
 // -- Node Query --
 
 type NodePayloadResolver struct {
-	node *types.Node
+	nr *NodeResolver
 	NotFoundErrorUnionType
 }
 
-func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
+func NewNodePayloadResolver(node *chains.NodeStatus, err error) (npr *NodePayloadResolver, warn error) {
 	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
-
-	return &NodePayloadResolver{node: node, NotFoundErrorUnionType: e}
+	npr = &NodePayloadResolver{NotFoundErrorUnionType: e}
+	if node != nil {
+		npr.nr, warn = NewNode(*node)
+	}
+	return
 }
 
 // ToNode resolves the Node object to be returned if it is found
 func (r *NodePayloadResolver) ToNode() (*NodeResolver, bool) {
-	if r.node != nil {
-		return NewNode(*r.node), true
-	}
-
-	return nil, false
+	return r.nr, r.nr != nil
 }
 
 // -- Nodes Query --
 
 type NodesPayloadResolver struct {
-	nodes []types.Node
+	nrs   []*NodeResolver
 	total int32
 }
 
-func NewNodesPayload(nodes []types.Node, total int32) *NodesPayloadResolver {
-	return &NodesPayloadResolver{nodes: nodes, total: total}
+func NewNodesPayload(nodes []chains.NodeStatus, total int32) (npr *NodesPayloadResolver, warn error) {
+	npr = &NodesPayloadResolver{total: total}
+	npr.nrs, warn = NewNodes(nodes)
+	return
 }
 
 func (r *NodesPayloadResolver) Results() []*NodeResolver {
-	return NewNodes(r.nodes)
+	return r.nrs
 }
 
 func (r *NodesPayloadResolver) Metadata() *PaginationMetadataResolver {
 	return NewPaginationMetadata(r.total)
-}
-
-// -- CreateNode Mutation --
-
-type CreateNodePayloadResolver struct {
-	node *types.Node
-}
-
-func NewCreateNodePayloadResolver(node *types.Node) *CreateNodePayloadResolver {
-	return &CreateNodePayloadResolver{node: node}
-}
-
-func (r *CreateNodePayloadResolver) ToCreateNodeSuccess() (*CreateNodeSuccessResolve, bool) {
-	if r.node != nil {
-		return NewCreateNodeSuccessResolve(*r.node), true
-	}
-
-	return nil, false
-}
-
-type CreateNodeSuccessResolve struct {
-	node types.Node
-}
-
-func NewCreateNodeSuccessResolve(node types.Node) *CreateNodeSuccessResolve {
-	return &CreateNodeSuccessResolve{node}
-}
-
-func (r *CreateNodeSuccessResolve) Node() *NodeResolver {
-	return NewNode(r.node)
-}
-
-// -- DeleteNode Mutation --
-
-type DeleteNodePayloadResolver struct {
-	node *types.Node
-	NotFoundErrorUnionType
-}
-
-func NewDeleteNodePayloadResolver(node *types.Node, err error) *DeleteNodePayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
-
-	return &DeleteNodePayloadResolver{node: node, NotFoundErrorUnionType: e}
-}
-
-func (r *DeleteNodePayloadResolver) ToDeleteNodeSuccess() (*DeleteNodeSuccessResolver, bool) {
-	if r.node != nil {
-		return NewDeleteNodeSuccessResolver(r.node), true
-	}
-
-	return nil, false
-}
-
-type DeleteNodeSuccessResolver struct {
-	node *types.Node
-}
-
-func NewDeleteNodeSuccessResolver(node *types.Node) *DeleteNodeSuccessResolver {
-	return &DeleteNodeSuccessResolver{node: node}
-}
-
-func (r *DeleteNodeSuccessResolver) Node() *NodeResolver {
-	return NewNode(*r.node)
 }

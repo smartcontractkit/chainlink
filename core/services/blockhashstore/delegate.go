@@ -7,14 +7,16 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	v2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ job.ServiceCtx = &service{}
@@ -70,9 +72,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	fromAddress := keys[0].Address
-	if jb.BlockhashStoreSpec.FromAddress != nil {
-		fromAddress = jb.BlockhashStoreSpec.FromAddress.Address()
+	fromAddresses := []ethkey.EIP55Address{keys[0].EIP55Address}
+	if jb.BlockhashStoreSpec.FromAddresses != nil {
+		fromAddresses = jb.BlockhashStoreSpec.FromAddresses
 	}
 
 	bhs, err := blockhash_store.NewBlockhashStore(
@@ -101,7 +103,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, NewV2Coordinator(c))
 	}
 
-	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddress, chain.TxManager(), bhs)
+	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
@@ -133,10 +135,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 // AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
 
+// AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 
-// BeforeJobDeleted satisfies the job.Delegate interface.
+// AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+
+// OnDeleteJob satisfies the job.Delegate interface.
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {

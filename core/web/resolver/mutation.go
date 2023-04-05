@@ -13,35 +13,35 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
+	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 type Resolver struct {
@@ -166,6 +166,7 @@ type createFeedsManagerChainConfigInput struct {
 	OCR2Multiaddr      *string
 	OCR2P2PPeerID      *string
 	OCR2KeyBundleID    *string
+	OCR2Plugins        string
 }
 
 func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -209,12 +210,18 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.OCR2Enabled {
+		var plugins feeds.Plugins
+		if err = plugins.Scan(args.Input.OCR2Plugins); err != nil {
+			return nil, err
+		}
+
 		params.OCR2Config = feeds.OCR2Config{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
 			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
 			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:     plugins,
 		}
 	}
 
@@ -292,6 +299,7 @@ type updateFeedsManagerChainConfigInput struct {
 	OCR2Multiaddr      *string
 	OCR2P2PPeerID      *string
 	OCR2KeyBundleID    *string
+	OCR2Plugins        string
 }
 
 func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -329,12 +337,18 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.OCR2Enabled {
+		var plugins feeds.Plugins
+		if err = plugins.Scan(args.Input.OCR2Plugins); err != nil {
+			return nil, err
+		}
+
 		params.OCR2Config = feeds.OCR2Config{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
 			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
 			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:     plugins,
 		}
 	}
 
@@ -571,70 +585,6 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 
 	r.App.GetAuditLogger().Audit(audit.OCRKeyBundleDeleted, map[string]interface{}{"id": args.ID})
 	return NewDeleteOCRKeyBundlePayloadResolver(deletedKey, nil), nil
-}
-
-func (r *Resolver) CreateNode(ctx context.Context, args struct {
-	Input *types.NewNode
-}) (*CreateNodePayloadResolver, error) {
-	if err := authenticateUserCanEdit(ctx); err != nil {
-		return nil, err
-	}
-
-	node, err := r.App.EVMORM().CreateNode(types.Node{
-		Name:       args.Input.Name,
-		EVMChainID: args.Input.EVMChainID,
-		WSURL:      args.Input.WSURL,
-		HTTPURL:    args.Input.HTTPURL,
-		SendOnly:   args.Input.SendOnly,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	wsURL, _ := url.Parse(args.Input.WSURL.String) // Forward only RPC host to logs
-	httpURL, _ := url.Parse(args.Input.HTTPURL.String)
-	r.App.GetAuditLogger().Audit(audit.ChainRpcNodeAdded, map[string]interface{}{
-		"chainNodeName":             args.Input.Name,
-		"chainNodeEvmChainID":       args.Input.EVMChainID,
-		"chainNodeRPCWebSocketHost": wsURL.Host,
-		"chainNodeRPCHTTPHost":      httpURL.Host,
-		"chainNodeSendOnly":         args.Input.SendOnly,
-	})
-
-	return NewCreateNodePayloadResolver(&node), nil
-}
-
-func (r *Resolver) DeleteNode(ctx context.Context, args struct {
-	ID graphql.ID
-}) (*DeleteNodePayloadResolver, error) {
-	if err := authenticateUserCanEdit(ctx); err != nil {
-		return nil, err
-	}
-
-	name := string(args.ID)
-	node, err := r.App.EVMORM().NodeNamed(name)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewDeleteNodePayloadResolver(nil, err), nil
-		}
-
-		return nil, err
-	}
-
-	err = r.App.EVMORM().DeleteNode(node.ID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Sending the SQL error as the expected error to happen
-			// though the prior check should take this into consideration
-			// so this should never happen anyway
-			return NewDeleteNodePayloadResolver(nil, sql.ErrNoRows), nil
-		}
-
-		return nil, err
-	}
-
-	r.App.GetAuditLogger().Audit(audit.ChainRpcNodeDeleted, map[string]interface{}{"name": name})
-	return NewDeleteNodePayloadResolver(&node, nil), nil
 }
 
 func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
@@ -1040,148 +990,6 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	}, nil), nil
 }
 
-func (r *Resolver) CreateChain(ctx context.Context, args struct {
-	Input struct {
-		ID                 graphql.ID
-		Config             ChainConfigInput
-		KeySpecificConfigs []*KeySpecificChainConfigInput
-	}
-}) (*CreateChainPayloadResolver, error) {
-	if err := authenticateUserCanEdit(ctx); err != nil {
-		return nil, err
-	}
-
-	var id utils.Big
-	err := id.UnmarshalText([]byte(args.Input.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
-	if len(inputErrs) > 0 {
-		return NewCreateChainPayload(nil, inputErrs), nil
-	}
-
-	if args.Input.KeySpecificConfigs != nil {
-		sCfgs := make(map[string]types.ChainCfg)
-
-		for _, cfg := range args.Input.KeySpecificConfigs {
-			if cfg != nil {
-				sCfg, inputErrs := ToChainConfig(cfg.Config)
-				if len(inputErrs) > 0 {
-					return NewCreateChainPayload(nil, inputErrs), nil
-				}
-
-				sCfgs[cfg.Address] = *sCfg
-			}
-		}
-
-		chainCfg.KeySpecific = sCfgs
-	}
-
-	chain, err := r.App.GetChains().EVM.Add(ctx, id, chainCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	chainj, err := json.Marshal(chain)
-	if err != nil {
-		r.App.GetLogger().Errorf("Unable to marshal chain to json", "err", err)
-	}
-	r.App.GetAuditLogger().Audit(audit.ChainAdded, map[string]interface{}{"chain": chainj})
-
-	return NewCreateChainPayload(&chain, nil), nil
-}
-
-func (r *Resolver) UpdateChain(ctx context.Context, args struct {
-	ID    graphql.ID
-	Input struct {
-		Enabled            bool
-		Config             ChainConfigInput
-		KeySpecificConfigs []*KeySpecificChainConfigInput
-	}
-}) (*UpdateChainPayloadResolver, error) {
-	if err := authenticateUserCanEdit(ctx); err != nil {
-		return nil, err
-	}
-
-	var id utils.Big
-	err := id.UnmarshalText([]byte(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
-	if len(inputErrs) > 0 {
-		return NewUpdateChainPayload(nil, inputErrs, nil), nil
-	}
-
-	if args.Input.KeySpecificConfigs != nil {
-		sCfgs := make(map[string]types.ChainCfg)
-
-		for _, cfg := range args.Input.KeySpecificConfigs {
-			if cfg != nil {
-				sCfg, inputErrs := ToChainConfig(cfg.Config)
-				if len(inputErrs) > 0 {
-					return NewUpdateChainPayload(nil, inputErrs, nil), nil
-				}
-
-				sCfgs[cfg.Address] = *sCfg
-			}
-		}
-
-		chainCfg.KeySpecific = sCfgs
-	}
-
-	chain, err := r.App.GetChains().EVM.Configure(ctx, id, args.Input.Enabled, chainCfg)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewUpdateChainPayload(nil, nil, err), nil
-		}
-
-		return nil, err
-	}
-
-	chainj, err := json.Marshal(chain)
-	if err != nil {
-		r.App.GetLogger().Errorf("Unable to marshal chain to json", "err", err)
-	}
-	r.App.GetAuditLogger().Audit(audit.ChainSpecUpdated, map[string]interface{}{"chainj": chainj})
-
-	return NewUpdateChainPayload(&chain, nil, nil), nil
-}
-
-func (r *Resolver) DeleteChain(ctx context.Context, args struct {
-	ID graphql.ID
-}) (*DeleteChainPayloadResolver, error) {
-	if err := authenticateUserCanEdit(ctx); err != nil {
-		return nil, err
-	}
-
-	var id utils.Big
-	err := id.UnmarshalText([]byte(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	chain, err := r.App.EVMORM().Chain(id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewDeleteChainPayload(nil, err), nil
-		}
-
-		return nil, err
-	}
-
-	err = r.App.GetChains().EVM.Remove(id)
-	if err != nil {
-		return nil, err
-	}
-
-	r.App.GetAuditLogger().Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
-	return NewDeleteChainPayload(&chain, nil), nil
-}
-
 func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	Input struct {
 		TOML string
@@ -1225,6 +1033,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
+	case job.BlockHeaderFeeder:
+		jb, err = blockheaderfeeder.ValidatedSpec(args.Input.TOML)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
 	default:
@@ -1382,6 +1192,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 	}
 
 	ct := FromOCR2ChainType(args.ChainType)
+
 	key, err := r.App.GetKeyStore().OCR2().Create(chaintype.ChainType(ct))
 	if err != nil {
 		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received

@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // batchFulfillment contains all the information needed in order to
@@ -101,7 +101,6 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult) {
 func (lsn *listenerV2) processBatch(
 	l logger.Logger,
 	subID uint64,
-	fromAddress common.Address,
 	startBalanceNoReserveLink *big.Int,
 	maxCallbackGasLimit uint32,
 	batch *batchFulfillment,
@@ -125,9 +124,18 @@ func (lsn *listenerV2) processBatch(
 		maxCallbackGasLimit,
 		float64(lsn.job.VRFSpec.BatchFulfillmentGasMultiplier),
 	)
+
+	fromAddresses := lsn.fromAddresses()
+	fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+	if err != nil {
+		l.Errorw("Couldn't get next from address", "err", err)
+		return
+	}
+
 	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
 		"batchSumGasLimit", batch.totalGasLimit,
+		"fromAddress", fromAddress,
 		"linkBalance", startBalanceNoReserveLink,
 		"totalGasLimitBumped", totalGasLimitBumped,
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,

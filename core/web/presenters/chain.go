@@ -1,27 +1,15 @@
 package presenters
 
-import (
-	"time"
-
-	"github.com/manyminds/api2go/jsonapi"
-
-	"github.com/smartcontractkit/chainlink/core/chains"
-)
-
-type ChainResource[C chains.Config] interface {
-	IsEnabled() bool
-	GetConfig() C
-	jsonapi.EntityNamer
-}
-
-// chainResource is a generic chain resource for embedding in a ChainResource implementation.
-type chainResource[C chains.Config] struct {
+type ChainResource struct {
 	JAID
-	Enabled   bool      `json:"enabled"`
-	Config    C         `json:"config"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Enabled bool   `json:"enabled"`
+	Config  string `json:"config"` // TOML
 }
 
-func (r chainResource[C]) GetConfig() C    { return r.Config }
-func (r chainResource[C]) IsEnabled() bool { return r.Enabled }
+type NodeResource struct {
+	JAID
+	ChainID string `json:"chainID"`
+	Name    string `json:"name"`
+	Config  string `json:"config"` // TOML
+	State   string `json:"state"`
+}

@@ -18,45 +18,48 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
+	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
@@ -69,9 +72,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
-	GetConfig() config.GeneralConfig
-	// ConfigDump returns a TOML configuration from the current environment and database configuration.
-	ConfigDump(context.Context) (string, error)
+	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
@@ -84,7 +85,7 @@ type Application interface {
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
-	EVMORM() evmtypes.ORM
+	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
@@ -124,7 +125,7 @@ type ChainlinkApplication struct {
 	txmORM                   txmgr.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -145,7 +146,7 @@ type ChainlinkApplication struct {
 }
 
 type ApplicationOpts struct {
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
 	MailMon                  *utils.MailboxMonitor
@@ -164,11 +165,15 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
+	Cosmos   cosmos.ChainSet   // nil if disabled
 	Solana   solana.ChainSet   // nil if disabled
 	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
+	if c.Cosmos != nil {
+		s = append(s, c.Cosmos)
+	}
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
@@ -237,7 +242,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil && cfg.TelemetryIngressURL() != nil {
-		globalLogger.Warn("Both EXPLORER_URL and TELEMETRY_INGRESS_URL are set, defaulting to Explorer")
+		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
 	if cfg.ExplorerURL() != nil {
@@ -269,7 +274,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		srvcs = append(srvcs, databaseBackup)
 	} else {
-		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
+		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
@@ -328,6 +333,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
+			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+				globalLogger,
+				chains.EVM,
+				keyStore.Eth()),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -381,6 +390,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
+		}
+		if cfg.CosmosEnabled() {
+			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
+			relayers[relay.Cosmos] = cosmosRelayer
+			srvcs = append(srvcs, cosmosRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
@@ -486,8 +500,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	for _, service := range app.srvcs {
 		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
+		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
 			return nil, err
+		}
+	}
+
+	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
+	// If it's enabled, they are going to be registered with relayers by default.
+	if !cfg.FeatureOffchainReporting2() {
+		for _, service := range app.Chains.services() {
+			checkable := service.(services.Checkable)
+			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -513,7 +538,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
-			app.logger.Infof("[Feeds Service] %v", err)
+			app.logger.Errorf("[Feeds Service] Failed to start %v", err)
+			app.FeedsService = &feeds.NullService{} // so we don't try to Close() later
 		}
 	}
 
@@ -605,7 +631,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	return err
 }
 
-func (app *ChainlinkApplication) GetConfig() config.GeneralConfig {
+func (app *ChainlinkApplication) GetConfig() GeneralConfig {
 	return app.Config
 }
 
@@ -641,8 +667,8 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 	return app.sessionORM
 }
 
-func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
-	return app.Chains.EVM.ORM()
+func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
+	return app.Chains.EVM.Configs()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {

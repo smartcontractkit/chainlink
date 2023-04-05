@@ -12,19 +12,19 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 var (
@@ -444,6 +444,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	fmID := createFeedsManager(t, orm)
 
 	jp := &feeds.JobProposal{
+		Name:           null.StringFrom("jp1"),
 		RemoteUUID:     uuid.NewV4(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -458,6 +459,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 
 	actual, err := orm.GetJobProposal(id)
 	require.NoError(t, err)
+	require.Equal(t, jp.Name, actual.Name)
 	require.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
 	require.Equal(t, jp.Status, actual.Status)
 	require.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
@@ -474,18 +476,32 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
 	remoteUUID := uuid.NewV4()
+	deletedUUID := uuid.NewV4()
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     remoteUUID,
 		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	deletedJp := &feeds.JobProposal{
+		Name:           name,
+		RemoteUUID:     deletedUUID,
+		Status:         feeds.JobProposalStatusDeleted,
 		FeedsManagerID: fmID,
 	}
 
 	id, err := orm.CreateJobProposal(jp)
 	require.NoError(t, err)
 
+	_, err = orm.CreateJobProposal(deletedJp)
+	require.NoError(t, err)
+
 	assertJobEquals := func(actual *feeds.JobProposal) {
 		assert.Equal(t, id, actual.ID)
+		assert.Equal(t, name, actual.Name)
 		assert.Equal(t, remoteUUID, actual.RemoteUUID)
 		assert.Equal(t, jp.Status, actual.Status)
 		assert.False(t, actual.ExternalJobID.Valid)
@@ -510,6 +526,9 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 		assertJobEquals(actual)
 
+		_, err = orm.GetJobProposalByRemoteUUID(deletedUUID)
+		require.Error(t, err)
+
 		_, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
 		require.Error(t, err)
 	})
@@ -521,8 +540,10 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
 	uuid := uuid.NewV4()
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     uuid,
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -537,6 +558,7 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 
 	actual := jps[0]
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.False(t, actual.ExternalJobID.Valid)
@@ -547,24 +569,62 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
+	var (
+		orm  = setupORM(t)
+		fmID = createFeedsManager(t, orm)
 
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid,
+		// Set initial values for job proposal counts
+		wantApproved, wantRejected int64
+		wantPending, wantCancelled = int64(1), int64(1)
+	)
+
+	// Create a pending job proposal.
+	_, err := orm.CreateJobProposal(&feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
-	}
-
-	_, err := orm.CreateJobProposal(jp)
+	})
 	require.NoError(t, err)
 
+	// Create a cancelled job proposal.
+	cancelledUUID := uuid.NewV4()
+	_, err = orm.CreateJobProposal(&feeds.JobProposal{
+		RemoteUUID:     cancelledUUID,
+		Status:         feeds.JobProposalStatusCancelled,
+		FeedsManagerID: fmID,
+	})
+	require.NoError(t, err)
+
+	// Get the initial count and assert against expected values.
 	counts, err := orm.CountJobProposalsByStatus()
 	require.NoError(t, err)
 
-	wantPending := int64(1)
-	var wantApproved, wantRejected, wantCancelled int64
+	assert.Equal(t, wantPending, counts.Pending)
+	assert.Equal(t, wantApproved, counts.Approved)
+	assert.Equal(t, wantRejected, counts.Rejected)
+	assert.Equal(t, wantCancelled, counts.Cancelled)
+
+	// Upsert the cancelled job proposal to rejected
+	// which changes pending_update to TRUE, but leaves status as
+	// cancelled.
+	id, err := orm.UpsertJobProposal(&feeds.JobProposal{
+		RemoteUUID:     cancelledUUID,
+		Status:         feeds.JobProposalStatusRejected,
+		FeedsManagerID: fmID,
+	})
+	require.NoError(t, err)
+
+	// Assert that the upserted job proposal is now pending update.
+	jp, err := orm.GetJobProposal(id)
+	require.NoError(t, err)
+	assert.Equal(t, true, jp.PendingUpdate)
+
+	// Get final counts of job proposals and make assertions.
+	counts, err = orm.CountJobProposalsByStatus()
+	require.NoError(t, err)
+
+	wantPending = 2 // One pending + one pending update
+	wantCancelled = 0
 	assert.Equal(t, wantPending, counts.Pending)
 	assert.Equal(t, wantApproved, counts.Approved)
 	assert.Equal(t, wantRejected, counts.Rejected)
@@ -577,8 +637,10 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
 	uuid := uuid.NewV4()
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     uuid,
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -593,6 +655,7 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 
 	actual := jps[0]
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.False(t, actual.ExternalJobID.Valid)
@@ -626,8 +689,10 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
+	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
+		Name:           name,
 		RemoteUUID:     uuid.NewV4(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -654,20 +719,36 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 	// Update
 	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
+	jp.Name = null.StringFrom("jp1_updated")
+	jp.Status = feeds.JobProposalStatusDeleted
 
 	id, err = orm.UpsertJobProposal(jp)
 	require.NoError(t, err)
 
 	actual, err := orm.GetJobProposal(id)
 	require.NoError(t, err)
+	assert.Equal(t, jp.Name, actual.Name)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.Equal(t, jp.Multiaddrs, actual.Multiaddrs)
 
 	// Ensure there is a difference in the created proposal and the upserted
 	// proposal
 	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
+	assert.NotEqual(t, createdActual.Status, actual.Status)
 	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
 	assert.True(t, actual.PendingUpdate)
+
+	// Update deleted proposal
+	jp.Status = feeds.JobProposalStatusRejected
+
+	id, err = orm.UpsertJobProposal(jp)
+	require.NoError(t, err)
+
+	// Ensure the deleted proposal does not get updated
+	actual, err = orm.GetJobProposal(id)
+	require.NoError(t, err)
+	assert.NotEqual(t, jp.Status, actual.Status)
+	assert.Equal(t, actual.Status, feeds.JobProposalStatusDeleted)
 }
 
 // Job Proposal Specs
@@ -716,38 +797,292 @@ func Test_ORM_ApproveSpec(t *testing.T) {
 func Test_ORM_CancelSpec(t *testing.T) {
 	t.Parallel()
 
-	var (
-		orm           = setupORM(t)
-		fmID          = createFeedsManager(t, orm)
-		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-		specID        = createJobSpec(t, orm, int64(jpID))
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
-	)
+	testCases := []struct {
+		name               string
+		before             func(orm *TestORM) (int64, int64)
+		wantSpecStatus     feeds.SpecStatus
+		wantProposalStatus feeds.JobProposalStatus
+		wantErr            string
+	}{
+		{
+			name: "pending proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
 
-	// Defer the FK requirement of a job proposal so we don't have to setup a
-	// real job.
-	require.NoError(t, utils.JustError(orm.db.Exec(
-		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
-	)))
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusCancelled,
+			wantProposalStatus: feeds.JobProposalStatusCancelled,
+		},
+		{
+			name: "deleted proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
 
-	err := orm.ApproveSpec(specID, externalJobID.UUID)
-	require.NoError(t, err)
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusCancelled,
+			wantProposalStatus: feeds.JobProposalStatusDeleted,
+		},
+		{
+			name: "not found",
+			before: func(orm *TestORM) (int64, int64) {
+				return 0, 0
+			},
+			wantErr: "sql: no rows in result set",
+		},
+	}
 
-	err = orm.CancelSpec(specID)
-	require.NoError(t, err)
+	for _, tc := range testCases {
+		tc := tc
 
-	actual, err := orm.GetSpec(specID)
-	require.NoError(t, err)
+		t.Run(tc.name, func(t *testing.T) {
+			orm := setupORM(t)
 
-	assert.Equal(t, specID, actual.ID)
-	assert.Equal(t, feeds.SpecStatusCancelled, actual.Status)
+			jpID, specID := tc.before(orm)
 
-	actualJP, err := orm.GetJobProposal(jpID)
-	require.NoError(t, err)
+			err := orm.CancelSpec(specID)
 
-	assert.Equal(t, jpID, actual.JobProposalID)
-	assert.Equal(t, uuid.NullUUID{Valid: false}, actualJP.ExternalJobID)
-	assert.Equal(t, feeds.JobProposalStatusCancelled, actualJP.Status)
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+
+				actual, err := orm.GetSpec(specID)
+				require.NoError(t, err)
+
+				assert.Equal(t, specID, actual.ID)
+				assert.Equal(t, tc.wantSpecStatus, actual.Status)
+
+				actualJP, err := orm.GetJobProposal(jpID)
+				require.NoError(t, err)
+
+				assert.Equal(t, tc.wantProposalStatus, actualJP.Status)
+				assert.False(t, actualJP.PendingUpdate)
+			}
+		})
+	}
+}
+
+func Test_ORM_DeleteProposal(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                      string
+		before                    func(orm *TestORM) int64
+		wantProposalStatus        feeds.JobProposalStatus
+		wantProposalPendingUpdate bool
+		wantErr                   string
+	}{
+		{
+			name: "pending proposal",
+			before: func(orm *TestORM) int64 {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+
+				return jpID
+			},
+			wantProposalPendingUpdate: false,
+			wantProposalStatus:        feeds.JobProposalStatusDeleted,
+		},
+		{
+			name: "approved proposal",
+			before: func(orm *TestORM) int64 {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+				// Defer the FK requirement of an existing job for a job proposal.
+				require.NoError(t, utils.JustError(orm.db.Exec(
+					`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+				)))
+
+				err := orm.ApproveSpec(specID, externalJobID.UUID)
+				require.NoError(t, err)
+
+				return jpID
+			},
+			wantProposalPendingUpdate: true,
+			wantProposalStatus:        feeds.JobProposalStatusDeleted,
+		},
+		{
+			name: "cancelled proposal",
+			before: func(orm *TestORM) int64 {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
+
+				return jpID
+			},
+			wantProposalPendingUpdate: false,
+			wantProposalStatus:        feeds.JobProposalStatusDeleted,
+		},
+		{
+			name: "rejected proposal",
+			before: func(orm *TestORM) int64 {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusRejected, fmID)
+
+				return jpID
+			},
+			wantProposalPendingUpdate: false,
+			wantProposalStatus:        feeds.JobProposalStatusDeleted,
+		},
+		{
+			name: "not found",
+			before: func(orm *TestORM) int64 {
+				return 0
+			},
+			wantErr: "sql: no rows in result set",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			orm := setupORM(t)
+
+			jpID := tc.before(orm)
+
+			err := orm.DeleteProposal(jpID)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+
+				actual, err := orm.GetJobProposal(jpID)
+				require.NoError(t, err)
+
+				assert.Equal(t, jpID, actual.ID)
+				assert.Equal(t, tc.wantProposalStatus, actual.Status)
+				assert.Equal(t, tc.wantProposalPendingUpdate, actual.PendingUpdate)
+			}
+		})
+	}
+}
+
+func Test_ORM_RevokeSpec(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name               string
+		before             func(orm *TestORM) (int64, int64)
+		wantProposalStatus feeds.JobProposalStatus
+		wantSpecStatus     feeds.SpecStatus
+		wantErr            string
+	}{
+		{
+			name: "pending proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantProposalStatus: feeds.JobProposalStatusRevoked,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
+		},
+		{
+			name: "approved proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+				// Defer the FK requirement of an existing job for a job proposal.
+				require.NoError(t, utils.JustError(orm.db.Exec(
+					`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+				)))
+
+				err := orm.ApproveSpec(specID, externalJobID.UUID)
+				require.NoError(t, err)
+
+				return jpID, specID
+			},
+			wantProposalStatus: feeds.JobProposalStatusApproved,
+			wantSpecStatus:     feeds.SpecStatusApproved,
+		},
+		{
+			name: "cancelled proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantProposalStatus: feeds.JobProposalStatusRevoked,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
+		},
+		{
+			name: "rejected proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusRejected, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantProposalStatus: feeds.JobProposalStatusRevoked,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
+		},
+		{
+			name: "deleted proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantProposalStatus: feeds.JobProposalStatusDeleted,
+			wantSpecStatus:     feeds.SpecStatusRevoked,
+		},
+		{
+			name: "not found",
+			before: func(orm *TestORM) (int64, int64) {
+				return 0, 0
+			},
+			wantErr: "sql: no rows in result set",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			orm := setupORM(t)
+
+			jpID, specID := tc.before(orm)
+
+			err := orm.RevokeSpec(specID)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+
+				actualJP, err := orm.GetJobProposal(jpID)
+				require.NoError(t, err)
+
+				assert.Equal(t, tc.wantProposalStatus, actualJP.Status)
+				assert.False(t, actualJP.PendingUpdate)
+
+				assert.Equal(t, jpID, actualJP.ID)
+				assert.Equal(t, tc.wantProposalStatus, actualJP.Status)
+			}
+		})
+	}
 }
 
 func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
@@ -943,6 +1278,18 @@ func Test_ORM_RejectSpec(t *testing.T) {
 			wantProposalStatus: feeds.JobProposalStatusRejected,
 		},
 		{
+			name: "deleted proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusRejected,
+			wantProposalStatus: feeds.JobProposalStatusDeleted,
+		},
+		{
 			name: "not found",
 			before: func(orm *TestORM) (int64, int64) {
 				return 0, 0
@@ -1107,6 +1454,8 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 }
 
 func createJobProposal(t *testing.T, orm feeds.ORM, status feeds.JobProposalStatus, fmID int64) int64 {
+	t.Helper()
+
 	id, err := orm.CreateJobProposal(&feeds.JobProposal{
 		RemoteUUID:     uuid.NewV4(),
 		Status:         status,

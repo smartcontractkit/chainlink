@@ -1,12 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
-
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // StarkNetChainPresenter implements TableRenderer for a StarkNetChainResource
@@ -16,20 +13,7 @@ type StarkNetChainPresenter struct {
 
 // ToRow presents the StarkNetChainResource as a slice of strings.
 func (p *StarkNetChainPresenter) ToRow() []string {
-	// NOTE: it's impossible to omitempty null fields when serializing to JSON: https://github.com/golang/go/issues/11939
-	config, err := json.MarshalIndent(p.Config, "", "    ")
-	if err != nil {
-		panic(err)
-	}
-
-	row := []string{
-		p.GetID(),
-		strconv.FormatBool(p.Enabled),
-		string(config),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
-	}
-	return row
+	return []string{p.GetID(), strconv.FormatBool(p.Enabled), p.Config}
 }
 
 // RenderTable implements TableRenderer
@@ -60,5 +44,5 @@ func (ps StarkNetChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func StarkNetChainClient(client *Client) ChainClient {
-	return newChainClient[*db.ChainCfg, presenters.StarkNetChainResource, StarkNetChainPresenter, StarkNetChainPresenters](client, "starknet")
+	return newChainClient[StarkNetChainPresenters](client, "starknet")
 }

@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestORM_broadcasts(t *testing.T) {
@@ -92,7 +93,7 @@ func TestORM_broadcasts(t *testing.T) {
 			jobIDs = append(jobIDs, listener.JobID())
 
 		}
-		err = orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs)
+		err = orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs, pg.WithLongQueryTimeout())
 		require.NoError(t, err)
 
 		for i := range blockHashes {
@@ -118,9 +119,8 @@ func TestORM_broadcasts(t *testing.T) {
 			blockNumbers = append(blockNumbers, l.BlockNumber)
 			logIndexes = append(logIndexes, l.Index)
 			jobIDs = append(jobIDs, listener.JobID())
-
 		}
-		err = orm.MarkBroadcastsConsumed(blockHashes[:len(blockHashes)-2], blockNumbers, logIndexes, jobIDs)
+		err = orm.MarkBroadcastsConsumed(blockHashes[:len(blockHashes)-2], blockNumbers, logIndexes, jobIDs, pg.WithLongQueryTimeout())
 		require.Error(t, err)
 	})
 

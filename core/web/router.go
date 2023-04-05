@@ -28,22 +28,23 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
-	"github.com/ulule/limiter"
-	mgin "github.com/ulule/limiter/drivers/middleware/gin"
-	"github.com/ulule/limiter/drivers/store/memory"
+	"github.com/ulule/limiter/v3"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
-	"github.com/smartcontractkit/chainlink/core/web/resolver"
-	"github.com/smartcontractkit/chainlink/core/web/schema"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/web/resolver"
+	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
 // NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
 func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
+	engine.RemoteIPHeaders = nil // don't trust default headers: "X-Forwarded-For", "X-Real-IP"
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
@@ -77,12 +78,14 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
-	unauthenticatedDevOnlyMetricRoutes(app, api)
+	debugRoutes(app, api)
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(engine, config.Dev(), app.GetLogger())
+	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+	// https://smartcontract-it.atlassian.net/browse/BCF-2062
+	guiAssetRoutes(engine, config.Dev() || config.DisableRateLimiting(), app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
@@ -99,7 +102,10 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 
 	// Disable introspection and set a max query depth in production.
 	var schemaOpts []graphql.SchemaOpt
-	if !app.GetConfig().Dev() {
+
+	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+	// https://smartcontract-it.atlassian.net/browse/BCF-2062
+	if !app.GetConfig().Dev() && !app.GetConfig().InfiniteDepthQueries() {
 		schemaOpts = append(schemaOpts,
 			graphql.MaxDepth(10),
 		)
@@ -133,14 +139,17 @@ type SecurityConfig interface {
 	Dev() bool
 	TLSRedirect() bool
 	TLSHost() string
+	DevWebServer() bool
 }
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
 func secureOptions(cfg SecurityConfig) secure.Options {
 	return secure.Options{
-		FrameDeny:     true,
-		IsDevelopment: cfg.Dev(),
+		FrameDeny: true,
+		// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+		// https://smartcontract-it.atlassian.net/browse/BCF-2062
+		IsDevelopment: cfg.Dev() || cfg.DevWebServer(),
 		SSLRedirect:   cfg.TLSRedirect(),
 		SSLHost:       cfg.TLSHost(),
 	}
@@ -170,14 +179,9 @@ func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 
-func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
+func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
-
-	if app.GetConfig().Dev() {
-		// No authentication because `go tool pprof` doesn't support it
-		metricRoutes(r, true)
-	}
 }
 
 func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
@@ -262,14 +266,14 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ets := EVMTransfersController{app}
 		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
 		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
+		tts := CosmosTransfersController{app}
+		authv2.POST("/transfers/cosmos", auth.RequiresAdminRole(tts.Create))
 		sts := SolanaTransfersController{app}
 		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
-		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/dump-v1-as-v2", cc.Dump)
-		authv2.GET("/config/v2", cc.Show2)
+		authv2.GET("/config/v2", cc.Show)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -293,7 +297,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
-		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
 		authv2.DELETE("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/eth/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
@@ -301,7 +304,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		// legacy ones remain for backwards compatibility
 		authv2.GET("/keys/evm", ekc.Index)
 		authv2.POST("/keys/evm", auth.RequiresEditRole(ekc.Create))
-		authv2.PUT("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Update))
 		authv2.DELETE("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/evm/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/evm/export/:address", auth.RequiresAdminRole(ekc.Export))
@@ -333,6 +335,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			kc   KeysController
 		}{
 			{"solana", NewSolanaKeysController(app)},
+			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"dkgsign", NewDKGSignKeysController(app)},
 			{"dkgencrypt", NewDKGEncryptKeysController(app)},
@@ -382,12 +385,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
+			{"cosmos", NewCosmosChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
-			chains.POST(chain.path, auth.RequiresEditRole(chain.cc.Create))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
-			chains.PATCH(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Update))
-			chains.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Delete))
 		}
 
 		nodes := authv2.Group("nodes")
@@ -398,17 +399,14 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
+			{"cosmos", NewCosmosNodesController(app)},
 		} {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
 				nodes.GET("", paginatedRequest(chain.nc.Index))
-				nodes.POST("", auth.RequiresEditRole(chain.nc.Create))
-				nodes.DELETE("/:ID", auth.RequiresEditRole(chain.nc.Delete))
 			}
 			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
 			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
-			nodes.POST(chain.path, auth.RequiresEditRole(chain.nc.Create))
-			nodes.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.nc.Delete))
 		}
 
 		efc := EVMForwardersController{app}
@@ -420,7 +418,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, false)
+		metricRoutes(authv2, app.GetConfig().Dev())
 	}
 
 	ping := PingController{app}

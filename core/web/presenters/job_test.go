@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestJob(t *testing.T) {
@@ -44,6 +44,10 @@ func TestJob(t *testing.T) {
 	require.NoError(t, err)
 
 	v2CoordAddress, err := ethkey.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
+	require.NoError(t, err)
+
+	// Used in blockheaderfeeder test
+	batchBHSAddress, err := ethkey.NewEIP55Address("0xF6bB415b033D19EFf24A872a4785c6e1C4426103")
 	require.NoError(t, err)
 
 	var specGasLimit uint32 = 1000
@@ -111,6 +115,7 @@ func TestJob(t *testing.T) {
                         "vrfSpec": null,
 						"webhookSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"errors": []
 					}
@@ -185,6 +190,7 @@ func TestJob(t *testing.T) {
                         "vrfSpec": null,
 						"webhookSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"errors": []
 					}
@@ -271,6 +277,7 @@ func TestJob(t *testing.T) {
                         "vrfSpec": null,
 						"webhookSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"errors": []
 					}
@@ -332,6 +339,7 @@ func TestJob(t *testing.T) {
                         "cronSpec": null,
                         "vrfSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"errors": []
 					}
@@ -388,6 +396,7 @@ func TestJob(t *testing.T) {
 						"vrfSpec": null,
                         "webhookSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
                         "errors": []
                     }
@@ -442,6 +451,7 @@ func TestJob(t *testing.T) {
 						"offChainReporting2OracleSpec": null,
                         "vrfSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"errors": []
 					}
@@ -462,7 +472,7 @@ func TestJob(t *testing.T) {
 					PollPeriod:            25 * time.Second,
 					RunTimeout:            10 * time.Second,
 					EVMChainID:            utils.NewBigI(4),
-					FromAddress:           &fromAddress,
+					FromAddresses:         []ethkey.EIP55Address{fromAddress},
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -503,7 +513,85 @@ func TestJob(t *testing.T) {
 							"pollPeriod": 25000000000,
 							"runTimeout": 10000000000,
 							"evmChainID": "4",
-							"fromAddress": "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+							"fromAddresses": ["0xa8037A20989AFcBC51798de9762b351D63ff462e"],
+							"createdAt": "0001-01-01T00:00:00Z",
+							"updatedAt": "0001-01-01T00:00:00Z"
+						},
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "block header feeder spec",
+			job: job.Job{
+				ID: 1,
+				BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
+					ID:                         1,
+					CoordinatorV1Address:       &v1CoordAddress,
+					CoordinatorV2Address:       &v2CoordAddress,
+					WaitBlocks:                 123,
+					LookbackBlocks:             223,
+					BlockhashStoreAddress:      contractAddress,
+					BatchBlockhashStoreAddress: batchBHSAddress,
+					PollPeriod:                 25 * time.Second,
+					RunTimeout:                 10 * time.Second,
+					EVMChainID:                 utils.NewBigI(4),
+					FromAddresses:              []ethkey.EIP55Address{fromAddress},
+					GetBlockhashesBatchSize:    5,
+					StoreBlockhashesBatchSize:  10,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f47"),
+				Type:          job.BlockHeaderFeeder,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("blockheaderfeeder"),
+			},
+			want: `
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "blockheaderfeeder",
+						"type": "blockheaderfeeder",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f47",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": {
+							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
+							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
+							"waitBlocks": 123,
+							"lookbackBlocks": 223,
+							"blockhashStoreAddress": "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+							"batchBlockhashStoreAddress": "0xF6bB415b033D19EFf24A872a4785c6e1C4426103",
+							"pollPeriod": 25000000000,
+							"runTimeout": 10000000000,
+							"evmChainID": "4",
+							"fromAddresses": ["0xa8037A20989AFcBC51798de9762b351D63ff462e"],
+							"getBlockhashesBatchSize": 5,
+							"storeBlockhashesBatchSize": 10,
 							"createdAt": "0001-01-01T00:00:00Z",
 							"updatedAt": "0001-01-01T00:00:00Z"
 						},
@@ -559,6 +647,7 @@ func TestJob(t *testing.T) {
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": {
 							"blockchainTimeout":"0s", 
 							"contractConfigConfirmations":0, 
@@ -644,6 +733,7 @@ func TestJob(t *testing.T) {
 						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
 						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"errors": [{
 							"id": 200,

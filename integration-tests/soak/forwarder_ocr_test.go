@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -31,6 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestForwarderOCRSoak(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	testEnvironment, network := SetupForwarderOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -50,12 +51,12 @@ func TestForwarderOCRSoak(t *testing.T) {
 	})
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
-			log.Error().Err(err).Msg("Error when tearing down remote suite")
+			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
 	ocrSoakTest.OperatorForwarderFlow = true
 	ocrSoakTest.Setup(t, testEnvironment)
-	log.Info().Msg("Setup soak test")
+	l.Info().Msg("Setup soak test")
 	ocrSoakTest.Run(t)
 }
 

@@ -8,8 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/urfave/cli"
+
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 type deployJobSpecs struct {

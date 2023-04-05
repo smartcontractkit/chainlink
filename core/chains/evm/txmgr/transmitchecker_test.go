@@ -15,19 +15,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 )
 
 func TestFactory(t *testing.T) {
@@ -109,7 +110,7 @@ func TestTransmitCheckers(t *testing.T) {
 			EthTx:     tx,
 			Hash:      common.Hash{},
 			CreatedAt: tx.CreatedAt,
-			State:     txmgr.EthTxAttemptInProgress,
+			State:     txmgrtypes.TxAttemptInProgress,
 		}
 
 		t.Run("success", func(t *testing.T) {
@@ -188,7 +189,7 @@ func TestTransmitCheckers(t *testing.T) {
 				EthTx:     tx,
 				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
-				State:     txmgr.EthTxAttemptInProgress,
+				State:     txmgrtypes.TxAttemptInProgress,
 			}
 		}
 
@@ -293,7 +294,7 @@ func TestTransmitCheckers(t *testing.T) {
 				EthTx:     tx,
 				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
-				State:     txmgr.EthTxAttemptInProgress,
+				State:     txmgrtypes.TxAttemptInProgress,
 			}
 		}
 

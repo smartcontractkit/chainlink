@@ -17,27 +17,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 var (
@@ -45,27 +41,10 @@ var (
 )
 
 type startOptions struct {
-	// Set the config options
-	// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-	SetConfig func(cfg *configtest.TestGeneralConfig)
 	// Use to set up mocks on the app
 	FlagsAndDeps []interface{}
 	// Add a key on start up
 	WithKey bool
-}
-
-// many parallel test call start a test application. this leads to lock contention when creating a test session
-// increase the lock deadline based on the test timeout
-func overrideDatabseLockTimeout(t *testing.T, initial time.Duration) time.Duration {
-	// inititialize with a guess based on CI failure for the case where there is no explicit time timeout
-	lockDuration := 4 * initial
-
-	deadline, ok := t.Deadline()
-	if ok {
-		lockDuration = time.Duration(0.5 * deadline.Sub(time.Now()).Seconds())
-	}
-
-	return lockDuration
 }
 
 func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets), setup ...func(opts *startOptions)) *cltest.TestApplication {
@@ -84,7 +63,6 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 		c.EVM[0].Enabled = &f
 		c.P2P.V1.Enabled = &f
 		c.P2P.V2.Enabled = &f
-		c.Database.DefaultLockTimeout = models.MustNewDuration(overrideDatabseLockTimeout(t, c.Database.DefaultLockTimeout.Duration()))
 
 		if overrideFn != nil {
 			overrideFn(c, s)
@@ -95,49 +73,6 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	return app
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
-	t.Helper()
-
-	sopts := &startOptions{
-		FlagsAndDeps: []interface{}{},
-	}
-	for _, fn := range setup {
-		fn(sopts)
-	}
-	// Setup config
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-
-	config.Overrides.SetDefaultDatabaseLockTimeout(
-		overrideDatabseLockTimeout(t, config.DatabaseDefaultLockTimeout()),
-	)
-
-	// Generally speaking, most tests that use startNewApplication don't
-	// actually need ChainSets loaded. We can greatly reduce test
-	// overhead by disabling EVM here. If you need EVM interactions in
-	// your tests, you can manually override and turn it on using
-	// withConfigSet.
-	config.Overrides.EVMEnabled = null.BoolFrom(false)
-	config.Overrides.P2PEnabled = null.BoolFrom(false)
-
-	if sopts.SetConfig != nil {
-		sopts.SetConfig(config)
-	}
-
-	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	return app
-}
-
-// withConfig is a function option which sets config on the app
-func withConfigSet(cfgSet func(*configtest.TestGeneralConfig)) func(opts *startOptions) {
-	return func(opts *startOptions) {
-		opts.SetConfig = cfgSet
-	}
 }
 
 func withMocks(mks ...interface{}) func(opts *startOptions) {
@@ -152,12 +87,12 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) *evmmocks.Client {
+func newEthMock(t *testing.T) *evmclimocks.Client {
 	t.Helper()
 	return cltest.NewEthMocksWithStartupAssertions(t)
 }
 
-func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmmocks.Client {
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmclimocks.Client {
 	t.Helper()
 
 	return cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
@@ -192,6 +127,14 @@ func TestClient_ReplayBlocks(t *testing.T) {
 	require.NoError(t, set.Set("block-number", "42"))
 
 	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ReplayFromBlock(c))
+
+	require.NoError(t, set.Set("evm-chain-id", "12345678"))
+	c = cli.NewContext(nil, set, nil)
+	assert.ErrorContains(t, client.ReplayFromBlock(c), "evmChainID does not match any local chains")
+
+	require.NoError(t, set.Set("evm-chain-id", "0"))
+	c = cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
@@ -527,11 +470,15 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	set.Uint("seconds", 10, "")
-
+	// pick a value larger than the default http service write timeout
+	d := app.Config.HTTPServerWriteTimeout() + 2*time.Second
+	set.Uint("seconds", uint(d.Seconds()), "")
+	tDir := t.TempDir()
+	set.String("output_dir", tDir, "")
 	err = client.Profile(cli.NewContext(nil, set, nil))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout")
+	wantErr := cmd.ErrProfileTooLong
+	require.ErrorAs(t, err, &wantErr)
+
 }
 
 func TestClient_Profile(t *testing.T) {
@@ -553,110 +500,34 @@ func TestClient_Profile(t *testing.T) {
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
 
-	set.Uint("seconds", 8, "")
-	set.String("output_dir", t.TempDir(), "")
+	set.Uint("seconds", 1, "")
+	tDir := t.TempDir()
+	set.String("output_dir", tDir, "")
 
+	// we don't care about the cli behavior, i.e. the before func,
+	// so call the client func directly
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
+
+	ents, err := os.ReadDir(tDir)
+	require.NoError(t, err)
+	require.Greater(t, len(ents), 0, "ents %+v", ents)
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func TestClient_SetDefaultGasPrice(t *testing.T) {
+func TestClient_Profile_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
-	ethMock := newEthMock(t)
-	app := startNewApplication(t,
-		withKey(),
-		withMocks(ethMock),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
-	)
-	client, _ := app.NewClientAndRenderer()
+	app := startNewApplicationV2(t, nil)
 
-	t.Run("without specifying chain id setting value", func(t *testing.T) {
-		set := flag.NewFlagSet("setgasprice", 0)
-		cltest.FlagSetApplyFromAction(client.SetEvmGasPriceDefault, set, "")
+	client := app.NewAuthenticatingClient(&cltest.MockCountingPrompter{T: t, EnteredStrings: []string{}})
 
-		require.NoError(t, set.Parse([]string{"8616460799"}))
+	set := flag.NewFlagSet("test", 0)
+	set.Uint("seconds", 1, "")
+	set.String("output_dir", t.TempDir(), "")
 
-		c := cli.NewContext(nil, set, nil)
-
-		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChains().EVM.Default()
-		require.NoError(t, err)
-		cfg := ch.Config()
-		assert.Equal(t, assets.NewWeiI(8616460799), cfg.EvmGasPriceDefault())
-
-		client, _ = app.NewClientAndRenderer()
-		set = flag.NewFlagSet("setgasprice", 0)
-		cltest.FlagSetApplyFromAction(client.SetEvmGasPriceDefault, set, "")
-
-		require.NoError(t, set.Set("gwei", "true"))
-		require.NoError(t, set.Parse([]string{"-gwei", "861.6460799"}))
-
-		c = cli.NewContext(nil, set, nil)
-		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		assert.Equal(t, assets.NewWeiI(861646079900), cfg.EvmGasPriceDefault())
-	})
-
-	t.Run("specifying wrong chain id", func(t *testing.T) {
-		set := flag.NewFlagSet("setgasprice", 0)
-		cltest.FlagSetApplyFromAction(client.SetEvmGasPriceDefault, set, "")
-
-		require.NoError(t, set.Set("evmChainID", "985435435435"))
-		require.NoError(t, set.Parse([]string{"8616460799"}))
-
-		c := cli.NewContext(nil, set, nil)
-
-		err := client.SetEvmGasPriceDefault(c)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "evmChainID does not match any local chains")
-
-		ch, err := app.GetChains().EVM.Default()
-		require.NoError(t, err)
-		cfg := ch.Config()
-		assert.Equal(t, assets.NewWeiI(861646079900), cfg.EvmGasPriceDefault())
-	})
-
-	t.Run("specifying correct chain id", func(t *testing.T) {
-		set := flag.NewFlagSet("setgasprice", 0)
-		cltest.FlagSetApplyFromAction(client.SetEvmGasPriceDefault, set, "")
-
-		require.NoError(t, set.Set("evmChainID", ""))
-		require.NoError(t, set.Parse([]string{"-evmChainID", "0", "12345678900"}))
-
-		c := cli.NewContext(nil, set, nil)
-
-		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChains().EVM.Default()
-		require.NoError(t, err)
-		cfg := ch.Config()
-
-		assert.Equal(t, assets.NewWeiI(12345678900), cfg.EvmGasPriceDefault())
-	})
-}
-
-func TestClient_GetConfiguration(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-	cfg := app.GetConfig()
-
-	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
-
-	cp := *r.Renders[0].(*config.ConfigPrinter)
-	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
-	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
-	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
-	assert.Equal(t, cp.EnvPrinter.LogLevel, cfg.LogLevel())
-	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
-	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
-	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
+	err := client.Profile(cli.NewContext(nil, set, nil))
+	require.ErrorContains(t, err, "profile collection failed:")
+	require.ErrorContains(t, err, "Unauthorized")
 }
 
 func TestClient_ConfigV2(t *testing.T) {
@@ -664,10 +535,7 @@ func TestClient_ConfigV2(t *testing.T) {
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
-	assert.Error(t, client.GetConfiguration(cltest.EmptyCLIContext()))
-	cfg, ok := app.Config.(chainlink.ConfigV2)
-	require.True(t, ok)
-	user, effective := cfg.ConfigTOML()
+	user, effective := app.Config.ConfigTOML()
 
 	t.Run("user", func(t *testing.T) {
 		got, err := client.ConfigV2Str(true)
@@ -679,22 +547,6 @@ func TestClient_ConfigV2(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, effective, got, diff.Diff(effective, got))
 	})
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func TestClient_ConfigDump(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	dumpedConfig, err := client.ConfigDumpStr()
-	require.NoError(t, err)
-
-	appConfig, err := app.ConfigDump(testutils.Context(t))
-	require.NoError(t, err)
-
-	assert.Equal(t, appConfig, dumpedConfig)
 }
 
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {

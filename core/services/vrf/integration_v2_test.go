@@ -27,46 +27,47 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	evmlogger "github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/nocancel_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_proxy_admin"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_reverting_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_proxy_admin"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // vrfConsumerContract is the common interface implemented by
@@ -84,17 +85,6 @@ type coordinatorV2Universe struct {
 	consumerContracts         []*vrf_consumer_v2.VRFConsumerV2
 	consumerContractAddresses []common.Address
 
-	// variant of the VRF coordinator that has non-cancellable subscriptions
-	// and only bills the premium fee.
-	noCancelBatchCoordinator        *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
-	noCancelBatchCoordinatorAddress common.Address
-	noCancelConsumers               []*vrf_consumer_v2.VRFConsumerV2
-	noCancelConsumerAddresses       []common.Address
-	// using the same wrapper as VRFCoordinatorV2, but points to the NoCancel address
-	// this is to make the tests simpler. this is possible because the ABI's are identical.
-	noCancelCoordinator *vrf_coordinator_v2.VRFCoordinatorV2
-	noCancelAddress     common.Address
-
 	rootContract                     *vrf_coordinator_v2.VRFCoordinatorV2
 	rootContractAddress              common.Address
 	batchCoordinatorContract         *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
@@ -104,6 +94,8 @@ type coordinatorV2Universe struct {
 	linkEthFeedAddress               common.Address
 	bhsContract                      *blockhash_store.BlockhashStore
 	bhsContractAddress               common.Address
+	batchBHSContract                 *batch_blockhash_store.BatchBlockhashStore
+	batchBHSContractAddress          common.Address
 	maliciousConsumerContract        *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
 	maliciousConsumerContractAddress common.Address
 	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
@@ -188,6 +180,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend)
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
 
+	// Deploy batch blockhash store
+	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend, bhsAddress)
+	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
+
 	// Deploy VRF V2 coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
 		vrf_coordinator_v2.DeployVRFCoordinatorV2(
@@ -201,23 +197,6 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 			neil, backend, coordinatorAddress,
 		)
 	require.NoError(t, err, "failed to deploy BatchVRFCoordinatorV2 contract to simulated ethereum blockchain")
-	backend.Commit()
-
-	// Deploy the nocancel coordinator
-	noCancelAddress, _, _, err :=
-		nocancel_vrf_coordinator_v2.DeployNoCancelVRFCoordinatorV2(
-			neil, backend, linkAddress, bhsAddress, linkEthFeed)
-	require.NoError(t, err, "failed to deploy NoCancelVRFCoordinatorV2 contract to simulated ethereum blockchain")
-	backend.Commit()
-
-	noCancelCoordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(noCancelAddress, backend)
-	require.NoError(t, err)
-
-	// Deploy batch coordinator pointing to the nocancel coordinator
-	noCancelBatchCoordinatorAddress, _, noCancelBatchCoordinator, err :=
-		batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(
-			neil, backend, noCancelAddress)
-	require.NoError(t, err, "failed to deploy BatchVRFCoordinatorV2 pointing to nocancel coordinator to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Create the VRF consumers.
@@ -236,26 +215,6 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 
 		consumerContracts = append(consumerContracts, consumerContract)
 		consumerContractAddresses = append(consumerContractAddresses, consumerContractAddress)
-
-		backend.Commit()
-	}
-
-	// Create the VRF consumers for the NoCancel coordinator
-	var (
-		noCancelConsumers         []*vrf_consumer_v2.VRFConsumerV2
-		noCancelConsumerAddresses []common.Address
-	)
-	for _, author := range vrfConsumers {
-		// Deploy a VRF consumer pointing to the no cancel coordinator address.
-		// It has a starting balance of 500 link.
-		consumerAddress, _, consumer, err :=
-			vrf_consumer_v2.DeployVRFConsumerV2(author, backend, noCancelAddress, linkAddress)
-		require.NoError(t, err, "failed to deploy VRFConsumer contract pointing to NoCancel coordinator to simulated ethereum blockchain")
-		_, err = linkContract.Transfer(sergey, consumerAddress, assets.Ether(500).ToInt()) // Actually, LINK
-		require.NoError(t, err, "failed to send LINK to VRFConsumer contract pointing to NoCancel coordinator on simulated ethereum blockchain")
-
-		noCancelConsumers = append(noCancelConsumers, consumer)
-		noCancelConsumerAddresses = append(noCancelConsumerAddresses, consumerAddress)
 
 		backend.Commit()
 	}
@@ -344,40 +303,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
 
-	// Set the configuration on the no cancel coordinator
-	_, err = noCancelCoordinator.SetConfig(neil,
-		uint16(1),                              // minRequestConfirmations
-		uint32(2.5e6),                          // gas limit
-		uint32(60*60*24),                       // stalenessSeconds
-		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
-		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
-		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-			// Same fee for all tiers
-			FulfillmentFlatFeeLinkPPMTier1: uint32(500),
-			FulfillmentFlatFeeLinkPPMTier2: uint32(500),
-			FulfillmentFlatFeeLinkPPMTier3: uint32(500),
-			FulfillmentFlatFeeLinkPPMTier4: uint32(500),
-			FulfillmentFlatFeeLinkPPMTier5: uint32(500),
-			ReqsForTier2:                   big.NewInt(0),
-			ReqsForTier3:                   big.NewInt(0),
-			ReqsForTier4:                   big.NewInt(0),
-			ReqsForTier5:                   big.NewInt(0),
-		},
-	)
-	require.NoError(t, err, "failed to set nocancel coordinator configuration")
-	backend.Commit()
-
 	return coordinatorV2Universe{
 		vrfConsumers:              vrfConsumers,
 		consumerContracts:         consumerContracts,
 		consumerContractAddresses: consumerContractAddresses,
-
-		noCancelConsumers:               noCancelConsumers,
-		noCancelConsumerAddresses:       noCancelConsumerAddresses,
-		noCancelCoordinator:             noCancelCoordinator,
-		noCancelAddress:                 noCancelAddress,
-		noCancelBatchCoordinator:        noCancelBatchCoordinator,
-		noCancelBatchCoordinatorAddress: noCancelBatchCoordinatorAddress,
 
 		batchCoordinatorContract:        batchCoordinatorContract,
 		batchCoordinatorContractAddress: batchCoordinatorAddress,
@@ -396,6 +325,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		linkEthFeedAddress:               linkEthFeed,
 		bhsContract:                      bhsContract,
 		bhsContractAddress:               bhsAddress,
+		batchBHSContract:                 batchBHSContract,
+		batchBHSContractAddress:          batchBHSAddress,
 		maliciousConsumerContract:        maliciousConsumerContract,
 		maliciousConsumerContractAddress: maliciousConsumerContractAddress,
 		backend:                          backend,
@@ -1230,14 +1161,30 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerNeedsBHS(
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
+	testMultipleConsumersNeedBHS(
 		t,
 		ownerKey,
 		uni,
-		uni.vrfConsumers[0],
-		uni.consumerContracts[0],
-		uni.consumerContractAddresses[0],
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress)
+}
+
+func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	testBlockHeaderFeeder(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress)
@@ -1989,9 +1936,11 @@ func TestMaliciousConsumer(t *testing.T) {
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
 		Name:                     "vrf-primary",
+		FromAddresses:            []string{key.Address.String()},
 		CoordinatorAddress:       uni.rootContractAddress.String(),
 		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
+		GasLanePrice:             assets.GWei(1),
 		PublicKey:                vrfkey.PublicKey.String(),
 		V2:                       true,
 	}).Toml()
@@ -2415,7 +2364,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			SignedRawTx:             []byte(`blah`),
 			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
-			State:                   txmgr.EthTxAttemptBroadcast,
+			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
 			ChainSpecificGasLimit:   uint32(100),
 		})
@@ -2427,7 +2376,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			GasPrice:              assets.NewWeiI(100),
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  utils.NewHash(),
-			State:                 txmgr.EthTxAttemptInProgress,
+			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint32(100),
 		})
@@ -2443,9 +2392,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 
 	// add eth_receipts
-	receipts := []txmgr.EthReceipt{}
+	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgr.EthReceipt{
+		receipts = append(receipts, txmgr.EvmReceipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
@@ -2473,15 +2422,6 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])
-}
-
-func TestEqualAbis(t *testing.T) {
-	// test that the abi's of NoCancelVRFCoordinatorV2 and VRFCoordinatorV2
-	// except for trivial naming divergences of the structs.
-	noCancelAbi := nocancel_vrf_coordinator_v2.NoCancelVRFCoordinatorV2MetaData.ABI
-	noCancelAbi = strings.Replace(noCancelAbi, "NoCancelVRFCoordinatorV2", "VRFCoordinatorV2", -1)
-	v2Abi := vrf_coordinator_v2.VRFCoordinatorV2MetaData.ABI
-	require.Equal(t, v2Abi, noCancelAbi)
 }
 
 func FindLatestRandomnessRequestedLog(t *testing.T,

@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
 //go:generate mockery --quiet --name OCR2 --output mocks/ --case=underscore
@@ -153,7 +153,7 @@ func (ks ocr2) EnsureKeys() error {
 			return err
 		}
 
-		ks.logger.Infof("Created OCR2 key with ID %s", created.ID())
+		ks.logger.Infof("Created OCR2 key with ID %s for chain type %s", created.ID(), chainType)
 	}
 
 	return nil
