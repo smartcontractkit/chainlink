@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"database/sql"
 	"fmt"
 	"net/url"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
@@ -124,7 +122,18 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 			}
 		}
 	}
-	return types.Node{}, sql.ErrNoRows
+	return types.Node{}, chains.ErrNotFound
+}
+
+func (cs EVMConfigs) NodeStatus(name string) (chains.NodeStatus, error) {
+	for i := range cs {
+		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, cs[i].ChainID.String())
+			}
+		}
+	}
+	return chains.NodeStatus{}, chains.ErrNotFound
 }
 
 func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
@@ -142,35 +151,69 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	return
 }
 
-func (cs EVMConfigs) Nodes() (ns []types.Node) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n == nil {
-				continue
-			}
-			ns = append(ns, legacyNode(n, cs[i].ChainID))
+func nodeStatus(n *Node, chainID string) (chains.NodeStatus, error) {
+	var s chains.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return chains.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
+}
+
+func (cs EVMConfigs) nodes(chainID string) (ns EVMNodes) {
+	for _, c := range cs {
+		if c.ChainID.String() == chainID {
+			return c.Nodes
 		}
+	}
+	return nil
+}
+
+func (cs EVMConfigs) Nodes(chainID utils.Big) (ns []types.Node, err error) {
+	id := chainID.String()
+	nodes := cs.nodes(id)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		ns = append(ns, legacyNode(n, &chainID))
 	}
 	return
 }
 
-func (cs EVMConfigs) NodesByID(chainIDs ...utils.Big) (ns []types.Node) {
-	for i := range cs {
-		var match bool
-		for _, chainID := range chainIDs {
-			if chainID.Cmp(cs[i].ChainID) == 0 {
-				match = true
-				break
+func (cs EVMConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, cs[i].ChainID.String())
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
 			}
 		}
-		if !match {
-			continue
-		}
-		for _, n := range cs[i].Nodes {
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
 			}
-			ns = append(ns, legacyNode(n, cs[i].ChainID))
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
 		}
 	}
 	return
@@ -730,11 +773,4 @@ func (n *Node) SetFrom(f *Node) {
 	if f.SendOnly != nil {
 		n.SendOnly = f.SendOnly
 	}
-}
-
-func nullIntFromPtr[I constraints.Integer](i *I) null.Int {
-	if i == nil {
-		return null.Int{}
-	}
-	return null.IntFrom(int64(*i))
 }

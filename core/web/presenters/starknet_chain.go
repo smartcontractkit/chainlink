@@ -1,8 +1,6 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
@@ -27,10 +25,7 @@ func NewStarkNetChainResource(chain chains.ChainConfig) StarkNetChainResource {
 
 // StarkNetNodeResource is a StarkNet node JSONAPI resource.
 type StarkNetNodeResource struct {
-	JAID
-	Name    string `json:"name"`
-	ChainID string `json:"chainID"`
-	URL     string `json:"url"`
+	NodeResource
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -39,11 +34,12 @@ func (r StarkNetNodeResource) GetName() string {
 }
 
 // NewStarkNetNodeResource returns a new StarkNetNodeResource for node.
-func NewStarkNetNodeResource(node db.Node) StarkNetNodeResource {
-	return StarkNetNodeResource{
+func NewStarkNetNodeResource(node chains.NodeStatus) StarkNetNodeResource {
+	return StarkNetNodeResource{NodeResource{
 		JAID:    NewJAID(node.Name),
-		Name:    node.Name,
 		ChainID: node.ChainID,
-		URL:     node.URL,
-	}
+		Name:    node.Name,
+		State:   node.State,
+		Config:  node.Config,
+	}}
 }
