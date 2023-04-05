@@ -420,20 +420,20 @@ func (_m *Eth) Import(keyJSON []byte, password string, chainIDs ...*big.Int) (et
 	return r0, r1
 }
 
-// IncrementNextSequence provides a mock function with given fields: address, chainID, currentNonce, qopts
-func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+// IncrementNextSequence provides a mock function with given fields: address, chainID, currentSequence, qopts
+func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, address, chainID, currentNonce)
+	_ca = append(_ca, address, chainID, currentSequence)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, int64, ...pg.QOpt) error); ok {
-		r0 = rf(address, chainID, currentNonce, qopts...)
+		r0 = rf(address, chainID, currentSequence, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
