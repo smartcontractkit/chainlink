@@ -62,13 +62,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 	ctx := testutils.Context(t)
 
-	// Can't close unstarted instance
-	err = eb.Close()
-	require.Error(t, err)
-
-	// Can successfully start once
-	err = eb.Start(ctx)
-	require.NoError(t, err)
+	// eb is already started inside the cltest.NewEthBroadcaster() call above
 
 	// Can't start an already started instance
 	err = eb.Start(ctx)
@@ -78,10 +72,10 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	err = eb.Close()
 	require.NoError(t, err)
 
-	// Can't start more than once (Confirmer implements utils.StartStopOnce)
+	// Can't start more than once (Broadcaster implements utils.StartStopOnce)
 	err = eb.Start(ctx)
 	require.Error(t, err)
-	// Can't close more than once (Confirmer implements utils.StartStopOnce)
+	// Can't close more than once (Broadcaster implements utils.StartStopOnce)
 	err = eb.Close()
 	require.Error(t, err)
 

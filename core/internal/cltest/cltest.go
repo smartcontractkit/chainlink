@@ -211,6 +211,7 @@ func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService,
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, keyStore)
 	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, ethClient, config, keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	ethBroadcaster.Start(testutils.Context(t))
 	return ethBroadcaster, nil
 }
 
@@ -226,6 +227,7 @@ func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, e
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ks, estimator)
 	ec := txmgr.NewEthConfirmer(txStorageService, ethClient, config, ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
+	require.NoError(t, ec.Start(testutils.Context(t)))
 	return ec, nil
 }
 

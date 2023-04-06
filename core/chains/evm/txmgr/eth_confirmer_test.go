@@ -121,13 +121,15 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	// Add some fromAddresses
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-
-	ec, err := cltest.NewEthConfirmer(t, txStorageService, ethClient, config, ethKeyStore, nil)
-	require.NoError(t, err)
+	estimator := gasmocks.NewEvmEstimator(t)
+	lggr := logger.TestLogger(t)
+	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ethKeyStore, feeEstimator)
+	ec := txmgr.NewEthConfirmer(txStorageService, ethClient, config, ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
 
 	// Can't close unstarted instance
-	err = ec.Close()
+	err := ec.Close()
 	require.Error(t, err)
 
 	// Can successfully start once
@@ -1662,6 +1664,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
 		ec := txmgr.NewEthConfirmer(txStorageService, ethClient, evmcfg, kst, txBuilder, lggr)
+		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)
@@ -1704,6 +1707,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []*evmtypes.Address{evmtypes.NewAddress(fromAddress)}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		ec := txmgr.NewEthConfirmer(txStorageService, ethClient, evmcfg, kst, txBuilder, lggr)
+		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)
@@ -1763,7 +1767,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, nonce, fromAddress, originalBroadcastAt)
 	nonce++
 	attempt1_1 := etx.EthTxAttempts[0]
-	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
+	var dbAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
 
 	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
@@ -1899,7 +1903,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		require.Len(t, etx.EthTxAttempts, 2)
 	})
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_2)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_2.ID))
 	var attempt1_3 txmgr.EvmTxAttempt
 
