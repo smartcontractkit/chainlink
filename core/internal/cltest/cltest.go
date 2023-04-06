@@ -399,6 +399,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	require.NoError(t, keyStore.Unlock(testutils.Password))
 	var ids []utils.Big
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
