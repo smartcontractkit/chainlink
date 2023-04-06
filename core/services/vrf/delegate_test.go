@@ -54,7 +54,7 @@ type vrfUniverse struct {
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *evmtypes.MockTxManager
+	txm       *txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int
