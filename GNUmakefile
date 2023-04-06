@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := chainlink
 
 GOPATH ?= $(HOME)/go
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
