@@ -77,7 +77,7 @@ var (
 	}, []string{"evmChainID"})
 	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_callbacks_to_report",
-		Help:    "Number of unfulfilled and and in-flight callbacks fit in current report in reportBlocks",
+		Help:    "Number of unfulfilled and in-flight callbacks fit in current report in reportBlocks",
 		Buckets: counterBuckets,
 	}, []string{"evmChainID"})
 	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -272,7 +272,7 @@ func (c *coordinator) ReportIsOnchain(
 		}
 		nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
 		if !ok {
-			c.lggr.Warnw("Type error for log in NewTransmissisons", "log", logs[i], "err", err)
+			c.lggr.Warnw("Type error for log in NewTransmissions", "log", logs[i], "err", err)
 			continue
 		}
 		if nt.ConfigDigest == configDigest {
@@ -441,15 +441,15 @@ func (c *coordinator) ReportBlocks(
 		}
 	}
 
-	c.lggr.Tracew("got elligible blocks", "blocks", blocks)
+	c.lggr.Tracew("got eligible blocks", "blocks", blocks)
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
 	c.emitReportBlocksMetrics(len(blocks), len(callbacks))
 
-	// Pull request IDs from elligible callbacks for logging. There should only be
-	// at most 100-200 elligible callbacks in a report.
+	// Pull request IDs from eligible callbacks for logging. There should only be
+	// at most 100-200 eligible callbacks in a report.
 	var reqIDs []uint64
 	for _, c := range callbacks {
 		reqIDs = append(reqIDs, c.RequestID)
@@ -664,7 +664,7 @@ func (c *coordinator) filterEligibleCallbacks(
 			continue
 		}
 
-		// Check that the callback is elligible.
+		// Check that the callback is eligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			cacheKey := getCallbackCacheKey(r.RequestID.Int64())
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
@@ -712,7 +712,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			continue
 		}
 
-		// Check that the block is elligible.
+		// Check that the block is eligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			cacheKey := getBlockCacheKey(r.NextBeaconOutputHeight, r.ConfDelay.Uint64())
 			t := c.toBeTransmittedBlocks.GetItem(cacheKey)
@@ -844,7 +844,7 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	// Get all requested blocks and callbacks.
 	for _, output := range report.Outputs {
 		// If the VRF proof is the zero string, the block is not included in this
-		// output. We still check for callbacks in the ouptut.
+		// output. We still check for callbacks in the output.
 		if !bytes.Equal(output.VRFProof[:], zeroProof[:]) {
 			bR := blockInReport{
 				block: block{
