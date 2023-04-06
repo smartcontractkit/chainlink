@@ -42,7 +42,7 @@ describe('VRFCoordinatorV2', () => {
     )
     linkToken = await ltFactory.deploy()
     const bhFactory = await ethers.getContractFactory(
-      'src/v0.6/dev/BlockhashStore.sol:BlockhashStore',
+      'src/v0.6/BlockhashStore.sol:BlockhashStore',
       accounts[0],
     )
     blockHashStore = await bhFactory.deploy()
