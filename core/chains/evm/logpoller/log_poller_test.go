@@ -18,7 +18,6 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/rand"
@@ -156,12 +155,12 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 4, len(logs))
 
-	// Cancelling a replay should return an error synchronously.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	assert.True(t, errors.Is(th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
+	assert.NoError(t, th.LogPoller.Close())
 
-	require.NoError(t, th.LogPoller.Close())
+	// Cancelling a replay should return an error synchronously.
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	cancel()
+	assert.ErrorIs(t, th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient)
 }
 
 // Simulate a badly behaving rpc server, where unfinalized blocks can return different logs

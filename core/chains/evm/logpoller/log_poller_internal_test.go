@@ -335,6 +335,146 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	assert.Equal(t, int64(1), lp.backupPollerNextBlock) // Ensure non-negative!
 }
 
+func TestLogPoller_Replay(t *testing.T) {
+	t.Parallel()
+	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
+	tctx := testutils.Context(t)
+
+	lggr := logger.TestLogger(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
+
+	head := evmtypes.Head{Number: 4}
+	events := []common.Hash{EmitterABI.Events["Log1"].ID}
+	log1 := types.Log{
+		Index:       0,
+		BlockHash:   common.Hash{},
+		BlockNumber: uint64(head.Number),
+		Topics:      events,
+		Address:     addr,
+		TxHash:      common.HexToHash("0x1234"),
+		Data:        EvmWord(uint64(300)).Bytes(),
+	}
+
+	ec := evmclimocks.NewClient(t)
+	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
+	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
+	ec.On("ChainID").Return(chainID, nil)
+	lp := NewLogPoller(orm, ec, lggr, time.Hour, 3, 3, 3, 20)
+
+	// process 1 log in block 3
+	lp.PollAndSaveLogs(tctx, 4)
+	latest, err := lp.LatestBlock()
+	require.NoError(t, err)
+	require.Equal(t, int64(4), latest)
+
+	t.Run("abortBeforeReplayStart", func(t *testing.T) {
+		// Replay() should abort immediately if caller's context is cancelled before request signal is read
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		cancel()
+		err = lp.Replay(ctx, 3)
+		assert.ErrorIs(t, err, ErrReplayAbortedByClient)
+	})
+
+	recvStartReplay := func(ctx context.Context, block int64, withTimeout bool) {
+		var err error
+		select {
+		case fromBlock := <-lp.replayStart:
+			assert.Equal(t, block, fromBlock)
+		case <-ctx.Done():
+			err = ctx.Err()
+		}
+		require.NoError(t, err, "Timed out waiting to receive replay request from lp.replayStart")
+	}
+
+	anyErr := errors.New("any error")
+
+	// Replay() should return error code received from replayComplete
+	t.Run("returnsErrorCodeOnReplayComplete", func(t *testing.T) {
+		go func() {
+			recvStartReplay(tctx, 1, true)
+			lp.replayComplete <- anyErr
+		}()
+		assert.ErrorIs(t, lp.Replay(tctx, 1), anyErr)
+	})
+
+	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun,
+	// and this should not cause lp.run() to get stuck
+	t.Run("clientAbortReplayInProgress", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		go func() {
+			recvStartReplay(ctx, 4, true)
+			cancel()
+		}()
+		assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
+
+	})
+
+	// Main lp.run() loop shouldn't get stuck if client aborts
+	t.Run("clientAbortDoesntHangRunLoop", func(t *testing.T) {
+		done := make(chan struct{})
+		timeout := time.After(4 * time.Second)
+		lp.ctx, lp.cancel = context.WithCancel(tctx)
+		defer func() {
+			lp.cancel()
+			lp.done = make(chan struct{})
+		}()
+		ctx, cancel := context.WithCancel(tctx)
+
+		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			go func() {
+				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
+			}()
+		})
+		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			go func() {
+				cancel()
+				lp.replayStart <- 4
+				close(done)
+			}()
+		})
+		go func() {
+			lp.run()
+		}()
+		select {
+		case <-timeout:
+			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 1s")
+		case <-done:
+		}
+	})
+
+	// run() should abort if log poller shuts down while replay is in progress
+	t.Run("shutdownDuringReplay", func(t *testing.T) {
+		lp.ctx, lp.cancel = context.WithCancel(tctx)
+		defer lp.cancel()
+		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			go func() {
+				lp.replayStart <- 4
+			}()
+		})
+		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			lp.cancel()
+		})
+
+		timeout := time.After(1 * time.Second)
+		done := make(chan struct{})
+		go func() {
+			lp.run()
+			close(done)
+		}()
+		select {
+		case <-timeout:
+			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 1s")
+		case <-done:
+		}
+	})
+}
+
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.TestLogger(b)
 	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2, 1000)
