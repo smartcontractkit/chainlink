@@ -78,7 +78,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	require.NoError(t, client.ShowTransaction(c))
 
 	renderedTx := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &tx.FromAddress, renderedTx.From)
+	assert.Equal(t, tx.FromAddress.NativeAddress(), renderedTx.From)
 }
 
 func TestClient_IndexTxAttempts(t *testing.T) {
@@ -155,16 +155,16 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EvmTx{}
-	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
-	require.Equal(t, "100.500000000000000000", etx.Value.String())
-	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.String())
+	dbEvmTx := txmgr.DbEthTx{}
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.Equal(t, "100.500000000000000000", dbEvmTx.Value.String())
+	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
+	require.Equal(t, to, dbEvmTx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &etx.FromAddress, output.From)
-	assert.Equal(t, &etx.ToAddress, output.To)
-	assert.Equal(t, etx.Value.String(), output.Value)
+	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
+	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
+	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 }
 
 func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
@@ -208,14 +208,14 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EvmTx{}
-	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
-	require.Equal(t, "1.000000000000000000", etx.Value.String())
-	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.String())
+	dbEvmTx := txmgr.DbEthTx{}
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.Equal(t, "1.000000000000000000", dbEvmTx.Value.String())
+	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
+	require.Equal(t, to, dbEvmTx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &etx.FromAddress, output.From)
-	assert.Equal(t, &etx.ToAddress, output.To)
-	assert.Equal(t, etx.Value.String(), output.Value)
+	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
+	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
+	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 }
