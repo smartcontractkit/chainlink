@@ -128,7 +128,6 @@ func NewEthBroadcaster(
 	config Config,
 	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	enabledAddresses []*evmtypes.Address,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	nonceSyncer EvmNonceSyncer,
 	logger logger.Logger,
@@ -146,7 +145,6 @@ func NewEthBroadcaster(
 		chainID:          *ethClient.ChainID(),
 		config:           config,
 		eventBroadcaster: eventBroadcaster,
-		enabledAddresses: enabledAddresses,
 		ks:               keystore,
 		checkerFactory:   checkerFactory,
 		initSync:         sync.Mutex{},
@@ -174,6 +172,16 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 	if err != nil {
 		return errors.Wrap(err, "EthBroadcaster could not start")
+	}
+	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(&eb.chainID)
+	if err != nil {
+		return errors.Wrap(err, "Broadcaster: failed to load EnabledAddressesForChain")
+	}
+
+	if len(eb.enabledAddresses) > 0 {
+		eb.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(eb.enabledAddresses)), "keys", eb.enabledAddresses)
+	} else {
+		eb.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", eb.chainID.String())
 	}
 	eb.chStop = make(chan struct{})
 	eb.wg = sync.WaitGroup{}

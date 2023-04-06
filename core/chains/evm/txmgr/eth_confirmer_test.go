@@ -1661,7 +1661,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []*evmtypes.Address{evmtypes.NewAddress(fromAddress)}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
-		ec := txmgr.NewEthConfirmer(txStorageService, ethClient, evmcfg, kst, addresses, txBuilder, lggr)
+		ec := txmgr.NewEthConfirmer(txStorageService, ethClient, evmcfg, kst, txBuilder, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)
@@ -1703,7 +1703,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, feeEstimator)
 		addresses := []*evmtypes.Address{evmtypes.NewAddress(fromAddress)}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
-		ec := txmgr.NewEthConfirmer(txStorageService, ethClient, evmcfg, kst, addresses, txBuilder, lggr)
+		ec := txmgr.NewEthConfirmer(txStorageService, ethClient, evmcfg, kst, txBuilder, lggr)
 		currentHead := int64(30)
 		oldEnough := int64(15)
 		nonce := int64(0)

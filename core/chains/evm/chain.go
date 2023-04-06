@@ -124,7 +124,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	// note: gas estimator is started as a part of the txm
 	txm, gasEstimator, err := newEvmTxm(db, cfg, client, l, logPoller, opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to instantiate EvmTxm for chain with ID %s", cfg.ChainID().String())
 	}
 
 	headBroadcaster.Subscribe(txm)

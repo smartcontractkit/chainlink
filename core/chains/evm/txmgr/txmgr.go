@@ -174,31 +174,20 @@ func NewTxm(
 // The provided context can be used to terminate Start sequence.
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
-		enabledAddresses, err := b.keyStore.EnabledAddressesForChain(&b.chainID)
-		if err != nil {
-			return errors.Wrap(err, "Txm: failed to load key states")
-		}
-
-		if len(enabledAddresses) > 0 {
-			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(enabledAddresses)), "keys", enabledAddresses)
-		} else {
-			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
-		}
-
 		var ms services.MultiStart
-		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
+		if err := ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err = ms.Start(ctx, b.ethConfirmer); err != nil {
+		if err := ms.Start(ctx, b.ethConfirmer); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err = ms.Start(ctx, b.txAttemptBuilder); err != nil {
+		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(enabledAddresses)
+		go b.runLoop()
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -210,7 +199,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) (merr error)
 		}
 
 		if b.fwdMgr != nil {
-			if err = ms.Start(ctx, b.fwdMgr); err != nil {
+			if err := ms.Start(ctx, b.fwdMgr); err != nil {
 				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
@@ -295,7 +284,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]error {
 	return report
 }
 
-func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
+func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop() {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
@@ -319,15 +308,10 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 		if err := b.ethConfirmer.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 		}
-
 		if r != nil {
 			r.f()
 			close(r.done)
 		}
-
-		b.ethBroadcaster.enabledAddresses = enabledAddresses
-		b.ethConfirmer.enabledAddresses = enabledAddresses
-
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
 		// - EthBroadcaster
@@ -422,14 +406,13 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 			if stopped {
 				continue
 			}
-			var err error
-			enabledAddresses, err = b.keyStore.EnabledAddressesForChain(&b.chainID)
+			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(&b.chainID)
 			if err != nil {
 				b.logger.Criticalf("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
-			b.logger.Debugw("Keys changed, reloading", "keyStates", enabledAddresses)
+			b.logger.Debugw("Keys changed, reloading", "enabledAddresses", enabledAddresses)
 
 			execReset(nil)
 		}

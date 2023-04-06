@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
+	ethereum "github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -141,7 +141,6 @@ func NewEthConfirmer(
 	ethClient evmclient.Client,
 	config Config,
 	keystore EvmKeyStore,
-	enabledAddresses []*evmtypes.Address,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
 ) *EvmConfirmer {
@@ -157,7 +156,6 @@ func NewEthConfirmer(
 		config:                          config,
 		chainID:                         *ethClient.ChainID(),
 		ks:                              keystore,
-		enabledAddresses:                enabledAddresses,
 		mb:                              utils.NewSingleMailbox[*evmtypes.Head](),
 		initSync:                        sync.Mutex{},
 		isStarted:                       false,
@@ -184,6 +182,12 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	if ec.isStarted == true {
 		return errors.New("EthConfirmer is already started")
 	}
+	var err error
+	ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(&ec.chainID)
+	if err != nil {
+		return errors.Wrap(err, "Confirmer: failed to load EnabledAddressesForChain")
+	}
+
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
 	ec.wg = sync.WaitGroup{}
 	ec.wg.Add(1)

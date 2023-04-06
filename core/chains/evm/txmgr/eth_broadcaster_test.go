@@ -645,15 +645,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		<-chBlock
 	})
 
-	addresses, err := ethKeyStore.EnabledAddressesForChain(ethClient.ChainID())
-	require.NoError(t, err)
 	eb := txmgr.NewEthBroadcaster(
 		txStorageService,
 		ethClient,
 		evmcfg,
 		ethKeyStore,
 		&pg.NullEventBroadcaster{},
-		addresses,
 		txBuilder,
 		nil,
 		logger.TestLogger(t),
@@ -1216,9 +1213,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					lggr := logger.TestLogger(t)
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, ethKeyStore, estimator)
-					addresses, err := ethKeyStore.EnabledAddressesForChain(ethClient.ChainID())
-					require.NoError(t, err)
-					eb = txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, ethKeyStore, eventBroadcaster, addresses, txBuilder, nil, lggr, &testCheckerFactory{}, false)
+					eb = txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					require.NoError(t, err)
 
 					{
@@ -1833,8 +1828,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	kst := ksmocks.NewEth(t)
-	addresses := []*evmtypes.Address{evmtypes.NewAddress(fromAddress)}
-	kst.On("EnabledAddressesForChain", mock.Anything).Return(addresses, nil)
 	eb, err := cltest.NewEthBroadcaster(t, txStorageService, ethClient, kst, evmcfg, &testCheckerFactory{}, false)
 	require.NoError(t, err)
 
@@ -1982,9 +1975,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, estimator)
 
-		addresses, err := kst.EnabledAddressesForChain(ethClient.ChainID())
-		require.NoError(t, err)
-		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, addresses, txBuilder, nil, lggr, checkerFactory, false)
+		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, txBuilder, nil, lggr, checkerFactory, false)
 
 		require.NoError(t, eb.Start(ctx))
 		defer func() { assert.NoError(t, eb.Close()) }()
@@ -1996,10 +1987,8 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, estimator)
 
-		addresses, err := kst.EnabledAddressesForChain(ethClient.ChainID())
-		require.NoError(t, err)
 		txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, kst)
-		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, addresses, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
@@ -2012,7 +2001,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 		// Check keyState to make sure it has correct nonce assigned
 		var nonce int64
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 
@@ -2028,10 +2017,8 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	t.Run("when eth node returns error, retries and successfully sets nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, estimator)
-		addresses, err := kst.EnabledAddressesForChain(ethClient.ChainID())
-		require.NoError(t, err)
 		txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, kst)
-		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, addresses, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
@@ -2047,7 +2034,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 		// Check keyState to make sure it has correct nonce assigned
 		var nonce int64
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 

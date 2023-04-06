@@ -210,11 +210,7 @@ func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService,
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, keyStore)
-	addresses, err := keyStore.EnabledAddressesForChain(ethClient.ChainID())
-	if err != nil {
-		return nil, err
-	}
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, ethClient, config, keyStore, eventBroadcaster, addresses, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, ethClient, config, keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 	return ethBroadcaster, nil
 }
 
@@ -228,11 +224,7 @@ func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, e
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ks, estimator)
-	addresses, err := ks.EnabledAddressesForChain(ethClient.ChainID())
-	if err != nil {
-		return nil, err
-	}
-	ec := txmgr.NewEthConfirmer(txStorageService, ethClient, config, ks, addresses, txBuilder, lggr)
+	ec := txmgr.NewEthConfirmer(txStorageService, ethClient, config, ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	return ec, nil
 }

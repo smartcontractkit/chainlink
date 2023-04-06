@@ -38,12 +38,8 @@ func BuildNewTxm(
 	txStorageService := txmgr.NewTxStorageService(db, lggr, cfg)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, client, keyStore)
 
-	addresses, err := keyStore.EnabledAddressesForChain(client.ChainID())
-	if err != nil {
-		return nil, err
-	}
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, client, cfg, keyStore, eventBroadcaster, addresses, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
-	ethConfirmer := txmgr.NewEthConfirmer(txStorageService, client, cfg, keyStore, addresses, txAttemptBuilder, lggr)
+	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, client, cfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
+	ethConfirmer := txmgr.NewEthConfirmer(txStorageService, client, cfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender = nil
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		ethResender = txmgr.NewEthResender(lggr, txStorageService, client, keyStore, txmgr.DefaultResenderPollInterval, cfg)
