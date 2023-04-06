@@ -99,7 +99,6 @@ type BasicConfig interface {
 	FMSimulateTransactions() bool
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
-	InsecureFastScrypt() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
 	JobPipelineMaxSuccessfulRuns() uint64
@@ -166,6 +165,13 @@ type BasicConfig interface {
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	VRFPassword() string
+
+	// Insecure config
+	DevWebServer() bool
+	InsecureFastScrypt() bool
+	OCRDevelopmentMode() bool
+	DisableRateLimiting() bool
+	InfiniteDepthQueries() bool
 
 	OCR1Config
 	OCR2Config

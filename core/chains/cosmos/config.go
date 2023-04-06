@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
@@ -18,9 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type CosmosConfigs []*CosmosConfig
@@ -109,41 +105,88 @@ func (cs CosmosConfigs) Node(name string) (n db.Node, err error) {
 			}
 		}
 	}
+	err = chains.ErrNotFound
 	return
 }
 
-func (cs CosmosConfigs) Nodes() (ns []db.Node) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n == nil {
-				continue
-			}
-			ns = append(ns, legacyNode(n, *cs[i].ChainID))
+func (cs CosmosConfigs) nodes(chainID string) (ns CosmosNodes) {
+	for _, c := range cs {
+		if *c.ChainID == chainID {
+			return c.Nodes
 		}
 	}
-	return
+	return nil
 }
 
-func (cs CosmosConfigs) NodesByID(chainIDs ...string) (ns []db.Node) {
-	for i := range cs {
-		var match bool
-		for _, id := range chainIDs {
-			if id == *cs[i].ChainID {
-				match = true
-				break
-			}
-		}
-		if !match {
+func (cs CosmosConfigs) Nodes(chainID string) (ns []db.Node, err error) {
+	nodes := cs.nodes(chainID)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
 			continue
 		}
+		ns = append(ns, legacyNode(n, chainID))
+	}
+	return
+
+}
+
+func (cs CosmosConfigs) NodeStatus(name string) (n chains.NodeStatus, err error) {
+	for i := range cs {
 		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, *cs[i].ChainID)
+			}
+		}
+	}
+	err = chains.ErrNotFound
+	return
+}
+
+func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, *cs[i].ChainID)
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
+			}
+		}
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
 			}
-			ns = append(ns, legacyNode(n, *cs[i].ChainID))
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
 		}
 	}
 	return
+}
+
+func nodeStatus(n *coscfg.Node, chainID string) (chains.NodeStatus, error) {
+	var s chains.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return chains.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
 }
 
 type CosmosNodes []*coscfg.Node
@@ -305,9 +348,4 @@ func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 
 func NewConfigs(cfgs chains.ConfigsV2[string, db.Node]) types.Configs {
 	return chains.NewConfigs(cfgs)
-}
-
-func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {
-	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[utils.Big](q, "evm", ids)
 }

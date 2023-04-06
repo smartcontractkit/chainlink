@@ -26,7 +26,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 						TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
 					},
 				},
-				lb: &mocks.Broadcast{},
+				lb: mocks.NewBroadcast(t),
 			},
 			run: pipeline.NewRun(pipeline.Spec{}, pipeline.Vars{}),
 		})
@@ -45,7 +45,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 					TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
 				},
 			},
-			lb: &mocks.Broadcast{},
+			lb: mocks.NewBroadcast(t),
 		},
 		run: pipeline.NewRun(pipeline.Spec{}, pipeline.Vars{}),
 	})

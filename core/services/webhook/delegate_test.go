@@ -45,7 +45,7 @@ func TestWebhookDelegate(t *testing.T) {
 				"meta":        meta.Val,
 			},
 		}
-		runner    = new(pipelinemocks.Runner)
+		runner    = pipelinemocks.NewRunner(t)
 		eiManager = new(webhookmocks.ExternalInitiatorManager)
 		delegate  = webhook.NewDelegate(runner, eiManager, logger.TestLogger(t))
 	)
