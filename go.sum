@@ -568,8 +568,8 @@ github.com/hashicorp/logutils v1.0.0/go.mod h1:QIAnNjmIWmVIIkWDTG1z5v++HQmx9WQRO
 github.com/hashicorp/mdns v1.0.0/go.mod h1:tL+uN++7HEJ6SQLQ2/p+z2pH24WQKWjBPkE0mNTz8vQ=
 github.com/hashicorp/memberlist v0.1.3/go.mod h1:ajVTdAv/9Im8oMAAj5G31PhhMCZJV2pPBoIllUwCN7I=
 github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/JwenrHc=
-github.com/hdevalence/ed25519consensus v0.0.0-20220222234857-c00d1f31bab3 h1:aSVUgRRRtOrZOC1fYmY9gV0e9z/Iu+xNVSASWjsuyGU=
-github.com/hdevalence/ed25519consensus v0.0.0-20220222234857-c00d1f31bab3/go.mod h1:5PC6ZNPde8bBqU/ewGZig35+UIZtw9Ytxez8/q5ZyFE=
+github.com/hdevalence/ed25519consensus v0.1.0 h1:jtBwzzcHuTmFrQN6xQZn6CQEO/V9f7HsjsjeEZ6auqU=
+github.com/hdevalence/ed25519consensus v0.1.0/go.mod h1:w3BHWjwJbFU29IRHL1Iqkw3sus+7FctEyM4RqDxYNzo=
 github.com/holiman/bloomfilter/v2 v2.0.3 h1:73e0e/V0tCydx14a0SCYS/EWCxgwLZ18CZcZKVu0fao=
 github.com/holiman/bloomfilter/v2 v2.0.3/go.mod h1:zpoh+gs7qcpqrHr3dB55AMiJwo0iURXE7ZOP9L9hSkA=
 github.com/holiman/uint256 v1.2.0 h1:gpSYcPLWGv4sG43I2mVLiDZCNDh/EpGjSk8tmtxitHM=
@@ -1289,8 +1289,8 @@ github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0=
 github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
-github.com/smartcontractkit/chainlink-cosmos v0.1.4-0.20230328025552-4e21318caf26 h1:sOCnJgBPI9gDuiaC2W39VYaGZQoMOyNgAFCAX/v+GYY=
-github.com/smartcontractkit/chainlink-cosmos v0.1.4-0.20230328025552-4e21318caf26/go.mod h1:m3MCBytmr1HYZw6/97q31WULxAudnwwtzj4SjUThKpg=
+github.com/smartcontractkit/chainlink-cosmos v0.1.6 h1:1aA4lMkAwQdP7rUETUED0BybWENPEMAONBmkFIjiSRQ=
+github.com/smartcontractkit/chainlink-cosmos v0.1.6/go.mod h1:m3MCBytmr1HYZw6/97q31WULxAudnwwtzj4SjUThKpg=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230328133051-9d3eb8328c82 h1:VsNyxHnmCIpCtryMyWDv9SIseroCINOp1bme7wdXXns=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230328133051-9d3eb8328c82/go.mod h1:jhYQLbmWJvlkET6zlnx961itsCZEhmG8QP19It664eQ=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230328132724-705a2932e300 h1:3zjEZ8Hh1EVcu8A+7KVhD3fcWWgFKLeobgessj8OAOs=
