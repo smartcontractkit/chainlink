@@ -46,6 +46,60 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+func TestEthBroadcaster_Lifecycle(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	txStorageService := cltest.NewTxmStorageService(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
+
+	eb, err := cltest.NewEthBroadcaster(t, txStorageService, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
+	require.NoError(t, err)
+	ctx := testutils.Context(t)
+
+	// Can't close unstarted instance
+	err = eb.Close()
+	require.Error(t, err)
+
+	// Can successfully start once
+	err = eb.Start(ctx)
+	require.NoError(t, err)
+
+	// Can't start an already started instance
+	err = eb.Start(ctx)
+	require.Error(t, err)
+
+	// Can successfully close once
+	err = eb.Close()
+	require.NoError(t, err)
+
+	// Can't start more than once (Confirmer implements utils.StartStopOnce)
+	err = eb.Start(ctx)
+	require.Error(t, err)
+	// Can't close more than once (Confirmer implements utils.StartStopOnce)
+	err = eb.Close()
+	require.Error(t, err)
+
+	// Can't closeInternal unstarted instance
+	err = txmgr.CloseInternalOnBroadcaster(eb)
+	require.Error(t, err)
+
+	// Can successfully startInternal a previously closed instance
+	err = txmgr.StartInternalOnBroadcaster(eb)
+	require.NoError(t, err)
+	// Can't startInternal already started instance
+	err = txmgr.StartInternalOnBroadcaster(eb)
+	require.Error(t, err)
+	// Can successfully closeInternal again
+	err = txmgr.CloseInternalOnBroadcaster(eb)
+	require.NoError(t, err)
+}
+
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -78,7 +132,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	t.Run("eth_txes exist for a different from address", func(t *testing.T) {
 		_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmtypes.NewAddress(otherAddress),
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -97,7 +151,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		nonce := int64(342)
 		errStr := "some error"
 
-		etxUnconfirmed := txmgr.EvmEthTx{
+		etxUnconfirmed := txmgr.EvmTx{
 			Nonce:              &nonce,
 			FromAddress:        evmFromAddress,
 			ToAddress:          evmToAddress,
@@ -109,7 +163,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Error:              null.String{},
 			State:              txmgr.EthTxUnconfirmed,
 		}
-		etxWithError := txmgr.EvmEthTx{
+		etxWithError := txmgr.EvmTx{
 			Nonce:          nil,
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
@@ -130,7 +184,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
 		// Higher value
-		expensiveEthTx := txmgr.EvmEthTx{
+		expensiveEthTx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 42, 0},
@@ -148,7 +202,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		b, err := json.Marshal(txmgr.EthTxMeta{JobID: &tr})
 		require.NoError(t, err)
 		meta := datatypes.JSON(b)
-		earlierEthTx := txmgr.EvmEthTx{
+		earlierEthTx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 42, 0},
@@ -172,7 +226,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Later
-		laterEthTx := txmgr.EvmEthTx{
+		laterEthTx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 42, 1},
@@ -271,7 +325,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
-		eipTxWithoutAl := txmgr.EvmEthTx{
+		eipTxWithoutAl := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 0, 0},
@@ -280,7 +334,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
 		}
-		eipTxWithAl := txmgr.EvmEthTx{
+		eipTxWithAl := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 42, 0},
@@ -337,7 +391,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	t.Run("transaction simulation", func(t *testing.T) {
 		t.Run("when simulation succeeds, sends tx as normal", func(t *testing.T) {
-			ethTx := txmgr.EvmEthTx{
+			ethTx := txmgr.EvmTx{
 				FromAddress:    evmFromAddress,
 				ToAddress:      evmToAddress,
 				EncodedPayload: []byte{42, 0, 0},
@@ -382,7 +436,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})
 
 		t.Run("with unknown error, sends tx as normal", func(t *testing.T) {
-			ethTx := txmgr.EvmEthTx{
+			ethTx := txmgr.EvmTx{
 				FromAddress:    evmFromAddress,
 				ToAddress:      evmToAddress,
 				EncodedPayload: []byte{42, 0, 0},
@@ -415,7 +469,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})
 
 		t.Run("on revert, marks tx as fatally errored and does not send", func(t *testing.T) {
-			ethTx := txmgr.EvmEthTx{
+			ethTx := txmgr.EvmTx{
 				FromAddress:    evmFromAddress,
 				ToAddress:      evmToAddress,
 				EncodedPayload: []byte{42, 0, 0},
@@ -477,7 +531,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		// Checker will return a canceled error
 		checkerFactory.err = context.Canceled
 
-		ethTx := txmgr.EvmEthTx{
+		ethTx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 0, 0},
@@ -510,7 +564,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		// Checker will return no error
 		checkerFactory.err = nil
 
-		ethTx := txmgr.EvmEthTx{
+		ethTx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 0, 0},
@@ -543,7 +597,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		// Checker will return a fatal error
 		checkerFactory.err = errors.New("fatal checker error")
 
-		ethTx := txmgr.EvmEthTx{
+		ethTx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: []byte{42, 0, 0},
@@ -607,7 +661,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		false,
 	)
 
-	etx := txmgr.EvmEthTx{
+	etx := txmgr.EvmTx{
 		FromAddress:    evmtypes.NewAddress(fromAddress),
 		ToAddress:      evmtypes.NewAddress(testutils.NewAddress()),
 		EncodedPayload: []byte{42, 42, 0},
@@ -662,7 +716,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 		return true
 	})).Return(nil).Once()
 
-	tx := txmgr.EvmEthTx{
+	tx := txmgr.EvmTx{
 		FromAddress:    evmtypes.NewAddress(fromAddress),
 		ToAddress:      evmtypes.NewAddress(gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")),
 		EncodedPayload: []byte{42, 42, 0},
@@ -699,7 +753,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		firstInProgress := txmgr.EvmEthTx{
+		firstInProgress := txmgr.EvmTx{
 			FromAddress:    evmtypes.NewAddress(fromAddress),
 			Nonce:          &firstNonce,
 			ToAddress:      evmtypes.NewAddress(toAddress),
@@ -710,7 +764,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			State:          txmgr.EthTxInProgress,
 		}
 
-		secondInProgress := txmgr.EvmEthTx{
+		secondInProgress := txmgr.EvmTx{
 			FromAddress:    evmtypes.NewAddress(fromAddress),
 			Nonce:          &secondNonce,
 			ToAddress:      evmtypes.NewAddress(toAddress),
@@ -1011,7 +1065,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)))
 
 	t.Run("if external wallet sent a transaction from the account and now the nonce is one higher than it should be and we got replacement underpriced then we assume a previous transaction of ours was the one that succeeded, and hand off to EthConfirmer", func(t *testing.T) {
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1036,7 +1090,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check that the transaction was saved correctly with its attempt
 		// We assume success and hand off to eth confirmer to eventually mark it as failed
 		var latestID int64
-		var etx1 txmgr.EvmEthTx
+		var etx1 txmgr.EvmTx
 		require.NoError(t, db.Get(&latestID, "SELECT max(id) FROM eth_txes"))
 		etx1, err = txStorageService.FindEthTxWithAttempts(latestID)
 		require.NoError(t, err)
@@ -1060,7 +1114,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
 		t.Run("without callback", func(t *testing.T) {
-			etx := txmgr.EvmEthTx{
+			etx := txmgr.EvmTx{
 				FromAddress:    evmFromAddress,
 				ToAddress:      evmToAddress,
 				EncodedPayload: encodedPayload,
@@ -1104,7 +1158,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		t.Run("with callback", func(t *testing.T) {
 			run := cltest.MustInsertPipelineRun(t, db)
 			tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-			etx := txmgr.EvmEthTx{
+			etx := txmgr.EvmTx{
 				FromAddress:       evmFromAddress,
 				ToAddress:         evmToAddress,
 				EncodedPayload:    encodedPayload,
@@ -1183,7 +1237,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		TxFeeExceedsCapError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1256,7 +1310,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		retryableErrorExample := "some unknown error"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1320,7 +1374,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		retryableErrorExample := "some unknown error"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1384,7 +1438,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		retryableErrorExample := "some strange RPC returns an unexpected thing"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1426,7 +1480,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		underpricedError := "transaction underpriced"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1471,7 +1525,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, "30 gwei", attempt.GasPrice.String())
 	})
 
-	etxUnfinished := txmgr.EvmEthTx{
+	etxUnfinished := txmgr.EvmTx{
 		FromAddress:    evmFromAddress,
 		ToAddress:      evmToAddress,
 		EncodedPayload: encodedPayload,
@@ -1556,7 +1610,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		eb2, err := cltest.NewEthBroadcaster(t, txStorageService, ethClient, ethKeyStore, evmcfg2, &testCheckerFactory{}, false)
 		require.NoError(t, err)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1584,7 +1638,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1623,7 +1677,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	t.Run("eth tx is left in progress if nonce is too high", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 		nonceGapError := "NonceGap, Future nonce. Expected nonce: " + strconv.FormatUint(localNextNonce, 10)
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1674,7 +1728,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		eb2, err := cltest.NewEthBroadcaster(t, txStorageService, ethClient, ethKeyStore, evmcfg2, &testCheckerFactory{}, false)
 		require.NoError(t, err)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1706,7 +1760,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		underpricedError := "transaction underpriced"
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
 
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      evmToAddress,
 			EncodedPayload: encodedPayload,
@@ -1785,7 +1839,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("tx signing fails", func(t *testing.T) {
-		etx := txmgr.EvmEthTx{
+		etx := txmgr.EvmTx{
 			FromAddress:    evmtypes.NewAddress(fromAddress),
 			ToAddress:      evmtypes.NewAddress(toAddress),
 			EncodedPayload: encodedPayload,
@@ -2027,8 +2081,8 @@ type testChecker struct {
 func (t *testChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
-	_ txmgr.EvmEthTx,
-	_ txmgr.EvmEthTxAttempt,
+	_ txmgr.EvmTx,
+	_ txmgr.EvmTxAttempt,
 ) error {
 	return t.err
 }

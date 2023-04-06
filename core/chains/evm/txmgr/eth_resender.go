@@ -51,13 +51,13 @@ func NewEthResender(
 	ethClient evmclient.Client, ks EvmKeyStore,
 	pollInterval time.Duration,
 	config Config,
-) *EvmEthResender {
+) *EvmResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	// todo: add context to evmTxStorageService
 	ctx, cancel := context.WithCancel(context.Background())
-	return &EvmEthResender{
+	return &EvmResender{
 		txStorageService,
 		ethClient,
 		ks,

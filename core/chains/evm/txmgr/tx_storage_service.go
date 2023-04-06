@@ -39,7 +39,7 @@ type evmTxStorageService struct {
 	ctxCancel context.CancelFunc
 }
 
-var _ txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EvmEthTx, EvmEthTxAttempt, int64, int64] = &evmTxStorageService{}
+var _ txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EvmTx, EvmTxAttempt, int64, int64] = &evmTxStorageService{}
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -157,7 +157,7 @@ type DbEthTx struct {
 	InitialBroadcastAt *time.Time
 }
 
-func dbEthTxFromEthTx(ethTx *EvmEthTx) DbEthTx {
+func dbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 	return DbEthTx{
 		ID:                 ethTx.ID,
 		Nonce:              ethTx.Nonce,
@@ -181,7 +181,7 @@ func dbEthTxFromEthTx(ethTx *EvmEthTx) DbEthTx {
 	}
 }
 
-func dbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmEthTx) {
+func dbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmTx) {
 	evmEthTx.ID = dbEthTx.ID
 	evmEthTx.Nonce = dbEthTx.Nonce
 	evmEthTx.FromAddress = evmtypes.NewAddress(dbEthTx.FromAddress)
@@ -203,17 +203,17 @@ func dbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmEthTx) {
 	evmEthTx.InitialBroadcastAt = dbEthTx.InitialBroadcastAt
 }
 
-func dbEthTxsToEvmEthTxs(dbEthTxs []DbEthTx) []EvmEthTx {
-	evmEthTxs := make([]EvmEthTx, len(dbEthTxs))
+func dbEthTxsToEvmEthTxs(dbEthTxs []DbEthTx) []EvmTx {
+	evmEthTxs := make([]EvmTx, len(dbEthTxs))
 	for i, dbTx := range dbEthTxs {
 		dbEthTxToEthTx(dbTx, &evmEthTxs[i])
 	}
 	return evmEthTxs
 }
 
-func dbEthTxsToEvmEthTxPtrs(dbEthTxs []DbEthTx, evmEthTxs []*EvmEthTx) {
+func dbEthTxsToEvmEthTxPtrs(dbEthTxs []DbEthTx, evmEthTxs []*EvmTx) {
 	for i, dbTx := range dbEthTxs {
-		evmEthTxs[i] = &EvmEthTx{}
+		evmEthTxs[i] = &EvmTx{}
 		dbEthTxToEthTx(dbTx, evmEthTxs[i])
 	}
 }
@@ -235,7 +235,7 @@ type DbEthTxAttempt struct {
 	GasFeeCap               *assets.Wei
 }
 
-func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmEthTxAttempt) DbEthTxAttempt {
+func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
 	return DbEthTxAttempt{
 		ID:                      ethTxAttempt.ID,
 		EthTxID:                 ethTxAttempt.EthTxID,
@@ -252,7 +252,7 @@ func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmEthTxAttempt) DbEthTxAttemp
 	}
 }
 
-func dbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *EvmEthTxAttempt) {
+func dbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *EvmTxAttempt) {
 	evmAttempt.ID = dbEthTxAttempt.ID
 	evmAttempt.EthTxID = dbEthTxAttempt.EthTxID
 	evmAttempt.GasPrice = dbEthTxAttempt.GasPrice
@@ -267,8 +267,8 @@ func dbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *Evm
 	evmAttempt.GasFeeCap = dbEthTxAttempt.GasFeeCap
 }
 
-func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []EvmEthTxAttempt {
-	evmEthTxAttempt := make([]EvmEthTxAttempt, len(dbEthTxAttempt))
+func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []EvmTxAttempt {
+	evmEthTxAttempt := make([]EvmTxAttempt, len(dbEthTxAttempt))
 	for i, dbTxAttempt := range dbEthTxAttempt {
 		dbEthTxAttemptToEthTxAttempt(dbTxAttempt, &evmEthTxAttempt[i])
 	}
@@ -303,7 +303,7 @@ func (o *evmTxStorageService) Close() {
 	o.ctxCancel()
 }
 
-func (o *evmTxStorageService) preloadTxAttempts(txs []EvmEthTx) error {
+func (o *evmTxStorageService) preloadTxAttempts(txs []EvmTx) error {
 	// Preload TxAttempts
 	var ids []int64
 	for _, tx := range txs {
@@ -326,7 +326,7 @@ func (o *evmTxStorageService) preloadTxAttempts(txs []EvmEthTx) error {
 	for _, dbAttempt := range dbAttempts {
 		for i, tx := range txs {
 			if tx.ID == dbAttempt.EthTxID {
-				var attempt EvmEthTxAttempt
+				var attempt EvmTxAttempt
 				dbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt)
 				txs[i].EthTxAttempts = append(txs[i].EthTxAttempts, attempt)
 			}
@@ -335,10 +335,10 @@ func (o *evmTxStorageService) preloadTxAttempts(txs []EvmEthTx) error {
 	return nil
 }
 
-func (o *evmTxStorageService) PreloadEthTxes(attempts []EvmEthTxAttempt) error {
-	ethTxM := make(map[int64]EvmEthTx)
+func (o *evmTxStorageService) PreloadEthTxes(attempts []EvmTxAttempt) error {
+	ethTxM := make(map[int64]EvmTx)
 	for _, attempt := range attempts {
-		ethTxM[attempt.EthTxID] = EvmEthTx{}
+		ethTxM[attempt.EthTxID] = EvmTx{}
 	}
 	ethTxIDs := make([]int64, len(ethTxM))
 	var i int
@@ -363,7 +363,7 @@ func (o *evmTxStorageService) PreloadEthTxes(attempts []EvmEthTxAttempt) error {
 
 // EthTransactions returns all eth transactions without loaded relations
 // limited by passed parameters.
-func (o *evmTxStorageService) EthTransactions(offset, limit int) (txs []EvmEthTx, count int, err error) {
+func (o *evmTxStorageService) EthTransactions(offset, limit int) (txs []EvmTx, count int, err error) {
 	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
@@ -380,7 +380,7 @@ func (o *evmTxStorageService) EthTransactions(offset, limit int) (txs []EvmEthTx
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
-func (o *evmTxStorageService) EthTransactionsWithAttempts(offset, limit int) (txs []EvmEthTx, count int, err error) {
+func (o *evmTxStorageService) EthTransactionsWithAttempts(offset, limit int) (txs []EvmTx, count int, err error) {
 	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
@@ -397,7 +397,7 @@ func (o *evmTxStorageService) EthTransactionsWithAttempts(offset, limit int) (tx
 }
 
 // EthTxAttempts returns the last tx attempts sorted by created_at descending.
-func (o *evmTxStorageService) EthTxAttempts(offset, limit int) (txs []EvmEthTxAttempt, count int, err error) {
+func (o *evmTxStorageService) EthTxAttempts(offset, limit int) (txs []EvmTxAttempt, count int, err error) {
 	sql := `SELECT count(*) FROM eth_tx_attempts`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
@@ -413,23 +413,23 @@ func (o *evmTxStorageService) EthTxAttempts(offset, limit int) (txs []EvmEthTxAt
 	return
 }
 
-// FindEthTxAttempt returns an individual EvmEthTxAttempt
-func (o *evmTxStorageService) FindEthTxAttempt(hash *evmtypes.TxHash) (*EvmEthTxAttempt, error) {
+// FindEthTxAttempt returns an individual EvmTxAttempt
+func (o *evmTxStorageService) FindEthTxAttempt(hash *evmtypes.TxHash) (*EvmTxAttempt, error) {
 	dbTxAttempt := DbEthTxAttempt{}
 	sql := `SELECT * FROM eth_tx_attempts WHERE hash = $1`
 	if err := o.q.Get(&dbTxAttempt, sql, *hash.NativeHash()); err != nil {
 		return nil, err
 	}
 	// reuse the preload
-	var attempt EvmEthTxAttempt
+	var attempt EvmTxAttempt
 	dbEthTxAttemptToEthTxAttempt(dbTxAttempt, &attempt)
-	attempts := []EvmEthTxAttempt{attempt}
+	attempts := []EvmTxAttempt{attempt}
 	err := o.PreloadEthTxes(attempts)
 	return &attempts[0], err
 }
 
 // FindEthTxAttemptsByEthTxIDs returns a list of attempts by ETH Tx IDs
-func (o *evmTxStorageService) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EvmEthTxAttempt, error) {
+func (o *evmTxStorageService) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EvmTxAttempt, error) {
 	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1)`
 	var dbTxAttempts []DbEthTxAttempt
 	if err := o.q.Select(&dbTxAttempts, sql, ids); err != nil {
@@ -438,7 +438,7 @@ func (o *evmTxStorageService) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EvmEth
 	return dbEthTxAttemptsToEthTxAttempts(dbTxAttempts), nil
 }
 
-func (o *evmTxStorageService) FindEthTxByHash(hash *evmtypes.TxHash) (*EvmEthTx, error) {
+func (o *evmTxStorageService) FindEthTxByHash(hash *evmtypes.TxHash) (*EvmTx, error) {
 	var dbEtx DbEthTx
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`
@@ -448,13 +448,13 @@ func (o *evmTxStorageService) FindEthTxByHash(hash *evmtypes.TxHash) (*EvmEthTx,
 		return nil
 	}, pg.OptReadOnlyTx())
 
-	var etx EvmEthTx
+	var etx EvmTx
 	dbEthTxToEthTx(dbEtx, &etx)
 	return &etx, errors.Wrap(err, "FindEthTxByHash failed")
 }
 
 // InsertEthTxAttempt inserts a new txAttempt into the database
-func (o *evmTxStorageService) InsertEthTx(etx *EvmEthTx) error {
+func (o *evmTxStorageService) InsertEthTx(etx *EvmTx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
@@ -467,7 +467,7 @@ func (o *evmTxStorageService) InsertEthTx(etx *EvmEthTx) error {
 	return errors.Wrap(err, "InsertEthTx failed")
 }
 
-func (o *evmTxStorageService) InsertEthTxAttempt(attempt *EvmEthTxAttempt) error {
+func (o *evmTxStorageService) InsertEthTxAttempt(attempt *EvmTxAttempt) error {
 	const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 :eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 ) RETURNING *`
@@ -492,8 +492,8 @@ func (o *evmTxStorageService) InsertEthReceipt(receipt *EvmReceipt) error {
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
 
-// FindEthTxWithAttempts finds the EvmEthTx with its attempts and receipts preloaded
-func (o *evmTxStorageService) FindEthTxWithAttempts(etxID int64) (etx EvmEthTx, err error) {
+// FindEthTxWithAttempts finds the EvmTx with its attempts and receipts preloaded
+func (o *evmTxStorageService) FindEthTxWithAttempts(etxID int64) (etx EvmTx, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		if err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
@@ -511,8 +511,8 @@ func (o *evmTxStorageService) FindEthTxWithAttempts(etxID int64) (etx EvmEthTx, 
 	return etx, errors.Wrap(err, "FindEthTxWithAttempts failed")
 }
 
-func (o *evmTxStorageService) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EvmEthTxAttempt, error) {
-	var txAttempts []EvmEthTxAttempt
+func (o *evmTxStorageService) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EvmTxAttempt, error) {
+	var txAttempts []EvmTxAttempt
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		var dbAttempts []DbEthTxAttempt
 		if err := tx.Select(&dbAttempts, `SELECT eta.*
@@ -526,10 +526,10 @@ func (o *evmTxStorageService) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) (
 	return txAttempts, errors.Wrap(err, "FindEthTxAttemptConfirmedByEthTxIDs failed")
 }
 
-func (o *evmTxStorageService) LoadEthTxesAttempts(etxs []*EvmEthTx, qopts ...pg.QOpt) error {
+func (o *evmTxStorageService) LoadEthTxesAttempts(etxs []*EvmTx, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	ethTxIDs := make([]int64, len(etxs))
-	ethTxesM := make(map[int64]*EvmEthTx, len(etxs))
+	ethTxesM := make(map[int64]*EvmTx, len(etxs))
 	for i, etx := range etxs {
 		etx.EthTxAttempts = nil // this will overwrite any previous preload
 		ethTxIDs[i] = etx.ID
@@ -541,27 +541,27 @@ func (o *evmTxStorageService) LoadEthTxesAttempts(etxs []*EvmEthTx, qopts ...pg.
 	}
 	for _, dbAttempt := range dbTxAttempts {
 		etx := ethTxesM[dbAttempt.EthTxID]
-		var attempt EvmEthTxAttempt
+		var attempt EvmTxAttempt
 		dbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt)
 		etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	}
 	return nil
 }
 
-func (o *evmTxStorageService) LoadEthTxAttempts(etx *EvmEthTx, qopts ...pg.QOpt) error {
-	return o.LoadEthTxesAttempts([]*EvmEthTx{etx}, qopts...)
+func (o *evmTxStorageService) LoadEthTxAttempts(etx *EvmTx, qopts ...pg.QOpt) error {
+	return o.LoadEthTxesAttempts([]*EvmTx{etx}, qopts...)
 }
 
-func loadEthTxAttemptsReceipts(q pg.Queryer, etx *EvmEthTx) (err error) {
-	return loadEthTxesAttemptsReceipts(q, []*EvmEthTx{etx})
+func loadEthTxAttemptsReceipts(q pg.Queryer, etx *EvmTx) (err error) {
+	return loadEthTxesAttemptsReceipts(q, []*EvmTx{etx})
 }
 
-func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmEthTx) (err error) {
+func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmTx) (err error) {
 	if len(etxs) == 0 {
 		return nil
 	}
-	attemptHashM := make(map[common.Hash]*EvmEthTxAttempt, len(etxs)) // len here is lower bound
-	attemptHashes := make([][]byte, len(etxs))                        // len here is lower bound
+	attemptHashM := make(map[common.Hash]*EvmTxAttempt, len(etxs)) // len here is lower bound
+	attemptHashes := make([][]byte, len(etxs))                     // len here is lower bound
 	for _, etx := range etxs {
 		for i, attempt := range etx.EthTxAttempts {
 			attemptHashM[*attempt.Hash.NativeHash()] = &etx.EthTxAttempts[i]
@@ -582,8 +582,8 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmEthTx) (err error) {
 	return nil
 }
 
-func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmEthTxAttempt) error {
-	byHash := make(map[string]*EvmEthTxAttempt, len(attempts))
+func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmTxAttempt) error {
+	byHash := make(map[string]*EvmTxAttempt, len(attempts))
 	hashes := make([][]byte, len(attempts))
 	for i, attempt := range attempts {
 		byHash[attempt.Hash.String()] = &attempts[i]
@@ -607,7 +607,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmEthTxAttempt) err
 
 // FindEthTxAttemptsRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func (o *evmTxStorageService) FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address *evmtypes.Address) (attempts []EvmEthTxAttempt, err error) {
+func (o *evmTxStorageService) FindEthTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address *evmtypes.Address) (attempts []EvmTxAttempt, err error) {
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
@@ -655,7 +655,7 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
 
-func (o *evmTxStorageService) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EvmEthTxAttempt, err error) {
+func (o *evmTxStorageService) FindEtxAttemptsConfirmedMissingReceipt(chainID big.Int) (attempts []EvmTxAttempt, err error) {
 	var dbAttempts []DbEthTxAttempt
 	err = o.q.Select(&dbAttempts,
 		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
@@ -680,7 +680,7 @@ func (o *evmTxStorageService) UpdateEthTxsUnconfirmed(ids []int64) error {
 	return nil
 }
 
-func (o *evmTxStorageService) FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EvmEthTxAttempt, err error) {
+func (o *evmTxStorageService) FindEthTxAttemptsRequiringReceiptFetch(chainID big.Int) (attempts []EvmTxAttempt, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbAttempts []DbEthTxAttempt
 		err = tx.Select(&dbAttempts, `
@@ -828,7 +828,7 @@ WHERE state = 'unconfirmed'
 	return
 }
 
-func (o *evmTxStorageService) GetInProgressEthTxAttempts(ctx context.Context, address *evmtypes.Address, chainID big.Int) (attempts []EvmEthTxAttempt, err error) {
+func (o *evmTxStorageService) GetInProgressEthTxAttempts(ctx context.Context, address *evmtypes.Address, chainID big.Int) (attempts []EvmTxAttempt, err error) {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbAttempts []DbEthTxAttempt
@@ -864,8 +864,8 @@ func (o *evmTxStorageService) FindEthReceiptsPendingConfirmation(ctx context.Con
 }
 
 // FindEthTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *evmTxStorageService) FindEthTxWithNonce(fromAddress *evmtypes.Address, nonce int64) (etx *EvmEthTx, err error) {
-	etx = new(EvmEthTx)
+func (o *evmTxStorageService) FindEthTxWithNonce(fromAddress *evmtypes.Address, nonce int64) (etx *EvmTx, err error) {
+	etx = new(EvmTx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		err = tx.Get(&dbEtx, `
@@ -884,7 +884,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 	return
 }
 
-func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EvmEthTxAttempt) error {
+func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EvmTxAttempt) error {
 	if attempt.State != txmgrtypes.TxAttemptBroadcast {
 		return errors.New("expected eth_tx_attempt to be broadcast")
 	}
@@ -892,7 +892,7 @@ func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EvmEthTxAttempt) error 
 	return errors.Wrap(err, "updateEthTxAttemptUnbroadcast failed")
 }
 
-func updateEthTxUnconfirm(q pg.Queryer, etx EvmEthTx) error {
+func updateEthTxUnconfirm(q pg.Queryer, etx EvmTx) error {
 	if etx.State != EthTxConfirmed {
 		return errors.New("expected eth_tx state to be confirmed")
 	}
@@ -910,7 +910,7 @@ AND eth_tx_attempts.eth_tx_id = $1
 	return errors.Wrap(err, "deleteEthReceipts failed")
 }
 
-func (o *evmTxStorageService) UpdateEthTxForRebroadcast(etx EvmEthTx, etxAttempt EvmEthTxAttempt) error {
+func (o *evmTxStorageService) UpdateEthTxForRebroadcast(etx EvmTx, etxAttempt EvmTxAttempt) error {
 	return o.q.Transaction(func(tx pg.Queryer) error {
 		if err := deleteEthReceipts(tx, etx.ID); err != nil {
 			return errors.Wrapf(err, "deleteEthReceipts failed for etx %v", etx.ID)
@@ -922,7 +922,7 @@ func (o *evmTxStorageService) UpdateEthTxForRebroadcast(etx EvmEthTx, etxAttempt
 	})
 }
 
-func (o *evmTxStorageService) FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EvmEthTx, err error) {
+func (o *evmTxStorageService) FindTransactionsConfirmedInBlockRange(highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EvmTx, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtxs []DbEthTx
 		err = tx.Select(&dbEtxs, `
@@ -935,7 +935,7 @@ ORDER BY nonce ASC
 		if err != nil {
 			return errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load eth_txes")
 		}
-		etxs = make([]*EvmEthTx, len(dbEtxs))
+		etxs = make([]*EvmTx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
 		if err = o.LoadEthTxesAttempts(etxs, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load eth_tx_attempts")
@@ -946,7 +946,7 @@ ORDER BY nonce ASC
 	return etxs, errors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
 }
 
-func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt EvmEthTxAttempt, broadcastAt time.Time) error {
+func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt EvmTxAttempt, broadcastAt time.Time) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return pg.SqlxTransaction(ctx, q, logger, func(tx pg.Queryer) error {
@@ -961,7 +961,7 @@ func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.
 	})
 }
 
-func (o *evmTxStorageService) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EvmEthTxAttempt, broadcastAt time.Time) error {
+func (o *evmTxStorageService) SaveInsufficientEthAttempt(timeout time.Duration, attempt *EvmTxAttempt, broadcastAt time.Time) error {
 	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
@@ -969,7 +969,7 @@ func (o *evmTxStorageService) SaveInsufficientEthAttempt(timeout time.Duration, 
 	return errors.Wrap(saveAttemptWithNewState(o.q, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
-func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EvmEthTxAttempt, broadcastAt time.Time) error {
+func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt *EvmTxAttempt, broadcastAt time.Time) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
@@ -977,11 +977,11 @@ func saveSentAttempt(q pg.Queryer, timeout time.Duration, logger logger.Logger, 
 	return errors.Wrap(saveAttemptWithNewState(q, timeout, logger, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
-func (o *evmTxStorageService) SaveSentAttempt(timeout time.Duration, attempt *EvmEthTxAttempt, broadcastAt time.Time) error {
+func (o *evmTxStorageService) SaveSentAttempt(timeout time.Duration, attempt *EvmTxAttempt, broadcastAt time.Time) error {
 	return saveSentAttempt(o.q, timeout, o.logger, attempt, broadcastAt)
 }
 
-func (o *evmTxStorageService) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EvmEthTxAttempt, broadcastAt time.Time) error {
+func (o *evmTxStorageService) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *EvmTxAttempt, broadcastAt time.Time) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err := qq.Transaction(func(tx pg.Queryer) error {
 		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
@@ -995,7 +995,7 @@ func (o *evmTxStorageService) SaveConfirmedMissingReceiptAttempt(ctx context.Con
 	return errors.Wrap(err, "SaveConfirmedMissingReceiptAttempt failed")
 }
 
-func (o *evmTxStorageService) DeleteInProgressAttempt(ctx context.Context, attempt EvmEthTxAttempt) error {
+func (o *evmTxStorageService) DeleteInProgressAttempt(ctx context.Context, attempt EvmTxAttempt) error {
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
@@ -1009,7 +1009,7 @@ func (o *evmTxStorageService) DeleteInProgressAttempt(ctx context.Context, attem
 }
 
 // SaveInProgressAttempt inserts or updates an attempt
-func (o *evmTxStorageService) SaveInProgressAttempt(attempt *EvmEthTxAttempt) error {
+func (o *evmTxStorageService) SaveInProgressAttempt(attempt *EvmTxAttempt) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("SaveInProgressAttempt failed: attempt state must be in_progress")
 	}
@@ -1044,7 +1044,7 @@ func (o *evmTxStorageService) SaveInProgressAttempt(attempt *EvmEthTxAttempt) er
 // limited by limit pending transactions
 //
 // It also returns eth_txes that are unconfirmed with no eth_tx_attempts
-func (o *evmTxStorageService) FindEthTxsRequiringGasBump(ctx context.Context, address *evmtypes.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EvmEthTx, err error) {
+func (o *evmTxStorageService) FindEthTxsRequiringGasBump(ctx context.Context, address *evmtypes.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EvmTx, err error) {
 	if gasBumpThreshold == 0 {
 		return
 	}
@@ -1061,7 +1061,7 @@ ORDER BY nonce ASC
 		if err = tx.Select(&dbEtxs, stmt, *address.NativeAddress(), chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
 		}
-		etxs = make([]*EvmEthTx, len(dbEtxs))
+		etxs = make([]*EvmTx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
 		err = o.LoadEthTxesAttempts(etxs, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
@@ -1072,7 +1072,7 @@ ORDER BY nonce ASC
 // FindEthTxsRequiringResubmissionDueToInsufficientEth returns transactions
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
-func (o *evmTxStorageService) FindEthTxsRequiringResubmissionDueToInsufficientEth(address *evmtypes.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EvmEthTx, err error) {
+func (o *evmTxStorageService) FindEthTxsRequiringResubmissionDueToInsufficientEth(address *evmtypes.Address, chainID big.Int, qopts ...pg.QOpt) (etxs []*EvmTx, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtxs []DbEthTx
@@ -1085,7 +1085,7 @@ ORDER BY nonce ASC
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
 		}
-		etxs = make([]*EvmEthTx, len(dbEtxs))
+		etxs = make([]*EvmTx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
 		err = o.LoadEthTxesAttempts(etxs, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_tx_attempts")
@@ -1191,7 +1191,7 @@ GROUP BY e.id
 	})
 }
 
-func (o *evmTxStorageService) SaveReplacementInProgressAttempt(oldAttempt EvmEthTxAttempt, replacementAttempt *EvmEthTxAttempt, qopts ...pg.QOpt) error {
+func (o *evmTxStorageService) SaveReplacementInProgressAttempt(oldAttempt EvmTxAttempt, replacementAttempt *EvmTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
@@ -1215,7 +1215,7 @@ func (o *evmTxStorageService) SaveReplacementInProgressAttempt(oldAttempt EvmEth
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func (o *evmTxStorageService) FindNextUnstartedTransactionFromAddress(etx *EvmEthTx, fromAddress *evmtypes.Address, chainID big.Int, qopts ...pg.QOpt) error {
+func (o *evmTxStorageService) FindNextUnstartedTransactionFromAddress(etx *EvmTx, fromAddress *evmtypes.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	var dbEtx DbEthTx
 	err := qq.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, *fromAddress.NativeAddress(), chainID.String())
@@ -1223,7 +1223,7 @@ func (o *evmTxStorageService) FindNextUnstartedTransactionFromAddress(etx *EvmEt
 	return errors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 }
 
-func (o *evmTxStorageService) UpdateEthTxFatalError(etx *EvmEthTx, qopts ...pg.QOpt) error {
+func (o *evmTxStorageService) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.State != EthTxInProgress {
@@ -1250,7 +1250,7 @@ func (o *evmTxStorageService) UpdateEthTxFatalError(etx *EvmEthTx, qopts ...pg.Q
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *evmTxStorageService) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmEthTx, attempt EvmEthTxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
+func (o *evmTxStorageService) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt EvmTxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
 	if etx.BroadcastAt == nil {
@@ -1288,7 +1288,7 @@ func (o *evmTxStorageService) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmEt
 }
 
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
-func (o *evmTxStorageService) UpdateEthTxUnstartedToInProgress(etx *EvmEthTx, attempt *EvmEthTxAttempt, qopts ...pg.QOpt) error {
+func (o *evmTxStorageService) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	if etx.Nonce == nil {
 		return errors.New("in_progress transaction must have nonce")
@@ -1327,9 +1327,9 @@ func (o *evmTxStorageService) UpdateEthTxUnstartedToInProgress(etx *EvmEthTx, at
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func (o *evmTxStorageService) GetEthTxInProgress(fromAddress *evmtypes.Address, qopts ...pg.QOpt) (etx *EvmEthTx, err error) {
+func (o *evmTxStorageService) GetEthTxInProgress(fromAddress *evmtypes.Address, qopts ...pg.QOpt) (etx *EvmTx, err error) {
 	qq := o.q.WithOpts(qopts...)
-	etx = new(EvmEthTx)
+	etx = new(EvmTx)
 	if err != nil {
 		return etx, errors.Wrap(err, "getInProgressEthTx failed")
 	}
@@ -1453,7 +1453,7 @@ RETURNING "eth_txes".*
 		}
 		return nil
 	})
-	var etx EvmEthTx
+	var etx EvmTx
 	dbEthTxToEthTx(dbEtx, &etx)
 	return etx, err
 }

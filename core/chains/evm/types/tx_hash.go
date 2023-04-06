@@ -32,7 +32,7 @@ func (a *TxHash) Equals(h commontypes.Hashable) bool {
 	return bytes.Equal(a.nativeHash.Bytes(), h.(*Address).nativeAddress.Bytes())
 }
 
-func (a *TxHash) IsEmpty() bool {
+func (a *TxHash) Empty() bool {
 	return a == nil || a.nativeHash == common.Hash{}
 }
 

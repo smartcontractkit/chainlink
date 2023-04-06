@@ -28,9 +28,9 @@ import (
 )
 
 // Type aliases for EVM
-type EvmEthConfirmer = EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-type EvmEthBroadcaster = EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-type EvmEthResender = EthResender[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+type EvmConfirmer = EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+type EvmBroadcaster = EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+type EvmResender = EthResender[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmTxStorageService = txmgrtypes.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
 type EvmKeyStore = txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, int64]
 type EvmTxAttemptBuilder = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]]
@@ -40,8 +40,8 @@ type EvmTxm = Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmTxManager = TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmFwdMgr = txmgrtypes.ForwarderManager[*evmtypes.Address]
 type EvmNewTx = NewTx[*evmtypes.Address]
-type EvmEthTx = EthTx[*evmtypes.Address, *evmtypes.TxHash]
-type EvmEthTxAttempt = EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]
+type EvmTx = EthTx[*evmtypes.Address, *evmtypes.TxHash]
+type EvmTxAttempt = EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]
 type EvmPriorAttempt = txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash]
 type EvmFeeEstimator = txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, *evmtypes.TxHash]
 type EvmReceipt = txmgrtypes.Receipt[*evmtypes.Receipt, *evmtypes.TxHash, *evmtypes.BlockHash]

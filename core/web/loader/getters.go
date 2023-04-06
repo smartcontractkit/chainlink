@@ -198,7 +198,7 @@ func GetJobByPipelineSpecID(ctx context.Context, id string) (*job.Job, error) {
 }
 
 // GetEthTxAttemptsByEthTxID fetches the attempts for an eth transaction.
-func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EvmEthTxAttempt, error) {
+func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EvmTxAttempt, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.EthTxAttemptsByEthTxIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -207,7 +207,7 @@ func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EvmEthTx
 		return nil, err
 	}
 
-	attempts, ok := result.([]txmgr.EvmEthTxAttempt)
+	attempts, ok := result.([]txmgr.EvmTxAttempt)
 	if !ok {
 		return nil, ErrInvalidType
 	}

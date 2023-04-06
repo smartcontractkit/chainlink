@@ -34,7 +34,7 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 	}
 
 	// Generate a map of attempts to txIDs
-	attemptsForTx := map[string][]txmgr.EvmEthTxAttempt{}
+	attemptsForTx := map[string][]txmgr.EvmTxAttempt{}
 	for _, a := range attempts {
 		id := stringutils.FromInt64(a.EthTxID)
 
@@ -54,7 +54,7 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 
 	// fill array positions without any attempts as an empty slice
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: []txmgr.EvmEthTxAttempt{}, Error: nil}
+		results[ix] = &dataloader.Result{Data: []txmgr.EvmTxAttempt{}, Error: nil}
 	}
 
 	return results

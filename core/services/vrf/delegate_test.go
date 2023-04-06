@@ -54,7 +54,7 @@ type vrfUniverse struct {
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	txm       *evmtypes.MockTxManager
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int
@@ -308,7 +308,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EvmEthTx{}, nil)
+		).Once().Return(txmgr.EvmTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -407,7 +407,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.EvmEthTx
+	var ethTxes []txmgr.EvmTx
 	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)

@@ -144,11 +144,11 @@ func NewEthConfirmer(
 	enabledAddresses []*evmtypes.Address,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
-) *EvmEthConfirmer {
+) *EvmConfirmer {
 
 	lggr = lggr.Named("EthConfirmer")
 
-	return &EvmEthConfirmer{
+	return &EvmConfirmer{
 		txStorageService:                txStorageService,
 		lggr:                            lggr,
 		ethClient:                       ethClient,
@@ -166,7 +166,7 @@ func NewEthConfirmer(
 }
 
 // Start is a comment to appease the linter
-func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) error {
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EvmGasBumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (EVM.GasEstimator.BumpThreshold set to 0)", "ethGasBumpThreshold", 0)
@@ -174,11 +174,11 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) er
 			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EvmGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EvmGasBumpThreshold())
 		}
 
-		return ec.startInternal(ctx)
+		return ec.startInternal()
 	})
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) startInternal(_ context.Context) error {
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	ec.initSync.Lock()
 	defer ec.initSync.Unlock()
 	if ec.isStarted == true {

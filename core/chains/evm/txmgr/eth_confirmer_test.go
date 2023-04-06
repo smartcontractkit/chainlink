@@ -50,7 +50,7 @@ func mustInsertUnstartedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageS
 	require.NoError(t, txStorageService.InsertEthTx(&etx))
 }
 
-func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmEthTxAttempt {
+func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmTxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	if len(gasPrice) > 0 {
@@ -60,7 +60,7 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
-func mustTxBeInState(t *testing.T, txStorageService txmgr.EvmTxStorageService, tx txmgr.EvmEthTx, expectedState txmgr.EthTxState) {
+func mustTxBeInState(t *testing.T, txStorageService txmgr.EvmTxStorageService, tx txmgr.EvmTx, expectedState txmgr.EthTxState) {
 	etx, err := txStorageService.FindEthTxWithAttempts(tx.ID)
 	require.NoError(t, err)
 	require.Equal(t, expectedState, etx.State)
@@ -77,7 +77,7 @@ func newTxReceipt(hash *evmtypes.TxHash, blockNumber int, txIndex uint) evmtypes
 	}
 }
 
-func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmEthTxAttempt {
+func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmTxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	if len(gasPrice) > 0 {
@@ -87,7 +87,7 @@ func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int6
 	return attempt
 }
 
-func mustInsertInProgressEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress gethCommon.Address) txmgr.EvmEthTx {
+func mustInsertInProgressEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgr.EthTxInProgress
 	etx.Nonce = &nonce
@@ -96,7 +96,7 @@ func mustInsertInProgressEthTx(t *testing.T, txStorageService txmgr.EvmTxStorage
 	return etx
 }
 
-func mustInsertConfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress gethCommon.Address) txmgr.EvmEthTx {
+func mustInsertConfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgr.EthTxConfirmed
 	etx.Nonce = &nonce
@@ -106,6 +106,62 @@ func mustInsertConfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageS
 	require.NoError(t, txStorageService.InsertEthTx(&etx))
 
 	return etx
+}
+
+func TestEthConfirmer_Lifecycle(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	config := newTestChainScopedConfig(t)
+	txStorageService := cltest.NewTxmStorageService(t, db, config)
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+
+	// Add some fromAddresses
+	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+
+	ec, err := cltest.NewEthConfirmer(t, txStorageService, ethClient, config, ethKeyStore, nil)
+	require.NoError(t, err)
+	ctx := testutils.Context(t)
+
+	// Can't close unstarted instance
+	err = ec.Close()
+	require.Error(t, err)
+
+	// Can successfully start once
+	err = ec.Start(ctx)
+	require.NoError(t, err)
+
+	// Can't start an already started instance
+	err = ec.Start(ctx)
+	require.Error(t, err)
+
+	// Can successfully close once
+	err = ec.Close()
+	require.NoError(t, err)
+
+	// Can't start more than once (Confirmer implements utils.StartStopOnce)
+	err = ec.Start(ctx)
+	require.Error(t, err)
+	// Can't close more than once (Confirmer implements utils.StartStopOnce)
+	err = ec.Close()
+	require.Error(t, err)
+
+	// Can't closeInternal unstarted instance
+	err = txmgr.CloseInternalOnConfirmer(ec)
+	require.Error(t, err)
+
+	// Can successfully startInternal a previously closed instance
+	err = txmgr.StartInternalOnConfirmer(ec)
+	require.NoError(t, err)
+	// Can't startInternal already started instance
+	err = txmgr.StartInternalOnConfirmer(ec)
+	require.Error(t, err)
+	// Can successfully closeInternal again
+	err = txmgr.CloseInternalOnConfirmer(ec)
+	require.NoError(t, err)
 }
 
 func TestEthConfirmer_CheckForReceipts(t *testing.T) {
@@ -546,7 +602,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStorageService, 0, fromAddress)
-	var attempts []txmgr.EvmEthTxAttempt
+	var attempts []txmgr.EvmTxAttempt
 
 	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
 	for i := 0; i < 5; i++ {
@@ -662,7 +718,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ctx := testutils.Context(t)
 
-	var attempts []txmgr.EvmEthTxAttempt
+	var attempts []txmgr.EvmTxAttempt
 	// inserting in DESC nonce order to test DB ASC ordering
 	etx2 := cltest.MustInsertUnconfirmedEthTx(t, txStorageService, 1, fromAddress)
 	for i := 0; i < 4; i++ {
@@ -1781,7 +1837,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
 
-	var attempt1_2 txmgr.EvmEthTxAttempt
+	var attempt1_2 txmgr.EvmTxAttempt
 	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
 	txmgr.SetEthClientOnEthConfirmer(ethClient, ec)
 
@@ -1832,7 +1888,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_2)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_2.ID))
-	var attempt1_3 txmgr.EvmEthTxAttempt
+	var attempt1_3 txmgr.EvmTxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
@@ -1870,7 +1926,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_3.ID))
-	var attempt1_4 txmgr.EvmEthTxAttempt
+	var attempt1_4 txmgr.EvmTxAttempt
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(30000000000)
@@ -1923,7 +1979,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	nonce++
 	attempt2_1 := etx2.EthTxAttempts[0]
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
-	var attempt2_2 txmgr.EvmEthTxAttempt
+	var attempt2_2 txmgr.EvmTxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
@@ -2031,7 +2087,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	attempt3_1 := etx3.EthTxAttempts[0]
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`, oldEnough, assets.NewWeiI(35000000000), attempt3_1.ID))
 
-	var attempt3_2 txmgr.EvmEthTxAttempt
+	var attempt3_2 txmgr.EvmTxAttempt
 
 	t.Run("saves attempt anyway if replacement transaction is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(42000000000)
@@ -2068,7 +2124,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_2.ID))
-	var attempt3_3 txmgr.EvmEthTxAttempt
+	var attempt3_3 txmgr.EvmTxAttempt
 
 	t.Run("handles case where transaction is already known somehow", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(50400000000)
@@ -2103,7 +2159,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_3.ID))
-	var attempt3_4 txmgr.EvmEthTxAttempt
+	var attempt3_4 txmgr.EvmTxAttempt
 
 	t.Run("pretends it was accepted and continues the cycle if rejected for being temporarily underpriced", func(t *testing.T) {
 		// This happens if parity is rejecting transactions that are not priced high enough to even get into the mempool at all
@@ -2198,7 +2254,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	attempt4_1 := etx4.EthTxAttempts[0]
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, assets.GWei(35), assets.GWei(100), attempt4_1.ID))
-	var attempt4_2 txmgr.EvmEthTxAttempt
+	var attempt4_2 txmgr.EvmTxAttempt
 
 	t.Run("EIP-1559: bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
 		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(1000))
@@ -2444,7 +2500,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	attempt1_1 := etx.EthTxAttempts[0]
 	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
-	var attempt1_2 txmgr.EvmEthTxAttempt
+	var attempt1_2 txmgr.EvmTxAttempt
 
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 

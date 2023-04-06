@@ -4,12 +4,28 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EvmEthConfirmer) {
+func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EvmConfirmer) {
 	ethConfirmer.ethClient = ethClient
 }
 
-func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadcaster *EvmEthBroadcaster) {
+func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadcaster *EvmBroadcaster) {
 	ethBroadcaster.resumeCallback = resumeCallback
+}
+
+func StartInternalOnBroadcaster(eb *EvmBroadcaster) error {
+	return eb.startInternal()
+}
+
+func CloseInternalOnBroadcaster(eb *EvmBroadcaster) error {
+	return eb.closeInternal()
+}
+
+func StartInternalOnConfirmer(ec *EvmConfirmer) error {
+	return ec.startInternal()
+}
+
+func CloseInternalOnConfirmer(ec *EvmConfirmer) error {
+	return ec.closeInternal()
 }
 
 func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) ResendUnconfirmed() error {

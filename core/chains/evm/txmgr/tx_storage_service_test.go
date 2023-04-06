@@ -128,7 +128,7 @@ func TestORM(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 	var err error
-	var etx txmgr.EvmEthTx
+	var etx txmgr.EvmTx
 	t.Run("InsertEthTx", func(t *testing.T) {
 		etx = cltest.NewEthTx(t, fromAddress)
 		err = orm.InsertEthTx(&etx)
@@ -136,8 +136,8 @@ func TestORM(t *testing.T) {
 		assert.Greater(t, int(etx.ID), 0)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
-	var attemptL txmgr.EvmEthTxAttempt
-	var attemptD txmgr.EvmEthTxAttempt
+	var attemptL txmgr.EvmTxAttempt
+	var attemptD txmgr.EvmTxAttempt
 	t.Run("InsertEthTxAttempt", func(t *testing.T) {
 		attemptD = cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		err = orm.InsertEthTxAttempt(&attemptD)
@@ -267,7 +267,7 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	e0 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, 0, fromAddress, time.Unix(1616509100, 0))
 	e2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, 2, fromAddress, time.Unix(1616509300, 0))
 
-	etxs := []txmgr.EvmEthTx{
+	etxs := []txmgr.EvmTx{
 		e0,
 		e1,
 		e2,
@@ -590,12 +590,12 @@ func TestORM_PreloadEthTxes(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStorageService, int64(7), fromAddress)
 
 		// create unloaded attempt
-		unloadedAttempt := txmgr.EvmEthTxAttempt{EthTxID: etx.ID}
+		unloadedAttempt := txmgr.EvmTxAttempt{EthTxID: etx.ID}
 
 		// uninitialized EthTx
 		assert.Equal(t, int64(0), unloadedAttempt.EthTx.ID)
 
-		attempts := []txmgr.EvmEthTxAttempt{unloadedAttempt}
+		attempts := []txmgr.EvmTxAttempt{unloadedAttempt}
 
 		err := txStorageService.PreloadEthTxes(attempts)
 		require.NoError(t, err)
@@ -604,7 +604,7 @@ func TestORM_PreloadEthTxes(t *testing.T) {
 	})
 
 	t.Run("returns nil when attempts slice is empty", func(t *testing.T) {
-		emptyAttempts := []txmgr.EvmEthTxAttempt{}
+		emptyAttempts := []txmgr.EvmTxAttempt{}
 		err := txStorageService.PreloadEthTxes(emptyAttempts)
 		require.NoError(t, err)
 	})
@@ -1064,16 +1064,16 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 	t.Run("load eth tx attempt", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStorageService, 1, 7, time.Now(), fromAddress)
-		etx.EthTxAttempts = []txmgr.EvmEthTxAttempt{}
+		etx.EthTxAttempts = []txmgr.EvmTxAttempt{}
 
-		err := txStorageService.LoadEthTxesAttempts([]*txmgr.EvmEthTx{&etx})
+		err := txStorageService.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx})
 		require.NoError(t, err)
 		assert.Len(t, etx.EthTxAttempts, 1)
 	})
 
 	t.Run("load new attempt inserted in current postgres transaction", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStorageService, 3, 9, time.Now(), fromAddress)
-		etx.EthTxAttempts = []txmgr.EvmEthTxAttempt{}
+		etx.EthTxAttempts = []txmgr.EvmTxAttempt{}
 
 		q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
@@ -1086,15 +1086,15 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 			_, err := tx.NamedExec(insertEthTxAttemptSQL, dbAttempt)
 			require.NoError(t, err)
 
-			err = txStorageService.LoadEthTxesAttempts([]*txmgr.EvmEthTx{&etx}, pg.WithQueryer(tx))
+			err = txStorageService.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx}, pg.WithQueryer(tx))
 			require.NoError(t, err)
 			assert.Len(t, etx.EthTxAttempts, 2)
 
 			return nil
 		})
 		// also check after postgres transaction is committed
-		etx.EthTxAttempts = []txmgr.EvmEthTxAttempt{}
-		err := txStorageService.LoadEthTxesAttempts([]*txmgr.EvmEthTx{&etx})
+		etx.EthTxAttempts = []txmgr.EvmTxAttempt{}
+		err := txStorageService.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx})
 		require.NoError(t, err)
 		assert.Len(t, etx.EthTxAttempts, 2)
 	})
@@ -1138,7 +1138,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Run("cannot find unstarted tx", func(t *testing.T) {
 		cltest.MustInsertInProgressEthTxWithAttempt(t, txStorageService, 13, fromAddress)
 
-		resultEtx := new(txmgr.EvmEthTx)
+		resultEtx := new(txmgr.EvmTx)
 		err := txStorageService.FindNextUnstartedTransactionFromAddress(resultEtx, evmtypes.NewAddress(fromAddress), *ethClient.ChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
 	})
@@ -1146,7 +1146,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Run("finds unstarted tx", func(t *testing.T) {
 		cltest.MustInsertUnstartedEthTx(t, txStorageService, fromAddress)
 
-		resultEtx := new(txmgr.EvmEthTx)
+		resultEtx := new(txmgr.EvmTx)
 		err := txStorageService.FindNextUnstartedTransactionFromAddress(resultEtx, evmtypes.NewAddress(fromAddress), *ethClient.ChainID())
 		require.NoError(t, err)
 	})
@@ -1488,7 +1488,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			Meta:           nil,
 			Strategy:       strategy,
 		}, *ethClient.ChainID())
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))

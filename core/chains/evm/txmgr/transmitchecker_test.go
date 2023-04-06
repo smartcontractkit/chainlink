@@ -91,13 +91,13 @@ func TestTransmitCheckers(t *testing.T) {
 
 	t.Run("no checker", func(t *testing.T) {
 		checker := txmgr.NoChecker
-		require.NoError(t, checker.Check(ctx, log, txmgr.EvmEthTx{}, txmgr.EvmEthTxAttempt{}))
+		require.NoError(t, checker.Check(ctx, log, txmgr.EvmTx{}, txmgr.EvmTxAttempt{}))
 	})
 
 	t.Run("simulate", func(t *testing.T) {
 		checker := txmgr.SimulateChecker{Client: client}
 
-		tx := txmgr.EvmEthTx{
+		tx := txmgr.EvmTx{
 			FromAddress:    evmtypes.NewAddress(common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9")),
 			ToAddress:      evmtypes.NewAddress(common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21")),
 			EncodedPayload: []byte{42, 0, 0},
@@ -106,7 +106,7 @@ func TestTransmitCheckers(t *testing.T) {
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
 		}
-		attempt := txmgr.EvmEthTxAttempt{
+		attempt := txmgr.EvmTxAttempt{
 			EthTx:     tx,
 			Hash:      evmtypes.NewTxHash(common.Hash{}),
 			CreatedAt: tx.CreatedAt,
@@ -157,7 +157,7 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmEthTx, txmgr.EvmEthTxAttempt) {
+		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
 			txHash := common.Hash{}
 			meta := txmgr.EthTxMeta{
@@ -175,7 +175,7 @@ func TestTransmitCheckers(t *testing.T) {
 			require.NoError(t, err)
 			metaJson := datatypes.JSON(b)
 
-			tx := txmgr.EvmEthTx{
+			tx := txmgr.EvmTx{
 				FromAddress:    evmtypes.NewAddress(common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9")),
 				ToAddress:      evmtypes.NewAddress(common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21")),
 				EncodedPayload: []byte{42, 0, 0},
@@ -185,7 +185,7 @@ func TestTransmitCheckers(t *testing.T) {
 				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
-			return tx, txmgr.EvmEthTxAttempt{
+			return tx, txmgr.EvmTxAttempt{
 				EthTx:     tx,
 				Hash:      evmtypes.NewTxHash(common.Hash{}),
 				CreatedAt: tx.CreatedAt,
@@ -268,7 +268,7 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmEthTx, txmgr.EvmEthTxAttempt) {
+		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID.Bytes())
 			meta := txmgr.EthTxMeta{
 				RequestID: &h,
@@ -280,7 +280,7 @@ func TestTransmitCheckers(t *testing.T) {
 			require.NoError(t, err)
 			metaJson := datatypes.JSON(b)
 
-			tx := txmgr.EvmEthTx{
+			tx := txmgr.EvmTx{
 				FromAddress:    evmtypes.NewAddress(common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9")),
 				ToAddress:      evmtypes.NewAddress(common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21")),
 				EncodedPayload: []byte{42, 0, 0},
@@ -290,7 +290,7 @@ func TestTransmitCheckers(t *testing.T) {
 				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
-			return tx, txmgr.EvmEthTxAttempt{
+			return tx, txmgr.EvmTxAttempt{
 				EthTx:     tx,
 				Hash:      evmtypes.NewTxHash(common.Hash{}),
 				CreatedAt: tx.CreatedAt,

@@ -32,7 +32,7 @@ func (a *Address) Equals(h commontypes.Hashable) bool {
 	return bytes.Equal(a.nativeAddress.Bytes(), h.(*Address).nativeAddress.Bytes())
 }
 
-func (a *Address) IsEmpty() bool {
+func (a *Address) Empty() bool {
 	return a == nil || a.nativeAddress == common.Address{}
 }
 

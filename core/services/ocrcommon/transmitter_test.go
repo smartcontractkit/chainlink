@@ -60,7 +60,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmEthTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
@@ -102,7 +102,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmEthTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
 		FromAddress:      evmtypes.NewAddress(fromAddress2),
 		ToAddress:        evmtypes.NewAddress(toAddress),
@@ -111,7 +111,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmEthTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }

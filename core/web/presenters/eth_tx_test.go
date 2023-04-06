@@ -19,7 +19,7 @@ func TestEthTxResource(t *testing.T) {
 
 	from := common.HexToAddress("0x1")
 	to := common.HexToAddress("0x2")
-	tx := txmgr.EvmEthTx{
+	tx := txmgr.EvmTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    evmtypes.NewAddress(from),
@@ -67,7 +67,7 @@ func TestEthTxResource(t *testing.T) {
 	)
 
 	tx.Nonce = &nonce
-	txa := txmgr.EvmEthTxAttempt{
+	txa := txmgr.EvmTxAttempt{
 		EthTx:                   tx,
 		Hash:                    evmtypes.NewTxHash(hash),
 		GasPrice:                gasPrice,

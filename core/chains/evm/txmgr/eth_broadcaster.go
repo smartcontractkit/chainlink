@@ -134,10 +134,10 @@ func NewEthBroadcaster(
 	logger logger.Logger,
 	checkerFactory EvmTransmitCheckerFactory,
 	autoSyncNonce bool,
-) *EvmEthBroadcaster {
+) *EvmBroadcaster {
 
 	logger = logger.Named("EthBroadcaster")
-	return &EvmEthBroadcaster{
+	return &EvmBroadcaster{
 		logger:           logger,
 		txStorageService: txStorageService,
 		ethClient:        ethClient,
@@ -157,14 +157,14 @@ func NewEthBroadcaster(
 
 // Start starts EthBroadcaster service.
 // The provided context can be used to terminate Start sequence.
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Start(ctx context.Context) error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
-		return eb.startInternal(ctx)
+		return eb.startInternal()
 	})
 }
 
 // startInternal can be called multiple times, in conjunction with closeInternal. The TxMgr uses this functionality to reset broadcaster multiple times in its own lifetime.
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal(ctx context.Context) error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
 	if eb.isStarted == true {

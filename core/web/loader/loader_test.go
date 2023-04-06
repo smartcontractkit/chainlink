@@ -289,22 +289,22 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmEthTx, txmgr.EvmEthTxAttempt, int64, int64](t)
+	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	ethTxIDs := []int64{1, 2, 3}
 
-	attempt1 := txmgr.EvmEthTxAttempt{
+	attempt1 := txmgr.EvmTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[0],
 	}
-	attempt2 := txmgr.EvmEthTxAttempt{
+	attempt2 := txmgr.EvmTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[1],
 	}
 
-	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmEthTxAttempt{
+	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmStorageService").Return(txStorageService)
@@ -315,9 +315,9 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []txmgr.EvmEthTxAttempt{}, found[0].Data)
-	assert.Equal(t, []txmgr.EvmEthTxAttempt{attempt2}, found[1].Data)
-	assert.Equal(t, []txmgr.EvmEthTxAttempt{attempt1}, found[2].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{}, found[0].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[2].Data)
 }
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
@@ -374,7 +374,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmEthTx, txmgr.EvmEthTxAttempt, int64, int64](t)
+	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -386,14 +386,14 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		TxHash: evmtypes.NewTxHash(ethTxHash),
 	}
 
-	attempt1 := txmgr.EvmEthTxAttempt{
+	attempt1 := txmgr.EvmTxAttempt{
 		ID:          int64(1),
 		EthTxID:     ethTxID,
 		Hash:        evmtypes.NewTxHash(ethTxHash),
 		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 
-	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmEthTxAttempt{
+	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
 		attempt1,
 	}, nil)
 
@@ -405,5 +405,5 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 1)
-	assert.Equal(t, []txmgr.EvmEthTxAttempt{attempt1}, found[0].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[0].Data)
 }

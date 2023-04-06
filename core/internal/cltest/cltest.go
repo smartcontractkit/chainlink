@@ -200,7 +200,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 }
 
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, checkerFactory txmgr.EvmTransmitCheckerFactory, nonceAutoSync bool) (*txmgr.EvmEthBroadcaster, error) {
+func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, checkerFactory txmgr.EvmTransmitCheckerFactory, nonceAutoSync bool) (*txmgr.EvmBroadcaster, error) {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
@@ -223,7 +223,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmEthConfirmer, error) {
+func NewEthConfirmer(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmConfirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)

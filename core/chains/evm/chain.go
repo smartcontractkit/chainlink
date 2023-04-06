@@ -265,13 +265,11 @@ func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.EvmTxManager {
-	return c.txm
-}
-func (c *chain) HeadTracker() httypes.HeadTracker       { return c.headTracker }
-func (c *chain) Logger() logger.Logger                  { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonitor }
-func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }
+func (c *chain) TxManager() txmgr.EvmTxManager            { return c.txm }
+func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
+func (c *chain) Logger() logger.Logger                    { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
+func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
 func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, nodes []*v2.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node

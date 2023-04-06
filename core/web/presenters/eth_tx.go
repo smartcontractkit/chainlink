@@ -37,7 +37,7 @@ func (EthTxResource) GetName() string {
 // For backwards compatibility, there is no id set when initializing from an
 // EthTx as the id being used was the EthTxAttempt Hash.
 // This should really use it's proper id
-func NewEthTxResource(tx txmgr.EvmEthTx) EthTxResource {
+func NewEthTxResource(tx txmgr.EvmTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
 		From:       tx.FromAddress.NativeAddress(),
@@ -49,7 +49,7 @@ func NewEthTxResource(tx txmgr.EvmEthTx) EthTxResource {
 	}
 }
 
-func NewEthTxResourceFromAttempt(txa txmgr.EvmEthTxAttempt) EthTxResource {
+func NewEthTxResourceFromAttempt(txa txmgr.EvmTxAttempt) EthTxResource {
 	tx := txa.EthTx
 
 	hashBytes, _ := txa.Hash.MarshalText()

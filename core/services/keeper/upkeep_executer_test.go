@@ -59,7 +59,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keeper.UpkeepRegistration,
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
-	*txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+	*evmtypes.MockTxManager,
 	keystore.Master,
 	evm.Chain,
 	keeper.ORM,
@@ -131,7 +131,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(txmgr.EvmEthTx{
+			Return(txmgr.EvmTx{
 				ID: 1,
 			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -174,7 +174,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
 			).
 				Once().
-				Return(txmgr.EvmEthTx{
+				Return(txmgr.EvmTx{
 					ID: 1,
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -276,7 +276,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(txmgr.EvmEthTx{}, nil).
+			Return(txmgr.EvmTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())

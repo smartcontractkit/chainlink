@@ -411,7 +411,7 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 // CheckEnabled returns nil if state is present and enabled
 // The complexity here comes because we want to return nice, useful error messages
 func (ks *eth) CheckEnabled(address *evmtypes.Address, chainID *big.Int) error {
-	if address == nil || address.IsEmpty() {
+	if address == nil || address.Empty() {
 		return errors.Errorf("nil/empty address provided as input")
 	}
 	ks.lock.RLock()

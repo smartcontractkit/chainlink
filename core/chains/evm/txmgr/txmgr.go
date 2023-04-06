@@ -129,9 +129,9 @@ func NewTxm(
 	txAttemptBuilder EvmTxAttemptBuilder,
 	txStorageService EvmTxStorageService,
 	nonceSyncer EvmNonceSyncer,
-	ethBroadcaster *EvmEthBroadcaster,
-	ethConfirmer *EvmEthConfirmer,
-	ethResender *EvmEthResender,
+	ethBroadcaster *EvmBroadcaster,
+	ethConfirmer *EvmConfirmer,
+	ethResender *EvmResender,
 ) *EvmTxm {
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -304,9 +304,6 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 
 	close(b.chSubbed)
 
-	ctx, cancel := utils.ContextFromChan(b.chStop)
-	defer cancel()
-
 	var stopped bool
 	var stopOnce sync.Once
 
@@ -349,7 +346,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.ethBroadcaster.startInternal(ctx); err != nil {
+					if err := b.ethBroadcaster.startInternal(); err != nil {
 						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -368,7 +365,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) runLoop(enabledAddresses []ADDR) {
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.ethConfirmer.startInternal(ctx); err != nil {
+					if err := b.ethConfirmer.startInternal(); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -490,7 +487,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 		return tx, err
 	}
 
-	if b.config.EvmUseForwarders() && (!newTx.ForwarderAddress.IsEmpty()) {
+	if b.config.EvmUseForwarders() && (!newTx.ForwarderAddress.Empty()) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
@@ -536,7 +533,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) checkEnabled(addr ADDR) error {
 // SendEther creates a transaction that transfers the given value of ether
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	// TODO: Remove this hard-coding on evm package
-	if to.IsEmpty() {
+	if to.Empty() {
 		return etx, errors.New("cannot send ether to zero address")
 	}
 	etx = EthTx[ADDR, TX_HASH]{

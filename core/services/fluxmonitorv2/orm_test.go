@@ -191,7 +191,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		GasLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(txmgr.EvmEthTx{}, nil).Once()
+	}).Return(txmgr.EvmTx{}, nil).Once()
 
 	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

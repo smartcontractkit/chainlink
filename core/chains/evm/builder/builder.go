@@ -44,7 +44,7 @@ func BuildNewTxm(
 	}
 	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, client, cfg, keyStore, eventBroadcaster, addresses, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
 	ethConfirmer := txmgr.NewEthConfirmer(txStorageService, client, cfg, keyStore, addresses, txAttemptBuilder, lggr)
-	var ethResender *txmgr.EvmEthResender = nil
+	var ethResender *txmgr.EvmResender = nil
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		ethResender = txmgr.NewEthResender(lggr, txStorageService, client, keyStore, txmgr.DefaultResenderPollInterval, cfg)
 	}

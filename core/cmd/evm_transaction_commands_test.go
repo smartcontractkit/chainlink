@@ -155,7 +155,7 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EvmEthTx{}
+	etx := txmgr.EvmTx{}
 	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)
@@ -208,7 +208,7 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EvmEthTx{}
+	etx := txmgr.EvmTx{}
 	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "1.000000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)

@@ -129,7 +129,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
@@ -247,7 +247,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
@@ -289,7 +289,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
@@ -328,7 +328,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
@@ -420,7 +420,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		}, pg.WithParentCtx(context.Background()))
 		assert.NoError(t, err)
 
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
@@ -443,7 +443,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
@@ -466,7 +466,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-		etx := tx.(txmgr.EvmEthTx)
+		etx := tx.(txmgr.EvmTx)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 }
