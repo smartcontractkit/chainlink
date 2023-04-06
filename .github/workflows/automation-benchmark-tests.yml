@@ -59,7 +59,7 @@ jobs:
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
-      SLACK_CHANNEL: C03KJ5S7KEK
+      SLACK_CHANNEL: C04N1QXN57G # temp channel
       TEST_INPUTS: ${{ inputs.TestInputs }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
