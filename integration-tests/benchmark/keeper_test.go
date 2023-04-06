@@ -455,9 +455,9 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 				Name:    "geth-blockscout",
 				WsURL:   activeEVMNetwork.URLs[0],
 				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
-		err := testEnvironment.Run()
-		require.NoError(t, err, "Error launching test environment")
 	}
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error launching test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, activeEVMNetwork, registryToTest
@@ -511,7 +511,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			}))
 		}
 	}
-	err := testEnvironment.Run()
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment, activeEVMNetwork, registryToTest
 }
