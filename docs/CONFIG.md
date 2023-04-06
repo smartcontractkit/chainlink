@@ -1331,6 +1331,41 @@ Release = 'v1.2.3' # Example
 ```
 Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
 
+## Insecure
+```toml
+[Insecure]
+DevWebServer = false # Default
+OCRDevelopmentMode = false # Default
+InfiniteDepthQueries = false # Default
+DisableRateLimiting = false # Default
+```
+Insecure config family is only allowed in development builds.
+
+### DevWebServer
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+DevWebServer = false # Default
+```
+DevWebServer skips secure configuration for webserver AllowedHosts, SSL, etc.
+
+### OCRDevelopmentMode
+```toml
+OCRDevelopmentMode = false # Default
+```
+OCRDevelopmentMode run OCR in development mode.
+
+### InfiniteDepthQueries
+```toml
+InfiniteDepthQueries = false # Default
+```
+InfiniteDepthQueries skips graphql query depth limit checks.
+
+### DisableRateLimiting
+```toml
+DisableRateLimiting = false # Default
+```
+DisableRateLimiting skips ratelimiting on asset requests.
+
 ## EVM
 EVM defaults depend on ChainID:
 

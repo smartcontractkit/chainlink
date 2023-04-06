@@ -74,12 +74,10 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	return c, nil
 }
 
-//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
-
 // ChainSet extends adapters.ChainSet with mutability and exposes the underlying Configs.
 type ChainSet interface {
 	adapters.ChainSet
-	chains.Nodes[string, db.Node]
+	chains.Nodes
 	chains.Chains[string]
 }
 
@@ -100,5 +98,5 @@ func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load some Cosmos chains")
 	}
-	return chains.NewChainSet[string, db.Node, adapters.Chain](solChains, &opts, func(s string) string { return s })
+	return chains.NewChainSet[db.Node, adapters.Chain](solChains, &opts)
 }

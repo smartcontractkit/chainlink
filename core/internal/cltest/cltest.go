@@ -52,7 +52,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	evmMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -398,7 +397,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if len(ids) > 0 {
 		o := chainCfgs
 		if o == nil {
-			if err = cosmos.EnsureChains(db, lggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, lggr, cfg, ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -1310,7 +1309,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *evmMocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *evmclimocks.Subscription) {
 	t.Helper()
 
 	// Start

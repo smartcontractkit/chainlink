@@ -72,7 +72,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
-	txm := new(txmmocks.TxManager)
+	txm := txmmocks.NewTxManager(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
@@ -494,7 +494,7 @@ decode_log->vrf->encode_tx->submit_tx
 		jb, err := vrf.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
 	})
 
@@ -504,7 +504,7 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
@@ -531,7 +531,7 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
@@ -632,7 +632,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
@@ -659,7 +659,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses[:3] {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
 		}

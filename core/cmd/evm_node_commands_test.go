@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -55,13 +56,17 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	require.Len(t, nodes, 2)
 	n1 := nodes[0]
 	n2 := nodes[1]
-	assert.Equal(t, "Test node 1", n1.ID)
+	assert.Equal(t, chainID.String(), n1.ChainID)
+	assert.Equal(t, *node1.Name, n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
-	assert.Equal(t, node1.WSURL.String(), n1.WSURL.String)
-	assert.Equal(t, node1.HTTPURL.String(), n1.HTTPURL.String)
-	assert.Equal(t, "Test node 2", n2.ID)
+	wantConfig, err := toml.Marshal(node1)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig), n1.Config)
+	assert.Equal(t, chainID.String(), n2.ChainID)
+	assert.Equal(t, *node2.Name, n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
-	assert.Equal(t, node2.WSURL.String(), n2.WSURL.String)
-	assert.Equal(t, node2.HTTPURL.String(), n2.HTTPURL.String)
+	wantConfig2, err := toml.Marshal(node2)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
 }

@@ -1,8 +1,6 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
@@ -27,10 +25,7 @@ func NewCosmosChainResource(chain chains.ChainConfig) CosmosChainResource {
 
 // CosmosNodeResource is a Cosmos node JSONAPI resource.
 type CosmosNodeResource struct {
-	JAID
-	Name          string `json:"name"`
-	CosmosChainID string `json:"cosmosChainID"`
-	TendermintURL string `json:"tendermintURL"`
+	NodeResource
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -39,11 +34,12 @@ func (r CosmosNodeResource) GetName() string {
 }
 
 // NewCosmosNodeResource returns a new CosmosNodeResource for node.
-func NewCosmosNodeResource(node db.Node) CosmosNodeResource {
-	return CosmosNodeResource{
-		JAID:          NewJAID(node.Name),
-		Name:          node.Name,
-		CosmosChainID: node.CosmosChainID,
-		TendermintURL: node.TendermintURL,
-	}
+func NewCosmosNodeResource(node chains.NodeStatus) CosmosNodeResource {
+	return CosmosNodeResource{NodeResource{
+		JAID:    NewJAID(node.Name),
+		ChainID: node.ChainID,
+		Name:    node.Name,
+		State:   node.State,
+		Config:  node.Config,
+	}}
 }

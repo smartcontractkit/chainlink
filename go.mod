@@ -21,7 +21,7 @@ require (
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-contrib/size v0.0.0-20220707104239-f5a650759656
-	github.com/gin-gonic/gin v1.8.1
+	github.com/gin-gonic/gin v1.8.2
 	github.com/gogo/protobuf v1.3.3
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
@@ -74,7 +74,7 @@ require (
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.14.4
 	github.com/ugorji/go/codec v1.2.11
-	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
+	github.com/ulule/limiter/v3 v3.11.1
 	github.com/umbracle/ethgo v0.1.3
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.12
@@ -116,7 +116,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cloudflare/cfssl v0.0.0-20190726000631-633726f6bcb7 // indirect
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
@@ -340,9 +340,6 @@ require (
 replace (
 	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
 	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
-
-	// updating CosmWasm to v1.0.0 which brings ARM support
-	github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
 	// Fix go mod tidy issue for ambiguous imports from go-ethereum
 	// See https://github.com/ugorji/go/issues/279

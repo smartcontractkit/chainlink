@@ -34,6 +34,7 @@ type ValidationConfig interface {
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PPeerID() p2pkey.PeerID
 	OCRCaptureEATelemetry() bool
+	OCRDevelopmentMode() bool
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

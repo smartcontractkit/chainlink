@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -36,9 +35,6 @@ import (
 // TODO(BCI-979): Remove this, or make this configurable with the updated client.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters --output ./mocks/ --case=underscore
 var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
@@ -97,11 +93,11 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, cnt, err := c.cfgs.NodesForChain(c.id, 0, math.MaxInt)
+		nodes, err := c.cfgs.Nodes(c.id)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get nodes")
 		}
-		if cnt == 0 {
+		if len(nodes) == 0 {
 			return nil, errors.New("no nodes available")
 		}
 		nodeIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(nodes))))
@@ -111,7 +107,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
-		node, err = c.cfgs.NodeNamed(name)
+		node, err = c.cfgs.Node(name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get node named %s", name)
 		}

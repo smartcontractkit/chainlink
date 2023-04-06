@@ -10,6 +10,7 @@ require (
 	github.com/docker/docker v23.0.1+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.10.26
+	github.com/google/go-cmp v0.5.9
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/satori/go.uuid v1.2.0
@@ -53,7 +54,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cloudflare/cfssl v0.0.0-20190726000631-633726f6bcb7 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
@@ -99,7 +100,7 @@ require (
 	github.com/gin-contrib/sessions v0.0.5 // indirect
 	github.com/gin-contrib/size v0.0.0-20220707104239-f5a650759656 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/gin-gonic/gin v1.8.1 // indirect
+	github.com/gin-gonic/gin v1.8.2 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
@@ -292,7 +293,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
-	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e // indirect
+	github.com/ulule/limiter/v3 v3.11.1 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
@@ -334,9 +335,6 @@ require (
 replace (
 	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
 	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
-
-	// updating CosmWasm to v1.0.0 which brings ARM support
-	github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
 	// Fix go mod tidy issue for ambiguous imports from go-ethereum
 	// See https://github.com/ugorji/go/issues/279

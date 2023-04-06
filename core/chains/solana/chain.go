@@ -2,7 +2,6 @@ package solana
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"strings"
 	"sync"
@@ -30,9 +29,6 @@ import (
 // DefaultRequestTimeout is the default Solana client timeout.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana/client --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
 var _ solana.Chain = (*chain)(nil)
 
 type chain struct {
@@ -41,7 +37,7 @@ type chain struct {
 	cfg            config.Config
 	txm            *soltxm.Txm
 	balanceMonitor services.ServiceCtx
-	nodes          func(chainID string, offset, limit int) (nodes []db.Node, count int, err error)
+	nodes          func(chainID string) (nodes []db.Node, err error)
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
@@ -177,7 +173,7 @@ func newChain(id string, cfg config.Config, ks keystore.Solana, cfgs Configs, lg
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
-		nodes:       cfgs.NodesForChain,
+		nodes:       cfgs.Nodes,
 		lggr:        lggr.Named("Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -213,11 +209,11 @@ func (c *chain) Reader() (solanaclient.Reader, error) {
 func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	var node db.Node
 	var client solanaclient.ReaderWriter
-	nodes, cnt, err := c.nodes(c.id, 0, math.MaxInt) // opt: pass static nodes set to constructor
+	nodes, err := c.nodes(c.id) // opt: pass static nodes set to constructor
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
-	if cnt == 0 {
+	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
 	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
