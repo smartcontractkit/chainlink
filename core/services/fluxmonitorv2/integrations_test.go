@@ -249,7 +249,7 @@ type answerParams struct {
 func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receiptBlock uint64) {
 	t.Helper()
 	if receiptBlock == 0 {
-		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
+		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number.Uint64()
 	}
 	blockRange := &bind.FilterOpts{Start: 0, End: &receiptBlock}
 
