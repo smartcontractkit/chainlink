@@ -137,7 +137,20 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	// Can't start an already started instance
 	err = ec.Start(ctx)
 	require.Error(t, err)
-
+	head := evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 10,
+		Parent: &evmtypes.Head{
+			Hash:   utils.NewHash(),
+			Number: 9,
+			Parent: &evmtypes.Head{
+				Number: 8,
+				Hash:   utils.NewHash(),
+				Parent: nil,
+			},
+		},
+	}
+	ec.ProcessHead(ctx, &head)
 	// Can successfully close once
 	err = ec.Close()
 	require.NoError(t, err)

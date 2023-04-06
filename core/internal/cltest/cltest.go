@@ -399,7 +399,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	require.NoError(t, keyStore.Unlock(testutils.Password))
 	var ids []utils.Big
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
@@ -606,10 +605,6 @@ func (ta *TestApplication) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = ta.ChainlinkApplication.KeyStore.CSA().EnsureKey()
-	if err != nil {
-		return err
-	}
 
 	err = ta.ChainlinkApplication.Start(ctx)
 	if err != nil {
@@ -712,7 +707,6 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.QConfig) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
 	require.NoError(t, keystore.Unlock(Password))
-	require.NoError(t, keystore.CSA().EnsureKey())
 	return keystore
 }
 
