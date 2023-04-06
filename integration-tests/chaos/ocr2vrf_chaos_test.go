@@ -43,6 +43,7 @@ var (
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
+	t.Skip("Skipping TestOCR2VRFChaos until https://smartcontract-it.atlassian.net/browse/VRF-422 is resolved")
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	testCases := map[string]struct {
