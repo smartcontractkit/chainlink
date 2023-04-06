@@ -128,7 +128,7 @@ func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account comm
 
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
-	return c.b.Blockchain().CurrentBlock().Number()
+	return c.b.Blockchain().CurrentBlock().Number
 }
 
 var balanceOfABIString = `[

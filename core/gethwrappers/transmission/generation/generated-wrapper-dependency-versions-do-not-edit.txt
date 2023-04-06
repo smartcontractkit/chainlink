@@ -1,4 +1,4 @@
-GETH_VERSION: 1.10.26
+GETH_VERSION: 1.11.5
 entry_point: ../../../contracts/solc/v0.8.15/EntryPoint.abi ../../../contracts/solc/v0.8.15/EntryPoint.bin 2cb4bb2ba3efa8df3dfb0a57eb3727d17b68fe202682024fa7cfb4faf026833e
 greeter: ../../../contracts/solc/v0.8.15/Greeter.abi ../../../contracts/solc/v0.8.15/Greeter.bin 653dcba5c33a46292073939ce1e639372cf521c0ec2814d4c9f20c72f796f18c
 greeter_wrapper: ../../../contracts/solc/v0.8.15/Greeter.abi ../../../contracts/solc/v0.8.15/Greeter.bin 653dcba5c33a46292073939ce1e639372cf521c0ec2814d4c9f20c72f796f18c
