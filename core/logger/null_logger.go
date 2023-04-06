@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"io"
-
 	"go.uber.org/zap/zapcore"
 )
 
@@ -42,10 +40,8 @@ func (l *nullLogger) Criticalw(msg string, keysAndValues ...interface{}) {}
 func (l *nullLogger) Panicw(msg string, keysAndValues ...interface{})    {}
 func (l *nullLogger) Fatalw(msg string, keysAndValues ...interface{})    {}
 
-func (l *nullLogger) ErrorIf(err error, msg string)    {}
-func (l *nullLogger) ErrorIfClosing(io.Closer, string) {}
-func (l *nullLogger) Sync() error                      { return nil }
-func (l *nullLogger) Helper(skip int) Logger           { return l }
-func (l *nullLogger) Name() string                     { return "nullLogger" }
+func (l *nullLogger) Sync() error            { return nil }
+func (l *nullLogger) Helper(skip int) Logger { return l }
+func (l *nullLogger) Name() string           { return "nullLogger" }
 
 func (l *nullLogger) Recover(panicErr interface{}) {}
