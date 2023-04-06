@@ -149,7 +149,7 @@ var (
 	NumberOfNodes, _        = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 	ChainlinkNodeFunding, _ = strconv.ParseFloat(getEnv("CHAINLINKNODEFUNDING", "0.5"), 64)
 	MaxPerformGas, _        = strconv.ParseInt(getEnv("MAXPERFORMGAS", "5000000"), 0, 32)
-	UpkeepGasLimit, _       = strconv.ParseInt(getEnv("UPKEEPGASLIMIT", fmt.Sprint(MaxPerformGas+50000)), 0, 64)
+	UpkeepGasLimit, _       = strconv.ParseInt(getEnv("UPKEEPGASLIMIT", fmt.Sprint(PerformGasToBurn+50000)), 0, 64)
 )
 
 type BenchmarkTestEntry struct {
