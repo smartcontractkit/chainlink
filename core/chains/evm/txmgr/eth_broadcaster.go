@@ -18,6 +18,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -92,7 +93,7 @@ type EthBroadcaster struct {
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
 	chainID        big.Int
-	config         Config
+	config         BroadcasterConfig[*assets.Wei]
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
 	// when Start is called
@@ -118,7 +119,7 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config,
+func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config BroadcasterConfig[*assets.Wei],
 	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
 	eventBroadcaster pg.EventBroadcaster,
 	addresses []gethCommon.Address, resumeCallback ResumeCallback,
@@ -359,7 +360,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx"), retryable
 	}
 	for {
-		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
+		maxInFlightTransactions := eb.config.MaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := eb.orm.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {
@@ -530,7 +531,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 
 	// L2-specific cases
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if eb.config.ChainType().IsL2() {
+		if eb.config.IsL2() {
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}
 		return errors.Wrap(sendError, "this error type only handled for L2s"), false
@@ -677,12 +678,12 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 		"attemptGasFeeCap", attempt.GasFeeCap,
 		"attemptGasPrice", attempt.GasPrice,
 		"attemptGasTipCap", attempt.GasTipCap,
-		"maxGasPriceConfig", eb.config.EvmMaxGasPriceWei(),
+		"maxGasPriceConfig", eb.config.MaxFeePrice(),
 	).Errorf("attempt gas price %v was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing EVM.GasEstimator.PriceDefault (current value: %s)",
-		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
+		attempt.GasPrice, sendError.Error(), eb.config.FeePriceDefault().String())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {

@@ -87,7 +87,7 @@ type Txm struct {
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
-	config           Config
+	config           TxmConfig[*assets.Wei]
 	keyStore         txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	eventBroadcaster pg.EventBroadcaster
 	chainID          big.Int
@@ -119,6 +119,9 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrt
 	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx, EthTxAttempt],
 ) *Txm {
+
+	txmCfg := evmTxmConfig{cfg}
+
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -126,7 +129,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrt
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
-		config:           cfg,
+		config:           txmCfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
 		chainID:          *ethClient.ChainID(),
@@ -141,12 +144,12 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore txmgrt
 	}
 
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, b.orm, ethClient, keyStore, defaultResenderPollInterval, txmCfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.EthTxReaperThreshold() > 0 && cfg.EthTxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
+		b.reaper = NewReaper(lggr, db, txmCfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}
@@ -170,7 +173,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		var ms services.MultiStart
-		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
+		b.ethBroadcaster = NewEthBroadcaster(b.orm, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger, b.checkerFactory, b.config.SequenceAutoSync())
 		b.ethConfirmer = NewEthConfirmer(b.orm, b.ethClient, b.config, b.keyStore, enabledAddresses, b.resumeCallback, b.txAttemptBuilder, b.logger)
 		if err = ms.Start(ctx, b.ethBroadcaster); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
@@ -274,7 +277,7 @@ func (b *Txm) HealthReport() map[string]error {
 		maps.Copy(report, b.txAttemptBuilder.HealthReport())
 	})
 
-	if b.config.EvmUseForwarders() {
+	if b.config.UseForwarders() {
 		maps.Copy(report, b.fwdMgr.HealthReport())
 	}
 	return report
@@ -475,7 +478,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		return etx, err
 	}
 
-	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != common.Address{}) {
+	if b.config.UseForwarders() && (newTx.ForwarderAddress != common.Address{}) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
@@ -493,7 +496,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 		}
 	}
 
-	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
+	err = b.orm.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
@@ -504,7 +507,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm) GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error) {
-	if !b.config.EvmUseForwarders() {
+	if !b.config.UseForwarders() {
 		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)

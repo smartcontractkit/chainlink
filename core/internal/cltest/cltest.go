@@ -209,7 +209,7 @@ func NewEthBroadcaster(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, 
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
-	return txmgr.NewEthBroadcaster(orm, ethClient, config, keyStore, eventBroadcaster,
+	return txmgr.NewEthBroadcaster(orm, ethClient, txmgr.NewEvmTxmConfig(config), keyStore, eventBroadcaster,
 		addresses, nil, txBuilder, lggr,
 		checkerFactory, nonceAutoSync)
 }
@@ -224,7 +224,7 @@ func NewEthConfirmer(t testing.TB, orm txmgr.ORM, ethClient evmclient.Client, co
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ks, estimator)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, config, ks, addresses, fn, txBuilder, lggr)
+	ec := txmgr.NewEthConfirmer(orm, ethClient, txmgr.NewEvmTxmConfig(config), ks, addresses, fn, txBuilder, lggr)
 	return ec
 }
 

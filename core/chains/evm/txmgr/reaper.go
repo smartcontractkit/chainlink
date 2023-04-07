@@ -14,15 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-//go:generate mockery --quiet --name ReaperConfig --output ./mocks/ --case=underscore
-
-// ReaperConfig is the config subset used by the reaper
-type ReaperConfig interface {
-	EthTxReaperInterval() time.Duration
-	EthTxReaperThreshold() time.Duration
-	EvmFinalityDepth() uint32
-}
-
 // Reaper handles periodic database cleanup for Txm
 type Reaper struct {
 	db             *sqlx.DB
@@ -53,7 +44,7 @@ func NewReaper(lggr logger.Logger, db *sqlx.DB, config ReaperConfig, chainID big
 
 // Start the reaper. Should only be called once.
 func (r *Reaper) Start() {
-	r.log.Debugf("TxmReaper: started with age threshold %v and interval %v", r.config.EthTxReaperThreshold(), r.config.EthTxReaperInterval())
+	r.log.Debugf("TxmReaper: started with age threshold %v and interval %v", r.config.TxReaperThreshold(), r.config.TxReaperInterval())
 	go r.runLoop()
 }
 
@@ -66,7 +57,7 @@ func (r *Reaper) Stop() {
 
 func (r *Reaper) runLoop() {
 	defer close(r.chDone)
-	ticker := time.NewTicker(utils.WithJitter(r.config.EthTxReaperInterval()))
+	ticker := time.NewTicker(utils.WithJitter(r.config.TxReaperInterval()))
 	defer ticker.Stop()
 	for {
 		select {
@@ -74,10 +65,10 @@ func (r *Reaper) runLoop() {
 			return
 		case <-ticker.C:
 			r.work()
-			ticker.Reset(utils.WithJitter(r.config.EthTxReaperInterval()))
+			ticker.Reset(utils.WithJitter(r.config.TxReaperInterval()))
 		case <-r.trigger:
 			r.work()
-			ticker.Reset(utils.WithJitter(r.config.EthTxReaperInterval()))
+			ticker.Reset(utils.WithJitter(r.config.TxReaperInterval()))
 		}
 	}
 }
@@ -107,12 +98,12 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 
 // ReapEthTxes deletes old eth_txes
 func (r *Reaper) ReapEthTxes(headNum int64) error {
-	threshold := r.config.EthTxReaperThreshold()
+	threshold := r.config.TxReaperThreshold()
 	if threshold == 0 {
 		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapEthTxes")
 		return nil
 	}
-	minBlockNumberToKeep := headNum - int64(r.config.EvmFinalityDepth())
+	minBlockNumberToKeep := headNum - int64(r.config.FinalityDepth())
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 

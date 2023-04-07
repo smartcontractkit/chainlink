@@ -35,7 +35,7 @@ type EthResender struct {
 	ks        txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	chainID   big.Int
 	interval  time.Duration
-	config    Config
+	config    ResenderConfig
 	logger    logger.Logger
 
 	ctx    context.Context
@@ -44,8 +44,8 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, int64], pollInterval time.Duration, config Config) *EthResender {
-	if config.EthTxResendAfterThreshold() == 0 {
+func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, int64], pollInterval time.Duration, config ResenderConfig) *EthResender {
+	if config.TxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	// todo: add context to orm
@@ -66,7 +66,7 @@ func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks 
 
 // Start is a comment which satisfies the linter
 func (er *EthResender) Start() {
-	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
+	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.TxResendAfterThreshold())
 	go er.runLoop()
 }
 
@@ -102,8 +102,8 @@ func (er *EthResender) resendUnconfirmed() error {
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}
-	ageThreshold := er.config.EthTxResendAfterThreshold()
-	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
+	ageThreshold := er.config.TxResendAfterThreshold()
+	maxInFlightTransactions := er.config.MaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []EthTxAttempt
 	for _, k := range enabledAddresses {
@@ -121,7 +121,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	}
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
 
-	batchSize := int(er.config.EvmRPCDefaultBatchSize())
+	batchSize := int(er.config.RPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
 	reqs, err := batchSendTransactions(ctx, er.orm, allAttempts, batchSize, er.logger, er.ethClient)
