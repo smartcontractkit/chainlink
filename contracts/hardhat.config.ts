@@ -64,20 +64,6 @@ export default {
         settings: COMPILER_SETTINGS,
       },
     ],
-    overrides: {
-      'src/v0.8/vrf/testhelpers/VRFCoordinatorV2TestHelper.sol': {
-        version: '0.8.6',
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1,
-          },
-          metadata: {
-            bytecodeHash: 'none',
-          },
-        },
-      },
-    },
   },
   contractSizer: {
     alphaSort: true,
