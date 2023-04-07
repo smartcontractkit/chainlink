@@ -59,7 +59,7 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 	}
 	chainID := chain.ID()
 
-	if err := bdc.App.ReplayFromBlock(c.Request.Context(), chainID, uint64(blockNumber), force); err != nil {
+	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber), force); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
