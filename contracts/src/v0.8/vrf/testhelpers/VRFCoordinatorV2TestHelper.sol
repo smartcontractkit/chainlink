@@ -5,7 +5,6 @@ import "../VRFCoordinatorV2.sol";
 
 contract VRFCoordinatorV2TestHelper is VRFCoordinatorV2 {
   uint96 s_paymentAmount;
-  uint256 s_gasStart;
 
   constructor(
     address link,
@@ -33,9 +32,5 @@ contract VRFCoordinatorV2TestHelper is VRFCoordinatorV2 {
 
   function getPaymentAmount() public view returns (uint96) {
     return s_paymentAmount;
-  }
-
-  function getGasStart() public view returns (uint256) {
-    return s_gasStart;
   }
 }
