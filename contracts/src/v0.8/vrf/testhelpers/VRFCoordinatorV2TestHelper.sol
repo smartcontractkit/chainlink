@@ -25,10 +25,7 @@ contract VRFCoordinatorV2TestHelper {
   int256 private s_fallbackWeiPerUnitLink;
   Config private s_config;
 
-  constructor(
-    address linkEthFeed
-  )
-    // solhint-disable-next-line no-empty-blocks
+  constructor(address linkEthFeed) // solhint-disable-next-line no-empty-blocks
   {
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }

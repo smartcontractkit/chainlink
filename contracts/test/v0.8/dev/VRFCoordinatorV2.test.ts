@@ -908,9 +908,7 @@ describe('VRFCoordinatorV2', () => {
       )
       const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0)
       const vrfCoordinatorV2TestHelperZero =
-        await vrfCoordinatorV2TestHelperFactory.deploy(
-          mockLinkEthZero.address,
-        )
+        await vrfCoordinatorV2TestHelperFactory.deploy(mockLinkEthZero.address)
       await expect(
         vrfCoordinatorV2TestHelperZero
           .connect(oracle)
