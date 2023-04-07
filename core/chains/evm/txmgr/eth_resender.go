@@ -35,7 +35,7 @@ type EthResender struct {
 	ks        txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	chainID   big.Int
 	interval  time.Duration
-	config    ResenderConfig
+	config    txmgrtypes.ResenderConfig
 	logger    logger.Logger
 
 	ctx    context.Context
@@ -44,7 +44,7 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, int64], pollInterval time.Duration, config ResenderConfig) *EthResender {
+func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, int64], pollInterval time.Duration, config txmgrtypes.ResenderConfig) *EthResender {
 	if config.TxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}

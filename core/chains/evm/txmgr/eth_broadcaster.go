@@ -93,7 +93,7 @@ type EthBroadcaster struct {
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
 	chainID        big.Int
-	config         BroadcasterConfig[*assets.Wei]
+	config         txmgrtypes.BroadcasterConfig[*assets.Wei]
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
 	// when Start is called
@@ -119,7 +119,7 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config BroadcasterConfig[*assets.Wei],
+func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config txmgrtypes.BroadcasterConfig[*assets.Wei],
 	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
 	eventBroadcaster pg.EventBroadcaster,
 	addresses []gethCommon.Address, resumeCallback ResumeCallback,

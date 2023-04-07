@@ -26,28 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// Config encompasses config used by txmgr package
-// Unless otherwise specified, these should support changing at runtime
-//
-//go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
-type Config interface {
-	gas.Config
-	pg.QConfig
-	EthTxReaperInterval() time.Duration
-	EthTxReaperThreshold() time.Duration
-	EthTxResendAfterThreshold() time.Duration
-	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint16
-	EvmGasLimitDefault() uint32
-	EvmMaxInFlightTransactions() uint32
-	EvmMaxQueuedTransactions() uint64
-	EvmNonceAutoSync() bool
-	EvmUseForwarders() bool
-	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	TriggerFallbackDBPollInterval() time.Duration
-}
-
 // For more information about the Txm architecture, see the design doc:
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
@@ -87,7 +65,7 @@ type Txm struct {
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
-	config           TxmConfig[*assets.Wei]
+	config           txmgrtypes.TxmConfig[*assets.Wei]
 	keyStore         txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	eventBroadcaster pg.EventBroadcaster
 	chainID          big.Int

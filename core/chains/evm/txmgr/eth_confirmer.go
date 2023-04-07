@@ -118,7 +118,7 @@ type EthConfirmer struct {
 	ethClient evmclient.Client
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
 	resumeCallback ResumeCallback
-	config         ConfirmerConfig[*assets.Wei]
+	config         txmgrtypes.ConfirmerConfig[*assets.Wei]
 	chainID        big.Int
 
 	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64]
@@ -133,7 +133,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config ConfirmerConfig[*assets.Wei],
+func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config txmgrtypes.ConfirmerConfig[*assets.Wei],
 	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
 	addresses []gethCommon.Address, resumeCallback ResumeCallback,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],

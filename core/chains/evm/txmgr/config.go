@@ -3,65 +3,37 @@ package txmgr
 import (
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-type EvmTxmConfig TxmConfig[*assets.Wei]
-
-type TxmConfig[UNIT any] interface {
-	BroadcasterConfig[UNIT]
-	ConfirmerConfig[UNIT]
-	ResenderConfig
-	ReaperConfig
-
-	SequenceAutoSync() bool
-	UseForwarders() bool
-	MaxQueuedTransactions() uint64
-}
-
-type BroadcasterConfig[UNIT any] interface {
+// Config encompasses config used by txmgr package
+// Unless otherwise specified, these should support changing at runtime
+//
+//go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+type Config interface {
+	gas.Config
+	pg.QConfig
+	EthTxReaperInterval() time.Duration
+	EthTxReaperThreshold() time.Duration
+	EthTxResendAfterThreshold() time.Duration
+	EvmGasBumpThreshold() uint64
+	EvmGasBumpTxDepth() uint16
+	EvmGasLimitDefault() uint32
+	EvmMaxInFlightTransactions() uint32
+	EvmMaxQueuedTransactions() uint64
+	EvmNonceAutoSync() bool
+	EvmUseForwarders() bool
+	EvmRPCDefaultBatchSize() uint32
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
-	MaxInFlightTransactions() uint32
-
-	// from gas.Config
-	IsL2() bool
-	MaxFeePrice() UNIT
-	FeePriceDefault() UNIT
 }
 
-type ConfirmerConfig[UNIT any] interface {
-	RPCDefaultBatchSize() uint32
-	UseForwarders() bool
-	FeeBumpTxDepth() uint16
-	MaxInFlightTransactions() uint32
-	FeeLimitDefault() uint32
-
-	// gas config
-	FeeBumpThreshold() uint64
-	FinalityDepth() uint32
-	MaxFeePrice() UNIT
-	FeeBumpPercent() uint16
-
-	// postgres config
-	DatabaseDefaultQueryTimeout() time.Duration
-}
-
-type ResenderConfig interface {
-	TxResendAfterThreshold() time.Duration
-	MaxInFlightTransactions() uint32
-	RPCDefaultBatchSize() uint32
-}
-
-//go:generate mockery --quiet --name ReaperConfig --output ./mocks/ --case=underscore
-
-// ReaperConfig is the config subset used by the reaper
-type ReaperConfig interface {
-	TxReaperInterval() time.Duration
-	TxReaperThreshold() time.Duration
-
-	// gas config
-	FinalityDepth() uint32
-}
+type EvmTxmConfig txmgrtypes.TxmConfig[*assets.Wei]
 
 var _ EvmTxmConfig = (*evmTxmConfig)(nil)
 
