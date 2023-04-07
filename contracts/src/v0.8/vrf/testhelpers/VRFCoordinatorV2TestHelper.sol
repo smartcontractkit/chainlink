@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../VRFCoordinatorV2.sol";
 
+// Ideally this contract should inherit from VRFCoordinatorV2 and delegate calls to VRFCoordinatorV2
+// However, due to exceeding contract size limit, the logic from VRFCoordinatorV2 is ported over to this contract
 contract VRFCoordinatorV2TestHelper {
   uint96 s_paymentAmount;
 

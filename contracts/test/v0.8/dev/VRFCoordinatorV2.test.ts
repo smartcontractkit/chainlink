@@ -65,8 +65,6 @@ describe('VRFCoordinatorV2', () => {
       accounts[0],
     )
     vrfCoordinatorV2TestHelper = await vrfCoordinatorV2TestHelperFactory.deploy(
-      linkToken.address,
-      blockHashStore.address,
       mockLinkEth.address,
     )
     await linkToken.transfer(
@@ -911,8 +909,6 @@ describe('VRFCoordinatorV2', () => {
       const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0)
       const vrfCoordinatorV2TestHelperZero =
         await vrfCoordinatorV2TestHelperFactory.deploy(
-          linkToken.address,
-          blockHashStore.address,
           mockLinkEthZero.address,
         )
       await expect(
@@ -927,8 +923,6 @@ describe('VRFCoordinatorV2', () => {
       const mockLinkEthNegative = await mockAggregatorV3Factory.deploy(0, -1)
       const vrfCoordinatorV2TestHelperNegative =
         await vrfCoordinatorV2TestHelperFactory.deploy(
-          linkToken.address,
-          blockHashStore.address,
           mockLinkEthNegative.address,
         )
       await expect(
