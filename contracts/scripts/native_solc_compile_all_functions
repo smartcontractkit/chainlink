@@ -8,9 +8,7 @@ OPTIMIZE_RUNS="${2:-1000000}"
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
+solc="$( "$(dirname $0)/get_solc" ${SOLC_VERSION} )"
 export SOLC_VERSION=$SOLC_VERSION
 
 ROOT="$(
@@ -19,7 +17,7 @@ ROOT="$(
 )"
 
 compileContract () {
-  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+  "${solc}" @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o $ROOT/contracts/solc/v$SOLC_VERSION \
       --abi --bin \
       --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/functions,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts-upgradeable@4.8.1/node_modules/@openzeppelin/contracts-upgradeable \

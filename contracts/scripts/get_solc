@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Returns solc command matching given version
+
+if [ -z "${1}" ]; then
+  echo "Usage: "
+  echo "\$ solc=\$( ${0} 0.x.y )"
+  echo "\$ \$solc <args>"
+  exit 1
+fi
+
+solc="solc-${1}"
+if [ -x "$(command -v "${solc}")" ]; then
+  echo "${solc}"
+else
+  # TODO: maybe replace solc-select with [svm-rs](https://github.com/roynalnaruto/svm-rs), to share downloaded solcs with foundry
+  if ! [ -x "$(command -v solc-select)" ]; then
+    python3 -m pip install --require-hashes -r "$(dirname ${0})/requirements.txt" >&2
+  fi
+  solc-select install "${1}" >&2
+  solc-select use "${1}" >&2
+  echo "solc"
+fi
