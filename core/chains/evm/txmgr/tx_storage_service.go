@@ -158,11 +158,19 @@ type DbEthTx struct {
 }
 
 func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
+	var from common.Address
+	var to common.Address
+	if ethTx.FromAddress != nil {
+		from = *ethTx.FromAddress.NativeAddress()
+	}
+	if ethTx.ToAddress != nil {
+		from = *ethTx.ToAddress.NativeAddress()
+	}
 	return DbEthTx{
 		ID:                 ethTx.ID,
 		Nonce:              ethTx.Nonce,
-		FromAddress:        *ethTx.FromAddress.NativeAddress(),
-		ToAddress:          *ethTx.ToAddress.NativeAddress(),
+		FromAddress:        from,
+		ToAddress:          to,
 		EncodedPayload:     ethTx.EncodedPayload,
 		Value:              ethTx.Value,
 		GasLimit:           ethTx.GasLimit,
@@ -236,12 +244,16 @@ type DbEthTxAttempt struct {
 }
 
 func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
+	var hash common.Hash
+	if ethTxAttempt.Hash != nil {
+		hash = *ethTxAttempt.Hash.NativeHash()
+	}
 	return DbEthTxAttempt{
 		ID:                      ethTxAttempt.ID,
 		EthTxID:                 ethTxAttempt.EthTxID,
 		GasPrice:                ethTxAttempt.GasPrice,
 		SignedRawTx:             ethTxAttempt.SignedRawTx,
-		Hash:                    *ethTxAttempt.Hash.NativeHash(),
+		Hash:                    hash,
 		BroadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
 		State:                   ethTxAttempt.State,
 		CreatedAt:               ethTxAttempt.CreatedAt,
