@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -95,14 +94,6 @@ type Logger interface {
 	Criticalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
-
-	// ErrorIf logs the error if present.
-	// Deprecated: use SugaredLogger.ErrorIf
-	ErrorIf(err error, msg string)
-
-	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
-	// Deprecated: use SugaredLogger.ErrorIfFn with c.Close
-	ErrorIfClosing(c io.Closer, name string)
 
 	// Sync flushes any buffered log entries.
 	// Some insignificant errors are suppressed.
