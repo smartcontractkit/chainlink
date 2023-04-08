@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"fmt"
-	"io"
 	"os"
 
 	"github.com/pkg/errors"
@@ -79,18 +77,6 @@ func (l *zapLogger) Name() string {
 
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {
 	return l.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))
-}
-
-func (l *zapLogger) ErrorIf(err error, msg string) {
-	if err != nil {
-		l.Helper(1).Errorw(msg, "err", err)
-	}
-}
-
-func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
-	if err := c.Close(); err != nil {
-		l.Helper(1).Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
-	}
 }
 
 func (l *zapLogger) Sync() error {
