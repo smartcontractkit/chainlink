@@ -244,7 +244,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]e
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addrStr string) {
-	if eb.isStarted == true {
+	if eb.isStarted {
 		triggerCh, exists := eb.triggers[addrStr]
 		if !exists {
 			// ignoring trigger for address which is not registered with this EthBroadcaster

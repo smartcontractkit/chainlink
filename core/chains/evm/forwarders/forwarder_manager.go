@@ -125,7 +125,7 @@ func (f *FwdMgr) ForwarderFor(addr *evmtypes.Address) (forwarder *evmtypes.Addre
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa.String() == addr.String() {
+			if eoa == *addr.NativeAddress() {
 				return evmtypes.NewAddress(fwdr.Address), nil
 			}
 		}
