@@ -631,7 +631,7 @@ func assertNumRandomWords(
 func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []txmgr.EvmTx
+		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -651,7 +651,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []txmgr.EvmTx
+		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -659,7 +659,9 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 		`, subID)
 		require.NoError(t, err)
 		for _, tx := range txs {
-			meta, err := tx.GetMeta()
+			var evmTx txmgr.EvmTx
+			txmgr.DbEthTxToEthTx(tx, &evmTx)
+			meta, err := evmTx.GetMeta()
 			require.NoError(t, err)
 			t.Log("meta:", meta)
 			for _, requestID := range meta.RequestIDs {
@@ -2351,7 +2353,9 @@ func TestStartingCountsV1(t *testing.T) {
 	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, initial_broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :initial_broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
 	for _, tx := range txes {
-		_, err = db.NamedExec(sql, &tx)
+		dbEtx := txmgr.DbEthTxFromEthTx(&tx)
+		_, err = db.NamedExec(sql, &dbEtx)
+		txmgr.DbEthTxToEthTx(dbEtx, &tx)
 		require.NoError(t, err)
 	}
 
@@ -2388,7 +2392,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
 	for _, attempt := range txAttempts {
-		_, err = db.NamedExec(sql, &attempt)
+		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt)
+		_, err = db.NamedExec(sql, &dbAttempt)
+		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt)
 		require.NoError(t, err)
 	}
 

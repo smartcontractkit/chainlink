@@ -407,7 +407,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.EvmTx
+	var ethTxes []txmgr.DbEthTx
 	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
