@@ -119,6 +119,9 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	initSync  sync.Mutex
 	isStarted bool
 	utils.StartStopOnce
+
+	// This is set to true by unit-tests, otherwise always false
+	isUnitTestInstance bool
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
@@ -165,7 +168,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) er
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
-	if eb.isStarted == true {
+	if eb.isStarted {
 		return errors.New("EthBroadcaster is already started")
 	}
 	var err error
@@ -207,10 +210,14 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Close() error {
 	})
 }
 
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SetIsUnitTest() {
+	eb.isUnitTestInstance = true
+}
+
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) closeInternal() error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
-	if eb.isStarted == false {
+	if !eb.isStarted {
 		return errors.Wrap(utils.ErrAlreadyStopped, "EthBroadcaster is not started")
 	}
 	if eb.ethTxInsertListener != nil {
@@ -308,18 +315,21 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) monitorEthTxs(addr ADDR, tr
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		err, retryable := eb.ProcessUnstartedEthTxs(ctx, addr)
-		if err != nil {
-			eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
-		}
-		// On retryable errors we implement exponential backoff retries. This
-		// handles intermittent connectivity, remote RPC races, timing issues etc
-		if retryable {
-			pollDBTimer.Reset(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
-			errorRetryCh = time.After(bf.Duration())
-		} else {
-			bf = eb.newResendBackoff()
-			errorRetryCh = nil
+		// Skip processing new txs for unit-tests, as they will invoke ProcessUnstartedEthTxs on-demand from individual tests
+		if !eb.isUnitTestInstance {
+			err, retryable := eb.processUnstartedEthTxs(ctx, addr)
+			if err != nil {
+				eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
+			}
+			// On retryable errors we implement exponential backoff retries. This
+			// handles intermittent connectivity, remote RPC races, timing issues etc
+			if retryable {
+				pollDBTimer.Reset(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
+				errorRetryCh = time.After(bf.Duration())
+			} else {
+				bf = eb.newResendBackoff()
+				errorRetryCh = nil
+			}
 		}
 
 		select {

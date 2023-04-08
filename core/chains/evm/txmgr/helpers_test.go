@@ -20,6 +20,10 @@ func CloseInternalOnBroadcaster(eb *EvmBroadcaster) error {
 	return eb.closeInternal()
 }
 
+func SetIsUnitTestInstanceOnBroadcaster(eb *EvmBroadcaster) {
+	eb.isUnitTestInstance = true
+}
+
 func StartInternalOnConfirmer(ec *EvmConfirmer) error {
 	return ec.startInternal()
 }

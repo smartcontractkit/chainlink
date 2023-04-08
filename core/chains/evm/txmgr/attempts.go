@@ -208,7 +208,7 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 }
 
 func newDynamicFeeTransaction(nonce uint64, to *evmtypes.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
-	var toAddr *common.Address = nil
+	var toAddr *common.Address
 	if to != nil {
 		toAddr = to.NativeAddress()
 	}
@@ -294,7 +294,7 @@ func (c *evmTxAttemptBuilder) newSignedAttempt(etx EvmTx, tx *types.Transaction)
 }
 
 func newLegacyTransaction(nonce uint64, to *evmtypes.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
-	var toAddr *common.Address = nil
+	var toAddr *common.Address
 	if to != nil {
 		toAddr = to.NativeAddress()
 	}

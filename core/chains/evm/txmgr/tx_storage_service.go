@@ -1434,7 +1434,7 @@ func (o *evmTxStorageService) CreateEthTransaction(newTx NewTx[*evmtypes.Address
 				return nil
 			}
 		}
-		err := tx.Get(&dbEtx, `
+		err = tx.Get(&dbEtx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
 VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11

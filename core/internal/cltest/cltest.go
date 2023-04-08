@@ -199,22 +199,6 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 	}
 }
 
-// NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, txStorageService txmgr.EvmTxStorageService, ethClient evmclient.Client, keyStore keystore.Eth, config evmconfig.ChainScopedConfig, checkerFactory txmgr.EvmTransmitCheckerFactory, nonceAutoSync bool) (*txmgr.EvmBroadcaster, error) {
-	t.Helper()
-	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
-	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
-	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
-	lggr := logger.TestLogger(t)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
-	txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, keyStore)
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, ethClient, config, keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
-	ethBroadcaster.Start(testutils.Context(t))
-	return ethBroadcaster, nil
-}
-
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	lggr := logger.TestLogger(t)
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())

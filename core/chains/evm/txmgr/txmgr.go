@@ -528,7 +528,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to AD
 		State:          EthTxUnstarted,
 		EVMChainID:     *utils.NewBig(chainID),
 	}
-	b.txStorageService.InsertEthTx(&etx)
+	err = b.txStorageService.InsertEthTx(&etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 

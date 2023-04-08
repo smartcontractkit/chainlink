@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -179,7 +179,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) erro
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	ec.initSync.Lock()
 	defer ec.initSync.Unlock()
-	if ec.isStarted == true {
+	if ec.isStarted {
 		return errors.New("EthConfirmer is already started")
 	}
 	var err error
@@ -206,7 +206,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Close() error {
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) closeInternal() error {
 	ec.initSync.Lock()
 	defer ec.initSync.Unlock()
-	if ec.isStarted == false {
+	if !ec.isStarted {
 		return errors.Wrap(utils.ErrAlreadyStopped, "EthConfirmer is not started")
 	}
 	ec.ctxCancel()
