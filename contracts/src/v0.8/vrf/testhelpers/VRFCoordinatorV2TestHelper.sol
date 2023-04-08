@@ -35,20 +35,12 @@ contract VRFCoordinatorV2TestHelper {
     uint32 fulfillmentFlatFeeLinkPPM,
     uint256 weiPerUnitGas
   ) external {
-    uint256 startGas = gasleft();
-    int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
-    if (weiPerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(weiPerUnitLink);
-    }
-    // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
-      uint256(weiPerUnitLink);
-    uint256 fee = 1e12 * uint256(fulfillmentFlatFeeLinkPPM);
-    if (paymentNoFee > (1e27 - fee)) {
-      revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
-    }
-    return;
+    s_paymentAmount = calculatePaymentAmount(
+        gasleft(),
+        gasAfterPaymentCalculation,
+        fulfillmentFlatFeeLinkPPM,
+        weiPerUnitGas
+    );
   }
 
   error InvalidLinkWeiPrice(int256 linkWei);
@@ -65,6 +57,28 @@ contract VRFCoordinatorV2TestHelper {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
+  }
+
+  // Get the amount of gas used for fulfillment
+  function calculatePaymentAmount(
+    uint256 startGas,
+    uint256 gasAfterPaymentCalculation,
+    uint32 fulfillmentFlatFeeLinkPPM,
+    uint256 weiPerUnitGas
+  ) internal view returns (uint96) {
+    int256 weiPerUnitLink;
+    weiPerUnitLink = getFeedData();
+    if (weiPerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(weiPerUnitLink);
+    }
+    // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
+    uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
+      uint256(weiPerUnitLink);
+    uint256 fee = 1e12 * uint256(fulfillmentFlatFeeLinkPPM);
+    if (paymentNoFee > (1e27 - fee)) {
+      revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
+    }
+    return uint96(paymentNoFee + fee);
   }
 
   function getPaymentAmount() public view returns (uint96) {
