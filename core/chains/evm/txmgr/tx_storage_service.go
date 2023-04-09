@@ -172,7 +172,7 @@ func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 		from = *ethTx.FromAddress.NativeAddress()
 	}
 	if ethTx.ToAddress != nil {
-		from = *ethTx.ToAddress.NativeAddress()
+		to = *ethTx.ToAddress.NativeAddress()
 	}
 	return DbEthTx{
 		ID:                 ethTx.ID,
