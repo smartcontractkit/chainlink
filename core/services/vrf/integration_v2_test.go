@@ -2413,7 +2413,8 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
-		_, err := db.NamedExec(sql, &r)
+		dbReceipt := txmgr.DbReceiptFromEvmReceipt(&r)
+		_, err := db.NamedExec(sql, &dbReceipt)
 		require.NoError(t, err)
 	}
 

@@ -54,11 +54,19 @@ type dbReceipt struct {
 	CreatedAt        time.Time
 }
 
-func dbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
+func DbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
+	var txHash common.Hash
+	if evmReceipt.TxHash != nil {
+		txHash = *evmReceipt.TxHash.NativeHash()
+	}
+	var blockHash common.Hash
+	if evmReceipt.BlockHash != nil {
+		blockHash = *evmReceipt.BlockHash.NativeHash()
+	}
 	return dbReceipt{
 		ID:               evmReceipt.ID,
-		TxHash:           *evmReceipt.TxHash.NativeHash(),
-		BlockHash:        *evmReceipt.BlockHash.NativeHash(),
+		TxHash:           txHash,
+		BlockHash:        blockHash,
 		BlockNumber:      evmReceipt.BlockNumber,
 		TransactionIndex: evmReceipt.TransactionIndex,
 		Receipt:          *evmReceipt.Receipt,
@@ -66,7 +74,7 @@ func dbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
 	}
 }
 
-func dbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
+func DbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
 	txHash := evmtypes.NewTxHash(receipt.TxHash)
 	blockHash := evmtypes.NewBlockHash(receipt.BlockHash)
 
@@ -96,7 +104,7 @@ type dbReceiptPlus struct {
 func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
 	receipts := make([]EvmReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = dbReceiptToEvmReceipt(&rs[i])
+		receipts[i] = DbReceiptToEvmReceipt(&rs[i])
 	}
 	return receipts
 }
@@ -491,7 +499,7 @@ func (o *evmTxStorageService) InsertEthTxAttempt(attempt *EvmTxAttempt) error {
 
 func (o *evmTxStorageService) InsertEthReceipt(receipt *EvmReceipt) error {
 	// convert to database representation
-	r := dbReceiptFromEvmReceipt(receipt)
+	r := DbReceiptFromEvmReceipt(receipt)
 
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
@@ -499,7 +507,7 @@ func (o *evmTxStorageService) InsertEthReceipt(receipt *EvmReceipt) error {
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
 	// method expects original (destination) receipt struct to be updated
-	*receipt = dbReceiptToEvmReceipt(&r)
+	*receipt = DbReceiptToEvmReceipt(&r)
 
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
