@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
+import "../ChainSpecificUtil.sol";
+
 /**
  * @title BatchBlockhashStore
  * @notice The BatchBlockhashStore contract acts as a proxy to write many blockhashes to the
@@ -72,7 +74,7 @@ contract BatchBlockhashStore {
    */
   function storeableBlock(uint256 blockNumber) private view returns (bool) {
     // handle edge case on simulated chains which possibly have < 256 blocks total.
-    return block.number <= 256 ? true : blockNumber >= (block.number - 256);
+    return ChainSpecificUtil.getBlockNumber() <= 256 ? true : blockNumber >= (ChainSpecificUtil.getBlockNumber() - 256);
   }
 }
 

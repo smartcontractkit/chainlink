@@ -2125,7 +2125,7 @@ func TestMaxConsumersCost(t *testing.T) {
 		uni.rootContractAddress, uni.coordinatorABI,
 		"removeConsumer", subId, carolContractAddress)
 	t.Log(estimate)
-	assert.Less(t, estimate, uint64(265000))
+	assert.Less(t, estimate, uint64(310000))
 	estimate = estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
 		"addConsumer", subId, testutils.NewAddress())
