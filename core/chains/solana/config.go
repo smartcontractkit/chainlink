@@ -6,13 +6,18 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
-	"gopkg.in/guregu/null.v4"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type SolanaConfigs []*SolanaConfig
@@ -63,7 +68,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
 	}
 }
 
-func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
+func (cs SolanaConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -80,7 +85,15 @@ func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
 				continue
 			}
 		}
-		chains = append(chains, ch.AsV1())
+		ch2 := chains.ChainConfig{
+			ID:      *ch.ChainID,
+			Enabled: ch.IsEnabled(),
+		}
+		ch2.Cfg, err = ch.TOMLString()
+		if err != nil {
+			return
+		}
+		r = append(r, ch2)
 	}
 	return
 }
@@ -93,41 +106,85 @@ func (cs SolanaConfigs) Node(name string) (soldb.Node, error) {
 			}
 		}
 	}
-	return soldb.Node{}, nil
+	return soldb.Node{}, chains.ErrNotFound
 }
 
-func (cs SolanaConfigs) Nodes() (ns []soldb.Node) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n == nil {
-				continue
-			}
-			ns = append(ns, legacySolNode(n, *cs[i].ChainID))
+func (cs SolanaConfigs) nodes(chainID string) (ns SolanaNodes) {
+	for _, c := range cs {
+		if *c.ChainID == chainID {
+			return c.Nodes
 		}
 	}
-	return
+	return nil
 }
 
-func (cs SolanaConfigs) NodesByID(chainIDs ...string) (ns []soldb.Node) {
-	for i := range cs {
-		var match bool
-		for _, id := range chainIDs {
-			if id == *cs[i].ChainID {
-				match = true
-				break
-			}
-		}
-		if !match {
+func (cs SolanaConfigs) Nodes(chainID string) (ns []soldb.Node, err error) {
+	nodes := cs.nodes(chainID)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
 			continue
 		}
+		ns = append(ns, legacySolNode(n, chainID))
+	}
+	return
+}
+
+func (cs SolanaConfigs) NodeStatus(name string) (chains.NodeStatus, error) {
+	for i := range cs {
 		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, *cs[i].ChainID)
+			}
+		}
+	}
+	return chains.NodeStatus{}, chains.ErrNotFound
+}
+
+func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, *cs[i].ChainID)
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
+			}
+		}
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
 			}
-			ns = append(ns, legacySolNode(n, *cs[i].ChainID))
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
 		}
 	}
 	return
+}
+
+func nodeStatus(n *solcfg.Node, chainID string) (chains.NodeStatus, error) {
+	var s chains.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return chains.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
 }
 
 type SolanaNodes []*solcfg.Node
@@ -218,23 +275,6 @@ func setFromChain(c, f *solcfg.Chain) {
 	}
 }
 
-func (c *SolanaConfig) SetFromDB(ch DBChain, nodes []soldb.Node) error {
-	c.ChainID = &ch.ID
-	c.Enabled = &ch.Enabled
-
-	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
-		return err
-	}
-	for _, db := range nodes {
-		var n solcfg.Node
-		if err := n.SetFromDB(db); err != nil {
-			return err
-		}
-		c.Nodes = append(c.Nodes, &n)
-	}
-	return nil
-}
-
 func (c *SolanaConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
 		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
@@ -248,28 +288,12 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *SolanaConfig) AsV1() DBChain {
-	return DBChain{
-		ID:      *c.ChainID,
-		Enabled: c.IsEnabled(),
-		Cfg: &soldb.ChainCfg{
-			BalancePollPeriod:       c.Chain.BalancePollPeriod,
-			ConfirmPollPeriod:       c.Chain.ConfirmPollPeriod,
-			OCR2CachePollPeriod:     c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:            c.Chain.OCR2CacheTTL,
-			TxTimeout:               c.Chain.TxTimeout,
-			TxRetryTimeout:          c.Chain.TxRetryTimeout,
-			TxConfirmTimeout:        c.Chain.TxConfirmTimeout,
-			SkipPreflight:           null.BoolFromPtr(c.Chain.SkipPreflight),
-			Commitment:              null.StringFromPtr(c.Chain.Commitment),
-			MaxRetries:              null.IntFromPtr(c.Chain.MaxRetries),
-			FeeEstimatorMode:        null.StringFromPtr(c.Chain.FeeEstimatorMode),
-			ComputeUnitPriceMax:     null.IntFrom(int64(*c.Chain.ComputeUnitPriceMax)),
-			ComputeUnitPriceMin:     null.IntFrom(int64(*c.Chain.ComputeUnitPriceMin)),
-			ComputeUnitPriceDefault: null.IntFrom(int64(*c.Chain.ComputeUnitPriceDefault)),
-			FeeBumpPeriod:           c.Chain.FeeBumpPeriod,
-		},
+func (c *SolanaConfig) TOMLString() (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
 	}
+	return string(b), nil
 }
 
 var _ solcfg.Config = &SolanaConfig{}
@@ -338,6 +362,19 @@ func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
 }
 
-func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
+// Configs manages solana chains and nodes.
+type Configs interface {
+	chains.ChainConfigs[string]
+	chains.NodeConfigs[string, soldb.Node]
+}
+
+var _ chains.Configs[string, soldb.Node] = (Configs)(nil)
+
+func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []string) error {
+	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
+	return chains.EnsureChains[string](q, "solana", ids)
+}
+
+func NewConfigs(cfgs chains.ConfigsV2[string, soldb.Node]) Configs {
+	return chains.NewConfigs(cfgs)
 }

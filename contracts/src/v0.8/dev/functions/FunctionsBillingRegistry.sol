@@ -91,7 +91,6 @@ contract FunctionsBillingRegistry is
 
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error IncorrectRequestID();
   error PaymentTooLarge();
   error Reentrant();
 
@@ -438,10 +437,10 @@ contract FunctionsBillingRegistry is
     uint8 signerCount,
     uint256 reportValidationGas,
     uint256 initialGas
-  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bool success) {
+  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (FulfillResult) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
-      revert IncorrectRequestID();
+      return FulfillResult.INVALID_REQUEST_ID;
     }
     delete s_requestCommitments[requestId];
 
@@ -458,7 +457,7 @@ contract FunctionsBillingRegistry is
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
+    bool success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -479,9 +478,7 @@ contract FunctionsBillingRegistry is
     s_subscriptions[commitment.subscriptionId].balance -= bill.totalCost;
     // Pay out signers their portion of the DON fee
     for (uint256 i = 0; i < signerCount; i++) {
-      if (signers[i] != transmitter) {
-        s_withdrawableTokens[signers[i]] += bill.signerPayment;
-      }
+      s_withdrawableTokens[signers[i]] += bill.signerPayment;
     }
     // Pay out the registry fee
     s_withdrawableTokens[owner()] += commitment.registryFee;
@@ -498,6 +495,7 @@ contract FunctionsBillingRegistry is
       bill.totalCost,
       success
     );
+    return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
   // Determine the cost breakdown for payment
@@ -524,7 +522,7 @@ contract FunctionsBillingRegistry is
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     uint96 signerPayment = donFee / uint96(signerCount);
-    uint96 transmitterPayment = uint96(paymentNoFee) + signerPayment;
+    uint96 transmitterPayment = uint96(paymentNoFee);
     uint96 totalCost = SafeCast.toUint96(paymentNoFee + fee);
     return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
@@ -543,6 +541,7 @@ contract FunctionsBillingRegistry is
   /*
    * @notice Oracle withdraw LINK earned through fulfilling requests
    * @notice If amount is 0 the full balance will be withdrawn
+   * @notice Both signing and transmitting wallets will have a balance to withdraw
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */

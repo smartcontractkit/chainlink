@@ -10,11 +10,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -49,6 +49,10 @@ func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Conf
 	}
 }
 
+func (hl *headListener) Name() string {
+	return hl.logger.Name()
+}
+
 func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, done func()) {
 	defer done()
 	defer hl.unsubscribe()
@@ -78,6 +82,17 @@ func (hl *headListener) ReceivingHeads() bool {
 
 func (hl *headListener) Connected() bool {
 	return hl.connected.Load()
+}
+
+func (hl *headListener) HealthReport() map[string]error {
+	var err error
+	if !hl.ReceivingHeads() {
+		err = errors.New("Listener is not receiving heads")
+	}
+	if !hl.Connected() {
+		err = errors.New("Listener is not connected")
+	}
+	return map[string]error{hl.Name(): err}
 }
 
 func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {

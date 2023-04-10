@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestCSAKeyPresenter_RenderTable(t *testing.T) {
@@ -101,7 +101,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c := cli.NewContext(nil, set, nil)
@@ -114,7 +114,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c = cli.NewContext(nil, set, nil)
@@ -130,7 +130,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ImportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
-	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportCSAKey(c))

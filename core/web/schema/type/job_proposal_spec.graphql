@@ -4,6 +4,7 @@ enum SpecStatus {
     APPROVED
     REJECTED
     CANCELLED
+    REVOKED
 }
 
 type JobProposalSpec {

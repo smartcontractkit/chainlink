@@ -7,13 +7,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//
 // Return types:
-//     map[string]interface{} with any geth/abigen value type
 //
+//	map[string]interface{} with any geth/abigen value type
 type ETHABIDecodeLogTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`

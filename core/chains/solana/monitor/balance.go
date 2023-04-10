@@ -8,10 +8,10 @@ import (
 
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Config defines the monitor configuration.
@@ -24,7 +24,7 @@ type Keystore interface {
 	GetAll() ([]solkey.Key, error)
 }
 
-// NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
+// NewBalanceMonitor returns a balance monitoring services.Service which reports the SOL balance of all ks keys to prometheus.
 func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func() (solanaClient.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }

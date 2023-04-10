@@ -12,14 +12,12 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-//go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
 //go:generate mockery --quiet --name TelemetryIngressBatchClient --output ./mocks --case=underscore
 
@@ -43,9 +41,8 @@ func (NoopTelemetryIngressBatchClient) Close() error { return nil }
 func (NoopTelemetryIngressBatchClient) Send(TelemPayload) {}
 
 // Healthy is a no-op
-func (NoopTelemetryIngressBatchClient) Healthy() error                 { return nil }
 func (NoopTelemetryIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopTelemetryIngressBatchClient) Name() string                   { return "" }
+func (NoopTelemetryIngressBatchClient) Name() string                   { return "NoopTelemetryIngressBatchClient" }
 
 // Ready is a no-op
 func (NoopTelemetryIngressBatchClient) Ready() error { return nil }
@@ -126,6 +123,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 							tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
 						} else {
 							tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+							tc.SvcErrBuffer.Append(err)
 						}
 					} else {
 						tc.telemClient = telemPb.NewTelemClient(conn)
@@ -135,9 +133,9 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 				}()
 			} else {
 				// Spawns a goroutine that will eventually connect
-				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
 				if err != nil {
-					return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
+					return fmt.Errorf("could not start TelemIngressBatchClient, Dial returned error: %v", err)
 				}
 				tc.telemClient = telemPb.NewTelemClient(conn)
 				tc.close = func() error { conn.Close(); return nil }
@@ -165,7 +163,7 @@ func (tc *telemetryIngressBatchClient) Name() string {
 }
 
 func (tc *telemetryIngressBatchClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): tc.Healthy()}
+	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
 }
 
 // getCSAPrivateKey gets the client's CSA private key

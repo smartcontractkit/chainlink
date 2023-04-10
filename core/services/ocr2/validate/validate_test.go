@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestValidateOracleSpec(t *testing.T) {

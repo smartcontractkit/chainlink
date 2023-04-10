@@ -6,13 +6,15 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // pollInterval is the maximum amount of time in addition to
@@ -30,7 +32,7 @@ const defaultResenderPollInterval = 5 * time.Second
 type EthResender struct {
 	orm       ORM
 	ethClient evmclient.Client
-	ks        KeyStore
+	ks        txmgrtypes.KeyStore[common.Address, *big.Int, int64]
 	chainID   big.Int
 	interval  time.Duration
 	config    Config
@@ -42,7 +44,7 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, int64], pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
@@ -96,7 +98,7 @@ func (er *EthResender) runLoop() {
 }
 
 func (er *EthResender) resendUnconfirmed() error {
-	keys, err := er.ks.EnabledKeysForChain(&er.chainID)
+	enabledAddresses, err := er.ks.EnabledAddressesForChain(&er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}
@@ -104,9 +106,9 @@ func (er *EthResender) resendUnconfirmed() error {
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []EthTxAttempt
-	for _, k := range keys {
+	for _, k := range enabledAddresses {
 		var attempts []EthTxAttempt
-		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
+		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}

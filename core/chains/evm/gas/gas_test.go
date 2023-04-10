@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_BumpLegacyGasPriceOnly(t *testing.T) {
@@ -134,13 +134,13 @@ func Test_BumpLegacyGasPriceOnly_NoBumpError(t *testing.T) {
 	originalGasPrice := toWei("3e10") // 30 GWei
 	_, _, err := gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, 42, maxGasPriceWei)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "bumped gas price of 30 gwei is equal to original gas price of 30 gwei. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+	require.Contains(t, err.Error(), "bumped gas price of 30 gwei is equal to original gas price of 30 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
 
 	// Even if it's exactly the maximum
 	originalGasPrice = toWei("4e10") // 40 GWei
 	_, _, err = gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, 42, maxGasPriceWei)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "bumped gas price of 40 gwei is equal to original gas price of 40 gwei. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+	require.Contains(t, err.Error(), "bumped gas price of 40 gwei is equal to original gas price of 40 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
 }
 
 func Test_BumpDynamicFeeOnly(t *testing.T) {

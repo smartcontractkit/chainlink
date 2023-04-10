@@ -12,11 +12,11 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ BHS = &BulletproofBHS{}
@@ -72,7 +72,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -112,4 +112,29 @@ func (c *BulletproofBHS) sendingKeys() []common.Address {
 		keys = append(keys, a.Address())
 	}
 	return keys
+}
+
+func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
+	payload, err := c.abi.Pack("storeEarliest")
+	if err != nil {
+		return errors.Wrap(err, "packing args")
+	}
+
+	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	if err != nil {
+		return errors.Wrap(err, "getting next from address")
+	}
+
+	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      c.bhs.Address(),
+		EncodedPayload: payload,
+		GasLimit:       c.config.EvmGasLimitDefault(),
+		Strategy:       txmgr.NewSendEveryStrategy(),
+	}, pg.WithParentCtx(ctx))
+	if err != nil {
+		return errors.Wrap(err, "creating transaction")
+	}
+
+	return nil
 }

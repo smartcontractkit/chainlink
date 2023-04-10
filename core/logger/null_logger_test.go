@@ -3,9 +3,10 @@ package logger_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestNullLogger(t *testing.T) {
@@ -49,9 +50,7 @@ func TestNullLogger(t *testing.T) {
 		l.Criticalw("msg")
 		l.Panicw("msg")
 		l.Fatalw("msg")
-		l.ErrorIf(nil, "msg")
 		l.Recover(nil)
-		l.ErrorIfClosing(nil, "msg")
 		assert.Nil(t, l.Sync())
 	})
 }

@@ -1,6 +1,6 @@
 package txmgr
 
-import evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+import evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EthConfirmer) {
 	ethConfirmer.ethClient = ethClient

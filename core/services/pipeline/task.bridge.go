@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -13,8 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NOTE: These metrics generate a new label per bridge, this should be safe
@@ -175,10 +176,12 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
-			lggr.Errorw("Bridge task: cache fallback failed",
-				"err", cacheErr.Error(),
-				"url", url.String(),
-			)
+			if !errors.Is(err, sql.ErrNoRows) {
+				lggr.Errorw("Bridge task: cache fallback failed",
+					"err", cacheErr.Error(),
+					"url", url.String(),
+				)
+			}
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 		promBridgeCacheHits.WithLabelValues(t.Name).Inc()
