@@ -239,7 +239,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		if jb.ForwardingAllowed {
 			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(types.NewAddress(effectiveTransmitterAddress))
 			if fwderr == nil && fwdrAddress != nil {
-				effectiveTransmitterAddress = *fwdrAddress.NativeAddress()
+				effectiveTransmitterAddress = fwdrAddress.Address
 			} else {
 				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
 			}

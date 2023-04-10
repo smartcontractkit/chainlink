@@ -384,16 +384,14 @@ func MustInsertRevertedEthReceipt(t *testing.T, txStorageService txmgr.EvmTxStor
 // Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStorageService, nonce, blockNum, fromAddress)
-	txHashBytes, _ := etx.EthTxAttempts[0].Hash.MarshalText()
-	MustInsertEthReceipt(t, txStorageService, blockNum, utils.NewHash(), common.BytesToHash(txHashBytes))
+	MustInsertEthReceipt(t, txStorageService, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash.Hash)
 	return etx
 }
 
 func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStorageService, nonce, blockNum, fromAddress)
-	txHashBytes, _ := etx.EthTxAttempts[0].Hash.MarshalText()
 	receipt := evmtypes.Receipt{
-		TxHash:           common.BytesToHash(txHashBytes),
+		TxHash:           etx.EthTxAttempts[0].Hash.Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),

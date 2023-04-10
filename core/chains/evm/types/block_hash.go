@@ -8,40 +8,18 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-type BlockHash struct {
-	commontypes.Hashable
-	nativeHash common.Hash
-}
+var _ commontypes.Hashable[*BlockHash] = (*BlockHash)(nil)
 
-var _ commontypes.Hashable = &BlockHash{}
+type BlockHash struct{ common.Hash }
 
-func (a *BlockHash) MarshalText() (text []byte, err error) {
-	return a.nativeHash.Bytes(), nil
-}
-
-func (a *BlockHash) UnmarshalText(text []byte) error {
-	a.nativeHash = common.BytesToHash(text)
-	return nil
-}
-
-func (a *BlockHash) String() string {
-	return a.nativeHash.String()
-}
-
-func (a *BlockHash) Equals(h commontypes.Hashable) bool {
-	return bytes.Equal(a.nativeHash.Bytes(), h.(*Address).nativeAddress.Bytes())
+func (a *BlockHash) Equals(h *BlockHash) bool {
+	return bytes.Equal(a.Hash.Bytes(), h.Hash.Bytes())
 }
 
 func (a *BlockHash) Empty() bool {
-	return a == nil || a.nativeHash == common.Hash{}
-}
-
-func (a *BlockHash) NativeHash() *common.Hash {
-	return &a.nativeHash
+	return a == nil || bytes.Equal(a.Hash.Bytes(), common.Hash{}.Bytes())
 }
 
 func NewBlockHash(h common.Hash) *BlockHash {
-	return &BlockHash{
-		nativeHash: h,
-	}
+	return &BlockHash{h}
 }

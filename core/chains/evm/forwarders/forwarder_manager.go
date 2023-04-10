@@ -125,7 +125,7 @@ func (f *FwdMgr) ForwarderFor(addr *evmtypes.Address) (forwarder *evmtypes.Addre
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa == *addr.NativeAddress() {
+			if eoa == addr.Address {
 				return evmtypes.NewAddress(fwdr.Address), nil
 			}
 		}
@@ -136,7 +136,7 @@ func (f *FwdMgr) ForwarderFor(addr *evmtypes.Address) (forwarder *evmtypes.Addre
 func (f *FwdMgr) ConvertPayload(dest *evmtypes.Address, origPayload []byte) ([]byte, error) {
 	destAddr := common.Address{}
 	if dest != nil {
-		destAddr = *dest.NativeAddress()
+		destAddr = dest.Address
 	}
 	databytes, err := f.getForwardedPayload(destAddr, origPayload)
 	if err != nil {

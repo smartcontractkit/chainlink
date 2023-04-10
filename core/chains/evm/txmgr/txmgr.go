@@ -59,7 +59,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 // It is also the interface to external callers.
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
-type TxManager[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
+type TxManager[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] interface {
 	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr ADDR)
@@ -79,7 +79,7 @@ type reset struct {
 	done chan error
 }
 
-type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
+type Txm[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
 	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
@@ -233,8 +233,11 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Reset(callback func(), addr ADDR, aband
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) abandon(addr ADDR) (err error) {
-	nativeAddr, _ := addr.MarshalText()
-	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), common.BytesToAddress(nativeAddr))
+	gethAddr, err := getGethAddressFromADDR(addr)
+	if err != nil {
+		return errors.Wrapf(err, "failed to do address format conversion")
+	}
+	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), gethAddr)
 	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
 }
 
@@ -445,7 +448,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addr ADDR) {
 	}
 }
 
-type NewTx[ADDR types.Hashable] struct {
+type NewTx[ADDR types.Hashable[ADDR]] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -474,13 +477,16 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
-			bytesToAddr, _ := newTx.ToAddress.MarshalText()
-			toAddr := common.BytesToAddress(bytesToAddr)
+			gethToAddr, err := getGethAddressFromADDR(newTx.ToAddress)
+			if err != nil {
+				return tx, errors.Wrapf(err, "failed to do address format conversion")
+			}
+
 			if newTx.Meta != nil {
-				newTx.Meta.FwdrDestAddress = &toAddr
+				newTx.Meta.FwdrDestAddress = &gethToAddr
 			} else {
 				newTx.Meta = &EthTxMeta{
-					FwdrDestAddress: &toAddr,
+					FwdrDestAddress: &gethToAddr,
 				}
 			}
 			newTx.ToAddress = newTx.ForwarderAddress
@@ -534,7 +540,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to AD
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction[ADDR types.Hashable, TX_HASH types.Hashable](ctx context.Context, ethClient evmclient.Client, a EthTxAttempt[ADDR, TX_HASH], e EthTx[ADDR, TX_HASH], logger logger.Logger) *evmclient.SendError {
+func sendTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](ctx context.Context, ethClient evmclient.Client, a EthTxAttempt[ADDR, TX_HASH], e EthTx[ADDR, TX_HASH], logger logger.Logger) *evmclient.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return evmclient.NewFatalSendError(err)
@@ -554,7 +560,7 @@ func sendTransaction[ADDR types.Hashable, TX_HASH types.Hashable](ctx context.Co
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
-func sendEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](
+func sendEmptyTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](
 	ctx context.Context,
 	ethClient evmclient.Client,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
@@ -579,7 +585,7 @@ func sendEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](
 	return signedTx, err
 }
 
-type NullTxManager[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
+type NullTxManager[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	ErrMsg string
 }
 

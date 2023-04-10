@@ -420,7 +420,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 
 		addr, err := app.Chains.EVM.Chains()[0].TxManager().GetForwarderForEOA(evmtypes.NewAddress(nodeAddress))
 		require.NoError(t, err)
-		require.Equal(t, *addr.NativeAddress(), fwdrAddress)
+		require.Equal(t, addr.Address, fwdrAddress)
 
 		// create job
 		regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)

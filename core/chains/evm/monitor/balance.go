@@ -182,7 +182,7 @@ func (w *worker) WorkCtx(ctx context.Context) {
 			go func(k gethCommon.Address) {
 				defer wg.Done()
 				w.checkAccountBalance(ctx, k)
-			}(*address.NativeAddress())
+			}(address.Address)
 		}
 	}
 	wg.Wait()

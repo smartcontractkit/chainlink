@@ -179,13 +179,13 @@ func Test_EthKeyStore(t *testing.T) {
 		enabledAddresses, err := ethKeyStore.EnabledAddressesForChain(testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
-		require.Equal(t, key.Address, *enabledAddresses[0].NativeAddress())
+		require.Equal(t, key.Address, enabledAddresses[0].Address)
 
 		//get enabled addresses for chain 1337
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
-		require.Equal(t, key2.Address, *enabledAddresses[0].NativeAddress())
+		require.Equal(t, key2.Address, enabledAddresses[0].Address)
 
 		// /get enabled addresses for nil chain ID
 		_, err = ethKeyStore.EnabledAddressesForChain(nil)
@@ -202,7 +202,7 @@ func Test_EthKeyStore(t *testing.T) {
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		assert.Len(t, enabledAddresses, 1)
-		require.Equal(t, key2.Address, *enabledAddresses[0].NativeAddress())
+		require.Equal(t, key2.Address, enabledAddresses[0].Address)
 	})
 }
 

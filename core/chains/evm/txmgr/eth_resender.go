@@ -30,7 +30,7 @@ const DefaultResenderPollInterval = 5 * time.Second
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
+type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient        evmclient.Client
 	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]

@@ -78,7 +78,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	require.NoError(t, client.ShowTransaction(c))
 
 	renderedTx := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, tx.FromAddress.NativeAddress(), renderedTx.From)
+	assert.Equal(t, &tx.FromAddress.Address, renderedTx.From)
 }
 
 func TestClient_IndexTxAttempts(t *testing.T) {

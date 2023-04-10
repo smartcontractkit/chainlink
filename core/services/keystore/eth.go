@@ -179,10 +179,10 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
 func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
-	if address == nil || !ks.exists(*address.NativeAddress()) {
+	if address == nil || !ks.exists(address.Address) {
 		return 0, errors.Errorf("key with address %s does not exist", address.String())
 	}
-	nonce, err = ks.orm.getNextNonce(*address.NativeAddress(), chainID, qopts...)
+	nonce, err = ks.orm.getNextNonce(address.Address, chainID, qopts...)
 	if err != nil {
 		return 0, errors.Wrap(err, "NextSequence failed")
 	}
@@ -202,10 +202,10 @@ func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts .
 
 // IncrementNextNonce increments keys.next_nonce by 1
 func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
-	if address == nil || !ks.exists(*address.NativeAddress()) {
+	if address == nil || !ks.exists(address.Address) {
 		return errors.Errorf("key with address %s does not exist", address.String())
 	}
-	incrementedNonce, err := ks.orm.incrementNextNonce(*address.NativeAddress(), chainID, currentSequence, qopts...)
+	incrementedNonce, err := ks.orm.incrementNextNonce(address.Address, chainID, currentSequence, qopts...)
 	if err != nil {
 		return errors.Wrap(err, "failed IncrementNextNonce")
 	}
@@ -421,7 +421,7 @@ func (ks *eth) CheckEnabled(address *evmtypes.Address, chainID *big.Int) error {
 	}
 	var found bool
 	for _, k := range ks.keyRing.Eth {
-		if k.Address == *address.NativeAddress() {
+		if k.Address == address.Address {
 			found = true
 			break
 		}

@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
-
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -155,8 +153,7 @@ func TestORM(t *testing.T) {
 	})
 	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
-		hashBytes, _ := attemptD.Hash.MarshalText()
-		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), gethcommon.BytesToHash(hashBytes), 0x1)
+		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
@@ -210,8 +207,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
 	// add receipt for the second attempt
-	hashBytes, _ := attempt.Hash.MarshalText()
-	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), gethcommon.BytesToHash(hashBytes), 0x1)
+	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash.Hash, 0x1)
 	require.NoError(t, orm.InsertEthReceipt(&r))
 
 	// tx 3 has no attempts
@@ -526,10 +522,9 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 		t, txStorageService, 0, 1, originalBroadcastAt, fromAddress)
 	require.Len(t, etx0.EthTxAttempts, 1)
 
-	commonHash, _ := etx0.EthTxAttempts[0].Hash.MarshalText()
 	// create receipt associated with transaction
 	txmReceipt := evmtypes.Receipt{
-		TxHash:           gethcommon.BytesToHash(commonHash),
+		TxHash:           etx0.EthTxAttempts[0].Hash.Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
@@ -542,7 +537,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, etx0.EthTxAttempts, 1)
 	require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
-	require.Equal(t, txmReceipt.BlockHash, *etx0.EthTxAttempts[0].EthReceipts[0].BlockHash.NativeHash())
+	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash.Hash)
 	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }
 
@@ -666,8 +661,7 @@ func TestORM_FindEthReceiptsPendingConfirmation(t *testing.T) {
 	etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStorageService, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
 	attempt := etx.EthTxAttempts[0]
-	hashBytes, _ := attempt.Hash.MarshalText()
-	cltest.MustInsertEthReceipt(t, txStorageService, head.Number-minConfirmations, head.Hash, gethcommon.BytesToHash(hashBytes))
+	cltest.MustInsertEthReceipt(t, txStorageService, head.Number-minConfirmations, head.Hash, attempt.Hash.Hash)
 
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
@@ -1494,8 +1488,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, *etx.FromAddress.NativeAddress())
-		assert.Equal(t, toAddress, *etx.ToAddress.NativeAddress())
+		assert.Equal(t, fromAddress, etx.FromAddress.Address)
+		assert.Equal(t, toAddress, etx.ToAddress.Address)
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)

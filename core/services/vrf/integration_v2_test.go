@@ -1991,8 +1991,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	// The fulfillment tx should succeed
 	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
-	txHashBytes, _ := attempts[0].Hash.MarshalText()
-	r, err := ch.Client().TransactionReceipt(testutils.Context(t), common.BytesToHash(txHashBytes))
+	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash.Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 

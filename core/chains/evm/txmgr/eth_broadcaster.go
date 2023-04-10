@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -58,13 +58,13 @@ var (
 var errEthTxRemoved = errors.New("eth_tx removed")
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
-type TransmitCheckerFactory[ADDR types.Hashable, TX_HASH types.Hashable] interface {
+type TransmitCheckerFactory[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
 	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker[ADDR, TX_HASH], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker[ADDR types.Hashable, TX_HASH types.Hashable] interface {
+type TransmitChecker[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
@@ -86,7 +86,7 @@ type TransmitChecker[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 // - a monotonic series of increasing nonces for eth_txes that can all eventually be confirmed if you retry enough times
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
-type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
+type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	logger           logger.Logger
 	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient        evmclient.Client
@@ -190,10 +190,10 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	eb.wg = sync.WaitGroup{}
 	eb.wg.Add(len(eb.enabledAddresses))
 	eb.triggers = make(map[string]chan struct{})
-	for _, k := range eb.enabledAddresses {
+	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
-		eb.triggers[k.String()] = triggerCh
-		go eb.monitorEthTxs(k, triggerCh)
+		eb.triggers[addr.String()] = triggerCh
+		go eb.monitorEthTxs(addr, triggerCh)
 	}
 
 	eb.wg.Add(1)
@@ -269,8 +269,8 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ethTxInsertTriggerer() {
 				return
 			}
 			hexAddr := ev.Payload
-			// Convert to geth Address, then to String().
-			eb.Trigger(gethcommon.HexToAddress(hexAddr).String())
+			address := gethCommon.HexToAddress(hexAddr)
+			eb.Trigger(address.String())
 		case <-eb.chStop:
 			return
 		}
@@ -674,8 +674,13 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 		eb.SvcErrBuffer.Append(sendError)
 	}
 
-	fromAddrBytes, _ := etx.FromAddress.MarshalText()
-	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, gethcommon.BytesToAddress(fromAddrBytes))
+	// TODO: When eth client is generalized, remove this address conversion logic below
+	gethAddr, err := getGethAddressFromADDR(etx.FromAddress)
+	if err != nil {
+		err = multierr.Combine(err, sendError)
+		return errors.Wrapf(err, "failed to do address format conversion"), true
+	}
+	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, gethAddr)
 	if err != nil {
 		err = multierr.Combine(err, sendError)
 		return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true

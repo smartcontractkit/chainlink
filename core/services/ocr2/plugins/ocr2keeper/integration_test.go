@@ -428,7 +428,7 @@ func setupForwarderForNode(
 	require.NoError(t, err)
 	fwdr, err := chain.TxManager().GetForwarderForEOA(evmtypes.NewAddress(recipient))
 	require.NoError(t, err)
-	require.Equal(t, faddr, *fwdr.NativeAddress())
+	require.Equal(t, faddr, fwdr.Address)
 
 	return faddr
 }

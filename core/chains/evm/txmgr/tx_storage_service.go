@@ -57,11 +57,11 @@ type dbReceipt struct {
 func DbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
 	var txHash common.Hash
 	if evmReceipt.TxHash != nil {
-		txHash = *evmReceipt.TxHash.NativeHash()
+		txHash = evmReceipt.TxHash.Hash
 	}
 	var blockHash common.Hash
 	if evmReceipt.BlockHash != nil {
-		blockHash = *evmReceipt.BlockHash.NativeHash()
+		blockHash = evmReceipt.BlockHash.Hash
 	}
 	return dbReceipt{
 		ID:               evmReceipt.ID,
@@ -169,10 +169,10 @@ func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 	var from common.Address
 	var to common.Address
 	if ethTx.FromAddress != nil {
-		from = *ethTx.FromAddress.NativeAddress()
+		from = ethTx.FromAddress.Address
 	}
 	if ethTx.ToAddress != nil {
-		to = *ethTx.ToAddress.NativeAddress()
+		to = ethTx.ToAddress.Address
 	}
 	return DbEthTx{
 		ID:                 ethTx.ID,
@@ -254,7 +254,7 @@ type DbEthTxAttempt struct {
 func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
 	var hash common.Hash
 	if ethTxAttempt.Hash != nil {
-		hash = *ethTxAttempt.Hash.NativeHash()
+		hash = ethTxAttempt.Hash.Hash
 	}
 	return DbEthTxAttempt{
 		ID:                      ethTxAttempt.ID,
@@ -437,7 +437,7 @@ func (o *evmTxStorageService) EthTxAttempts(offset, limit int) (txs []EvmTxAttem
 func (o *evmTxStorageService) FindEthTxAttempt(hash *evmtypes.TxHash) (*EvmTxAttempt, error) {
 	dbTxAttempt := DbEthTxAttempt{}
 	sql := `SELECT * FROM eth_tx_attempts WHERE hash = $1`
-	if err := o.q.Get(&dbTxAttempt, sql, *hash.NativeHash()); err != nil {
+	if err := o.q.Get(&dbTxAttempt, sql, hash.Hash); err != nil {
 		return nil, err
 	}
 	// reuse the preload
@@ -462,7 +462,7 @@ func (o *evmTxStorageService) FindEthTxByHash(hash *evmtypes.TxHash) (*EvmTx, er
 	var dbEtx DbEthTx
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`
-		if err := tx.Get(&dbEtx, sql, *hash.NativeHash()); err != nil {
+		if err := tx.Get(&dbEtx, sql, hash.Hash); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with hash %d", hash)
 		}
 		return nil
@@ -584,8 +584,8 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmTx) (err error) {
 	attemptHashes := make([][]byte, len(etxs))                     // len here is lower bound
 	for _, etx := range etxs {
 		for i, attempt := range etx.EthTxAttempts {
-			attemptHashM[*attempt.Hash.NativeHash()] = &etx.EthTxAttempts[i]
-			attemptHashes = append(attemptHashes, attempt.Hash.NativeHash().Bytes())
+			attemptHashM[attempt.Hash.Hash] = &etx.EthTxAttempts[i]
+			attemptHashes = append(attemptHashes, attempt.Hash.Hash.Bytes())
 		}
 	}
 	var rs []dbReceipt
@@ -596,7 +596,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmTx) (err error) {
 	var receipts []EvmReceipt = fromDBReceipts(rs)
 
 	for _, receipt := range receipts {
-		attempt := attemptHashM[*receipt.TxHash.NativeHash()]
+		attempt := attemptHashM[receipt.TxHash.Hash]
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
 	}
 	return nil
@@ -607,11 +607,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmTxAttempt) error 
 	hashes := make([][]byte, len(attempts))
 	for i, attempt := range attempts {
 		byHash[attempt.Hash.String()] = &attempts[i]
-		bytes, err := attempt.Hash.MarshalText()
-		if err != nil {
-			return errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
-		}
-		hashes = append(hashes, bytes)
+		hashes = append(hashes, attempt.Hash.Hash.Bytes())
 	}
 	var rs []dbReceipt
 	if err := q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
@@ -642,7 +638,7 @@ JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN (
 WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
 ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
 LIMIT $4
-`, olderThan, chainID.String(), *address.NativeAddress(), limit)
+`, olderThan, chainID.String(), address.Address, limit)
 
 	attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
 	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
@@ -856,7 +852,7 @@ func (o *evmTxStorageService) GetInProgressEthTxAttempts(ctx context.Context, ad
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
 INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
-`, *address.NativeAddress(), chainID.String())
+`, address.Address, chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
 		}
@@ -890,7 +886,7 @@ func (o *evmTxStorageService) FindEthTxWithNonce(fromAddress *evmtypes.Address, 
 		var dbEtx DbEthTx
 		err = tx.Get(&dbEtx, `
 SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-`, *fromAddress.NativeAddress(), nonce)
+`, fromAddress.Address, nonce)
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxWithNonce failed to load eth_txes")
 		}
@@ -1078,7 +1074,7 @@ WHERE eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL AND eth_txes
 ORDER BY nonce ASC
 `
 		var dbEtxs []DbEthTx
-		if err = tx.Select(&dbEtxs, stmt, *address.NativeAddress(), chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
+		if err = tx.Select(&dbEtxs, stmt, address.Address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
 		}
 		etxs = make([]*EvmTx, len(dbEtxs))
@@ -1101,7 +1097,7 @@ SELECT DISTINCT eth_txes.* FROM eth_txes
 INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'
 WHERE eth_txes.from_address = $1 AND eth_txes.state = 'unconfirmed' AND eth_txes.evm_chain_id = $2
 ORDER BY nonce ASC
-`, *address.NativeAddress(), chainID.String())
+`, address.Address, chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
 		}
@@ -1238,7 +1234,7 @@ func (o *evmTxStorageService) SaveReplacementInProgressAttempt(oldAttempt EvmTxA
 func (o *evmTxStorageService) FindNextUnstartedTransactionFromAddress(etx *EvmTx, fromAddress *evmtypes.Address, chainID big.Int, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	var dbEtx DbEthTx
-	err := qq.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, *fromAddress.NativeAddress(), chainID.String())
+	err := qq.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress.Address, chainID.String())
 	DbEthTxToEthTx(dbEtx, etx)
 	return errors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 }
@@ -1355,7 +1351,7 @@ func (o *evmTxStorageService) GetEthTxInProgress(fromAddress *evmtypes.Address, 
 	}
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
-		err = qq.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, *fromAddress.NativeAddress())
+		err = qq.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Address)
 		if errors.Is(err, sql.ErrNoRows) {
 			etx = nil
 			return nil
@@ -1378,7 +1374,7 @@ func (o *evmTxStorageService) GetEthTxInProgress(fromAddress *evmtypes.Address, 
 
 func (o *evmTxStorageService) HasInProgressTransaction(account *evmtypes.Address, chainID big.Int, qopts ...pg.QOpt) (exists bool, err error) {
 	qq := o.q.WithOpts(qopts...)
-	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, *account.NativeAddress(), chainID.String())
+	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account.Address, chainID.String())
 	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
 }
 
@@ -1387,7 +1383,7 @@ func (o *evmTxStorageService) UpdateEthKeyNextNonce(newNextNonce, currentNextNon
 	return qq.Transaction(func(tx pg.Queryer) error {
 		//  We filter by next_nonce here as an optimistic lock to make sure it
 		//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), *address.NativeAddress(), currentNextNonce, chainID.String())
+		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address.Address, currentNextNonce, chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}
@@ -1405,7 +1401,7 @@ func (o *evmTxStorageService) UpdateEthKeyNextNonce(newNextNonce, currentNextNon
 func (o *evmTxStorageService) countTransactionsWithState(fromAddress *evmtypes.Address, state EthTxState, chainID big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
-		*fromAddress.NativeAddress(), state, chainID.String())
+		fromAddress.Address, state, chainID.String())
 	return count, errors.Wrap(err, "failed to countTransactionsWithState")
 }
 
@@ -1425,7 +1421,7 @@ func (o *evmTxStorageService) CheckEthTxQueueCapacity(fromAddress *evmtypes.Addr
 		return nil
 	}
 	var count uint64
-	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, *fromAddress.NativeAddress(), chainID.String())
+	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, fromAddress.Address, chainID.String())
 	if err != nil {
 		err = errors.Wrap(err, "CheckEthTxQueueCapacity query failed")
 		return
@@ -1460,7 +1456,7 @@ VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, *newTx.FromAddress.NativeAddress(), *newTx.ToAddress.NativeAddress(), newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
+`, newTx.FromAddress.Address, newTx.ToAddress.Address, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
 		if err != nil {
 			return errors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}

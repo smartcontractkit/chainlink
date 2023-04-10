@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type TxAttemptSigner[ADDR commontypes.Hashable] interface {
+type TxAttemptSigner[ADDR commontypes.Hashable[ADDR]] interface {
 	SignTx(fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
@@ -49,7 +49,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr 
 func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	fromAddr := common.Address{}
 	if etx.FromAddress != nil {
-		fromAddr = *etx.FromAddress.NativeAddress()
+		fromAddr = etx.FromAddress.Address
 	}
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(fromAddr)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
@@ -66,7 +66,7 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmT
 func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EvmTx, previousAttempt EvmTxAttempt, priorAttempts []EvmPriorAttempt, lggr logger.Logger) (attempt EvmTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
 	fromAddr := common.Address{}
 	if etx.FromAddress != nil {
-		fromAddr = *etx.FromAddress.NativeAddress()
+		fromAddr = etx.FromAddress.Address
 	}
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(fromAddr)
 	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
@@ -117,7 +117,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, f
 
 	fromAddr := common.Address{}
 	if fromAddress != nil {
-		fromAddr = *fromAddress.NativeAddress()
+		fromAddr = fromAddress.Address
 	}
 	tx := types.NewTransaction(nonce, fromAddr, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
 
@@ -192,7 +192,7 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 
 	fromAddr := common.Address{}
 	if etx.FromAddress != nil {
-		fromAddr = *etx.FromAddress.NativeAddress()
+		fromAddr = etx.FromAddress.Address
 	}
 	// Configuration sanity-check
 	max := cfg.KeySpecificMaxGasPriceWei(fromAddr)
@@ -210,7 +210,7 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 func newDynamicFeeTransaction(nonce uint64, to *evmtypes.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
 	var toAddr *common.Address
 	if to != nil {
-		toAddr = to.NativeAddress()
+		toAddr = &to.Address
 	}
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
@@ -265,7 +265,7 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Ev
 	}
 	fromAddr := common.Address{}
 	if etx.FromAddress != nil {
-		fromAddr = *etx.FromAddress.NativeAddress()
+		fromAddr = etx.FromAddress.Address
 	}
 	max := cfg.KeySpecificMaxGasPriceWei(fromAddr)
 	if gasPrice.Cmp(max) > 0 {
@@ -296,7 +296,7 @@ func (c *evmTxAttemptBuilder) newSignedAttempt(etx EvmTx, tx *types.Transaction)
 func newLegacyTransaction(nonce uint64, to *evmtypes.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
 	var toAddr *common.Address
 	if to != nil {
-		toAddr = to.NativeAddress()
+		toAddr = &to.Address
 	}
 	return types.LegacyTx{
 		Nonce:    nonce,
