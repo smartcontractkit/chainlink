@@ -148,6 +148,16 @@ describe('FunctionsRegistryUpgradeable', () => {
         functionsBillingRegistryMigrationFactory.connect(roles.defaultAccount),
       )
 
+      upgradedRegistry.setConfig(
+        config.maxGasLimit,
+        config.stalenessSeconds,
+        config.gasAfterPaymentCalculation,
+        config.weiPerUnitLink,
+        config.gasOverhead,
+        config.requestTimeoutSeconds,
+        0, // 0 fee
+      )
+
       // Check config is the same
       const currentConfig = await upgradedRegistry.getConfig()
       expect(currentConfig.maxGasLimit).to.equal(config.maxGasLimit)

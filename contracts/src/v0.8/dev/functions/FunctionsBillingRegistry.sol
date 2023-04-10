@@ -148,7 +148,8 @@ contract FunctionsBillingRegistry is
     uint32 stalenessSeconds,
     uint256 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    uint32 gasOverhead
+    uint32 gasOverhead,
+    uint96 fee
   );
 
   /**
@@ -181,21 +182,23 @@ contract FunctionsBillingRegistry is
     uint256 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
     uint32 gasOverhead,
-    uint32 requestTimeoutSeconds
+    uint32 requestTimeoutSeconds,
+    uint96 fee
   ) external onlyOwner {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
-    s_config = Config({
+    s_config_v2 = Configv2({
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       reentrancyLock: false,
       gasOverhead: gasOverhead,
-      requestTimeoutSeconds: requestTimeoutSeconds
+      requestTimeoutSeconds: requestTimeoutSeconds,
+      fee: fee
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
-    emit ConfigSet(maxGasLimit, stalenessSeconds, gasAfterPaymentCalculation, fallbackWeiPerUnitLink, gasOverhead);
+    emit ConfigSet(maxGasLimit, stalenessSeconds, gasAfterPaymentCalculation, fallbackWeiPerUnitLink, gasOverhead,fee);
   }
 
   /**
@@ -222,11 +225,11 @@ contract FunctionsBillingRegistry is
     )
   {
     return (
-      s_config.maxGasLimit,
-      s_config.stalenessSeconds,
-      s_config.gasAfterPaymentCalculation,
+      s_config_v2.maxGasLimit,
+      s_config_v2.stalenessSeconds,
+      s_config_v2.gasAfterPaymentCalculation,
       s_fallbackWeiPerUnitLink,
-      s_config.gasOverhead,
+      s_config_v2.gasOverhead,
       address(LINK),
       address(LINK_ETH_FEED)
     );
@@ -279,7 +282,7 @@ contract FunctionsBillingRegistry is
    * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getRequestConfig() external view override returns (uint32, address[] memory) {
-    return (s_config.maxGasLimit, getAuthorizedSenders());
+    return (s_config_v2.maxGasLimit, getAuthorizedSenders());
   }
 
   /**
@@ -288,9 +291,9 @@ contract FunctionsBillingRegistry is
   function getRequiredFee(
     bytes calldata, /* data */
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
-  ) public pure override returns (uint96) {
+  ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
-    return 0;
+    return s_config_v2.fee;
   }
 
   /**
@@ -307,7 +310,7 @@ contract FunctionsBillingRegistry is
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + gasLimit;
+    uint256 executionGas = s_config_v2.gasOverhead + s_config_v2.gasAfterPaymentCalculation + gasLimit;
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * gasPrice * executionGas) / uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(registryFee);
@@ -341,8 +344,8 @@ contract FunctionsBillingRegistry is
     }
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the gas and computation.
-    if (billing.gasLimit > s_config.maxGasLimit) {
-      revert GasLimitTooBig(billing.gasLimit, s_config.maxGasLimit);
+    if (billing.gasLimit > s_config_v2.maxGasLimit) {
+      revert GasLimitTooBig(billing.gasLimit, s_config_v2.maxGasLimit);
     }
 
     // Check that subscription can afford the estimated cost
@@ -456,16 +459,16 @@ contract FunctionsBillingRegistry is
     // during the consumers callback code via reentrancyLock.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
-    s_config.reentrancyLock = true;
+    s_config_v2.reentrancyLock = true;
     bool success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
-    s_config.reentrancyLock = false;
+    s_config_v2.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracle's withdrawable balance.
     ItemizedBill memory bill = calculatePaymentAmount(
       initialGas,
-      s_config.gasAfterPaymentCalculation,
+      s_config_v2.gasAfterPaymentCalculation,
       commitment.donFee,
       signerCount,
       commitment.registryFee,
@@ -528,7 +531,7 @@ contract FunctionsBillingRegistry is
   }
 
   function getFeedData() private view returns (int256) {
-    uint32 stalenessSeconds = s_config.stalenessSeconds;
+    uint32 stalenessSeconds = s_config_v2.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = LINK_ETH_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
@@ -826,7 +829,7 @@ contract FunctionsBillingRegistry is
         revert MustBeSubOwner(s_subscriptionConfigs[commitment.subscriptionId].owner);
       }
 
-      if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
+      if (commitment.timestamp + s_config_v2.requestTimeoutSeconds > block.timestamp) {
         // Decrement blocked balance
         s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
         // Delete commitment
@@ -858,7 +861,7 @@ contract FunctionsBillingRegistry is
   }
 
   modifier nonReentrant() {
-    if (s_config.reentrancyLock) {
+    if (s_config_v2.reentrancyLock) {
       revert Reentrant();
     }
     _;
@@ -874,4 +877,25 @@ contract FunctionsBillingRegistry is
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
   uint256[49] private __gap;
+
+  // TODO: Merge with Config on re-deploy
+  struct Configv2 {
+    // Maxiumum amount of gas that can be given to a request's client callback
+    uint32 maxGasLimit;
+    // Reentrancy protection.
+    bool reentrancyLock;
+    // stalenessSeconds is how long before we consider the feed price to be stale
+    // and fallback to fallbackWeiPerUnitLink.
+    uint32 stalenessSeconds;
+    // Gas to cover transmitter oracle payment after we calculate the payment.
+    // We make it configurable in case those operations are repriced.
+    uint256 gasAfterPaymentCalculation;
+    // Represents the average gas execution cost. Used in estimating cost beforehand.
+    uint32 gasOverhead;
+    // how many seconds it takes before we consider a request to be timed out
+    uint32 requestTimeoutSeconds;
+    // Fee in Juels of LINK charged by the Billing Registry for a request 
+    uint96 fee;
+  }
+  Configv2 private s_config_v2;
 }
