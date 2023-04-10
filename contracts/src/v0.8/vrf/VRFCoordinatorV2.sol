@@ -10,6 +10,7 @@ import "../interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
 import "../ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
+import "../ChainSpecificUtil.sol";
 
 contract VRFCoordinatorV2 is
   VRF,
@@ -411,7 +412,7 @@ contract VRFCoordinatorV2 is
     (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
 
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, block.number, subId, callbackGasLimit, numWords, msg.sender)
+      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
     );
     emit RandomWordsRequested(
       keyHash,
@@ -511,7 +512,7 @@ contract VRFCoordinatorV2 is
       revert IncorrectCommitment();
     }
 
-    bytes32 blockHash = blockhash(rc.blockNum);
+    bytes32 blockHash = ChainSpecificUtil.getBlockhash(rc.blockNum);
     if (blockHash == bytes32(0)) {
       blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
       if (blockHash == bytes32(0)) {
@@ -758,6 +759,9 @@ contract VRFCoordinatorV2 is
    * @inheritdoc VRFCoordinatorV2Interface
    */
   function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
+    if (pendingRequestExists(subId)) {
+      revert PendingRequestExists();
+    }
     if (s_consumers[consumer][subId] == 0) {
       revert InvalidConsumer(subId, consumer);
     }
