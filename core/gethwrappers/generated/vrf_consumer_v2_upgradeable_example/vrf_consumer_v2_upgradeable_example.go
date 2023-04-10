@@ -27,6 +27,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var VRFConsumerV2UpgradeableExampleMetaData = &bind.MetaData{
@@ -139,11 +140,11 @@ func NewVRFConsumerV2UpgradeableExampleFilterer(address common.Address, filterer
 }
 
 func bindVRFConsumerV2UpgradeableExample(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFConsumerV2UpgradeableExampleABI))
+	parsed, err := VRFConsumerV2UpgradeableExampleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFConsumerV2UpgradeableExample *VRFConsumerV2UpgradeableExampleRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

@@ -14,6 +14,7 @@ module.exports = {
     'v0.8/dev/interfaces',
     'v0.8/dev/vendor',
     'v0.8/dev/Keeper2_0/interfaces',
+    'v0.8/dev/transmission',
     'v0.8/tests',
   ],
   istanbulReporter: ['text', 'text-summary', 'json'],

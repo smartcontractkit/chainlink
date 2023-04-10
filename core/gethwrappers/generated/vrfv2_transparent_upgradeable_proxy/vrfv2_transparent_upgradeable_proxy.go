@@ -27,6 +27,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var VRFV2TransparentUpgradeableProxyMetaData = &bind.MetaData{
@@ -139,11 +140,11 @@ func NewVRFV2TransparentUpgradeableProxyFilterer(address common.Address, filtere
 }
 
 func bindVRFV2TransparentUpgradeableProxy(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFV2TransparentUpgradeableProxyABI))
+	parsed, err := VRFV2TransparentUpgradeableProxyMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFV2TransparentUpgradeableProxy *VRFV2TransparentUpgradeableProxyRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
