@@ -42,7 +42,7 @@ describe('VRFCoordinatorV2', () => {
     )
     linkToken = await ltFactory.deploy()
     const bhFactory = await ethers.getContractFactory(
-      'src/v0.6/dev/BlockhashStore.sol:BlockhashStore',
+      'src/v0.6/BlockhashStore.sol:BlockhashStore',
       accounts[0],
     )
     blockHashStore = await bhFactory.deploy()
@@ -65,8 +65,6 @@ describe('VRFCoordinatorV2', () => {
       accounts[0],
     )
     vrfCoordinatorV2TestHelper = await vrfCoordinatorV2TestHelperFactory.deploy(
-      linkToken.address,
-      blockHashStore.address,
       mockLinkEth.address,
     )
     await linkToken.transfer(
@@ -910,11 +908,7 @@ describe('VRFCoordinatorV2', () => {
       )
       const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0)
       const vrfCoordinatorV2TestHelperZero =
-        await vrfCoordinatorV2TestHelperFactory.deploy(
-          linkToken.address,
-          blockHashStore.address,
-          mockLinkEthZero.address,
-        )
+        await vrfCoordinatorV2TestHelperFactory.deploy(mockLinkEthZero.address)
       await expect(
         vrfCoordinatorV2TestHelperZero
           .connect(oracle)
@@ -927,8 +921,6 @@ describe('VRFCoordinatorV2', () => {
       const mockLinkEthNegative = await mockAggregatorV3Factory.deploy(0, -1)
       const vrfCoordinatorV2TestHelperNegative =
         await vrfCoordinatorV2TestHelperFactory.deploy(
-          linkToken.address,
-          blockHashStore.address,
           mockLinkEthNegative.address,
         )
       await expect(
