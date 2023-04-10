@@ -67,6 +67,12 @@ interface FunctionsOracleInterface {
     returns (uint96);
 
   /**
+   * @notice Set the fee charged by the DON that will be split between signing Node Operators for servicing the request
+   * @param feeAmount Fee in Juels (1e18) of LINK
+   */
+  function setRequiredFee(uint96 feeAmount) external;
+
+  /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
    * @param subscriptionId A unique subscription ID allocated by billing system,
    * a client can make requests from different contracts referencing the same subscription

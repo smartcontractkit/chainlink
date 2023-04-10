@@ -143,10 +143,19 @@ contract FunctionsOracle is
   function getRequiredFee(
     bytes calldata, /* data */
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
-  ) public pure override returns (uint96) {
+  ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between nodes of the DON here
     // e.g. 0.1 LINK * s_transmitters.length
-    return 0;
+    return fee;
+  }
+
+  /**
+   * @inheritdoc FunctionsOracleInterface
+   */
+  function setRequiredFee(
+    uint96 feeAmount
+  ) external override onlyOwner {
+    fee = feeAmount;
   }
 
   /**
@@ -271,4 +280,8 @@ contract FunctionsOracle is
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
   uint256[49] private __gap;
+
+  // TODO: on re-deploy, move to top of file
+  // Fee in Juels of LINK charged by the DON for a request that will be shared between nodes 
+  uint96 private fee;
 }
