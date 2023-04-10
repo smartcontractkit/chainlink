@@ -477,7 +477,8 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
-			gethToAddr, err := getGethAddressFromADDR(newTx.ToAddress)
+			var gethToAddr common.Address
+			gethToAddr, err = getGethAddressFromADDR(newTx.ToAddress)
 			if err != nil {
 				return tx, errors.Wrapf(err, "failed to do address format conversion")
 			}

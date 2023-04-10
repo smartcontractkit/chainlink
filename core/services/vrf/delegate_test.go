@@ -304,8 +304,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 		vuni.txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
 				meta := newTx.Meta
-				return newTx.FromAddress.String() == vuni.submitter.String() &&
-					newTx.ToAddress.String() == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()).String() &&
+				return newTx.FromAddress.Address == vuni.submitter &&
+					newTx.ToAddress.Address == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
 					newTx.GasLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)

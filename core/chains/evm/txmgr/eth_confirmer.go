@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
@@ -506,7 +507,8 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 
 	for _, attempt := range attempts {
 		// TODO: When eth client is generalized, remove this hash conversion logic below
-		gethHash, err := getGethHashFromHash(attempt.Hash)
+		var gethHash common.Hash
+		gethHash, err = getGethHashFromHash(attempt.Hash)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
