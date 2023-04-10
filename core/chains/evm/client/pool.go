@@ -15,10 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -210,7 +210,9 @@ func (p *Pool) report() {
 	live := total - dead
 	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
-		p.logger.Criticalw(fmt.Sprintf("No EVM primary nodes available: 0/%d nodes are alive", total), "nodeStates", nodeStates)
+		rerr := fmt.Errorf("no EVM primary nodes available: 0/%d nodes are alive", total)
+		p.logger.Criticalw(rerr.Error(), "nodeStates", nodeStates)
+		p.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
 		p.logger.Errorw(fmt.Sprintf("At least one EVM primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	}
@@ -258,7 +260,9 @@ func (p *Pool) selectNode() (node Node) {
 
 	if p.activeNode == nil {
 		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
-		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
+		errmsg := fmt.Errorf("no live nodes available for chain %s", p.chainID.String())
+		p.SvcErrBuffer.Append(errmsg)
+		return &erroringNode{errMsg: errmsg.Error()}
 	}
 
 	return p.activeNode

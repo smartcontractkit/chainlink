@@ -21,7 +21,12 @@ func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
 }
 
 func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
-	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return types.UpkeepResult{}, err
+	}
+
+	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return types.UpkeepResult{}, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
@@ -61,8 +66,13 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 }
 
 func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return false, err
+	}
+
 	out, err := rp.abi.Methods["simulatePerformUpkeep"].
-		Outputs.UnpackValues(hexutil.MustDecode(raw))
+		Outputs.UnpackValues(b)
 	if err != nil {
 		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
 	}
@@ -71,7 +81,12 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 }
 
 func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
-	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return activeUpkeep{}, err
+	}
+
+	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return activeUpkeep{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}

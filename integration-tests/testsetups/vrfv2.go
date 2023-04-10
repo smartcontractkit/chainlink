@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -77,7 +79,8 @@ func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment, isLoca
 
 // Run starts the VRFV2 soak test
 func (v *VRFV2SoakTest) Run(t *testing.T) {
-	log.Info().
+	l := utils.GetTestLogger(t)
+	l.Info().
 		Str("Test Duration", v.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Max number of requests per minute wanted", v.Inputs.RequestsPerMinute).
 		Msg("Starting VRFV2 Soak Test")
@@ -115,8 +118,8 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 			break // breaks the for loop and stops the test
 		}
 	}
-	log.Info().Int("Requests", v.NumberOfRequests).Msg("Total Completed Requests")
-	log.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
+	l.Info().Int("Requests", v.NumberOfRequests).Msg("Total Completed Requests")
+	l.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
 	require.Equal(t, 0, v.ErrorCount, "Expected 0 errors")
 }
 

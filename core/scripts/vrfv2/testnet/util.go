@@ -10,17 +10,16 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/nocancel_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func deployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
@@ -49,23 +48,6 @@ func deployCoordinator(
 		common.HexToAddress(linkEthAddress))
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func deployNoCancelCoordinator(
-	e helpers.Environment,
-	linkAddress string,
-	bhsAddress string,
-	linkEthAddress string,
-) (coordinatorAddress common.Address) {
-	addr, _, _, err := nocancel_vrf_coordinator_v2.DeployNoCancelVRFCoordinatorV2(
-		e.Owner,
-		e.Ec,
-		common.HexToAddress(linkAddress),
-		common.HexToAddress(bhsAddress),
-		common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmCodeAt(context.Background(), e.Ec, addr, e.ChainID)
-	return addr
 }
 
 func deployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.Address) (batchCoordinatorAddress common.Address) {
@@ -161,19 +143,6 @@ func registerCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordi
 		fmt.Sprintf("Uncompressed public key: %s,", uncompressed),
 		fmt.Sprintf("Oracle address: %s,", oracleAddress),
 	)
-}
-
-// decreasingBlockRange creates a continugous block range starting with
-// block `start` and ending at block `end`.
-func decreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
-	if start.Cmp(end) == -1 {
-		return nil, fmt.Errorf("start (%s) must be greater than end (%s)", start.String(), end.String())
-	}
-	ret = []*big.Int{}
-	for i := new(big.Int).Set(start); i.Cmp(end) >= 0; i.Sub(i, big.NewInt(1)) {
-		ret = append(ret, new(big.Int).Set(i))
-	}
-	return
 }
 
 func getRlpHeaders(env helpers.Environment, blockNumbers []*big.Int) (headers [][]byte, err error) {

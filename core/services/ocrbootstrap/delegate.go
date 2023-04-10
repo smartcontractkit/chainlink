@@ -2,16 +2,18 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
+
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // Delegate creates Bootstrap jobs
@@ -68,6 +70,10 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
+	if spec.FeedID != nil {
+		spec.RelayConfig["feedID"] = *spec.FeedID
+	}
+
 	configProvider, err := relayer.NewConfigProvider(types.RelayArgs{
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
@@ -82,7 +88,13 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
-	d.lggr.Infow("OCR2 job using local config",
+	lggr := d.lggr.With(
+		"contractID", spec.ContractID,
+		"jobName", jobSpec.Name.ValueOrZero(),
+		"jobID", jobSpec.ID,
+		"feedID", spec.FeedID,
+	)
+	lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
 		"ContractConfigConfirmations", lc.ContractConfigConfirmations,
 		"ContractConfigTrackerPollInterval", lc.ContractConfigTrackerPollInterval,
@@ -94,15 +106,12 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
 		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
 		LocalConfig:           lc,
-		Logger: logger.NewOCRWrapper(d.lggr.Named("OCR").With(
-			"contractID", spec.ContractID,
-			"jobName", jobSpec.Name.ValueOrZero(),
-			"jobID", jobSpec.ID), true, func(msg string) {
+		Logger: logger.NewOCRWrapper(d.lggr.Named("OCRBootstrap"), true, func(msg string) {
 			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
-	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
+	lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
@@ -115,5 +124,9 @@ func (d Delegate) AfterJobCreated(spec job.Job) {
 }
 
 // BeforeJobDeleted satisfies the job.Delegate interface.
-func (d Delegate) BeforeJobDeleted(spec job.Job) {
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+
+// OnDeleteJob satisfies the job.Delegate interface.
+func (d Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error {
+	return nil
 }

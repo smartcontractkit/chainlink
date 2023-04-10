@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,8 +21,8 @@ import (
 
 const queryTimeout = 10 * time.Second
 
-//go:generate mockery --quiet --name Client --output ../mocks/ --case=underscore
-//go:generate mockery --quiet --name Subscription --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {

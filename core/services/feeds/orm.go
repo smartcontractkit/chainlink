@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --with-expecter=true --quiet --name ORM --output ./mocks/ --case=underscore
@@ -25,16 +25,17 @@ type ORM interface {
 	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) error
 
-	CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (int64, error)
 	CreateBatchChainConfig(cfgs []ChainConfig, qopts ...pg.QOpt) ([]int64, error)
+	CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (int64, error)
 	DeleteChainConfig(id int64) (int64, error)
 	GetChainConfig(id int64) (*ChainConfig, error)
-	UpdateChainConfig(cfg ChainConfig) (int64, error)
 	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
+	UpdateChainConfig(cfg ChainConfig) (int64, error)
 
-	CreateJobProposal(jp *JobProposal) (int64, error)
 	CountJobProposals() (int64, error)
 	CountJobProposalsByStatus() (counts *JobProposalCounts, err error)
+	CreateJobProposal(jp *JobProposal) (int64, error)
+	DeleteProposal(id int64, qopts ...pg.QOpt) error
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	ListJobProposals() (jps []JobProposal, err error)
@@ -46,11 +47,12 @@ type ORM interface {
 	CancelSpec(id int64, qopts ...pg.QOpt) error
 	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
 	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
-	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
 	GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
+	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
+	RevokeSpec(id int64, qopts ...pg.QOpt) error
 	UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) error
 
 	IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error)
@@ -344,16 +346,19 @@ WHERE id = $1
 	return jp, errors.Wrap(err, "GetJobProposal failed")
 }
 
-// GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid.
+// GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid. This
+// method will filter out the deleted job proposals. To get all job proposals,
+// use the GetJobProposal get by id method.
 func (o *orm) GetJobProposalByRemoteUUID(id uuid.UUID) (jp *JobProposal, err error) {
 	stmt := `
 SELECT *
 FROM job_proposals
-WHERE remote_uuid = $1;
+WHERE remote_uuid = $1
+AND status <> $2;
 `
 
 	jp = new(JobProposal)
-	err = o.q.Get(jp, stmt, id)
+	err = o.q.Get(jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
 }
 
@@ -417,6 +422,12 @@ DO
 	UPDATE SET
 		pending_update = TRUE,
 		name = EXCLUDED.name,
+		status = (
+			CASE
+				WHEN job_proposals.status = 'deleted' THEN 'deleted'::job_proposal_status
+				ELSE EXCLUDED.status
+			END
+		),
 		multiaddrs = EXCLUDED.multiaddrs,
 		updated_at = EXCLUDED.updated_at
 RETURNING id;
@@ -484,19 +495,24 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusCancelled, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusCancelled, id); err != nil {
 		return err
 	}
 
 	stmt = `
 UPDATE job_proposals
-SET status = $1,
+SET status = (
+		CASE
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'cancelled'::job_proposal_status
+		END
+	),
+	pending_update = FALSE,
 	external_job_id = $2,
 	updated_at = NOW()
-WHERE id = $3;
+WHERE id = $1;
 `
-
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusCancelled, nil, jpID)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil)
 	if err != nil {
 		return err
 	}
@@ -539,6 +555,39 @@ SELECT exists (
 
 	err = o.q.WithOpts(qopts...).Get(&exists, stmt, jpID, version)
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
+}
+
+// DeleteProposal performs a soft delete of the job proposal by setting the
+// status to deleted, remove the external job id, and update the status to
+// deleted
+func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
+	stmt := `
+UPDATE job_proposals
+SET status = $1,
+    pending_update = (
+        CASE
+            WHEN status = 'approved' THEN true
+            ELSE false
+        END
+    ),
+    updated_at = NOW()
+WHERE id = $2;
+`
+
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 // GetSpec fetches the job proposal spec by id
@@ -614,24 +663,85 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusRejected, id); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusRejected, id); err != nil {
 		return err
 	}
 
 	stmt = `
 UPDATE job_proposals
-SET status = subquery.updateStatus,
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			ELSE 'rejected'::job_proposal_status
+		END
+	),
 	pending_update = FALSE,
 	updated_at = NOW()
-FROM (
-	SELECT (CASE WHEN status = 'approved' THEN 'approved'::job_proposal_status ELSE 'rejected'::job_proposal_status END) as updateStatus
-	FROM job_proposals
-	WHERE id = $1
-) as subquery
-WHERE id = $2;
+WHERE id = $1
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, jpID)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+// RevokeSpec revokes a job proposal with a pending job spec. An approved
+// proposal cannot be revoked. A revoked proposal's job spec cannot be approved
+// or edited, but the job can be reproposed by FMS.
+func (o *orm) RevokeSpec(id int64, qopts ...pg.QOpt) error {
+	// Update the status of the spec
+	stmt := `
+UPDATE job_proposal_specs
+SET status = (
+		CASE
+			WHEN status = 'approved' THEN 'approved'::job_proposal_spec_status
+			ELSE $2
+		END
+	),
+	status_updated_at = NOW(),
+	updated_at = NOW()
+WHERE id = $1
+RETURNING job_proposal_id;
+`
+
+	var jpID int64
+	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, id, SpecStatusRevoked); err != nil {
+		return err
+	}
+
+	stmt = `
+UPDATE job_proposals
+SET status = (
+		CASE
+			WHEN status = 'deleted' THEN 'deleted'::job_proposal_status
+			WHEN status = 'approved' THEN 'approved'::job_proposal_status
+			ELSE $3
+		END
+	),
+	pending_update = FALSE,
+	external_job_id = (
+		CASE
+			WHEN status <> 'approved' THEN $2
+			ELSE job_proposals.external_job_id
+		END
+	),
+	updated_at = NOW()
+WHERE id = $1
+	`
+
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil, JobProposalStatusRevoked)
 	if err != nil {
 		return err
 	}
