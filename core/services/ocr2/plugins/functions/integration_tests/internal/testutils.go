@@ -112,6 +112,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 	var weiPerUnitLink = big.NewInt(5000000000000000)
 	var gasOverhead = uint32(500_000)
 	var requestTimeoutSeconds = uint32(300)
+	var fee = big.NewInt(0)
 
 	_, err := registryContract.SetConfig(
 		owner,
@@ -121,6 +122,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 		weiPerUnitLink,
 		gasOverhead,
 		requestTimeoutSeconds,
+		fee,
 	)
 	require.NoError(t, err)
 

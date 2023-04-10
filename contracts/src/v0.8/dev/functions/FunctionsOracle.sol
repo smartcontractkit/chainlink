@@ -46,6 +46,7 @@ contract FunctionsOracle is
   function initialize() public initializer {
     __OCR2Base_initialize(true);
     __AuthorizedOriginReceiver_initialize(true);
+    fee = 0;
   }
 
   /**
