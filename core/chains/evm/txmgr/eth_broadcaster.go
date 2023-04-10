@@ -268,7 +268,9 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ethTxInsertTriggerer() {
 				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
-			eb.Trigger(ev.Payload)
+			hexAddr := ev.Payload
+			// Convert to geth Address, then to String().
+			eb.Trigger(gethcommon.HexToAddress(hexAddr).String())
 		case <-eb.chStop:
 			return
 		}
