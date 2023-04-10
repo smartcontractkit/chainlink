@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
+
 type ORM interface {
 	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
 	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, error)
-	DeleteForwarder(id int32, cleanup func(tx pg.Queryer, evmChainId int64, addr common.Address) error) error
+	DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainId int64, addr common.Address) error) error
 	FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error)
 }
 
@@ -40,7 +42,7 @@ func (o *orm) CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Fo
 // DeleteForwarder removes a forwarder address.
 // If cleanup is non-nil, it can be used to perform any chain- or contract-specific cleanup that need to happen atomically
 // on forwarder deletion.  If cleanup returns an error, forwarder deletion will be aborted.
-func (o *orm) DeleteForwarder(id int32, cleanup func(tx pg.Queryer, evmChainID int64, addr common.Address) error) (err error) {
+func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID int64, addr common.Address) error) (err error) {
 	var dest struct {
 		EvmChainId int64
 		Address    common.Address
@@ -59,18 +61,18 @@ func (o *orm) DeleteForwarder(id int32, cleanup func(tx pg.Queryer, evmChainID i
 		}
 
 		result, err2 := o.q.Exec(`DELETE FROM evm_forwarders WHERE id = $1`, id)
-		if err != nil {
+		// If the forwarder wasn't found, we still want to delete the filter.
+		// In that case, the transaction must return nil, even though DeleteForwarder
+		// will return sql.ErrNoRows
+		if err2 != nil && !errors.Is(err2, sql.ErrNoRows) {
 			return err2
 		}
 		rowsAffected, err2 = result.RowsAffected()
 
-		// If the forwarder wasn't found, we still want to delete the filter.
-		// In that case, the transaction must return nil, even though DeleteForwarder
-		// will return sql.ErrNoRows
-		return nil
+		return err2
 	})
 
-	if rowsAffected == 0 {
+	if err == nil && rowsAffected == 0 {
 		err = sql.ErrNoRows
 	}
 	return err

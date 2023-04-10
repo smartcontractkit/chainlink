@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -72,7 +73,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 
 // Delete removes an EVM Forwarder.
 func (cc *EVMForwardersController) Delete(c *gin.Context) {
-	id, err := stringutils.ToInt32(c.Param("fwdID"))
+	id, err := stringutils.ToInt64(c.Param("fwdID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -81,11 +82,15 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 	filterCleanup := func(tx pg.Queryer, evmChainID int64, addr common.Address) error {
 		chain, err2 := cc.App.GetChains().EVM.Get(big.NewInt(evmChainID))
 		if err2 != nil {
-			// If the chain id doesn't even exist, then there isn't any filter to clean up.  Returning an error
+			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
 			// here could be dangerous as it would make it impossible to delete a forwarder with an invalid chain id
 			return nil
 		}
 
+		if chain.LogPoller() == logpoller.LogPollerDisabled {
+			// handle same as non-existent chain id
+			return nil
+		}
 		return chain.LogPoller().UnregisterFilter(forwarders.FilterName(addr), tx)
 	}
 
