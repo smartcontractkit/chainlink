@@ -26,5 +26,5 @@ runs:
     - if: ${{ inputs.prod == 'true' }}
       name: Install prod dependencies
       shell: bash
-      run: pnpm i --prod
+      run: pnpm i --prod --ignore-scripts true
       working-directory: contracts

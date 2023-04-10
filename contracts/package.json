@@ -15,6 +15,7 @@
     "compile:native": "./scripts/native_solc_compile_all",
     "compile": "hardhat compile",
     "coverage": "hardhat coverage",
+    "postinstall": "pnpm clean",
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts@0.6.1 latest"
