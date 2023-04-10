@@ -38,12 +38,12 @@ type EvmNonceSyncer = NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes
 type EvmTransmitCheckerFactory = TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash]
 type EvmTxm = Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmTxManager = TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+type NullEvmTxManager = NullTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmFwdMgr = txmgrtypes.ForwarderManager[*evmtypes.Address]
 type EvmNewTx = NewTx[*evmtypes.Address]
 type EvmTx = EthTx[*evmtypes.Address, *evmtypes.TxHash]
 type EvmTxAttempt = EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]
 type EvmPriorAttempt = txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash]
-type EvmFeeEstimator = txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, *evmtypes.TxHash]
 type EvmReceipt = txmgrtypes.Receipt[*evmtypes.Receipt, *evmtypes.TxHash, *evmtypes.BlockHash]
 type EvmReceiptPlus = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 

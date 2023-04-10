@@ -17,13 +17,11 @@ import (
 func TestEthTxResource(t *testing.T) {
 	t.Parallel()
 
-	from := common.HexToAddress("0x1")
-	to := common.HexToAddress("0x2")
 	tx := txmgr.EvmTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
-		FromAddress:    evmtypes.NewAddress(from),
-		ToAddress:      evmtypes.NewAddress(to),
+		FromAddress:    evmtypes.HexToAddress("0x1"),
+		ToAddress:      evmtypes.HexToAddress("0x2"),
 		GasLimit:       uint32(5000),
 		State:          txmgr.EthTxConfirmed,
 		Value:          assets.NewEthValue(1),

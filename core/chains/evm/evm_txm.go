@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -22,13 +21,13 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) (txm txmgr.TxManager[*types.Address, *types.TxHash, *types.BlockHash],
+) (txm txmgr.EvmTxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,
 ) {
 	chainID := cfg.ChainID()
 	if !cfg.EVMRPCEnabled() {
-		txm = &txmgr.NullTxManager[*types.Address, *types.TxHash, *types.BlockHash]{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		txm = &txmgr.NullEvmTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 		return txm, nil, nil
 	}
 

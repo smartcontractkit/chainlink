@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type MockEvmTxManager = txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+
 func TestStoreRotatesFromAddresses(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -40,7 +42,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	k2, err := ks.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	fromAddresses := []ethkey.EIP55Address{k1.EIP55Address, k2.EIP55Address}
-	txm := new(txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash])
+	txm := new(MockEvmTxManager)
 	bhsAddress := common.HexToAddress("0x31Ca8bf590360B3198749f852D5c516c642846F6")
 
 	store, err := blockhash_store.NewBlockhashStore(bhsAddress, chain.Client())

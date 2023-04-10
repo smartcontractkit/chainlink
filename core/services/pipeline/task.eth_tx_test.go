@@ -36,8 +36,7 @@ func TestETHTxTask(t *testing.T) {
 
 	from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 	evmFrom := evmtypes.NewAddress(from)
-	to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
-	evmTo := evmtypes.NewAddress(to)
+	evmTo := evmtypes.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 
 	tests := []struct {
 		name                  string

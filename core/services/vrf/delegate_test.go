@@ -45,6 +45,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type MockTxManager = txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+
 type vrfUniverse struct {
 	jrm       job.ORM
 	pr        pipeline.Runner
@@ -54,7 +56,7 @@ type vrfUniverse struct {
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	txm       *MockTxManager
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int

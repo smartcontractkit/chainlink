@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -87,7 +86,7 @@ func (s nonceSyncerImpl) Sync(ctx context.Context, addr *evmtypes.Address) (err 
 }
 
 func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address evmtypes.Address) error {
-	chainNonce, err := s.pendingNonceFromEthClient(ctx, *address.NativeAddress())
+	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
 	if err != nil {
 		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
@@ -137,7 +136,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 	return err
 }
 
-func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
-	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
+func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account evmtypes.Address) (nextNonce uint64, err error) {
+	nextNonce, err = s.ethClient.PendingNonceAt(ctx, *account.NativeAddress())
 	return nextNonce, errors.WithStack(err)
 }

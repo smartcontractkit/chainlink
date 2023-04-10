@@ -10,14 +10,14 @@ import (
 	"github.com/pkg/errors"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	types2 "github.com/smartcontractkit/chainlink/v2/common/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type TxAttemptSigner[ADDR types2.Hashable] interface {
+type TxAttemptSigner[ADDR commontypes.Hashable] interface {
 	SignTx(fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 

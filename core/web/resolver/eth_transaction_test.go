@@ -62,8 +62,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmStorageService.On("FindEthTxByHash", hash).Return(&txmgr.EvmTx{
 					ID:             1,
-					ToAddress:      evmtypes.NewAddress(common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")),
-					FromAddress:    evmtypes.NewAddress(common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")),
+					ToAddress:      evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					FromAddress:    evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					GasLimit:       100,
@@ -118,8 +118,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 
 				f.Mocks.txmStorageService.On("FindEthTxByHash", hash).Return(&txmgr.EvmTx{
 					ID:             1,
-					ToAddress:      evmtypes.NewAddress(common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")),
-					FromAddress:    evmtypes.NewAddress(common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")),
+					ToAddress:      evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					FromAddress:    evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					GasLimit:       100,
@@ -246,8 +246,8 @@ func TestResolver_EthTransactions(t *testing.T) {
 				f.Mocks.txmStorageService.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EvmTx{
 					{
 						ID:             1,
-						ToAddress:      evmtypes.NewAddress(common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")),
-						FromAddress:    evmtypes.NewAddress(common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")),
+						ToAddress:      evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+						FromAddress:    evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						State:          txmgr.EthTxInProgress,
 						EncodedPayload: []byte("encoded payload"),
 						GasLimit:       100,

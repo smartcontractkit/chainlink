@@ -105,7 +105,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) runLoop() {
 }
 
 func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
-	keys, err := er.ks.EnabledAddressesForChain(&er.chainID)
+	enabledAddresses, err := er.ks.EnabledAddressesForChain(&er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}
@@ -113,7 +113,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []EthTxAttempt[ADDR, TX_HASH]
-	for _, k := range keys {
+	for _, k := range enabledAddresses {
 		var attempts []EthTxAttempt[ADDR, TX_HASH]
 		attempts, err = er.txStorageService.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {

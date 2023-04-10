@@ -646,7 +646,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		3.6e7,            // 3.6e7 microLINK, or 36 LINK
 		1e8,              // _linkGweiPerObservation uint32,
 		4e8,              // _linkGweiPerTransmission uint32,
-		linkTokenAddress, //_link common.evmHashable,
+		linkTokenAddress, //_link common.Address,
 		min,              // -2**191
 		max,              // 2**191 - 1
 		accessAddress,

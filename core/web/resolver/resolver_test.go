@@ -35,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
+type MockEvmTxStorageService = txmgrtypesMocks.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+
 type mocks struct {
 	bridgeORM         *bridgeORMMocks.ORM
 	evmORM            *evmtest.TestConfigs
@@ -57,7 +59,7 @@ type mocks struct {
 	ethClient         *evmClientMocks.Client
 	eIMgr             *webhookmocks.ExternalInitiatorManager
 	balM              *evmORMMocks.BalanceMonitor
-	txmStorageService *txmgrtypesMocks.TxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+	txmStorageService *MockEvmTxStorageService
 	auditLogger       *audit.AuditLoggerService
 }
 

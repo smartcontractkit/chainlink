@@ -546,8 +546,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	eb, err := NewTestEthBroadcaster(t, txStorageService, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
 	require.NoError(t, err)
 
-	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
-	evmToAddress := evmtypes.NewAddress(toAddress)
+	evmToAddress := evmtypes.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	gasLimit := uint32(242)
 
 	t.Run("when transmit checking times out, sends tx as normal", func(t *testing.T) {
@@ -739,7 +738,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 
 	tx := txmgr.EvmTx{
 		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")),
+		ToAddress:      evmtypes.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411"),
 		EncodedPayload: []byte{42, 42, 0},
 		Value:          assets.NewEthValue(242),
 		GasLimit:       1231,
@@ -1063,8 +1062,7 @@ func getLocalNextNonce(t *testing.T, kst keystore.Eth, fromAddress gethCommon.Ad
 // multiple runs with previous errors in the database.
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	var err error
-	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
-	evmToAddress := evmtypes.NewAddress(toAddress)
+	evmToAddress := evmtypes.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := assets.NewEthValue(142)
 	gasLimit := uint32(242)
 	encodedPayload := []byte{0, 1}
