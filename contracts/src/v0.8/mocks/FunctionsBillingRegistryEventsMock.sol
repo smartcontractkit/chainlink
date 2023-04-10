@@ -8,7 +8,7 @@ contract FunctionsBillingRegistryEventsMock {
     event AuthorizedSendersChanged(address[] senders,address changedBy);
     event BillingEnd(bytes32 indexed requestId,uint64 subscriptionId,uint96 signerPayment,uint96 transmitterPayment,uint96 totalCost,bool success);
     event BillingStart(bytes32 indexed requestId,Commitment commitment);
-    event ConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead);
+    event ConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead,uint96 fee);
     event FundsRecovered(address to,uint256 amount);
     event Initialized(uint8 version);
     event OwnershipTransferRequested(address indexed from,address indexed to);
@@ -32,8 +32,8 @@ contract FunctionsBillingRegistryEventsMock {
     function emitBillingStart(bytes32 requestId,Commitment memory commitment) public {
         emit BillingStart(requestId,commitment);
     }
-    function emitConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead) public {
-        emit ConfigSet(maxGasLimit,stalenessSeconds,gasAfterPaymentCalculation,fallbackWeiPerUnitLink,gasOverhead);
+    function emitConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead,uint96 fee) public {
+        emit ConfigSet(maxGasLimit,stalenessSeconds,gasAfterPaymentCalculation,fallbackWeiPerUnitLink,gasOverhead,fee);
     }
     function emitFundsRecovered(address to,uint256 amount) public {
         emit FundsRecovered(to,amount);
