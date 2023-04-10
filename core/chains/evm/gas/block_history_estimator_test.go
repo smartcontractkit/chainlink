@@ -1869,7 +1869,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	)
 
 	attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash]{
-		&MockAttempt{TxType: 0x0, Hash: evmtypes.NewTxHash(utils.NewHash())},
+		&MockAttempt{TxType: 0x0, Hash: NewEvmHash()},
 	}
 
 	t.Run("skips connectivity check if latest block is not present", func(t *testing.T) {
