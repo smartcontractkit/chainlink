@@ -119,13 +119,13 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	borm := cltest.NewTxmORM(t, db, logCfg)
+	txStore := cltest.NewTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	er := txmgr.NewEthResender(lggr, borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+	er := txmgr.NewEthResender(lggr, txStore, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 	t.Run("alerts only once for unconfirmed transaction attempt within the unconfirmedTxAlertDelay duration", func(t *testing.T) {
-		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(1), fromAddress, originalBroadcastAt)
+		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
 
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil)
 
@@ -135,8 +135,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 		err2 := er.ResendUnconfirmed()
 		require.NoError(t, err2)
-		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been uncofirmed for more than: ", 1)
-
+		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been unconfirmed for more than: ", 1)
 	})
 }
 

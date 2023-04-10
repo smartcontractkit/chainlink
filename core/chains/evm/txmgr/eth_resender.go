@@ -22,8 +22,8 @@ import (
 // EthTxResendAfterThreshold that we will wait before resending an attempt
 const DefaultResenderPollInterval = 5 * time.Second
 
-// Longest duration to wait before logging an alert
-const unconfirmedTxAlertDelay = 2 * time.Minute
+// Alert interval for unconfirmed transaction attempts
+const unconfirmedTxAlertLogFrequency = 2 * time.Minute
 
 // EthResender periodically picks up transactions that have been languishing
 // unconfirmed for a configured amount of time without being sent, and sends
@@ -34,13 +34,13 @@ const unconfirmedTxAlertDelay = 2 * time.Minute
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
-	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
-	ethClient evmclient.Client
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
-	chainID   big.Int
-	interval  time.Duration
-	config    Config
-	logger    logger.Logger
+	txStore             txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	ethClient           evmclient.Client
+	ks                  txmgrtypes.KeyStore[ADDR, *big.Int, int64]
+	chainID             big.Int
+	interval            time.Duration
+	config              Config
+	logger              logger.Logger
 	lastAlertTimestamps map[string]time.Time
 
 	ctx    context.Context
@@ -124,17 +124,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
-		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
-		if exists {
-			// Wait at least 2 times the EthTxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
-			if (time.Since(oldestAttempt.CreatedAt) > er.config.EthTxResendAfterThreshold()*2) &&
-				time.Since(er.lastAlertTimestamps[k.String()]) >= unconfirmedTxAlertDelay {
-				er.lastAlertTimestamps[k.String()] = time.Now()
-				er.logger.Criticalw("TxAttempt has been uncofirmed for more than: ", er.config.EthTxResendAfterThreshold()*2,
-					"txID", oldestAttempt.EthTxID, "GasPrice", oldestAttempt.GasPrice, "GasTipCap", oldestAttempt.GasTipCap, "GasFeeCap", oldestAttempt.GasFeeCap,
-					"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash)
-			}
-		}
+		er.logStuckAttempts(attempts, k)
 
 		allAttempts = append(allAttempts, attempts...)
 	}
@@ -171,6 +161,21 @@ func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 		}
 	}
 	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
+}
+
+func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) logStuckAttempts(attempts []EthTxAttempt[ADDR, TX_HASH], fromAddress ADDR) {
+	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
+		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
+		if exists {
+			// Wait at least 2 times the EthTxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
+			if time.Since(oldestAttempt.CreatedAt) > er.config.EthTxResendAfterThreshold()*2 {
+				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
+				er.logger.Errorw("TxAttempt has been unconfirmed for more than: ", er.config.EthTxResendAfterThreshold()*2,
+					"txID", oldestAttempt.EthTxID, "GasPrice", oldestAttempt.GasPrice, "GasTipCap", oldestAttempt.GasTipCap, "GasFeeCap", oldestAttempt.GasFeeCap,
+					"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash, "fromAddress", fromAddress)
+			}
+		}
+	}
 }
 
 func findOldestUnconfirmedAttempt[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](attempts []EthTxAttempt[ADDR, TX_HASH]) (EthTxAttempt[ADDR, TX_HASH], bool) {
