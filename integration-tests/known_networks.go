@@ -186,6 +186,17 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	Quorum = blockchain.EVMNetwork{
+		Name:                      "Quorum",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   1337,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
 	mappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -201,6 +212,7 @@ var (
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
 		"AVALANCHE_FUJI":  Avalanche,
+		"QUORUM":          Quorum,
 	}
 )
 
