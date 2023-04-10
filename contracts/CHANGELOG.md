@@ -12,6 +12,7 @@
 - Functions library uses solidty-cborutils CBOR v2.0.0 and ENS Buffer v0.1.0(#8485)
 - Gas optimization to AuthorizedOriginReceiverUpgradable by using EnumberableSet .values()
 - Remove support for inline secrets in Functions requests
+- Functions Oracle & Billing Registry hold static fee amount as config 
 
 ## 0.6.1 - 2023-02-06
 
