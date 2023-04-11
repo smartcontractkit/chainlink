@@ -1033,7 +1033,7 @@ func (m *KeyedMutex) LockInt64(key int64) func() {
 	mtx := value.(*sync.Mutex)
 	mtx.Lock()
 
-	return func() { mtx.Unlock() }
+	return mtx.Unlock
 }
 
 // BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of

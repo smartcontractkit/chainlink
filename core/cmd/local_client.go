@@ -81,15 +81,15 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Action: client.RebroadcastTransactions,
 			Flags: []cli.Flag{
 				cli.Uint64Flag{
-					Name:  "beginningNonce, b",
+					Name:  "beginningNonce, beginning-nonce, b",
 					Usage: "beginning of nonce range to rebroadcast",
 				},
 				cli.Uint64Flag{
-					Name:  "endingNonce, e",
+					Name:  "endingNonce, ending-nonce, e",
 					Usage: "end of nonce range to rebroadcast (inclusive)",
 				},
 				cli.Uint64Flag{
-					Name:  "gasPriceWei, g",
+					Name:  "gasPriceWei, gas-price-wei, g",
 					Usage: "gas price (in Wei) to rebroadcast transactions at",
 				},
 				cli.StringFlag{
@@ -102,11 +102,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Required: true,
 				},
 				cli.StringFlag{
-					Name:  "evmChainID",
+					Name:  "evmChainID, evm-chain-id",
 					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
 				},
 				cli.Uint64Flag{
-					Name:  "gasLimit",
+					Name:  "gasLimit, gas-limit",
 					Usage: "OPTIONAL: gas limit to use for each transaction ",
 				},
 			},
@@ -583,6 +583,10 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	err = keyStore.Unlock(cli.Config.KeystorePassword())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
+	}
+
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
+		return cli.errorOut(err)
 	}
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
