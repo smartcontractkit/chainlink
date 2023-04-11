@@ -57,7 +57,7 @@ var (
 
 var errEthTxRemoved = errors.New("eth_tx removed")
 
-type ProcessUnstartedEthTxs[ADDR types.Hashable[ADDR]] func(ctx context.Context, fromAddress ADDR) (err error, retryable bool)
+type ProcessUnstartedEthTxs[ADDR types.Hashable[ADDR]] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
@@ -316,7 +316,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) monitorEthTxs(addr ADDR, tr
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		err, retryable := eb.processUnstartedEthTxsImpl(ctx, addr)
+		retryable, err := eb.processUnstartedEthTxsImpl(ctx, addr)
 		if err != nil {
 			eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
 		}
@@ -384,7 +384,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SyncNonce(ctx context.Conte
 
 // ProcessUnstartedEthTxs picks up and handles all eth_txes in the queue
 // revive:disable:error-return
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ProcessUnstartedEthTxs(ctx context.Context, addr ADDR) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ProcessUnstartedEthTxs(ctx context.Context, addr ADDR) (retryable bool, err error) {
 	return eb.processUnstartedEthTxs(ctx, addr)
 }
 
@@ -392,7 +392,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ProcessUnstartedEthTxs(ctx 
 // result in undefined state or deadlocks.
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) processUnstartedEthTxs(ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) processUnstartedEthTxs(ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
 	var n uint
 	mark := time.Now()
 	defer func() {
@@ -403,53 +403,53 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) processUnstartedEthTxs(ctx 
 
 	err, retryable = eb.handleAnyInProgressEthTx(ctx, fromAddress)
 	if err != nil {
-		return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx"), retryable
+		return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := eb.txStorageService.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {
-				return errors.Wrap(err, "CountUnconfirmedTransactions failed"), true
+				return true, errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
 				nUnstarted, err := eb.txStorageService.CountUnstartedTransactions(fromAddress, eb.chainID)
 				if err != nil {
-					return errors.Wrap(err, "CountUnstartedTransactions failed"), true
+					return true, errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
 				eb.logger.Warnw(fmt.Sprintf(`Transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, nUnstarted, maxInFlightTransactions, label.MaxInFlightTransactionsWarning), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
 				select {
 				case <-time.After(InFlightTransactionRecheckInterval):
 				case <-ctx.Done():
-					return context.Cause(ctx), false
+					return false, context.Cause(ctx)
 				}
 				continue
 			}
 		}
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on nextUnstartedTransactionWithNonce"), true
+			return true, errors.Wrap(err, "processUnstartedEthTxs failed on nextUnstartedTransactionWithNonce")
 		}
 		if etx == nil {
-			return nil, false
+			return false, nil
 		}
 		n++
 		var a EthTxAttempt[ADDR, TX_HASH]
 		var retryable bool
 		a, _, _, retryable, err = eb.NewTxAttempt(ctx, *etx, eb.logger)
 		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), retryable
+			return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt")
 		}
 
 		if err := eb.txStorageService.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on UpdateEthTxUnstartedToInProgress"), true
+			return true, errors.Wrap(err, "processUnstartedEthTxs failed on UpdateEthTxUnstartedToInProgress")
 		}
 
 		if err, retryable := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx"), retryable
+			return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 		}
 	}
 }

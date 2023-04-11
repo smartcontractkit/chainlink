@@ -7,8 +7,8 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-func processUnstartedEthTxsNoOp[ADDR types.Hashable[ADDR]](ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
-	return nil, false
+func processUnstartedEthTxsNoOp[ADDR types.Hashable[ADDR]](ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
+	return false, nil
 }
 
 func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EvmConfirmer) {
