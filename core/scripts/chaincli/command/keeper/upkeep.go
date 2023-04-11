@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 

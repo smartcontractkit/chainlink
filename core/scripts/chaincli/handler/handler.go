@@ -30,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	link "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -64,7 +65,7 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	// Created a client by the given node address
 	rpcClient, err := rpc.Dial(cfg.NodeURL)
 	if err != nil {
-		log.Fatal("failed to deal with ETH node", err)
+		log.Fatal("failed to deal with ETH node: ", err)
 	}
 	nodeClient := ethclient.NewClient(rpcClient)
 
