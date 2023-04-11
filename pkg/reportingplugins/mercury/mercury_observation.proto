@@ -12,4 +12,10 @@ message MercuryObservationProto {
     int64 currentBlockNum = 5;
     bytes currentBlockHash = 6;
     int64 validFromBlockNum = 7;
+    bool benchmarkPriceValid = 8;
+    bool bidValid = 9;
+    bool askValid = 10;
+    bool currentBlockNumValid = 11;
+    bool currentBlockHashValid = 12;
+    bool validFromBlockNumValid = 13;
 }

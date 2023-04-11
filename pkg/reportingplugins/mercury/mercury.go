@@ -3,6 +3,7 @@ package mercury
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -12,7 +13,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/runtime/protoimpl"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -100,13 +100,17 @@ func (c OffchainConfig) Encode() []byte {
 	return []byte{}
 }
 
+type ObsResult[T any] struct {
+	Val T
+	Err error
+}
+
 type Observation struct {
-	BenchmarkPrice    *big.Int
-	Bid               *big.Int
-	Ask               *big.Int
-	CurrentBlockNum   int64
-	CurrentBlockHash  []byte
-	ValidFromBlockNum int64
+	BenchmarkPrice   ObsResult[*big.Int]
+	Bid              ObsResult[*big.Int]
+	Ask              ObsResult[*big.Int]
+	CurrentBlockNum  ObsResult[int64]
+	CurrentBlockHash ObsResult[[]byte]
 }
 
 // DataSource implementations must be thread-safe. Observe may be called by many
@@ -300,39 +304,67 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		return nil, pkgerrors.Errorf("DataSource.Observe returned an error: %s", err)
 	}
 
-	maxFinalizedBlockNumber := rp.maxFinalizedBlockNumber.Load()
-	if maxFinalizedBlockNumber == unfetchedInitialMaxFinalizedBlockNumber {
-		return nil, errors.New("initial maxFinalizedBlockNumber has not yet been fetched")
-	} else if obs.CurrentBlockNum < maxFinalizedBlockNumber {
-		return nil, pkgerrors.Errorf("curent block number %d (hash: 0x%x) < max finalized block number %d; ignoring observation for out-of-date RPC", obs.CurrentBlockNum, obs.CurrentBlockHash, maxFinalizedBlockNumber)
-	}
-	// NOTE: obs.CurrentBlockNum == maxFinalizedBlockNumber is ok here
-	// (multiple observations for the same block number) since it will be
-	// de-duplicated in the Report stage
+	p := MercuryObservationProto{Timestamp: uint32(time.Now().Unix())}
 
-	benchmarkPrice, bpErr := EncodeValueInt192(obs.BenchmarkPrice)
-	bid, bidErr := EncodeValueInt192(obs.Bid)
-	ask, askErr := EncodeValueInt192(obs.Ask)
-	err = multierr.Combine(bpErr, bidErr, askErr)
-
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "encode failed")
+	var obsErrors []error
+	if maxFinalizedBlockNumber := rp.maxFinalizedBlockNumber.Load(); maxFinalizedBlockNumber == unfetchedInitialMaxFinalizedBlockNumber {
+		obsErrors = append(obsErrors, errors.New("failed to observe ValidFromBlockNum; initial maxFinalizedBlockNumber has not yet been fetched from the mercury server"))
+	} else if obs.CurrentBlockNum.Err == nil && obs.CurrentBlockNum.Val < maxFinalizedBlockNumber {
+		obsErrors = append(obsErrors, pkgerrors.Errorf("failed to observe ValidFromBlockNum; current block number %d (hash: 0x%x) < max finalized block number %d; ignoring observation for out-of-date RPC", obs.CurrentBlockNum, obs.CurrentBlockHash, maxFinalizedBlockNumber))
+	} else {
+		// NOTE: obs.CurrentBlockNum == maxFinalizedBlockNumber is ok here
+		// (multiple observations for the same block number) since it will be
+		// de-duplicated in the Report stage
+		p.ValidFromBlockNum = maxFinalizedBlockNumber + 1
+		p.ValidFromBlockNumValid = true
 	}
 
-	return proto.Marshal(&MercuryObservationProto{
-		// zero-initialize protobuf built-ins
-		protoimpl.MessageState{},
-		0,
-		nil,
-		// fields
-		uint32(time.Now().Unix()),
-		benchmarkPrice,
-		bid,
-		ask,
-		obs.CurrentBlockNum,
-		obs.CurrentBlockHash,
-		maxFinalizedBlockNumber + 1,
-	})
+	if obs.BenchmarkPrice.Err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.BenchmarkPrice.Err, "failed to observe BenchmarkPrice"))
+	} else if benchmarkPrice, err := EncodeValueInt192(obs.BenchmarkPrice.Val); err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(err, "failed to observe BenchmarkPrice; encoding failed"))
+	} else {
+		p.BenchmarkPrice = benchmarkPrice
+		p.BenchmarkPriceValid = true
+	}
+
+	if obs.Bid.Err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.Bid.Err, "failed to observe Bid"))
+	} else if bid, err := EncodeValueInt192(obs.Bid.Val); err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(err, "failed to observe Bid; encoding failed"))
+	} else {
+		p.Bid = bid
+		p.BidValid = true
+	}
+
+	if obs.Ask.Err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.Ask.Err, "failed to observe Ask"))
+	} else if bid, err := EncodeValueInt192(obs.Ask.Val); err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(err, "failed to observe Ask; encoding failed"))
+	} else {
+		p.Ask = bid
+		p.AskValid = true
+	}
+
+	if obs.CurrentBlockNum.Err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.CurrentBlockNum.Err, "failed to observe CurrentBlockNum"))
+	} else {
+		p.CurrentBlockNum = obs.CurrentBlockNum.Val
+		p.CurrentBlockNumValid = true
+	}
+
+	if obs.CurrentBlockHash.Err != nil {
+		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.CurrentBlockHash.Err, "failed to observe CurrentBlockHash"))
+	} else {
+		p.CurrentBlockHash = obs.CurrentBlockHash.Val
+		p.CurrentBlockHashValid = true
+	}
+
+	if len(obsErrors) > 0 {
+		rp.logger.Warnw(fmt.Sprintf("Observe failed %d/6 observations", len(obsErrors)), "err", errors.Join(obsErrors...))
+	}
+
+	return proto.Marshal(&p)
 }
 
 type ParsedAttributedObservation struct {
