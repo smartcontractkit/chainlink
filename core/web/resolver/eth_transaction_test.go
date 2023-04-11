@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {
@@ -80,7 +80,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					},
 				}, nil)
 				f.App.On("TxmORM").Return(f.Mocks.txmORM)
-				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     query,
@@ -136,7 +136,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					},
 				}, nil)
 				f.App.On("TxmORM").Return(f.Mocks.txmORM)
-				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     query,

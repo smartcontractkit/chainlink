@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestJobPresenter_RenderTable(t *testing.T) {
@@ -216,6 +216,18 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 				JobResource: presenters.JobResource{
 					Type: presenters.BlockhashStoreJobSpec,
 					BlockhashStoreSpec: &presenters.BlockhashStoreSpec{
+						CreatedAt: now,
+					},
+				},
+			},
+			now.Format(time.RFC3339),
+		},
+		{
+			"gets the blockheaderfeeder spec created at timestamp",
+			&cmd.JobPresenter{
+				JobResource: presenters.JobResource{
+					Type: presenters.BlockHeaderFeederJobSpec,
+					BlockHeaderFeederSpec: &presenters.BlockHeaderFeederSpec{
 						CreatedAt: now,
 					},
 				},

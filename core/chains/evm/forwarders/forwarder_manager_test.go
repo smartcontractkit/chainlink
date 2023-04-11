@@ -10,19 +10,19 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"]
@@ -68,7 +68,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
-	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
+	addr, err := fwdMgr.ForwarderFor(owner.From)
 	require.NoError(t, err)
 	require.Equal(t, addr, forwarderAddr)
 	err = fwdMgr.Close()
@@ -109,7 +109,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 
 	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
-	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
+	addr, err := fwdMgr.ForwarderFor(owner.From)
 	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
 	require.Equal(t, addr, common.Address{})
 	err = fwdMgr.Close()

@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +36,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	// add second tx attempt for tx2
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
-	attempt.State = txmgr.EthTxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	attempt.GasPrice = assets.NewWeiI(3)
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))

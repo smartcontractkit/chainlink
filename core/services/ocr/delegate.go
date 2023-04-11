@@ -15,18 +15,19 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Delegate struct {
@@ -76,9 +77,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {}
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the OCR services that need to run for this job
 func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
@@ -156,7 +158,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		// ParseBootstrapPeers() does not distinguish between no p2pv2Bootstrappers field
 		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
 		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
-		//  in P2PV2_BOOTSTRAPPERS config var.  Only a non-empty list will override the default list.
+		//  in P2P.V2.DefaultBootstrappers config var.  Only a non-empty list will override the default list.
 		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
 	}
 
@@ -296,6 +298,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				*jb.PipelineSpec,
 				lggr,
 				runResults,
+				d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA),
 			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
@@ -314,6 +317,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		oracleCtx := job.NewServiceAdapter(oracle)
 		services = append(services, oracleCtx)
 
+		if !jb.OCROracleSpec.CaptureEATelemetry {
+			lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
+		}
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
@@ -335,7 +341,7 @@ func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Ch
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
 		if err != nil {
 			return nil, errors.Wrapf(err,
-				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",
+				"OCR: unable to create Flags contract instance, check address: %s or remove EVM.FlagsContractAddress configuration variable",
 				flagsContractAddress,
 			)
 		}

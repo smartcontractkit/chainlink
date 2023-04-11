@@ -13,10 +13,10 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestClient_CreateUser(t *testing.T) {
@@ -86,7 +86,7 @@ func TestClient_ChangeRole(t *testing.T) {
 			cltest.FlagSetApplyFromAction(client.ChangeRole, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
-			require.NoError(t, set.Set("newrole", test.role))
+			require.NoError(t, set.Set("new-role", test.role))
 			c := cli.NewContext(nil, set, nil)
 			if test.err != "" {
 				assert.ErrorContains(t, client.ChangeRole(c), test.err)

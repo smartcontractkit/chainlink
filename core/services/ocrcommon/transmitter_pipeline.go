@@ -7,10 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 const txObservationSource = `
@@ -31,7 +32,7 @@ type pipelineTransmitter struct {
 	fromAddress                 common.Address
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
-	strategy                    txmgr.TxStrategy
+	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	pr                          pipeline.Runner
 	spec                        job.Job
@@ -44,7 +45,7 @@ func NewPipelineTransmitter(
 	fromAddress common.Address,
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
-	strategy txmgr.TxStrategy,
+	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	pr pipeline.Runner,
 	spec job.Job,
@@ -63,7 +64,7 @@ func NewPipelineTransmitter(
 	}
 }
 
-func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, _ *txmgr.EthTxMeta) error {
 	// t.strategy is ignored currently as pipeline does not support passing this (sc-55115)
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{

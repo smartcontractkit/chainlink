@@ -7,8 +7,8 @@ import (
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -18,10 +18,10 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type PeerWrapperConfig interface {
@@ -69,18 +69,18 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 	switch config.P2PNetworkingStack() {
 	case ocrnetworking.NetworkingStackV1:
 		if config.P2PListenPort() == 0 {
-			return errors.New("networking stack v1 selected but no P2P_LISTEN_PORT specified")
+			return errors.New("networking stack v1 selected but no P2P.V1.ListenPort specified")
 		}
 	case ocrnetworking.NetworkingStackV2:
 		if len(config.P2PV2ListenAddresses()) == 0 {
-			return errors.New("networking stack v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
+			return errors.New("networking stack v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	case ocrnetworking.NetworkingStackV1V2:
 		if config.P2PListenPort() == 0 {
-			return errors.New("networking stack v1v2 selected but no P2P_LISTEN_PORT specified")
+			return errors.New("networking stack v1v2 selected but no P2P.V1.ListenPort specified")
 		}
 		if len(config.P2PV2ListenAddresses()) == 0 {
-			return errors.New("networking stack v1v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
+			return errors.New("networking stack v1v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	default:
 		return errors.New("unknown networking stack")

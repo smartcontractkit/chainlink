@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
 var (
@@ -27,6 +27,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var AuthorizedForwarderMetaData = &bind.MetaData{
@@ -139,11 +140,11 @@ func NewAuthorizedForwarderFilterer(address common.Address, filterer bind.Contra
 }
 
 func bindAuthorizedForwarder(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(AuthorizedForwarderABI))
+	parsed, err := AuthorizedForwarderMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_AuthorizedForwarder *AuthorizedForwarderRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

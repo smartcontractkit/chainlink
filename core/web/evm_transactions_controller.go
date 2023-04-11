@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -30,7 +30,8 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 
 // Show returns the details of a Ethereum Transaction details.
 // Example:
-//  "<application>/transactions/:TxHash"
+//
+//	"<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 

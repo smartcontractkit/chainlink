@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func Test_LookupTask(t *testing.T) {
