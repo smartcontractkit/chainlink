@@ -57,6 +57,8 @@ var (
 
 var errEthTxRemoved = errors.New("eth_tx removed")
 
+type ProcessUnstartedEthTxs[ADDR types.Hashable[ADDR]] func(ctx context.Context, fromAddress ADDR) (err error, retryable bool)
+
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
@@ -100,8 +102,9 @@ type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], 
 	// when Start is called
 	autoSyncNonce bool
 
-	ethTxInsertListener pg.Subscription
-	eventBroadcaster    pg.EventBroadcaster
+	ethTxInsertListener        pg.Subscription
+	eventBroadcaster           pg.EventBroadcaster
+	processUnstartedEthTxsImpl ProcessUnstartedEthTxs[ADDR]
 
 	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	enabledAddresses []ADDR
@@ -119,9 +122,6 @@ type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], 
 	initSync  sync.Mutex
 	isStarted bool
 	utils.StartStopOnce
-
-	// This is set to true by unit-tests, otherwise always false
-	isUnitTestInstance bool
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
@@ -208,10 +208,6 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Close() error {
 	return eb.StopOnce("EthBroadcaster", func() error {
 		return eb.closeInternal()
 	})
-}
-
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SetIsUnitTest() {
-	eb.isUnitTestInstance = true
 }
 
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) closeInternal() error {
@@ -317,21 +313,24 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) monitorEthTxs(addr ADDR, tr
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		// Skip processing new txs for unit-tests, as they will invoke ProcessUnstartedEthTxs on-demand from individual tests
-		if !eb.isUnitTestInstance {
-			err, retryable := eb.processUnstartedEthTxs(ctx, addr)
-			if err != nil {
-				eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
-			}
-			// On retryable errors we implement exponential backoff retries. This
-			// handles intermittent connectivity, remote RPC races, timing issues etc
-			if retryable {
-				pollDBTimer.Reset(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
-				errorRetryCh = time.After(bf.Duration())
-			} else {
-				bf = eb.newResendBackoff()
-				errorRetryCh = nil
-			}
+		var err error
+		var retryable bool
+		if eb.processUnstartedEthTxsImpl != nil {
+			err, retryable = eb.processUnstartedEthTxsImpl(ctx, addr)
+		} else {
+			err, retryable = eb.processUnstartedEthTxs(ctx, addr)
+		}
+		if err != nil {
+			eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
+		}
+		// On retryable errors we implement exponential backoff retries. This
+		// handles intermittent connectivity, remote RPC races, timing issues etc
+		if retryable {
+			pollDBTimer.Reset(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
+			errorRetryCh = time.After(bf.Duration())
+		} else {
+			bf = eb.newResendBackoff()
+			errorRetryCh = nil
 		}
 
 		select {

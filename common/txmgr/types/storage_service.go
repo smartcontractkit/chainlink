@@ -14,15 +14,27 @@ import (
 //
 //go:generate mockery --quiet --name TxStorageService --output ./mocks/ --case=underscore
 type TxStorageService[
+	// Represents an account address, in native chain format. TODO: Should implement Hashable
 	ADDR any,
+	// Represents a chain id to be used for the chain.
 	CHAINID any,
+	// Represents a unique Tx Hash for a chain
 	TX_HASH types.Hashable[TX_HASH],
+	// Represents a unique Tx Hash for a chain
 	BLOCK_HASH types.Hashable[BLOCK_HASH],
 	NEWTX any,
+	// Represents a onchain receipt object that a chain's RPC returns
 	R any,
+	// Represents a tx object that is used by the TXM
+	// TODO: Remove
 	TX any,
+	// Represents a tx attempt object that is used by the TXM
+	// TODO: Remove
 	TXATTEMPT any,
+	// Represents a unique tx id for the Chainlink Node.
+	// TODO: Remove
 	TXID any,
+	// Represents the sequence type for a chain. For example, nonce for EVM.
 	TXMETA any,
 ] interface {
 	UnstartedTxQueuePruner

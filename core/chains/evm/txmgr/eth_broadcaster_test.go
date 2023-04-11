@@ -69,7 +69,7 @@ func NewTestEthBroadcaster(
 	ethBroadcaster := txmgr.NewEthBroadcaster(txStorageService, ethClient, config, keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
-	txmgr.SetIsUnitTestInstanceOnBroadcaster(ethBroadcaster)
+	txmgr.DisableUnstartedEthTxAutoProcessingOnBroadcaster(ethBroadcaster)
 	err = ethBroadcaster.Start(testutils.Context(t))
 	return ethBroadcaster, err
 }
@@ -679,7 +679,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		&testCheckerFactory{},
 		false,
 	)
-	txmgr.SetIsUnitTestInstanceOnBroadcaster(eb)
+	txmgr.DisableUnstartedEthTxAutoProcessingOnBroadcaster(eb)
 
 	etx := txmgr.EvmTx{
 		FromAddress:    evmtypes.NewAddress(fromAddress),
@@ -2043,7 +2043,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, estimator)
 		txNonceSyncer := txmgr.NewNonceSyncer(txStorageService, lggr, ethClient, kst)
 		eb := txmgr.NewEthBroadcaster(txStorageService, ethClient, evmcfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
-		txmgr.SetIsUnitTestInstanceOnBroadcaster(eb)
+		txmgr.DisableUnstartedEthTxAutoProcessingOnBroadcaster(eb)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
