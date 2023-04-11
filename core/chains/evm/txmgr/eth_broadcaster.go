@@ -139,7 +139,7 @@ func NewEthBroadcaster(
 ) *EvmBroadcaster {
 
 	logger = logger.Named("EthBroadcaster")
-	return &EvmBroadcaster{
+	b := &EvmBroadcaster{
 		logger:           logger,
 		txStorageService: txStorageService,
 		ethClient:        ethClient,
@@ -154,6 +154,9 @@ func NewEthBroadcaster(
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
 	}
+
+	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
+	return b
 }
 
 // Start starts EthBroadcaster service.
@@ -313,13 +316,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) monitorEthTxs(addr ADDR, tr
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		var err error
-		var retryable bool
-		if eb.processUnstartedEthTxsImpl != nil {
-			err, retryable = eb.processUnstartedEthTxsImpl(ctx, addr)
-		} else {
-			err, retryable = eb.processUnstartedEthTxs(ctx, addr)
-		}
+		err, retryable := eb.processUnstartedEthTxsImpl(ctx, addr)
 		if err != nil {
 			eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
 		}
