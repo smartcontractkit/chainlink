@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.6;
 
+import "./ChainSpecificUtil.sol";
+
 /**
  * @title BlockhashStore
  * @notice This contract provides a way to access blockhashes older than
  *   the 256 block limit imposed by the BLOCKHASH opcode.
  *   You may assume that any blockhash stored by the contract is correct.
  *   Note that the contract depends on the format of serialized Ethereum
- *   blocks. If a future hardfork of Ethereum changes that format, the 
- *   logic in this contract may become incorrect and an updated version 
+ *   blocks. If a future hardfork of Ethereum changes that format, the
+ *   logic in this contract may become incorrect and an updated version
  *   would have to be deployed.
  */
 contract BlockhashStore {
@@ -20,7 +22,7 @@ contract BlockhashStore {
    * @param n the number of the block whose blockhash should be stored
    */
   function store(uint256 n) public {
-    bytes32 h = blockhash(n);
+    bytes32 h = ChainSpecificUtil.getBlockhash(n);
     require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
   }
@@ -30,7 +32,7 @@ contract BlockhashStore {
    * @notice stores blockhash of the earliest block still available through BLOCKHASH.
    */
   function storeEarliest() external {
-    store(block.number - 256);
+    store(ChainSpecificUtil.getBlockNumber() - 256);
   }
 
   /**
