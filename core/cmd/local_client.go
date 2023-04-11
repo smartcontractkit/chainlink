@@ -585,7 +585,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
