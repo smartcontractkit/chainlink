@@ -25,6 +25,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var VRFMaliciousConsumerV2MetaData = &bind.MetaData{
@@ -137,11 +138,11 @@ func NewVRFMaliciousConsumerV2Filterer(address common.Address, filterer bind.Con
 }
 
 func bindVRFMaliciousConsumerV2(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFMaliciousConsumerV2ABI))
+	parsed, err := VRFMaliciousConsumerV2MetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFMaliciousConsumerV2 *VRFMaliciousConsumerV2Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

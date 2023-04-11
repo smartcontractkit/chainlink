@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsOracleInterface, FunctionsBillingRegistryInterface} from "../dev/interfaces/FunctionsOracleInterface.sol";
+import {FunctionsOracleInterface, FunctionsBillingRegistryInterface} from "./FunctionsOracleInterface.sol";
 import {OCR2BaseUpgradeable} from "../dev/ocr2/OCR2BaseUpgradeable.sol";
 import {AuthorizedOriginReceiverUpgradeable} from "../dev/functions/AuthorizedOriginReceiverUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";

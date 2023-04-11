@@ -3,7 +3,6 @@ package pgtest
 import (
 	"database/sql"
 	"testing"
-	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
@@ -11,27 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ pg.QConfig = &qConfig{}
-
-// qConfig implements pg.QCOnfig
-type qConfig struct {
-	logSQL              bool
-	defaultQueryTimeout time.Duration
-}
-
 func NewQConfig(logSQL bool) pg.QConfig {
-	return &qConfig{logSQL, pg.DefaultQueryTimeout}
+	return pg.NewQConfig(logSQL)
 }
-
-func (p *qConfig) LogSQL() bool { return p.logSQL }
-
-func (p *qConfig) DatabaseDefaultQueryTimeout() time.Duration { return p.defaultQueryTimeout }
 
 func NewSqlDB(t *testing.T) *sql.DB {
 	testutils.SkipShortDB(t)

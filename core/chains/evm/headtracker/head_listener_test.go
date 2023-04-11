@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
@@ -56,7 +56,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := new(evmmocks.Subscription)
+	sub := evmclimocks.NewSubscription(t)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
 		chHeads = args.Get(1).(chan<- *evmtypes.Head)
 		subscribeAwaiter.ItHappened()
@@ -117,7 +117,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := new(evmmocks.Subscription)
+	sub := evmclimocks.NewSubscription(t)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
 		chHeads = args.Get(1).(chan<- *evmtypes.Head)
 		subscribeAwaiter.ItHappened()
@@ -180,7 +180,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 
 			chSubErrTest := make(chan error)
 			var chSubErr <-chan error = chSubErrTest
-			sub := new(evmmocks.Subscription)
+			sub := evmclimocks.NewSubscription(t)
 			// sub.Err is called twice because we enter the select loop two times: once
 			// initially and once again after exactly one head has been received
 			sub.On("Err").Return(chSubErr).Twice()
@@ -215,7 +215,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			// Expect a resubscribe
 			chSubErrTest2 := make(chan error)
 			var chSubErr2 <-chan error = chSubErrTest2
-			sub2 := new(evmmocks.Subscription)
+			sub2 := evmclimocks.NewSubscription(t)
 			sub2.On("Err").Return(chSubErr2)
 			subscribeAwaiter2 := cltest.NewAwaiter()
 

@@ -2,6 +2,7 @@ package evm
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,13 +20,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestConfigPoller(t *testing.T) {
@@ -93,13 +94,19 @@ func TestConfigPoller(t *testing.T) {
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
+	transmitters := make([]ocrtypes2.Account, len(contractConfig.Transmitters))
+	for i, t := range contractConfig.Transmitters {
+		tt := strings.ToLower(string(t))
+		transmitters[i] = ocrtypes2.Account(tt)
+	}
+
 	// Assert the config returned is the one we configured.
 	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
 	assert.Equal(t, contractConfig.Signers, newConfig.Signers)
-	assert.Equal(t, contractConfig.Transmitters, newConfig.Transmitters)
+	assert.Equal(t, transmitters, newConfig.Transmitters)
 	assert.Equal(t, contractConfig.F, newConfig.F)
 	assert.Equal(t, contractConfig.OffchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)

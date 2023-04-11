@@ -5,12 +5,13 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	config "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Config is the root type used for TOML configuration.
@@ -27,6 +28,8 @@ type Config struct {
 	config.Core
 
 	EVM evmcfg.EVMConfigs `toml:",omitempty"`
+
+	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
 
 	Solana solana.SolanaConfigs `toml:",omitempty"`
 
@@ -63,6 +66,13 @@ func (c *Config) setDefaults() {
 		}
 	}
 
+	for i := range c.Cosmos {
+		if c.Cosmos[i] == nil {
+			c.Cosmos[i] = new(cosmos.CosmosConfig)
+		}
+		c.Cosmos[i].Chain.SetDefaults()
+	}
+
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
 			c.Solana[i] = new(solana.SolanaConfig)
@@ -81,6 +91,7 @@ func (c *Config) setDefaults() {
 func (c *Config) SetFrom(f *Config) {
 	c.Core.SetFrom(&f.Core)
 	c.EVM.SetFrom(&f.EVM)
+	c.Cosmos.SetFrom(&f.Cosmos)
 	c.Solana.SetFrom(&f.Solana)
 	c.Starknet.SetFrom(&f.Starknet)
 }
@@ -136,6 +147,9 @@ func (s *Secrets) setEnv() error {
 	}
 	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
 		s.Pyroscope.AuthToken = &pyroscopeAuthToken
+	}
+	if prometheusAuthToken := config.EnvPrometheusAuthToken.Get(); prometheusAuthToken != "" {
+		s.Prometheus.AuthToken = &prometheusAuthToken
 	}
 	return nil
 }

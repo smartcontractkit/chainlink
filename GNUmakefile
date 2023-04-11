@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := chainlink
 
 GOPATH ?= $(HOME)/go
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
@@ -33,6 +33,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: gomodtidy
 gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
+	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 
 .PHONY: install-chainlink
@@ -69,6 +70,11 @@ go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their 
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
 
+.PHONY: go-solidity-wrappers-transmission
+go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/transmission/native_solc_compile_all_transmission
+	go generate ./core/gethwrappers/transmission
+
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
@@ -80,7 +86,7 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
 
 .PHONY: generate
-generate: abigen ## Execute all go:generate commands.
+generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testdb
@@ -100,7 +106,12 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.20.0
+	go install github.com/vektra/mockery/v2@v2.22.1
+
+.PHONY: codecgen
+codecgen: $(codecgen) ## Install codecgen
+	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -121,7 +132,7 @@ config-docs: ## Generate core node configuration documentation
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.52.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 .PHONY: snapshot
 snapshot:

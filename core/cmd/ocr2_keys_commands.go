@@ -11,10 +11,10 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initOCR2KeysSubCmd(client *Client) cli.Command {
@@ -52,7 +52,7 @@ func initOCR2KeysSubCmd(client *Client) cli.Command {
 				Usage: format(`Imports an OCR2 key bundle from a JSON file`),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "oldpassword, p",
+						Name:  "old-password, oldpassword, p",
 						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 					},
 				},
@@ -63,7 +63,7 @@ func initOCR2KeysSubCmd(client *Client) cli.Command {
 				Usage: format(`Exports an OCR2 key bundle to a JSON file`),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "newpassword, p",
+						Name:  "new-password, newpassword, p",
 						Usage: "`FILE` containing the password to encrypt the key (required)",
 					},
 					cli.StringFlag{
@@ -201,9 +201,9 @@ func (cli *Client) ImportOCR2Key(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
-	oldPasswordFile := c.String("oldpassword")
+	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
@@ -237,9 +237,9 @@ func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
 
-	newPasswordFile := c.String("newpassword")
+	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
@@ -265,7 +265,7 @@ func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)
