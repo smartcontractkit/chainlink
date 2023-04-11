@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-func BuildNewTxm(
+func NewTxm(
 	db *sqlx.DB,
 	cfg txmgr.Config,
 	client evmclient.Client,

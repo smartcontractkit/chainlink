@@ -190,10 +190,10 @@ func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts .
 	defer ks.lock.Unlock()
 	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
 	if !exists {
-		return 0, errors.Errorf("state not found for address %s, chainID %s", address.String(), chainID.String())
+		return 0, errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
 	}
 	if state.Disabled {
-		return 0, errors.Errorf("state is disabled for address %s, chainID %s", address.String(), chainID.String())
+		return 0, errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
 	}
 	// Always clobber the memory nonce with the DB nonce
 	state.NextNonce = nonce
@@ -213,10 +213,10 @@ func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int
 	defer ks.lock.Unlock()
 	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
 	if !exists {
-		return errors.Errorf("state not found for address %s, chainID %s", address.String(), chainID.String())
+		return errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
 	}
 	if state.Disabled {
-		return errors.Errorf("state is disabled for address %s, chainID %s", address.String(), chainID.String())
+		return errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
 	}
 	state.NextNonce = incrementedNonce
 	return nil
@@ -393,7 +393,7 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 		} else if len(whitelist) == 0 {
 			err = errors.Errorf("no sending keys available for chain %s", chainID.String())
 		} else {
-			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID.String(), whitelist)
+			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID, whitelist)
 		}
 		return common.Address{}, err
 	}
@@ -438,7 +438,7 @@ func (ks *eth) CheckEnabled(address *evmtypes.Address, chainID *big.Int) error {
 				chainIDs = append(chainIDs, cid)
 			}
 		}
-		return errors.Errorf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: %s)", address.String(), chainID.String(), strings.Join(chainIDs, ","))
+		return errors.Errorf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: %s)", address, chainID.String(), strings.Join(chainIDs, ","))
 	}
 	if state.Disabled {
 		var chainIDs []string

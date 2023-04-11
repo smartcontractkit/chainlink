@@ -117,7 +117,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		"Local nonce is %v but the on-chain nonce for this account was %v. "+
 		"It's possible that this node was restored from a backup. If so, transactions sent by the previous node will NOT be re-org protected and in rare cases may need to be manually bumped/resubmitted. "+
 		"Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and can lead to missed or stuck transactions. ",
-		address.String(), localNonce, chainNonce),
+		address, localNonce, chainNonce),
 		"address", address.String(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
 	// Need to remember to decrement the chain nonce by one to account for in_progress transaction

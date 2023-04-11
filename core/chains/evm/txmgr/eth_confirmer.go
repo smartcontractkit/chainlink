@@ -422,7 +422,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) separateLikelyConfirmedAttemp
 	lastAttemptNonce := *attempts[0].EthTx.Nonce
 	latestMinedNonce := int64(minedTransactionCount) - 1 // this can be -1 if a transaction has never been mined on this account
 	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
-		len(attempts), from.String(), minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
+		len(attempts), from, minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	// attempts are ordered by nonce ASC

@@ -48,7 +48,7 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
-		txm, err = builder.BuildNewTxm(
+		txm, err = builder.NewTxm(
 			db,
 			cfg,
 			client,

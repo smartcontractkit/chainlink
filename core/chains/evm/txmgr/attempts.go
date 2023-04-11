@@ -242,7 +242,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 	transaction := types.NewTx(&tx)
 	hash, signedTxBytes, err := c.SignTx(etx.FromAddress, transaction)
 	if err != nil {
-		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
+		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress, etx.ID)
 	}
 
 	attempt.State = txmgrtypes.TxAttemptInProgress

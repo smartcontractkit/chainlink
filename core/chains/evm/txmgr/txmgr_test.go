@@ -57,7 +57,7 @@ func makeTestEvmTxm(
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
-	return builder.BuildNewTxm(
+	return builder.NewTxm(
 		db,
 		cfg,
 		ethClient,

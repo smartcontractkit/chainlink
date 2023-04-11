@@ -637,7 +637,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	// subsequent tries ought to resend the exact same in-progress transaction
 	// attempt and get a definitive answer on what happened
 	if sendError.IsTimeout() {
-		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash.String(), etx.ID), true
+		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 	}
 
 	// Unknown error here. All bets are off in this case, it is possible the
@@ -705,7 +705,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	//
 	// In all cases, the best thing we can do is go into a retry loop and keep
 	// trying to send the transaction over again.
-	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash.String(), etx.ID), true
+	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.

@@ -1200,7 +1200,7 @@ GROUP BY e.id
 				"an external wallet has been used to send a transaction from account %s with nonce %v."+
 				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
 				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.String(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
+				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress, nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
 		}
 
 		return nil

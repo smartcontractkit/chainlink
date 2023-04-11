@@ -517,7 +517,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) GetForwarderForEOA(eoa ADDR) (forwarder
 
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) checkEnabled(addr ADDR) error {
 	err := b.keyStore.CheckEnabled(addr, &b.chainID)
-	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.String(), b.chainID.String())
+	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
 }
 
 // SendEther creates a transaction that transfers the given value of ether
