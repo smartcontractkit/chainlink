@@ -419,7 +419,7 @@ var tests = map[string]*BenchmarkTestEntry{
 		false,
 		true,
 	},
-	"ArbitrumGoerliRegistry_2_0-X": {
+	"ArbitrumGoerliRegistry_2_0-Multiple": {
 		repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries),
 		big.NewFloat(ChainlinkNodeFunding),
 		int64(10),
@@ -430,7 +430,7 @@ var tests = map[string]*BenchmarkTestEntry{
 		true,
 		false,
 	},
-	"SimulatedGethRegistry_2_0-X": {
+	"SimulatedGethRegistry_2_0-Multiple": {
 		repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries),
 		big.NewFloat(100000),
 		int64(10),

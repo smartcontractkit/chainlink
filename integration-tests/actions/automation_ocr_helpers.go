@@ -48,7 +48,7 @@ func BuildAutoOCR2ConfigVars(
 		types2.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
-			PerformLockoutWindow: 3600000,
+			PerformLockoutWindow: 3600000, // Intentionally set to be higher than in prod for testing purpose
 			GasLimitPerReport:    5_300_000,
 			GasOverheadPerUpkeep: 300_000,
 			SamplingJobDuration:  3000,
