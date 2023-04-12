@@ -189,7 +189,7 @@ contract FunctionsOracle is
       msg.sender,
       tx.origin,
       subscriptionId,
-      s_registry.getSubscriptionOwner(subscriptionId),
+      s_registry.getSubscription(subscriptionId).owner,
       data
     );
     return requestId;
