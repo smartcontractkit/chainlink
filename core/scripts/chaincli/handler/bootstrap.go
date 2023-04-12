@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,15 +31,12 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	const containerName = "bootstrap"
+	var extraTOML = "[P2P]\n[P2P.V2]\nListenAddresses = [\"0.0.0.0:" + strconv.Itoa(p2pv2Port) + "\"]"
 	urlRaw, _, err := h.launchChainlinkNode(
 		ctx,
 		uiPort,
 		containerName,
-		"FEATURE_OFFCHAIN_REPORTING2=true",
-		"FEATURE_LOG_POLLER=true",
-		"P2P_NETWORKING_STACK=V2",
-		"CHAINLINK_TLS_PORT=0",
-		fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=0.0.0.0:%d", p2pv2Port),
+		extraTOML,
 	)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)

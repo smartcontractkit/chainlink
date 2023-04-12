@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -178,7 +179,7 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
 	}
 }
 
-func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraEnvVars ...string) (string, func(bool), error) {
+func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string) (string, func(bool), error) {
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -229,7 +230,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
 		Env: []string{
 			"POSTGRES_USER=postgres",
-			"POSTGRES_PASSWORD=development_password",
+			"POSTGRES_PASSWORD=verylongdatabasepassword",
 		},
 		ExposedPorts: nat.PortSet{"5432": struct{}{}},
 	}, nil, &network.NetworkingConfig{
@@ -265,23 +266,21 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to create creds files: %s", err)
 	}
 
+	var baseTOML = "[Log]\nJSONConsole = true\nLevel = 'debug'\n[WebServer]\nAllowOrigins = '*'\nSecureCookies = false\nSessionTimeout = '999h0m0s'\n[WebServer.TLS]\nHTTPSPort = 0\n[Feature]\nLogPoller = true\n[OCR2]\nEnabled = true\n[P2P]\n[P2P.V2]\nEnabled = true\n[Keeper]\nTurnLookBack = 0\n[[EVM]]\nChainID = '" + strconv.FormatInt(h.cfg.ChainID, 10) + "'\n[[EVM.Nodes]]\nName = 'node-0'\nWSURL = '" + h.cfg.NodeURL + "'\nHTTPURL = '" + h.cfg.NodeHttpURL + "'"
+	tomlFile, tomlFileCleanup, err := createTomlFile(baseTOML)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create toml file: %s", err)
+	}
 	// Create container with mounted files
 	portStr := fmt.Sprintf("%d", port)
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: h.cfg.ChainlinkDockerImage,
-		Cmd:   []string{"local", "n", "-p", "/run/secrets/chainlink-node-password", "-a", "/run/secrets/chainlink-node-api"},
-		Env: append([]string{
-			"DATABASE_URL=postgresql://postgres:development_password@" + postgresContainerName + ":5432/postgres?sslmode=disable",
-			"ETH_URL=" + h.cfg.NodeURL,
-			fmt.Sprintf("ETH_CHAIN_ID=%d", h.cfg.ChainID),
-			"LINK_CONTRACT_ADDRESS=" + h.cfg.LinkTokenAddr,
-			"DATABASE_BACKUP_MODE=lite",
-			"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true",
-			"LOG_LEVEL=debug",
-			"CHAINLINK_TLS_PORT=0",
-			"SECURE_COOKIES=false",
-			"ALLOW_ORIGINS=*",
-		}, extraEnvVars...),
+		Cmd:   []string{"-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
+		Env: []string{
+			"CL_CONFIG=" + extraTOML,
+			"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
+			"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
+		},
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
 		},
@@ -296,6 +295,11 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 				Type:   mount.TypeBind,
 				Source: passwordFile,
 				Target: "/run/secrets/chainlink-node-password",
+			},
+			{
+				Type:   mount.TypeBind,
+				Source: tomlFile,
+				Target: "/run/secrets/01-config.toml",
 			},
 		},
 		PortBindings: nat.PortMap{
@@ -330,6 +334,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 	return addr, func(writeLogs bool) {
 		fileCleanup()
+		tomlFileCleanup()
 
 		if writeLogs {
 			var rdr io.ReadCloser
@@ -522,5 +527,19 @@ func createCredsFiles() (string, string, func(), error) {
 	return apiFile.Name(), passwordFile.Name(), func() {
 		os.RemoveAll(apiFile.Name())
 		os.RemoveAll(passwordFile.Name())
+	}, nil
+}
+
+// createTomlFile creates temporaray file with TOML config
+func createTomlFile(tomlString string) (string, func(), error) {
+	// Create temporary file with chainlink node login creds
+	tomlFile, err := os.CreateTemp("", "chainlink-toml-config")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create api file: %s", err)
+	}
+	_, _ = tomlFile.WriteString(tomlString)
+
+	return tomlFile.Name(), func() {
+		os.RemoveAll(tomlFile.Name())
 	}, nil
 }
