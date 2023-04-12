@@ -532,10 +532,10 @@ func createCredsFiles() (string, string, func(), error) {
 
 // createTomlFile creates temporaray file with TOML config
 func createTomlFile(tomlString string) (string, func(), error) {
-	// Create temporary file with chainlink node login creds
+	// Create temporary file with chainlink node TOML config
 	tomlFile, err := os.CreateTemp("", "chainlink-toml-config")
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create api file: %s", err)
+		return "", nil, fmt.Errorf("failed to create toml file: %s", err)
 	}
 	_, _ = tomlFile.WriteString(tomlString)
 
