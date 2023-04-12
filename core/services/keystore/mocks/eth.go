@@ -132,17 +132,17 @@ func (_m *Eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 	return r0
 }
 
-// EnabledAddressesForChain provides a mock function with given fields: chainId
-func (_m *Eth) EnabledAddressesForChain(chainId *big.Int) ([]*types.Address, error) {
-	ret := _m.Called(chainId)
+// EnabledAddressesForChain provides a mock function with given fields: chainID
+func (_m *Eth) EnabledAddressesForChain(chainID *big.Int) ([]*types.Address, error) {
+	ret := _m.Called(chainID)
 
 	var r0 []*types.Address
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*big.Int) ([]*types.Address, error)); ok {
-		return rf(chainId)
+		return rf(chainID)
 	}
 	if rf, ok := ret.Get(0).(func(*big.Int) []*types.Address); ok {
-		r0 = rf(chainId)
+		r0 = rf(chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*types.Address)
@@ -150,7 +150,7 @@ func (_m *Eth) EnabledAddressesForChain(chainId *big.Int) ([]*types.Address, err
 	}
 
 	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(chainId)
+		r1 = rf(chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -420,20 +420,20 @@ func (_m *Eth) Import(keyJSON []byte, password string, chainIDs ...*big.Int) (et
 	return r0, r1
 }
 
-// IncrementNextSequence provides a mock function with given fields: address, chainID, currentSequence, qopts
-func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
+// IncrementNextSequence provides a mock function with given fields: address, chainID, currentNonce, qopts
+func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, address, chainID, currentSequence)
+	_ca = append(_ca, address, chainID, currentNonce)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, int64, ...pg.QOpt) error); ok {
-		r0 = rf(address, chainID, currentSequence, qopts...)
+		r0 = rf(address, chainID, currentNonce, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
