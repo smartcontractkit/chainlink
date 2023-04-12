@@ -299,7 +299,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		if attempt.GetBroadcastBeforeBlockNum() == nil {
 			// this shouldn't happen; any broadcast attempt ought to have a
 			// BroadcastBeforeBlockNum otherwise its an assumption violation
-			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.GetHash().Hex())
+			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.GetHash())
 		}
 		broadcastBeforeBlockNum := *attempt.GetBroadcastBeforeBlockNum()
 		blocksSinceBroadcast := *latestBlockNum - broadcastBeforeBlockNum
@@ -309,7 +309,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 			continue
 		}
 		// has not been included for at least the required number of blocks
-		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.GetHash().Hex(), blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
+		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.GetHash(), blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
 		// is the price in the right percentile for all of these blocks?
 		var blocks []evmtypes.Block
 		l := expectInclusionWithinBlocks
@@ -334,10 +334,10 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		gasPrice, tipCap, err := b.calculatePercentilePrices(blocks, percentile, eip1559, nil, nil)
 		if err != nil {
 			if errors.Is(err, ErrNoSuitableTransactions) {
-				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.GetHash().Hex(), expectInclusionWithinBlocks)
+				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.GetHash(), expectInclusionWithinBlocks)
 				return nil
 			}
-			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.GetHash().Hex())
+			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.GetHash().String())
 			return nil
 		}
 		if eip1559 {

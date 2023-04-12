@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -23,7 +24,7 @@ type batchBHSConfig interface {
 
 type BatchBlockhashStore struct {
 	config   batchBHSConfig
-	txm      txmgr.TxManager
+	txm      txmgr.EvmTxManager
 	abi      *abi.ABI
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface
 	lggr     logger.Logger
@@ -32,7 +33,7 @@ type BatchBlockhashStore struct {
 func NewBatchBHS(
 	config batchBHSConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.TxManager,
+	txm txmgr.EvmTxManager,
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -65,9 +66,9 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = b.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      b.batchbhs.Address(),
+	_, err = b.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		FromAddress:    evmtypes.NewAddress(fromAddress),
+		ToAddress:      evmtypes.NewAddress(b.batchbhs.Address()),
 		EncodedPayload: payload,
 		GasLimit:       b.config.EvmGasLimitDefault(),
 		Strategy:       txmgr.NewSendEveryStrategy(),
