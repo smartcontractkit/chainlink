@@ -31,9 +31,10 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
+	keyIndex int,
 ) contracts.OCRConfig {
 	l := utils.GetTestLogger(t)
-	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes, keyIndex)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
@@ -106,7 +107,7 @@ func CreateOCRKeeperJobs(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
-		Name:    "ocr2 bootstrap node",
+		Name:    "ocr2 bootstrap node " + registryAddr,
 		JobType: "bootstrap",
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: registryAddr,
@@ -135,7 +136,7 @@ func CreateOCRKeeperJobs(
 		}
 
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
-			Name:    "ocr2",
+			Name:    "ocr2 " + registryAddr,
 			JobType: "offchainreporting2",
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				PluginType: "ocr2automation",
@@ -143,12 +144,10 @@ func CreateOCRKeeperJobs(
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
 				},
-				PluginConfig: map[string]interface{}{
-					"maxServiceWorkers": 100,
-				},
+				PluginConfig:                      map[string]interface{}{},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
-				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[keyIndex]),           // get node ocr2config.ID
+				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[0]),                  // get node ocr2config.ID
 				TransmitterID:                     null.StringFrom(nodeTransmitterAddress[keyIndex]), // node addr
 				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},                 // bootstrap node key and address <p2p-key>@bootstrap:8000
 			},

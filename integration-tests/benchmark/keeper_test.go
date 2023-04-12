@@ -149,7 +149,8 @@ var (
 	NumberOfNodes, _        = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 	ChainlinkNodeFunding, _ = strconv.ParseFloat(getEnv("CHAINLINKNODEFUNDING", "0.5"), 64)
 	MaxPerformGas, _        = strconv.ParseInt(getEnv("MAXPERFORMGAS", "5000000"), 0, 32)
-	UpkeepGasLimit, _       = strconv.ParseInt(getEnv("UPKEEPGASLIMIT", fmt.Sprint(PerformGasToBurn+50000)), 0, 64)
+	UpkeepGasLimit, _       = strconv.ParseInt(getEnv("UPKEEPGASLIMIT", fmt.Sprint(PerformGasToBurn+100000)), 0, 64)
+	NumberOfRegistries, _   = strconv.Atoi(getEnv("NUMBEROFREGISTRIES", "1"))
 )
 
 type BenchmarkTestEntry struct {
@@ -159,6 +160,9 @@ type BenchmarkTestEntry struct {
 	predeployedConsumers  []string
 	upkeepResetterAddress string
 	blockTime             time.Duration
+	deltaStage            time.Duration
+	forceSingleTxnKey     bool
+	deleteJobsOnEnd       bool
 }
 
 func TestAutomationBenchmark(t *testing.T) {
@@ -205,6 +209,9 @@ func TestAutomationBenchmark(t *testing.T) {
 			PreDeployedConsumers:  benchmarkTestEntry.predeployedConsumers,
 			UpkeepResetterAddress: benchmarkTestEntry.upkeepResetterAddress,
 			BlockTime:             benchmarkTestEntry.blockTime,
+			DeltaStage:            benchmarkTestEntry.deltaStage,
+			ForceSingleTxnKey:     false,
+			DeleteJobsOnEnd:       false,
 		},
 	)
 	t.Cleanup(func() {
@@ -216,6 +223,14 @@ func TestAutomationBenchmark(t *testing.T) {
 	keeperBenchmarkTest.Run(t)
 }
 
+func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numberOfRegistries int) []eth_contracts.KeeperRegistryVersion {
+	repeatedRegistries := make([]eth_contracts.KeeperRegistryVersion, 0)
+	for i := 0; i < numberOfRegistries; i++ {
+		repeatedRegistries = append(repeatedRegistries, registryVersion)
+	}
+	return repeatedRegistries
+}
+
 var tests = map[string]*BenchmarkTestEntry{
 	"SimulatedGethRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
@@ -224,6 +239,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"GoerliTestnetRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
@@ -232,6 +250,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		12 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"ArbitrumGoerliRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
@@ -240,6 +261,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"OptimismGoerliRegistry_1_3": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
@@ -248,6 +272,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"SimulatedGethMulti_Registry": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
@@ -256,6 +283,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"GoerliTestnetMulti_Registry": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
@@ -264,6 +294,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"SimulatedGethRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
@@ -272,6 +305,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		3 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"simulatedRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
@@ -280,6 +316,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		3 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"GoerliTestnetRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
@@ -288,6 +327,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		12 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"SimulatedGethRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -296,6 +338,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		12 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"simulatedRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -304,6 +349,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		1 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"GoerliTestnetRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -312,6 +360,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersGoerli,
 		upkeepResetterContractGoerli,
 		12 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"SepoliaTestnetRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -320,6 +371,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersSep,
 		upkeepResetterContractSep,
 		12 * time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"OptimismGoerliRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -328,6 +382,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
+		time.Duration(0),
+		false,
+		true,
 	},
 	"ArbitrumGoerliRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -336,6 +393,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersEmpty,
 		upkeepResetterContractEmpty,
 		time.Second,
+		time.Second * 30,
+		false,
+		true,
 	},
 	"PolygonMumbaiRegistry_2_0": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
@@ -344,6 +404,9 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersMumbai,
 		upkeepResetterContractMumbai,
 		3 * time.Second,
+		time.Second * 30,
+		false,
+		true,
 	},
 	"PolygonMumbaiRegistry_1_2": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
@@ -352,6 +415,42 @@ var tests = map[string]*BenchmarkTestEntry{
 		predeployedConsumersMumbai,
 		upkeepResetterContractMumbai,
 		3 * time.Second,
+		time.Duration(0),
+		false,
+		true,
+	},
+	"ArbitrumGoerliRegistry_2_0-X": {
+		repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries),
+		big.NewFloat(ChainlinkNodeFunding),
+		int64(10),
+		predeployedConsumersEmpty,
+		upkeepResetterContractEmpty,
+		1 * time.Second,
+		time.Second * 30,
+		true,
+		false,
+	},
+	"SimulatedGethRegistry_2_0-X": {
+		repeatRegistries(eth_contracts.RegistryVersion_2_0, NumberOfRegistries),
+		big.NewFloat(100000),
+		int64(10),
+		predeployedConsumersEmpty,
+		upkeepResetterContractEmpty,
+		1 * time.Second,
+		time.Duration(0),
+		true,
+		false,
+	},
+	"SimulatedGethRegistry_2_0-1_2-1_3-1_1": {
+		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3, eth_contracts.RegistryVersion_1_1},
+		big.NewFloat(100000),
+		int64(10),
+		predeployedConsumersEmpty,
+		upkeepResetterContractEmpty,
+		1 * time.Second,
+		time.Duration(0),
+		false,
+		false,
 	},
 }
 
@@ -371,12 +470,11 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	l := utils.GetTestLogger(t)
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
 	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
-	blockTime := "3"
+	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
-	if registryToTest == "Registry_2_0" {
+	if strings.Contains(registryToTest, "Registry_2_0") {
 		NumberOfNodes++
-		blockTime = "12"
 	}
 
 	testType := strings.ToLower(getEnv("TEST_TYPE", "benchmark"))
