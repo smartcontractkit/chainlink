@@ -206,7 +206,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
 	go func() {
 		err = lp.Replay(ctx, 2)
-		assert.Error(t, err, ErrReplayAbortedByClient)
+		assert.Error(t, err, ErrReplayRequestAborted)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -378,7 +378,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
 		err = lp.Replay(ctx, 3)
-		assert.ErrorIs(t, err, ErrReplayAbortedByClient)
+		assert.ErrorIs(t, err, ErrReplayRequestAborted)
 	})
 
 	recvStartReplay := func(ctx context.Context, block int64, withTimeout bool) {

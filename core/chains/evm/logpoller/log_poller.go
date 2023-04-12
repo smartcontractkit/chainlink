@@ -70,10 +70,10 @@ type Client interface {
 }
 
 var (
-	_                          LogPollerTest = &logPoller{}
-	ErrReplayAbortedByClient                 = errors.New("client aborted, replay request cancelled")
-	ErrReplayInProgress                      = errors.New("client aborted, but replay is already in progress")
-	ErrReplayAbortedOnShutdown               = errors.New("replay aborted due to log poller shutdown")
+	_                       LogPollerTest = &logPoller{}
+	ErrReplayRequestAborted               = errors.New("aborted, replay request cancelled")
+	ErrReplayInProgress                   = errors.New("replay request cancelled, but replay is already in progress")
+	ErrLogPollerShutdown                  = errors.New("replay aborted due to log poller shutdown")
 )
 
 type logPoller struct {
@@ -302,7 +302,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
-// If ctx is cancelled before the replay request has been initiated, ErrReplayAbortedByClient is returned.  If the replay
+// If ctx is cancelled before the replay request has been initiated, ErrReplayRequestAborted is returned.  If the replay
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
 // guarantee that the replay is complete before proceeding, it must wait for a nil return value.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
@@ -317,7 +317,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	select {
 	case lp.replayStart <- fromBlock:
 	case <-ctx.Done():
-		return ErrReplayAbortedByClient
+		return ErrReplayRequestAborted
 	}
 	// Block until replay complete or cancelled.
 	select {
@@ -427,7 +427,7 @@ func (lp *logPoller) run() {
 			case <-lp.ctx.Done():
 				// We're shutting down, notify client and exit
 				select {
-				case lp.replayComplete <- ErrReplayAbortedOnShutdown:
+				case lp.replayComplete <- ErrReplayRequestAborted:
 				default:
 				}
 				return

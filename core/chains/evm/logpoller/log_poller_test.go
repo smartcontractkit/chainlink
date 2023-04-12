@@ -160,7 +160,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Cancelling a replay should return an error synchronously.
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	cancel()
-	assert.ErrorIs(t, th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient)
+	assert.ErrorIs(t, th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayRequestAborted)
 }
 
 // Simulate a badly behaving rpc server, where unfinalized blocks can return different logs
