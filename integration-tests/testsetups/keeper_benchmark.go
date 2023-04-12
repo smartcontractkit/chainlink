@@ -204,7 +204,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 		if inputs.ForceSingleTxnKey {
 			txKeyId = 0
 		}
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(
+		ocrConfig := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
 			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.DeltaStage, txKeyId,
 		)
 

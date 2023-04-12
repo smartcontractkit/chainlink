@@ -443,7 +443,7 @@ func BuildGeneralOCR2Config(
 	onchainConfig []byte,
 ) contracts.OCRConfig {
 	l := utils.GetTestLogger(t)
-	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes, 0)
+	_, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		deltaProgress,
@@ -488,7 +488,11 @@ func BuildGeneralOCR2Config(
 	}
 }
 
-func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink, keyIndex int) ([]int, []confighelper.OracleIdentityExtra) {
+func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
+	return getOracleIdentitiesWithKeyIndex(t, chainlinkNodes, 0)
+}
+
+func getOracleIdentitiesWithKeyIndex(t *testing.T, chainlinkNodes []*client.Chainlink, keyIndex int) ([]int, []confighelper.OracleIdentityExtra) {
 	l := utils.GetTestLogger(t)
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))

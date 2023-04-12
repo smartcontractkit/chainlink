@@ -31,10 +31,20 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
+) contracts.OCRConfig {
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0)
+}
+
+func BuildAutoOCR2ConfigVarsWithKeyIndex(
+	t *testing.T,
+	chainlinkNodes []*client.Chainlink,
+	registryConfig contracts.KeeperRegistrySettings,
+	registrar string,
+	deltaStage time.Duration,
 	keyIndex int,
 ) contracts.OCRConfig {
 	l := utils.GetTestLogger(t)
-	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes, keyIndex)
+	S, oracleIdentities := getOracleIdentitiesWithKeyIndex(t, chainlinkNodes, keyIndex)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		10*time.Second,        // deltaProgress time.Duration,
