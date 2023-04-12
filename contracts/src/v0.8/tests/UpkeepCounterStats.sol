@@ -70,11 +70,6 @@ contract UpkeepCounterStats is ConfirmedOwner {
     emit Received(msg.sender, msg.value);
   }
 
-  function fundLink(uint256 amount) external {
-    linkToken.approve(msg.sender, amount);
-    linkToken.transferFrom(msg.sender, address(this), amount);
-  }
-
   function withdrawLinks() external onlyOwner {
     uint256 balance = linkToken.balanceOf(address(this));
     linkToken.transfer(msg.sender, balance);
