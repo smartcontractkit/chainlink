@@ -31,7 +31,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmStorageService(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -50,7 +50,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	cltest.MustInsertConfirmedEthTxWithReceipt(t, borm, from, nonce, 5)
+	cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := mocks.NewReaperConfig(t)
@@ -102,7 +102,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_txes", 0)
 	})
 
-	cltest.MustInsertFatalErrorEthTx(t, borm, from)
+	cltest.MustInsertFatalErrorEthTx(t, txStore, from)
 
 	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
 		config := mocks.NewReaperConfig(t)

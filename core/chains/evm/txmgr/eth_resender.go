@@ -31,13 +31,13 @@ const DefaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
-	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
-	ethClient        evmclient.Client
-	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
-	chainID          big.Int
-	interval         time.Duration
-	config           Config
-	logger           logger.Logger
+	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	ethClient evmclient.Client
+	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
+	chainID   big.Int
+	interval  time.Duration
+	config    Config
+	logger    logger.Logger
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -47,7 +47,7 @@ type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 // NewEthResender creates a new concrete EthResender
 func NewEthResender(
 	lggr logger.Logger,
-	txStorageService EvmTxStore,
+	txStore EvmTxStore,
 	ethClient evmclient.Client, ks EvmKeyStore,
 	pollInterval time.Duration,
 	config Config,
@@ -58,7 +58,7 @@ func NewEthResender(
 	// todo: add context to evmTxStore
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EvmResender{
-		txStorageService,
+		txStore,
 		ethClient,
 		ks,
 		*ethClient.ChainID(),
@@ -115,7 +115,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	var allAttempts []EthTxAttempt[ADDR, TX_HASH]
 	for _, k := range enabledAddresses {
 		var attempts []EthTxAttempt[ADDR, TX_HASH]
-		attempts, err = er.txStorageService.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStore.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
@@ -131,7 +131,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
-	reqs, err := batchSendTransactions(ctx, er.txStorageService, allAttempts, batchSize, er.logger, er.ethClient)
+	reqs, err := batchSendTransactions(ctx, er.txStore, allAttempts, batchSize, er.logger, er.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}

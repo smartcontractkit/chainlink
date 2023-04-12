@@ -82,7 +82,7 @@ type reset struct {
 type Txm[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
-	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	txStore          txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
@@ -127,7 +127,7 @@ func NewTxm(
 	checkerFactory EvmTransmitCheckerFactory,
 	fwdMgr EvmFwdMgr,
 	txAttemptBuilder EvmTxAttemptBuilder,
-	txStorageService EvmTxStore,
+	txStore EvmTxStore,
 	nonceSyncer EvmNonceSyncer,
 	ethBroadcaster *EvmBroadcaster,
 	ethConfirmer *EvmConfirmer,
@@ -136,7 +136,7 @@ func NewTxm(
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
-		txStorageService: txStorageService,
+		txStore:          txStore,
 		db:               db,
 		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
@@ -245,7 +245,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Close() (merr error) {
 	return b.StopOnce("Txm", func() error {
 		close(b.chStop)
 
-		b.txStorageService.Close()
+		b.txStore.Close()
 
 		if b.reaper != nil {
 			b.reaper.Stop()
@@ -497,12 +497,12 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 		}
 	}
 
-	err = b.txStorageService.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
+	err = b.txStore.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return tx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
-	tx, err = b.txStorageService.CreateEthTransaction(newTx, b.chainID, qs...)
+	tx, err = b.txStore.CreateEthTransaction(newTx, b.chainID, qs...)
 	return
 }
 
@@ -535,7 +535,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to AD
 		State:          EthTxUnstarted,
 		EVMChainID:     *utils.NewBig(chainID),
 	}
-	err = b.txStorageService.InsertEthTx(&etx)
+	err = b.txStore.InsertEthTx(&etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 

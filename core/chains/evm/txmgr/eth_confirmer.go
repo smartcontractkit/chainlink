@@ -114,9 +114,9 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	utils.StartStopOnce
-	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
-	lggr             logger.Logger
-	ethClient        evmclient.Client
+	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	lggr      logger.Logger
+	ethClient evmclient.Client
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
 	resumeCallback ResumeCallback
 	config         Config
@@ -137,7 +137,7 @@ type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BL
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(
-	txStorageService EvmTxStore,
+	txStore EvmTxStore,
 	ethClient evmclient.Client,
 	config Config,
 	keystore EvmKeyStore,
@@ -148,7 +148,7 @@ func NewEthConfirmer(
 	lggr = lggr.Named("EthConfirmer")
 
 	return &EvmConfirmer{
-		txStorageService:                txStorageService,
+		txStore:                         txStore,
 		lggr:                            lggr,
 		ethClient:                       ethClient,
 		TxAttemptBuilder:                txAttemptBuilder,
@@ -264,7 +264,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) processHead(ctx context.Conte
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
 
-	if err := ec.txStorageService.SetBroadcastBeforeBlockNum(head.BlockNumber(), ec.chainID); err != nil {
+	if err := ec.txStore.SetBroadcastBeforeBlockNum(head.BlockNumber(), ec.chainID); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
@@ -325,7 +325,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) processHead(ctx context.Conte
 //
 // This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
-	attempts, err := ec.txStorageService.FindEtxAttemptsConfirmedMissingReceipt(ec.chainID)
+	attempts, err := ec.txStore.FindEtxAttemptsConfirmedMissingReceipt(ec.chainID)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckConfirmedMissingReceipt(
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ctx, ec.txStorageService, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -349,7 +349,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckConfirmedMissingReceipt(
 
 		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
 	}
-	err = ec.txStorageService.UpdateEthTxsUnconfirmed(ethTxIDsToUnconfirm)
+	err = ec.txStore.UpdateEthTxsUnconfirmed(ethTxIDsToUnconfirm)
 
 	if err != nil {
 		return err
@@ -359,7 +359,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckConfirmedMissingReceipt(
 
 // CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.Context, blockNum int64) error {
-	attempts, err := ec.txStorageService.FindEthTxAttemptsRequiringReceiptFetch(ec.chainID)
+	attempts, err := ec.txStore.FindEthTxAttemptsRequiringReceiptFetch(ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed")
 	}
@@ -403,11 +403,11 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 		}
 	}
 
-	if err := ec.txStorageService.MarkAllConfirmedMissingReceipt(ec.chainID); err != nil {
+	if err := ec.txStore.MarkAllConfirmedMissingReceipt(ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.txStorageService.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.EvmFinalityDepth(), ec.chainID); err != nil {
+	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.EvmFinalityDepth(), ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 	return nil
@@ -471,7 +471,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) fetchAndSaveReceipts(ctx cont
 		if err != nil {
 			return errors.Wrap(err, "batchFetchReceipts failed")
 		}
-		if err := ec.txStorageService.SaveFetchedReceipts(receipts, ec.chainID); err != nil {
+		if err := ec.txStore.SaveFetchedReceipts(receipts, ec.chainID); err != nil {
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
@@ -500,7 +500,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 
 	// Metadata is required to determine whether a tx is forwarded or not.
 	if ec.config.EvmUseForwarders() {
-		err = ec.txStorageService.PreloadEthTxes(attempts)
+		err = ec.txStore.PreloadEthTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")
 		}
@@ -677,7 +677,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) rebroadcastWhereNecessary(ctx
 
 		lggr.Debugw("Rebroadcasting transaction", "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
-		if err := ec.txStorageService.SaveInProgressAttempt(&attempt); err != nil {
+		if err := ec.txStore.SaveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
 		}
 
@@ -694,7 +694,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) rebroadcastWhereNecessary(ctx
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleAnyInProgressAttempts(ctx context.Context, address ADDR, blockHeight int64) error {
-	attempts, err := ec.txStorageService.GetInProgressEthTxAttempts(ctx, address, ec.chainID)
+	attempts, err := ec.txStore.GetInProgressEthTxAttempts(ctx, address, ec.chainID)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
@@ -716,7 +716,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleAnyInProgressAttempts(c
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address ADDR, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx[ADDR, TX_HASH], err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
-	etxInsufficientEths, err := ec.txStorageService.FindEthTxsRequiringResubmissionDueToInsufficientEth(address, chainID, pg.WithParentCtx(ctx))
+	etxInsufficientEths, err := ec.txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(address, chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -726,7 +726,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) FindEthTxsRequiringRebroadcas
 	}
 
 	// TODO: Just pass the Q through everything
-	etxBumps, err := ec.txStorageService.FindEthTxsRequiringGasBump(ctx, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
+	etxBumps, err := ec.txStore.FindEthTxsRequiringGasBump(ctx, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
 	if ctx.Err() != nil {
 		return nil, nil
 	} else if err != nil {
@@ -859,7 +859,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
 		// "Lazily" load attempts here since the overwhelmingly common case is
 		// that we don't need them unless we enter this path
-		if err := ec.txStorageService.LoadEthTxAttempts(&etx, pg.WithParentCtx(ctx)); err != nil {
+		if err := ec.txStore.LoadEthTxAttempts(&etx, pg.WithParentCtx(ctx)); err != nil {
 			return errors.Wrap(err, "failed to load EthTxAttempts while bumping on terminally underpriced error")
 		}
 		if len(etx.EthTxAttempts) == 0 {
@@ -884,7 +884,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 			"replacementAttempt", replacementAttempt,
 		).Errorf("gas price was rejected by the eth node for being too low. Eth node returned: '%s'", sendError.Error())
 
-		if err := ec.txStorageService.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
+		if err := ec.txStore.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
@@ -914,7 +914,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 			"blockHeight", blockHeight,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return ec.txStorageService.DeleteInProgressAttempt(ctx, attempt)
+		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
 	}
 
 	if sendError.Fatal() {
@@ -932,7 +932,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		)
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
-		return ec.txStorageService.DeleteInProgressAttempt(ctx, attempt)
+		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
 	}
 
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
@@ -941,7 +941,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		sendError = nil
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
-		return ec.txStorageService.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
+		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	}
 
 	if sendError.IsReplacementUnderpriced() {
@@ -974,13 +974,13 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		ec.SvcErrBuffer.Append(sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
-		return ec.txStorageService.SaveInsufficientEthAttempt(timeout, &attempt, now)
+		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	}
 
 	if sendError == nil {
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
-		return ec.txStorageService.SaveSentAttempt(timeout, &attempt, now)
+		return ec.txStore.SaveSentAttempt(timeout, &attempt, now)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -1012,7 +1012,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) EnsureConfirmedTransactionsIn
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
-	etxs, err := ec.txStorageService.FindTransactionsConfirmedInBlockRange(head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
+	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 	}
@@ -1092,7 +1092,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) markForRebroadcast(etx EthTx[
 		"id", "eth_confirmer")
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
-	err := ec.txStorageService.UpdateEthTxForRebroadcast(etx, attempt)
+	err := ec.txStore.UpdateEthTxForRebroadcast(etx, attempt)
 	return errors.Wrap(err, "markForRebroadcast failed")
 }
 
@@ -1107,7 +1107,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) ForceRebroadcast(beginningNon
 
 	for n := beginningNonce; n <= endingNonce; n++ {
 
-		etx, err := ec.txStorageService.FindEthTxWithNonce(address, n)
+		etx, err := ec.txStore.FindEthTxWithNonce(address, n)
 		if err != nil {
 			return errors.Wrap(err, "ForceRebroadcast failed")
 		}
@@ -1154,7 +1154,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) sendEmptyTransaction(ctx cont
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) ResumePendingTaskRuns(ctx context.Context, head txmgrtypes.Head) error {
 
-	receiptsPlus, err := ec.txStorageService.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
+	receiptsPlus, err := ec.txStore.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 
 	if err != nil {
 		return err

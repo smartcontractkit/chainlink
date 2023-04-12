@@ -42,7 +42,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmStorageService(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	subj1 := uuid.NewV4()
@@ -53,24 +53,24 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	var n int64
 
-	cltest.MustInsertFatalErrorEthTx(t, borm, fromAddress)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
+	cltest.MustInsertFatalErrorEthTx(t, txStore, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, n, fromAddress)
 	n++
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, n, 42, fromAddress)
 	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, n, fromAddress)
 	initialEtxs := []txmgr.EvmTx{
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj2),
-		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj2),
+		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress, subj1),
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.DatabaseDefaultQueryTimeout())
 
-		n, err := s.PruneQueue(borm, pg.WithQueryer(db))
+		n, err := s.PruneQueue(txStore, pg.WithQueryer(db))
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 

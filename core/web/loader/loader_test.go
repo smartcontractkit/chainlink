@@ -278,7 +278,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
+	txStore := txmgrtypesMocks.NewTxStore[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -293,10 +293,10 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 		EthTxID: ethTxIDs[1],
 	}
 
-	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
 		attempt1, attempt2,
 	}, nil)
-	app.On("TxmStorageService").Return(txStorageService)
+	app.On("TxmStorageService").Return(txStore)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -363,7 +363,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStorageService := txmgrtypesMocks.NewTxStorageService[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
+	txStore := txmgrtypesMocks.NewTxStore[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -382,11 +382,11 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 
-	txStorageService.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
 		attempt1,
 	}, nil)
 
-	app.On("TxmStorageService").Return(txStorageService)
+	app.On("TxmStorageService").Return(txStore)
 
 	batcher := ethTransactionAttemptBatcher{app}
 

@@ -53,27 +53,27 @@ type NonceSyncer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 var _ NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
-	txStorageService EvmTxStore
-	ethClient        evmclient.Client
-	chainID          *big.Int
-	logger           logger.Logger
-	kst              EvmKeyStore
+	txStore   EvmTxStore
+	ethClient evmclient.Client
+	chainID   *big.Int
+	logger    logger.Logger
+	kst       EvmKeyStore
 }
 
 // NewNonceSyncer returns a new syncer
 func NewNonceSyncer(
-	txStorageService EvmTxStore,
+	txStore EvmTxStore,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	kst EvmKeyStore,
 ) EvmNonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	return &nonceSyncerImpl{
-		txStorageService: txStorageService,
-		ethClient:        ethClient,
-		chainID:          ethClient.ChainID(),
-		logger:           lggr,
-		kst:              kst,
+		txStore:   txStore,
+		ethClient: ethClient,
+		chainID:   ethClient.ChainID(),
+		logger:    lggr,
+		kst:       kst,
 	}
 }
 
@@ -101,7 +101,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 	}
 
 	localNonce := keyNextNonce
-	hasInProgressTransaction, err := s.txStorageService.HasInProgressTransaction(&address, *s.chainID, pg.WithParentCtx(ctx))
+	hasInProgressTransaction, err := s.txStore.HasInProgressTransaction(&address, *s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.String())
 	} else if hasInProgressTransaction {
@@ -127,7 +127,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		newNextNonce--
 	}
 
-	err = s.txStorageService.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, &address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.txStore.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, &address, *s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())

@@ -96,7 +96,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmStorageService(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	kst := cltest.NewKeyStore(t, db, cfg)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
@@ -156,7 +156,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
-	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
@@ -380,7 +380,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmStorageService(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -405,7 +405,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherKey.Address)
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
@@ -429,7 +429,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, thisKey.Address)
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
@@ -451,7 +451,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, thisKey.Address)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
@@ -555,14 +555,14 @@ func TestTxm_Reset(t *testing.T) {
 
 	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
 	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
-	borm := cltest.NewTxmStorageService(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, i, i*42+1, addr)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr)
 	}
 	// 2 confirmed from addr2
 	for i := int64(0); i < 2; i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, i, i*42+1, addr2)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr2)
 	}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -579,9 +579,9 @@ func TestTxm_Reset(t *testing.T) {
 	txm, err := makeTestEvmTxm(t, db, ethClient, cfg, kst.Eth(), eventBroadcaster)
 	require.NoError(t, err)
 
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, addr2)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)
 	for i := 0; i < 1000; i++ {
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4+int64(i), addr)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 4+int64(i), addr)
 	}
 
 	t.Run("returns error if not started", func(t *testing.T) {

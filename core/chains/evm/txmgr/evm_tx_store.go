@@ -295,12 +295,12 @@ func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []EvmTxAtte
 	return evmEthTxAttempt
 }
 
-func NewTxStorageService(
+func NewTxStore(
 	db *sqlx.DB,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) EvmTxStore {
-	namedLogger := lggr.Named("TxmStorageService")
+	namedLogger := lggr.Named("TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
