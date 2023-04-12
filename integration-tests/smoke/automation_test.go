@@ -836,7 +836,7 @@ func setupAutomationTest(
 
 		actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second, 0)
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
 		err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 		require.NoError(t, err, "Registry config should be be set successfully")
 		require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
