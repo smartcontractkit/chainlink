@@ -27,7 +27,7 @@ const batchSendTransactionTimeout = 30 * time.Second
 // elements in that batch.
 func batchSendTransactions[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]](
 	ctx context.Context,
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
+	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
 	attempts []EthTxAttempt[ADDR, TX_HASH],
 	batchSize int,
 	logger logger.Logger,

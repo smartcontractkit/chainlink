@@ -53,7 +53,7 @@ type NonceSyncer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 var _ NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
-	txStorageService EvmTxStorageService
+	txStorageService EvmTxStore
 	ethClient        evmclient.Client
 	chainID          *big.Int
 	logger           logger.Logger
@@ -62,7 +62,7 @@ type nonceSyncerImpl struct {
 
 // NewNonceSyncer returns a new syncer
 func NewNonceSyncer(
-	txStorageService EvmTxStorageService,
+	txStorageService EvmTxStore,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	kst EvmKeyStore,

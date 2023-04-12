@@ -90,7 +90,7 @@ type TransmitChecker[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]]
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	logger           logger.Logger
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient        evmclient.Client
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
 	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
@@ -126,7 +126,7 @@ type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], 
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(
-	txStorageService EvmTxStorageService,
+	txStorageService EvmTxStore,
 	ethClient evmclient.Client,
 	config Config,
 	keystore EvmKeyStore,

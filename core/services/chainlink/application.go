@@ -89,7 +89,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
-	TxmStorageService() txmgr.EvmTxStorageService
+	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -122,7 +122,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
-	txmStorageService        txmgr.EvmTxStorageService
+	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -675,7 +675,7 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStorageService {
+func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 	return app.txmStorageService
 }
 

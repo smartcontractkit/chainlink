@@ -143,7 +143,7 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EvmTx {
 	}
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
 	for _, opt := range opts {
@@ -166,7 +166,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorag
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
+func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
 	etx := MustInsertUnconfirmedEthTx(t, txStorageService, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -182,7 +182,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStorag
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.EvmTx {
+func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.EvmTx {
 	etx := MustInsertUnconfirmedEthTx(t, txStorageService, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -198,7 +198,7 @@ func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStorageService t
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
+func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
 	etx := MustInsertUnconfirmedEthTx(t, txStorageService, nonce, fromAddress, opts...)
 	attempt := NewDynamicFeeEthTxAttempt(t, etx.ID)
 
@@ -225,7 +225,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txSt
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress common.Address) txmgr.EvmTx {
+func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress common.Address) txmgr.EvmTx {
 	timeNow := time.Now()
 	etx := NewEthTx(t, fromAddress)
 
@@ -250,7 +250,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStorag
 }
 
 func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-	t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, broadcastBeforeBlockNum int64,
+	t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, broadcastBeforeBlockNum int64,
 	broadcastAt time.Time, fromAddress common.Address) txmgr.EvmTx {
 	etx := NewEthTx(t, fromAddress)
 
@@ -267,7 +267,7 @@ func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.EvmTx {
+func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.EvmTx {
 	timeNow := time.Now()
 	etx := NewEthTx(t, fromAddress)
 
@@ -284,7 +284,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStorageService tx
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress common.Address) txmgr.EvmTx {
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress common.Address) txmgr.EvmTx {
 	etx := NewEthTx(t, fromAddress)
 
 	etx.Nonce = &nonce
@@ -302,7 +302,7 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStorageService txmgr.E
 	return etx
 }
 
-func MustInsertUnstartedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
+func MustInsertUnstartedEthTx(t *testing.T, txStorageService txmgr.EvmTxStore, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
 	var subject uuid.NullUUID
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -369,26 +369,26 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 	return r
 }
 
-func MustInsertEthReceipt(t *testing.T, txStorageService txmgr.EvmTxStorageService, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
+func MustInsertEthReceipt(t *testing.T, txStorageService txmgr.EvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
 	require.NoError(t, txStorageService.InsertEthReceipt(&r))
 	return r
 }
 
-func MustInsertRevertedEthReceipt(t *testing.T, txStorageService txmgr.EvmTxStorageService, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
+func MustInsertRevertedEthReceipt(t *testing.T, txStorageService txmgr.EvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
 	require.NoError(t, txStorageService.InsertEthReceipt(&r))
 	return r
 }
 
 // Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
-func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmTx) {
+func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStorageService txmgr.EvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStorageService, nonce, blockNum, fromAddress)
 	MustInsertEthReceipt(t, txStorageService, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash.Hash)
 	return etx
 }
 
-func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.EvmTx) {
+func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStorageService txmgr.EvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStorageService, nonce, blockNum, fromAddress)
 	receipt := evmtypes.Receipt{
 		TxHash:           etx.EthTxAttempts[0].Hash.Hash,
@@ -401,7 +401,7 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStorageServic
 	return etx
 }
 
-func MustInsertFatalErrorEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress common.Address) txmgr.EvmTx {
+func MustInsertFatalErrorEthTx(t *testing.T, txStorageService txmgr.EvmTxStore, fromAddress common.Address) txmgr.EvmTx {
 	etx := NewEthTx(t, fromAddress)
 	etx.Error = null.StringFrom("something exploded")
 	etx.State = txmgr.EthTxFatalError

@@ -31,7 +31,7 @@ const DefaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient        evmclient.Client
 	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	chainID          big.Int
@@ -47,7 +47,7 @@ type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 // NewEthResender creates a new concrete EthResender
 func NewEthResender(
 	lggr logger.Logger,
-	txStorageService EvmTxStorageService,
+	txStorageService EvmTxStore,
 	ethClient evmclient.Client, ks EvmKeyStore,
 	pollInterval time.Duration,
 	config Config,
@@ -55,7 +55,7 @@ func NewEthResender(
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
-	// todo: add context to evmTxStorageService
+	// todo: add context to evmTxStore
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EvmResender{
 		txStorageService,

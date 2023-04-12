@@ -50,7 +50,7 @@ import (
 // NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
 func NewTestEthBroadcaster(
 	t testing.TB,
-	txStorageService txmgr.EvmTxStorageService,
+	txStorageService txmgr.EvmTxStore,
 	ethClient evmclient.Client,
 	keyStore keystore.Eth,
 	config evmconfig.ChainScopedConfig,

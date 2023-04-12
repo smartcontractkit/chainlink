@@ -1473,7 +1473,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		subject := uuid.NewV4()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStorageService"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		tx, err := txStorageService.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmtypes.NewAddress(fromAddress),
 			ToAddress:      evmtypes.NewAddress(toAddress),

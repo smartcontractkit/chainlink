@@ -12,8 +12,8 @@ import (
 
 // NEWTX, TX, TXATTEMPT will be converted from generic types to structs at a future date to enforce design and type checks
 //
-//go:generate mockery --quiet --name TxStorageService --output ./mocks/ --case=underscore
-type TxStorageService[
+//go:generate mockery --quiet --name TxStore --output ./mocks/ --case=underscore
+type TxStore[
 	// Represents an account address, in native chain format. TODO: Should implement Hashable
 	ADDR any,
 	// Represents a chain id to be used for the chain.

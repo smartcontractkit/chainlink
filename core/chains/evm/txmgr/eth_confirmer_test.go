@@ -44,7 +44,7 @@ func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func mustInsertUnstartedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, fromAddress gethCommon.Address) {
+func mustInsertUnstartedEthTx(t *testing.T, txStorageService txmgr.EvmTxStore, fromAddress gethCommon.Address) {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgr.EthTxUnstarted
 	require.NoError(t, txStorageService.InsertEthTx(&etx))
@@ -60,7 +60,7 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
-func mustTxBeInState(t *testing.T, txStorageService txmgr.EvmTxStorageService, tx txmgr.EvmTx, expectedState txmgr.EthTxState) {
+func mustTxBeInState(t *testing.T, txStorageService txmgr.EvmTxStore, tx txmgr.EvmTx, expectedState txmgr.EthTxState) {
 	etx, err := txStorageService.FindEthTxWithAttempts(tx.ID)
 	require.NoError(t, err)
 	require.Equal(t, expectedState, etx.State)
@@ -86,7 +86,7 @@ func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int6
 	return attempt
 }
 
-func mustInsertInProgressEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
+func mustInsertInProgressEthTx(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgr.EthTxInProgress
 	etx.Nonce = &nonce
@@ -95,7 +95,7 @@ func mustInsertInProgressEthTx(t *testing.T, txStorageService txmgr.EvmTxStorage
 	return etx
 }
 
-func mustInsertConfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStorageService, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
+func mustInsertConfirmedEthTx(t *testing.T, txStorageService txmgr.EvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgr.EthTxConfirmed
 	etx.Nonce = &nonce

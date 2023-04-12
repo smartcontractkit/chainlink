@@ -82,7 +82,7 @@ type reset struct {
 type Txm[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
-	txStorageService txmgrtypes.TxStorageService[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	txStorageService txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
@@ -127,7 +127,7 @@ func NewTxm(
 	checkerFactory EvmTransmitCheckerFactory,
 	fwdMgr EvmFwdMgr,
 	txAttemptBuilder EvmTxAttemptBuilder,
-	txStorageService EvmTxStorageService,
+	txStorageService EvmTxStore,
 	nonceSyncer EvmNonceSyncer,
 	ethBroadcaster *EvmBroadcaster,
 	ethConfirmer *EvmConfirmer,
