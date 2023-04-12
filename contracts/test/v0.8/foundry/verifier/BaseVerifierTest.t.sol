@@ -21,6 +21,7 @@ contract BaseTest is Test {
     bytes32 internal constant FEED_ID = keccak256("ETH-USD");
     bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD");
     bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD");
+    bytes32 internal constant INVALID_FEED = keccak256("INVALID");
     uint32 internal constant OBSERVATIONS_TIMESTAMP = 1000;
     uint64 internal constant BLOCKNUMBER_LOWER_BOUND = 1000;
     uint64 internal constant BLOCKNUMBER_UPPER_BOUND = BLOCKNUMBER_LOWER_BOUND + 5;

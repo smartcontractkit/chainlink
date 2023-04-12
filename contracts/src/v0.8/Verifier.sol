@@ -57,6 +57,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
         uint32 latestEpoch;
         /// The latest config digest set
         bytes32 latestConfigDigest;
+        // Whether or not the verifier for this feed has been deactivated
+        bool isDeactivated;
         /// The historical record of all previously set configs by feedId
         mapping(bytes32 => Config) s_verificationDataConfigs;
     }
@@ -84,6 +86,12 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     /// @notice This event is emitted whenever a configuration is activated
     event ConfigActivated(bytes32 indexed feedId, bytes32 configDigest);
+
+    /// @notice This event is emitted whenever a feed is activated
+    event FeedActivated(bytes32 indexed feedId);
+
+    /// @notice This event is emitted whenever a feed is deactivated
+    event FeedDeactivated(bytes32 indexed feedId);
 
     /// @notice This error is thrown whenever an address tries
     /// to exeecute a transaction that it is not authorized to do so
@@ -154,6 +162,14 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     /// @param configDigest The latest config digest
     error CannotDeactivateLatestConfig(bytes32 feedId, bytes32 configDigest);
 
+    /// @notice This error is thrown whenever the feed ID passed in is deactivated
+    /// @param feedId The feed ID
+    error InactiveFeed(bytes32 feedId);
+
+    /// @notice This error is thrown whenever the feed ID passed in is not found
+    /// @param feedId The feed ID
+    error InvalidFeed(bytes32 feedId);
+
     /// @notice The address of the verifier proxy
     address private immutable i_verifierProxyAddr;
 
@@ -205,6 +221,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
         bytes32 feedId = bytes32(reportData);
 
         VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+        // If the feed has been deactivated, do not verify the report
+        if(feedVerifierState.isDeactivated) {
+            revert InactiveFeed(feedId);
+        }
 
         // reportContext consists of:
         // reportContext[0]: ConfigDigest
@@ -382,6 +403,32 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
             revert DigestNotSet(feedId, configDigest);
         feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
         emit ConfigActivated(feedId, configDigest);
+    }
+
+    /**
+     * @notice Activates the given feed
+     * @param feedId Feed ID to activated
+     * @dev This function can be called by the contract admin to activate a feed
+     */
+    function activateFeed(bytes32 feedId) external onlyOwner {
+        VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+        if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
+        feedVerifierState.isDeactivated = false;
+        emit FeedActivated(feedId);
+    }
+
+    /**
+     * @notice Deactivates the given feed
+     * @param feedId Feed ID to deactivated
+     * @dev This function can be called by the contract admin to deactivate a feed
+     */
+    function deactivateFeed(bytes32 feedId) external onlyOwner {
+        VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+        if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
+        feedVerifierState.isDeactivated = true;
+        emit FeedDeactivated(feedId);
     }
 
     //***************************//
