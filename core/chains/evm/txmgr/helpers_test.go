@@ -3,20 +3,11 @@ package txmgr
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-func processUnstartedEthTxsNoOp[ADDR types.Hashable[ADDR]](ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
-	return false, nil
-}
-
-func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EvmConfirmer) {
-	ethConfirmer.ethClient = ethClient
-}
-
-func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadcaster *EvmBroadcaster) {
-	ethBroadcaster.resumeCallback = resumeCallback
+func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) SetEthClient(ethClient evmclient.Client) {
+	ec.ethClient = ethClient
 }
 
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) StartInternal() error {
@@ -28,7 +19,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) CloseInternal() error {
 }
 
 func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) DisableUnstartedEthTxAutoProcessing() {
-	eb.processUnstartedEthTxsImpl = processUnstartedEthTxsNoOp[ADDR]
+	eb.processUnstartedEthTxsImpl = func(ctx context.Context, fromAddress ADDR) (retryable bool, err error) { return false, nil }
 }
 
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) StartInternal() error {

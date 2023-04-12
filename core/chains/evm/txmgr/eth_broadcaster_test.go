@@ -1202,7 +1202,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return errors.New("something exploded in the callback")
 				}
 
-				txmgr.SetResumeCallbackOnEthBroadcaster(fn, eb)
+				eb.SetResumeCallback(fn)
 
 				ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return tx.Nonce() == localNextNonce
@@ -1223,7 +1223,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return nil
 				}
 
-				txmgr.SetResumeCallbackOnEthBroadcaster(fn, eb)
+				eb.SetResumeCallback(fn)
 
 				ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return tx.Nonce() == localNextNonce
@@ -1257,7 +1257,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})
 	})
 
-	txmgr.SetResumeCallbackOnEthBroadcaster(nil, eb)
+	eb.SetResumeCallback(nil)
 
 	t.Run("geth Client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
 		TxFeeExceedsCapError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
