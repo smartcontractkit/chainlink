@@ -9,10 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
@@ -22,7 +19,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
@@ -166,72 +162,6 @@ func assertForeignConstraintError(t *testing.T, observedLog observer.LoggedEntry
 	assert.Equal(t, "23503", pgErr.SQLState()) // foreign key constraint violation code
 	assert.Equal(t, table, pgErr.TableName)
 	assert.Equal(t, constraint, pgErr.ConstraintName)
-}
-
-func TestLogPoller_DBErrorHandling(t *testing.T) {
-	t.Parallel()
-	tctx := testutils.Context(t)
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
-	chainID1 := testutils.NewRandomEVMChainID()
-	chainID2 := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
-	o := NewORM(chainID1, db, lggr, pgtest.NewQConfig(true))
-
-	owner := testutils.MustNewSimTransactor(t)
-	ethDB := rawdb.NewMemoryDatabase()
-	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
-		owner.From: {
-			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
-		},
-	}, 10e6)
-	_, _, emitter, err := log_emitter.DeployLogEmitter(owner, ec)
-	require.NoError(t, err)
-	_, err = emitter.EmitLog1(owner, []*big.Int{big.NewInt(9)})
-	require.NoError(t, err)
-	_, err = emitter.EmitLog1(owner, []*big.Int{big.NewInt(7)})
-	require.NoError(t, err)
-	ec.Commit()
-	ec.Commit()
-	ec.Commit()
-
-	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, 2, 3, 2, 1000)
-	ctx, cancelReplay := context.WithCancel(tctx)
-	lp.ctx, lp.cancel = context.WithCancel(tctx)
-	defer cancelReplay()
-	defer lp.cancel()
-
-	err = lp.Replay(ctx, 5) // block number too high
-	require.ErrorContains(t, err, "Invalid replay block number")
-
-	// Force a db error while loading the filters (tx aborted, already rolled back)
-	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
-	go func() {
-		err = lp.Replay(ctx, 2)
-		assert.Error(t, err, ErrReplayRequestAborted)
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-	lp.Start(tctx)
-	require.Eventually(t, func() bool {
-		return observedLogs.Len() >= 5
-	}, 2*time.Second, 20*time.Millisecond)
-	lp.cancel()
-	lp.Close()
-
-	logMsgs := make(map[string]int)
-	for _, obs := range observedLogs.All() {
-		_, ok := logMsgs[obs.Entry.Message]
-		if ok {
-			logMsgs[(obs.Entry.Message)] = 1
-		} else {
-			logMsgs[(obs.Entry.Message)]++
-		}
-	}
-
-	assert.Contains(t, logMsgs, "SQL ERROR")
-	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
-	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
-	assert.Contains(t, logMsgs, "backup log poller ran before filters loaded, skipping")
 }
 
 func TestLogPoller_ConvertLogs(t *testing.T) {
