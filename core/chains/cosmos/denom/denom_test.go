@@ -1,11 +1,23 @@
 package denom
 
 import (
+	"os"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 )
+
+func TestMain(m *testing.M) {
+	params.InitCosmosSdk(
+		/* bech32Prefix= */ "wasm",
+		/* token= */ "atom",
+	)
+	code := m.Run()
+	os.Exit(code)
+}
 
 func TestCoinToAtom(t *testing.T) {
 	tests := []struct {
