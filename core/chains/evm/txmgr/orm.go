@@ -150,7 +150,7 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	return nil
 }
 
-func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
+func (o *orm) PreloadEthTxes(attempts []EthTxAttempt, qopts ...pg.QOpt) error {
 	ethTxM := make(map[int64]EthTx)
 	for _, attempt := range attempts {
 		ethTxM[attempt.EthTxID] = EthTx{}
@@ -162,7 +162,8 @@ func (o *orm) PreloadEthTxes(attempts []EthTxAttempt) error {
 		i++
 	}
 	ethTxs := make([]EthTx, len(ethTxIDs))
-	if err := o.q.Select(&ethTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
+	qq := o.q.WithOpts(qopts...)
+	if err := qq.Select(&ethTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
 		return errors.Wrap(err, "loadEthTxes failed")
 	}
 	for _, etx := range ethTxs {
@@ -481,7 +482,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
 		}
-		err = o.PreloadEthTxes(attempts)
+		err = o.PreloadEthTxes(attempts, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return
@@ -627,7 +628,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 		if err != nil {
 			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
 		}
-		err = o.PreloadEthTxes(attempts)
+		err = o.PreloadEthTxes(attempts, pg.WithQueryer(tx))
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
@@ -1089,7 +1090,7 @@ func (o *orm) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (
 	qq := o.q.WithOpts(qopts...)
 	etx = new(EthTx)
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		err = qq.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
+		err = tx.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
 		if errors.Is(err, sql.ErrNoRows) {
 			etx = nil
 			return nil
