@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -46,6 +45,33 @@ const (
 	ocr2KeysEndpoint             = "/v2/keys/ocr2"
 	p2pKeysEndpoint              = "/v2/keys/p2p"
 	csaKeysEndpoint              = "/v2/keys/csa"
+)
+
+const (
+	nodeTOML = `[Log]
+JSONConsole = true
+Level = 'debug'
+[WebServer]
+AllowOrigins = '*'
+SecureCookies = false
+SessionTimeout = '999h0m0s'
+[WebServer.TLS]
+HTTPSPort = 0
+[Feature]
+LogPoller = true
+[OCR2]
+Enabled = true
+[P2P]
+[P2P.V2]
+Enabled = true
+[Keeper]
+TurnLookBack = 0
+[[EVM]]
+ChainID = '%d'
+[[EVM.Nodes]]
+Name = 'node-0'
+WSURL = '%s'
+HTTPURL = '%s'`
 )
 
 // baseHandler is the common handler with a common logic
@@ -266,7 +292,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to create creds files: %s", err)
 	}
 
-	var baseTOML = "[Log]\nJSONConsole = true\nLevel = 'debug'\n[WebServer]\nAllowOrigins = '*'\nSecureCookies = false\nSessionTimeout = '999h0m0s'\n[WebServer.TLS]\nHTTPSPort = 0\n[Feature]\nLogPoller = true\n[OCR2]\nEnabled = true\n[P2P]\n[P2P.V2]\nEnabled = true\n[Keeper]\nTurnLookBack = 0\n[[EVM]]\nChainID = '" + strconv.FormatInt(h.cfg.ChainID, 10) + "'\n[[EVM.Nodes]]\nName = 'node-0'\nWSURL = '" + h.cfg.NodeURL + "'\nHTTPURL = '" + h.cfg.NodeHttpURL + "'"
+	var baseTOML = fmt.Sprintf(nodeTOML, h.cfg.ChainID, h.cfg.NodeURL, h.cfg.NodeHttpURL)
 	tomlFile, tomlFileCleanup, err := createTomlFile(baseTOML)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create toml file: %s", err)

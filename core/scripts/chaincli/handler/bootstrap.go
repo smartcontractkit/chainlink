@@ -23,6 +23,10 @@ relay = "evm"
 
 [relayConfig]
 chainID = %d`
+
+	bootstrapTOML = `[P2P]
+[P2P.V2]
+ListenAddresses = ["0.0.0.0:%s"]`
 )
 
 // StartBootstrapNode starts the ocr2 bootstrap node with the given contract address
@@ -31,12 +35,12 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	const containerName = "bootstrap"
-	var extraTOML = "[P2P]\n[P2P.V2]\nListenAddresses = [\"0.0.0.0:" + strconv.Itoa(p2pv2Port) + "\"]"
+
 	urlRaw, _, err := h.launchChainlinkNode(
 		ctx,
 		uiPort,
 		containerName,
-		extraTOML,
+		fmt.Sprintf(bootstrapTOML, strconv.Itoa(p2pv2Port)),
 	)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)
