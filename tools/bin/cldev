@@ -9,9 +9,9 @@ case "$1" in
     node | core | n)
       key='0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
       echo "** Running node"
-      go run -ldflags "$LDFLAGS" ./core/main.go --  node start -d -p tools/secrets/password.txt -a tools/secrets/apicredentials
+      go run -ldflags "$LDFLAGS" . --  node start -d -p tools/secrets/password.txt -a tools/secrets/apicredentials
       ;;
     *)
-      go run ./core/main.go -- $@
+      go run . -- $@
       ;;
 esac
