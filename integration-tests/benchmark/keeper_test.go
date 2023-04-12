@@ -210,8 +210,8 @@ func TestAutomationBenchmark(t *testing.T) {
 			UpkeepResetterAddress: benchmarkTestEntry.upkeepResetterAddress,
 			BlockTime:             benchmarkTestEntry.blockTime,
 			DeltaStage:            benchmarkTestEntry.deltaStage,
-			ForceSingleTxnKey:     false,
-			DeleteJobsOnEnd:       false,
+			ForceSingleTxnKey:     benchmarkTestEntry.forceSingleTxnKey,
+			DeleteJobsOnEnd:       benchmarkTestEntry.deleteJobsOnEnd,
 		},
 	)
 	t.Cleanup(func() {

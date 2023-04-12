@@ -220,11 +220,11 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 		require.NoError(t, err, "Error waiting for registry setConfig")
 		for _, consumerContract := range k.keeperConsumerContracts[rIndex] {
 			consumerContractsToReset = append(consumerContractsToReset, consumerContract)
-			log.Info().Str("Contract", consumerContract.Address()).Msg("Added consumer contract to reset queue")
+			log.Debug().Str("Contract", consumerContract.Address()).Msg("Added consumer contract to reset queue")
 		}
 	}
 
-	log.Info().Int("consumerContractsToReset", len(consumerContractsToReset)).Msg("Reset Queue Length")
+	log.Debug().Int("consumerContractsToReset", len(consumerContractsToReset)).Msg("Reset Queue Length")
 	// Reset upkeeps so that they become eligible gradually after the test starts
 	actions.ResetUpkeeps(t, contractDeployer, k.chainClient, len(consumerContractsToReset), inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
 		inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, consumerContractsToReset, inputs.UpkeepResetterAddress)
