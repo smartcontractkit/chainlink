@@ -50,10 +50,12 @@ contract FunctionsOracle is
 
   /**
    * @notice The type and version of this contract
+   * @notice versions:
+   * - FunctionsOracle 0.0.0: beta release
    * @return Type and version string
    */
   function typeAndVersion() external pure override returns (string memory) {
-    return "FunctionsOracle 0.0.0";
+    return "FunctionsOracle 0.0.1";
   }
 
   /**
@@ -184,12 +186,13 @@ contract FunctionsOracle is
       data,
       FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, tx.gasprice)
     );
+    ( ,address owner, ) = s_registry.getSubscription(subscriptionId);
     emit OracleRequest(
       requestId,
       msg.sender,
       tx.origin,
       subscriptionId,
-      s_registry.getSubscription(subscriptionId).owner,
+      owner,
       data
     );
     return requestId;

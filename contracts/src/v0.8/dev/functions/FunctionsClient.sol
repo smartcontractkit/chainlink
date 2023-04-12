@@ -4,12 +4,13 @@ pragma solidity ^0.8.6;
 import {Functions} from "./Functions.sol";
 import {FunctionsClientInterface} from "../interfaces/FunctionsClientInterface.sol";
 import {FunctionsOracleInterface} from "../interfaces/FunctionsOracleInterface.sol";
+import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 
 /**
  * @title The Chainlink Functions client contract
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
-abstract contract FunctionsClient is FunctionsClientInterface {
+abstract contract FunctionsClient is FunctionsClientInterface, TypeAndVersionInterface {
   FunctionsOracleInterface internal s_oracle;
   mapping(bytes32 => address) internal s_pendingRequests;
 
@@ -22,6 +23,16 @@ abstract contract FunctionsClient is FunctionsClientInterface {
 
   constructor(address oracle) {
     setOracle(oracle);
+  }
+
+  /**
+   * @notice The type and version of this contract
+   * @notice versions:
+   * - FunctionsClient 0.0.0: beta release
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure override returns (string memory) {
+    return "FunctionsClient 0.0.1";
   }
 
   /**

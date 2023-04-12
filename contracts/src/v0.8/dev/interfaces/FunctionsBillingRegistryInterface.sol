@@ -91,9 +91,15 @@ interface FunctionsBillingRegistryInterface {
   ) external returns (FulfillResult);
 
   /**
-   * @notice Gets subscription owner.
+   * @notice Gets information about a billing subscription.
    * @param subscriptionId - ID of the subscription
-   * @return owner - owner of the subscription.
+   * @return balance - balance in juels of LINK of the subscription.
+   * @return owner - address of the owner of the subscription.
+   * @return consumers - addresses of the consumers that are allowed to use the subscription.
    */
-  function getSubscriptionOwner(uint64 subscriptionId) external view returns (address owner);
+  function getSubscription(uint64 subscriptionId) external view returns (
+      uint96 balance,
+      address owner,
+      address[] memory consumers
+  );
 }

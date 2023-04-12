@@ -26,7 +26,8 @@ contract FunctionsBillingRegistry is
   PausableUpgradeable,
   FunctionsBillingRegistryInterface,
   ERC677ReceiverInterface,
-  AuthorizedReceiver
+  AuthorizedReceiver,
+  TypeAndVersionInterface
 {
   LinkTokenInterface private LINK;
   AggregatorV3Interface private LINK_ETH_FEED;
@@ -164,6 +165,16 @@ contract FunctionsBillingRegistry is
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     ORACLE_WITH_ALLOWLIST = AuthorizedOriginReceiverInterface(oracle);
+  }
+
+  /**
+   * @notice The type and version of this contract
+   * @notice versions:
+   * - FunctionsBillingRegistry 0.0.0: beta release
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure override returns (string memory) {
+    return "FunctionsBillingRegistry 0.0.1";
   }
 
   /**
@@ -587,15 +598,12 @@ contract FunctionsBillingRegistry is
   }
 
   /**
-   * @notice Get details about a subscription.
-   * @param subscriptionId - ID of the subscription
-   * @return balance - LINK balance of the subscription in juels.
-   * @return owner - owner of the subscription.
-   * @return consumers - list of consumer address which are able to use this subscription.
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getSubscription(uint64 subscriptionId)
     external
     view
+    override
     returns (
       uint96 balance,
       address owner,
