@@ -257,6 +257,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
+	cli.Config.LogConfiguration(lggr.Debug)
+
 	err := cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
@@ -438,8 +440,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 		return nil
 	})
-
-	cli.Config.LogConfiguration(lggr.Debug)
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 
