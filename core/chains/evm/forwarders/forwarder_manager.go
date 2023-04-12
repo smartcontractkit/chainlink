@@ -107,7 +107,7 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 	})
 }
 
-func (f *FwdMgr) filterName(addr common.Address) string {
+func FilterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
@@ -216,7 +216,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 
 	err := f.logpoller.RegisterFilter(
 		evmlogpoller.Filter{
-			Name:      f.filterName(addr),
+			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
 			Addresses: []common.Address{addr},
 		})

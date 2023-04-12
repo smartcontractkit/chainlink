@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -60,7 +62,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
-	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
+	fwd, err := fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
 	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
@@ -73,6 +75,19 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, addr.String(), forwarderAddr.String())
 	err = fwdMgr.Close()
 	require.NoError(t, err)
+
+	cleanupCalled := false
+	cleanup := func(tx pg.Queryer, evmChainId int64, addr common.Address) error {
+		require.Equal(t, testutils.FixtureChainID.Int64(), evmChainId)
+		require.Equal(t, forwarderAddr, addr)
+		require.NotNil(t, tx)
+		cleanupCalled = true
+		return nil
+	}
+
+	err = fwdMgr.ORM.DeleteForwarder(fwd.ID, cleanup)
+	assert.NoError(t, err)
+	assert.True(t, cleanupCalled)
 }
 
 func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
