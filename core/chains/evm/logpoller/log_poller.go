@@ -32,6 +32,7 @@ import (
 type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
+	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter) error
 	UnregisterFilter(name string, q pg.Queryer) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
@@ -98,7 +99,7 @@ type logPoller struct {
 	replayComplete chan error
 	ctx            context.Context
 	cancel         context.CancelFunc
-	done           chan struct{}
+	wg             sync.WaitGroup
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -120,7 +121,6 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		lggr:              lggr,
 		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
-		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
@@ -317,19 +317,37 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	select {
 	case lp.replayStart <- fromBlock:
 	case <-ctx.Done():
-		return ErrReplayRequestAborted
+		return errors.Wrap(ErrReplayRequestAborted, ctx.Err().Error())
 	}
 	// Block until replay complete or cancelled.
 	select {
-	case err := <-lp.replayComplete:
+	case err = <-lp.replayComplete:
 		return err
 	case <-ctx.Done():
 		// Note: this will not abort the actual replay, it just means the client gave up on waiting for it to complete
-		go func() {
-			<-lp.replayComplete
-		}()
+		lp.wg.Add(1)
+		go lp.recvReplayComplete()
 		return ErrReplayInProgress
 	}
+}
+
+func (lp *logPoller) recvReplayComplete() {
+	err := <-lp.replayComplete
+	if err != nil {
+		lp.lggr.Error(err)
+	}
+	lp.wg.Done()
+}
+
+// Asynchronous wrapper for Replay()
+func (lp *logPoller) ReplayAsync(fromBlock int64) {
+	lp.wg.Add(1)
+	go func() {
+		if err := lp.Replay(context.Background(), fromBlock); err != nil {
+			lp.lggr.Error(err)
+		}
+		lp.wg.Done()
+	}()
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
@@ -342,7 +360,7 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
-
+		lp.wg.Add(1)
 		go lp.run()
 		return nil
 	})
@@ -350,8 +368,12 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 
 func (lp *logPoller) Close() error {
 	return lp.StopOnce("LogPoller", func() error {
+		select {
+		case lp.replayComplete <- ErrLogPollerShutdown:
+		default:
+		}
 		lp.cancel()
-		<-lp.done
+		lp.wg.Wait()
 		return nil
 	})
 }
@@ -381,7 +403,7 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 }
 
 func (lp *logPoller) run() {
-	defer close(lp.done)
+	defer lp.wg.Done()
 	logPollTick := time.After(0)
 	// trigger first backup poller run shortly after first log poller run
 	backupLogPollTick := time.After(100 * time.Millisecond)

@@ -170,6 +170,7 @@ func assertForeignConstraintError(t *testing.T, observedLog observer.LoggedEntry
 
 func TestLogPoller_DBErrorHandling(t *testing.T) {
 	t.Parallel()
+	tctx := testutils.Context(t)
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 	chainID1 := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
@@ -194,8 +195,8 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	ec.Commit()
 
 	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, 2, 3, 2, 1000)
-	ctx, cancelReplay := context.WithCancel(testutils.Context(t))
-	lp.ctx, lp.cancel = context.WithCancel(testutils.Context(t))
+	ctx, cancelReplay := context.WithCancel(tctx)
+	lp.ctx, lp.cancel = context.WithCancel(tctx)
 	defer cancelReplay()
 	defer lp.cancel()
 
@@ -210,13 +211,12 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-	go lp.run()
+	lp.Start(tctx)
 	require.Eventually(t, func() bool {
 		return observedLogs.Len() >= 5
 	}, 2*time.Second, 20*time.Millisecond)
 	lp.cancel()
 	lp.Close()
-	<-lp.done
 
 	logMsgs := make(map[string]int)
 	for _, obs := range observedLogs.All() {
@@ -291,15 +291,10 @@ func TestFilterName(t *testing.T) {
 
 func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
-
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
-	chainID := testutils.NewRandomEVMChainID()
+	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
 
 	head := evmtypes.Head{Number: 3}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -340,14 +335,10 @@ func TestLogPoller_Replay(t *testing.T) {
 	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 	tctx := testutils.Context(t)
 
-	lggr := logger.TestLogger(t)
-	chainID := testutils.NewRandomEVMChainID()
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
 
 	head := evmtypes.Head{Number: 4}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -373,16 +364,24 @@ func TestLogPoller_Replay(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(4), latest)
 
-	t.Run("abortBeforeReplayStart", func(t *testing.T) {
+	t.Run("abort before replayStart received", func(t *testing.T) {
 		// Replay() should abort immediately if caller's context is cancelled before request signal is read
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(tctx)
 		cancel()
 		err = lp.Replay(ctx, 3)
 		assert.ErrorIs(t, err, ErrReplayRequestAborted)
 	})
 
-	recvStartReplay := func(ctx context.Context, block int64, withTimeout bool) {
+	recvStartReplay := func(parentCtx context.Context, block int64, withTimeout bool) {
 		var err error
+		var ctx context.Context
+		var cancel context.CancelFunc
+		if withTimeout {
+			ctx, cancel = context.WithTimeout(parentCtx, time.Second)
+		} else {
+			ctx, cancel = context.WithCancel(parentCtx)
+		}
+		defer cancel()
 		select {
 		case fromBlock := <-lp.replayStart:
 			assert.Equal(t, block, fromBlock)
@@ -392,10 +391,9 @@ func TestLogPoller_Replay(t *testing.T) {
 		require.NoError(t, err, "Timed out waiting to receive replay request from lp.replayStart")
 	}
 
-	anyErr := errors.New("any error")
-
 	// Replay() should return error code received from replayComplete
-	t.Run("returnsErrorCodeOnReplayComplete", func(t *testing.T) {
+	t.Run("returns error code on replay complete", func(t *testing.T) {
+		anyErr := errors.New("any error")
 		go func() {
 			recvStartReplay(tctx, 1, true)
 			lp.replayComplete <- anyErr
@@ -403,27 +401,22 @@ func TestLogPoller_Replay(t *testing.T) {
 		assert.ErrorIs(t, lp.Replay(tctx, 1), anyErr)
 	})
 
-	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun,
-	// and this should not cause lp.run() to get stuck
-	t.Run("clientAbortReplayInProgress", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun
+	t.Run("late abort returns ErrReplayInProgress", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second)
 		go func() {
-			recvStartReplay(ctx, 4, true)
+			recvStartReplay(ctx, 4, false)
 			cancel()
 		}()
 		assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
-
 	})
 
 	// Main lp.run() loop shouldn't get stuck if client aborts
-	t.Run("clientAbortDoesntHangRunLoop", func(t *testing.T) {
+	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
+		lp.backupPollerNextBlock = 0
 		done := make(chan struct{})
-		timeout := time.After(4 * time.Second)
+		timeout := time.After(1 * time.Second)
 		lp.ctx, lp.cancel = context.WithCancel(tctx)
-		defer func() {
-			lp.cancel()
-			lp.done = make(chan struct{})
-		}()
 		ctx, cancel := context.WithCancel(tctx)
 
 		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
@@ -438,6 +431,8 @@ func TestLogPoller_Replay(t *testing.T) {
 				close(done)
 			}()
 		})
+		ec.On("FilterLogs", lp.ctx, mock.Anything).Return([]types.Log{log1}, nil).Maybe()
+		lp.wg.Add(1)
 		go func() {
 			lp.run()
 		}()
@@ -445,33 +440,63 @@ func TestLogPoller_Replay(t *testing.T) {
 		case <-timeout:
 			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 1s")
 		case <-done:
+			lp.cancel()
 		}
 	})
 
+	lp.wg.Wait() // ensure logpoller has exited before continuing on to next test
+
 	// run() should abort if log poller shuts down while replay is in progress
-	t.Run("shutdownDuringReplay", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithCancel(tctx)
-		defer lp.cancel()
-		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+	t.Run("shutdown during replay", func(t *testing.T) {
+		lp.backupPollerNextBlock = 0
+		done := make(chan struct{})
+		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
 				lp.replayStart <- 4
 			}()
 		})
-		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			lp.cancel()
+			close(done)
 		})
+		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
 		timeout := time.After(1 * time.Second)
-		done := make(chan struct{})
-		go func() {
-			lp.run()
-			close(done)
-		}()
+		require.NoError(t, lp.Start(tctx))
 		select {
 		case <-timeout:
 			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 1s")
+			lp.Close()
 		case <-done:
+			lp.wg.Wait()
 		}
+	})
+
+	// ReplayAsync should return success as soon as replayStart is received
+	t.Run("ReplayAsync success", func(t *testing.T) {
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, time.Second)
+		go recvStartReplay(tctx, 1, true)
+		lp.ReplayAsync(1)
+		lp.replayComplete <- nil
+	})
+
+	t.Run("ReplayAsync error", func(t *testing.T) {
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
+		defer lp.cancel()
+		anyErr := errors.New("async error")
+		observedLogs.TakeAll()
+
+		lp.ReplayAsync(4)
+		recvStartReplay(tctx, 4, true)
+
+		select {
+		case lp.replayComplete <- anyErr:
+			time.Sleep(2 * time.Second)
+		case <-lp.ctx.Done():
+			require.Fail(t, "failed to receive replayComplete signal")
+		}
+		require.Equal(t, 1, observedLogs.Len())
+		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
 	})
 }
 
