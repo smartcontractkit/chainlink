@@ -15,7 +15,7 @@ require (
 	github.com/rs/zerolog v1.29.0
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/slack-go/slack v0.12.1
-	github.com/smartcontractkit/chainlink-env v0.3.26
+	github.com/smartcontractkit/chainlink-env v0.3.29
 	github.com/smartcontractkit/chainlink-testing-framework v1.11.2
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230301222433-aec519050c9a
@@ -289,7 +289,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230328133051-9d3eb8328c82 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230411134126-4c780ac039af // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230328102724-20c5e1a716e9 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.6.2-0.20230317160629-382a1ac921d8 // indirect

@@ -1932,11 +1932,11 @@ github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0
 github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/slack-go/slack v0.12.1 h1:X97b9g2hnITDtNsNe5GkGx6O2/Sz/uC20ejRZN6QxOw=
 github.com/slack-go/slack v0.12.1/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
-github.com/smartcontractkit/chainlink-cosmos v0.1.4-0.20230328025552-4e21318caf26 h1:sOCnJgBPI9gDuiaC2W39VYaGZQoMOyNgAFCAX/v+GYY=
-github.com/smartcontractkit/chainlink-env v0.3.26 h1:PkITRsrefIEQvATQtp+macnFx9r8szzrlnsu9eFcl/o=
-github.com/smartcontractkit/chainlink-env v0.3.26/go.mod h1:9c0Czq4a6wZKY20BcoAlK29DnejQIiLo/MwKYtSFnHk=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230328133051-9d3eb8328c82 h1:VsNyxHnmCIpCtryMyWDv9SIseroCINOp1bme7wdXXns=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230328133051-9d3eb8328c82/go.mod h1:jhYQLbmWJvlkET6zlnx961itsCZEhmG8QP19It664eQ=
+github.com/smartcontractkit/chainlink-env v0.3.29 h1:hcIw/BeuB0wKiiE3umAUNBZzWkHO24XF3OW9xSrlMbI=
+github.com/smartcontractkit/chainlink-env v0.3.29/go.mod h1:9c0Czq4a6wZKY20BcoAlK29DnejQIiLo/MwKYtSFnHk=
+github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230407210547-2b9d8b0180ee h1:wHyuoacM5Sn9XNioZ/55q7ZqzByzZoj5kRZLCoXrOVU=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230411134126-4c780ac039af h1:m6yTktuVTeCPm+qhKbFEhaNY2SjwQ57eTL/40kngVIE=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230411134126-4c780ac039af/go.mod h1:jhYQLbmWJvlkET6zlnx961itsCZEhmG8QP19It664eQ=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230328132724-705a2932e300 h1:3zjEZ8Hh1EVcu8A+7KVhD3fcWWgFKLeobgessj8OAOs=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230328102724-20c5e1a716e9 h1:ib6EjsDRasmO2uCstsWSwWqsWeIiMBMMTR+5KcCozWo=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230328102724-20c5e1a716e9/go.mod h1:3xUS0kadHzpEM7JtoTHUJkSkByHCU+LbxnQVgCaLNJA=
