@@ -24,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type MockTxManager = *txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-
 func TestETHTxTask(t *testing.T) {
 	jid := int32(321)
 	reqID := common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2")
@@ -52,7 +50,7 @@ func TestETHTxTask(t *testing.T) {
 		forwardingAllowed     bool
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
-		setupClientMocks      func(keyStore *keystoremocks.Eth, txManager MockTxManager)
+		setupClientMocks      func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager)
 		expected              interface{}
 		expectedErrorCause    error
 		expectedErrorContains string
@@ -72,7 +70,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
@@ -122,7 +120,7 @@ func TestETHTxTask(t *testing.T) {
 				"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
 			}),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
@@ -166,7 +164,7 @@ func TestETHTxTask(t *testing.T) {
 				"requestTxHash":    common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
 			}),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
@@ -199,7 +197,7 @@ func TestETHTxTask(t *testing.T) {
 				},
 			}),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
@@ -244,7 +242,7 @@ func TestETHTxTask(t *testing.T) {
 				},
 			}),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
@@ -279,7 +277,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{FailOnRevert: null.BoolFrom(false)}
@@ -309,7 +307,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
@@ -343,7 +341,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
@@ -387,7 +385,7 @@ func TestETHTxTask(t *testing.T) {
 				},
 			}),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(nil, errors.New("uh oh"))
 			},
@@ -407,7 +405,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
@@ -442,7 +440,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {},
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
 			nil, pipeline.ErrBadInput, "txMeta", pipeline.RunInfo{},
 		},
 		{
@@ -459,7 +457,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {},
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
 			nil, pipeline.ErrBadInput, "txMeta", pipeline.RunInfo{},
 		},
 		{
@@ -476,7 +474,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {},
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
 			nil, pipeline.ErrParameterEmpty, "to", pipeline.RunInfo{},
 		},
 		{
@@ -493,7 +491,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {},
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
 			nil, pipeline.ErrTooManyErrors, "task inputs", pipeline.RunInfo{},
 		},
 		{
@@ -510,7 +508,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
@@ -542,7 +540,7 @@ func TestETHTxTask(t *testing.T) {
 				"evmChainID":    "123",
 			}),
 			nil,
-			func(keyStore *keystoremocks.Eth, txManager MockTxManager) {
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 			},
 			nil, nil, "not found", pipeline.RunInfo{IsRetryable: true},
 		},

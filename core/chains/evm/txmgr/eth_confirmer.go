@@ -485,6 +485,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) fetchAndSaveReceipts(ctx cont
 }
 
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) getMinedTransactionCount(ctx context.Context, from ADDR) (nonce uint64, err error) {
+	// TODO: Remove this when client gets generalized
 	gethAddr, err := getGethAddressFromADDR(from)
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to do address format conversion")

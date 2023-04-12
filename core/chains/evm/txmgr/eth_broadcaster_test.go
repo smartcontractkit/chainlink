@@ -75,27 +75,40 @@ func NewTestEthBroadcaster(
 }
 
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
+	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
+	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.DatabaseURL())
+	err := eventBroadcaster.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	txStorageService := cltest.NewTxmStorageService(t, db, cfg)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-	cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	estimator := txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, *evmtypes.TxHash](t)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, ethKeyStore, estimator)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
+	eb := txmgr.NewEthBroadcaster(
+		txStorageService,
+		ethClient,
+		evmcfg,
+		ethKeyStore,
+		eventBroadcaster,
+		txBuilder,
+		nil,
+		logger.TestLogger(t),
+		&testCheckerFactory{},
+		false,
+	)
 
-	eb, err := NewTestEthBroadcaster(t, txStorageService, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
-
-	require.NoError(t, err)
+	// Can't close an unstarted instance
+	err = eb.Close()
+	require.Error(t, err)
 	ctx := testutils.Context(t)
 
-	// eb is already started inside the NewTestEthBroadcaster() call above
-
-	// Can't start an already started instance
+	// Can start a new instance
 	err = eb.Start(ctx)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	// Can successfully close once
 	err = eb.Close()

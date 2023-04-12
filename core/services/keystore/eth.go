@@ -22,7 +22,6 @@ import (
 //
 //go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 type Eth interface {
-	txmgr.EvmKeyStore
 	Get(id string) (ethkey.KeyV2, error)
 	GetAll() ([]ethkey.KeyV2, error)
 	Create(chainIDs ...*big.Int) (ethkey.KeyV2, error)
@@ -34,16 +33,22 @@ type Eth interface {
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
+	NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+
 	EnsureKeys(chainIDs ...*big.Int) error
+	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 
 	SignTx(fromAddress *evmtypes.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
+	CheckEnabled(address *evmtypes.Address, chainID *big.Int) error
 
 	GetState(id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	EnabledAddressesForChain(chainID *big.Int) (addresses []*evmtypes.Address, err error)
 
 	XXXTestingOnlySetState(ethkey.State)
 	XXXTestingOnlyAdd(key ethkey.KeyV2)
