@@ -89,7 +89,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
-	TxmORM() txmgr.ORM
+	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -122,7 +122,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
-	txmORM                   txmgr.ORM
+	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -288,7 +288,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg)
 	)
 
 	srvcs = append(srvcs, pipelineORM)
@@ -476,7 +476,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
 		sessionORM:               sessionORM,
-		txmORM:                   txmORM,
+		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -675,8 +675,8 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmORM() txmgr.ORM {
-	return app.txmORM
+func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
+	return app.txmStorageService
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {

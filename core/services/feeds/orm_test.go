@@ -1424,7 +1424,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		lggr        = logger.TestLogger(t)
 		pipelineORM = pipeline.NewORM(db, lggr, config)
 		bridgeORM   = bridges.NewORM(db, lggr, config)
-		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	)
 
