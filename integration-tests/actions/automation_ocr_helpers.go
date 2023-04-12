@@ -37,31 +37,31 @@ func BuildAutoOCR2ConfigVars(
 	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes, keyIndex)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		5*time.Second,         // deltaProgress time.Duration,
-		10*time.Second,        // deltaResend time.Duration,
-		1000*time.Millisecond, // deltaRound time.Duration,
-		20*time.Millisecond,   // deltaGrace time.Duration,
+		10*time.Second,        // deltaProgress time.Duration,
+		15*time.Second,        // deltaResend time.Duration,
+		3000*time.Millisecond, // deltaRound time.Duration,
+		200*time.Millisecond,  // deltaGrace time.Duration,
 		deltaStage,            // deltaStage time.Duration,
-		48,                    // rMax uint8,
+		24,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		types2.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
-			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
+			PerformLockoutWindow: 3600000,
 			GasLimitPerReport:    5_300_000,
 			GasOverheadPerUpkeep: 300_000,
 			SamplingJobDuration:  3000,
 			MinConfirmations:     0,
-			MaxUpkeepBatchSize:   20,
+			MaxUpkeepBatchSize:   1,
 		}.Encode(), // reportingPluginConfig []byte,
-		20*time.Millisecond,  // maxDurationQuery time.Duration,
-		20*time.Millisecond,  // maxDurationObservation time.Duration,
-		800*time.Millisecond, // maxDurationReport time.Duration,
-		20*time.Millisecond,  // maxDurationShouldAcceptFinalizedReport time.Duration,
-		20*time.Millisecond,  // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                    // f int,
-		nil,                  // onchainConfig []byte,
+		20*time.Millisecond,   // maxDurationQuery time.Duration,
+		20*time.Millisecond,   // maxDurationObservation time.Duration,
+		1200*time.Millisecond, // maxDurationReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                     // f int,
+		nil,                   // onchainConfig []byte,
 	)
 	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
 
