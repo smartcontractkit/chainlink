@@ -26,13 +26,13 @@ type TxStorageService[
 	// Represents a onchain receipt object that a chain's RPC returns
 	R any,
 	// Represents a tx object that is used by the TXM
-	// TODO: Remove
+	// TODO: Remove https://smartcontract-it.atlassian.net/browse/BCI-865
 	TX any,
 	// Represents a tx attempt object that is used by the TXM
-	// TODO: Remove
+	// TODO: Remove https://smartcontract-it.atlassian.net/browse/BCI-865
 	TXATTEMPT any,
 	// Represents a unique tx id for the Chainlink Node.
-	// TODO: Remove
+	// TODO: Remove https://smartcontract-it.atlassian.net/browse/BCI-865
 	TXID any,
 	// Represents the sequence type for a chain. For example, nonce for EVM.
 	TXMETA any,
