@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 )
 
 type Data struct {
