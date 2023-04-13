@@ -43,13 +43,16 @@ contract UpkeepCounterStats is ConfirmedOwner {
   mapping(uint256 => uint256[]) public delays;  // how to query for delays for a certain past period: calendar day and/or past 24 hours
 
   mapping(uint256 => mapping(uint16 => uint256[])) public bucketedDelays;
+  mapping(uint256 => mapping(uint16 => uint256[])) public timestampDelays;
+  mapping(uint256 => uint256[]) public timestamps;
+  mapping(uint256 => uint16) public timestampBuckets;
   mapping(uint256 => uint16) public buckets;
   EnumerableSet.UintSet internal s_upkeepIDs;
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
   KeeperRegistry2_0 public registry;
   uint256 public upkeepTopUpCheckInterval = 10;
-  uint96 public addLinkAmount = 5000000000000000000;
+  uint96 public addLinkAmount = 5000000000000000000; // 5 LINK
   uint16 public immutable BUCKET_SIZE = 100;
   uint8 public minBalanceThresholdMultiplier = 100;
 
@@ -170,7 +173,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
    * @notice cancel an upkeep.
    * @param upkeepId the upkeep ID
    */
-  function _cancelUpkeep(uint256 upkeepId) private {
+  function cancelUpkeep(uint256 upkeepId) external {
     registry.cancelUpkeep(upkeepId);
     s_upkeepIDs.remove(upkeepId);
 
@@ -192,6 +195,10 @@ contract UpkeepCounterStats is ConfirmedOwner {
     delete buckets[upkeepId];
   }
 
+  function withdrawLinks(uint256 upkeepId) external {
+    registry.withdrawFunds(upkeepId, address(this));
+  }
+
   /**
    * @notice batch canceling upkeeps.
    * @param upkeepIds an array of upkeep IDs
@@ -199,7 +206,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
   function batchCancelUpkeeps(uint256[] calldata upkeepIds) external {
     uint256 len = upkeepIds.length;
     for (uint8 i = 0; i < len; i++) {
-      _cancelUpkeep(upkeepIds[i]);
+      this.cancelUpkeep(upkeepIds[i]);
     }
     emit UpkeepsCancelled(upkeepIds);
   }
@@ -237,9 +244,17 @@ contract UpkeepCounterStats is ConfirmedOwner {
     if (firstPerformBlock == 0) {
       firstPerformBlocks[upkeepId] = blockNum;
       firstPerformBlock = blockNum;
+      timestamps[upkeepId].push(block.timestamp);
     } else {
       // Calculate and append delay
       uint256 delay = blockNum - previousPerformBlock - intervals[upkeepId];
+
+      uint16 timestampBucket = timestampBuckets[upkeepId];
+      if (block.timestamp - 3600 > timestamps[upkeepId][timestampBucket]) {
+        timestamps[upkeepId].push(block.timestamp);
+        timestampBucket++;
+        timestampBuckets[upkeepId] = timestampBucket;
+      }
 
       uint16 bucket = buckets[upkeepId];
       uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
@@ -248,6 +263,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
         buckets[upkeepId] = bucket;
       }
       bucketedDelays[upkeepId][bucket].push(delay);
+      timestampDelays[upkeepId][timestampBucket].push(delay);
       delays[upkeepId].push(delay);
     }
 
@@ -326,6 +342,13 @@ contract UpkeepCounterStats is ConfirmedOwner {
       delete bucketedDelays[upkeepId][i];
     }
     delete buckets[upkeepId];
+
+    currentBucket = timestampBuckets[upkeepId];
+    for (uint16 i = 0; i <= currentBucket; i++) {
+      delete timestampDelays[upkeepId][i];
+    }
+    delete timestamps[upkeepId];
+    delete timestampBuckets[upkeepId];
   }
 
   /**
@@ -360,6 +383,10 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return bucketedDelays[upkeepId][bucket].length;
   }
 
+  function getDelaysLengthAtTimestampBucket(uint256 upkeepId, uint16 timestampBucket) public view returns (uint256) {
+    return timestampDelays[upkeepId][timestampBucket].length;
+  }
+
   function getBucketedDelaysLength(uint256 upkeepId) public view returns (uint256) {
     uint16 currentBucket = buckets[upkeepId];
     uint256 len = 0;
@@ -369,8 +396,21 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return len;
   }
 
+  function getTimestampBucketedDelaysLength(uint256 upkeepId) public view returns (uint256) {
+    uint16 timestampBucket = timestampBuckets[upkeepId];
+    uint256 len = 0;
+    for (uint16 i = 0; i <= timestampBucket; i++) {
+      len += timestampDelays[upkeepId][i].length;
+    }
+    return len;
+  }
+
   function getDelays(uint256 upkeepId) public view returns (uint256[] memory) {
     return delays[upkeepId];
+  }
+
+  function getTimestampDelays(uint256 upkeepId, uint16 timestampBucket) public view returns (uint256[] memory) {
+    return timestampDelays[upkeepId][timestampBucket];
   }
 
   function getBucketedDelays(uint256 upkeepId, uint16 bucket) public view returns (uint256[] memory) {
@@ -382,7 +422,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return getSumDelayLastNPerforms(delays, n);
   }
 
-  function getSumDelayLastNPerforms1(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
+  function getSumBucketedDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
     uint256 len = this.getBucketedDelaysLength(upkeepId);
     if (n == 0 || n >= len) {
       n = len;
@@ -402,8 +442,33 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return (sum, n);
   }
 
+  function getSumTimestampBucketedDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
+    uint256 len = this.getTimestampBucketedDelaysLength(upkeepId);
+    if (n == 0 || n >= len) {
+      n = len;
+    }
+    uint256 nn = n;
+    uint256 sum = 0;
+    uint16 timestampBucket = timestampBuckets[upkeepId];
+    for (uint16 i = timestampBucket; i >= 0; i--) {
+      uint256[] memory delays = timestampDelays[upkeepId][i];
+      (uint256 s, uint256 m) = getSumDelayLastNPerforms(delays, nn);
+      sum += s;
+      nn -= m;
+      if (nn <= 0) {
+        break;
+      }
+    }
+    return (sum, n);
+  }
+
   function getSumDelayInBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256, uint256) {
     uint256[] memory delays = bucketedDelays[upkeepId][bucket];
+    return getSumDelayLastNPerforms(delays, delays.length);
+  }
+
+  function getSumDelayInTimestampBucket(uint256 upkeepId, uint16 timestampBucket) public view returns (uint256, uint256) {
+    uint256[] memory delays = timestampDelays[upkeepId][timestampBucket];
     return getSumDelayLastNPerforms(delays, delays.length);
   }
 
@@ -457,6 +522,11 @@ contract UpkeepCounterStats is ConfirmedOwner {
     }
 
     return (upkeepIds, pxDelays);
+  }
+
+  function getPxDelayInTimestampBucket(uint256 upkeepId, uint256 p, uint16 timestampBucket) public view returns (uint256) {
+    uint256[] memory delays = timestampDelays[upkeepId][timestampBucket];
+    return getPxDelayLastNPerforms(delays, p, delays.length);
   }
 
   function getPxDelayInBucket(uint256 upkeepId, uint256 p, uint16 bucket) public view returns (uint256) {
