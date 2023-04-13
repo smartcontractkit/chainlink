@@ -95,6 +95,16 @@ jobs:
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+          while IFS=',' read -ra EVM_URLS_2; do
+          for i in "${EVM_URLS_2[@]}"; do
+              echo ::add-mask::$i
+            done
+          done <<< "$EVM_URLS"
+          while IFS=',' read -ra EVM_HTTP_URLS_2; do
+            for i in "${EVM_HTTP_URLS_2[@]}"; do
+              echo ::add-mask::$i
+            done
+          done <<< "$EVM_HTTP_URLS"
       - name: Checkout the repo
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
         with:

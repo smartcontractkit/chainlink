@@ -1,9 +1,14 @@
 package types
 
-import "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+import (
+	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+)
 
 // KeyStore encompasses the subset of keystore used by txmgr
-type KeyStore[ADDR any, ID any, S any] interface {
+//
+//go:generate mockery --quiet --name KeyStore --output ./mocks/ --case=underscore
+type KeyStore[ADDR types.Hashable[ADDR], ID any, S any] interface {
 	CheckEnabled(address ADDR, chainID ID) error
 	NextSequence(address ADDR, chainID ID, qopts ...pg.QOpt) (S, error)
 	EnabledAddressesForChain(chainId ID) ([]ADDR, error)

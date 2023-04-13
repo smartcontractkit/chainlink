@@ -79,7 +79,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil).Maybe()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -259,6 +259,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			Client:        ethClient,
 			GeneralConfig: config,
 			LogPoller:     lp,
+			KeyStore:      ethKeyStore,
 		}
 		cs := evmtest.NewChainSet(t, testopts)
 

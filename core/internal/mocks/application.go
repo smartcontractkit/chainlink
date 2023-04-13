@@ -35,6 +35,8 @@ import (
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	uuid "github.com/satori/go.uuid"
@@ -495,16 +497,16 @@ func (_m *Application) Stop() error {
 	return r0
 }
 
-// TxmORM provides a mock function with given fields:
-func (_m *Application) TxmORM() txmgr.ORM {
+// TxmStorageService provides a mock function with given fields:
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64] {
 	ret := _m.Called()
 
-	var r0 txmgr.ORM
-	if rf, ok := ret.Get(0).(func() txmgr.ORM); ok {
+	var r0 txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.ORM)
+			r0 = ret.Get(0).(txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64])
 		}
 	}
 

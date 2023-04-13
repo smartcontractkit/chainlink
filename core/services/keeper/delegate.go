@@ -5,6 +5,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -84,9 +85,9 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
 	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
 	if spec.ForwardingAllowed {
-		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
-		if fwderr == nil {
-			effectiveKeeperAddress = fwdrAddress
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(evmtypes.NewAddress(spec.KeeperSpec.FromAddress.Address()))
+		if fwderr == nil && fwdrAddress != nil {
+			effectiveKeeperAddress = fwdrAddress.Address
 		} else {
 			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", spec.Name, "err", fwderr)
 		}
