@@ -76,7 +76,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 		},
 	}
 
-	oracle, err := functions.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
+	oracle, err := functions.NewFunctionsOracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
 	require.NoError(t, err)
 
 	serviceArray, err := oracle.GetServices()

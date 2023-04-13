@@ -17,13 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-type DirectRequestReportingPluginFactory struct {
+type FunctionsReportingPluginFactory struct {
 	Logger    commontypes.Logger
 	PluginORM functions.ORM
 	JobID     uuid.UUID
 }
 
-var _ types.ReportingPluginFactory = (*DirectRequestReportingPluginFactory)(nil)
+var _ types.ReportingPluginFactory = (*FunctionsReportingPluginFactory)(nil)
 
 type functionsReporting struct {
 	logger         commontypes.Logger
@@ -79,7 +79,7 @@ func formatRequestId(requestId []byte) string {
 }
 
 // NewReportingPlugin complies with ReportingPluginFactory
-func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	pluginConfig, err := config.DecodeReportingPluginConfig(rpConfig.OffchainConfig)
 	if err != nil {
 		f.Logger.Error("unable to decode reporting plugin config", commontypes.LogFields{
