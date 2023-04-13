@@ -123,7 +123,7 @@ func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]types.Upke
 	if len(out) < 2 {
 		return nil, fmt.Errorf("invalid unpacking of TransmitTxInput in %s", raw)
 	}
-	decodedReport, err := chain.NewEVMReportEncoder().DecodeReport(out[1].([]byte))
+	decodedReport, err := chain.NewEVMReportEncoder(1).DecodeReport(out[1].([]byte))
 	if err != nil {
 		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
 	}

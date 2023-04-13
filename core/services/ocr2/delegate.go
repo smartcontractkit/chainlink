@@ -591,7 +591,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
+
+		keeperProvider, factory, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
@@ -607,31 +608,48 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 		}
 
-		conf := ocr2keepers.DelegateConfig{
-			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          keeperProvider.ContractTransmitter(),
-			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
-			KeepersDatabase:              ocrDB,
-			LocalConfig:                  lc,
-			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
-			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-			HeadSubscriber:               rgstry,
-			Registry:                     rgstry,
-			ReportEncoder:                encoder,
-			PerformLogProvider:           logProvider,
-			CacheExpiration:              cfg.CacheExpiration.Value(),
-			CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
-			MaxServiceWorkers:            cfg.MaxServiceWorkers,
-			ServiceQueueLength:           cfg.ServiceQueueLength,
+		// begin loop over multiple instances
+		serviceInstances := []job.ServiceCtx{}
+
+		count := 4
+		for i := 0; i < count; i++ {
+			rgstry, err := factory.NewRegistry()
+			if err != nil {
+				return nil, errors.Wrap(err, "could not create new registry service from factory")
+			}
+			serviceInstances = append(serviceInstances, rgstry)
+			rgstry.SetInstance(i, count)
+
+			conf := ocr2keepers.DelegateConfig{
+				BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+				V2Bootstrappers:              bootstrapPeers,
+				ContractTransmitter:          keeperProvider.ContractTransmitter(),
+				ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
+				KeepersDatabase:              ocrDB,
+				LocalConfig:                  lc,
+				Logger:                       ocrLogger,
+				MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
+				OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+				OffchainKeyring:              kb,
+				OnchainKeyring:               kb,
+				HeadSubscriber:               rgstry,
+				Registry:                     rgstry,
+				ReportEncoder:                encoder,
+				PerformLogProvider:           logProvider,
+				CacheExpiration:              cfg.CacheExpiration.Value(),
+				CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
+				MaxServiceWorkers:            cfg.MaxServiceWorkers,
+				ServiceQueueLength:           cfg.ServiceQueueLength,
+				InstanceId:                   uint8(i),
+			}
+			pluginService, err2 := ocr2keepers.NewDelegate(conf)
+			if err2 != nil {
+				return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
+			}
+			serviceInstances = append(serviceInstances, pluginService)
 		}
-		pluginService, err2 := ocr2keepers.NewDelegate(conf)
-		if err2 != nil {
-			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
-		}
+
+		// end loop over multiple instances
 
 		// RunResultSaver needs to be started first, so it's available
 		// to read odb writes. It is stopped last after the OraclePlugin is shut down
@@ -644,13 +662,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.cfg.JobPipelineMaxSuccessfulRuns(),
 		)
 
-		return []job.ServiceCtx{
+		return append([]job.ServiceCtx{
 			runResultSaver,
 			keeperProvider,
-			rgstry,
 			logProvider,
-			pluginService,
-		}, nil
+		}, serviceInstances...), nil
 	case job.OCR2Functions:
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)

@@ -175,7 +175,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bool paused; // pause switch for all upkeeps in the registry
     bool reentrancyGuard; // guard against reentrancy
     uint96 totalPremium; // total historical payment to oracles for premium
-    uint32 latestEpoch; // latest epoch for which a report was transmitted
+    mapping(uint8 => uint32) latestEpoch; // latest epoch for which a report was transmitted; instanceId => latestEpoch
     // 1 EVM word full
   }
 
@@ -220,6 +220,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   // Report transmitted by OCR to transmit function
   struct Report {
+    uint8 instanceId;
     uint256 fastGasWei;
     uint256 linkNative;
     uint256[] upkeepIds; // Ids of upkeeps

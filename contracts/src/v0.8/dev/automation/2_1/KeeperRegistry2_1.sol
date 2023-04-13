@@ -225,8 +225,9 @@ contract KeeperRegistry2_1 is
 
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
     uint32 epoch = uint32(epochAndRound >> 8);
-    if (epoch > hotVars.latestEpoch) {
-      s_hotVars.latestEpoch = epoch;
+
+    if (epoch > hotVars.latestEpoch[report.instanceId]) {
+      s_hotVars.latestEpoch[report.instanceId] = epoch;
     }
   }
 
@@ -630,15 +631,17 @@ contract KeeperRegistry2_1 is
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
     (
+      uint8 instanceId,
       uint256 fastGasWei,
       uint256 linkNative,
       uint256[] memory upkeepIds,
       PerformDataWrapper[] memory wrappedPerformDatas
-    ) = abi.decode(rawReport, (uint256, uint256, uint256[], PerformDataWrapper[]));
+    ) = abi.decode(rawReport, (uint8, uint256, uint256, uint256[], PerformDataWrapper[]));
     if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
 
     return
       Report({
+        instanceId: instanceId,
         fastGasWei: fastGasWei,
         linkNative: linkNative,
         upkeepIds: upkeepIds,

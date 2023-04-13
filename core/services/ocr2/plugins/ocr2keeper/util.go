@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	kchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	ktypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/smartcontractkit/sqlx"
@@ -22,6 +23,21 @@ import (
 var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
 )
+
+type EVMRegistryFactory struct {
+	addr  common.Address
+	chain evm.Chain
+	lggr  logger.Logger
+}
+
+func (f *EVMRegistryFactory) NewRegistry() (*kevm.EvmRegistry, error) {
+	registry, err := kevm.NewEVMRegistryServiceV2_0(f.addr, f.chain, f.lggr)
+	if err != nil {
+		return nil, err
+	}
+
+	return registry, nil
+}
 
 func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
@@ -46,11 +62,10 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, ktypes.ReportEncoder, *LogProvider, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, *EVMRegistryFactory, ktypes.ReportEncoder, *LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
-	var registry *kevm.EvmRegistry
 	var encoder ktypes.ReportEncoder
 
 	oSpec := spec.OCR2OracleSpec
@@ -71,18 +86,20 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain, lggr); err != nil {
-		return nil, nil, nil, nil, err
+	factory := &EVMRegistryFactory{
+		addr:  rAddr,
+		chain: chain,
+		lggr:  lggr,
 	}
 
-	encoder = kchain.NewEVMReportEncoder()
+	encoder = kchain.NewEVMReportEncoder(1)
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var lookbackBlocks int64 = 250
 	logProvider, err := NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logProvider, err
+	return keeperProvider, factory, encoder, logProvider, err
 }
 
 func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {

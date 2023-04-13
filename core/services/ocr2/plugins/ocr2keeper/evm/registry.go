@@ -73,6 +73,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		packer:   &evmRegistryPackerV2_0{abi: abi},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
+		instance: -1,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -126,6 +127,8 @@ type EvmRegistry struct {
 	cancel        context.CancelFunc
 	active        map[string]activeUpkeep
 	headFunc      func(types.BlockKey)
+	instance      int
+	instances     int
 	runState      int
 	runError      error
 }
@@ -136,14 +139,26 @@ func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentif
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	keys := make([]types.UpkeepIdentifier, len(r.active))
+	keys := make([]types.UpkeepIdentifier, 0, len(r.active))
 	var i int
 	for _, value := range r.active {
-		keys[i] = types.UpkeepIdentifier(value.ID.String())
+		if r.instance > -1 {
+			rem := new(big.Int).Mod(value.ID, big.NewInt(int64(r.instances)))
+			if rem.Cmp(big.NewInt(int64(r.instance))) != 0 {
+				continue
+			}
+		}
+
+		keys = append(keys, types.UpkeepIdentifier(value.ID.String()))
 		i++
 	}
 
 	return keys, nil
+}
+
+func (r *EvmRegistry) SetInstance(instance, count int) {
+	r.instance = instance
+	r.instances = count
 }
 
 func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
