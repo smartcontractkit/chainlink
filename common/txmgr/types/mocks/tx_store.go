@@ -830,12 +830,15 @@ func (_m *TxStore[ADDR, CHAINID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, T
 }
 
 // PreloadEthTxes provides a mock function with given fields: attempts, qopts
-func (_m *TxStore[ADDR, CHAINID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, TXID, TXMETA]) PreloadEthTxes(attempts []TXATTEMPT) error {
+func (_m *TxStore[ADDR, CHAINID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, TXID, TXMETA]) PreloadEthTxes(attempts []TXATTEMPT, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
-	ret := _m.Called(attempts)
+	var _ca []interface{}
+	_ca = append(_ca, attempts)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func([]TXATTEMPT, ...pg.QOpt) error); ok {
