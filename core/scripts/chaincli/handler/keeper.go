@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	registrar20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -183,7 +184,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
 	)
 	if err != nil {
-		log.Fatal("DeployAbi failed: ", err)
+		log.Fatal("DeployAbi (keeper registry logic) failed: ", err)
 	}
 	k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
 	log.Println("KeeperRegistry2.0 Logic deployed:", registryLogicAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryLogicTx.Hash()))
@@ -194,10 +195,29 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 		registryLogicAddr,
 	)
 	if err != nil {
-		log.Fatal("DeployAbi failed: ", err)
+		log.Fatal("DeployAbi (keeper registry) failed: ", err)
 	}
 	k.waitDeployment(ctx, deployKeeperRegistryTx)
 	log.Println("KeeperRegistry2.0 deployed:", registryAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryTx.Hash()))
+
+	// also the registrar for completeness
+	registrarAddr, deployRegistrarTx, _, err := registrar20.DeployKeeperRegistrar(
+		k.buildTxOpts(ctx),
+		k.client,
+		common.HexToAddress(k.cfg.LinkTokenAddr),
+		2,
+		10000,
+		registryAddr,
+		big.NewInt(100),
+	)
+
+	if err != nil {
+		log.Fatal("DeployAbi (keeper registry) failed: ", err)
+	}
+
+	k.waitDeployment(ctx, deployRegistrarTx)
+	log.Println("KeeperRegistrar2.0 deployed:", registrarAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployRegistrarTx.Hash()))
+
 	return registryAddr, registryInstance
 }
 

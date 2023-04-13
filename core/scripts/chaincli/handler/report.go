@@ -200,7 +200,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 	}
 
 	return &OCR2Transaction{
-		encoder: chain.NewEVMReportEncoder(),
+		encoder: chain.NewEVMReportEncoder(1),
 		abi:     contract,
 		raw:     raw,
 		tx:      tx,
@@ -245,20 +245,22 @@ func (t *OCR2Transaction) To() *common.Address {
 	return t.tx.To()
 }
 
-//func (t *OCR2Transaction) From() (common.Address, error) {
-//
-//	switch t.tx.Type() {
-//	case 2:
-//		msg, err := t.tx.AsMessage(types.NewLondonSigner(t.tx.ChainId()), big.NewInt(1))
-//		if err != nil {
-//			return common.Address{}, fmt.Errorf("failed to get from addr: %s", err)
-//		} else {
-//			return msg.From(), nil
-//		}
-//	}
-//
-//	return common.Address{}, fmt.Errorf("from address not found")
-//}
+func (t *OCR2Transaction) From() (common.Address, error) {
+
+	/*
+		switch t.tx.Type() {
+		case 2:
+			msg, err := t.tx.AsMessage(types.NewLondonSigner(t.tx.ChainId()), big.NewInt(1))
+			if err != nil {
+				return common.Address{}, fmt.Errorf("failed to get from addr: %s", err)
+			} else {
+				return msg.From(), nil
+			}
+		}
+	*/
+
+	return common.Address{}, fmt.Errorf("from address not found")
+}
 
 func (t *OCR2Transaction) Method() (*abi.Method, error) {
 	return t.abi.MethodById(t.tx.Data()[0:4])
