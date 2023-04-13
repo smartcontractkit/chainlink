@@ -441,7 +441,7 @@ var tests = map[string]*BenchmarkTestEntry{
 		true,
 		false,
 	},
-	"SimulatedGethRegistry_2_0-1_2-1_3-1_1": {
+	"SimulatedGethRegistry_2_0-Multi": {
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3, eth_contracts.RegistryVersion_1_1},
 		big.NewFloat(100000),
 		int64(10),
