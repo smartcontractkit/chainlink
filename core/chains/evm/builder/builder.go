@@ -38,11 +38,12 @@ func NewTxm(
 	txStore := txmgr.NewTxStore(db, lggr, cfg)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, client, keyStore)
 
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, client, cfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
-	ethConfirmer := txmgr.NewEthConfirmer(txStore, client, cfg, keyStore, txAttemptBuilder, lggr)
+	txmCfg := txmgr.NewEvmTxmConfig(cfg)
+	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, client, txmCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
+	ethConfirmer := txmgr.NewEthConfirmer(txStore, client, txmCfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		ethResender = txmgr.NewEthResender(lggr, txStore, client, keyStore, txmgr.DefaultResenderPollInterval, cfg)
+		ethResender = txmgr.NewEthResender(lggr, txStore, client, keyStore, txmgr.DefaultResenderPollInterval, txmCfg)
 	}
 	txm = txmgr.NewTxm(db, client, cfg, keyStore, eventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender)
 	return txm, nil

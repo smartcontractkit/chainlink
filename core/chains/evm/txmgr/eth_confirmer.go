@@ -333,7 +333,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckConfirmedMissingReceipt(
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -407,7 +407,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.EvmFinalityDepth(), ec.chainID); err != nil {
+	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.FinalityDepth(), ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 	return nil
@@ -499,7 +499,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 	var reqs []rpc.BatchElem
 
 	// Metadata is required to determine whether a tx is forwarded or not.
-	if ec.config.EvmUseForwarders() {
+	if ec.config.UseForwarders() {
 		err = ec.txStore.PreloadEthTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")

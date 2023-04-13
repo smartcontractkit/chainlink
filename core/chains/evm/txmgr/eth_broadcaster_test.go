@@ -66,7 +66,7 @@ func NewTestEthBroadcaster(
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, keyStore)
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, ethClient, config, keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, ethClient, txmgr.NewEvmTxmConfig(config), keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
 	ethBroadcaster.DisableUnstartedEthTxAutoProcessing()
@@ -91,7 +91,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	eb := txmgr.NewEthBroadcaster(
 		txStore,
 		ethClient,
-		evmcfg,
+		txmgr.NewEvmTxmConfig(evmcfg),
 		ethKeyStore,
 		eventBroadcaster,
 		txBuilder,

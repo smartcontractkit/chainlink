@@ -124,7 +124,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ethKeyStore, feeEstimator)
-	ec := txmgr.NewEthConfirmer(txStore, ethClient, config, ethKeyStore, txBuilder, lggr)
+	ec := txmgr.NewEthConfirmer(txStore, ethClient, txmgr.NewEvmTxmConfig(config), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
 
 	// Can't close unstarted instance
