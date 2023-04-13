@@ -91,6 +91,10 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		}))
+	zeroGas := `[GasEstimator]
+PriceMin = '0 gwei'
+PriceDefault = '0 gwei'
+PriceMax = '0 gwei'`
 	for i := 0; i < replicas; i++ {
 		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
 		if useEnvVars == "true" {
@@ -99,7 +103,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			}))
 		} else {
 			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
+				"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, zeroGas, network),
 			}))
 		}
 	}
