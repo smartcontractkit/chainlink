@@ -98,7 +98,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) RegisterResumeCallback(fn ResumeCallbac
 func NewTxm(
 	db *sqlx.DB,
 	ethClient evmclient.Client,
-	cfg Config,
+	cfg EvmTxmConfig,
 	keyStore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	lggr logger.Logger,
@@ -110,17 +110,17 @@ func NewTxm(
 	ethBroadcaster *EvmBroadcaster,
 	ethConfirmer *EvmConfirmer,
 	ethResender *EvmResender,
+	q pg.Q,
 ) *EvmTxm {
-	txmCfg := evmTxmConfig{cfg}
 
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		txStore:          txStore,
 		db:               db,
-		q:                pg.NewQ(db, lggr, cfg),
+		q:                q,
 		ethClient:        ethClient,
-		config:           txmCfg,
+		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
 		chainID:          *ethClient.ChainID(),
@@ -138,11 +138,11 @@ func NewTxm(
 		ethResender:      ethResender,
 	}
 
-	if txmCfg.TxResendAfterThreshold() <= 0 {
+	if cfg.TxResendAfterThreshold() <= 0 {
 		b.logger.Info("EthResender: Disabled")
 	}
-	if txmCfg.TxReaperThreshold() > 0 && txmCfg.TxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, db, txmCfg, *ethClient.ChainID())
+	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
+		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}
