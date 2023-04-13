@@ -17,6 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -89,8 +90,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
-				orm := txmgr.NewORM(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, *testutils.SimulatedChainID)
+				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+				uc, err2 := orm.CountUnconfirmedTransactions(evmtypes.NewAddress(key1.Address), *testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -193,8 +194,8 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
-		orm := txmgr.NewORM(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, *testutils.SimulatedChainID)
+		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+		uc, err2 := orm.CountUnconfirmedTransactions(evmtypes.NewAddress(key.Address), *testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

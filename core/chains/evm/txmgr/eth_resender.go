@@ -6,20 +6,21 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // pollInterval is the maximum amount of time in addition to
 // EthTxResendAfterThreshold that we will wait before resending an attempt
-const defaultResenderPollInterval = 5 * time.Second
+const DefaultResenderPollInterval = 5 * time.Second
 
 // EthResender periodically picks up transactions that have been languishing
 // unconfirmed for a configured amount of time without being sent, and sends
@@ -29,10 +30,10 @@ const defaultResenderPollInterval = 5 * time.Second
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type EthResender struct {
-	orm       ORM
+type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient evmclient.Client
-	ks        txmgrtypes.KeyStore[common.Address, *big.Int, int64]
+	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	chainID   big.Int
 	interval  time.Duration
 	config    Config
@@ -44,14 +45,20 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks txmgrtypes.KeyStore[common.Address, *big.Int, int64], pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(
+	lggr logger.Logger,
+	txStore EvmTxStore,
+	ethClient evmclient.Client, ks EvmKeyStore,
+	pollInterval time.Duration,
+	config Config,
+) *EvmResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
-	// todo: add context to orm
+	// todo: add context to evmTxStore
 	ctx, cancel := context.WithCancel(context.Background())
-	return &EthResender{
-		orm,
+	return &EvmResender{
+		txStore,
 		ethClient,
 		ks,
 		*ethClient.ChainID(),
@@ -65,18 +72,18 @@ func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks 
 }
 
 // Start is a comment which satisfies the linter
-func (er *EthResender) Start() {
+func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) Start() {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
 	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
-func (er *EthResender) Stop() {
+func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) Stop() {
 	er.cancel()
 	<-er.chDone
 }
 
-func (er *EthResender) runLoop() {
+func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
@@ -97,7 +104,7 @@ func (er *EthResender) runLoop() {
 	}
 }
 
-func (er *EthResender) resendUnconfirmed() error {
+func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	enabledAddresses, err := er.ks.EnabledAddressesForChain(&er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
@@ -105,10 +112,10 @@ func (er *EthResender) resendUnconfirmed() error {
 	ageThreshold := er.config.EthTxResendAfterThreshold()
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
-	var allAttempts []EthTxAttempt
+	var allAttempts []EthTxAttempt[ADDR, TX_HASH]
 	for _, k := range enabledAddresses {
-		var attempts []EthTxAttempt
-		attempts, err = er.orm.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
+		var attempts []EthTxAttempt[ADDR, TX_HASH]
+		attempts, err = er.txStore.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
@@ -124,7 +131,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
-	reqs, err := batchSendTransactions(ctx, er.orm, allAttempts, batchSize, er.logger, er.ethClient)
+	reqs, err := batchSendTransactions(ctx, er.txStore, allAttempts, batchSize, er.logger, er.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}

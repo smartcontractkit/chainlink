@@ -36,30 +36,30 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	borm := cltest.NewTxmORM(t, db, logCfg)
+	txStore := cltest.NewTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 
 	var addr1TxesRawHex, addr2TxesRawHex, addr3TxesRawHex []string
 	// fewer than EvmMaxInFlightTransactions
 	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions()/2; i++ {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress, originalBroadcastAt)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(i), fromAddress, originalBroadcastAt)
 		addr1TxesRawHex = append(addr1TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
 	// exactly EvmMaxInFlightTransactions
 	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions(); i++ {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress2, originalBroadcastAt)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(i), fromAddress2, originalBroadcastAt)
 		addr2TxesRawHex = append(addr2TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
 	// more than EvmMaxInFlightTransactions
 	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions()*2; i++ {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress3, originalBroadcastAt)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(i), fromAddress3, originalBroadcastAt)
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEthResender(lggr, borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+	er := txmgr.NewEthResender(lggr, txStore, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 	t.Run("sends up to EvmMaxInFlightTransactions per key", func(t *testing.T) {
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -103,7 +103,7 @@ func Test_EthResender_Start(t *testing.T) {
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
-	borm := cltest.NewTxmORM(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -112,12 +112,12 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEthResender(lggr, borm, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+		er := txmgr.NewEthResender(lggr, txStore, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, originalBroadcastAt)
-		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, originalBroadcastAt)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Now().Add(1*time.Hour))
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, originalBroadcastAt)
+		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, originalBroadcastAt)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress, time.Now().Add(1*time.Hour))
 
 		// First batch of 1
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -141,12 +141,14 @@ func Test_EthResender_Start(t *testing.T) {
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
 		}()
 
-		err := db.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
+		var dbEtx txmgr.DbEthTx
+		err := db.Get(&dbEtx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
 		require.NoError(t, err)
-		err = db.Get(&etx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
+		var dbEtx2 txmgr.DbEthTx
+		err = db.Get(&dbEtx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
 		require.NoError(t, err)
 
-		assert.Greater(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
-		assert.Greater(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		assert.Greater(t, dbEtx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		assert.Greater(t, dbEtx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
 }
