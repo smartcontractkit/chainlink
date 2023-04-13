@@ -7,9 +7,8 @@ import "../automation/2_0/KeeperRegistry2_0.sol";
 
 /**
  * @notice this contract must have plenty LINKs bc it will check for every active upkeeps and top up
- * addFundsMinBalanceMultiplier * min balance if their balance is lower than minBalanceThresholdMultiplier * min.
+ * addLinkAmount if their balance is lower than minBalanceThresholdMultiplier * min balance.
  * if it does not have enough LINKs, upkeeps won't perform due to low LINK balance of this contract.
- * this contract also must have plenty native tokens if we want to use the topUpTransmitters function.
  */
 contract UpkeepCounterStats is ConfirmedOwner {
   error IndexOutOfRange();
@@ -17,47 +16,42 @@ contract UpkeepCounterStats is ConfirmedOwner {
   event UpkeepsRegistered(uint256[] upkeepIds);
   event UpkeepsCancelled(uint256[] upkeepIds);
   event RegistrarSet(address newRegistrar);
-  event FundsAdded(uint256 upkeepId, uint256 amount);
-  event TransmitterTopUp(address transmitter, uint256 amount, uint256 blockNum);
-  event UpkeepTopUp(uint256 upkeepId, uint256 amount, uint256 blockNum);
+  event FundsAdded(uint256 upkeepId, uint96 amount);
+  event UpkeepTopUp(uint256 upkeepId, uint96 amount, uint256 blockNum);
   event InsufficientFunds(uint256 balance, uint256 blockNum);
   event Received(address sender, uint256 value);
   event PerformingUpkeep(
-    uint256 initialBlock,
+    uint256 firstPerformBlock,
     uint256 lastBlock,
     uint256 previousBlock,
-    uint256 counter,
-    bytes performData
+    uint256 counter
   );
 
   using EnumerableSet for EnumerableSet.UintSet;
 
-  mapping(uint256 => uint256) public upkeepIdsToLastTopUpBlock;
-  mapping(uint256 => uint256) public upkeepIdsToIntervals;
-  mapping(uint256 => uint256) public upkeepIdsToPreviousPerformBlock;
-  mapping(uint256 => uint256) public upkeepIdsToInitialBlock;
-  mapping(uint256 => uint256) public upkeepIdsToCounter;
-  mapping(uint256 => uint256) public upkeepIdsToPerformGasToBurn;
-  mapping(uint256 => uint256) public upkeepIdsToCheckGasToBurn;
-  mapping(uint256 => uint256) public upkeepIdsToPerformDataSize;
-  mapping(uint256 => uint256) public upkeepIdsToGasLimit;
-  mapping(uint256 => bytes) public upkeepIdsToCheckData;
+  mapping(uint256 => uint256) public lastTopUpBlocks;
+  mapping(uint256 => uint256) public intervals;
+  mapping(uint256 => uint256) public previousPerformBlocks;
+  mapping(uint256 => uint256) public firstPerformBlocks;
+  mapping(uint256 => uint256) public counters;
+  mapping(uint256 => uint256) public performGasToBurns;
+  mapping(uint256 => uint256) public checkGasToBurns;
+  mapping(uint256 => uint256) public performDataSizes;
+  mapping(uint256 => uint256) public gasLimits;
+  mapping(uint256 => bytes) public checkDatas;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
-  mapping(uint256 => uint256[]) public upkeepIdsToDelay;  // how to query for delays for a certain past period: calendar day and/or past 24 hours
+  mapping(uint256 => uint256[]) public delays;  // how to query for delays for a certain past period: calendar day and/or past 24 hours
 
-  mapping(uint256 => mapping(uint16 => uint256[])) public upkeepIdsToBucketedDelays;
-  mapping(uint256 => uint16) public upkeepIdsToBucket;
+  mapping(uint256 => mapping(uint16 => uint256[])) public bucketedDelays;
+  mapping(uint256 => uint16) public buckets;
   EnumerableSet.UintSet internal s_upkeepIDs;
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
   KeeperRegistry2_0 public registry;
-  uint256 public lastTransmittersTopUpBlock;
-  uint256 public upkeepTopUpCheckInterval = 2000;
-  uint256 public transmitterTopUpCheckInterval = 2000;
-  uint96 public transmitterMinBalance = 5000000000000000000;
-  uint96 public transmitterAddBalance = 20000000000000000000;
-  uint8 public minBalanceThresholdMultiplier = 50;
-  uint8 public addFundsMinBalanceMultiplier = 100;
+  uint256 public upkeepTopUpCheckInterval = 10;
+  uint96 public addLinkAmount = 5000000000000000000;
+  uint16 public immutable BUCKET_SIZE = 100;
+  uint8 public minBalanceThresholdMultiplier = 100;
 
   constructor(address registrarAddress) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
@@ -70,12 +64,19 @@ contract UpkeepCounterStats is ConfirmedOwner {
     emit Received(msg.sender, msg.value);
   }
 
+  /**
+   * @notice withdraws LINKs from this contract to msg sender when testing is finished.
+   */
   function withdrawLinks() external onlyOwner {
     uint256 balance = linkToken.balanceOf(address(this));
     linkToken.transfer(msg.sender, balance);
   }
 
-  function setRegistrar(KeeperRegistrar2_0 newRegistrar) external {
+  /**
+   * @notice sets registrar, registry, and link token address.
+   * @param newRegistrar the new registrar address
+   */
+  function setConfig(KeeperRegistrar2_0 newRegistrar) external {
     registrar = newRegistrar;
     (,,, address registryAddress,) = registrar.getRegistrationConfig();
     registry = KeeperRegistry2_0(payable(address(registryAddress)));
@@ -84,6 +85,12 @@ contract UpkeepCounterStats is ConfirmedOwner {
     emit RegistrarSet(address(registrar));
   }
 
+  /**
+   * @notice gets an array of active upkeep IDs.
+   * @param startIndex the start index of upkeep IDs
+   * @param maxCount the max number of upkeep IDs requested
+   * @return an array of active upkeep IDs
+   */
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
     if (startIndex >= maxIdx) revert IndexOutOfRange();
@@ -97,21 +104,32 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return ids;
   }
 
+  /**
+   * @notice register an upkeep via the registrar.
+   * @param params a registration params struct
+   * @return an upkeep ID
+   */
   function _registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) private returns (uint256) {
     uint256 upkeepId = registrar.registerUpkeep(params);
     s_upkeepIDs.add(upkeepId);
-    upkeepIdsToGasLimit[upkeepId] = params.gasLimit;
-    upkeepIdsToCheckData[upkeepId] = params.checkData;
+    gasLimits[upkeepId] = params.gasLimit;
+    checkDatas[upkeepId] = params.checkData;
     return upkeepId;
   }
 
+  /**
+   * @notice batch registering upkeeps.
+   * @param number the number of upkeeps to be registered
+   * @param gasLimit the gas limit of each upkeep
+   * @param amount the amount of LINK to fund each upkeep
+   */
   function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external {
     KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
       name: "test",
       encryptedEmail: bytes(""),
       upkeepContract: address(this),
       gasLimit: gasLimit,
-      adminAddress: address(this), // cannot use msg.sender otherwise updateCheckData won't work
+      adminAddress: address(this), // use address of this contract as the admin
       checkData: bytes(""), // update check data later bc upkeep id is not available now
       offchainConfig: bytes(""),
       amount: amount
@@ -127,23 +145,57 @@ contract UpkeepCounterStats is ConfirmedOwner {
     emit UpkeepsRegistered(upkeepIds);
   }
 
+  /**
+   * @notice adds fund for an upkeep.
+   * @param upkeepId the upkeep ID
+   * @param amount the amount of LINK to be funded for the upkeep
+   */
   function addFunds(uint256 upkeepId, uint96 amount) external {
     linkToken.approve(address(registry), amount);
     registry.addFunds(upkeepId, amount);
     emit FundsAdded(upkeepId, amount);
   }
 
+  /**
+   * @notice updates check data for an upkeep. In order for the upkeep to be performed, the check data must be the abi encoded upkeep ID.
+   * @param upkeepId the upkeep ID
+   * @param checkData the new check data for the upkeep
+   */
   function updateCheckData(uint256 upkeepId, bytes calldata checkData) external {
     registry.updateCheckData(upkeepId, checkData);
-    upkeepIdsToCheckData[upkeepId] = checkData;
+    checkDatas[upkeepId] = checkData;
   }
 
+  /**
+   * @notice cancel an upkeep.
+   * @param upkeepId the upkeep ID
+   */
   function _cancelUpkeep(uint256 upkeepId) private {
     registry.cancelUpkeep(upkeepId);
     s_upkeepIDs.remove(upkeepId);
-    // keep data in mappings in case needed afterwards?
+
+    delete lastTopUpBlocks[upkeepId];
+    delete intervals[upkeepId];
+    delete previousPerformBlocks[upkeepId];
+    delete firstPerformBlocks[upkeepId];
+    delete counters[upkeepId];
+    delete performGasToBurns[upkeepId];
+    delete checkGasToBurns[upkeepId];
+    delete performDataSizes[upkeepId];
+    delete gasLimits[upkeepId];
+    delete checkDatas[upkeepId];
+    delete delays[upkeepId];
+    uint16 currentBucket = buckets[upkeepId];
+    for (uint16 i = 0; i <= currentBucket; i++) {
+      delete bucketedDelays[upkeepId][i];
+    }
+    delete buckets[upkeepId];
   }
 
+  /**
+   * @notice batch canceling upkeeps.
+   * @param upkeepIds an array of upkeep IDs
+   */
   function batchCancelUpkeeps(uint256[] calldata upkeepIds) external {
     uint256 len = upkeepIds.length;
     for (uint8 i = 0; i < len; i++) {
@@ -159,8 +211,8 @@ contract UpkeepCounterStats is ConfirmedOwner {
       (uint256)
     );
 
-    uint256 performDataSize = upkeepIdsToPerformDataSize[upkeepId];
-    uint256 checkGasToBurn = upkeepIdsToCheckGasToBurn[upkeepId];
+    uint256 performDataSize = performDataSizes[upkeepId];
+    uint256 checkGasToBurn = checkGasToBurns[upkeepId];
     bytes memory pData = abi.encode(upkeepId, new bytes(performDataSize));
     uint256 blockNum = block.number;
     bool needed = eligible(upkeepId);
@@ -179,42 +231,43 @@ contract UpkeepCounterStats is ConfirmedOwner {
       performData,
       (uint256, bytes)
     );
-    uint256 initialBlock = upkeepIdsToInitialBlock[upkeepId];
+    uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
+    uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
     uint256 blockNum = block.number;
-    if (initialBlock == 0) {
-      upkeepIdsToInitialBlock[upkeepId] = blockNum;
-      initialBlock = blockNum;
+    if (firstPerformBlock == 0) {
+      firstPerformBlocks[upkeepId] = blockNum;
+      firstPerformBlock = blockNum;
     } else {
       // Calculate and append delay
-      uint256 delay = blockNum - upkeepIdsToPreviousPerformBlock[upkeepId] - upkeepIdsToIntervals[upkeepId];
+      uint256 delay = blockNum - previousPerformBlock - intervals[upkeepId];
 
-      uint16 bucket = upkeepIdsToBucket[upkeepId];
-      uint256[] memory bucketedDelays = upkeepIdsToBucketedDelays[upkeepId][bucket];
-      if (bucketedDelays.length == 100) {
+      uint16 bucket = buckets[upkeepId];
+      uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
+      if (bucketDelays.length == BUCKET_SIZE) {
         bucket++;
+        buckets[upkeepId] = bucket;
       }
-      upkeepIdsToBucketedDelays[upkeepId][bucket].push(delay);
-      upkeepIdsToDelay[upkeepId].push(delay);
-      upkeepIdsToBucket[upkeepId] = bucket;
+      bucketedDelays[upkeepId][bucket].push(delay);
+      delays[upkeepId].push(delay);
     }
 
-    uint256 counter = upkeepIdsToCounter[upkeepId] + 1;
-    upkeepIdsToCounter[upkeepId] = counter;
-    emit PerformingUpkeep(initialBlock, blockNum, upkeepIdsToPreviousPerformBlock[upkeepId], counter, performData);
-    upkeepIdsToPreviousPerformBlock[upkeepId] = blockNum;
+    uint256 counter = counters[upkeepId] + 1;
+    counters[upkeepId] = counter;
+    emit PerformingUpkeep(firstPerformBlock, blockNum, previousPerformBlock, counter);
+    previousPerformBlocks[upkeepId] = blockNum;
 
-    // every upkeep adds funds for themselves
-    if (blockNum - upkeepIdsToLastTopUpBlock[upkeepId] > upkeepTopUpCheckInterval) {
+    // check the upkeep to see if it needs extra funds
+    if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
       UpkeepInfo memory info = registry.getUpkeep(upkeepId);
       uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
       if (info.balance < minBalanceThresholdMultiplier * minBalance) {
-        this.addFunds(upkeepId, addFundsMinBalanceMultiplier * minBalance);
-        upkeepIdsToLastTopUpBlock[upkeepId] = blockNum;
-        emit UpkeepTopUp(upkeepId, addFundsMinBalanceMultiplier * minBalance, blockNum);
+        this.addFunds(upkeepId, addLinkAmount);
+        lastTopUpBlocks[upkeepId] = blockNum;
+        emit UpkeepTopUp(upkeepId, addLinkAmount, blockNum);
       }
     }
 
-    uint256 performGasToBurn = upkeepIdsToPerformGasToBurn[upkeepId];
+    uint256 performGasToBurn = performGasToBurns[upkeepId];
     while (startGas - gasleft() + 10000 < performGasToBurn) {
       // 10K margin over gas to burn
       dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
@@ -223,103 +276,109 @@ contract UpkeepCounterStats is ConfirmedOwner {
   }
 
   function eligible(uint256 upkeepId) public view returns (bool) {
-    if (upkeepIdsToInitialBlock[upkeepId] == 0) {
+    if (firstPerformBlocks[upkeepId] == 0) {
       return true;
     }
-    return (block.number - upkeepIdsToPreviousPerformBlock[upkeepId]) >= upkeepIdsToIntervals[upkeepId];
+    return (block.number - previousPerformBlocks[upkeepId]) >= intervals[upkeepId];
+  }
+
+  /**
+   * @notice set a new add LINK amount.
+   * @param amount the new value
+   */
+  function setAddLinkAmount(uint96 amount) external {
+    addLinkAmount = amount;
   }
 
   function setUpkeepTopUpCheckInterval(uint256 newInterval) external {
     upkeepTopUpCheckInterval = newInterval;
   }
 
-  function setTransmitterTopUpCheckInterval(uint256 newInterval) external {
-    transmitterTopUpCheckInterval = newInterval;
-  }
-
-  function setMinBalanceMultipliers(uint8 newMinBalanceThresholdMultiplier, uint8 newAddFundsMinBalanceMultiplier) external {
+  function setMinBalanceThresholdMultiplier(uint8 newMinBalanceThresholdMultiplier) external {
     minBalanceThresholdMultiplier = newMinBalanceThresholdMultiplier;
-    addFundsMinBalanceMultiplier = newAddFundsMinBalanceMultiplier;
-  }
-
-  function setTransmitterBalanceLimit(uint96 newTransmitterMinBalance, uint96 newTransmitterAddBalance) external {
-    transmitterMinBalance = newTransmitterMinBalance;
-    transmitterAddBalance = newTransmitterAddBalance;
   }
 
   function setPerformGasToBurn(uint256 upkeepId, uint256 value) public {
-    upkeepIdsToPerformGasToBurn[upkeepId] = value;
+    performGasToBurns[upkeepId] = value;
   }
 
   function setCheckGasToBurn(uint256 upkeepId, uint256 value) public {
-    upkeepIdsToCheckGasToBurn[upkeepId] = value;
+    checkGasToBurns[upkeepId] = value;
   }
 
   function setPerformDataSize(uint256 upkeepId, uint256 value) public {
-    upkeepIdsToPerformDataSize[upkeepId] = value;
+    performDataSizes[upkeepId] = value;
   }
 
   function setUpkeepGasLimit(uint256 upkeepId, uint32 gasLimit) public {
     registry.setUpkeepGasLimit(upkeepId, gasLimit);
-    upkeepIdsToGasLimit[upkeepId] = gasLimit;
+    gasLimits[upkeepId] = gasLimit;
   }
 
   function setInterval(uint256 upkeepId, uint256 _interval) external {
-    upkeepIdsToIntervals[upkeepId] = _interval;
-    upkeepIdsToInitialBlock[upkeepId] = 0;
-    upkeepIdsToCounter[upkeepId] = 0;
+    intervals[upkeepId] = _interval;
+    firstPerformBlocks[upkeepId] = 0;
+    counters[upkeepId] = 0;
 
-    delete upkeepIdsToDelay[upkeepId];
-    uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+    delete delays[upkeepId];
+    uint16 currentBucket = buckets[upkeepId];
     for (uint16 i = 0; i <= currentBucket; i++) {
-      delete upkeepIdsToBucketedDelays[upkeepId][i];
+      delete bucketedDelays[upkeepId][i];
     }
-    upkeepIdsToBucket[upkeepId] = 0;
+    delete buckets[upkeepId];
   }
 
-  function batchSetIntervals(uint32 interval) external {
-    uint256 len = s_upkeepIDs.length();
+  /**
+   * @notice batch setting intervals for an array of upkeeps.
+   * @param upkeepIds an array of upkeep IDs
+   * @param interval a new interval
+   */
+  function batchSetIntervals(uint256[] calldata upkeepIds, uint32 interval) external {
+    uint256 len = upkeepIds.length;
     for (uint256 i = 0; i < len; i++) {
-      uint256 upkeepId = s_upkeepIDs.at(i);
-      this.setInterval(upkeepId, interval);
+      this.setInterval(upkeepIds[i], interval);
     }
   }
 
-  function batchUpdateCheckData() external {
-    uint256 len = s_upkeepIDs.length();
+  /**
+   * @notice batch updating check data for all upkeeps.
+   * @param upkeepIds an array of upkeep IDs
+   */
+  function batchUpdateCheckData(uint256[] calldata upkeepIds) external {
+    uint256 len = upkeepIds.length;
     for (uint256 i = 0; i < len; i++) {
-      uint256 upkeepId = s_upkeepIDs.at(i);
+      uint256 upkeepId = upkeepIds[i];
       this.updateCheckData(upkeepId, abi.encode(upkeepId));
     }
   }
 
   function getDelaysLength(uint256 upkeepId) public view returns (uint256) {
-    return upkeepIdsToDelay[upkeepId].length;
+    return delays[upkeepId].length;
   }
 
   function getDelaysLengthAtBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256) {
-    return upkeepIdsToBucketedDelays[upkeepId][bucket].length;
+    return bucketedDelays[upkeepId][bucket].length;
   }
 
   function getBucketedDelaysLength(uint256 upkeepId) public view returns (uint256) {
-    uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+    uint16 currentBucket = buckets[upkeepId];
     uint256 len = 0;
     for (uint16 i = 0; i <= currentBucket; i++) {
-      len += upkeepIdsToBucketedDelays[upkeepId][i].length;
+      len += bucketedDelays[upkeepId][i].length;
     }
     return len;
   }
 
   function getDelays(uint256 upkeepId) public view returns (uint256[] memory) {
-    return upkeepIdsToDelay[upkeepId];
+    return delays[upkeepId];
   }
 
   function getBucketedDelays(uint256 upkeepId, uint16 bucket) public view returns (uint256[] memory) {
-    return upkeepIdsToBucketedDelays[upkeepId][bucket];
+    return bucketedDelays[upkeepId][bucket];
   }
 
   function getSumDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
-    uint256[] memory delays = upkeepIdsToDelay[upkeepId];
+    uint256[] memory delays = delays[upkeepId];
     return getSumDelayLastNPerforms(delays, n);
   }
 
@@ -330,9 +389,9 @@ contract UpkeepCounterStats is ConfirmedOwner {
     }
     uint256 nn = n;
     uint256 sum = 0;
-    uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+    uint16 currentBucket = buckets[upkeepId];
     for (uint16 i = currentBucket; i >= 0; i--) {
-      uint256[] memory delays = upkeepIdsToBucketedDelays[upkeepId][i];
+      uint256[] memory delays = bucketedDelays[upkeepId][i];
       (uint256 s, uint256 m) = getSumDelayLastNPerforms(delays, nn);
       sum += s;
       nn -= m;
@@ -344,7 +403,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
   }
 
   function getSumDelayInBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256, uint256) {
-    uint256[] memory delays = upkeepIdsToBucketedDelays[upkeepId][bucket];
+    uint256[] memory delays = bucketedDelays[upkeepId][bucket];
     return getSumDelayLastNPerforms(delays, delays.length);
   }
 
@@ -367,7 +426,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
 
     for (uint256 idx = 0; idx < len; idx++) {
       uint256 upkeepId = s_upkeepIDs.at(idx);
-      uint256[] memory delays = upkeepIdsToDelay[upkeepId];
+      uint256[] memory delays = delays[upkeepId];
       upkeepIds[idx] = upkeepId;
       pxDelays[idx] = getPxDelayLastNPerforms(delays, p, delays.length);
     }
@@ -383,11 +442,11 @@ contract UpkeepCounterStats is ConfirmedOwner {
     for (uint256 idx = 0; idx < len; idx++) {
       uint256 upkeepId = s_upkeepIDs.at(idx);
       upkeepIds[idx] = upkeepId;
-      uint16 currentBucket = upkeepIdsToBucket[upkeepId];
+      uint16 currentBucket = buckets[upkeepId];
       uint256 delayLen = this.getBucketedDelaysLength(upkeepId);
       uint256[] memory delays = new uint256[](delayLen);
       uint256 i = 0;
-      mapping(uint16 => uint256[]) storage bucketedDelays = upkeepIdsToBucketedDelays[upkeepId];
+      mapping(uint16 => uint256[]) storage bucketedDelays = bucketedDelays[upkeepId];
       for (uint16 j = 0; j <= currentBucket; j++) {
         uint256[] memory d = bucketedDelays[j];
         for (uint256 k = 0; k < d.length; k++) {
@@ -401,12 +460,12 @@ contract UpkeepCounterStats is ConfirmedOwner {
   }
 
   function getPxDelayInBucket(uint256 upkeepId, uint256 p, uint16 bucket) public view returns (uint256) {
-    uint256[] memory delays = upkeepIdsToBucketedDelays[upkeepId][bucket];
+    uint256[] memory delays = bucketedDelays[upkeepId][bucket];
     return getPxDelayLastNPerforms(delays, p, delays.length);
   }
 
   function getPxDelayLastNPerforms(uint256 upkeepId, uint256 p, uint256 n) public view returns (uint256) {
-    return getPxDelayLastNPerforms(upkeepIdsToDelay[upkeepId], p, n);
+    return getPxDelayLastNPerforms(delays[upkeepId], p, n);
   }
 
   function getPxDelayLastNPerforms(uint256[] memory delays, uint256 p, uint256 n) internal view returns (uint256) {
@@ -446,22 +505,5 @@ contract UpkeepCounterStats is ConfirmedOwner {
     }
     if (left < j) quickSort(arr, left, j);
     if (i < right) quickSort(arr, i, right);
-  }
-
-  function topUpTransmitters() external {
-    (,,, address[] memory transmitters, ) = registry.getState();
-    uint256 len = transmitters.length;
-    uint256 blockNum = block.number;
-    for (uint256 i = 0; i < len; i++) {
-      if (transmitters[i].balance < transmitterMinBalance) {
-        if (address(this).balance < transmitterAddBalance) {
-          emit InsufficientFunds(address(this).balance, blockNum);
-        } else {
-          lastTransmittersTopUpBlock = blockNum;
-          transmitters[i].call{value: transmitterAddBalance}("");
-          emit TransmitterTopUp(transmitters[i], transmitterAddBalance, blockNum);
-        }
-      }
-    }
   }
 }
