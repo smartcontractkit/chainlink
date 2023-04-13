@@ -38,7 +38,7 @@ type dataSourceBase struct {
 	runResults chan<- pipeline.Run
 }
 
-// dataSourceV2 implements dataSourceBase with the proper Observe return type for ocr1
+// dataSource implements dataSourceBase with the proper Observe return type for ocr1
 type dataSource struct {
 	dataSourceBase
 }
