@@ -91,11 +91,16 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		}))
-	zeroGas := `[GasEstimator]
+		// DEBUG
+	zeroGas := `[EVM.GasEstimator]
 PriceMin = '0 gwei'
 PriceDefault = '0 gwei'
 PriceMax = '0 gwei'
-BumpThreshold = 0`
+BumpThreshold = 0
+FeeCapDefault = '0 gwei'
+TipCapDefault = '0 gwei'
+TipCapMin = '0 gwei'`
+	fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, zeroGas, network))
 	for i := 0; i < replicas; i++ {
 		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
 		if useEnvVars == "true" {

@@ -113,6 +113,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &RSKContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.PolygonClient:
 		return &PolygonContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.QuorumClient:
+		return &QuorumContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -148,6 +150,10 @@ type RSKContractDeployer struct {
 }
 
 type PolygonContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type QuorumContractDeployer struct {
 	*EthereumContractDeployer
 }
 

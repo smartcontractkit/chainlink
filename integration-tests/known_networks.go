@@ -188,7 +188,7 @@ var (
 
 	Quorum = blockchain.EVMNetwork{
 		Name:                      "Quorum",
-		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ClientImplementation:      blockchain.QuorumClientImplementation,
 		ChainID:                   1337,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
