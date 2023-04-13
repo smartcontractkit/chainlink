@@ -93,7 +93,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 	}
 }
 
-func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*FunctionsListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
+func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte, expectPipelineRun bool) (*FunctionsListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
 	uni := NewFunctionsListenerUniverse(t, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
@@ -101,10 +101,6 @@ func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*Fu
 	require.NoError(t, err)
 
 	log := log_mocks.NewBroadcast(t)
-	log.On("ReceiptsRoot").Return(common.Hash{})
-	log.On("TransactionsRoot").Return(common.Hash{})
-	log.On("StateRoot").Return(common.Hash{})
-
 	uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
 		RequestId:          RequestID,
@@ -112,7 +108,7 @@ func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*Fu
 		RequestInitiator:   common.Address{},
 		SubscriptionId:     0,
 		SubscriptionOwner:  common.Address{},
-		Data:               []byte("data"),
+		Data:               cbor,
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
 	log.On("String").Return("")
@@ -121,7 +117,6 @@ func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*Fu
 		return uni, log, nil
 	}
 
-	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	runBeganAwaiter := cltest.NewAwaiter()
 	uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
 		Return(false, nil).
@@ -144,10 +139,10 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
@@ -162,10 +157,10 @@ func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -180,15 +175,17 @@ func TestFunctionsListener_HandleOracleRequestCBORParsingError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
+	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte("invalid cbor"), false)
 
+	done := make(chan bool)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return(nil, errors.New("bad cbor"))
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		done <- true
+	})
 
 	uni.service.HandleLog(log)
-
-	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	<-done
 	uni.service.Close()
 }
 
@@ -217,7 +214,7 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 
 	var ormCallExited sync.WaitGroup
 	ormCallExited.Add(1)
-	uni, log, _ := PrepareAndStartFunctionsListener(t, false)
+	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte{}, false)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		var queryerWrapper pg.Q
 		args.Get(3).(pg.QOpt)(&queryerWrapper)
