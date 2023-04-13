@@ -18,6 +18,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -56,20 +57,22 @@ var (
 
 var errEthTxRemoved = errors.New("eth_tx removed")
 
+type ProcessUnstartedEthTxs[ADDR types.Hashable[ADDR]] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
+
 // TransmitCheckerFactory creates a transmit checker based on a spec.
-type TransmitCheckerFactory interface {
+type TransmitCheckerFactory[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
-	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error)
+	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker[ADDR, TX_HASH], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker interface {
+type TransmitChecker[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
 	// should not be sent, other errors (for example connection or other unexpected errors) should
 	// be logged and swallowed.
-	Check(ctx context.Context, l logger.Logger, tx EthTx, a EthTxAttempt) error
+	Check(ctx context.Context, l logger.Logger, tx EthTx[ADDR, TX_HASH], a EthTxAttempt[ADDR, TX_HASH]) error
 }
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -85,11 +88,12 @@ type TransmitChecker interface {
 // - a monotonic series of increasing nonces for eth_txes that can all eventually be confirmed if you retry enough times
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
-type EthBroadcaster struct {
+type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	logger    logger.Logger
-	orm       ORM
+	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient evmclient.Client
-	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt]
+	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
+	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        big.Int
 	config         Config
@@ -98,103 +102,149 @@ type EthBroadcaster struct {
 	// when Start is called
 	autoSyncNonce bool
 
-	ethTxInsertListener pg.Subscription
-	eventBroadcaster    pg.EventBroadcaster
+	ethTxInsertListener        pg.Subscription
+	eventBroadcaster           pg.EventBroadcaster
+	processUnstartedEthTxsImpl ProcessUnstartedEthTxs[ADDR]
 
-	ks        txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64]
-	addresses []gethCommon.Address
+	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
+	enabledAddresses []ADDR
 
-	checkerFactory TransmitCheckerFactory
+	checkerFactory TransmitCheckerFactory[ADDR, TX_HASH]
 
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
-	triggers map[gethCommon.Address]chan struct{}
+	triggers map[string]chan struct{}
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
 
+	initSync  sync.Mutex
+	isStarted bool
 	utils.StartStopOnce
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config,
-	keystore txmgrtypes.KeyStore[gethCommon.Address, *big.Int, int64],
+func NewEthBroadcaster(
+	txStore EvmTxStore,
+	ethClient evmclient.Client,
+	config Config,
+	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	addresses []gethCommon.Address, resumeCallback ResumeCallback,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, gethCommon.Address, gethCommon.Hash, EthTx, EthTxAttempt],
-	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
+	txAttemptBuilder EvmTxAttemptBuilder,
+	nonceSyncer EvmNonceSyncer,
+	logger logger.Logger,
+	checkerFactory EvmTransmitCheckerFactory,
+	autoSyncNonce bool,
+) *EvmBroadcaster {
 
-	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
-	return &EthBroadcaster{
+	b := &EvmBroadcaster{
 		logger:           logger,
-		orm:              orm,
+		txStore:          txStore,
 		ethClient:        ethClient,
 		TxAttemptBuilder: txAttemptBuilder,
-		resumeCallback:   resumeCallback,
+		nonceSyncer:      nonceSyncer,
 		chainID:          *ethClient.ChainID(),
 		config:           config,
 		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,
-		addresses:        addresses,
 		checkerFactory:   checkerFactory,
-		triggers:         triggers,
-		chStop:           make(chan struct{}),
-		wg:               sync.WaitGroup{},
+		initSync:         sync.Mutex{},
+		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
 	}
+
+	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
+	return b
 }
 
 // Start starts EthBroadcaster service.
 // The provided context can be used to terminate Start sequence.
-func (eb *EthBroadcaster) Start(ctx context.Context) error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
-		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
-		if err != nil {
-			return errors.Wrap(err, "EthBroadcaster could not start")
-		}
-
-		eb.wg.Add(len(eb.addresses))
-		for _, k := range eb.addresses {
-			triggerCh := make(chan struct{}, 1)
-			eb.triggers[k] = triggerCh
-			go eb.monitorEthTxs(k, triggerCh)
-		}
-
-		eb.wg.Add(1)
-		go eb.ethTxInsertTriggerer()
-
-		return nil
+		return eb.startInternal()
 	})
+}
+
+// startInternal can be called multiple times, in conjunction with closeInternal. The TxMgr uses this functionality to reset broadcaster multiple times in its own lifetime.
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
+	eb.initSync.Lock()
+	defer eb.initSync.Unlock()
+	if eb.isStarted {
+		return errors.New("EthBroadcaster is already started")
+	}
+	var err error
+	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
+	if err != nil {
+		return errors.Wrap(err, "EthBroadcaster could not start")
+	}
+	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(&eb.chainID)
+	if err != nil {
+		return errors.Wrap(err, "Broadcaster: failed to load EnabledAddressesForChain")
+	}
+
+	if len(eb.enabledAddresses) > 0 {
+		eb.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(eb.enabledAddresses)), "keys", eb.enabledAddresses)
+	} else {
+		eb.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", eb.chainID.String())
+	}
+	eb.chStop = make(chan struct{})
+	eb.wg = sync.WaitGroup{}
+	eb.wg.Add(len(eb.enabledAddresses))
+	eb.triggers = make(map[string]chan struct{})
+	for _, addr := range eb.enabledAddresses {
+		triggerCh := make(chan struct{}, 1)
+		eb.triggers[addr.String()] = triggerCh
+		go eb.monitorEthTxs(addr, triggerCh)
+	}
+
+	eb.wg.Add(1)
+	go eb.ethTxInsertTriggerer()
+
+	eb.isStarted = true
+	return nil
 }
 
 // Close closes the EthBroadcaster
-func (eb *EthBroadcaster) Close() error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Close() error {
 	return eb.StopOnce("EthBroadcaster", func() error {
-		if eb.ethTxInsertListener != nil {
-			eb.ethTxInsertListener.Close()
-		}
-
-		close(eb.chStop)
-		eb.wg.Wait()
-		return nil
+		return eb.closeInternal()
 	})
 }
 
-func (eb *EthBroadcaster) Name() string {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) closeInternal() error {
+	eb.initSync.Lock()
+	defer eb.initSync.Unlock()
+	if !eb.isStarted {
+		return errors.Wrap(utils.ErrAlreadyStopped, "EthBroadcaster is not started")
+	}
+	if eb.ethTxInsertListener != nil {
+		eb.ethTxInsertListener.Close()
+	}
+	close(eb.chStop)
+	eb.wg.Wait()
+	eb.isStarted = false
+	return nil
+}
+
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SetResumeCallback(callback ResumeCallback) {
+	eb.resumeCallback = callback
+}
+
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Name() string {
 	return eb.logger.Name()
 }
 
-func (eb *EthBroadcaster) HealthReport() map[string]error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]error {
 	return map[string]error{eb.Name(): eb.StartStopOnce.Healthy()}
 }
 
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
-func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
-	ok := eb.IfStarted(func() {
-		triggerCh, exists := eb.triggers[addr]
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addrStr string) {
+	if eb.isStarted {
+		triggerCh, exists := eb.triggers[addrStr]
 		if !exists {
 			// ignoring trigger for address which is not registered with this EthBroadcaster
 			return
@@ -203,14 +253,12 @@ func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
 		case triggerCh <- struct{}{}:
 		default:
 		}
-	})
-
-	if !ok {
-		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addr.Hex())
+	} else {
+		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addrStr)
 	}
 }
 
-func (eb *EthBroadcaster) ethTxInsertTriggerer() {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ethTxInsertTriggerer() {
 	defer eb.wg.Done()
 	for {
 		select {
@@ -221,14 +269,14 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 			}
 			hexAddr := ev.Payload
 			address := gethCommon.HexToAddress(hexAddr)
-			eb.Trigger(address)
+			eb.Trigger(address.String())
 		case <-eb.chStop:
 			return
 		}
 	}
 }
 
-func (eb *EthBroadcaster) newNonceSyncBackoff() backoff.Backoff {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) newNonceSyncBackoff() backoff.Backoff {
 	return backoff.Backoff{
 		Min:    100 * time.Millisecond,
 		Max:    5 * time.Second,
@@ -236,7 +284,7 @@ func (eb *EthBroadcaster) newNonceSyncBackoff() backoff.Backoff {
 	}
 }
 
-func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) newResendBackoff() backoff.Backoff {
 	return backoff.Backoff{
 		Min:    1 * time.Second,
 		Max:    15 * time.Second,
@@ -244,20 +292,20 @@ func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
 	}
 }
 
-func (eb *EthBroadcaster) monitorEthTxs(k gethCommon.Address, triggerCh chan struct{}) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) monitorEthTxs(addr ADDR, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 
 	ctx, cancel := utils.ContextFromChan(eb.chStop)
 	defer cancel()
 
 	if eb.autoSyncNonce {
-		eb.logger.Debugw("Auto-syncing nonce", "address", k)
-		eb.SyncNonce(ctx, k)
+		eb.logger.Debugw("Auto-syncing nonce", "address", addr.String())
+		eb.SyncNonce(ctx, addr)
 		if ctx.Err() != nil {
 			return
 		}
 	} else {
-		eb.logger.Debugw("Skipping nonce auto-sync", "address", k)
+		eb.logger.Debugw("Skipping nonce auto-sync", "address", addr.String())
 	}
 
 	// errorRetryCh allows retry on exponential backoff in case of timeout or
@@ -268,7 +316,7 @@ func (eb *EthBroadcaster) monitorEthTxs(k gethCommon.Address, triggerCh chan str
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		err, retryable := eb.ProcessUnstartedEthTxs(ctx, k)
+		retryable, err := eb.processUnstartedEthTxsImpl(ctx, addr)
 		if err != nil {
 			eb.logger.Errorw("Error occurred while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
 		}
@@ -306,13 +354,12 @@ func (eb *EthBroadcaster) monitorEthTxs(k gethCommon.Address, triggerCh chan str
 }
 
 // syncNonce tries to sync the key nonce, retrying indefinitely until success
-func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k gethCommon.Address) {
-	syncer := NewNonceSyncer(eb.orm, eb.logger, eb.ethClient, eb.ks)
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) SyncNonce(ctx context.Context, addr ADDR) {
 	nonceSyncRetryBackoff := eb.newNonceSyncBackoff()
-	if err := syncer.Sync(ctx, k); err != nil {
+	if err := eb.nonceSyncer.Sync(ctx, addr); err != nil {
 		// Enter retry loop with backoff
 		var attempt int
-		eb.logger.Errorw("Failed to sync with on-chain nonce", "address", k, "attempt", attempt, "err", err)
+		eb.logger.Errorw("Failed to sync with on-chain nonce", "address", addr.String(), "attempt", attempt, "err", err)
 		for {
 			select {
 			case <-eb.chStop:
@@ -320,12 +367,12 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k gethCommon.Address) {
 			case <-time.After(nonceSyncRetryBackoff.Duration()):
 				attempt++
 
-				if err := syncer.Sync(ctx, k); err != nil {
+				if err := eb.nonceSyncer.Sync(ctx, addr); err != nil {
 					if attempt > 5 {
-						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", k, "attempt", attempt, "err", err)
+						eb.logger.Criticalw("Failed to sync with on-chain nonce", "address", addr.String(), "attempt", attempt, "err", err)
 						eb.SvcErrBuffer.Append(err)
 					} else {
-						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", k, "attempt", attempt, "err", err)
+						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", addr.String(), "attempt", attempt, "err", err)
 					}
 					continue
 				}
@@ -337,15 +384,15 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k gethCommon.Address) {
 
 // ProcessUnstartedEthTxs picks up and handles all eth_txes in the queue
 // revive:disable:error-return
-func (eb *EthBroadcaster) ProcessUnstartedEthTxs(ctx context.Context, address gethCommon.Address) (err error, retryable bool) {
-	return eb.processUnstartedEthTxs(ctx, address)
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ProcessUnstartedEthTxs(ctx context.Context, addr ADDR) (retryable bool, err error) {
+	return eb.processUnstartedEthTxs(ctx, addr)
 }
 
 // NOTE: This MUST NOT be run concurrently for the same address or it could
 // result in undefined state or deadlocks.
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
-func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddress gethCommon.Address) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) processUnstartedEthTxs(ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
 	var n uint
 	mark := time.Now()
 	defer func() {
@@ -356,57 +403,61 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 
 	err, retryable = eb.handleAnyInProgressEthTx(ctx, fromAddress)
 	if err != nil {
-		return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx"), retryable
+		return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
-			nUnconfirmed, err := eb.orm.CountUnconfirmedTransactions(fromAddress, eb.chainID)
+			nUnconfirmed, err := eb.txStore.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {
-				return errors.Wrap(err, "CountUnconfirmedTransactions failed"), true
+				return true, errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				nUnstarted, err := eb.orm.CountUnstartedTransactions(fromAddress, eb.chainID)
+				nUnstarted, err := eb.txStore.CountUnstartedTransactions(fromAddress, eb.chainID)
 				if err != nil {
-					return errors.Wrap(err, "CountUnstartedTransactions failed"), true
+					return true, errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
 				eb.logger.Warnw(fmt.Sprintf(`Transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, nUnstarted, maxInFlightTransactions, label.MaxInFlightTransactionsWarning), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
-				time.Sleep(InFlightTransactionRecheckInterval)
+				select {
+				case <-time.After(InFlightTransactionRecheckInterval):
+				case <-ctx.Done():
+					return false, context.Cause(ctx)
+				}
 				continue
 			}
 		}
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on nextUnstartedTransactionWithNonce"), true
+			return true, errors.Wrap(err, "processUnstartedEthTxs failed on nextUnstartedTransactionWithNonce")
 		}
 		if etx == nil {
-			return nil, false
+			return false, nil
 		}
 		n++
-		var a EthTxAttempt
+		var a EthTxAttempt[ADDR, TX_HASH]
 		var retryable bool
 		a, _, _, retryable, err = eb.NewTxAttempt(ctx, *etx, eb.logger)
 		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt"), retryable
+			return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on NewAttempt")
 		}
 
-		if err := eb.orm.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
+		if err := eb.txStore.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on UpdateEthTxUnstartedToInProgress"), true
+			return true, errors.Wrap(err, "processUnstartedEthTxs failed on UpdateEthTxUnstartedToInProgress")
 		}
 
 		if err, retryable := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx"), retryable
+			return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 		}
 	}
 }
 
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
-func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) (err error, retryable bool) {
-	etx, err := eb.orm.GetEthTxInProgress(fromAddress)
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleAnyInProgressEthTx(ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
+	etx, err := eb.txStore.GetEthTxInProgress(fromAddress)
 	if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed"), true
 	}
@@ -421,7 +472,7 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 // This function is used to pass the queryer from the txmgr to the keystore.
 // It is inevitable we have to pass the queryer because we need the keystate's next nonce to be incremented
 // atomically alongside the transition from `in_progress` to `broadcast` so it is ready for the next transaction
-func (eb *EthBroadcaster) incrementNextNonceAtomic(tx pg.Queryer, etx EthTx) error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) incrementNextNonceAtomic(tx pg.Queryer, etx EthTx[ADDR, TX_HASH]) error {
 	if err := eb.incrementNextNonce(etx.FromAddress, *etx.Nonce, pg.WithQueryer(tx)); err != nil {
 		return errors.Wrap(err, "saveUnconfirmed failed")
 	}
@@ -430,7 +481,7 @@ func (eb *EthBroadcaster) incrementNextNonceAtomic(tx pg.Queryer, etx EthTx) err
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (error, bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx context.Context, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (error, bool) {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State), false
 	}
@@ -573,7 +624,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// and we pass the same initialBroadcastAt timestamp there, when we re-enter
 		// this function we'll be using the same initialBroadcastAt.
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
+		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	}
@@ -582,7 +633,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	// subsequent tries ought to resend the exact same in-progress transaction
 	// attempt and get a definitive answer on what happened
 	if sendError.IsTimeout() {
-		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash.Hex(), etx.ID), true
+		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 	}
 
 	// Unknown error here. All bets are off in this case, it is possible the
@@ -619,7 +670,13 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		eb.SvcErrBuffer.Append(sendError)
 	}
 
-	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, etx.FromAddress)
+	// TODO: When eth client is generalized, remove this address conversion logic below
+	gethAddr, err := getGethAddressFromADDR(etx.FromAddress)
+	if err != nil {
+		err = multierr.Combine(err, sendError)
+		return errors.Wrapf(err, "failed to do address format conversion"), true
+	}
+	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, gethAddr)
 	if err != nil {
 		err = multierr.Combine(err, sendError)
 		return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true
@@ -633,7 +690,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// Despite the error, the RPC node considers the previously sent
 		// transaction to have been accepted. In this case, the right thing to
 		// do is assume success and hand off to EthConfirmer
-		return eb.orm.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
+		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	}
@@ -644,14 +701,14 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	//
 	// In all cases, the best thing we can do is go into a retry loop and keep
 	// trying to send the transaction over again.
-	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash.Hex(), etx.ID), true
+	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
 // Returns nil if no transactions are in queue
-func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*EthTx, error) {
-	etx := &EthTx{}
-	if err := eb.orm.FindNextUnstartedTransactionFromAddress(etx, fromAddress, eb.chainID); err != nil {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) nextUnstartedTransactionWithNonce(fromAddress ADDR) (*EthTx[ADDR, TX_HASH], error) {
+	etx := &EthTx[ADDR, TX_HASH]{}
+	if err := eb.txStore.FindNextUnstartedTransactionFromAddress(etx, fromAddress, eb.chainID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// Finish. No more transactions left to process. Hoorah!
 			return nil, nil
@@ -667,7 +724,7 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 	return etx, nil
 }
 
-func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (err error, retryable bool) {
 	lgr.With(
 		"sendError", sendError,
 		"attemptGasFeeCap", attempt.GasFeeCap,
@@ -688,7 +745,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time) (err error, retryable bool) {
 	if attempt.TxType == 0x2 {
 		err = errors.Errorf("re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug", sendError.Error())
 		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
@@ -705,16 +762,15 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit)
 }
 
-func (eb *EthBroadcaster) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, replacementAttempt EthTxAttempt, initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32) (err error, retyrable bool) {
-	if err = eb.orm.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], replacementAttempt EthTxAttempt[ADDR, TX_HASH], initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32) (err error, retyrable bool) {
+	if err = eb.txStore.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewFee failed"), true
 	}
-
 	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.Fee().String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
 	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 
-func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *EthTx) error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) saveFatallyErroredTransaction(lgr logger.Logger, etx *EthTx[ADDR, TX_HASH]) error {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
@@ -741,14 +797,14 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 			return errors.Wrap(err, "failed to resume pipeline")
 		}
 	}
-	return eb.orm.UpdateEthTxFatalError(etx)
+	return eb.txStore.UpdateEthTxFatalError(etx)
 }
 
-func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) getNextNonce(address ADDR) (nonce int64, err error) {
 	return eb.ks.NextSequence(address, &eb.chainID)
 }
 
-func (eb *EthBroadcaster) incrementNextNonce(address gethCommon.Address, currentNonce int64, qopts ...pg.QOpt) error {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) incrementNextNonce(address ADDR, currentNonce int64, qopts ...pg.QOpt) error {
 	return eb.ks.IncrementNextSequence(address, &eb.chainID, currentNonce, qopts...)
 }
 

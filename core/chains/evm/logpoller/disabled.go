@@ -30,6 +30,8 @@ func (disabled) HealthReport() map[string]error {
 
 func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrDisabled }
 
+func (disabled) ReplayAsync(fromBlock int64) {}
+
 func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
 
 func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
@@ -81,5 +83,9 @@ func (disabled) LogsDataWordRange(eventSig common.Hash, address common.Address, 
 }
 
 func (disabled) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
+func (d disabled) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }

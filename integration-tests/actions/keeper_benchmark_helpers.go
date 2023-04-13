@@ -39,20 +39,16 @@ func DeployBenchmarkKeeperContracts(
 	upkeepResetterAddress string,
 	chainlinkNodes []*client.Chainlink,
 	blockTime time.Duration,
+	ethFeed contracts.MockETHLINKFeed,
+	gasFeed contracts.MockGasFeed,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumerBenchmark, []*big.Int) {
-	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
-	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
-	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
 
 	registry := DeployKeeperRegistry(t, contractDeployer, client,
 		&contracts.KeeperRegistryOpts{
 			RegistryVersion: registryVersion,
 			LinkAddr:        linkToken.Address(),
-			ETHFeedAddr:     ef.Address(),
-			GasFeedAddr:     gf.Address(),
+			ETHFeedAddr:     ethFeed.Address(),
+			GasFeedAddr:     gasFeed.Address(),
 			TranscoderAddr:  ZeroAddress.Hex(),
 			RegistrarAddr:   ZeroAddress.Hex(),
 			Settings:        *registrySettings,
@@ -60,7 +56,7 @@ func DeployBenchmarkKeeperContracts(
 	)
 
 	// Fund the registry with 1 LINK * amount of KeeperConsumerBenchmark contracts
-	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfContracts))))
+	err := linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfContracts))))
 	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
 	registrarSettings := contracts.KeeperRegistrarSettings{
@@ -72,7 +68,7 @@ func DeployBenchmarkKeeperContracts(
 	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 	if registryVersion == ethereum.RegistryVersion_2_0 {
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime)
+		ocrConfig := BuildAutoOCR2ConfigVarsWithKeyIndex(t, nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime, 0)
 		err = registry.SetConfig(*registrySettings, ocrConfig)
 		require.NoError(t, err, "Registry config should be be set successfully")
 	}

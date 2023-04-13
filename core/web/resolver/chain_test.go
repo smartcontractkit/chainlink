@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestResolver_Chains(t *testing.T) {
 	var (
 		chainID = *utils.NewBigI(1)
-
-		query = `
+		query   = `
 			query GetChains {
 				chains {
 					results {
@@ -28,19 +28,40 @@ func TestResolver_Chains(t *testing.T) {
 					}
 				}
 			}`
-		configTOML = `BlockHistoryEstimatorBlockDelay = 1
-EthTxReaperThreshold = '1m'
-EthTxResendAfterThreshold = '1m'
-EvmEIP1559DynamicFees = true
-EvmGasLimitMultiplier = 1.23
-GasEstimatorMode = "BlockHistory"
-ChainType = "optimism"
-[[KeySpecific]]
-Address = "test-address"
-BlockHistoryEstimatorBlockDelay = 0
-EvmEIP1559DynamicFees = false
+		configTOML = `ChainID = '1'
+Enabled = true
+AutoCreateKey = false
+BlockBackfillDepth = 100
+BlockBackfillSkip = true
+ChainType = 'Optimism'
+FinalityDepth = 42
+FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LogBackfillBatchSize = 17
+LogPollInterval = '1m0s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 13
+MinContractPayment = '9.223372036854775807 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+RPCDefaultBatchSize = 17
+RPCBlockQueryDelay = 10
+Nodes = []
+
+[Transactions]
+ForwardersEnabled = true
+MaxInFlight = 19
+MaxQueued = 99
+ReaperInterval = '1m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '1h0m0s'
 `
 	)
+	var chain v2.EVMConfig
+	err := toml.Unmarshal([]byte(configTOML), &chain)
+	require.NoError(t, err)
+
 	configTOMLEscaped, err := json.Marshal(configTOML)
 	require.NoError(t, err)
 	testCases := []GQLTestCase{
@@ -51,10 +72,10 @@ EvmEIP1559DynamicFees = false
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 
-				f.Mocks.evmORM.PutChains(chains.ChainConfig{
-					ID:      chainID.String(),
-					Enabled: true,
-					Cfg:     configTOML,
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{
+					ChainID: &chainID,
+					Enabled: chain.Enabled,
+					Chain:   chain.Chain,
 				})
 			},
 			query: query,
@@ -79,7 +100,7 @@ EvmEIP1559DynamicFees = false
 
 func TestResolver_Chain(t *testing.T) {
 	var (
-		chainID = "1"
+		chainID = *utils.NewBigI(1)
 		query   = `
 			query GetChain {
 				chain(id: "1") {
@@ -95,19 +116,39 @@ func TestResolver_Chain(t *testing.T) {
 				}
 			}
 		`
-		configTOML = `BlockHistoryEstimatorBlockDelay = 1
-EthTxReaperThreshold = '1m'
-EthTxResendAfterThreshold = '1m'
-EvmEIP1559DynamicFees = true
-EvmGasLimitMultiplier = 1.23
-GasEstimatorMode = "BlockHistory"
-ChainType = "optimism"
-[[KeySpecific]]
-Address = "test-address"
-BlockHistoryEstimatorBlockDelay = 0
-EvmEIP1559DynamicFees = false
+		configTOML = `ChainID = '1'
+AutoCreateKey = false
+BlockBackfillDepth = 100
+BlockBackfillSkip = true
+ChainType = 'Optimism'
+FinalityDepth = 42
+FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LogBackfillBatchSize = 17
+LogPollInterval = '1m0s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 13
+MinContractPayment = '9.223372036854775807 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+RPCDefaultBatchSize = 17
+RPCBlockQueryDelay = 10
+Nodes = []
+
+[Transactions]
+ForwardersEnabled = true
+MaxInFlight = 19
+MaxQueued = 99
+ReaperInterval = '1m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '1h0m0s'
 `
 	)
+	var chain v2.Chain
+	err := toml.Unmarshal([]byte(configTOML), &chain)
+	require.NoError(t, err)
+
 	configTOMLEscaped, err := json.Marshal(configTOML)
 	require.NoError(t, err)
 	testCases := []GQLTestCase{
@@ -117,10 +158,9 @@ EvmEIP1559DynamicFees = false
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(chains.ChainConfig{
-					ID:      chainID,
-					Enabled: true,
-					Cfg:     configTOML,
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{
+					ChainID: &chainID,
+					Chain:   chain,
 				})
 			},
 			query: query,

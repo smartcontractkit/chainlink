@@ -30,12 +30,12 @@ type chainsController[I chains.ID, R jsonapi.EntityNamer] struct {
 }
 
 type errChainDisabled struct {
-	name   string
-	envVar string
+	name    string
+	tomlKey string
 }
 
 func (e errChainDisabled) Error() string {
-	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.envVar)
+	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.tomlKey)
 }
 
 func newChainsController[I chains.ID, R jsonapi.EntityNamer](prefix string, chainSet chains.Chains[I], errNotEnabled error,

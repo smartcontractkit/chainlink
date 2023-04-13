@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -18,7 +17,7 @@ func init() {
 	MaxStartTime = 1 * time.Second
 }
 
-func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) error {
+func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]) error {
 	return b.checkConnectivity(MakeEvmPriorAttempts(attempts))
 }
 

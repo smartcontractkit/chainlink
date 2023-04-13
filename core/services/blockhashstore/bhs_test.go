@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -21,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+type MockEvmTxManager = txmmocks.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 
 func TestStoreRotatesFromAddresses(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
@@ -39,7 +42,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	k2, err := ks.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	fromAddresses := []ethkey.EIP55Address{k1.EIP55Address, k2.EIP55Address}
-	txm := new(txmmocks.TxManager)
+	txm := new(MockEvmTxManager)
 	bhsAddress := common.HexToAddress("0x31Ca8bf590360B3198749f852D5c516c642846F6")
 
 	store, err := blockhash_store.NewBlockhashStore(bhsAddress, chain.Client())
@@ -54,13 +57,13 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.NewTx) bool {
+	txm.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
 		return tx.FromAddress.String() == k1.Address.String()
-	}), mock.Anything).Once().Return(txmgr.EthTx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
 
-	txm.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.NewTx) bool {
+	txm.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
 		return tx.FromAddress.String() == k2.Address.String()
-	}), mock.Anything).Once().Return(txmgr.EthTx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
 
 	// store 2 blocks
 	err = bhs.Store(context.Background(), 1)
