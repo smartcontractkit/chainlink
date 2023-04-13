@@ -22,12 +22,10 @@ interface IVerifierProxy {
         external;
 
     /**
-     * @notice Sets a new verifier for a config digest
-     * @param configDigest The config digest to set
-     * @param verifierAddr The address of the verifier contract that verifies
-     * reports for a given config digest.
+     * @notice Sets the verifier address to initialized
+     * @param verifierAddr The address of the verifier contract that we want to initialize
      */
-    function initializeVerifier(bytes32 configDigest, address verifierAddr)
+    function initializeVerifier(address verifierAddr)
         external;
 
     /**

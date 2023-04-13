@@ -31,7 +31,7 @@ contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
             ),
             abi.encode(true)
         );
-                s_verifierProxy.initializeVerifier(maliciousDigest, maliciousVerifier);
+        s_verifierProxy.initializeVerifier(maliciousVerifier);
         vm.expectRevert(
             abi.encodeWithSelector(
                 VerifierProxy.ConfigDigestAlreadySet.selector,
