@@ -94,8 +94,6 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
-//var _ ocr1types.DataSource = (*dataSource)(nil)
-
 func (ds *inMemoryDataSource) updateAnswer(a *big.Int) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
