@@ -94,7 +94,8 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	zeroGas := `[GasEstimator]
 PriceMin = '0 gwei'
 PriceDefault = '0 gwei'
-PriceMax = '0 gwei'`
+PriceMax = '0 gwei'
+BumpThreshold = 0`
 	for i := 0; i < replicas; i++ {
 		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
 		if useEnvVars == "true" {
