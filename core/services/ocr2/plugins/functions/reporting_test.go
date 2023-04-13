@@ -23,7 +23,7 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *func
 	lggr := logger.TestLogger(t)
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
-	factory := functions.DirectRequestReportingPluginFactory{
+	factory := functions.FunctionsReportingPluginFactory{
 		Logger:    ocrLogger,
 		PluginORM: orm,
 	}

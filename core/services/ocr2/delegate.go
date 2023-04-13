@@ -686,7 +686,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		pluginORM := functions_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
-		pluginOracle, err2 = functions.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
+		pluginOracle, err2 = functions.NewFunctionsOracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
 		if err2 != nil {
 			return nil, err2
 		}
