@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_service "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -245,7 +246,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 			// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 			if jb.ForwardingAllowed { // FIXME: ForwardingAllowed cannot be set with Mercury, validate this
-				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
+				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(evmtypes.HexToAddress(transmitterID))
 				if fwderr == nil {
 					effectiveTransmitterID = fwdrAddress.String()
 				} else {
@@ -685,7 +686,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		pluginORM := functions_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
-		pluginOracle, err2 = functions.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
+		pluginOracle, err2 = functions.NewFunctionsOracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
 		if err2 != nil {
 			return nil, err2
 		}
