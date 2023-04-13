@@ -304,7 +304,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
 // If ctx is cancelled before the replay request has been initiated, ErrReplayRequestAborted is returned.  If the replay
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
-// guarantee that the replay is complete before proceeding, it must wait for a nil return value.
+// guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
