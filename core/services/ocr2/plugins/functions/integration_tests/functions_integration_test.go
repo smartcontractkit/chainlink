@@ -75,14 +75,15 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	}
 	utils.CommitWithFinality(b)
 
-	// validate that all DR-OCR jobs completed as many runs as sent requests
+	// validate that all pipeline jobs completed as many runs as sent requests
+	const tasksPerRun = 3
 	var wg sync.WaitGroup
 	for i := 0; i < nOracleNodes; i++ {
 		ic := i
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cltest.WaitForPipelineComplete(t, ic, jobIds[ic], nClients, 5, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
+			cltest.WaitForPipelineComplete(t, ic, jobIds[ic], nClients, tasksPerRun, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
 		}()
 	}
 	wg.Wait()

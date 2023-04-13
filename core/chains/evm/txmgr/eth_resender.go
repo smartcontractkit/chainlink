@@ -22,6 +22,9 @@ import (
 // EthTxResendAfterThreshold that we will wait before resending an attempt
 const DefaultResenderPollInterval = 5 * time.Second
 
+// Alert interval for unconfirmed transaction attempts
+const unconfirmedTxAlertLogFrequency = 2 * time.Minute
+
 // EthResender periodically picks up transactions that have been languishing
 // unconfirmed for a configured amount of time without being sent, and sends
 // their highest priced attempt again. This helps to defend against geth/parity
@@ -31,13 +34,14 @@ const DefaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
-	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
-	ethClient evmclient.Client
-	ks        txmgrtypes.KeyStore[ADDR, *big.Int, int64]
-	chainID   big.Int
-	interval  time.Duration
-	config    txmgrtypes.ResenderConfig
-	logger    logger.Logger
+	txStore             txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+	ethClient           evmclient.Client
+	ks                  txmgrtypes.KeyStore[ADDR, *big.Int, int64]
+	chainID             big.Int
+	interval            time.Duration
+	config              txmgrtypes.ResenderConfig
+	logger              logger.Logger
+	lastAlertTimestamps map[string]time.Time
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -65,6 +69,7 @@ func NewEthResender(
 		pollInterval,
 		config,
 		lggr.Named("EthResender"),
+		make(map[string]time.Time),
 		ctx,
 		cancel,
 		make(chan struct{}),
@@ -119,11 +124,15 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
+		er.logStuckAttempts(attempts, k)
 
 		allAttempts = append(allAttempts, attempts...)
 	}
 
 	if len(allAttempts) == 0 {
+		for k := range er.lastAlertTimestamps {
+			er.lastAlertTimestamps[k] = time.Now()
+		}
 		return nil
 	}
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
@@ -152,4 +161,33 @@ func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 		}
 	}
 	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
+}
+
+func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) logStuckAttempts(attempts []EthTxAttempt[ADDR, TX_HASH], fromAddress ADDR) {
+	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
+		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
+		if exists {
+			// Wait at least 2 times the EthTxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
+			if time.Since(oldestAttempt.CreatedAt) > er.config.TxResendAfterThreshold()*2 {
+				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
+				er.logger.Errorw("TxAttempt has been unconfirmed for more than: ", er.config.TxResendAfterThreshold()*2,
+					"txID", oldestAttempt.EthTxID, "GasPrice", oldestAttempt.GasPrice, "GasTipCap", oldestAttempt.GasTipCap, "GasFeeCap", oldestAttempt.GasFeeCap,
+					"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash, "fromAddress", fromAddress)
+			}
+		}
+	}
+}
+
+func findOldestUnconfirmedAttempt[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](attempts []EthTxAttempt[ADDR, TX_HASH]) (EthTxAttempt[ADDR, TX_HASH], bool) {
+	var oldestAttempt EthTxAttempt[ADDR, TX_HASH]
+	if len(attempts) < 1 {
+		return oldestAttempt, false
+	}
+	oldestAttempt = attempts[0]
+	for i := 1; i < len(attempts); i++ {
+		if oldestAttempt.CreatedAt.Sub(attempts[i].CreatedAt) <= 0 {
+			oldestAttempt = attempts[i]
+		}
+	}
+	return oldestAttempt, true
 }
