@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type DROracle struct {
+type FunctionsOracle struct {
 	jb             job.Job
 	pipelineRunner pipeline.Runner
 	jobORM         job.ORM
@@ -32,20 +32,20 @@ type DROracle struct {
 	mailMon        *utils.MailboxMonitor
 }
 
-var _ plugins.OraclePlugin = &DROracle{}
+var _ plugins.OraclePlugin = &FunctionsOracle{}
 
-func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM functions.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger, mailMon *utils.MailboxMonitor) (*DROracle, error) {
+func NewFunctionsOracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM functions.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger, mailMon *utils.MailboxMonitor) (*FunctionsOracle, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return &DROracle{}, err
+		return &FunctionsOracle{}, err
 	}
 	err = config.ValidatePluginConfig(pluginConfig)
 	if err != nil {
-		return &DROracle{}, err
+		return &FunctionsOracle{}, err
 	}
 
-	return &DROracle{
+	return &FunctionsOracle{
 		jb:             jb,
 		pipelineRunner: pipelineRunner,
 		jobORM:         jobORM,
@@ -58,19 +58,19 @@ func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, plu
 	}, nil
 }
 
-func (o *DROracle) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
-	return DirectRequestReportingPluginFactory{
+func (o *FunctionsOracle) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
+	return FunctionsReportingPluginFactory{
 		Logger:    o.ocrLogger,
 		PluginORM: o.pluginORM,
 		JobID:     o.jb.ExternalJobID,
 	}, nil
 }
 
-func (o *DROracle) GetServices() ([]job.ServiceCtx, error) {
+func (o *FunctionsOracle) GetServices() ([]job.ServiceCtx, error) {
 	contractAddress := common.HexToAddress(o.jb.OCR2OracleSpec.ContractID)
 	oracle, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, o.chain.Client())
 	if err != nil {
-		return nil, errors.Wrapf(err, "OCR2DirectRequest: failed to create an OCR2DROracle wrapper for address: %v", contractAddress)
+		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
 	svcLogger := o.lggr.Named("FunctionsListener").
 		With(

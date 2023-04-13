@@ -68,6 +68,13 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, resource.Address, address)
+
+	require.Len(t, controller.app.Chains.EVM.Chains(), 1)
+
+	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.NoError(t, err)
 }
 
 func Test_EVMForwardersController_Index(t *testing.T) {
