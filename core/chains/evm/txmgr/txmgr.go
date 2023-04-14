@@ -64,7 +64,7 @@ type Txm[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH 
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
-	config           txmgrtypes.TxmConfig[*assets.Wei]
+	config           EvmTxmConfig
 	keyStore         txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	eventBroadcaster pg.EventBroadcaster
 	chainID          big.Int
