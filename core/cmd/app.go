@@ -77,9 +77,11 @@ func NewApp(client *Client) *cli.App {
 			client.CloseLogger = closeLggr
 		}
 
-		err := client.setConfigFromFlags(&opts, c)
-		if err != nil {
-			return err
+		if c.IsSet("config") || c.IsSet("secrets") {
+			if err := client.setConfig(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
+				return err
+			}
+			client.configInitialized = true
 		}
 
 		if c.Bool("json") {
@@ -191,7 +193,16 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				return client.setConfigFromFlags(&opts, c)
+				if client.configInitialized {
+					if c.IsSet("config") || c.IsSet("secrets") {
+						// invalid mix of flags here and root
+						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+					}
+					// flags at root
+					return nil
+				}
+				// flags here, or ENV VAR only
+				return client.setConfig(&opts, c.StringSlice("config"), c.String("secrets"))
 			},
 		},
 		{
