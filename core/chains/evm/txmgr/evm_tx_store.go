@@ -355,7 +355,7 @@ func (o *evmTxStore) preloadTxAttempts(txs []EvmTx) error {
 	return nil
 }
 
-func (o *evmTxStore) PreloadEthTxes(attempts []EvmTxAttempt) error {
+func (o *evmTxStore) PreloadEthTxes(attempts []EvmTxAttempt, qopts ...pg.QOpt) error {
 	ethTxM := make(map[int64]EvmTx)
 	for _, attempt := range attempts {
 		ethTxM[attempt.EthTxID] = EvmTx{}
@@ -367,7 +367,8 @@ func (o *evmTxStore) PreloadEthTxes(attempts []EvmTxAttempt) error {
 		i++
 	}
 	dbEthTxs := make([]DbEthTx, len(ethTxIDs))
-	if err := o.q.Select(&dbEthTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
+	qq := o.q.WithOpts(qopts...)
+	if err := qq.Select(&dbEthTxs, `SELECT * FROM eth_txes WHERE id = ANY($1)`, pq.Array(ethTxIDs)); err != nil {
 		return errors.Wrap(err, "loadEthTxes failed")
 	}
 	for _, dbEtx := range dbEthTxs {
@@ -709,7 +710,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 			return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
 		}
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
-		err = o.PreloadEthTxes(attempts)
+		err = o.PreloadEthTxes(attempts, pg.WithQueryer(tx))
 		return errors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return
@@ -857,7 +858,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 			return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_tx_attempts")
 		}
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
-		err = o.PreloadEthTxes(attempts)
+		err = o.PreloadEthTxes(attempts, pg.WithQueryer(tx))
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
@@ -1351,7 +1352,7 @@ func (o *evmTxStore) GetEthTxInProgress(fromAddress *evmtypes.Address, qopts ...
 	}
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
-		err = qq.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Address)
+		err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Address)
 		if errors.Is(err, sql.ErrNoRows) {
 			etx = nil
 			return nil
