@@ -66,7 +66,7 @@ func mustTxBeInState(t *testing.T, txStore txmgr.EvmTxStore, tx txmgr.EvmTx, exp
 	require.Equal(t, expectedState, etx.State)
 }
 
-func newTxReceipt(hash *evmtypes.TxHash, blockNumber int, txIndex uint) evmtypes.Receipt {
+func newTxReceipt(hash evmtypes.TxHash, blockNumber int, txIndex uint) evmtypes.Receipt {
 	return evmtypes.Receipt{
 		TxHash:           hash.Hash,
 		BlockHash:        utils.NewHash(),

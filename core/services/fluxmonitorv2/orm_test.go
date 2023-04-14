@@ -175,7 +175,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	strategy := commontxmmocks.NewTxStrategy(t)
 
 	var (
-		txm = txmmocks.NewTxManager[evmtypes.Address, *evmtypes.TxHash, evmtypes.BlockHash](t)
+		txm = txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)

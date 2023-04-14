@@ -20,7 +20,7 @@ type TxAttemptSigner[ADDR commontypes.Hashable[ADDR]] interface {
 	SignTx(fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
-var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, evmtypes.Address, *evmtypes.TxHash, EthTx[evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[evmtypes.Address, *evmtypes.TxHash]] = (*evmTxAttemptBuilder)(nil)
+var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, evmtypes.Address, evmtypes.TxHash, EthTx[evmtypes.Address, evmtypes.TxHash], EthTxAttempt[evmtypes.Address, evmtypes.TxHash]] = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID  big.Int
@@ -279,14 +279,14 @@ func newLegacyTransaction(nonce uint64, to evmtypes.Address, value *big.Int, gas
 	}
 }
 
-func (c *evmTxAttemptBuilder) SignTx(address evmtypes.Address, tx *types.Transaction) (*evmtypes.TxHash, []byte, error) {
+func (c *evmTxAttemptBuilder) SignTx(address evmtypes.Address, tx *types.Transaction) (evmtypes.TxHash, []byte, error) {
 	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "SignTx failed")
+		return evmtypes.TxHash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	rlp := new(bytes.Buffer)
 	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return nil, nil, errors.Wrap(err, "SignTx failed")
+		return evmtypes.TxHash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	txHash := evmtypes.NewTxHash(signedTx.Hash())
 	return txHash, rlp.Bytes(), nil

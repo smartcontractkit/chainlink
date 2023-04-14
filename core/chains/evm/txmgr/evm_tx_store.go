@@ -39,7 +39,7 @@ type evmTxStore struct {
 	ctxCancel context.CancelFunc
 }
 
-var _ txmgrtypes.TxStore[evmtypes.Address, big.Int, *evmtypes.TxHash, evmtypes.BlockHash, NewTx[evmtypes.Address], *evmtypes.Receipt, EvmTx, EvmTxAttempt, int64, int64] = &evmTxStore{}
+var _ txmgrtypes.TxStore[evmtypes.Address, big.Int, evmtypes.TxHash, evmtypes.BlockHash, NewTx[evmtypes.Address], *evmtypes.Receipt, EvmTx, EvmTxAttempt, int64, int64] = &evmTxStore{}
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -55,13 +55,9 @@ type dbReceipt struct {
 }
 
 func DbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
-	var txHash common.Hash
-	if evmReceipt.TxHash != nil {
-		txHash = evmReceipt.TxHash.Hash
-	}
 	return dbReceipt{
 		ID:               evmReceipt.ID,
-		TxHash:           txHash,
+		TxHash:           evmReceipt.TxHash.Hash,
 		BlockHash:        evmReceipt.BlockHash.Hash,
 		BlockNumber:      evmReceipt.BlockNumber,
 		TransactionIndex: evmReceipt.TransactionIndex,
@@ -240,16 +236,12 @@ type DbEthTxAttempt struct {
 }
 
 func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
-	var hash common.Hash
-	if ethTxAttempt.Hash != nil {
-		hash = ethTxAttempt.Hash.Hash
-	}
 	return DbEthTxAttempt{
 		ID:                      ethTxAttempt.ID,
 		EthTxID:                 ethTxAttempt.EthTxID,
 		GasPrice:                ethTxAttempt.GasPrice,
 		SignedRawTx:             ethTxAttempt.SignedRawTx,
-		Hash:                    hash,
+		Hash:                    ethTxAttempt.Hash.Hash,
 		BroadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
 		State:                   ethTxAttempt.State,
 		CreatedAt:               ethTxAttempt.CreatedAt,
@@ -423,7 +415,7 @@ func (o *evmTxStore) EthTxAttempts(offset, limit int) (txs []EvmTxAttempt, count
 }
 
 // FindEthTxAttempt returns an individual EvmTxAttempt
-func (o *evmTxStore) FindEthTxAttempt(hash *evmtypes.TxHash) (*EvmTxAttempt, error) {
+func (o *evmTxStore) FindEthTxAttempt(hash evmtypes.TxHash) (*EvmTxAttempt, error) {
 	dbTxAttempt := DbEthTxAttempt{}
 	sql := `SELECT * FROM eth_tx_attempts WHERE hash = $1`
 	if err := o.q.Get(&dbTxAttempt, sql, hash.Hash); err != nil {
@@ -447,7 +439,7 @@ func (o *evmTxStore) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EvmTxAttempt, e
 	return dbEthTxAttemptsToEthTxAttempts(dbTxAttempts), nil
 }
 
-func (o *evmTxStore) FindEthTxByHash(hash *evmtypes.TxHash) (*EvmTx, error) {
+func (o *evmTxStore) FindEthTxByHash(hash evmtypes.TxHash) (*EvmTx, error) {
 	var dbEtx DbEthTx
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`

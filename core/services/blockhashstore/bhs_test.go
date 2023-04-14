@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type MockEvmTxManager = txmmocks.TxManager[evmtypes.Address, *evmtypes.TxHash, evmtypes.BlockHash]
+type MockEvmTxManager = txmmocks.TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
 
 func TestStoreRotatesFromAddresses(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
