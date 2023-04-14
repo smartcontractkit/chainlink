@@ -564,7 +564,7 @@ func TestETHTxTask(t *testing.T) {
 			}
 
 			keyStore := keystoremocks.NewEth(t)
-			txManager := txmmocks.NewTxManager[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash](t)
+			txManager := txmmocks.NewTxManager[evmtypes.Address, *evmtypes.TxHash, evmtypes.BlockHash](t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)

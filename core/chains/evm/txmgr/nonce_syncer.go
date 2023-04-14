@@ -50,7 +50,7 @@ type NonceSyncer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 	Sync(ctx context.Context, addr ADDR) (err error)
 }
 
-var _ NonceSyncer[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] = &nonceSyncerImpl{}
+var _ NonceSyncer[evmtypes.Address, *evmtypes.TxHash, evmtypes.BlockHash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
 	txStore   EvmTxStore

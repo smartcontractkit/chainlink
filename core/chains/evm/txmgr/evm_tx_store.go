@@ -39,7 +39,7 @@ type evmTxStore struct {
 	ctxCancel context.CancelFunc
 }
 
-var _ txmgrtypes.TxStore[evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[evmtypes.Address], *evmtypes.Receipt, EvmTx, EvmTxAttempt, int64, int64] = &evmTxStore{}
+var _ txmgrtypes.TxStore[evmtypes.Address, big.Int, *evmtypes.TxHash, evmtypes.BlockHash, NewTx[evmtypes.Address], *evmtypes.Receipt, EvmTx, EvmTxAttempt, int64, int64] = &evmTxStore{}
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -59,14 +59,10 @@ func DbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
 	if evmReceipt.TxHash != nil {
 		txHash = evmReceipt.TxHash.Hash
 	}
-	var blockHash common.Hash
-	if evmReceipt.BlockHash != nil {
-		blockHash = evmReceipt.BlockHash.Hash
-	}
 	return dbReceipt{
 		ID:               evmReceipt.ID,
 		TxHash:           txHash,
-		BlockHash:        blockHash,
+		BlockHash:        evmReceipt.BlockHash.Hash,
 		BlockNumber:      evmReceipt.BlockNumber,
 		TransactionIndex: evmReceipt.TransactionIndex,
 		Receipt:          *evmReceipt.Receipt,
