@@ -71,7 +71,7 @@ type TxStore[
 	LoadEthTxesAttempts(etxs []*TX, qopts ...pg.QOpt) error
 	MarkAllConfirmedMissingReceipt(chainID CHAINID) (err error)
 	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID CHAINID, qopts ...pg.QOpt) error
-	PreloadEthTxes(attempts []TXATTEMPT) error
+	PreloadEthTxes(attempts []TXATTEMPT, qopts ...pg.QOpt) error
 	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time) error
 	SaveFetchedReceipts(receipts []R, chainID CHAINID) (err error)
 	SaveInProgressAttempt(attempt *TXATTEMPT) error

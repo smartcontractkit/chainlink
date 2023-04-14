@@ -13,36 +13,8 @@ type ReaperConfig struct {
 	mock.Mock
 }
 
-// EthTxReaperInterval provides a mock function with given fields:
-func (_m *ReaperConfig) EthTxReaperInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthTxReaperThreshold provides a mock function with given fields:
-func (_m *ReaperConfig) EthTxReaperThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EvmFinalityDepth provides a mock function with given fields:
-func (_m *ReaperConfig) EvmFinalityDepth() uint32 {
+// FinalityDepth provides a mock function with given fields:
+func (_m *ReaperConfig) FinalityDepth() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32
@@ -50,6 +22,34 @@ func (_m *ReaperConfig) EvmFinalityDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// TxReaperInterval provides a mock function with given fields:
+func (_m *ReaperConfig) TxReaperInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// TxReaperThreshold provides a mock function with given fields:
+func (_m *ReaperConfig) TxReaperThreshold() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

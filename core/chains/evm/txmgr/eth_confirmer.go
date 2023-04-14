@@ -119,7 +119,7 @@ type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BL
 	ethClient evmclient.Client
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
 	resumeCallback ResumeCallback
-	config         Config
+	config         EvmConfirmerConfig
 	chainID        big.Int
 
 	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
@@ -139,7 +139,7 @@ type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BL
 func NewEthConfirmer(
 	txStore EvmTxStore,
 	ethClient evmclient.Client,
-	config Config,
+	config EvmConfirmerConfig,
 	keystore EvmKeyStore,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
@@ -166,10 +166,10 @@ func NewEthConfirmer(
 // Start is a comment to appease the linter
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) Start(_ context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
-		if ec.config.EvmGasBumpThreshold() == 0 {
+		if ec.config.FeeBumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (EVM.GasEstimator.BumpThreshold set to 0)", "ethGasBumpThreshold", 0)
 		} else {
-			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EvmGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EvmGasBumpThreshold())
+			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.FeeBumpThreshold()), "ethGasBumpThreshold", ec.config.FeeBumpThreshold())
 		}
 
 		return ec.startInternal()
@@ -333,7 +333,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckConfirmedMissingReceipt(
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -407,7 +407,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.EvmFinalityDepth(), ec.chainID); err != nil {
+	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.FinalityDepth(), ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 	return nil
@@ -452,7 +452,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) separateLikelyConfirmedAttemp
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt[ADDR, TX_HASH], blockNum int64) error {
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
-	batchSize := int(ec.config.EvmRPCDefaultBatchSize())
+	batchSize := int(ec.config.RPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
@@ -499,7 +499,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 	var reqs []rpc.BatchElem
 
 	// Metadata is required to determine whether a tx is forwarded or not.
-	if ec.config.EvmUseForwarders() {
+	if ec.config.UseForwarders() {
 		err = ec.txStore.PreloadEthTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")
@@ -614,7 +614,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 
 		// This is only recording forwarded tx that were mined and have a status.
 		// Counters are prone to being inaccurate due to re-orgs.
-		if ec.config.EvmUseForwarders() {
+		if ec.config.UseForwarders() {
 			meta, err := attempt.EthTx.GetMeta()
 			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
@@ -660,9 +660,9 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) rebroadcastWhereNecessary(ctx
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	threshold := int64(ec.config.EvmGasBumpThreshold())
-	bumpDepth := int64(ec.config.EvmGasBumpTxDepth())
-	maxInFlightTransactions := ec.config.EvmMaxInFlightTransactions()
+	threshold := int64(ec.config.FeeBumpThreshold())
+	bumpDepth := int64(ec.config.FeeBumpTxDepth())
+	maxInFlightTransactions := ec.config.MaxInFlightTransactions()
 	etxs, err := ec.FindEthTxsRequiringRebroadcast(ctx, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
@@ -809,7 +809,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) logFieldsPreviousAttempt(atte
 		"txHash", attempt.Hash,
 		"previousAttempt", attempt,
 		"gasLimit", etx.GasLimit,
-		"maxGasPrice", ec.config.EvmMaxGasPriceWei(),
+		"maxGasPrice", ec.config.MaxFeePrice(),
 		"nonce", etx.Nonce,
 	}
 }
@@ -879,7 +879,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 		lggr.With(
 			"sendError", sendError,
-			"maxGasPriceConfig", ec.config.EvmMaxGasPriceWei(),
+			"maxGasPriceConfig", ec.config.MaxFeePrice(),
 			"previousAttempt", attempt,
 			"replacementAttempt", replacementAttempt,
 		).Errorf("gas price was rejected by the eth node for being too low. Eth node returned: '%s'", sendError.Error())
@@ -961,7 +961,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 			"Eth node returned error: '%s'. "+
 			"Either you have set EVM.GasEstimator.BumpPercent (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+			etx.ID, sendError.Error(), ec.config.FeeBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
 		// Assume success and hand off to the next cycle.
 		sendError = nil
@@ -997,9 +997,9 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head txmgrtypes.Head) error {
-	if head.ChainLength() < ec.config.EvmFinalityDepth() {
+	if head.ChainLength() < ec.config.FinalityDepth() {
 		logArgs := []interface{}{
-			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
+			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.FinalityDepth(),
 		}
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
 			warnMsg := "Chain length supplied for re-org detection was shorter than EvmFinalityDepth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
@@ -1142,7 +1142,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) ForceRebroadcast(beginningNon
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, nonce uint64, overrideGasLimit uint32, gasPriceWei uint64) (string, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
-		gasLimit = ec.config.EvmGasLimitDefault()
+		gasLimit = ec.config.FeeLimitDefault()
 	}
 	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, uint64(nonce), gasLimit, int64(gasPriceWei), fromAddress)
 	if err != nil {

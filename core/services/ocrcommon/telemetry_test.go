@@ -24,7 +24,6 @@ import (
 const bridgeResponse = `{
 			"telemetry":{
 				"data_source":"data_source_test",
-				"provider_requested_protocol":"provider_requested_protocol_test",
 				"provider_requested_timestamp":922337203685477600,
 				"provider_received_timestamp":-922337203685477600,
 				"provider_data_stream_established":1,
@@ -146,7 +145,6 @@ func TestParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
 	assert.Equal(t, ea.DataSource, "data_source_test")
-	assert.Equal(t, ea.ProviderRequestedProtocol, "provider_requested_protocol_test")
 	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(922337203685477600))
 	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-922337203685477600))
 	assert.Equal(t, ea.ProviderDataStreamEstablished, int64(1))
@@ -221,15 +219,20 @@ func TestSendEATelemetry(t *testing.T) {
 		FatalErrors: []error{nil},
 	}
 
+	observationTimestamp := ObservationTimestamp{
+		Round:        15,
+		Epoch:        738,
+		ConfigDigest: "config digest hex",
+	}
+
 	wg.Add(1)
-	collectEATelemetry(&ds, &trrs, &fr)
+	collectEATelemetry(&ds, &trrs, &fr, observationTimestamp)
 
 	expectedTelemetry := telem.EnhancedEA{
 		DataSource:                    "data_source_test",
 		Value:                         1234567890,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrs[0].FinishedAt.Time.UnixMilli(),
-		ProviderRequestedProtocol:     "provider_requested_protocol_test",
 		ProviderRequestedTimestamp:    922337203685477600,
 		ProviderReceivedTimestamp:     -922337203685477600,
 		ProviderDataStreamEstablished: 1,
@@ -238,8 +241,9 @@ func TestSendEATelemetry(t *testing.T) {
 		Feed:                          feedAddress.String(),
 		ChainId:                       "9",
 		Observation:                   123456,
-		Round:                         0,
-		Epoch:                         0,
+		Round:                         15,
+		Epoch:                         738,
+		ConfigDigest:                  "config digest hex",
 	}
 
 	expectedMessage, _ := proto.Marshal(&expectedTelemetry)
@@ -309,7 +313,13 @@ func TestCollectAndSend(t *testing.T) {
 			},
 		}}
 
-	collectAndSend(ds, badTrrs, finalResult)
+	observationTimestamp := ObservationTimestamp{
+		Round:        0,
+		Epoch:        0,
+		ConfigDigest: "",
+	}
+
+	collectAndSend(ds, badTrrs, finalResult, observationTimestamp)
 	assert.Contains(t, logs.All()[0].Message, "cannot get bridge response from bridge task")
 
 	badTrrs = &pipeline.TaskRunResults{
@@ -321,7 +331,7 @@ func TestCollectAndSend(t *testing.T) {
 				Value: "[]",
 			},
 		}}
-	collectAndSend(ds, badTrrs, finalResult)
+	collectAndSend(ds, badTrrs, finalResult, observationTimestamp)
 	assert.Equal(t, logs.Len(), 3)
 	assert.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
 	assert.Contains(t, logs.All()[2].Message, "cannot get json parse value")
@@ -354,11 +364,16 @@ func BenchmarkCollectEATelemetry(b *testing.B) {
 		AllErrors:   nil,
 		FatalErrors: []error{nil},
 	}
+	observationTimestamp := ObservationTimestamp{
+		Round:        87,
+		Epoch:        1337,
+		ConfigDigest: "config digest hex",
+	}
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
 		wg.Add(1)
-		collectEATelemetry(&ds, &trrs, &finalResult)
+		collectEATelemetry(&ds, &trrs, &finalResult, observationTimestamp)
 	}
 	wg.Wait()
 }
