@@ -16,7 +16,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20230301222433-aec519050c9a
+	github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc
 	github.com/smartcontractkit/ocr2keepers v0.6.14
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230313164535-dce9b4be73a3
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
@@ -360,6 +360,9 @@ replace (
 
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+
+	// Some dependency keeps trying to update this to an unstable version
+	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
 
 	// Fix CVE-2022-41717
 	golang/golang.org/x/net => golang/golang.org/x/net v0.4.0
