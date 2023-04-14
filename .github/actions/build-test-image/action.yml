@@ -43,7 +43,7 @@ runs:
       uses: smartcontractkit/chainlink-github-actions/docker/build-push@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
       with:
         tags: |
-          ${{ inputs.tag }}
+          ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ input.repository }}:${{ inputs.tag }}
           ${{ inputs.other_tags }}
         file: ./integration-tests/test.Dockerfile
         build-args: |
