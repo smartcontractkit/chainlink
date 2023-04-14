@@ -8,8 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,8 +20,7 @@ import (
 )
 
 // inMemoryDataSource is an abstraction over the process of initiating a pipeline run
-// and returning the result. Additionally, it converts the result to an
-// ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
+// and returning the result
 type inMemoryDataSource struct {
 	pipelineRunner pipeline.Runner
 	jb             job.Job
@@ -33,37 +33,46 @@ type inMemoryDataSource struct {
 	monitoringEndpoint commontypes.MonitoringEndpoint
 }
 
-// dataSource uses inMemoryDataSource and implements capturing the result to be stored in the DB
-type dataSource struct {
+type dataSourceBase struct {
 	inMemoryDataSource
 	runResults chan<- pipeline.Run
 }
 
-// dataSourceV2 implements dataSource with the proper Observe return type
+// dataSource implements dataSourceBase with the proper Observe return type for ocr1
+type dataSource struct {
+	dataSourceBase
+}
+
+// dataSourceV2 implements dataSourceBase with the proper Observe return type for ocr2
 type dataSourceV2 struct {
-	dataSource
+	dataSourceBase
 }
 
-func (ds *dataSourceV2) Observe(ctx context.Context) (*big.Int, error) {
-	return ds.dataSource.Observe(ctx)
+// ObservationTimestamp abstracts ocr2types.ReportTimestamp and ocr1types.ReportTimestamp
+type ObservationTimestamp struct {
+	Round        uint8
+	Epoch        uint32
+	ConfigDigest string
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) ocrtypes.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) ocr1types.DataSource {
 	return &dataSource{
-		inMemoryDataSource: inMemoryDataSource{
-			pipelineRunner:     pr,
-			jb:                 jb,
-			spec:               spec,
-			lggr:               lggr,
-			monitoringEndpoint: endpoint,
+		dataSourceBase: dataSourceBase{
+			inMemoryDataSource: inMemoryDataSource{
+				pipelineRunner:     pr,
+				jb:                 jb,
+				spec:               spec,
+				lggr:               lggr,
+				monitoringEndpoint: endpoint,
+			},
+			runResults: runResults,
 		},
-		runResults: runResults,
 	}
 }
 
 func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) median.DataSource {
 	return &dataSourceV2{
-		dataSource: dataSource{
+		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
 				pipelineRunner:     pr,
 				jb:                 jb,
@@ -85,7 +94,7 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
-var _ ocrtypes.DataSource = (*dataSource)(nil)
+var _ ocr1types.DataSource = (*dataSource)(nil)
 
 func (ds *inMemoryDataSource) updateAnswer(a *big.Int) {
 	ds.mu.Lock()
@@ -104,7 +113,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pipeline.FinalResult, error) {
+func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (pipeline.Run, pipeline.FinalResult, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
@@ -128,7 +137,7 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pip
 	finalResult := trrs.FinalResult(ds.lggr)
 	promSetBridgeParseMetrics(ds, &trrs)
 	promSetFinalResultMetrics(ds, &finalResult)
-	collectEATelemetry(ds, &trrs, &finalResult)
+	collectEATelemetry(ds, &trrs, &finalResult, timestamp)
 
 	return run, finalResult, err
 }
@@ -153,17 +162,20 @@ func (ds *inMemoryDataSource) parse(finalResult pipeline.FinalResult) (*big.Int,
 }
 
 // Observe without saving to DB
-func (ds *inMemoryDataSource) Observe(ctx context.Context) (*big.Int, error) {
-	_, finalResult, err := ds.executeRun(ctx)
+func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	_, finalResult, err := ds.executeRun(ctx, ObservationTimestamp{
+		Round:        timestamp.Round,
+		Epoch:        timestamp.Epoch,
+		ConfigDigest: timestamp.ConfigDigest.Hex(),
+	})
 	if err != nil {
 		return nil, err
 	}
 	return ds.parse(finalResult)
 }
 
-// Observe with saving to DB
-func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	run, finalResult, err := ds.inMemoryDataSource.executeRun(ctx)
+func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
+	run, finalResult, err := ds.inMemoryDataSource.executeRun(ctx, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -183,4 +195,22 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	}
 
 	return ds.inMemoryDataSource.parse(finalResult)
+}
+
+// Observe with saving to DB, satisfies ocr1 interface
+func (ds *dataSource) Observe(ctx context.Context, timestamp ocr1types.ReportTimestamp) (ocr1types.Observation, error) {
+	return ds.observe(ctx, ObservationTimestamp{
+		Round:        timestamp.Round,
+		Epoch:        timestamp.Epoch,
+		ConfigDigest: timestamp.ConfigDigest.Hex(),
+	})
+}
+
+// Observe with saving to DB, satisfies ocr2 interface
+func (ds *dataSourceV2) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	return ds.observe(ctx, ObservationTimestamp{
+		Round:        timestamp.Round,
+		Epoch:        timestamp.Epoch,
+		ConfigDigest: timestamp.ConfigDigest.Hex(),
+	})
 }

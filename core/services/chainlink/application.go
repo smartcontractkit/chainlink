@@ -5,7 +5,6 @@ import (
 	"context"
 	"math/big"
 	"net/http"
-	"reflect"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -550,7 +549,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 			return multierr.Combine(err, ms.Close())
 		}
 
-		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
+		app.logger.Debugw("Starting service...", "name", service.Name())
 
 		if err := ms.Start(ctx, service); err != nil {
 			return err
@@ -603,7 +602,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		// Stop services in the reverse order from which they were started
 		for i := len(app.srvcs) - 1; i >= 0; i-- {
 			service := app.srvcs[i]
-			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			app.logger.Debugw("Closing service...", "name", service.Name())
 			err = multierr.Append(err, service.Close())
 		}
 
