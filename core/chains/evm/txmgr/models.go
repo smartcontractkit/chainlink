@@ -29,21 +29,21 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmBroadcaster            = EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmResender               = EthResender[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmTxStore                = txmgrtypes.TxStore[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
-	EvmKeyStore               = txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, int64]
-	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]]
-	EvmNonceSyncer            = NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmTransmitCheckerFactory = TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash]
-	EvmTxm                    = Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmTxManager              = TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	NullEvmTxManager          = NullTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmFwdMgr                 = txmgrtypes.ForwarderManager[*evmtypes.Address]
-	EvmNewTx                  = NewTx[*evmtypes.Address]
-	EvmTx                     = EthTx[*evmtypes.Address, *evmtypes.TxHash]
-	EvmTxAttempt              = EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]
+	EvmConfirmer              = EthConfirmer[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmBroadcaster            = EthBroadcaster[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmResender               = EthResender[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmTxStore                = txmgrtypes.TxStore[evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[evmtypes.Address], *evmtypes.Receipt, EthTx[evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[evmtypes.Address, *evmtypes.TxHash], int64, int64]
+	EvmKeyStore               = txmgrtypes.KeyStore[evmtypes.Address, *big.Int, int64]
+	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, evmtypes.Address, *evmtypes.TxHash, EthTx[evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[evmtypes.Address, *evmtypes.TxHash]]
+	EvmNonceSyncer            = NonceSyncer[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmTransmitCheckerFactory = TransmitCheckerFactory[evmtypes.Address, *evmtypes.TxHash]
+	EvmTxm                    = Txm[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmTxManager              = TxManager[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	NullEvmTxManager          = NullTxManager[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmFwdMgr                 = txmgrtypes.ForwarderManager[evmtypes.Address]
+	EvmNewTx                  = NewTx[evmtypes.Address]
+	EvmTx                     = EthTx[evmtypes.Address, *evmtypes.TxHash]
+	EvmTxAttempt              = EthTxAttempt[evmtypes.Address, *evmtypes.TxHash]
 	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash]
 	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, *evmtypes.TxHash, *evmtypes.BlockHash]
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
@@ -314,7 +314,7 @@ func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash] = EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, *evmtypes.TxHash] = EthTxAttempt[evmtypes.Address, *evmtypes.TxHash]{}
 
 type EthTxAttempt[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
 	ID      int64

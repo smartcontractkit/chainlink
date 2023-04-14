@@ -35,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
-type MockEvmTxStorageService = txmgrtypesMocks.TxStore[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
+type MockEvmTxStorageService = txmgrtypesMocks.TxStore[evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[evmtypes.Address, *evmtypes.TxHash], int64, int64]
 
 type mocks struct {
 	bridgeORM         *bridgeORMMocks.ORM
@@ -117,7 +117,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethClient:         evmClientMocks.NewClient(t),
 		eIMgr:             webhookmocks.NewExternalInitiatorManager(t),
 		balM:              evmORMMocks.NewBalanceMonitor(t),
-		txmStorageService: txmgrtypesMocks.NewTxStore[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[*evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[*evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64](t),
+		txmStorageService: txmgrtypesMocks.NewTxStore[evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, txmgr.NewTx[evmtypes.Address], *evmtypes.Receipt, txmgr.EthTx[evmtypes.Address, *evmtypes.TxHash], txmgr.EthTxAttempt[evmtypes.Address, *evmtypes.TxHash], int64, int64](t),
 		auditLogger:       &audit.AuditLoggerService{},
 	}
 

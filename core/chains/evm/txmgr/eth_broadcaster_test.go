@@ -1858,7 +1858,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	kst := ksmocks.NewEth(t)
-	addresses := []*evmtypes.Address{evmtypes.NewAddress(fromAddress)}
+	addresses := []evmtypes.Address{evmtypes.NewAddress(fromAddress)}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil)
 	next, err := realKeystore.Eth().NextSequence(evmtypes.NewAddress(fromAddress), testutils.FixtureChainID)
 	require.NoError(t, err)

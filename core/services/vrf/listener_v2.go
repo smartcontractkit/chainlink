@@ -84,7 +84,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+	txm txmgr.TxManager[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -152,7 +152,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	txm            txmgr.TxManager[evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
@@ -818,7 +818,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				transaction, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
+				transaction, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[evmtypes.Address]{
 					FromAddress:    evmtypes.NewAddress(fromAddress),
 					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
 					EncodedPayload: hexutil.MustDecode(p.payload),

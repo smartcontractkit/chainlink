@@ -27,7 +27,7 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
-func NewEvmAddress() *evmtypes.Address {
+func NewEvmAddress() evmtypes.Address {
 	return evmtypes.NewAddress(testutils.NewAddress())
 }
 

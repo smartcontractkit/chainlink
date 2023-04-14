@@ -73,7 +73,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	_, err = t.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
+	_, err = t.txm.CreateEthTransaction(txmgr.NewTx[evmtypes.Address]{
 		FromAddress:      evmtypes.NewAddress(roundRobinFromAddress),
 		ToAddress:        evmtypes.NewAddress(toAddress),
 		EncodedPayload:   payload,
