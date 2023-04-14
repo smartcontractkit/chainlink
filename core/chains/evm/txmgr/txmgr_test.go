@@ -487,7 +487,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]*evmtypes.Address{}, nil)
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]evmtypes.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -513,7 +513,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	addr := []*evmtypes.Address{evmtypes.NewAddress(keyState.Address.Address())}
+	addr := []evmtypes.Address{evmtypes.NewAddress(keyState.Address.Address())}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
