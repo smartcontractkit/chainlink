@@ -2,7 +2,6 @@ package solana
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"strings"
 	"sync"
@@ -20,29 +19,25 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	soltxm "github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // DefaultRequestTimeout is the default Solana client timeout.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana/client --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
 var _ solana.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
 	id             string
 	cfg            config.Config
-	cfgImmutable   bool // toml config is immutable
 	txm            *soltxm.Txm
 	balanceMonitor services.ServiceCtx
-	orm            ORM
+	nodes          func(chainID string) (nodes []db.Node, err error)
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
@@ -173,12 +168,12 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg config.Config, ks keystore.Solana, cfgs Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
-		orm:         orm,
+		nodes:       cfgs.Nodes,
 		lggr:        lggr.Named("Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -214,11 +209,11 @@ func (c *chain) Reader() (solanaclient.Reader, error) {
 func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	var node db.Node
 	var client solanaclient.ReaderWriter
-	nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+	nodes, err := c.nodes(c.id) // opt: pass static nodes set to constructor
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
-	if cnt == 0 {
+	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
 	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time

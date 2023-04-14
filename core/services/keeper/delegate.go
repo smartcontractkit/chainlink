@@ -4,11 +4,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
@@ -47,9 +49,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {}
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
@@ -82,9 +85,9 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
 	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
 	if spec.ForwardingAllowed {
-		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
-		if fwderr == nil {
-			effectiveKeeperAddress = fwdrAddress
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(evmtypes.NewAddress(spec.KeeperSpec.FromAddress.Address()))
+		if fwderr == nil && fwdrAddress != nil {
+			effectiveKeeperAddress = fwdrAddress.Address
 		} else {
 			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", spec.Name, "err", fwderr)
 		}
@@ -109,7 +112,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		d.pr,
 		chain.Client(),
 		chain.HeadBroadcaster(),
-		chain.TxManager().GetGasEstimator(),
+		chain.GasEstimator(),
 		svcLogger,
 		chain.Config(),
 		effectiveKeeperAddress,

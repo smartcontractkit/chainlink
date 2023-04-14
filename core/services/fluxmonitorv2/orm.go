@@ -8,14 +8,16 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type transmitter interface {
-	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
+	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgrtypes.Transaction, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -120,9 +122,10 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint32,
 	qopts ...pg.QOpt,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
+
+	_, err = o.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		FromAddress:    evmtypes.NewAddress(fromAddress),
+		ToAddress:      evmtypes.NewAddress(toAddress),
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Strategy:       o.strategy,

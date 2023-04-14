@@ -18,10 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // SimulatedBackendClient is an Client implementation using a simulated
@@ -128,7 +128,7 @@ func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account comm
 
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
-	return c.b.Blockchain().CurrentBlock().Number()
+	return c.b.Blockchain().CurrentBlock().Number
 }
 
 var balanceOfABIString = `[
@@ -536,6 +536,28 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			resp, err := c.b.CallContract(ctx, callMsg, nil)
 			*(b[i].Result.(*string)) = hexutil.Encode(resp)
 			b[i].Error = err
+		case "eth_getHeaderByNumber":
+			if len(elem.Args) != 1 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getHeaderByNumber", len(elem.Args))
+			}
+			blockNum, is := elem.Args[0].(string)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber, got: %T", elem.Args[0])
+			}
+			n, err := hexutil.DecodeBig(blockNum)
+			if err != nil {
+				return errors.Errorf("error while converting hex block number %s to big.Int ", blockNum)
+			}
+			header, err := c.b.HeaderByNumber(ctx, n)
+			if err != nil {
+				return err
+			}
+			switch v := elem.Result.(type) {
+			case *types.Header:
+				b[i].Result = header
+			default:
+				return errors.Errorf("SimulatedBackendClient Unexpected Type %T", v)
+			}
 		default:
 			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}

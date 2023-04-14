@@ -2,11 +2,12 @@ package keystore
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name P2P --output ./mocks/ --case=underscore --filename p2p.go
@@ -186,9 +187,15 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	} else if len(ks.keyRing.P2P) == 0 {
 		return p2pkey.KeyV2{}, ErrNoP2PKey
 	}
+	possibleKeys := make([]string, 0, len(ks.keyRing.P2P))
+	for _, key := range ks.keyRing.P2P {
+		possibleKeys = append(possibleKeys, key.ID())
+	}
+	//To avoid ambiguity, we require the user to specify a peer ID if there are multiple keys
 	return p2pkey.KeyV2{}, errors.New(
 		"multiple p2p keys found but peer ID was not set - you must specify a P2P.PeerID " +
-			"env var if you have more than one key, or delete the keys you aren't using",
+			"config var if you have more than one key, or delete the keys you aren't using" +
+			" (possible keys: " + strings.Join(possibleKeys, ", ") + ")",
 	)
 }
 

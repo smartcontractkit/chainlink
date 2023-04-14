@@ -1,7 +1,10 @@
 package job_test
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -14,13 +17,16 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -44,6 +50,32 @@ contractConfigConfirmations = 3
 observationSource = """
 	%s
 """
+`
+	ocr2vrfJobSpecTemplate = `
+type                 	= "offchainreporting2"
+schemaVersion        	= 1
+name                 	= "ocr2 vrf spec"
+maxTaskDuration      	= "10s"
+contractID           	= "%s"
+ocrKeyBundleID       	= "%s"
+relay                	= "evm"
+pluginType           	= "ocr2vrf"
+transmitterID        	= "%s"
+forwardingAllowed       = %t
+
+[relayConfig]
+chainID              	= %d
+fromBlock               = %d
+sendingKeys             = [%s]
+
+[pluginConfig]
+dkgEncryptionPublicKey 	= "%s"
+dkgSigningPublicKey    	= "%s"
+dkgKeyID               	= "%s"
+dkgContractAddress     	= "%s"
+
+vrfCoordinatorAddress   = "%s"
+linkEthFeedAddress     	= "%s"
 `
 	voterTurnoutDataSourceTemplate = `
 // data source 1
@@ -185,7 +217,8 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ExternalJobID: uuid.NewV4(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
+	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	_, err := ocr.ValidatedOracleSpecToml(cc, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
@@ -234,6 +267,63 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 		ocrspec.P2PV2Bootstrappers = pq.StringArray{}
 	}
 	jb.OCROracleSpec = &ocrspec
+
+	return &jb
+}
+
+func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralConfig,
+	transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
+	t.Helper()
+
+	useForwarders := false
+	_, beacon := cltest.MustInsertRandomKey(t, ks.Eth())
+	_, coordinator := cltest.MustInsertRandomKey(t, ks.Eth())
+	_, feed := cltest.MustInsertRandomKey(t, ks.Eth())
+	_, dkg := cltest.MustInsertRandomKey(t, ks.Eth())
+	sendingKeys := fmt.Sprintf(`"%s"`, transmitter)
+	kb, _ := ks.OCR2().Create(chaintype.EVM)
+
+	vrfKey := make([]byte, 32)
+	_, err := rand.Read(vrfKey)
+	require.NoError(t, err)
+
+	ocr2vrfJob := fmt.Sprintf(ocr2vrfJobSpecTemplate,
+		beacon.String(),
+		kb.ID(),
+		transmitter,
+		useForwarders,
+		chainID,
+		fromBlock,
+		sendingKeys,
+		ks.DKGEncrypt(),
+		ks.DKGSign(),
+		hex.EncodeToString(vrfKey[:]),
+		dkg.String(),
+		coordinator.String(),
+		feed.String(),
+	)
+	jobSpec := makeOCR2JobSpecFromToml(t, ocr2vrfJob)
+
+	return jobSpec
+}
+
+func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {
+	t.Helper()
+
+	id := uuid.NewV4()
+	var jb = job.Job{
+		Name:          null.StringFrom(id.String()),
+		ExternalJobID: id,
+	}
+	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
+	require.NoError(t, err, jobSpecToml)
+	var ocr2spec job.OCR2OracleSpec
+	err = toml.Unmarshal([]byte(jobSpecToml), &ocr2spec)
+	require.NoError(t, err)
+	if ocr2spec.P2PV2Bootstrappers == nil {
+		ocr2spec.P2PV2Bootstrappers = pq.StringArray{}
+	}
+	jb.OCR2OracleSpec = &ocr2spec
 
 	return &jb
 }

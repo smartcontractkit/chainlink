@@ -5,9 +5,9 @@ import (
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
 type ethTransactionAttemptBatcher struct {
@@ -28,13 +28,13 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 		keyOrder[key.String()] = ix
 	}
 
-	attempts, err := b.app.TxmORM().FindEthTxAttemptConfirmedByEthTxIDs(ethTxsIDs)
+	attempts, err := b.app.TxmStorageService().FindEthTxAttemptConfirmedByEthTxIDs(ethTxsIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 
 	// Generate a map of attempts to txIDs
-	attemptsForTx := map[string][]txmgr.EthTxAttempt{}
+	attemptsForTx := map[string][]txmgr.EvmTxAttempt{}
 	for _, a := range attempts {
 		id := stringutils.FromInt64(a.EthTxID)
 
@@ -54,7 +54,7 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 
 	// fill array positions without any attempts as an empty slice
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: []txmgr.EthTxAttempt{}, Error: nil}
+		results[ix] = &dataloader.Result{Data: []txmgr.EvmTxAttempt{}, Error: nil}
 	}
 
 	return results

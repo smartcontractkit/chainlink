@@ -2,16 +2,18 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
+
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // Delegate creates Bootstrap jobs
@@ -118,9 +120,13 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.
-func (d Delegate) AfterJobCreated(spec job.Job) {
+func (d *Delegate) AfterJobCreated(spec job.Job) {
 }
 
 // BeforeJobDeleted satisfies the job.Delegate interface.
-func (d Delegate) BeforeJobDeleted(spec job.Job) {
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+
+// OnDeleteJob satisfies the job.Delegate interface.
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error {
+	return nil
 }

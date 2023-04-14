@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -42,7 +42,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	subj1 := uuid.NewV4()
@@ -53,37 +53,37 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	var n int64
 
-	cltest.MustInsertFatalErrorEthTx(t, borm, fromAddress)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
+	cltest.MustInsertFatalErrorEthTx(t, txStore, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, n, fromAddress)
 	n++
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, n, 42, fromAddress)
 	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
-	initialEtxs := []txmgr.EthTx{
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj2),
-		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress, subj1),
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, n, fromAddress)
+	initialEtxs := []txmgr.EvmTx{
+		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj2),
+		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress, subj1),
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.DatabaseDefaultQueryTimeout())
 
-		n, err := s.PruneQueue(borm, pg.WithQueryer(db))
+		n, err := s.PruneQueue(txStore, pg.WithQueryer(db))
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
 		cltest.AssertCount(t, db, "eth_txes", 7)
 
-		var etxs []txmgr.EthTx
-		require.NoError(t, db.Select(&etxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
+		var dbEtxs []txmgr.DbEthTx
+		require.NoError(t, db.Select(&dbEtxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
 
-		require.Len(t, etxs, 3)
+		require.Len(t, dbEtxs, 3)
 
-		assert.Equal(t, initialEtxs[1].ID, etxs[0].ID)
-		assert.Equal(t, initialEtxs[3].ID, etxs[1].ID)
-		assert.Equal(t, initialEtxs[4].ID, etxs[2].ID)
+		assert.Equal(t, initialEtxs[1].ID, dbEtxs[0].ID)
+		assert.Equal(t, initialEtxs[3].ID, dbEtxs[1].ID)
+		assert.Equal(t, initialEtxs[4].ID, dbEtxs[2].ID)
 	})
 }

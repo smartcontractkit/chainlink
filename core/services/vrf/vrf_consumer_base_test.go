@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func TestConsumerBaseRejectsBadVRFCoordinator(t *testing.T) {

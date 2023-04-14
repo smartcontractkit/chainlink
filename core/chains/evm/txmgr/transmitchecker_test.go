@@ -15,20 +15,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 )
 
 func TestFactory(t *testing.T) {
@@ -91,24 +91,24 @@ func TestTransmitCheckers(t *testing.T) {
 
 	t.Run("no checker", func(t *testing.T) {
 		checker := txmgr.NoChecker
-		require.NoError(t, checker.Check(ctx, log, txmgr.EthTx{}, txmgr.EthTxAttempt{}))
+		require.NoError(t, checker.Check(ctx, log, txmgr.EvmTx{}, txmgr.EvmTxAttempt{}))
 	})
 
 	t.Run("simulate", func(t *testing.T) {
 		checker := txmgr.SimulateChecker{Client: client}
 
-		tx := txmgr.EthTx{
-			FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
-			ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+		tx := txmgr.EvmTx{
+			FromAddress:    evmtypes.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+			ToAddress:      evmtypes.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 			EncodedPayload: []byte{42, 0, 0},
 			Value:          assets.NewEthValue(642),
 			GasLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
 		}
-		attempt := txmgr.EthTxAttempt{
+		attempt := txmgr.EvmTxAttempt{
 			EthTx:     tx,
-			Hash:      common.Hash{},
+			Hash:      evmtypes.NewTxHash(common.Hash{}),
 			CreatedAt: tx.CreatedAt,
 			State:     txmgrtypes.TxAttemptInProgress,
 		}
@@ -157,7 +157,7 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EthTx, txmgr.EthTxAttempt) {
+		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
 			txHash := common.Hash{}
 			meta := txmgr.EthTxMeta{
@@ -175,9 +175,9 @@ func TestTransmitCheckers(t *testing.T) {
 			require.NoError(t, err)
 			metaJson := datatypes.JSON(b)
 
-			tx := txmgr.EthTx{
-				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
-				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+			tx := txmgr.EvmTx{
+				FromAddress:    evmtypes.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+				ToAddress:      evmtypes.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 				EncodedPayload: []byte{42, 0, 0},
 				Value:          assets.NewEthValue(642),
 				GasLimit:       1e9,
@@ -185,9 +185,9 @@ func TestTransmitCheckers(t *testing.T) {
 				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
-			return tx, txmgr.EthTxAttempt{
+			return tx, txmgr.EvmTxAttempt{
 				EthTx:     tx,
-				Hash:      common.Hash{},
+				Hash:      evmtypes.NewTxHash(common.Hash{}),
 				CreatedAt: tx.CreatedAt,
 				State:     txmgrtypes.TxAttemptInProgress,
 			}
@@ -268,7 +268,7 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EthTx, txmgr.EthTxAttempt) {
+		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID.Bytes())
 			meta := txmgr.EthTxMeta{
 				RequestID: &h,
@@ -280,9 +280,9 @@ func TestTransmitCheckers(t *testing.T) {
 			require.NoError(t, err)
 			metaJson := datatypes.JSON(b)
 
-			tx := txmgr.EthTx{
-				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
-				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+			tx := txmgr.EvmTx{
+				FromAddress:    evmtypes.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+				ToAddress:      evmtypes.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 				EncodedPayload: []byte{42, 0, 0},
 				Value:          assets.NewEthValue(642),
 				GasLimit:       1e9,
@@ -290,9 +290,9 @@ func TestTransmitCheckers(t *testing.T) {
 				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
-			return tx, txmgr.EthTxAttempt{
+			return tx, txmgr.EvmTxAttempt{
 				EthTx:     tx,
-				Hash:      common.Hash{},
+				Hash:      evmtypes.NewTxHash(common.Hash{}),
 				CreatedAt: tx.CreatedAt,
 				State:     txmgrtypes.TxAttemptInProgress,
 			}

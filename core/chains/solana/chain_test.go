@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const TestSolanaGenesisHashTemplate = `{"jsonrpc":"2.0","result":"%s","id":1}`
@@ -44,11 +44,11 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	solORM := &mockORM{}
+	solORM := &mockConfigs{}
 	lggr := logger.TestLogger(t)
 	testChain := chain{
 		id:          "devnet",
-		orm:         solORM,
+		nodes:       solORM.Nodes,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
@@ -213,34 +213,24 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
 }
 
-var _ ORM = &mockORM{}
+var _ Configs = &mockConfigs{}
 
-type mockORM struct {
+type mockConfigs struct {
 	nodesForChain []db.Node
 }
 
-func (m *mockORM) GetChainsByIDs(ids []string) (chains []ChainConfig, err error) {
-	panic("implement me")
+func (m *mockConfigs) Nodes(chainID string) (nodes []db.Node, err error) {
+	return m.nodesForChain, nil
 }
 
-func (m *mockORM) GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []db.Node, err error) {
-	panic("implement me")
-}
-
-func (m *mockORM) NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
-	return m.nodesForChain, len(m.nodesForChain), nil
-}
-
-func (m *mockORM) Chain(s string, opt ...pg.QOpt) (ChainConfig, error) { panic("unimplemented") }
-
-func (m *mockORM) Chains(offset, limit int, qopts ...pg.QOpt) ([]ChainConfig, int, error) {
+func (m *mockConfigs) Chains(offset, limit int, ids ...string) ([]chains.ChainConfig, int, error) {
 	panic("unimplemented")
 }
 
-func (m *mockORM) NodeNamed(s string, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
+func (m *mockConfigs) Node(s string) (db.Node, error) { panic("unimplemented") }
 
-func (m *mockORM) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
+func (m *mockConfigs) NodeStatus(s string) (chains.NodeStatus, error) { panic("unimplemented") }
+
+func (m *mockConfigs) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []chains.NodeStatus, count int, err error) {
 	panic("unimplemented")
 }
-
-func (m *mockORM) EnsureChains([]string, ...pg.QOpt) error { panic("unimplemented") }

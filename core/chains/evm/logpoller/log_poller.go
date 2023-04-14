@@ -20,20 +20,21 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
+	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter) error
-	UnregisterFilter(name string) error
+	UnregisterFilter(name string, q pg.Queryer) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -48,6 +49,7 @@ type LogPoller interface {
 	IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
@@ -69,9 +71,10 @@ type Client interface {
 }
 
 var (
-	_                          LogPollerTest = &logPoller{}
-	ErrReplayAbortedByClient                 = errors.New("replay aborted by client")
-	ErrReplayAbortedOnShutdown               = errors.New("replay aborted, log poller shutdown")
+	_                       LogPollerTest = &logPoller{}
+	ErrReplayRequestAborted               = errors.New("aborted, replay request cancelled")
+	ErrReplayInProgress                   = errors.New("replay request cancelled, but replay is already in progress")
+	ErrLogPollerShutdown                  = errors.New("replay aborted due to log poller shutdown")
 )
 
 type logPoller struct {
@@ -92,16 +95,11 @@ type logPoller struct {
 	cachedAddresses []common.Address
 	cachedEventSigs []common.Hash
 
-	replayStart    chan ReplayRequest
+	replayStart    chan int64
 	replayComplete chan error
 	ctx            context.Context
 	cancel         context.CancelFunc
-	done           chan struct{}
-}
-
-type ReplayRequest struct {
-	fromBlock int64
-	ctx       context.Context
+	wg             sync.WaitGroup
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -121,9 +119,8 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
-		replayStart:       make(chan ReplayRequest),
+		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
-		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
@@ -238,15 +235,17 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	return nil
 }
 
-func (lp *logPoller) UnregisterFilter(name string) error {
+func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
 	_, ok := lp.filters[name]
 	if !ok {
-		return errors.Errorf("Filter %s not found", name)
+		lp.lggr.Errorf("Filter %s not found", name)
+		return nil
 	}
-	if err := lp.orm.DeleteFilter(name); err != nil {
+
+	if err := lp.orm.DeleteFilter(name, pg.WithQueryer(q)); err != nil {
 		return errors.Wrapf(err, "Failed to delete filter %s", name)
 	}
 	delete(lp.filters, name)
@@ -303,6 +302,9 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
+// If ctx is cancelled before the replay request has been initiated, ErrReplayRequestAborted is returned.  If the replay
+// is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
+// guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -313,21 +315,39 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
-	case lp.replayStart <- ReplayRequest{fromBlock, ctx}:
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
+	case lp.replayStart <- fromBlock:
 	case <-ctx.Done():
-		return ErrReplayAbortedByClient
+		return errors.Wrap(ErrReplayRequestAborted, ctx.Err().Error())
 	}
 	// Block until replay complete or cancelled.
 	select {
-	case err := <-lp.replayComplete:
+	case err = <-lp.replayComplete:
 		return err
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
-		return ErrReplayAbortedByClient
+		// Note: this will not abort the actual replay, it just means the client gave up on waiting for it to complete
+		lp.wg.Add(1)
+		go lp.recvReplayComplete()
+		return ErrReplayInProgress
 	}
+}
+
+func (lp *logPoller) recvReplayComplete() {
+	err := <-lp.replayComplete
+	if err != nil {
+		lp.lggr.Error(err)
+	}
+	lp.wg.Done()
+}
+
+// Asynchronous wrapper for Replay()
+func (lp *logPoller) ReplayAsync(fromBlock int64) {
+	lp.wg.Add(1)
+	go func() {
+		if err := lp.Replay(context.Background(), fromBlock); err != nil {
+			lp.lggr.Error(err)
+		}
+		lp.wg.Done()
+	}()
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
@@ -340,7 +360,7 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
-
+		lp.wg.Add(1)
 		go lp.run()
 		return nil
 	})
@@ -348,8 +368,12 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 
 func (lp *logPoller) Close() error {
 	return lp.StopOnce("LogPoller", func() error {
+		select {
+		case lp.replayComplete <- ErrLogPollerShutdown:
+		default:
+		}
 		lp.cancel()
-		<-lp.done
+		lp.wg.Wait()
 		return nil
 	})
 }
@@ -379,7 +403,7 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 }
 
 func (lp *logPoller) run() {
-	defer close(lp.done)
+	defer lp.wg.Done()
 	logPollTick := time.After(0)
 	// trigger first backup poller run shortly after first log poller run
 	backupLogPollTick := time.After(100 * time.Millisecond)
@@ -405,29 +429,30 @@ func (lp *logPoller) run() {
 		select {
 		case <-lp.ctx.Done():
 			return
-		case replayReq := <-lp.replayStart:
-			fromBlock, err := lp.GetReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
+		case fromBlockReq := <-lp.replayStart:
+			fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
 			if err == nil {
 				if !filtersLoaded {
-					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
 					if err = loadFilters(); err != nil {
 						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
 				} else {
 					// Serially process replay requests.
-					lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-					lp.PollAndSaveLogs(replayReq.ctx, fromBlock)
+					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
+					lp.PollAndSaveLogs(lp.ctx, fromBlock)
 				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
 			select {
 			case <-lp.ctx.Done():
-				// We're shutting down, lets return.
+				// We're shutting down, notify client and exit
+				select {
+				case lp.replayComplete <- ErrReplayRequestAborted:
+				default:
+				}
 				return
-			case <-replayReq.ctx.Done():
-				// Client gave up, lets continue.
-				continue
 			case lp.replayComplete <- err:
 			}
 		case <-logPollTick:
@@ -510,8 +535,8 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBloc
 		// If this is our first run, start max(finalityDepth+1, backupPollerBlockDelay) blocks behind the last processed
 		// (or at block 0 if whole blockchain is too short)
 		lp.backupPollerNextBlock = lastProcessed.BlockNumber - mathutil.Max(lp.finalityDepth+1, backupPollerBlockDelay)
-		if lastProcessed.BlockNumber > backupPollerBlockDelay {
-			lp.backupPollerNextBlock = lastProcessed.BlockNumber - backupPollerBlockDelay
+		if lp.backupPollerNextBlock < 0 {
+			lp.backupPollerNextBlock = 0
 		}
 	}
 
@@ -1056,6 +1081,14 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	return blocksFoundFromRPC, nil
+}
+
+// IndexedLogsWithSigsExcluding returns the set difference(A-B) of logs with signature sigA and sigB, matching is done on the topics index
+//
+// For example, query to retrieve unfulfilled requests by querying request log events without matching fulfillment log events.
+// The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
+func (lp *logPoller) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs, qopts...)
 }
 
 func EvmWord(i uint64) common.Hash {

@@ -23,16 +23,17 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	lp_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 func TestCoordinator_BeaconPeriod(t *testing.T) {
@@ -66,7 +67,7 @@ func TestCoordinator_BeaconPeriod(t *testing.T) {
 
 func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 	t.Parallel()
-	evmClient := evm_mocks.NewClient(t)
+	evmClient := evmclimocks.NewClient(t)
 	evmClient.On("ChainID").Return(big.NewInt(1))
 
 	t.Run("happy path", func(t *testing.T) {
@@ -208,7 +209,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	proofG1X := big.NewInt(1)
 	proofG1Y := big.NewInt(2)
-	evmClient := evm_mocks.NewClient(t)
+	evmClient := evmclimocks.NewClient(t)
 	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path, beacon requests", func(t *testing.T) {
 		beaconAddress := newAddress(t)
@@ -1073,7 +1074,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 }
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
-	evmClient := evm_mocks.NewClient(t)
+	evmClient := evmclimocks.NewClient(t)
 	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
 		lookbackBlocks := uint64(0)
@@ -1115,7 +1116,7 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 	proofG1X := big.NewInt(1)
 	proofG1Y := big.NewInt(2)
 	lggr := logger.TestLogger(t)
-	evmClient := evm_mocks.NewClient(t)
+	evmClient := evmclimocks.NewClient(t)
 
 	coordinatorAddress := newAddress(t)
 	beaconAddress := newAddress(t)
@@ -1183,7 +1184,7 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 }
 
 func TestCoordinator_ReportIsOnchain(t *testing.T) {
-	evmClient := evm_mocks.NewClient(t)
+	evmClient := evmclimocks.NewClient(t)
 	evmClient.On("ChainID").Return(big.NewInt(1))
 
 	t.Run("report is on-chain", func(t *testing.T) {
@@ -1769,4 +1770,33 @@ func getLogPoller(
 		Return(logPollerBlocks, nil)
 
 	return lp
+}
+
+func TestFilterNamesFromSpec(t *testing.T) {
+	beaconAddress := newAddress(t)
+	coordinatorAddress := newAddress(t)
+	dkgAddress := newAddress(t)
+
+	spec := &job.OCR2OracleSpec{
+		ContractID: beaconAddress.String(),
+		PluginType: job.OCR2VRF,
+		PluginConfig: job.JSONConfig{
+			"VRFCoordinatorAddress": coordinatorAddress.String(),
+			"DKGContractAddress":    dkgAddress.String(),
+		},
+	}
+
+	names, err := FilterNamesFromSpec(spec)
+	require.NoError(t, err)
+
+	assert.Len(t, names, 1)
+	assert.Equal(t, logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress), names[0])
+
+	spec = &job.OCR2OracleSpec{
+		PluginType:   job.OCR2VRF,
+		ContractID:   beaconAddress.String(),
+		PluginConfig: nil, // missing coordinator & dkg addresses
+	}
+	_, err = FilterNamesFromSpec(spec)
+	require.ErrorContains(t, err, "is not a valid EIP55 formatted address")
 }

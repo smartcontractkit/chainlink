@@ -5,41 +5,43 @@ package mocks
 import (
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
-	bridges "github.com/smartcontractkit/chainlink/core/bridges"
+	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 
-	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	context "context"
 
-	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
+	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 
-	job "github.com/smartcontractkit/chainlink/core/services/job"
+	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
-	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
+	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	logger "github.com/smartcontractkit/chainlink/core/logger"
+	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
-	services "github.com/smartcontractkit/chainlink/core/services"
+	services "github.com/smartcontractkit/chainlink/v2/core/services"
 
-	sessions "github.com/smartcontractkit/chainlink/core/sessions"
+	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
 	sqlx "github.com/smartcontractkit/sqlx"
 
-	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
+	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	uuid "github.com/satori/go.uuid"
 
-	webhook "github.com/smartcontractkit/chainlink/core/services/webhook"
+	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -94,15 +96,15 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 }
 
 // EVMORM provides a mock function with given fields:
-func (_m *Application) EVMORM() types.ORM {
+func (_m *Application) EVMORM() types.Configs {
 	ret := _m.Called()
 
-	var r0 types.ORM
-	if rf, ok := ret.Get(0).(func() types.ORM); ok {
+	var r0 types.Configs
+	if rf, ok := ret.Get(0).(func() types.Configs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.ORM)
+			r0 = ret.Get(0).(types.Configs)
 		}
 	}
 
@@ -495,16 +497,16 @@ func (_m *Application) Stop() error {
 	return r0
 }
 
-// TxmORM provides a mock function with given fields:
-func (_m *Application) TxmORM() txmgr.ORM {
+// TxmStorageService provides a mock function with given fields:
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64] {
 	ret := _m.Called()
 
-	var r0 txmgr.ORM
-	if rf, ok := ret.Get(0).(func() txmgr.ORM); ok {
+	var r0 txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.ORM)
+			r0 = ret.Get(0).(txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64])
 		}
 	}
 

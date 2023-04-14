@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/config/parse"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 )
 
 func TestStore_bigIntParser(t *testing.T) {

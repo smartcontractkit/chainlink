@@ -3,17 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	stderrs "errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
@@ -24,14 +20,13 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initRemoteConfigSubCmds(client *Client) []cli.Command {
@@ -246,108 +241,6 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 		fmt.Println("Old password did not match.")
 	default:
 		return cli.printResponseBody(resp)
-	}
-	return nil
-}
-
-// Profile will collect pprof metrics and store them in a folder.
-func (cli *Client) Profile(c *clipkg.Context) error {
-	seconds := c.Uint("seconds")
-	baseDir := c.String("output_dir")
-
-	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
-
-	err := os.Mkdir(genDir, 0o755)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	var wgPprof sync.WaitGroup
-	vitals := []string{
-		"allocs",       // A sampling of all past memory allocations
-		"block",        // Stack traces that led to blocking on synchronization primitives
-		"cmdline",      // The command line invocation of the current program
-		"goroutine",    // Stack traces of all current goroutines
-		"heap",         // A sampling of memory allocations of live objects.
-		"mutex",        // Stack traces of holders of contended mutexes
-		"profile",      // CPU profile.
-		"threadcreate", // Stack traces that led to the creation of new OS threads
-		"trace",        // A trace of execution of the current program.
-	}
-	wgPprof.Add(len(vitals))
-	cli.Logger.Infof("Collecting profiles: %v", vitals)
-	cli.Logger.Infof("writing debug info to %s", genDir)
-
-	errs := make(chan error, len(vitals))
-	for _, vt := range vitals {
-		go func(vt string) {
-			defer wgPprof.Done()
-			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			resp, err := cli.HTTP.Get(uri)
-			if err != nil {
-				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
-				return
-			}
-			defer func() {
-				if resp.Body != nil {
-					resp.Body.Close()
-				}
-			}()
-			if resp.StatusCode == http.StatusUnauthorized {
-				errs <- fmt.Errorf("error collecting %s: %w", vt, errUnauthorized)
-				return
-			}
-			if resp.StatusCode == http.StatusBadRequest {
-				// best effort to interpret the underlying problem
-				pprofVersion := resp.Header.Get("X-Go-Pprof")
-				if pprofVersion == "1" {
-					b, err := io.ReadAll(resp.Body)
-					if err != nil {
-						errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
-						return
-					}
-					respContent := string(b)
-					// taken from pprof.Profile https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/pprof/pprof.go#L133
-					if strings.Contains(respContent, "profile duration exceeds server's WriteTimeout") {
-						errs <- fmt.Errorf("%w: %s", ErrProfileTooLong, respContent)
-					} else {
-						errs <- fmt.Errorf("error collecting %s: %w: %s", vt, errBadRequest, respContent)
-					}
-				} else {
-					errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
-				}
-				return
-			}
-			// write to file
-			f, err := os.Create(filepath.Join(genDir, vt))
-			if err != nil {
-				errs <- fmt.Errorf("error creating file for %s: %w", vt, err)
-				return
-			}
-			wc := utils.NewDeferableWriteCloser(f)
-			defer wc.Close()
-
-			_, err = io.Copy(wc, resp.Body)
-			if err != nil {
-				errs <- fmt.Errorf("error writing to file for %s: %w", vt, err)
-				return
-			}
-			err = wc.Close()
-			if err != nil {
-				errs <- fmt.Errorf("error closing file for %s: %w", vt, err)
-				return
-			}
-		}(vt)
-	}
-	wgPprof.Wait()
-	close(errs)
-	// Atmost one err is emitted per vital.
-	cli.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
-	if len(errs) > 0 {
-		var merr error
-		for err := range errs {
-			merr = stderrs.Join(merr, err)
-		}
-		return cli.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
 	}
 	return nil
 }

@@ -7,14 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,7 +60,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	etx, err := chain.TxManager().SendEther(chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
+	etx, err := chain.TxManager().SendEther(chain.ID(), evmtypes.NewAddress(tr.FromAddress), evmtypes.NewAddress(tr.DestinationAddress), tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return
@@ -97,7 +98,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 	var fees gas.EvmFee
 
 	gasLimit := chain.Config().EvmGasLimitTransfer()
-	estimator := chain.TxManager().GetGasEstimator()
+	estimator := chain.GasEstimator()
 
 	fees, gasLimit, err = estimator.GetFee(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
 	if err != nil {

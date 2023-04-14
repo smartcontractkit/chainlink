@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
-	utilsmocks "github.com/smartcontractkit/chainlink/core/utils/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,15 +49,15 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	}
 
 	t.Run("on logger creation", func(t *testing.T) {
-		diskMock := utilsmocks.NewDiskStatsProvider(t)
-		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
-
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
 		}
 
-		zapCfg.diskStats = diskMock
+		zapCfg.diskSpaceAvailable = func(path string) (utils.FileSize, error) {
+			assert.Equal(t, logsDir, path)
+			return maxSize, nil
+		}
 		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
@@ -81,15 +80,15 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 
 	t.Run("on logger creation generic error", func(t *testing.T) {
-		diskMock := utilsmocks.NewDiskStatsProvider(t)
-		diskMock.On("AvailableSpace", logsDir).Return(utils.FileSize(0), fmt.Errorf("custom error"))
-
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
 		}
 
-		zapCfg.diskStats = diskMock
+		zapCfg.diskSpaceAvailable = func(path string) (utils.FileSize, error) {
+			assert.Equal(t, logsDir, path)
+			return 0, nil
+		}
 		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
@@ -112,16 +111,17 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 
 	t.Run("after logger is created", func(t *testing.T) {
-		diskMock := utilsmocks.NewDiskStatsProvider(t)
-		diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil).Once()
-
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
 		}
 
+		available := maxSize * 10
 		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
-		zapCfg.diskStats = diskMock
+		zapCfg.diskSpaceAvailable = func(path string) (utils.FileSize, error) {
+			assert.Equal(t, logsDir, path)
+			return available, nil
+		}
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
 			pollChan: pollChan,
@@ -132,7 +132,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr.Debug("writing to disk on test")
 
-		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
+		available = maxSize
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
@@ -159,16 +159,18 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 
 	t.Run("after logger is created, recovers disk space", func(t *testing.T) {
-		diskMock := utilsmocks.NewDiskStatsProvider(t)
-		diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil).Once()
-
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
 		}
 
+		available := maxSize * 10
+
 		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
-		zapCfg.diskStats = diskMock
+		zapCfg.diskSpaceAvailable = func(path string) (utils.FileSize, error) {
+			assert.Equal(t, logsDir, path)
+			return available, nil
+		}
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
 			pollChan: pollChan,
@@ -179,12 +181,12 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr.Debug("test")
 
-		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil).Once()
+		available = maxSize
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
 
-		diskMock.On("AvailableSpace", logsDir).Return(maxSize*12, nil).Once()
+		available = maxSize * 12
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
@@ -234,16 +236,16 @@ func TestZapLogger_LogCaller(t *testing.T) {
 		diskPollConfig: pollCfg,
 	}
 
-	diskMock := utilsmocks.NewDiskStatsProvider(t)
-	diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil)
-
 	pollChan := make(chan time.Time)
 	stop := func() {
 		close(pollChan)
 	}
 
 	zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
-	zapCfg.diskStats = diskMock
+	zapCfg.diskSpaceAvailable = func(path string) (utils.FileSize, error) {
+		assert.Equal(t, logsDir, path)
+		return maxSize * 10, nil
+	}
 	zapCfg.diskPollConfig = zapDiskPollConfig{
 		stop:     stop,
 		pollChan: pollChan,
@@ -264,7 +266,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:255")
+	require.Contains(t, lines[0], "logger/zap_test.go:257")
 }
 
 func TestZapLogger_Name(t *testing.T) {

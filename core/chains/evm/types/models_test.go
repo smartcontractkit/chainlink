@@ -18,15 +18,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestHead_NewHead(t *testing.T) {
@@ -87,7 +87,7 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestEthTx_GetID(t *testing.T) {
-	tx := txmgr.EthTx{ID: math.MinInt64}
+	tx := txmgr.EvmTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
@@ -100,13 +100,13 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(evmtypes.NewAddress(fromAddress), tx, chainID)
 	require.NoError(t, err)
 	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := txmgr.EthTxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := txmgr.EvmTxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := attempt.GetSignedTx()
 	require.NoError(t, err)

@@ -11,8 +11,8 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/functions_billing_registry_events_mock"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -218,6 +218,12 @@ type FunctionsBillingRegistryEventsMock interface {
 	SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
 	BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockCommitment) error
 	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
+}
+
+type MockAggregatorProxy interface {
+	Address() string
+	UpdateAggregator(aggregator common.Address) error
+	Aggregator() (common.Address, error)
 }
 
 type RoundData struct {

@@ -13,33 +13,33 @@ import (
 	"testing"
 	"time"
 
-	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmconfigmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	ocr2mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	pkgconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	pkgconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -81,7 +81,7 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	runner := pipeline.NewRunner(pipelineORM, btORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config)
@@ -195,7 +195,7 @@ func TestRunner(t *testing.T) {
 		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
-		cs := new(evmmocks.ChainSet)
+		cs := evmmocks.NewChainSet(t)
 		cs.On("Get", mock.Anything).Return(c, nil)
 
 		jb, err := ocr.ValidatedOracleSpecToml(cs, `
@@ -227,7 +227,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		cfg2 := new(ocr2mocks.Config)
+		cfg2 := ocr2mocks.NewConfig(t)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
 		cfg2.On("Dev").Return(true)
@@ -770,8 +770,8 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
+	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -950,8 +950,8 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
+	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (

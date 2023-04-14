@@ -500,3 +500,17 @@ DSN = 'sentry-dsn' # Example
 Environment = 'my-custom-env' # Example
 # Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
 Release = 'v1.2.3' # Example
+
+
+# Insecure config family is only allowed in development builds.
+[Insecure]
+# **ADVANCED**
+# DevWebServer skips secure configuration for webserver AllowedHosts, SSL, etc.
+DevWebServer = false # Default
+# OCRDevelopmentMode run OCR in development mode.
+OCRDevelopmentMode = false # Default
+# InfiniteDepthQueries skips graphql query depth limit checks.
+InfiniteDepthQueries = false # Default
+# DisableRateLimiting skips ratelimiting on asset requests.
+DisableRateLimiting = false # Default
+

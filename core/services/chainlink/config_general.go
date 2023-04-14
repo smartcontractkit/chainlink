@@ -24,20 +24,21 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/parse"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
@@ -1049,6 +1050,27 @@ func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 
 func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+}
+
+// Insecure config
+func (g *generalConfig) DevWebServer() bool {
+	return build.Dev && g.c.Insecure.DevWebServer != nil &&
+		*g.c.Insecure.DevWebServer
+}
+
+func (g *generalConfig) OCRDevelopmentMode() bool {
+	return build.Dev && g.c.Insecure.OCRDevelopmentMode != nil &&
+		*g.c.Insecure.OCRDevelopmentMode
+}
+
+func (g *generalConfig) DisableRateLimiting() bool {
+	return build.Dev && g.c.Insecure.DisableRateLimiting != nil &&
+		*g.c.Insecure.DisableRateLimiting
+}
+
+func (g *generalConfig) InfiniteDepthQueries() bool {
+	return build.Dev && g.c.Insecure.InfiniteDepthQueries != nil &&
+		*g.c.Insecure.InfiniteDepthQueries
 }
 
 var (
