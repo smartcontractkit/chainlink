@@ -39,7 +39,7 @@ type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 	ks                  txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	chainID             big.Int
 	interval            time.Duration
-	config              Config
+	config              EvmResenderConfig
 	logger              logger.Logger
 	lastAlertTimestamps map[string]time.Time
 
@@ -54,9 +54,9 @@ func NewEthResender(
 	txStore EvmTxStore,
 	ethClient evmclient.Client, ks EvmKeyStore,
 	pollInterval time.Duration,
-	config Config,
+	config EvmResenderConfig,
 ) *EvmResender {
-	if config.EthTxResendAfterThreshold() == 0 {
+	if config.TxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	// todo: add context to evmTxStore
@@ -78,7 +78,7 @@ func NewEthResender(
 
 // Start is a comment which satisfies the linter
 func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) Start() {
-	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
+	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.TxResendAfterThreshold())
 	go er.runLoop()
 }
 
@@ -114,8 +114,8 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}
-	ageThreshold := er.config.EthTxResendAfterThreshold()
-	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
+	ageThreshold := er.config.TxResendAfterThreshold()
+	maxInFlightTransactions := er.config.MaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []EthTxAttempt[ADDR, TX_HASH]
 	for _, k := range enabledAddresses {
@@ -137,7 +137,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
 	}
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
 
-	batchSize := int(er.config.EvmRPCDefaultBatchSize())
+	batchSize := int(er.config.RPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
 	reqs, err := batchSendTransactions(ctx, er.txStore, allAttempts, batchSize, er.logger, er.ethClient)
@@ -168,9 +168,9 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) logStuckAttempts(attempts []Et
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
 			// Wait at least 2 times the EthTxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
-			if time.Since(oldestAttempt.CreatedAt) > er.config.EthTxResendAfterThreshold()*2 {
+			if time.Since(oldestAttempt.CreatedAt) > er.config.TxResendAfterThreshold()*2 {
 				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
-				er.logger.Errorw("TxAttempt has been unconfirmed for more than: ", er.config.EthTxResendAfterThreshold()*2,
+				er.logger.Errorw("TxAttempt has been unconfirmed for more than: ", er.config.TxResendAfterThreshold()*2,
 					"txID", oldestAttempt.EthTxID, "GasPrice", oldestAttempt.GasPrice, "GasTipCap", oldestAttempt.GasTipCap, "GasFeeCap", oldestAttempt.GasFeeCap,
 					"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash, "fromAddress", fromAddress)
 			}
