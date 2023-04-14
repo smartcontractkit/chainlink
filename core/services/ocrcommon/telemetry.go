@@ -115,15 +115,15 @@ func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr p
 }
 
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
-func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult, timestamp ObservationTimestamp) {
 	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
-	go collectAndSend(ds, trrs, finalResult)
+	go collectAndSend(ds, trrs, finalResult, timestamp)
 }
 
-func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult, timestamp ObservationTimestamp) {
 	chainID := getChainID(&ds.jb)
 	contract := getContract(&ds.jb)
 
@@ -159,9 +159,9 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,
-			ConfigDigest:                  "",
-			Round:                         0,
-			Epoch:                         0,
+			ConfigDigest:                  timestamp.ConfigDigest,
+			Round:                         int64(timestamp.Round),
+			Epoch:                         int64(timestamp.Epoch),
 		}
 
 		bytes, err := proto.Marshal(t)
