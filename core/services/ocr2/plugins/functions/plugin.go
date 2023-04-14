@@ -13,8 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4storage"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -58,7 +60,8 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 			"jobID", conf.Job.PipelineSpec.JobID,
 			"externalJobID", conf.Job.ExternalJobID,
 		)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon)
+	s4Service := s4storage.GetS4APIService()
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, s4Service)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
 		Logger:    sharedOracleArgs.Logger,
@@ -70,5 +73,15 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
 	}
 
-	return []job.ServiceCtx{job.NewServiceAdapter(functionsReportingPluginOracle), functionsListener}, nil
+	gatewayConnectorConfig := &gateway.GatewayConnectorConfig{
+		DONID:            pluginConfig.DonId,
+		GatewayAddresses: []string{pluginConfig.Gateways}, // TODO: multiple
+		SignerAddress:    conf.Job.OCR2OracleSpec.TransmitterID.String,
+	}
+	gatewayLogger := conf.Lggr.Named("GatewayConnector")
+	handler := NewS4Inserter(s4Service, gatewayLogger)
+	//gatewayLogger.Error("GatewayConnector setup")
+	gatewayConnector := gateway.NewGatewayConnector(gatewayConnectorConfig, handler, gatewayLogger)
+
+	return []job.ServiceCtx{job.NewServiceAdapter(functionsReportingPluginOracle), functionsListener, gatewayConnector}, nil
 }

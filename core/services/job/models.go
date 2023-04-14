@@ -39,6 +39,7 @@ const (
 	BlockHeaderFeeder  Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
+	Gateway            Type = (Type)(pipeline.GatewayJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -73,6 +74,7 @@ var (
 		BlockhashStore:     false,
 		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
+		Gateway:            false,
 	}
 	supportsAsync = map[Type]bool{
 		Cron:               true,
@@ -86,6 +88,7 @@ var (
 		BlockhashStore:     false,
 		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
+		Gateway:            false,
 	}
 	schemaVersions = map[Type]uint32{
 		Cron:               1,
@@ -99,6 +102,7 @@ var (
 		BlockhashStore:     1,
 		BlockHeaderFeeder:  1,
 		Bootstrap:          1,
+		Gateway:            1,
 	}
 )
 
@@ -311,6 +315,8 @@ const (
 	OCR2Functions OCR2PluginType = "functions"
 
 	Mercury OCR2PluginType = "mercury"
+
+	OCR2Gateway OCR2PluginType = "gateway"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.

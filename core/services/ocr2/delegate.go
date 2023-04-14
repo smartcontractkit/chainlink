@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
@@ -724,6 +725,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 
 		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil
+	case job.OCR2Gateway:
+		var pluginConfig gateway.GatewayConfig
+		err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+		if err != nil {
+			return nil, err
+		}
+		return []job.ServiceCtx{gateway.NewGateway(lggr, &pluginConfig)}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

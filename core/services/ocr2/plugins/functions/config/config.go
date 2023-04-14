@@ -10,6 +10,8 @@ type PluginConfig struct {
 	RequestTimeoutBatchLookupSize   uint32 `json:"requestTimeoutBatchLookupSize"`
 	ListenerEventHandlerTimeoutSec  uint32 `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32 `json:"maxRequestSizeBytes"`
+	Gateways                        string `json:"gateways"`
+	DonId                           string `json:"donid"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {

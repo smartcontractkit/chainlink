@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4storage"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -126,13 +127,14 @@ type FunctionsListener struct {
 	pluginConfig      config.PluginConfig
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
+	s4Service         *s4storage.S4APIService
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, s4Service *s4storage.S4APIService) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:         oracle,
 		oracleHexAddr:  oracle.Address().Hex(),
@@ -146,6 +148,7 @@ func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner
 		pluginConfig:   pluginConfig,
 		logger:         lggr,
 		mailMon:        mailMon,
+		s4Service:      s4Service,
 	}
 }
 
@@ -353,6 +356,13 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
 		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR parsing error"))
 		return
+	}
+
+	// if requestData["secretsLocation"] is "don" then fetch from l.s4Service and replace requestData["secrets"]
+	val, err := l.s4Service.Get(request.SubscriptionOwner.String(), 0)
+	if err == nil {
+		l.logger.Infow("loading user secrets from S4", "new value", string(val), "old value", requestData["secrets"])
+		requestData["secrets"] = string(val)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
