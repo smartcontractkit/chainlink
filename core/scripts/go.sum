@@ -1340,8 +1340,8 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230328132724-705a2932e30
 github.com/smartcontractkit/chainlink-starknet/ops v0.0.0-20230214070706-9544d04bb4d8 h1:GRx8L71lgGIeTYIbgsXGQ/JFWKPEnAmJVO42zQ3n69A=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230328102724-20c5e1a716e9 h1:ib6EjsDRasmO2uCstsWSwWqsWeIiMBMMTR+5KcCozWo=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230328102724-20c5e1a716e9/go.mod h1:3xUS0kadHzpEM7JtoTHUJkSkByHCU+LbxnQVgCaLNJA=
-github.com/smartcontractkit/libocr v0.0.0-20230301222433-aec519050c9a h1:Tc6d2e1JBoZ50tNio7GLQhLg3Eq4J0FHPIa5qjYvd9c=
-github.com/smartcontractkit/libocr v0.0.0-20230301222433-aec519050c9a/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
+github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc h1:aSCDAai0Dmbhp/KHTtJnC/EJcaEz4CAO80SKRzRZiQA=
+github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.6.14 h1:Rg+SYd8PCyd4CcCetwnRKjVEQsHVsV6QOaWcLhi+6sg=
 github.com/smartcontractkit/ocr2keepers v0.6.14/go.mod h1:gqIksJFzdXFsHfGdCWm1uTxbwvAltgcwcaqIgAStC1A=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230313164535-dce9b4be73a3 h1:YqC6hCZpYPafWIYNcWDWCG/pbrvc6vhfnIKhbp6GBQ8=
