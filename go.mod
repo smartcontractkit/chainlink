@@ -364,6 +364,9 @@ replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
+	// Some dependency keeps trying to update this to an unstable version
+	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
+
 	// Fix CVE-2022-41717
 	golang/golang.org/x/net => golang/golang.org/x/net v0.4.0
 )
