@@ -56,11 +56,21 @@ jobs:
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Check if image exists
+        if: needs.changes.outputs.src == 'true'
         id: check-image
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         with:
@@ -69,7 +79,7 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
-        if: steps.check-image.outputs.exists == 'false'
+        if: steps.check-image.outputs.exists == 'false' && needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
         with:
           cl_repo: smartcontractkit/chainlink
@@ -78,18 +88,10 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Print Chainlink Image Built
+        if: needs.changes.outputs.src == 'true'
         run: |
           echo "### chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Chainlink Image
-        continue-on-error: true
 
   build-test-image:
     environment: integration
@@ -101,6 +103,7 @@ jobs:
     needs: [changes]
     steps:
       - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -113,6 +116,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Test Image
+        if: needs.changes.outputs.src == 'true'
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -331,6 +335,15 @@ jobs:
         RUSTUP_HOME: "/root/.rustup"
         FORCE_COLOR: 1
     steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Build Artifacts
+        continue-on-error: true
       - name: Checkout the solana repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
@@ -341,15 +354,6 @@ jobs:
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Build Artifacts
-        continue-on-error: true
 
   solana-smoke-tests:
     environment: integration
@@ -367,6 +371,15 @@ jobs:
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Smoke Tests
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
@@ -402,15 +415,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Smoke Tests
-        continue-on-error: true
   ### End Solana Section
 
   ### Start Live Testnet Section
