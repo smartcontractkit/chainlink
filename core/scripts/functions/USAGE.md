@@ -5,7 +5,7 @@ Kudos to VRF team for inspiration.
 ## Usage
 
 1. Create a hidden file containing nodes list: hosts, logins and passwords.
-It is a simple text file, where each row has the following structure:
+   It is a simple text file, where each row has the following structure:
 
 ```
 boot_node_url login password
@@ -14,17 +14,18 @@ node1_url login1 password1
 ...
 ```
 
-Note: the single *bootstrap* node must go first. To support multiple bootstrap nodes, alter the tool.
+Note: the single _bootstrap_ node must go first. To support multiple bootstrap nodes, alter the tool.
 
 Preparing such a file is the only "manual" step that is required.
 
-1. Review `/templates`
+2. Review `/templates`
 
 This sub-folder contains two `toml` templates that will be processed with `generate-jobspecs` command.
 
 3. Run the tool: `go run .` to see available commands.
 
 Initial set of commands:
+
 - `generate-ocr2config` generates `FunctionsOracleConfig.json` that is consumed by contracts tooling.
   - If manual configuration is preferred instead of automatically fetching the required parameters from the nodes, create a file that follows the same format as `src/sample_keys.json` and enter the required parameters which can be found on each node's Key Management page in the UI. Note that the bootstrap node is not included in this file. The path to this file should be entered for the `-keys` parameter instead of using the `-nodes` parameter.
   - Use `src/sample_config.json` as a template for the `-config` file.
@@ -36,19 +37,18 @@ All generated artefacts are saved in `artefacts` sub-directory.
 
 Each command has its own parameters. Simply run a command without parameters to see usage.
 
-1. Common caveats
+4. Common caveats
 
-* The current implementation expects a single bootstrap node and a few oracle nodes.
-Bootstrap node must come first in the nodes list file.
-* You may or may not specify `https://` prefix for hosts, the tool will handle this.
-* Any command would terminate immediately with the first issue detected.
-* `deploy-jobspecs` command does NOT check for the existing jobs, be careful.
-* `deploy-jobspecs` command does not deploy bridges, they should exist prior to execution.
-* The tooling does not interact with chains/contracts.
+- The current implementation expects a single bootstrap node and a few oracle nodes.
+  Bootstrap node must come first in the nodes list file.
+- You may or may not specify `https://` prefix for hosts, the tool will handle this.
+- Any command would terminate immediately with the first issue detected.
+- `deploy-jobspecs` command does NOT check for the existing jobs, be careful.
+- `deploy-jobspecs` command does not deploy bridges, they should exist prior to execution.
+- The tooling does not interact with chains/contracts.
 
 5. Future enhancements
 
-* Add `deploy-bridges` command.
-* For NOPs: make commands to run against a single node with terminal authorization.
-* For NOPs: make sure we can inject their node config from a file.
-
+- Add `deploy-bridges` command.
+- For NOPs: make commands to run against a single node with terminal authorization.
+- For NOPs: make sure we can inject their node config from a file.
