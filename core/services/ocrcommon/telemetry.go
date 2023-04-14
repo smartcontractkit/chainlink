@@ -14,7 +14,6 @@ import (
 
 type eaTelemetryResponse struct {
 	DataSource                    string `json:"data_source"`
-	ProviderRequestedProtocol     string `json:"provider_requested_protocol"`
 	ProviderRequestedTimestamp    int64  `json:"provider_requested_timestamp"`
 	ProviderReceivedTimestamp     int64  `json:"provider_received_timestamp"`
 	ProviderDataStreamEstablished int64  `json:"provider_data_stream_established"`
@@ -150,7 +149,6 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedProtocol:     eaTelemetry.ProviderRequestedProtocol,
 			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
 			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
 			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
