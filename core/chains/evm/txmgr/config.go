@@ -33,7 +33,13 @@ type Config interface {
 	TriggerFallbackDBPollInterval() time.Duration
 }
 
-type EvmTxmConfig txmgrtypes.TxmConfig[*assets.Wei]
+type (
+	EvmTxmConfig         txmgrtypes.TxmConfig[*assets.Wei]
+	EvmBroadcasterConfig txmgrtypes.BroadcasterConfig[*assets.Wei]
+	EvmConfirmerConfig   txmgrtypes.ConfirmerConfig[*assets.Wei]
+	EvmResenderConfig    txmgrtypes.ResenderConfig
+	EvmReaperConfig      txmgrtypes.ReaperConfig
+)
 
 var _ EvmTxmConfig = (*evmTxmConfig)(nil)
 

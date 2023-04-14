@@ -19,7 +19,6 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -97,7 +96,7 @@ type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], 
 	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        big.Int
-	config         txmgrtypes.BroadcasterConfig[*assets.Wei]
+	config         EvmBroadcasterConfig
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
 	// when Start is called
@@ -129,7 +128,7 @@ type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], 
 func NewEthBroadcaster(
 	txStore EvmTxStore,
 	ethClient evmclient.Client,
-	config txmgrtypes.BroadcasterConfig[*assets.Wei],
+	config EvmBroadcasterConfig,
 	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder EvmTxAttemptBuilder,

@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// UNIT - fee unit
 type TxmConfig[UNIT any] interface {
 	BroadcasterConfig[UNIT]
 	ConfirmerConfig[UNIT]
@@ -13,6 +14,7 @@ type TxmConfig[UNIT any] interface {
 	MaxQueuedTransactions() uint64
 }
 
+// UNIT - fee unit
 type BroadcasterConfig[UNIT any] interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	MaxInFlightTransactions() uint32
@@ -23,6 +25,7 @@ type BroadcasterConfig[UNIT any] interface {
 	FeePriceDefault() UNIT
 }
 
+// UNIT - fee unit
 type ConfirmerConfig[UNIT any] interface {
 	RPCDefaultBatchSize() uint32
 	UseForwarders() bool
@@ -30,13 +33,13 @@ type ConfirmerConfig[UNIT any] interface {
 	MaxInFlightTransactions() uint32
 	FeeLimitDefault() uint32
 
-	// gas config
+	// from gas.Config
 	FeeBumpThreshold() uint64
 	FinalityDepth() uint32
 	MaxFeePrice() UNIT
 	FeeBumpPercent() uint16
 
-	// postgres config
+	// from pg.QConfig
 	DatabaseDefaultQueryTimeout() time.Duration
 }
 

@@ -39,7 +39,7 @@ type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLO
 	ks                  txmgrtypes.KeyStore[ADDR, *big.Int, int64]
 	chainID             big.Int
 	interval            time.Duration
-	config              txmgrtypes.ResenderConfig
+	config              EvmResenderConfig
 	logger              logger.Logger
 	lastAlertTimestamps map[string]time.Time
 
@@ -54,7 +54,7 @@ func NewEthResender(
 	txStore EvmTxStore,
 	ethClient evmclient.Client, ks EvmKeyStore,
 	pollInterval time.Duration,
-	config txmgrtypes.ResenderConfig,
+	config EvmResenderConfig,
 ) *EvmResender {
 	if config.TxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")

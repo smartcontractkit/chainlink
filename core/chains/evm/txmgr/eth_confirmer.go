@@ -119,7 +119,7 @@ type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BL
 	ethClient evmclient.Client
 	txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]]
 	resumeCallback ResumeCallback
-	config         txmgrtypes.ConfirmerConfig[*assets.Wei]
+	config         EvmConfirmerConfig
 	chainID        big.Int
 
 	ks               txmgrtypes.KeyStore[ADDR, *big.Int, int64]
@@ -139,7 +139,7 @@ type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BL
 func NewEthConfirmer(
 	txStore EvmTxStore,
 	ethClient evmclient.Client,
-	config txmgrtypes.ConfirmerConfig[*assets.Wei],
+	config EvmConfirmerConfig,
 	keystore EvmKeyStore,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,

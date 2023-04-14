@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -18,7 +17,7 @@ import (
 // Reaper handles periodic database cleanup for Txm
 type Reaper struct {
 	db             *sqlx.DB
-	config         txmgrtypes.ReaperConfig
+	config         EvmReaperConfig
 	chainID        utils.Big
 	log            logger.Logger
 	latestBlockNum atomic.Int64
@@ -28,7 +27,7 @@ type Reaper struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper(lggr logger.Logger, db *sqlx.DB, config txmgrtypes.ReaperConfig, chainID big.Int) *Reaper {
+func NewReaper(lggr logger.Logger, db *sqlx.DB, config EvmReaperConfig, chainID big.Int) *Reaper {
 	r := &Reaper{
 		db,
 		config,
