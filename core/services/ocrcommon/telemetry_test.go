@@ -24,7 +24,6 @@ import (
 const bridgeResponse = `{
 			"telemetry":{
 				"data_source":"data_source_test",
-				"provider_requested_protocol":"provider_requested_protocol_test",
 				"provider_requested_timestamp":922337203685477600,
 				"provider_received_timestamp":-922337203685477600,
 				"provider_data_stream_established":1,
@@ -146,7 +145,6 @@ func TestParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
 	assert.Equal(t, ea.DataSource, "data_source_test")
-	assert.Equal(t, ea.ProviderRequestedProtocol, "provider_requested_protocol_test")
 	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(922337203685477600))
 	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-922337203685477600))
 	assert.Equal(t, ea.ProviderDataStreamEstablished, int64(1))
@@ -235,7 +233,6 @@ func TestSendEATelemetry(t *testing.T) {
 		Value:                         1234567890,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrs[0].FinishedAt.Time.UnixMilli(),
-		ProviderRequestedProtocol:     "provider_requested_protocol_test",
 		ProviderRequestedTimestamp:    922337203685477600,
 		ProviderReceivedTimestamp:     -922337203685477600,
 		ProviderDataStreamEstablished: 1,
