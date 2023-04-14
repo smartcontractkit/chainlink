@@ -25,10 +25,10 @@ var (
 	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
 	NoChecker EvmTransmitChecker = noChecker{}
 
-	_ TransmitCheckerFactory[types.Address, types.TxHash] = &CheckerFactory{}
-	_ EvmTransmitChecker                                   = &SimulateChecker{}
-	_ EvmTransmitChecker                                   = &VRFV1Checker{}
-	_ EvmTransmitChecker                                   = &VRFV2Checker{}
+	_ EvmTransmitCheckerFactory = &CheckerFactory{}
+	_ EvmTransmitChecker        = &SimulateChecker{}
+	_ EvmTransmitChecker        = &VRFV1Checker{}
+	_ EvmTransmitChecker        = &VRFV2Checker{}
 )
 
 // CheckerFactory is a real implementation of TransmitCheckerFactory.
