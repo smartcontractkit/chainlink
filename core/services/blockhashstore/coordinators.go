@@ -5,11 +5,15 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -28,6 +32,15 @@ func NewMultiCoordinator(coordinators ...Coordinator) Coordinator {
 		return coordinators[0]
 	}
 	return MultiCoordinator(coordinators)
+}
+
+// Get addresses from multicoordinator.
+func (m MultiCoordinator) Addresses() []common.Address {
+	var addresses []common.Address
+	for _, c := range m {
+		addresses = append(addresses, c.Addresses()...)
+	}
+	return addresses
 }
 
 // Requests satisfies the Coordinator interface.
@@ -62,12 +75,18 @@ func (m MultiCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([
 
 // V1Coordinator fetches request and fulfillment logs from a VRF V1 coordinator contract.
 type V1Coordinator struct {
-	c v1.VRFCoordinatorInterface
+	c  v1.VRFCoordinatorInterface
+	lp logpoller.LogPoller
 }
 
 // NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(c v1.VRFCoordinatorInterface) *V1Coordinator {
-	return &V1Coordinator{c}
+func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) *V1Coordinator {
+	return &V1Coordinator{c, lp}
+}
+
+// Get address of V1Coordinator.
+func (v *V1Coordinator) Addresses() []common.Address {
+	return []common.Address{v.c.Address()}
 }
 
 // Requests satisfies the Coordinator interface.
@@ -76,53 +95,76 @@ func (v *V1Coordinator) Requests(
 	fromBlock uint64,
 	toBlock uint64,
 ) ([]Event, error) {
-	iter, err := v.c.FilterRandomnessRequest(&bind.FilterOpts{
-		Start:   fromBlock,
-		End:     &toBlock,
-		Context: ctx,
-	}, nil)
+	logs, err := v.lp.LogsWithSigs(
+		int64(fromBlock),
+		int64(toBlock),
+		[]common.Hash{
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
+		},
+		v.c.Address(),
+		pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "filter v1 requests")
+		return nil, errors.Wrap(err, "fetching VRF requests")
 	}
-	defer iter.Close()
+
 	var reqs []Event
-	for iter.Next() {
-		reqs = append(reqs, Event{
-			ID:    hex.EncodeToString(iter.Event.RequestID[:]),
-			Block: iter.Event.Raw.BlockNumber,
-		})
+	for _, l := range logs {
+		requestLog, err := v.c.ParseLog(l.ToGethLog())
+		if err != nil {
+			continue // malformed log should not break flow
+		}
+		request := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest)
+		reqs = append(reqs, Event{ID: hex.EncodeToString(request.RequestID[:]), Block: request.Raw.BlockNumber})
 	}
+
 	return reqs, nil
 }
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	iter, err := v.c.FilterRandomnessRequestFulfilled(&bind.FilterOpts{
-		Start:   fromBlock,
-		Context: ctx,
-	})
+	toBlock, err := v.lp.LatestBlock()
 	if err != nil {
-		return nil, errors.Wrap(err, "filter v1 fulfillments")
+		return nil, errors.Wrap(err, "fetching latest block")
 	}
-	defer iter.Close()
+
+	logs, err := v.lp.LogsWithSigs(
+		int64(fromBlock),
+		int64(toBlock),
+		[]common.Hash{
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
+		},
+		v.c.Address(),
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "fetching VRF fulfillments")
+	}
+
 	var fuls []Event
-	for iter.Next() {
-		fuls = append(fuls, Event{
-			ID:    hex.EncodeToString(iter.Event.RequestId[:]),
-			Block: iter.Event.Raw.BlockNumber,
-		})
+	for _, l := range logs {
+		requestLog, err := v.c.ParseLog(l.ToGethLog())
+		if err != nil {
+			continue // malformed log should not break flow
+		}
+		request := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled)
+		fuls = append(fuls, Event{ID: hex.EncodeToString(request.RequestId[:]), Block: request.Raw.BlockNumber})
 	}
 	return fuls, nil
 }
 
 // V2Coordinator fetches request and fulfillment logs from a VRF V2 coordinator contract.
 type V2Coordinator struct {
-	c v2.VRFCoordinatorV2Interface
+	c  v2.VRFCoordinatorV2Interface
+	lp logpoller.LogPoller
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(c v2.VRFCoordinatorV2Interface) *V2Coordinator {
-	return &V2Coordinator{c}
+func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) *V2Coordinator {
+	return &V2Coordinator{c, lp}
+}
+
+// Get address of V2Coordinator.
+func (v *V2Coordinator) Addresses() []common.Address {
+	return []common.Address{v.c.Address()}
 }
 
 // Requests satisfies the Coordinator interface.
@@ -131,41 +173,58 @@ func (v *V2Coordinator) Requests(
 	fromBlock uint64,
 	toBlock uint64,
 ) ([]Event, error) {
-	iter, err := v.c.FilterRandomWordsRequested(&bind.FilterOpts{
-		Start:   fromBlock,
-		End:     &toBlock,
-		Context: ctx,
-	}, nil, nil, nil)
+	logs, err := v.lp.LogsWithSigs(
+		int64(fromBlock),
+		int64(toBlock),
+		[]common.Hash{
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+		},
+		v.c.Address(),
+		pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "filter v2 requests")
+		return nil, errors.Wrap(err, "fetching VRF requests")
 	}
-	defer iter.Close()
+
 	var reqs []Event
-	for iter.Next() {
-		reqs = append(reqs, Event{
-			ID:    iter.Event.RequestId.String(),
-			Block: iter.Event.Raw.BlockNumber,
-		})
+	for _, l := range logs {
+		requestLog, err := v.c.ParseLog(l.ToGethLog())
+		if err != nil {
+			continue // malformed log should not break flow
+		}
+		request := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+		reqs = append(reqs, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
 	}
+
 	return reqs, nil
 }
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	iter, err := v.c.FilterRandomWordsFulfilled(&bind.FilterOpts{
-		Start:   fromBlock,
-		Context: ctx,
-	}, nil)
+	toBlock, err := v.lp.LatestBlock()
 	if err != nil {
-		return nil, errors.Wrap(err, "filter v2 fulfillments")
+		return nil, errors.Wrap(err, "fetching latest block")
 	}
-	defer iter.Close()
+
+	logs, err := v.lp.LogsWithSigs(
+		int64(fromBlock),
+		int64(toBlock),
+		[]common.Hash{
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
+		},
+		v.c.Address(),
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "fetching VRF fulfillments")
+	}
+
 	var fuls []Event
-	for iter.Next() {
-		fuls = append(fuls, Event{
-			ID:    iter.Event.RequestId.String(),
-			Block: iter.Event.Raw.BlockNumber,
-		})
+	for _, l := range logs {
+		requestLog, err := v.c.ParseLog(l.ToGethLog())
+		if err != nil {
+			continue // malformed log should not break flow
+		}
+		request := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+		fuls = append(fuls, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
 	}
 	return fuls, nil
 }

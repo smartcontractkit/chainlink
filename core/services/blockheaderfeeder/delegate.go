@@ -88,6 +88,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "building batch BHS")
 	}
 
+	lp := chain.LogPoller()
 	var coordinators []blockhashstore.Coordinator
 	if jb.BlockHeaderFeederSpec.CoordinatorV1Address != nil {
 		var c *v1.VRFCoordinator
@@ -96,7 +97,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
-		coordinators = append(coordinators, blockhashstore.NewV1Coordinator(c))
+		coordinators = append(coordinators, blockhashstore.NewV1Coordinator(c, lp))
 	}
 	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
@@ -105,7 +106,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
-		coordinators = append(coordinators, blockhashstore.NewV2Coordinator(c))
+		coordinators = append(coordinators, blockhashstore.NewV2Coordinator(c, lp))
+	}
+
+	// Register filter with the log poller so that we can effectively query blockhash logs.
+	multiCoordinator := blockhashstore.NewMultiCoordinator(coordinators...)
+	err = blockhashstore.RegisterLogPoller(multiCoordinator, lp, "BHF Feeder")
+	if err != nil {
+		return nil, errors.Wrap(err, "registering log poller filter")
 	}
 
 	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
@@ -137,7 +145,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	feeder := NewBlockHeaderFeeder(
 		log,
-		blockhashstore.NewMultiCoordinator(coordinators...),
+		multiCoordinator,
 		bpBHS,
 		batchBHS,
 		blockHeaderProvider,

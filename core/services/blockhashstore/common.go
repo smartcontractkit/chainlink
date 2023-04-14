@@ -8,6 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
@@ -20,6 +23,8 @@ type Coordinator interface {
 
 	// Fulfillments fetches VRF fulfillments that occurred since the specified block.
 	Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error)
+
+	Addresses() []common.Address
 }
 
 // Event contains metadata about a VRF randomness request or fulfillment.
@@ -133,4 +138,16 @@ func SendingKeys(fromAddresses []ethkey.EIP55Address) []common.Address {
 		keys = append(keys, a.Address())
 	}
 	return keys
+}
+
+func RegisterLogPoller(coordinator Coordinator, logPoller logpoller.LogPoller, filterName string) error {
+	return logPoller.RegisterFilter(logpoller.Filter{
+		Name: logpoller.FilterName(filterName, coordinator.Addresses()),
+		EventSigs: []common.Hash{
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
+		}, Addresses: coordinator.Addresses(),
+	})
 }
