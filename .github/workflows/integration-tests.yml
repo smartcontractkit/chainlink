@@ -385,19 +385,12 @@ jobs:
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Download Artifacts
-        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@v3
-        with:
-          name: artifacts
-          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: ./.github/actions/build-test-image
+        uses: smartcontractkit/chainlink-solana/.github/actions/build-test-image@dc9c297356008fda8b0ecf9696108a7b5948f6ec # develop # stable action on Oct 12 2022 Use this after next solana release for more up to date ./.github/actions/build-test-image
         with:
-          repository: chainlink-solana-tests
-          suites: smoke soak
           tag: ${{ needs.get_solana_sha.outputs.sha }}
+          artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
