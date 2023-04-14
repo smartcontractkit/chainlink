@@ -40,10 +40,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     struct Config {
         // Fault tolerance
         uint8 f;
-        // Map of signer addresses to oracles
-        mapping(address => Signer) oracles;
         // Marks whether or not a configuration is active
         bool isActive;
+        // Map of signer addresses to oracles
+        mapping(address => Signer) oracles;
     }
 
     struct VerifierState {
@@ -472,7 +472,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
         feedVerifierState.s_verificationDataConfigs[configDigest].f = f;
         feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
-        for (uint8 i; i < signers.length; i++) {
+        for (uint8 i; i < signers.length; ++i) {
             address signerAddr = signers[i];
             if (signerAddr == address(0)) revert ZeroAddress();
 
