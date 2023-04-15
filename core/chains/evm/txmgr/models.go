@@ -29,15 +29,15 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmBroadcaster            = EthBroadcaster[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmResender               = EthResender[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	EvmTxStore                = txmgrtypes.TxStore[*evmtypes.Address, big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, NewTx[*evmtypes.Address], *evmtypes.Receipt, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash], int64, int64]
-	EvmKeyStore               = txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, int64]
-	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EthTx[*evmtypes.Address, *evmtypes.TxHash], EthTxAttempt[*evmtypes.Address, *evmtypes.TxHash]]
+	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, *evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, *evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmResender               = EthResender[*big.Int, *evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash, evmtypes.Nonce]
+	EvmTxStore                = txmgrtypes.TxStore[*evmtypes.Address, *big.Int, *evmtypes.TxHash, *evmtypes.BlockHash, EvmNewTx, *evmtypes.Receipt, EvmTx, EvmTxAttempt, evmtypes.Nonce]
+	EvmKeyStore               = txmgrtypes.KeyStore[*evmtypes.Address, *big.Int, evmtypes.Nonce]
+	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, *evmtypes.Address, *evmtypes.TxHash, EvmTx, EvmTxAttempt, evmtypes.Nonce]
 	EvmNonceSyncer            = NonceSyncer[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	EvmTransmitCheckerFactory = TransmitCheckerFactory[*evmtypes.Address, *evmtypes.TxHash]
-	EvmTxm                    = Txm[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, *evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	EvmTxManager              = TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	NullEvmTxManager          = NullTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[*evmtypes.Address]

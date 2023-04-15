@@ -421,7 +421,7 @@ func (_m *Eth) Import(keyJSON []byte, password string, chainIDs ...*big.Int) (et
 }
 
 // IncrementNextSequence provides a mock function with given fields: address, chainID, currentNonce, qopts
-func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, currentNonce types.Nonce, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -432,7 +432,7 @@ func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, c
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, int64, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, types.Nonce, ...pg.QOpt) error); ok {
 		r0 = rf(address, chainID, currentNonce, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -442,7 +442,7 @@ func (_m *Eth) IncrementNextSequence(address *types.Address, chainID *big.Int, c
 }
 
 // NextSequence provides a mock function with given fields: address, chainID, qopts
-func (_m *Eth) NextSequence(address *types.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
+func (_m *Eth) NextSequence(address *types.Address, chainID *big.Int, qopts ...pg.QOpt) (types.Nonce, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -452,15 +452,15 @@ func (_m *Eth) NextSequence(address *types.Address, chainID *big.Int, qopts ...p
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 int64
+	var r0 types.Nonce
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, ...pg.QOpt) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, ...pg.QOpt) (types.Nonce, error)); ok {
 		return rf(address, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, ...pg.QOpt) int64); ok {
+	if rf, ok := ret.Get(0).(func(*types.Address, *big.Int, ...pg.QOpt) types.Nonce); ok {
 		r0 = rf(address, chainID, qopts...)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(types.Nonce)
 	}
 
 	if rf, ok := ret.Get(1).(func(*types.Address, *big.Int, ...pg.QOpt) error); ok {

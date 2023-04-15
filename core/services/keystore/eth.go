@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+var _ txmgr.EvmKeyStore = (*eth)(nil)
+
 // Eth is the external interface for EthKeyStore
 //
 //go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
@@ -33,8 +35,8 @@ type Eth interface {
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
-	NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+	NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (evmtypes.Nonce, error)
+	IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentNonce evmtypes.Nonce, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
@@ -61,8 +63,6 @@ type eth struct {
 }
 
 var _ Eth = &eth{}
-
-var _ txmgr.EvmKeyStore = (*eth)(nil)
 
 func newEthKeyStore(km *keyManager) *eth {
 	return &eth{
@@ -183,34 +183,34 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 }
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
-func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
+func (ks *eth) NextSequence(address *evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce evmtypes.Nonce, err error) {
 	if address == nil || !ks.exists(address.Address) {
-		return 0, errors.Errorf("key with address %s does not exist", address.String())
+		return evmtypes.Nonce{}, errors.Errorf("key with address %s does not exist", address.String())
 	}
-	nonce, err = ks.orm.getNextNonce(address.Address, chainID, qopts...)
+	nonceVal, err := ks.orm.getNextNonce(address.Address, chainID, qopts...)
 	if err != nil {
-		return 0, errors.Wrap(err, "NextSequence failed")
+		return evmtypes.Nonce{}, errors.Wrap(err, "NextSequence failed")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
 	if !exists {
-		return 0, errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
+		return evmtypes.Nonce{}, errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
 	}
 	if state.Disabled {
-		return 0, errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
+		return evmtypes.Nonce{}, errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
 	}
 	// Always clobber the memory nonce with the DB nonce
-	state.NextNonce = nonce
-	return nonce, nil
+	state.NextNonce = nonceVal
+	return evmtypes.Nonce{nonceVal}, nil
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
-func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
+func (ks *eth) IncrementNextSequence(address *evmtypes.Address, chainID *big.Int, currentSequence evmtypes.Nonce, qopts ...pg.QOpt) error {
 	if address == nil || !ks.exists(address.Address) {
 		return errors.Errorf("key with address %s does not exist", address.String())
 	}
-	incrementedNonce, err := ks.orm.incrementNextNonce(address.Address, chainID, currentSequence, qopts...)
+	incrementedNonce, err := ks.orm.incrementNextNonce(address.Address, chainID, currentSequence.N, qopts...)
 	if err != nil {
 		return errors.Wrap(err, "failed IncrementNextNonce")
 	}

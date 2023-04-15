@@ -3,7 +3,6 @@ package txmgr
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -25,9 +23,16 @@ const batchSendTransactionTimeout = 30 * time.Second
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-func batchSendTransactions[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]](
+func batchSendTransactions[
+	CHAIN_ID txmgrtypes.ID,
+	ADDR types.Hashable[ADDR],
+	TX_HASH types.Hashable[TX_HASH],
+	BLOCK_HASH types.Hashable[BLOCK_HASH],
+	R any,
+	SEQ txmgrtypes.SEQUENCE,
+](
 	ctx context.Context,
-	txStore txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR], R, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],
 	attempts []EthTxAttempt[ADDR, TX_HASH],
 	batchSize int,
 	logger logger.Logger,

@@ -684,7 +684,7 @@ func Test_NextSequence(t *testing.T) {
 
 	nonce, err := ks.NextSequence(evmtypes.NewAddress(addr1), testutils.FixtureChainID)
 	require.NoError(t, err)
-	assert.Equal(t, randNonce, nonce)
+	assert.Equal(t, randNonce, nonce.N)
 
 	_, err = ks.NextSequence(evmtypes.NewAddress(addr1), testutils.SimulatedChainID)
 	require.Error(t, err)
@@ -714,25 +714,25 @@ func Test_IncrementNextSequence(t *testing.T) {
 	evmAddr1 := evmtypes.NewAddress(addr1)
 	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
 
-	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, randNonce-1)
+	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce{randNonce - 1})
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
-	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, randNonce)
+	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce{randNonce})
 	require.NoError(t, err)
 	var nonce int64
 	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
 	assert.Equal(t, randNonce+1, nonce)
 
-	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, randNonce+1)
+	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, evmtypes.Nonce{randNonce + 1})
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
 	randAddr1 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(evmtypes.NewAddress(randAddr1), testutils.FixtureChainID, randNonce+1)
+	err = ks.IncrementNextSequence(evmtypes.NewAddress(randAddr1), testutils.FixtureChainID, evmtypes.Nonce{randNonce + 1})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(evmtypes.NewAddress(randAddr2), testutils.NewRandomEVMChainID(), randNonce+1)
+	err = ks.IncrementNextSequence(evmtypes.NewAddress(randAddr2), testutils.NewRandomEVMChainID(), evmtypes.Nonce{randNonce + 1})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 

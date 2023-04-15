@@ -100,8 +100,8 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		return err
 	}
 
-	localNonce := keyNextNonce
-	hasInProgressTransaction, err := s.txStore.HasInProgressTransaction(&address, *s.chainID, pg.WithParentCtx(ctx))
+	localNonce := keyNextNonce.N
+	hasInProgressTransaction, err := s.txStore.HasInProgressTransaction(&address, s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.String())
 	} else if hasInProgressTransaction {
@@ -127,7 +127,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		newNextNonce--
 	}
 
-	err = s.txStore.UpdateEthKeyNextNonce(newNextNonce, keyNextNonce, &address, *s.chainID, pg.WithParentCtx(ctx))
+	err = s.txStore.UpdateEthKeyNextNonce(evmtypes.Nonce{newNextNonce}, keyNextNonce, &address, s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())
