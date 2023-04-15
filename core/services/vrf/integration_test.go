@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
@@ -125,6 +126,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_with_bhs", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
 	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
@@ -140,6 +144,12 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Create BHS job and start it
 	_ = createAndStartBHSJob(t, sendingKeys, app, cu.bhsContractAddress.String(),
 		cu.rootContractAddress.String(), "")
+
+	// Give buffer for log poller to get started.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		cu.backend.Commit()
+		return true
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Create a VRF request
 	_, err := cu.consumerContract.TestRequestRandomness(cu.carol,

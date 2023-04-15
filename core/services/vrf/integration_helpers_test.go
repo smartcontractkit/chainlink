@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func testSingleConsumerHappyPath(
@@ -180,6 +181,9 @@ func testMultipleConsumersNeedBHS(
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
 	})
 	keys = append(keys, ownerKey, vrfKey)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
@@ -506,6 +510,9 @@ func testBlockHeaderFeeder(
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhfKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
