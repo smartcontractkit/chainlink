@@ -1,3 +1,5 @@
+// The blockhash store package provides a service that stores blockhashes such that they are available
+// for on-chain proofs beyond the EVM 256 block limit.
 package blockhashstore
 
 import (
