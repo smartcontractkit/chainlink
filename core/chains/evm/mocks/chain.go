@@ -267,15 +267,15 @@ func (_m *Chain) Start(_a0 context.Context) error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash] {
+func (_m *Chain) TxManager() txmgr.TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash] {
 	ret := _m.Called()
 
-	var r0 txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
-	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]); ok {
+	var r0 txmgr.TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash])
+			r0 = ret.Get(0).(txmgr.TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash])
 		}
 	}
 

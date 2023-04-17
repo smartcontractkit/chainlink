@@ -6,7 +6,6 @@ package types
 //go:generate mockery --quiet --name Hashable --output ./mocks/ --case=underscore
 type Hashable[T any] interface {
 	MarshalText() (text []byte, err error)
-	UnmarshalText(text []byte) error
 	String() string
 	Equals(t T) bool
 	Empty() bool
