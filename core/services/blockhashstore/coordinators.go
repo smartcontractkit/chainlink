@@ -9,9 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -75,8 +73,8 @@ func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1
 	err := lp.RegisterFilter(logpoller.Filter{
 		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
-			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
-			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
+			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
+			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		}, Addresses: []common.Address{c.Address()},
 	})
 	if err != nil {
@@ -95,7 +93,7 @@ func (v *V1Coordinator) Requests(
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
-			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
+			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
 		},
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
@@ -109,7 +107,7 @@ func (v *V1Coordinator) Requests(
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request, ok := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest)
+		request, ok := requestLog.(*v1.VRFCoordinatorRandomnessRequest)
 		if !ok {
 			continue // malformed log should not break flow
 		}
@@ -130,7 +128,7 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
-			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
+			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
@@ -144,7 +142,7 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request, ok := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled)
+		request, ok := requestLog.(*v1.VRFCoordinatorRandomnessRequestFulfilled)
 		if !ok {
 			continue // malformed log should not break flow
 		}
@@ -164,8 +162,8 @@ func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*
 	err := lp.RegisterFilter(logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
+			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		}, Addresses: []common.Address{c.Address()},
 	})
 
@@ -186,7 +184,7 @@ func (v *V2Coordinator) Requests(
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 		},
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
@@ -200,7 +198,7 @@ func (v *V2Coordinator) Requests(
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request, ok := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+		request, ok := requestLog.(*v2.VRFCoordinatorV2RandomWordsRequested)
 		if !ok {
 			continue // malformed log should not break flow
 		}
@@ -221,7 +219,7 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
+			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		},
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
@@ -235,7 +233,7 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request, ok := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+		request, ok := requestLog.(*v2.VRFCoordinatorV2RandomWordsFulfilled)
 		if !ok {
 			continue // malformed log should not break flow
 		}
