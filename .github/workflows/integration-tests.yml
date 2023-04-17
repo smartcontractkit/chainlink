@@ -91,7 +91,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         run: |
           echo "### chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
     environment: integration

@@ -54,6 +54,9 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Print Image Built
       shell: sh
+      env:
+        INPUTS_REPOSITORY: ${{ inputs.repository }}
+        INPUTS_TAG: ${{ inputs.tag }}
       run: |
-        echo "### ${{ inputs.repository }} image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-        echo "\`${{ inputs.tag }}\`" >>$GITHUB_STEP_SUMMARY
+        echo "### ${INPUTS_REPOSITORY} image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+        echo "\`${INPUTS_TAG}\`" >>$GITHUB_STEP_SUMMARY
