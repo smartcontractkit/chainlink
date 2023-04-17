@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func buildSampleReport() []byte {
@@ -19,9 +19,9 @@ func buildSampleReport() []byte {
 	bp := big.NewInt(242)
 	bid := big.NewInt(243)
 	ask := big.NewInt(244)
-	currentBlockNumber := uint64(142)
+	currentBlockNumber := uint64(143)
 	currentBlockHash := utils.NewHash()
-	validFromBlockNum := uint64(143)
+	validFromBlockNum := uint64(142)
 
 	b, err := reportcodec.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, validFromBlockNum)
 	if err != nil {

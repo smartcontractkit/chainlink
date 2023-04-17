@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	mock "github.com/stretchr/testify/mock"
 )
 

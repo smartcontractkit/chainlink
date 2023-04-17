@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ORM struct {
@@ -22,7 +22,7 @@ type ORM struct {
 
 // NewORM creates an ORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
-	namedLogger := lggr.Named("ORM")
+	namedLogger := lggr.Named("Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
 		chainID: chainID,
@@ -316,6 +316,10 @@ func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig common.
 }
 
 func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs,
@@ -332,6 +336,10 @@ func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig c
 }
 
 func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs,
@@ -349,6 +357,10 @@ func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig common.
 }
 
 func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
 	q := o.q.WithOpts(qopts...)
 	var logs []Log
 	var topicValuesBytes [][]byte
@@ -367,4 +379,76 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 		return nil, err
 	}
 	return logs, nil
+}
+
+// SelectIndexedLogsByBlockRangeFilter finds the indexed logs in a given block range.
+func (o *ORM) SelectIndexedLogsByBlockRangeFilter(start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
+	var logs []Log
+	var topicValuesBytes [][]byte
+	for _, topicValue := range topicValues {
+		topicValuesBytes = append(topicValuesBytes, topicValue.Bytes())
+	}
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs, `
+		SELECT * FROM evm_logs 
+			WHERE evm_logs.block_number >= $1 AND evm_logs.block_number <= $2 AND evm_logs.evm_chain_id = $3 
+			AND address = $4 AND event_sig = $5
+			AND topics[$6] = ANY($7)
+			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, pq.ByteaArray(topicValuesBytes))
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func validateTopicIndex(index int) error {
+	// Only topicIndex 1 through 3 is valid. 0 is the event sig and only 4 total topics are allowed
+	if !(index == 1 || index == 2 || index == 3) {
+		return errors.Errorf("invalid index for topic: %d", index)
+	}
+	return nil
+}
+
+// SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index both logs should be inside the block range and have the minimum number of confirmations
+func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
+	q := o.q.WithOpts(qopts...)
+	var logs []Log
+
+	err := q.Select(&logs, `
+		SELECT *
+		FROM   evm_logs
+		WHERE  evm_chain_id = $1
+		AND    address = $2
+		AND    event_sig = $3
+		AND block_number BETWEEN $6 AND $7
+		AND (block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		
+		EXCEPT
+		
+		SELECT     a.*
+		FROM       evm_logs AS a
+		INNER JOIN evm_logs B
+		ON         a.evm_chain_id = b.evm_chain_id
+		AND        a.address = b.address
+		AND        a.topics[$5] = b.topics[$5]
+		AND        a.event_sig = $3
+		AND        b.event_sig = $4
+	    AND 	   b.block_number BETWEEN $6 AND $7
+		AND (b.block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+
+		ORDER BY block_number,log_index ASC
+			`, utils.NewBig(o.chainID), address, sigA.Bytes(), sigB.Bytes(), topicIndex+1, startBlock, endBlock, confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+
 }

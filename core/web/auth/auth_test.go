@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 func authError(*gin.Context, webauth.Authenticator) error {
@@ -206,6 +206,7 @@ var routesRolesMap = [...]routeRules{
 	{"DELETE", "/v2/bridge_types/MOCK", false, false, true},
 	{"POST", "/v2/transfers", false, false, false},
 	{"POST", "/v2/transfers/evm", false, false, false},
+	{"POST", "/v2/transfers/cosmos", false, false, false},
 	{"POST", "/v2/transfers/solana", false, false, false},
 	{"GET", "/v2/config", true, true, true},
 	{"GET", "/v2/config/v2", true, true, true},
@@ -241,14 +242,19 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/keys/p2p/import", false, false, false},
 	{"POST", "/v2/keys/p2p/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/solana", true, true, true},
+	{"GET", "/v2/keys/cosmos", true, true, true},
 	{"GET", "/v2/keys/dkgsign", true, true, true},
 	{"POST", "/v2/keys/solana", false, false, true},
+	{"POST", "/v2/keys/cosmos", false, false, true},
 	{"POST", "/v2/keys/dkgsign", false, false, true},
 	{"DELETE", "/v2/keys/solana/MOCK", false, false, false},
+	{"DELETE", "/v2/keys/cosmos/MOCK", false, false, false},
 	{"DELETE", "/v2/keys/dkgsign/MOCK", false, false, false},
 	{"POST", "/v2/keys/solana/import", false, false, false},
+	{"POST", "/v2/keys/cosmos/import", false, false, false},
 	{"POST", "/v2/keys/dkgsign/import", false, false, false},
 	{"POST", "/v2/keys/solana/export/MOCK", false, false, false},
+	{"POST", "/v2/keys/cosmos/export/MOCK", false, false, false},
 	{"POST", "/v2/keys/dkgsign/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/vrf", true, true, true},
 	{"POST", "/v2/keys/vrf", false, false, true},
@@ -268,12 +274,16 @@ var routesRolesMap = [...]routeRules{
 	{"PATCH", "/v2/log", false, false, false},
 	{"GET", "/v2/chains/evm", true, true, true},
 	{"GET", "/v2/chains/solana", true, true, true},
+	{"GET", "/v2/chains/cosmos", true, true, true},
 	{"GET", "/v2/chains/evm/MOCK", true, true, true},
+	{"GET", "/v2/chains/cosmos/MOCK", true, true, true},
 	{"GET", "/v2/nodes/", true, true, true},
 	{"GET", "/v2/nodes/evm", true, true, true},
 	{"GET", "/v2/nodes/solana", true, true, true},
+	{"GET", "/v2/nodes/cosmos", true, true, true},
 	{"GET", "/v2/chains/evm/MOCK/nodes", true, true, true},
 	{"GET", "/v2/chains/solana/MOCK/nodes", true, true, true},
+	{"GET", "/v2/chains/cosmos/MOCK/nodes", true, true, true},
 	{"GET", "/v2/nodes/evm/forwarders", true, true, true},
 	{"POST", "/v2/nodes/evm/forwarders/track", false, false, true},
 	{"DELETE", "/v2/nodes/evm/forwarders/MOCK", false, false, true},

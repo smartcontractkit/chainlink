@@ -6,11 +6,11 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	types "github.com/ethereum/go-ethereum/core/types"
 )
@@ -130,6 +130,32 @@ func (_m *Eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 	return r0
 }
 
+// EnabledAddressesForChain provides a mock function with given fields: chainID
+func (_m *Eth) EnabledAddressesForChain(chainID *big.Int) ([]common.Address, error) {
+	ret := _m.Called(chainID)
+
+	var r0 []common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*big.Int) ([]common.Address, error)); ok {
+		return rf(chainID)
+	}
+	if rf, ok := ret.Get(0).(func(*big.Int) []common.Address); ok {
+		r0 = rf(chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
+		r1 = rf(chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // EnabledKeysForChain provides a mock function with given fields: chainID
 func (_m *Eth) EnabledKeysForChain(chainID *big.Int) ([]ethkey.KeyV2, error) {
 	ret := _m.Called(chainID)
@@ -245,37 +271,6 @@ func (_m *Eth) GetAll() ([]ethkey.KeyV2, error) {
 
 	if rf, ok := ret.Get(1).(func() error); ok {
 		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetNextNonce provides a mock function with given fields: address, chainID, qopts
-func (_m *Eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, address, chainID)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 int64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) (int64, error)); ok {
-		return rf(address, chainID, qopts...)
-	}
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) int64); ok {
-		r0 = rf(address, chainID, qopts...)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	if rf, ok := ret.Get(1).(func(common.Address, *big.Int, ...pg.QOpt) error); ok {
-		r1 = rf(address, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -423,8 +418,8 @@ func (_m *Eth) Import(keyJSON []byte, password string, chainIDs ...*big.Int) (et
 	return r0, r1
 }
 
-// IncrementNextNonce provides a mock function with given fields: address, chainID, currentNonce, qopts
-func (_m *Eth) IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+// IncrementNextSequence provides a mock function with given fields: address, chainID, currentNonce, qopts
+func (_m *Eth) IncrementNextSequence(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -442,6 +437,37 @@ func (_m *Eth) IncrementNextNonce(address common.Address, chainID *big.Int, curr
 	}
 
 	return r0
+}
+
+// NextSequence provides a mock function with given fields: address, chainID, qopts
+func (_m *Eth) NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, address, chainID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) (int64, error)); ok {
+		return rf(address, chainID, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) int64); ok {
+		r0 = rf(address, chainID, qopts...)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Address, *big.Int, ...pg.QOpt) error); ok {
+		r1 = rf(address, chainID, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Reset provides a mock function with given fields: address, chainID, nonce, qopts

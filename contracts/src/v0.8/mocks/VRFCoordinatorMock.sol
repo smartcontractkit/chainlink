@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
-import "../VRFConsumerBase.sol";
+import "../vrf/VRFConsumerBase.sol";
 
 contract VRFCoordinatorMock {
   LinkTokenInterface public LINK;

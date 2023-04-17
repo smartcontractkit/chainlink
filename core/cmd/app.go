@@ -10,9 +10,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -28,7 +29,9 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
-	devMode := v2.EnvDev.IsTrue()
+	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+	// https://smartcontract-it.atlassian.net/browse/BCF-2062
+	devMode := v2.EnvDev.IsTrue() || build.Dev
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -146,7 +149,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:        "config",
 			Usage:       "Commands for the node's configuration",
-			Subcommands: initRemoteConfigSubCmds(client, &opts),
+			Subcommands: initRemoteConfigSubCmds(client),
 		},
 		{
 			Name:        "jobs",
@@ -165,6 +168,7 @@ func NewApp(client *Client) *cli.App {
 				initOCRKeysSubCmd(client),
 				initOCR2KeysSubCmd(client),
 
+				keysCommand("Cosmos", NewCosmosKeysClient(client)),
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
@@ -178,7 +182,20 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode, &opts),
+			Subcommands: initLocalSubCmds(client, devMode),
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "config, c",
+					Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
+				},
+				cli.StringFlag{
+					Name:  "secrets, s",
+					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+				},
+			},
+			Before: func(c *cli.Context) error {
+				return client.setConfigFromFlags(&opts, c)
+			},
 		},
 		{
 			Name:        "initiators",
@@ -191,6 +208,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
 				initEVMTxSubCmd(client),
+				initCosmosTxSubCmd(client),
 				initSolanaTxSubCmd(client),
 			},
 		},
@@ -199,6 +217,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling chain configuration",
 			Subcommands: cli.Commands{
 				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Cosmos", CosmosChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
 				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
@@ -209,6 +228,7 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
 				initEVMNodeSubCmd(client),
+				initCosmosNodeSubCmd(client),
 				initSolanaNodeSubCmd(client),
 				initStarkNetNodeSubCmd(client),
 			},

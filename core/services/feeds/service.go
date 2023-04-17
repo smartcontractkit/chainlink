@@ -17,21 +17,21 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	ocr2 "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 //go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
@@ -467,11 +467,21 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		return 0, errors.New("cannot revoke a job proposal belonging to another feeds manager")
 	}
 
+	// get the latest spec for the proposal
+	latest, err := s.orm.GetLatestSpec(proposal.ID)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetLatestSpec failed to get latest spec")
+	}
+
+	if canRevoke := s.isRevokable(proposal.Status, latest.Status); !canRevoke {
+		return 0, errors.New("only pending job proposals can be revoked")
+	}
+
 	pctx := pg.WithParentCtx(ctx)
-	if err = s.orm.RevokeProposal(proposal.ID, pctx); err != nil {
+	if err = s.orm.RevokeSpec(latest.ID, pctx); err != nil {
 		s.lggr.Errorw("Failed to revoke the proposal", "error", err)
 
-		return 0, errors.Wrap(err, "RevokeProposal failed")
+		return 0, errors.Wrap(err, "RevokeSpec failed")
 	}
 
 	return proposal.ID, nil
@@ -883,7 +893,9 @@ func (s *service) Start(ctx context.Context) error {
 			return err
 		}
 		if len(mgrs) < 1 {
-			return errors.New("no feeds managers registered")
+			s.lggr.Info("no feeds managers registered")
+
+			return nil
 		}
 
 		mgr := mgrs[0]
@@ -1146,6 +1158,12 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2Config) (*pb.OCR2Config, error) {
 		Enabled:     true,
 		IsBootstrap: cfg.IsBootstrap,
 		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
+		Plugins: &pb.OCR2Config_Plugins{
+			Commit:  cfg.Plugins.Commit,
+			Execute: cfg.Plugins.Execute,
+			Median:  cfg.Plugins.Median,
+			Mercury: cfg.Plugins.Mercury,
+		},
 	}
 
 	// Fetch the P2P key bundle
@@ -1250,6 +1268,8 @@ func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, s
 		return errors.New("cannot approve an approved spec")
 	case SpecStatusRejected:
 		return errors.New("cannot approve a rejected spec")
+	case SpecStatusRevoked:
+		return errors.New("cannot approve a revoked spec")
 	case SpecStatusCancelled:
 		// Allowed to approve a cancelled job if it is the latest job
 		latest, serr := s.orm.GetLatestSpec(proposalID)
@@ -1267,6 +1287,10 @@ func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, s
 	default:
 		return errors.New("invalid job spec status")
 	}
+}
+
+func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatus) bool {
+	return propStatus == JobProposalStatusPending && specStatus == SpecStatusPending
 }
 
 var _ Service = &NullService{}

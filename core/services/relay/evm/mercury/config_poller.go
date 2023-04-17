@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
@@ -22,7 +22,10 @@ var FeedScopedConfigSet common.Hash
 
 var verifierABI abi.ABI
 
-const configSetEventName = "ConfigSet"
+const (
+	configSetEventName = "ConfigSet"
+	feedIdTopicIndex   = 1
+)
 
 func init() {
 	var err error
@@ -84,31 +87,34 @@ func configFromLog(logData []byte) (FullConfigFromLog, error) {
 // ConfigPoller defines the Mercury Config Poller
 type ConfigPoller struct {
 	lggr               logger.Logger
-	filterName         string
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
+	feedId             common.Hash
+}
+
+func FilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR2 Mercury ConfigPoller", addr.String())
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
-	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
 
 	cp := &ConfigPoller{
 		lggr:               lggr,
-		filterName:         configFilterName,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
+		feedId:             feedId,
 	}
 
 	return cp, nil
 }
 
 // Notify noop method
+// TODO: implement this, see: https://smartcontract-it.atlassian.net/browse/MERC-302
 func (lp *ConfigPoller) Notify() <-chan struct{} {
 	return nil
 }
@@ -120,14 +126,14 @@ func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(FeedScopedConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
+	logs, err := lp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{lp.feedId}, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		// If contract is not configured, we will not have the log.
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, ocrtypes.ConfigDigest{}, nil
-		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
+	if len(logs) == 0 {
+		return 0, ocrtypes.ConfigDigest{}, nil
+	}
+	latest := logs[len(logs)-1]
 	latestConfigSet, err := configFromLog(latest.Data)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
@@ -137,9 +143,12 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, pg.WithParentCtx(ctx))
+	lgs, err := lp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{lp.feedId}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
+	}
+	if len(lgs) == 0 {
+		return ocrtypes.ContractConfig{}, nil
 	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
 	if err != nil {

@@ -10,35 +10,36 @@ import (
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commontxmmocks "github.com/smartcontractkit/chainlink/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	pgmocks "github.com/smartcontractkit/chainlink/core/services/pg/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore txmgr.KeyStore, eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
+func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
@@ -55,16 +56,19 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg t
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
-	// build forwarder manager for evm txm
-	var fwdMgr *forwarders.FwdMgr
+	var fwdMgr txmgrtypes.ForwarderManager[gethcommon.Address]
 	if cfg.EvmUseForwarders() {
 		fwdMgr = forwarders.NewFwdMgr(db, ethClient, lp, lggr, cfg)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
+
+	// build evm tx attempt builder
+	txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), cfg, keyStore, estimator)
+
 	// --------------------
 
-	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, estimator, fwdMgr)
+	return txmgr.NewTxm(db, ethClient, cfg, keyStore, eventBroadcaster, lggr, checkerFactory, fwdMgr, txAttemptBuilder)
 }
 
 func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
@@ -474,8 +478,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
-	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
-	kst.On("EnabledKeysForChain", &cltest.FixtureChainID).Return([]ethkey.KeyV2{}, nil)
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil).Twice()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -501,7 +504,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{keyState}, nil).Once()
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{keyState.Address.Address()}, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), keyState.Address.Address()).Return(uint64(0), nil).Maybe()
 	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
@@ -509,45 +512,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	require.NoError(t, txm.Close())
 	unsub.AwaitOrFail(t, 1*time.Second)
-}
-
-func TestTxm_SignTx(t *testing.T) {
-	t.Parallel()
-
-	addr := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
-	to := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
-	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
-		Nonce:    42,
-		To:       &to,
-		Value:    big.NewInt(142),
-		Gas:      242,
-		GasPrice: big.NewInt(342),
-		Data:     []byte{1, 2, 3},
-	})
-
-	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
-		chainID := big.NewInt(1)
-		cfg := txmmocks.NewConfig(t)
-		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
-		hash, rawBytes, err := cks.SignTx(addr, tx)
-		require.NoError(t, err)
-		require.NotNil(t, rawBytes)
-		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
-	})
-	// okex used to have a custom hash but now this just verifies that is it the same
-	t.Run("returns correct hash for okex chains", func(t *testing.T) {
-		chainID := big.NewInt(1)
-		cfg := txmmocks.NewConfig(t)
-		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
-		hash, rawBytes, err := cks.SignTx(addr, tx)
-		require.NoError(t, err)
-		require.NotNil(t, rawBytes)
-		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
-	})
 }
 
 type fnMock struct{ called atomic.Bool }
@@ -592,6 +556,7 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(0), nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
+	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
@@ -600,9 +565,10 @@ func TestTxm_Reset(t *testing.T) {
 
 	txm := makeTestEvmTxm(t, db, ethClient, cfg, kst.Eth(), eventBroadcaster)
 
-	// 1 unconfirmed on each addr
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4, addr)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, addr2)
+	for i := 0; i < 1000; i++ {
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4+int64(i), addr)
+	}
 
 	t.Run("returns error if not started", func(t *testing.T) {
 		f := new(fnMock)
@@ -645,5 +611,4 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
-
 }

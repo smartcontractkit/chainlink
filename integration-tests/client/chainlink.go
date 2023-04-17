@@ -902,6 +902,34 @@ func (c *Chainlink) DeleteEI(name string) (*http.Response, error) {
 	return resp.RawResponse, err
 }
 
+// CreateCosmosChain creates a cosmos chain
+func (c *Chainlink) CreateCosmosChain(chain *CosmosChainAttributes) (*CosmosChainCreate, *http.Response, error) {
+	response := CosmosChainCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Cosmos Chain")
+	resp, err := c.APIClient.R().
+		SetBody(chain).
+		SetResult(&response).
+		Post("/v2/chains/cosmos")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
+// CreateCosmosNode creates a cosmos node
+func (c *Chainlink) CreateCosmosNode(node *CosmosNodeAttributes) (*CosmosNodeCreate, *http.Response, error) {
+	response := CosmosNodeCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating Cosmos Node")
+	resp, err := c.APIClient.R().
+		SetBody(node).
+		SetResult(&response).
+		Post("/v2/nodes/cosmos")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
 // CreateSolanaChain creates a solana chain
 func (c *Chainlink) CreateSolanaChain(chain *SolanaChainAttributes) (*SolanaChainCreate, *http.Response, error) {
 	response := SolanaChainCreate{}

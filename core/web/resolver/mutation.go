@@ -13,34 +13,35 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
+	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 type Resolver struct {
@@ -165,6 +166,7 @@ type createFeedsManagerChainConfigInput struct {
 	OCR2Multiaddr      *string
 	OCR2P2PPeerID      *string
 	OCR2KeyBundleID    *string
+	OCR2Plugins        string
 }
 
 func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -208,12 +210,18 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.OCR2Enabled {
+		var plugins feeds.Plugins
+		if err = plugins.Scan(args.Input.OCR2Plugins); err != nil {
+			return nil, err
+		}
+
 		params.OCR2Config = feeds.OCR2Config{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
 			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
 			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:     plugins,
 		}
 	}
 
@@ -291,6 +299,7 @@ type updateFeedsManagerChainConfigInput struct {
 	OCR2Multiaddr      *string
 	OCR2P2PPeerID      *string
 	OCR2KeyBundleID    *string
+	OCR2Plugins        string
 }
 
 func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -328,12 +337,18 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.OCR2Enabled {
+		var plugins feeds.Plugins
+		if err = plugins.Scan(args.Input.OCR2Plugins); err != nil {
+			return nil, err
+		}
+
 		params.OCR2Config = feeds.OCR2Config{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
 			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
 			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:     plugins,
 		}
 	}
 
@@ -1018,6 +1033,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
+	case job.BlockHeaderFeeder:
+		jb, err = blockheaderfeeder.ValidatedSpec(args.Input.TOML)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
 	default:
@@ -1175,6 +1192,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 	}
 
 	ct := FromOCR2ChainType(args.ChainType)
+
 	key, err := r.App.GetKeyStore().OCR2().Create(chaintype.ChainType(ct))
 	if err != nil {
 		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received

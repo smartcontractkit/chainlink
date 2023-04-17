@@ -27,7 +27,7 @@ contract FunctionsTestHelper {
 
   function addSecrets(bytes memory secrets) public {
     Functions.Request memory r = s_req;
-    r.addInlineSecrets(secrets);
+    r.addRemoteSecrets(secrets);
     storeRequest(r);
   }
 

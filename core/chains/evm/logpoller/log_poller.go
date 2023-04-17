@@ -20,12 +20,12 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -33,7 +33,7 @@ type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
 	RegisterFilter(filter Filter) error
-	UnregisterFilter(name string) error
+	UnregisterFilter(name string, q pg.Queryer) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -45,8 +45,10 @@ type LogPoller interface {
 
 	// Content based querying
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
@@ -237,15 +239,17 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	return nil
 }
 
-func (lp *logPoller) UnregisterFilter(name string) error {
+func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
 	_, ok := lp.filters[name]
 	if !ok {
-		return errors.Errorf("Filter %s not found", name)
+		lp.lggr.Errorf("Filter %s not found", name)
+		return nil
 	}
-	if err := lp.orm.DeleteFilter(name); err != nil {
+
+	if err := lp.orm.DeleteFilter(name, pg.WithQueryer(q)); err != nil {
 		return errors.Wrapf(err, "Failed to delete filter %s", name)
 	}
 	delete(lp.filters, name)
@@ -414,7 +418,7 @@ func (lp *logPoller) run() {
 					}
 				} else {
 					// Serially process replay requests.
-					lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
 					lp.PollAndSaveLogs(replayReq.ctx, fromBlock)
 				}
 			} else {
@@ -509,8 +513,8 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBloc
 		// If this is our first run, start max(finalityDepth+1, backupPollerBlockDelay) blocks behind the last processed
 		// (or at block 0 if whole blockchain is too short)
 		lp.backupPollerNextBlock = lastProcessed.BlockNumber - mathutil.Max(lp.finalityDepth+1, backupPollerBlockDelay)
-		if lastProcessed.BlockNumber > backupPollerBlockDelay {
-			lp.backupPollerNextBlock = lastProcessed.BlockNumber - backupPollerBlockDelay
+		if lp.backupPollerNextBlock < 0 {
+			lp.backupPollerNextBlock = 0
 		}
 	}
 
@@ -882,6 +886,11 @@ func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, t
 	return lp.orm.SelectIndexedLogs(address, eventSig, topicIndex, topicValues, confs, qopts...)
 }
 
+// IndexedLogsByBlockRange finds all the logs that have a topic value in topicValues at index topicIndex within the block range
+func (lp *logPoller) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexedLogsByBlockRangeFilter(start, end, address, eventSig, topicIndex, topicValues, qopts...)
+}
+
 // LogsDataWordGreaterThan note index is 0 based.
 func (lp *logPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
@@ -1050,6 +1059,14 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	return blocksFoundFromRPC, nil
+}
+
+// IndexedLogsWithSigsExcluding returns the set difference(A-B) of logs with signature sigA and sigB, matching is done on the topics index
+//
+// For example, query to retrieve unfulfilled requests by querying request log events without matching fulfillment log events.
+// The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
+func (lp *logPoller) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs, qopts...)
 }
 
 func EvmWord(i uint64) common.Hash {

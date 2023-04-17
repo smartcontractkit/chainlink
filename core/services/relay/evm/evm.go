@@ -21,20 +21,21 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	mercuryconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ relaytypes.Relayer = &Relayer{}
@@ -43,20 +44,22 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db       *sqlx.DB
-	chainSet evm.ChainSet
-	lggr     logger.Logger
-	cfg      RelayerConfig
-	ks       keystore.Master
+	db          *sqlx.DB
+	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	cfg         RelayerConfig
+	ks          keystore.Master
+	mercuryPool wsrpc.Pool
 }
 
 func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master) *Relayer {
 	return &Relayer{
-		db:       db,
-		chainSet: chainSet,
-		lggr:     lggr.Named("Relayer"),
-		cfg:      cfg,
-		ks:       ks,
+		db:          db,
+		chainSet:    chainSet,
+		lggr:        lggr.Named("Relayer"),
+		cfg:         cfg,
+		ks:          ks,
+		mercuryPool: wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
 	}
 }
 
@@ -69,18 +72,20 @@ func (r *Relayer) Start(context.Context) error {
 	return nil
 }
 
-// Close does noop: no persistent subservices to close on relay close
 func (r *Relayer) Close() error {
-	return nil
+	return r.mercuryPool.Close()
 }
 
 // Ready does noop: always ready
 func (r *Relayer) Ready() error {
-	return nil
+	return r.mercuryPool.Ready()
 }
 
-func (r *Relayer) HealthReport() map[string]error {
-	return r.chainSet.HealthReport()
+func (r *Relayer) HealthReport() (report map[string]error) {
+	report = make(map[string]error)
+	maps.Copy(report, r.chainSet.HealthReport())
+	maps.Copy(report, r.mercuryPool.HealthReport())
+	return
 }
 
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
@@ -113,7 +118,10 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
-	client := wsrpc.NewClient(r.lggr, privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
+	client, err := r.mercuryPool.Checkout(context.Background(), privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
+	if err != nil {
+		return nil, err
+	}
 	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr), nil
@@ -126,6 +134,24 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 		return nil, err
 	}
 	return configProvider, err
+}
+
+func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, err error) {
+	var addr ethkey.EIP55Address
+	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
+		return nil, err
+	}
+	var relayConfig types.RelayConfig
+	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if relayConfig.FeedID != nil {
+		filterNames = []string{mercury.FilterName(addr.Address())}
+	} else {
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
+	}
+	return filterNames, err
 }
 
 type ConfigPoller interface {
@@ -244,6 +270,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		cp, err = mercury.NewConfigPoller(lggr,
 			chain.LogPoller(),
 			contractAddress,
+			*relayConfig.FeedID,
 		)
 	} else {
 		cp, err = NewConfigPoller(lggr,
@@ -333,6 +360,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
+		nil,
 	)
 }
 
@@ -380,6 +408,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		),
 		configWatcher.chain.LogPoller(),
 		lggr,
+		nil,
 	)
 }
 

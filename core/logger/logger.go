@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // logsFile describes the logs file name
@@ -161,9 +161,9 @@ func (c *Config) New() (Logger, func() error) {
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, closeLogger, err := zapDiskLoggerConfig{
-		local:          *c,
-		diskStats:      utils.NewDiskStatsProvider(),
-		diskPollConfig: newDiskPollConfig(diskPollInterval),
+		local:              *c,
+		diskSpaceAvailable: diskSpaceAvailable,
+		diskPollConfig:     newDiskPollConfig(diskPollInterval),
 	}.newLogger(cfg)
 	if err != nil {
 		log.Fatal(err)

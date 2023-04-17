@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/smartcontractkit/chainlink/core/services/synchronization/telem";
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
 
 package telem;
 
