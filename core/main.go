@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ func init() {
 	}
 }
 
-func main() {
+func Main() {
 	recovery.ReportPanics(func() {
 		run(newProductionClient(), os.Args...)
 	})

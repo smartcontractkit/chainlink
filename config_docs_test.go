@@ -1,4 +1,4 @@
-package chainlink
+package main
 
 import (
 	_ "embed"

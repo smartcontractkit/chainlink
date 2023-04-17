@@ -17,7 +17,7 @@ func init() {
 	MaxStartTime = 1 * time.Second
 }
 
-func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAttempt[EvmFee, *evmtypes.TxHash]) error {
+func (b *BlockHistoryEstimator) CheckConnectivity(attempts []txmgrtypes.PriorAttempt[EvmFee, evmtypes.TxHash]) error {
 	return b.checkConnectivity(MakeEvmPriorAttempts(attempts))
 }
 
