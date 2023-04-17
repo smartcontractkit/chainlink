@@ -22,7 +22,6 @@ builds:
       - linux
     goarch:
       - arm64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
@@ -42,7 +41,6 @@ builds:
       - linux
     goarch:
       - amd64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
