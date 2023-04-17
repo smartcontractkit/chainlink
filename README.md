@@ -85,12 +85,16 @@ We cannot recommend specific version numbers for ethereum nodes since the softwa
 
 ## Running a local Chainlink node
 
-**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by setting the following env vars:
+**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by setting the following env vars and TOML fields:
 
+```dotenv
+CL_DEV=true
 ```
-CHAINLINK_DEV=true
-CHAINLINK_TLS_PORT=0
-SECURE_COOKIES=false
+
+```toml
+[WebServer]
+SecureCookies = false
+TLS.HTTPSPort = 0
 ```
 
 Alternatively, you can generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
