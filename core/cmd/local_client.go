@@ -271,6 +271,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
+	if err := utils.EnsureDirAndMaxPerms(cli.Config.RootDir(), os.FileMode(0700)); err != nil {
+		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
+	}
+
 	ldb := pg.NewLockedDB(cli.Config, lggr)
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
