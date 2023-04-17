@@ -59,7 +59,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	if !chain.Config().FeatureLogPoller() {
-		return nil, errors.New("log poller must be enabled to run blockhashstore")
+		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
 	}
 
 	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EvmFinalityDepth()) {
