@@ -58,6 +58,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
 	}
 
+	if !chain.Config().FeatureLogPoller() {
+		return nil, errors.New("log poller must be enabled to run blockhashstore")
+	}
+
 	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EvmFinalityDepth()) {
 		return nil, fmt.Errorf(
 			"lookbackBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
