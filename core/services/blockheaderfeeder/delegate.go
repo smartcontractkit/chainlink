@@ -97,7 +97,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
-		coord, err := blockhashstore.NewV1Coordinator(c, lp)
+		var coord *blockhashstore.V1Coordinator
+		coord, err = blockhashstore.NewV1Coordinator(c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
@@ -110,7 +111,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
-		coord, err := blockhashstore.NewV2Coordinator(c, lp)
+		var coord *blockhashstore.V2Coordinator
+		coord, err = blockhashstore.NewV2Coordinator(c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
