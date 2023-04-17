@@ -98,7 +98,7 @@ func (v *V1Coordinator) Requests(
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "fetching VRF requests")
+		return nil, errors.Wrap(err, "filter v1 requests")
 	}
 
 	var reqs []Event
@@ -133,7 +133,7 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "fetching VRF fulfillments")
+		return nil, errors.Wrap(err, "filter v1 fulfillments")
 	}
 
 	var fuls []Event
@@ -189,7 +189,7 @@ func (v *V2Coordinator) Requests(
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "fetching VRF requests")
+		return nil, errors.Wrap(err, "filter v2 requests")
 	}
 
 	var reqs []Event
@@ -224,7 +224,7 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "fetching VRF fulfillments")
+		return nil, errors.Wrap(err, "filter v2 fulfillments")
 	}
 
 	var fuls []Event
