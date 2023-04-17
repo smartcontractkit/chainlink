@@ -42,7 +42,7 @@ mkShell {
   GOROOT = "${go}/share/go";
 
   PGDATA = "db";
-  DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
+  CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
   shellHook = ''
     export GOPATH=$HOME/go
     export PATH=$GOPATH/bin:$PATH
