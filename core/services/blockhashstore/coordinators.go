@@ -34,15 +34,6 @@ func NewMultiCoordinator(coordinators ...Coordinator) Coordinator {
 	return MultiCoordinator(coordinators)
 }
 
-// Get addresses from multicoordinator.
-func (m MultiCoordinator) Addresses() []common.Address {
-	var addresses []common.Address
-	for _, c := range m {
-		addresses = append(addresses, c.Addresses()...)
-	}
-	return addresses
-}
-
 // Requests satisfies the Coordinator interface.
 func (m MultiCoordinator) Requests(
 	ctx context.Context,
@@ -80,13 +71,18 @@ type V1Coordinator struct {
 }
 
 // NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) *V1Coordinator {
-	return &V1Coordinator{c, lp}
-}
-
-// Get address of V1Coordinator.
-func (v *V1Coordinator) Addresses() []common.Address {
-	return []common.Address{v.c.Address()}
+func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
+	err := lp.RegisterFilter(logpoller.Filter{
+		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
+		EventSigs: []common.Hash{
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
+		}, Addresses: []common.Address{c.Address()},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &V1Coordinator{c, lp}, nil
 }
 
 // Requests satisfies the Coordinator interface.
@@ -113,7 +109,10 @@ func (v *V1Coordinator) Requests(
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest)
+		request, ok := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest)
+		if !ok {
+			continue // malformed log should not break flow
+		}
 		reqs = append(reqs, Event{ID: hex.EncodeToString(request.RequestID[:]), Block: request.Raw.BlockNumber})
 	}
 
@@ -145,7 +144,10 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled)
+		request, ok := requestLog.(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled)
+		if !ok {
+			continue // malformed log should not break flow
+		}
 		fuls = append(fuls, Event{ID: hex.EncodeToString(request.RequestId[:]), Block: request.Raw.BlockNumber})
 	}
 	return fuls, nil
@@ -158,13 +160,20 @@ type V2Coordinator struct {
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) *V2Coordinator {
-	return &V2Coordinator{c, lp}
-}
+func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
+	err := lp.RegisterFilter(logpoller.Filter{
+		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
+		EventSigs: []common.Hash{
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
+		}, Addresses: []common.Address{c.Address()},
+	})
 
-// Get address of V2Coordinator.
-func (v *V2Coordinator) Addresses() []common.Address {
-	return []common.Address{v.c.Address()}
+	if err != nil {
+		return nil, err
+	}
+
+	return &V2Coordinator{c, lp}, err
 }
 
 // Requests satisfies the Coordinator interface.
@@ -191,7 +200,10 @@ func (v *V2Coordinator) Requests(
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+		request, ok := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+		if !ok {
+			continue // malformed log should not break flow
+		}
 		reqs = append(reqs, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
 	}
 
@@ -223,7 +235,10 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+		request, ok := requestLog.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+		if !ok {
+			continue // malformed log should not break flow
+		}
 		fuls = append(fuls, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
 	}
 	return fuls, nil

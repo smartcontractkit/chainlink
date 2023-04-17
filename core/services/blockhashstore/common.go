@@ -23,8 +23,6 @@ type Coordinator interface {
 
 	// Fulfillments fetches VRF fulfillments that occurred since the specified block.
 	Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error)
-
-	Addresses() []common.Address
 }
 
 // Event contains metadata about a VRF randomness request or fulfillment.
@@ -140,14 +138,14 @@ func SendingKeys(fromAddresses []ethkey.EIP55Address) []common.Address {
 	return keys
 }
 
-func RegisterLogPoller(coordinator Coordinator, logPoller logpoller.LogPoller, filterName string) error {
+func RegisterLogPoller(addresses []common.Address, logPoller logpoller.LogPoller, filterName string) error {
 	return logPoller.RegisterFilter(logpoller.Filter{
-		Name: logpoller.FilterName(filterName, coordinator.Addresses()),
+		Name: logpoller.FilterName(filterName, addresses),
 		EventSigs: []common.Hash{
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-		}, Addresses: coordinator.Addresses(),
+		}, Addresses: addresses,
 	})
 }
