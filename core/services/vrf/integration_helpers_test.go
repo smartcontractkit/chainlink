@@ -206,6 +206,10 @@ func testMultipleConsumersNeedBHS(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
 		coordinatorAddress.String())
 
+	// Ensure log poller is ready and has all logs.
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
 		consumerContract := consumerContracts[i]
@@ -533,6 +537,10 @@ func testBlockHeaderFeeder(
 	_ = createAndStartBlockHeaderFeederJob(
 		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(), "",
 		coordinatorAddress.String())
+
+	// Ensure log poller is ready and has all logs.
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]

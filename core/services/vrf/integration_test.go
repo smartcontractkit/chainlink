@@ -145,11 +145,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	_ = createAndStartBHSJob(t, sendingKeys, app, cu.bhsContractAddress.String(),
 		cu.rootContractAddress.String(), "")
 
-	// Give buffer for log poller to get started.
-	gomega.NewGomegaWithT(t).Consistently(func() bool {
-		cu.backend.Commit()
-		return true
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	// Ensure log poller is ready and has all logs.
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	// Create a VRF request
 	_, err := cu.consumerContract.TestRequestRandomness(cu.carol,
