@@ -37,8 +37,14 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 // It is also the interface to external callers.
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
-type TxManager[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] interface {
-	txmgrtypes.HeadTrackable[*evmtypes.Head]
+type TxManager[
+	CHAIN_ID txmgrtypes.ID,
+	HEAD txmgrtypes.Head,
+	ADDR types.Hashable[ADDR],
+	TX_HASH types.Hashable[TX_HASH],
+	BLOCK_HASH types.Hashable[BLOCK_HASH],
+] interface {
+	txmgrtypes.HeadTrackable[HEAD]
 	services.ServiceCtx
 	Trigger(addr ADDR)
 	CreateEthTransaction(newTx NewTx[ADDR], qopts ...pg.QOpt) (etx txmgrtypes.Transaction, err error)
@@ -575,39 +581,44 @@ func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HA
 	return signedTx, err
 }
 
-type NullTxManager[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type NullTxManager[CHAIN_ID txmgrtypes.ID, HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) OnNewLongestChain(context.Context, *evmtypes.Head) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) OnNewLongestChain(context.Context, *evmtypes.Head) {
 }
 
 // Start does noop for NullTxManager.
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Start(context.Context) error { return nil }
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Start(context.Context) error {
+	return nil
+}
 
 // Close does noop for NullTxManager.
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Close() error { return nil }
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Close() error { return nil }
 
 // Trigger does noop for NullTxManager.
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Trigger(ADDR) { panic(n.ErrMsg) }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(NewTx[ADDR], ...pg.QOpt) (etx txmgrtypes.Transaction, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Trigger(ADDR) { panic(n.ErrMsg) }
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(NewTx[ADDR], ...pg.QOpt) (etx txmgrtypes.Transaction, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
 	return fwdr, err
 }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Reset(f func(), addr ADDR, abandon bool) error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Reset(f func(), addr ADDR, abandon bool) error {
 	return nil
 }
 
 // SendEther does nothing, null functionality
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Ready() error { return nil }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) Name() string { return "NullTxManager" }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Ready() error { return nil }
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Name() string {
+	return "NullTxManager"
+}
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]error {
 	return map[string]error{}
 }
-func (n *NullTxManager[ADDR, TX_HASH, BLOCK_HASH]) RegisterResumeCallback(fn ResumeCallback) {}
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) RegisterResumeCallback(fn ResumeCallback) {
+}

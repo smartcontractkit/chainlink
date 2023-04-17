@@ -1,5 +1,14 @@
 package mocks
 
-import evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+import (
+	"math/big"
+	"testing"
 
-type MockEvmTxManager = TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+)
+
+type MockEvmTxManager = TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
+
+func NewMockEvmTxManager(t *testing.T) *MockEvmTxManager {
+	return NewTxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
+}
