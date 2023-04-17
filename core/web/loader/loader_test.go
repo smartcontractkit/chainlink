@@ -2,7 +2,6 @@ package loader
 
 import (
 	"database/sql"
-	"math/big"
 	"testing"
 
 	"github.com/graph-gophers/dataloader"
@@ -278,7 +277,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStore := txmgrtypesMocks.NewTxStore[evmtypes.Address, big.Int, evmtypes.TxHash, evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
+	txStore := txmgrtypesMocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -363,7 +362,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStore := txmgrtypesMocks.NewTxStore[evmtypes.Address, big.Int, evmtypes.TxHash, evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
+	txStore := txmgrtypesMocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 

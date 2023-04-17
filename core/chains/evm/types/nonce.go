@@ -10,5 +10,5 @@ type Nonce struct {
 }
 
 func (n Nonce) String() string {
-	return string(n.N)
+	return fmt.Sprint(n.N)
 }

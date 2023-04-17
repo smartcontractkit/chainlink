@@ -128,7 +128,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		newNextNonce--
 	}
 
-	err = s.txStore.UpdateEthKeyNextNonce(evmtypes.Nonce{newNextNonce}, keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
+	err = s.txStore.UpdateEthKeyNextNonce(evmtypes.Nonce{N: newNextNonce}, keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())

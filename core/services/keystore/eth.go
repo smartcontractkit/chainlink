@@ -202,7 +202,7 @@ func (ks *eth) NextSequence(address evmtypes.Address, chainID *big.Int, qopts ..
 	}
 	// Always clobber the memory nonce with the DB nonce
 	state.NextNonce = nonceVal
-	return evmtypes.Nonce{nonceVal}, nil
+	return evmtypes.Nonce{N: nonceVal}, nil
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
