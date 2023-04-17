@@ -253,7 +253,7 @@ func TestETHCallTask(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			keyStore := keystoremocks.NewEth(t)
-			txManager := txmmocks.NewTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash](t)
+			txManager := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
 			db := pgtest.NewSqlxDB(t)
 
 			var cc evm.ChainSet

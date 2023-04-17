@@ -126,7 +126,7 @@ func NewTxm(
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
-		trigger:          make(chan *evmtypes.Address),
+		trigger:          make(chan evmtypes.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
