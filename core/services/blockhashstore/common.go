@@ -8,9 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
@@ -136,16 +133,4 @@ func SendingKeys(fromAddresses []ethkey.EIP55Address) []common.Address {
 		keys = append(keys, a.Address())
 	}
 	return keys
-}
-
-func RegisterLogPoller(addresses []common.Address, logPoller logpoller.LogPoller, filterName string) error {
-	return logPoller.RegisterFilter(logpoller.Filter{
-		Name: logpoller.FilterName(filterName, addresses),
-		EventSigs: []common.Hash{
-			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
-			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-		}, Addresses: addresses,
-	})
 }
