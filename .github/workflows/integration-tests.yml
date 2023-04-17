@@ -387,6 +387,9 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build Test Image
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+        run: helm repo update # remove this after next solana release when updating the line below this one.
+      - name: Build Test Image
+        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/chainlink-solana/.github/actions/build-test-image@23816fcf7d380a30c87b6d87e4fb0ca94419b259 # Use this after next solana release for more up to date ./.github/actions/build-test-image
         with:
           tag: ${{ needs.get_solana_sha.outputs.sha }}
