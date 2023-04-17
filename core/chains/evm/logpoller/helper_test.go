@@ -111,7 +111,7 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 	}
 }
 
-func (th *TestHarness) assertNotifyHasLen(t *testing.T, notifyCh <-chan struct{}, len int) {
+func (th *TestHarness) assertNotifyHasAtLeast(t *testing.T, notifyCh <-chan struct{}, len int) {
 	require.Len(t, notifyCh, len)
 	for i := 0; i < len; i++ {
 		<-notifyCh

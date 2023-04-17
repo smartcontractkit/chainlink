@@ -639,8 +639,8 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
+		logs := convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID())
 		err = lp.saveLogsInTx(ctx, func(tx pg.Queryer) ([]Log, error) {
-			logs := convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID())
 			return logs, lp.orm.InsertLogs(logs, pg.WithQueryer(tx))
 		})
 		if err != nil {
@@ -808,6 +808,14 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Debugw("Unfinalized log query", "logs", len(gethLogs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash, "timestamp", currentBlock.Timestamp.Unix())
+
+		logs := convertLogs(
+			gethLogs,
+			[]LogPollerBlock{{BlockNumber: currentBlockNumber,
+				BlockTimestamp: currentBlock.Timestamp}},
+			lp.lggr,
+			lp.ec.ChainID(),
+		)
 		err = lp.saveLogsInTx(ctx, func(tx pg.Queryer) ([]Log, error) {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, pg.WithQueryer(tx)); err2 != nil {
 				return nil, err2
@@ -815,14 +823,6 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			if len(gethLogs) == 0 {
 				return nil, nil
 			}
-
-			logs := convertLogs(
-				gethLogs,
-				[]LogPollerBlock{{BlockNumber: currentBlockNumber,
-					BlockTimestamp: currentBlock.Timestamp}},
-				lp.lggr,
-				lp.ec.ChainID(),
-			)
 			return logs, lp.orm.InsertLogs(logs, pg.WithQueryer(tx))
 		})
 		if err != nil {
@@ -1113,8 +1113,8 @@ type notifyEntry struct {
 
 // Notify returns a channel that emits events when a new log with the given topic key and value is saved.
 func (lp *logPoller) Notify(topicIndex int, topicValue common.Hash) <-chan struct{} {
-	if topicIndex < 0 {
-		panic("cannot have negative topic index")
+	if err := validateTopicIndex(topicIndex); err != nil {
+		panic(err.Error())
 	}
 
 	// Add buffer size of 1 so that if a receiver is not ready to receive, it will
@@ -1152,19 +1152,25 @@ func (lp *logPoller) saveLogsInTx(ctx context.Context, fn func(tx pg.Queryer) ([
 	lp.notifyMu.RLock()
 	defer lp.notifyMu.RUnlock()
 
+	var entryIdxToNotify []int
 	for _, log := range savedLogs {
-		for _, entry := range lp.notifyEntries {
-			if len(log.Topics) < entry.index {
+		for entryIdx, entry := range lp.notifyEntries {
+			if len(log.Topics) <= entry.index {
 				continue
 			}
 			if !bytes.Equal(log.Topics[entry.index], entry.value.Bytes()) {
 				continue
 			}
+			entryIdxToNotify = append(entryIdxToNotify, entryIdx)
+		}
+	}
 
-			select {
-			case entry.notifyCh <- struct{}{}:
-			default:
-			}
+	// Notify at most once per transaction.
+	for _, entryIdx := range entryIdxToNotify {
+		entry := lp.notifyEntries[entryIdx]
+		select {
+		case entry.notifyCh <- struct{}{}:
+		default:
 		}
 	}
 
