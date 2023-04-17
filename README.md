@@ -280,7 +280,7 @@ initdb
 pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
 createdb chainlink_test -h localhost
 createuser --superuser --password chainlink -h localhost
-# then type a test password, e.g.: chainlink, and set it in shell.nix DATABASE_URL
+# then type a test password, e.g.: chainlink, and set it in shell.nix CL_DATABASE_URL
 ```
 
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
