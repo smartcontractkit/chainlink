@@ -5,7 +5,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
@@ -26,11 +25,11 @@ var _ EvmTxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 type evmTxAttemptBuilder struct {
 	chainID  big.Int
 	config   Config
-	keystore TxAttemptSigner[*evmtypes.Address]
+	keystore TxAttemptSigner[evmtypes.Address]
 	gas.EvmFeeEstimator
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner[*evmtypes.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner[evmtypes.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
 	return &evmTxAttemptBuilder{chainID, config, keystore, estimator}
 }
 
@@ -47,11 +46,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr 
 // NewTxAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
 func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
-	fromAddr := common.Address{}
-	if etx.FromAddress != nil {
-		fromAddr = etx.FromAddress.Address
-	}
-	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(fromAddr)
+	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress.Address)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
 		return attempt, fee, feeLimit, true, errors.Wrap(err, "failed to get fee") // estimator errors are retryable
@@ -64,11 +59,7 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmT
 // NewBumpTxAttempt builds a new attempt with a bumped fee - based on the previous attempt tx type
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
 func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EvmTx, previousAttempt EvmTxAttempt, priorAttempts []EvmPriorAttempt, lggr logger.Logger) (attempt EvmTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
-	fromAddr := common.Address{}
-	if etx.FromAddress != nil {
-		fromAddr = etx.FromAddress.Address
-	}
-	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(fromAddr)
+	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress.Address)
 	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, errors.Wrap(err, "failed to bump fee") // estimator errors are retryable
@@ -107,7 +98,7 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EvmTx, fee gas.EvmFee, gasL
 }
 
 // NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress *evmtypes.Address) (attempt EvmTxAttempt, err error) {
+func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress evmtypes.Address) (attempt EvmTxAttempt, err error) {
 	value := big.NewInt(0)
 	payload := []byte{}
 
@@ -115,11 +106,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit u
 		return attempt, errors.New("NewEmptyTranscation: legacy fee cannot be nil")
 	}
 
-	fromAddr := common.Address{}
-	if fromAddress != nil {
-		fromAddr = fromAddress.Address
-	}
-	tx := types.NewTransaction(uint64(nonce.N), fromAddr, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
+	tx := types.NewTransaction(uint64(nonce.N), fromAddress.Address, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
 
 	hash, signedTxBytes, err := c.SignTx(fromAddress, tx)
 	if err != nil {
@@ -190,12 +177,8 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 		return errors.Errorf("gas fee cap must be greater than or equal to gas tip cap (fee cap: %s, tip cap: %s)", gasFeeCap.String(), gasTipCap.String())
 	}
 
-	fromAddr := common.Address{}
-	if etx.FromAddress != nil {
-		fromAddr = etx.FromAddress.Address
-	}
 	// Configuration sanity-check
-	max := cfg.KeySpecificMaxGasPriceWei(fromAddr)
+	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress.Address)
 	if gasFeeCap.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.String())
 	}
@@ -207,18 +190,14 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to *evmtypes.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
-	var toAddr *common.Address
-	if to != nil {
-		toAddr = &to.Address
-	}
+func newDynamicFeeTransaction(nonce uint64, to evmtypes.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
 		Nonce:      nonce,
 		GasTipCap:  gasTipCap.ToInt(),
 		GasFeeCap:  gasFeeCap.ToInt(),
 		Gas:        uint64(gasLimit),
-		To:         toAddr,
+		To:         &to.Address,
 		Value:      value.ToInt(),
 		Data:       data,
 		AccessList: accessList,
@@ -263,11 +242,7 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Ev
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
-	fromAddr := common.Address{}
-	if etx.FromAddress != nil {
-		fromAddr = etx.FromAddress.Address
-	}
-	max := cfg.KeySpecificMaxGasPriceWei(fromAddr)
+	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress.Address)
 	if gasPrice.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
 	}
@@ -293,14 +268,10 @@ func (c *evmTxAttemptBuilder) newSignedAttempt(etx EvmTx, tx *types.Transaction)
 	return attempt, nil
 }
 
-func newLegacyTransaction(nonce uint64, to *evmtypes.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
-	var toAddr *common.Address
-	if to != nil {
-		toAddr = &to.Address
-	}
+func newLegacyTransaction(nonce uint64, to evmtypes.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
 	return types.LegacyTx{
 		Nonce:    nonce,
-		To:       toAddr,
+		To:       &to.Address,
 		Value:    value,
 		Gas:      uint64(gasLimit),
 		GasPrice: gasPrice.ToInt(),
@@ -308,14 +279,14 @@ func newLegacyTransaction(nonce uint64, to *evmtypes.Address, value *big.Int, ga
 	}
 }
 
-func (c *evmTxAttemptBuilder) SignTx(address *evmtypes.Address, tx *types.Transaction) (*evmtypes.TxHash, []byte, error) {
+func (c *evmTxAttemptBuilder) SignTx(address evmtypes.Address, tx *types.Transaction) (evmtypes.TxHash, []byte, error) {
 	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "SignTx failed")
+		return evmtypes.TxHash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	rlp := new(bytes.Buffer)
 	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return nil, nil, errors.Wrap(err, "SignTx failed")
+		return evmtypes.TxHash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	txHash := evmtypes.NewTxHash(signedTx.Hash())
 	return txHash, rlp.Bytes(), nil

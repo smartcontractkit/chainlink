@@ -487,15 +487,11 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
-	addresses := []*evmtypes.Address{evmtypes.NewAddress(gethcommon.Address{})}
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil)
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]evmtypes.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
-	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
-	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)
-
 	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst, eventBroadcaster)
 	require.NoError(t, err)
 
@@ -517,10 +513,11 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	addr := []*evmtypes.Address{evmtypes.NewAddress(keyState.Address.Address())}
+	addr := []evmtypes.Address{evmtypes.NewAddress(keyState.Address.Address())}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
-
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
+	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())

@@ -104,7 +104,7 @@ type EthBroadcaster[
 	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        CHAIN_ID
-	config         Config
+	config         EvmBroadcasterConfig
 
 	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
 	// when Start is called
@@ -138,7 +138,7 @@ type EthBroadcaster[
 func NewEthBroadcaster(
 	txStore EvmTxStore,
 	ethClient evmclient.Client,
-	config Config,
+	config EvmBroadcasterConfig,
 	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder EvmTxAttemptBuilder,
@@ -416,7 +416,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 		return retryable, errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
-		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
+		maxInFlightTransactions := eb.config.MaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := eb.txStore.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {
@@ -587,7 +587,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	// L2-specific cases
 	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if eb.config.ChainType().IsL2() {
+		if eb.config.IsL2() {
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}
 		return errors.Wrap(sendError, "this error type only handled for L2s"), false
@@ -740,12 +740,12 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 		"attemptGasFeeCap", attempt.GasFeeCap,
 		"attemptGasPrice", attempt.GasPrice,
 		"attemptGasTipCap", attempt.GasTipCap,
-		"maxGasPriceConfig", eb.config.EvmMaxGasPriceWei(),
+		"maxGasPriceConfig", eb.config.MaxFeePrice(),
 	).Errorf("attempt gas price %v was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing EVM.GasEstimator.PriceDefault (current value: %s)",
-		attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
+		attempt.GasPrice, sendError.Error(), eb.config.FeePriceDefault().String())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {

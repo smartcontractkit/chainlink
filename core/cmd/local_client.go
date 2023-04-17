@@ -593,14 +593,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), txBuilder, chain.Logger())
-
-	totNonces := endingNonce - beginningNonce + 1
-	nonces := make([]evmtypes.Nonce, totNonces)
-	for i := int64(0); i < totNonces; i++ {
+	cfg := txmgr.NewEvmTxmConfig(chain.Config())
+	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
+	totalNonces := endingNonce - beginningNonce + 1
+	nonces := make([]evmtypes.Nonce, totalNonces)
+	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce{beginningNonce + i}
 	}
-
 	err = ec.ForceRebroadcast(nonces, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }

@@ -27,28 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// Config encompasses config used by txmgr package
-// Unless otherwise specified, these should support changing at runtime
-//
-//go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
-type Config interface {
-	gas.Config
-	pg.QConfig
-	EthTxReaperInterval() time.Duration
-	EthTxReaperThreshold() time.Duration
-	EthTxResendAfterThreshold() time.Duration
-	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint16
-	EvmGasLimitDefault() uint32
-	EvmMaxInFlightTransactions() uint32
-	EvmMaxQueuedTransactions() uint64
-	EvmNonceAutoSync() bool
-	EvmUseForwarders() bool
-	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	TriggerFallbackDBPollInterval() time.Duration
-}
-
 // For more information about the Txm architecture, see the design doc:
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
@@ -95,7 +73,7 @@ type Txm[
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
-	config           Config
+	config           EvmTxmConfig
 	keyStore         txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	eventBroadcaster pg.EventBroadcaster
 	chainID          CHAIN_ID
@@ -129,7 +107,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 func NewTxm(
 	db *sqlx.DB,
 	ethClient evmclient.Client,
-	cfg Config,
+	cfg EvmTxmConfig,
 	keyStore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	lggr logger.Logger,
@@ -141,13 +119,15 @@ func NewTxm(
 	ethBroadcaster *EvmBroadcaster,
 	ethConfirmer *EvmConfirmer,
 	ethResender *EvmResender,
+	q pg.Q,
 ) *EvmTxm {
+
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		txStore:          txStore,
 		db:               db,
-		q:                pg.NewQ(db, lggr, cfg),
+		q:                q,
 		ethClient:        ethClient,
 		config:           cfg,
 		keyStore:         keyStore,
@@ -155,7 +135,7 @@ func NewTxm(
 		chainID:          ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
-		trigger:          make(chan *evmtypes.Address),
+		trigger:          make(chan evmtypes.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
@@ -167,10 +147,10 @@ func NewTxm(
 		ethResender:      ethResender,
 	}
 
-	if cfg.EthTxResendAfterThreshold() <= 0 {
+	if cfg.TxResendAfterThreshold() <= 0 {
 		b.logger.Info("EthResender: Disabled")
 	}
-	if cfg.EthTxReaperThreshold() > 0 && cfg.EthTxReaperInterval() > 0 {
+	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
 		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
@@ -290,7 +270,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 		maps.Copy(report, b.txAttemptBuilder.HealthReport())
 	})
 
-	if b.config.EvmUseForwarders() {
+	if b.config.UseForwarders() {
 		maps.Copy(report, b.fwdMgr.HealthReport())
 	}
 	return report
@@ -482,7 +462,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthT
 		return tx, err
 	}
 
-	if b.config.EvmUseForwarders() && (!newTx.ForwarderAddress.Empty()) {
+	if b.config.UseForwarders() && (!newTx.ForwarderAddress.Empty()) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
@@ -506,7 +486,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthT
 		}
 	}
 
-	err = b.txStore.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID, qs...)
+	err = b.txStore.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return tx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
@@ -517,7 +497,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthT
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
-	if !b.config.EvmUseForwarders() {
+	if !b.config.UseForwarders() {
 		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
