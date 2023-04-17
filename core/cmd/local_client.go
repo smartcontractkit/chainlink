@@ -261,7 +261,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
-	cli.Config.LogConfiguration(lggr.Debug)
+	cli.Config.LogConfiguration(lggr.Debugf)
 
 	err := cli.Config.Validate()
 	if err != nil {
@@ -655,7 +655,7 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
 	err := cli.Config.Validate()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
