@@ -354,6 +354,43 @@ jobs:
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@23816fcf7d380a30c87b6d87e4fb0ca94419b259 # stable action on April 17 2023
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
+          
+  solana-build-test-image:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: Solana Build Test Image
+    runs-on: ubuntu20.04-16cores-64GB
+    needs: [solana-build-contracts, solana-test-image-exists, changes, get_solana_sha]
+    env:
+      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Smoke Tests
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          repository: smartcontractkit/chainlink-solana
+          ref: 23816fcf7d380a30c87b6d87e4fb0ca94419b259 # swtich back to this after the next solana release${{ needs.get_solana_sha.outputs.sha }}
+      - name: Build Test Image
+        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: ./.github/actions/build-test-image
+        with:
+          tag: ${{ needs.get_solana_sha.outputs.sha }}
+          artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
 
   solana-smoke-tests:
     environment: integration
@@ -364,7 +401,7 @@ jobs:
       contents: read
     name: Solana Smoke Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink, solana-build-contracts, solana-test-image-exists, changes, get_solana_sha]
+    needs: [build-chainlink, solana-build-contracts, solana-test-image-exists, changes, get_solana_sha, solana-build-test-image]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -385,18 +422,6 @@ jobs:
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Build Test Image
-        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        run: helm repo update # remove this after next solana release when updating the line below this one.
-      - name: Build Test Image
-        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build-test-image@23816fcf7d380a30c87b6d87e4fb0ca94419b259 # Use this after next solana release for more up to date ./.github/actions/build-test-image
-        with:
-          tag: ${{ needs.get_solana_sha.outputs.sha }}
-          artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
