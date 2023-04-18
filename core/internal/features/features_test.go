@@ -1412,7 +1412,7 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {
-			chain.TxManager().Trigger(k.Address)
+			chain.TxManager().Trigger(evmtypes.NewAddress(k.Address))
 		}
 	}
 }

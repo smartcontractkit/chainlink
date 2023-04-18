@@ -11,6 +11,7 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -36,7 +37,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -51,14 +52,15 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:      evmtypes.NewAddress(fromAddress),
+		ToAddress:        evmtypes.NewAddress(toAddress),
+		EncodedPayload:   payload,
+		GasLimit:         gasLimit,
+		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		Meta:             nil,
+		Strategy:         strategy,
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
@@ -77,7 +79,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -92,22 +94,24 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress2,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:      evmtypes.NewAddress(fromAddress),
+		ToAddress:        evmtypes.NewAddress(toAddress),
+		EncodedPayload:   payload,
+		GasLimit:         gasLimit,
+		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		Meta:             nil,
+		Strategy:         strategy,
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:      evmtypes.NewAddress(fromAddress2),
+		ToAddress:        evmtypes.NewAddress(toAddress),
+		EncodedPayload:   payload,
+		GasLimit:         gasLimit,
+		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		Meta:             nil,
+		Strategy:         strategy,
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
@@ -126,7 +130,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -156,7 +160,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
 	strategy := newMockTxStrategy(t)
 
 	_, err := ocrcommon.NewTransmitter(

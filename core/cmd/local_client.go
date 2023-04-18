@@ -34,6 +34,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -257,6 +258,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
+	cli.Config.LogConfiguration(lggr.Debug)
+
 	err := cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
@@ -266,6 +269,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	if cli.Config.Dev() || build.Dev {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
+
+	if err := utils.EnsureDirAndMaxPerms(cli.Config.RootDir(), os.FileMode(0700)); err != nil {
+		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
 	}
 
 	ldb := pg.NewLockedDB(cli.Config, lggr)
@@ -439,8 +446,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		return nil
 	})
 
-	cli.Config.LogConfiguration(lggr.Debug)
-
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 
 	grp.Go(func() error {
@@ -584,21 +589,17 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	enabledAddresses, err := keyStore.Eth().EnabledAddressesForChain(chain.ID())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
+	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), enabledAddresses, nil, txBuilder, chain.Logger())
-	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
+	cfg := txmgr.NewEvmTxmConfig(chain.Config())
+	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
+	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 

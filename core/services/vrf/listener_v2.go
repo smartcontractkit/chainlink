@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -83,7 +84,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager,
+	txm txmgr.EvmTxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -151,7 +152,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager
+	txm            txmgr.EvmTxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
@@ -805,7 +806,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
-			var ethTX txmgr.EthTx
+			var transaction txmgrtypes.Transaction
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -817,9 +818,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
-					FromAddress:    fromAddress,
-					ToAddress:      lsn.coordinator.Address(),
+				transaction, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
+					FromAddress:    evmtypes.NewAddress(fromAddress),
+					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
@@ -841,7 +842,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 				continue
 			}
-			ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
+			ll.Infow("Enqueued fulfillment", "ethTxID", transaction.GetID())
 
 			// If we successfully enqueued for the txm, subtract that balance
 			// And loop to attempt to enqueue another fulfillment
