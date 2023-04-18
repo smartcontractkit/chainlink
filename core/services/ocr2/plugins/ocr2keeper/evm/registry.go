@@ -83,10 +83,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 
 	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
-	// TODO load lists from registry config.
-	// TODO We will create a separate contract for GTM to manage the allow lists. We can load and cache the lists on some interval
-	basic, premium := setupAllowList([]string{}, []string{})
-
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),
@@ -109,13 +105,11 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 			clientID:  "123",
 			clientKey: "wow",
 			// TODO need to load up the mercuryURL from an ENV var
-			url:              "https://localhost:8080",
-			abi:              mercuryUpkeepABI,
-			upkeepCache:      upkeepInfoCache,
-			cooldownCache:    cooldownCache,
-			apiErrCache:      apiErrCache,
-			premiumAllowList: premium,
-			basicAllowList:   basic,
+			url:           "https://localhost:8080",
+			abi:           mercuryUpkeepABI,
+			upkeepCache:   upkeepInfoCache,
+			cooldownCache: cooldownCache,
+			apiErrCache:   apiErrCache,
 		},
 	}
 
@@ -124,20 +118,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 	}
 
 	return r, nil
-}
-
-var Blank struct{}
-
-func setupAllowList(premium []string, basic []string) (map[string]*struct{}, map[string]*struct{}) {
-	basicMercuryAllowList := make(map[string]*struct{})
-	for _, uid := range basic {
-		basicMercuryAllowList[uid] = &Blank
-	}
-	premiumMercuryAllowList := make(map[string]*struct{})
-	for _, uid := range premium {
-		premiumMercuryAllowList[uid] = &Blank
-	}
-	return basicMercuryAllowList, premiumMercuryAllowList
 }
 
 func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {

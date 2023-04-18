@@ -44,13 +44,6 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			continue
 		}
 
-		_, inBasic := r.mercury.basicAllowList[upkeepId.String()]
-		_, inPremium := r.mercury.premiumAllowList[upkeepId.String()]
-		if !inBasic && !inPremium {
-			// user is not in the allow-lists -> skip
-			continue
-		}
-
 		// checking if this upkeep is in cooldown from api errors
 		_, onIce := r.mercury.cooldownCache.Get(upkeepId.String())
 		if onIce {
@@ -241,6 +234,7 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 	q := url.Values{}
 	q.Add("feedIDStr", feed)
 	q.Add(instanceKey, instance)
+	q.Add("upkeepID", upkeepId.String())
 	req.URL.RawQuery = q.Encode()
 
 	signature := generateHMAC("GET", req.URL.String(), nil, r.mercury.clientID, r.mercury.clientKey)
@@ -263,7 +257,7 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 	//	ch <- MercuryBytes{Index: index}
 	//	return
 	//}
-	//
+	//// if we get a 403 permission issue we can put them on a longer cooldown to avoid spamming mercury
 	//// if http response code is 4xx/5xx then put in cool down
 	//if resp.StatusCode >= 400 {
 	//	r.setCachesOnAPIErr(upkeepId)

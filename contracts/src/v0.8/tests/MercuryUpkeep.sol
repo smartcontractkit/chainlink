@@ -20,7 +20,7 @@ contract MercuryUpkeep {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    feeds = ["ETH-USD", "BTC-USD"];
+    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
   }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
