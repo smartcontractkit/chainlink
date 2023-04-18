@@ -23,10 +23,11 @@ library SmartContractAccountHelper {
     return SCALibrary.getUserOpFullHash(userOpHash, scaAddress);
   }
 
-  function getSCAInitCodeWithConstructor(
-    address owner,
-    address entryPoint
-  ) public pure returns (bytes memory initCode) {
+  function getSCAInitCodeWithConstructor(address owner, address entryPoint)
+    public
+    pure
+    returns (bytes memory initCode)
+  {
     initCode = bytes.concat(initailizeCode, abi.encode(owner, entryPoint));
   }
 
