@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+import "relayer.proto";
+
+service ReportingPluginFactory {
+  rpc NewReportingPlugin (NewReportingPluginRequest) returns (NewReportingPluginReply) {}
+}
+
+message NewReportingPluginRequest {
+  ReportingPluginConfig reportingPluginConfig = 1;
+}
+
+message NewReportingPluginReply {
+  uint32 reportingPluginID = 1;
+  ReportingPluginInfo reportingPluginInfo = 2;
+}
+
+// ReportingPluginConfig represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPluginConfig]
+message ReportingPluginConfig {
+  bytes configDigest = 1; // [32]byte
+  uint32 oracleID = 2; // uint8
+  uint32 n = 3;
+  uint32 f = 4;
+  bytes onchainConfig = 5;
+  bytes offchainConfig = 6;
+  int64 estimatedRoundInterval = 7;
+  int64 maxDurationQuery = 8;
+  int64 maxDurationObservation = 9;
+  int64 maxDurationReport = 10;
+  int64 maxDurationShouldAcceptFinalizedReport = 11;
+  int64 maxDurationShouldTransmitAcceptedReport = 12;
+}
+
+// ReportingPluginLimits represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPluginLimits]
+message ReportingPluginLimits {
+  uint64 maxQueryLength = 1;
+  uint64 maxObservationLength = 2;
+  uint64 maxReportLength = 3;
+}
+
+// ReportingPluginInfo represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPluginInfo]
+message ReportingPluginInfo {
+  string name = 1;
+  bool uniqueReports = 2;
+  ReportingPluginLimits reportingPluginLimits = 3;
+}
+
+service ReportingPlugin {
+  rpc Query (QueryRequest) returns (QueryReply) {}
+  rpc Observation (ObservationRequest) returns (ObservationReply) {}
+  rpc Report (ReportRequest) returns (ReportReply) {}
+  rpc ShouldAcceptFinalizedReport (ShouldAcceptFinalizedReportRequest) returns (ShouldAcceptFinalizedReportReply) {}
+  rpc ShouldTransmitAcceptedReport (ShouldTransmitAcceptedReportRequest) returns (ShouldTransmitAcceptedReportReply) {}
+  rpc Close (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+// QueryRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.Query].
+message QueryRequest {
+  ReportTimestamp reportTimestamp = 1;
+}
+
+// QueryReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.Query].
+message QueryReply {
+  bytes query = 1;
+}
+
+// ObservationRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.Observation].
+message ObservationRequest {
+  ReportTimestamp reportTimestamp = 1;
+  bytes query = 2;
+}
+
+// ObservationReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.Observation].
+message ObservationReply {
+  bytes observation = 1;
+}
+
+// AttributedObservation represents [github.com/smartcontractkit/libocr/offchainreporting2/types.AttributedObservation]
+message AttributedObservation {
+  bytes observation = 1;
+  uint32 observer = 2; // uint8
+}
+
+// ReportRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.Report].
+message ReportRequest {
+  ReportTimestamp reportTimestamp = 1;
+  bytes query = 2;
+  repeated AttributedObservation observations = 3;
+}
+
+// ReportReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.Report].
+message ReportReply {
+  bool shouldReport = 1;
+  bytes report = 2;
+}
+
+// ShouldAcceptFinalizedReportRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.ShouldAcceptFinalizedReport].
+message ShouldAcceptFinalizedReportRequest {
+  ReportTimestamp reportTimestamp = 1;
+  bytes report = 2;
+}
+
+// ShouldAcceptFinalizedReportReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.ShouldAcceptFinalizedReport].
+message ShouldAcceptFinalizedReportReply {
+  bool shouldAccept = 1;
+}
+
+// ShouldTransmitAcceptedReportRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.ShouldTransmitAcceptedReport].
+message ShouldTransmitAcceptedReportRequest {
+  ReportTimestamp reportTimestamp = 1;
+  bytes report = 2;
+}
+
+// ShouldTransmitAcceptedReportReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportingPlugin.ShouldTransmitAcceptedReport].
+message ShouldTransmitAcceptedReportReply {
+  bool shouldTransmit = 1;
+}

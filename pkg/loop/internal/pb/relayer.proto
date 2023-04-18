@@ -1,0 +1,306 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+
+service PluginRelayer {
+  rpc NewRelayer (NewRelayerRequest) returns (NewRelayerReply) {}
+}
+
+message NewRelayerRequest {
+  string config = 1; // toml (is chain instance config enough?)
+  uint32 keystoreID = 2;
+
+  //TODO prometheus? https://smartcontract-it.atlassian.net/browse/BCF-2075
+}
+
+message NewRelayerReply {
+  uint32 relayerID = 1;
+}
+
+service Keystore {
+  rpc Keys (google.protobuf.Empty) returns (KeysReply) {}
+  rpc Sign (SignRequest) returns (SignReply) {}
+}
+
+message KeysReply {
+  repeated string accounts = 1;
+}
+
+message SignRequest {
+  string account = 1;
+  bytes data = 2;
+}
+
+message SignReply {
+  bytes signedData = 1;
+}
+
+service Relayer {
+  rpc NewConfigProvider (NewConfigProviderRequest) returns (NewConfigProviderReply) {}
+  rpc NewMedianProvider (NewMedianProviderRequest) returns (NewMedianProviderReply) {}
+  rpc NewMercuryProvider (NewMercuryProviderRequest) returns (NewMercuryProviderReply) {}
+
+  rpc ChainStatus (ChainStatusRequest) returns (ChainStatusReply) {}
+  rpc ChainStatuses (ChainStatusesRequest) returns (ChainStatusesReply) {}
+
+  rpc NodeStatuses (NodeStatusesRequest) returns (NodeStatusesReply) {}
+
+  rpc SendTx (SendTxRequest) returns (google.protobuf.Empty) {}
+}
+
+// RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.RelayArgs].
+message RelayArgs {
+  bytes externalJobID = 1; // [32]byte
+  int32 jobID = 2;
+  string contractID = 3;
+  bool new = 4;
+  bytes relayConfig = 5;
+}
+
+// RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.PluginArgs].
+message PluginArgs {
+  string transmitterID = 1;
+  bytes pluginConfig = 2;
+}
+
+// NewConfigProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
+message NewConfigProviderRequest {
+  RelayArgs relayArgs = 1;
+}
+
+// NewConfigProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
+message NewConfigProviderReply {
+  uint32 configProviderID = 1;
+}
+
+// NewMedianProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianProvider].
+message NewMedianProviderRequest {
+  RelayArgs relayArgs = 1;
+  PluginArgs pluginArgs = 2;
+}
+
+// NewMedianProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianProvider].
+message NewMedianProviderReply {
+  uint32 medianProviderID = 1;
+}
+
+// NewMercuryProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMercuryProvider].
+message NewMercuryProviderRequest {
+  RelayArgs relayArgs = 1;
+  PluginArgs pluginArgs = 2;
+}
+
+// NewMercuryProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMercuryProvider].
+message NewMercuryProviderReply {
+  uint32 mercuryProviderID = 1;
+}
+
+// ChainStatusRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
+message ChainStatusRequest {
+  string id = 1;
+}
+
+// ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
+message ChainStatusReply {
+  ChainStatus chain = 1;
+}
+
+// ChainStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatuses].
+message ChainStatusesRequest {
+  int32 offset = 1;
+  int32 limit = 2;
+}
+
+// ChainStatusesReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatuses].
+message ChainStatusesReply {
+  repeated ChainStatus chains = 1;
+  int32 count = 2; // total count of chains
+}
+
+// ChainStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.ChainStatus].
+message ChainStatus {
+  string id = 1;
+  bool enabled = 2;
+  string config = 3; // TOML
+}
+
+// NodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NodeStatuses].
+message NodeStatusesRequest {
+  int32 offset = 1;
+  int32 limit = 2;
+  repeated string chainIDs = 3;
+}
+
+// NodeStatusesReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NodeStatuses].
+message NodeStatusesReply {
+  repeated NodeStatus nodes = 1;
+  int32 count = 2; // total count of nodes
+}
+
+// NodeStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.NodeStatus].
+message NodeStatus {
+  string chainID = 1;
+  string name = 2;
+  string config = 3; // TOML
+  string state = 4;
+}
+
+// SendTxRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.SendTx].
+message SendTxRequest {
+  string chainID = 1;
+  string from = 2;
+  string to = 3;
+  BigInt amount = 4;
+  bool balanceCheck = 5;
+}
+
+service DataSource {
+  rpc Observe (google.protobuf.Empty) returns (ObserveReply) {}
+}
+
+// ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].
+message ObserveReply {
+  BigInt value = 1;
+}
+
+service OffchainConfigDigester {
+  rpc ConfigDigest (ConfigDigestRequest) returns (ConfigDigestReply) {}
+  rpc ConfigDigestPrefix (ConfigDigestPrefixRequest) returns (ConfigDigestPrefixReply) {}
+}
+
+// ContractConfig represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfig]
+message ContractConfig {
+  bytes configDigest = 1; // [32]byte
+  uint64 configCount = 2;
+  repeated bytes signers = 3; // []OnchainPublicKey
+  repeated string transmitters = 4; // []Account
+  uint32 F = 5; // uint8
+  bytes onchainConfig = 6;
+  uint64 offchainConfigVersion = 7;
+  bytes offchainConfig = 8;
+}
+
+// ConfigDigestRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.OffchainConfigDigester.ConfigDigest].
+message ConfigDigestRequest {
+    ContractConfig contractConfig = 1;
+}
+
+// ConfigDigestReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.OffchainConfigDigester.ConfigDigest].
+message ConfigDigestReply {
+  bytes configDigest = 1; // [32]byte
+}
+
+message ConfigDigestPrefixRequest {}
+
+// ConfigDigestPrefixReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.OffchainConfigDigester.ConfigDigestPrefix].
+message ConfigDigestPrefixReply {
+  uint32 configDigestPrefix = 1; // uint16
+}
+
+service ContractConfigTracker {
+  rpc LatestConfigDetails (LatestConfigDetailsRequest) returns (LatestConfigDetailsReply) {}
+  rpc LatestConfig (LatestConfigRequest) returns (LatestConfigReply) {}
+  rpc LatestBlockHeight (LatestBlockHeightRequest) returns (LatestBlockHeightReply) {}
+}
+
+message LatestConfigDetailsRequest {}
+
+// LatestConfigDetailsReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestConfigDetails].
+message LatestConfigDetailsReply {
+  uint64 changedInBlock = 1;
+  bytes configDigest = 2; // [32]byte
+}
+
+// LatestConfigRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestConfig].
+message LatestConfigRequest {
+  uint64 changedInBlock = 1;
+}
+
+// LatestConfigReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestConfig].
+message LatestConfigReply {
+  ContractConfig contractConfig = 1;
+}
+
+message LatestBlockHeightRequest {}
+
+// LatestBlockHeightReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestBlockHeightReply].
+message LatestBlockHeightReply {
+  uint64 blockHeight = 1;
+}
+
+service ContractTransmitter {
+  rpc Transmit (TransmitRequest) returns (TransmitReply) {}
+  rpc LatestConfigDigestAndEpoch (LatestConfigDigestAndEpochRequest) returns (LatestConfigDigestAndEpochReply) {}
+  rpc FromAccount (FromAccountRequest) returns (FromAccountReply) {}
+}
+
+// ReportTimestamp represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportTimestamp].
+message ReportTimestamp {
+  bytes configDigest = 1; // [32]byte
+  uint32 epoch = 2;
+  uint32 round = 3; // uint8
+}
+
+// ReportContext represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportContext].
+message ReportContext {
+    ReportTimestamp reportTimestamp = 1;
+    bytes extraHash = 2; // [32]byte
+}
+
+// AttributedOnchainSignature represents [github.com/smartcontractkit/libocr/offchainreporting2/types.AttributedOnchainSignature].
+message AttributedOnchainSignature {
+  bytes signature = 1;
+  uint32 signer = 2; // uint8
+}
+
+// TransmitRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractTransmitter.Transmit].
+message TransmitRequest {
+  ReportContext reportContext = 1;
+  bytes report = 2;
+  repeated AttributedOnchainSignature attributedOnchainSignatures = 3;
+}
+message TransmitReply {}
+
+message LatestConfigDigestAndEpochRequest {}
+
+// LatestConfigDigestAndEpochReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractTransmitter.LatestConfigDigestAndEpoch].
+message LatestConfigDigestAndEpochReply {
+  bytes configDigest = 1; // [32]byte
+  uint32 epoch = 2;
+}
+
+message FromAccountRequest {}
+
+// FromAccountReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.FromAccount].
+message FromAccountReply {
+  string Account = 1;
+}
+
+service Service {
+  rpc Start (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Name (google.protobuf.Empty) returns (NameReply) {}
+  rpc Close (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Ready (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Healthy (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc HealthReport (google.protobuf.Empty) returns (HealthReportReply) {}
+}
+
+// NameReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.Name].
+message NameReply {
+  string name = 1;
+}
+
+// HealthReportReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/types.Service.HealthReport].
+message HealthReportReply {
+  map<string, string> healthReport = 1;
+}
+
+// BigInt represents a [big.Int].
+message BigInt {
+  bool negative = 1;
+  bytes value = 2;
+}
