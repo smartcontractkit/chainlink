@@ -392,6 +392,7 @@ contract KeeperRegistryLogicA2_1 is
     bytes[] memory checkDatas = new bytes[](ids.length);
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
+    bytes[] memory offchainConfigs = new bytes[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
@@ -399,6 +400,7 @@ contract KeeperRegistryLogicA2_1 is
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];
+      offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
@@ -408,7 +410,7 @@ contract KeeperRegistryLogicA2_1 is
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins, offchainConfigs);
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,
@@ -430,8 +432,13 @@ contract KeeperRegistryLogicA2_1 is
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins) = abi
-      .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[]));
+    (
+      uint256[] memory ids,
+      Upkeep[] memory upkeeps,
+      bytes[] memory checkDatas,
+      address[] memory upkeepAdmins,
+      bytes[] memory offchainConfigs
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == address(0)) {
         upkeeps[idx].forwarder = i_forwarderFactory.deploy(upkeeps[idx].target);
@@ -468,7 +475,7 @@ contract KeeperRegistryLogicA2_1 is
     uint96 balance,
     bytes memory checkData,
     bool paused,
-    bytes memory offchainConfig,
+    bytes memory offchainConfig, // TODO
     AutomationForwarder forwarder
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
