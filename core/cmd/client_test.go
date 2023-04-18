@@ -319,7 +319,8 @@ func TestNewUserCache(t *testing.T) {
 	// invent a unique subdir that we can cleanup
 	// because test.TempDir and ioutil.TempDir don't work well here
 	subDir := filepath.Base(fmt.Sprintf("%s-%d", t.Name(), r.Int64()))
-	c, err := cmd.NewUserCache(subDir)
+	lggr := logger.TestLogger(t)
+	c, err := cmd.NewUserCache(subDir, func() logger.Logger { return lggr })
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.Remove(c.RootDir()))

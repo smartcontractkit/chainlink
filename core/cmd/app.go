@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -88,7 +89,7 @@ func NewApp(client *Client) *cli.App {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieJar, err := NewUserCache("cookies")
+		cookieJar, err := NewUserCache("cookies", func() logger.Logger { return client.Logger })
 		if err != nil {
 			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
