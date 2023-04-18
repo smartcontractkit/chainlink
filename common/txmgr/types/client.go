@@ -5,7 +5,7 @@ import (
 	"math/big"
 )
 
-type Client[CHAINID any, ADDR comparable, BLOCK any, HEADER any, TX any, HASH comparable, TXRECEIPT any, EVENT any, EVENTOPS any] interface {
+type Client[CHAINID any, ADDR comparable, BLOCK any, TX any, HASH comparable, TXRECEIPT any, EVENT any, EVENTOPS any] interface {
 	ChainID() (CHAINID, error)
 
 	// account
@@ -26,8 +26,6 @@ type Client[CHAINID any, ADDR comparable, BLOCK any, HEADER any, TX any, HASH co
 	BlockByNumber(ctx context.Context, number *big.Int) (*BLOCK, error)
 	BlockByHash(ctx context.Context, hash HASH) (*BLOCK, error)
 	LatestBlockHeight(context.Context) (*big.Int, error)
-	HeaderByNumber(context.Context, *big.Int) (*HEADER, error)
-	HeaderByHash(context.Context, HASH) (*HEADER, error)
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }

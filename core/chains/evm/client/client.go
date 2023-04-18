@@ -27,7 +27,7 @@ const queryTimeout = 10 * time.Second
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	txmgrtypes.Client[*big.Int, common.Address, types.Block, types.Header, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
+	txmgrtypes.Client[*big.Int, common.Address, types.Block, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
 
 	Dial(ctx context.Context) error
 	Close()
@@ -53,15 +53,21 @@ type Client interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
-	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
-	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+
+	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
+	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
+	
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
 
 // This interface only exists so that we can generate a mock for it.  It is
