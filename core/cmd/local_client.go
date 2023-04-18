@@ -153,67 +153,97 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
-			Subcommands: []cli.Command{
-				{
-					Name:   "reset",
-					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
-					Hidden: !devMode,
-					Action: client.ResetDatabase,
-					Flags: []cli.Flag{
-						cli.BoolFlag{
-							Name:  "dangerWillRobinson",
-							Usage: "set to true to enable dropping non-test databases",
-						},
-					},
+			Subcommands: initDbCmds(client, devMode),
+		},
+	}
+}
+
+func initDbCmds(client *Client, devMode bool) []cli.Command {
+	cmds := initPublicDBCmds(client)
+	return append(cmds, initHiddenDBCmds(client, devMode)...)
+}
+
+// initHiddenDBCmds initializes development-mode subcommands
+// hidden db commands skips configuration validation
+// this enables development without a full set of valid secrets, since config validation includes secret validation.
+func initHiddenDBCmds(client *Client, devMode bool) []cli.Command {
+	return []cli.Command{{
+		Name:   "reset",
+		Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+		Hidden: !devMode,
+		Action: client.ResetDatabase,
+		Flags: []cli.Flag{
+			cli.BoolFlag{
+				Name:  "dangerWillRobinson",
+				Usage: "set to true to enable dropping non-test databases",
+			},
+		},
+	},
+		{
+			Name:   "preparetest",
+			Usage:  "Reset database and load fixtures.",
+			Hidden: !devMode,
+			Action: client.PrepareTestDatabase,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "user-only",
+					Usage: "only include test user fixture",
 				},
-				{
-					Name:   "preparetest",
-					Usage:  "Reset database and load fixtures.",
-					Hidden: !devMode,
-					Action: client.PrepareTestDatabase,
-					Flags: []cli.Flag{
-						cli.BoolFlag{
-							Name:  "user-only",
-							Usage: "only include test user fixture",
-						},
-					},
+			},
+		},
+		{
+			Name:   "create-migration",
+			Usage:  "Create a new migration.",
+			Hidden: !devMode,
+			Action: client.CreateMigration,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "type",
+					Usage: "set to `go` to generate a .go migration (instead of .sql)",
 				},
-				{
-					Name:   "version",
-					Usage:  "Display the current database version.",
-					Action: client.VersionDatabase,
-					Flags:  []cli.Flag{},
-				},
-				{
-					Name:   "status",
-					Usage:  "Display the current database migration status.",
-					Action: client.StatusDatabase,
-					Flags:  []cli.Flag{},
-				},
-				{
-					Name:   "migrate",
-					Usage:  "Migrate the database to the latest version.",
-					Action: client.MigrateDatabase,
-					Flags:  []cli.Flag{},
-				},
-				{
-					Name:   "rollback",
-					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
-					Action: client.RollbackDatabase,
-					Flags:  []cli.Flag{},
-				},
-				{
-					Name:   "create-migration",
-					Usage:  "Create a new migration.",
-					Hidden: !devMode,
-					Action: client.CreateMigration,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "type",
-							Usage: "set to `go` to generate a .go migration (instead of .sql)",
-						},
-					},
-				},
+			},
+		},
+	}
+}
+
+// initPublicDBCmds initializes public facing commands.
+// public db commands have config validation applied to them
+func initPublicDBCmds(client *Client) []cli.Command {
+	return []cli.Command{
+		{
+			Name:   "version",
+			Usage:  "Display the current database version.",
+			Action: client.VersionDatabase,
+			Flags:  []cli.Flag{},
+			Before: func(ctx *clipkg.Context) error {
+				return client.Config.Validate()
+			},
+		},
+		{
+			Name:   "status",
+			Usage:  "Display the current database migration status.",
+			Action: client.StatusDatabase,
+			Flags:  []cli.Flag{},
+			Before: func(ctx *clipkg.Context) error {
+				return client.Config.Validate()
+			},
+		},
+		{
+			Name:   "migrate",
+			Usage:  "Migrate the database to the latest version.",
+			Action: client.MigrateDatabase,
+			Flags:  []cli.Flag{},
+			Before: func(ctx *clipkg.Context) error {
+				return client.Config.Validate()
+			},
+		},
+		{
+			Name:   "rollback",
+			Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
+			Action: client.RollbackDatabase,
+			Flags:  []cli.Flag{},
+			Before: func(ctx *clipkg.Context) error {
+				return client.Config.Validate()
 			},
 		},
 	}
