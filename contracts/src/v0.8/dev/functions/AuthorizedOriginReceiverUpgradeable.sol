@@ -92,7 +92,7 @@ abstract contract AuthorizedOriginReceiverUpgradeable is Initializable {
       revert EmptySendersList();
     }
     for (uint256 i = 0; i < senders.length; i++) {
-      s_authorizedSenders.remove(senders[i]);   
+      s_authorizedSenders.remove(senders[i]);
     }
     emit AuthorizedSendersChanged(senders, msg.sender);
   }

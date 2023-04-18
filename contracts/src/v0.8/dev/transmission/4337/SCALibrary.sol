@@ -21,7 +21,16 @@ library SCALibrary {
 
   function getUserOpFullHash(bytes32 userOpHash, address scaAddress) internal view returns (bytes32 fullHash) {
     bytes32 hashOfEncoding = keccak256(abi.encode(SCALibrary.TYPEHASH, userOpHash));
-    fullHash = keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), SCALibrary.DOMAIN_SEPARATOR, block.chainid, scaAddress, hashOfEncoding));
+    fullHash = keccak256(
+      abi.encodePacked(
+        bytes1(0x19),
+        bytes1(0x01),
+        SCALibrary.DOMAIN_SEPARATOR,
+        block.chainid,
+        scaAddress,
+        hashOfEncoding
+      )
+    );
   }
 
   function recoverSignature(bytes memory signature, bytes32 fullHash) internal pure returns (address) {
