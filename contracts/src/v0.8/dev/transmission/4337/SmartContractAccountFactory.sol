@@ -10,10 +10,11 @@ contract SmartContractAccountFactory {
   /// @dev See EIP-1014 for more on CREATE2.
   /// TODO: Return the address of the Smart Contract Account even if it is already
   /// deployed.
-  function deploySmartContractAccount(
-    bytes32 abiEncodedOwnerAddress,
-    bytes memory initCode
-  ) external payable returns (address scaAddress) {
+  function deploySmartContractAccount(bytes32 abiEncodedOwnerAddress, bytes memory initCode)
+    external
+    payable
+    returns (address scaAddress)
+  {
     assembly {
       scaAddress := create2(
         0, // value - left at zero here
