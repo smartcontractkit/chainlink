@@ -55,6 +55,7 @@ type Client interface {
 	// Wrapped Geth client methods
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
@@ -276,6 +277,10 @@ func ToBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func (client *client) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	return client.FilterLogs(ctx, q)
 }
 
 func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {

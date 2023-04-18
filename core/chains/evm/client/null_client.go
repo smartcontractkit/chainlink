@@ -170,6 +170,11 @@ func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return big.NewInt(0), nil
 }
 
+func (nc *NullClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	nc.lggr.Debug("FilterEvents")
+	return nil, nil
+}
+
 func (nc *NullClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
 	nc.lggr.Debug("FilterLogs")
 	return nil, nil

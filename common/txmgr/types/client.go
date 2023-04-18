@@ -20,7 +20,7 @@ type Client[CHAINID any, ADDR comparable, BLOCK any, HEADER any, TX any, HASH co
 	TransactionReceipt(ctx context.Context, txHash HASH) (*TXRECEIPT, error)
 
 	// events
-	FilterLogs(ctx context.Context, query EVENTOPS) ([]EVENT, error)
+	FilterEvents(ctx context.Context, query EVENTOPS) ([]EVENT, error)
 
 	// block
 	BlockByNumber(ctx context.Context, number *big.Int) (*BLOCK, error)
@@ -29,6 +29,5 @@ type Client[CHAINID any, ADDR comparable, BLOCK any, HEADER any, TX any, HASH co
 	HeaderByNumber(context.Context, *big.Int) (*HEADER, error)
 	HeaderByHash(context.Context, HASH) (*HEADER, error)
 
-	// contract
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
