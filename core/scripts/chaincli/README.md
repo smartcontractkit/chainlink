@@ -41,6 +41,7 @@ Before start, there should be `.env` file with all required environment variable
 ```.dotenv
 CHAINLINK_DOCKER_IMAGE=chainlink:local
 NODE_URL=<wss-rpc-node-addr>
+NODE_HTTP_URL=<http-rpc-node-addr>
 CHAIN_ID=5
 PRIVATE_KEY=<wallet-private-key>
 LINK_TOKEN_ADDR=0x326C977E6efc84E512bB9C30f76E30c160eD06FB
