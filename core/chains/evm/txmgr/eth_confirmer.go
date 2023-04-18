@@ -449,7 +449,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 }
 
 func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
-	return ec.ethClient.NonceAt(ctx, from, nil)
+	return ec.ethClient.SequenceAt(ctx, from, nil)
 }
 
 // Note this function will increment promRevertedTxCount upon receiving

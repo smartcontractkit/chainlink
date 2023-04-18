@@ -11,7 +11,7 @@ type Client[CHAINID any, ADDR comparable, BLOCK any, HEADER any, TX any, HASH co
 	// account
 	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
 	TokenBalance(ctx context.Context, accountAddress ADDR, tokenAddress ADDR) (*big.Int, error)
-	NonceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (uint64, error)
+	SequenceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (uint64, error)
 
 	// tx
 	SendTransaction(ctx context.Context, tx *TX) error

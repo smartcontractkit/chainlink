@@ -199,7 +199,7 @@ func (client *client) PendingNonceAt(ctx context.Context, account common.Address
 	return client.pool.PendingNonceAt(ctx, account)
 }
 
-func (client *client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+func (client *client) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	return client.pool.NonceAt(ctx, account, blockNumber)
 }
 
