@@ -464,7 +464,7 @@ func unmarshalFromString(s string, f *FunctionSelector) error {
 		}
 		bytes := common.FromHex(s)
 		if len(bytes) != FunctionSelectorLength {
-			return errors.New("function ID must be 4 bytes in length")
+			return errors.New("function Id must be 4 bytes in length")
 		}
 		f.SetBytes(bytes)
 	} else {

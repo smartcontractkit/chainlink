@@ -257,7 +257,7 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 		assert.Len(t, attempts, 0)
 	})
 
-	// Mix up the insert order to assure that they come out sorted by nonce not implicitly or by ID
+	// Mix up the insert order to assure that they come out sorted by nonce not implicitly or by Id
 	e1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, time.Unix(1616509200, 0))
 	e3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, 3, fromAddress, time.Unix(1616509400, 0))
 	e0 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, time.Unix(1616509100, 0))
@@ -987,7 +987,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 		assert.Equal(t, etx3.ID, etxs[2].ID)
 	})
 
-	t.Run("does not return eth_txes with different chain ID", func(t *testing.T) {
+	t.Run("does not return eth_txes with different chain Id", func(t *testing.T) {
 		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(evmtypes.NewAddress(fromAddress), big.NewInt(42))
 		require.NoError(t, err)
 
@@ -1443,7 +1443,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 	})
 
-	t.Run("with different chain ID ignores txes", func(t *testing.T) {
+	t.Run("with different chain Id ignores txes", func(t *testing.T) {
 		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, big.NewInt(42))
 		require.NoError(t, err)
 	})

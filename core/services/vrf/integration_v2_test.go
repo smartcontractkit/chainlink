@@ -493,7 +493,7 @@ func requestRandomnessForWrapper(
 
 	event := events[len(events)-1]
 	wrapperConsumerEvent := wrapperConsumerEvents[len(wrapperConsumerEvents)-1]
-	require.Equal(t, event.RequestId, wrapperConsumerEvent.RequestId, "request ID in consumer log does not match request ID in coordinator log")
+	require.Equal(t, event.RequestId, wrapperConsumerEvent.RequestId, "request Id in consumer log does not match request Id in coordinator log")
 	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
 	require.Equal(t, cbGasLimit+(cbGasLimit/63+1)+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
 	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations, "min request confirmations of event and of request not equal")
@@ -503,9 +503,9 @@ func requestRandomnessForWrapper(
 }
 
 // requestRandomness requests randomness from the given vrf consumer contract
-// and asserts that the request ID logged by the RandomWordsRequested event
-// matches the request ID that is returned and set by the consumer contract.
-// The request ID and request block number are then returned to the caller.
+// and asserts that the request Id logged by the RandomWordsRequested event
+// matches the request Id that is returned and set by the consumer contract.
+// The request Id and request block number are then returned to the caller.
 func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	t *testing.T,
 	vrfConsumerHandle vrfConsumerContract,
@@ -542,7 +542,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	require.NoError(t, err)
 
 	event := events[len(events)-1]
-	require.Equal(t, event.RequestId, requestID, "request ID in contract does not match request ID in log")
+	require.Equal(t, event.RequestId, requestID, "request Id in contract does not match request Id in log")
 	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
 	require.Equal(t, cbGasLimit, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
 	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations, "min request confirmations of event and of request not equal")
@@ -553,7 +553,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 
 // subscribeAndAssertSubscriptionCreatedEvent subscribes the given consumer contract
 // to VRF and funds the subscription with the given fundingJuels amount. It returns the
-// subscription ID of the resulting subscription.
+// subscription Id of the resulting subscription.
 func subscribeAndAssertSubscriptionCreatedEvent(
 	t *testing.T,
 	vrfConsumerHandle vrfConsumerContract,
@@ -1044,7 +1044,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash)
 
-	// Fetch Subscription ID for Wrapper.
+	// Fetch Subscription Id for Wrapper.
 	wrapperSubID, err := wrapper.SUBSCRIPTIONID(nil)
 	require.NoError(t, err)
 
@@ -1122,7 +1122,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash)
 
-	// Fetch Subscription ID for Wrapper.
+	// Fetch Subscription Id for Wrapper.
 	wrapperSubID, err := wrapper.SUBSCRIPTIONID(nil)
 	require.NoError(t, err)
 

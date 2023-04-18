@@ -20,7 +20,7 @@ type TxAttemptBuilder[
 	TX_HASH types.Hashable[TX_HASH], // TX_HASH - chain tx hash type
 	TX any, // TX - tx type (will be replaced in future)
 	TXATTEMPT any, // TXATTEMPT - tx attempt type (will be replaced  in future)
-	SEQ SEQUENCE,
+	SEQ Sequence,
 ] interface {
 	// interfaces for running the underlying estimator
 	services.ServiceCtx

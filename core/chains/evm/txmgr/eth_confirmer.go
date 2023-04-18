@@ -112,13 +112,13 @@ var (
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID txmgrtypes.Id,
 	HEAD txmgrtypes.Head,
 	ADDR types.Hashable[ADDR],
 	TX_HASH types.Hashable[TX_HASH],
 	BLOCK_HASH types.Hashable[BLOCK_HASH],
 	R any,
-	SEQ txmgrtypes.SEQUENCE,
+	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 ] struct {
 	utils.StartStopOnce
@@ -1196,7 +1196,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
-func observeUntilTxConfirmed[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](chainID CHAIN_ID, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
+func observeUntilTxConfirmed[CHAIN_ID txmgrtypes.Id, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](chainID CHAIN_ID, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
 			if attempt.Hash.String() != r.TxHash.String() {

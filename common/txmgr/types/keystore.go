@@ -12,9 +12,9 @@ type KeyStore[
 	// Account Address type.
 	ADDR types.Hashable[ADDR],
 	// Chain Id type
-	CHAIN_ID ID,
+	CHAIN_ID Id,
 	// Chain's sequence type. For example, EVM chains use nonce, bitcoin uses UTXO.
-	SEQ SEQUENCE,
+	SEQ Sequence,
 ] interface {
 	CheckEnabled(address ADDR, chainID CHAIN_ID) error
 	NextSequence(address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (SEQ, error)

@@ -65,7 +65,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
 
-	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
+	t.Run("doesn't touch ethtxes with different chain Id", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
 		config.On("TxReaperThreshold").Return(1 * time.Hour)
@@ -74,7 +74,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
-		// Didn't delete because eth_tx has chain ID of 0
+		// Didn't delete because eth_tx has chain Id of 0
 		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
 

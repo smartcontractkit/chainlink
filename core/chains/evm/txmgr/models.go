@@ -66,7 +66,7 @@ type EthTxMeta struct {
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink *string `json:"MaxLink,omitempty"`
-	// Used for the VRFv2 - the subscription ID of the
+	// Used for the VRFv2 - the subscription Id of the
 	// requester of the VRF.
 	SubID *uint64 `json:"SubId,omitempty"`
 
@@ -337,7 +337,7 @@ type EthTxAttempt[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[
 }
 
 func (a EthTxAttempt[ADDR, TX_HASH]) String() string {
-	return fmt.Sprintf("EthTxAttempt(ID:%d,EthTxID:%d,GasPrice:%v,GasTipCap:%v,GasFeeCap:%v,TxType:%d", a.ID, a.EthTxID, a.GasPrice, a.GasTipCap, a.GasFeeCap, a.TxType)
+	return fmt.Sprintf("EthTxAttempt(Id:%d,EthTxID:%d,GasPrice:%v,GasTipCap:%v,GasFeeCap:%v,TxType:%d", a.ID, a.EthTxID, a.GasPrice, a.GasTipCap, a.GasFeeCap, a.TxType)
 }
 
 // GetSignedTx decodes the SignedRawTx into a types.Transaction struct

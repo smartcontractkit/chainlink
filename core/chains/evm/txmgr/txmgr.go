@@ -38,7 +38,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID txmgrtypes.Id,
 	HEAD txmgrtypes.Head,
 	ADDR types.Hashable[ADDR],
 	TX_HASH types.Hashable[TX_HASH],
@@ -64,13 +64,13 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID txmgrtypes.Id,
 	HEAD txmgrtypes.Head,
 	ADDR types.Hashable[ADDR],
 	TX_HASH types.Hashable[TX_HASH],
 	BLOCK_HASH types.Hashable[BLOCK_HASH],
 	R any,
-	SEQ txmgrtypes.SEQUENCE,
+	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 ] struct {
 	utils.StartStopOnce
@@ -512,7 +512,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
 	err := b.keyStore.CheckEnabled(addr, b.chainID)
-	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
+	return errors.Wrapf(err, "cannot send transaction from %s on chain Id %s", addr, b.chainID.String())
 }
 
 // SendEther creates a transaction that transfers the given value of ether
@@ -556,7 +556,7 @@ func sendTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]]
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
-func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], SEQ txmgrtypes.SEQUENCE](
+func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], SEQ txmgrtypes.Sequence](
 	ctx context.Context,
 	ethClient evmclient.Client,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],
@@ -581,7 +581,7 @@ func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HA
 	return signedTx, err
 }
 
-type NullTxManager[CHAIN_ID txmgrtypes.ID, HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type NullTxManager[CHAIN_ID txmgrtypes.Id, HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
 	ErrMsg string
 }
 

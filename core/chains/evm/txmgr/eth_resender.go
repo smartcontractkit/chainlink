@@ -32,7 +32,7 @@ const unconfirmedTxAlertLogFrequency = 2 * time.Minute
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type EthResender[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH], SEQ txmgrtypes.SEQUENCE] struct {
+type EthResender[CHAIN_ID txmgrtypes.Id, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH], SEQ txmgrtypes.Sequence] struct {
 	txStore             txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
 	ethClient           evmclient.Client
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]

@@ -1,6 +1,9 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 var _ fmt.Stringer = &Nonce{}
 
@@ -10,5 +13,5 @@ type Nonce struct {
 }
 
 func (n Nonce) String() string {
-	return fmt.Sprint(n.N)
+	return strconv.FormatInt(n.N, 10)
 }

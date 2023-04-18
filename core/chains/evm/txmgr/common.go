@@ -24,12 +24,12 @@ const batchSendTransactionTimeout = 30 * time.Second
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
 func batchSendTransactions[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID txmgrtypes.Id,
 	ADDR types.Hashable[ADDR],
 	TX_HASH types.Hashable[TX_HASH],
 	BLOCK_HASH types.Hashable[BLOCK_HASH],
 	R any,
-	SEQ txmgrtypes.SEQUENCE,
+	SEQ txmgrtypes.Sequence,
 ](
 	ctx context.Context,
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR], R, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],

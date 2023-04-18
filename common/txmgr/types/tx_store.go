@@ -17,7 +17,7 @@ type TxStore[
 	// Represents an account address, in native chain format. TODO: Should implement Hashable
 	ADDR types.Hashable[ADDR],
 	// Represents a chain id to be used for the chain.
-	CHAIN_ID ID,
+	CHAIN_ID Id,
 	// Represents a unique Tx Hash for a chain
 	TX_HASH types.Hashable[TX_HASH],
 	// Represents a unique Tx Hash for a chain
@@ -32,7 +32,7 @@ type TxStore[
 	// TODO: Remove https://smartcontract-it.atlassian.net/browse/BCI-865
 	TXATTEMPT any,
 	// Represents the sequence type for a chain. For example, nonce for EVM.
-	SEQ SEQUENCE,
+	SEQ Sequence,
 ] interface {
 	UnstartedTxQueuePruner
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID, qopts ...pg.QOpt) (err error)
