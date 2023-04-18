@@ -1054,7 +1054,7 @@ func getCallbackCacheKey(requestID int64) common.Hash {
 // logAndEmitFunctionDuration logs the time in milliseconds and emits metrics in nanosecond for function duration
 func (c *coordinator) logAndEmitFunctionDuration(funcName string, startTime time.Time) {
 	elapsed := time.Now().UTC().Sub(startTime)
-	chainId, _ := c.evmClient.ChainID()
+	chainId := c.evmClient.ConfiguredChainID()
 	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, elapsed.Milliseconds())
 	promMethodDuration.WithLabelValues(chainId.String(), funcName).Observe(float64(elapsed.Nanoseconds()))
 }
@@ -1093,7 +1093,7 @@ func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []a
 func (c *coordinator) emitReportBlocksMetrics(
 	numBlocks int,
 	numCallbacks int) {
-		chainId, _ := c.evmClient.ChainID()
+		chainId := c.evmClient.ConfiguredChainID()
 	promBlocksToReport.WithLabelValues(chainId.String()).Observe(float64(numBlocks))
 	promCallbacksToReport.WithLabelValues(chainId.String()).Observe(float64(numCallbacks))
 }
@@ -1101,7 +1101,7 @@ func (c *coordinator) emitReportBlocksMetrics(
 func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	numBlocks int,
 	numCallbacks int) {
-		chainId, _ := c.evmClient.ChainID()
+		chainId := c.evmClient.ConfiguredChainID()
 	promBlocksInReport.WithLabelValues(chainId.String()).Observe(float64(numBlocks))
 	promCallbacksInReport.WithLabelValues(chainId.String()).Observe(float64(numCallbacks))
 }

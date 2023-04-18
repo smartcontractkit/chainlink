@@ -120,6 +120,30 @@ func (_m *Node) BlockByNumber(ctx context.Context, number *big.Int) (*types.Bloc
 	return r0, r1
 }
 
+// BlockNumber provides a mock function with given fields: ctx
+func (_m *Node) BlockNumber(ctx context.Context) (uint64, error) {
+	ret := _m.Called(ctx)
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (uint64, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) uint64); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CallContext provides a mock function with given fields: ctx, result, method, args
 func (_m *Node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	var _ca []interface{}
@@ -598,6 +622,32 @@ func (_m *Node) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TransactionByHash provides a mock function with given fields: ctx, txHash
+func (_m *Node) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	ret := _m.Called(ctx, txHash)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.Transaction, error)); ok {
+		return rf(ctx, txHash)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Transaction); ok {
+		r0 = rf(ctx, txHash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, txHash)
 	} else {
 		r1 = ret.Error(1)
 	}

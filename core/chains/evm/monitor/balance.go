@@ -50,7 +50,7 @@ type (
 
 // NewBalanceMonitor returns a new balanceMonitor
 func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
-	chainId, _ := ethClient.ChainID()
+	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,

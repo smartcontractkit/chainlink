@@ -67,7 +67,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hb := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
+	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
 	mailMon := utils.NewMailboxMonitor(t.Name())
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs, mailMon)

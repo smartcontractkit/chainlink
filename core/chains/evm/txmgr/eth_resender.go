@@ -48,12 +48,11 @@ func NewEthResender(lggr logger.Logger, orm ORM, ethClient evmclient.Client, ks 
 	}
 	// todo: add context to orm
 	ctx, cancel := context.WithCancel(context.Background())
-	chainId, _ := ethClient.ChainID()
 	return &EthResender{
 		orm,
 		ethClient,
 		ks,
-		*chainId,
+		*ethClient.ConfiguredChainID(),
 		pollInterval,
 		config,
 		lggr.Named("EthResender"),

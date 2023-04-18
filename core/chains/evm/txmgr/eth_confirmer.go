@@ -137,7 +137,6 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
-	chainId, _ := ethClient.ChainID()
 
 	return &EthConfirmer{
 		utils.StartStopOnce{},
@@ -145,7 +144,7 @@ func NewEthConfirmer(orm ORM, ethClient evmclient.Client, config Config, keystor
 		lggr,
 		ethClient,
 		ChainKeyStore{
-			*chainId,
+			*ethClient.ConfiguredChainID(),
 			config,
 			keystore,
 		},

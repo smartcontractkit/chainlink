@@ -693,7 +693,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	start := time.Now()
 	var processed = make(map[string]struct{})
-	chainId, _ := lsn.ethClient.ChainID()
+	chainId := lsn.ethClient.ConfiguredChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
 		lsn.q, startBalance, chainId.Uint64(), subID)
 	if err != nil {

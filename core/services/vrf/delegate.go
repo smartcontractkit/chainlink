@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainId, _ := chain.Client().ChainID()
+	chainId := chain.Client().ConfiguredChainID()
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err

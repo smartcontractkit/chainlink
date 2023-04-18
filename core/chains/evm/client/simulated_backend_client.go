@@ -110,6 +110,10 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 	}
 }
 
+func (c *SimulatedBackendClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
+	return c.b.FilterLogs(ctx, q)
+}
+
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
 	return c.b.FilterLogs(ctx, q)
@@ -163,9 +167,7 @@ func init() {
 	}
 }
 
-// GetERC20Balance returns the balance of the given address for the token
-// contract address.
-func (c *SimulatedBackendClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
+func (c *SimulatedBackendClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while seeking the ERC20 balance of %s on %s",
@@ -186,13 +188,17 @@ func (c *SimulatedBackendClient) GetERC20Balance(ctx context.Context, address co
 }
 
 // GetLINKBalance get link balance.
-func (c *SimulatedBackendClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	panic("not implemented")
 }
 
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)
+}
+
+func (c *SimulatedBackendClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	panic("not implemented")
 }
 
 func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *big.Int, err error) {
@@ -270,8 +276,12 @@ func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Ha
 	return c.b.BlockByHash(ctx, hash)
 }
 
+func (c *SimulatedBackendClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	panic("not implemented")
+}
+
 // ChainID returns the ethereum ChainID.
-func (c *SimulatedBackendClient) ChainID() *big.Int {
+func (c *SimulatedBackendClient) ConfiguredChainID() *big.Int {
 	return c.chainId
 }
 
@@ -281,7 +291,7 @@ func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account com
 }
 
 // NonceAt gets nonce as of a specified block.
-func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+func (c *SimulatedBackendClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	return c.b.NonceAt(ctx, account, blockNumber)
 }
 
@@ -378,6 +388,10 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 
 	err = c.b.SendTransaction(ctx, tx)
 	return err
+}
+
+func (c *SimulatedBackendClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+	panic("not implemented")
 }
 
 type revertError struct {

@@ -159,7 +159,7 @@ func NewFromJobSpec(
 	lggr logger.Logger,
 ) (*FluxMonitor, error) {
 	fmSpec := jobSpec.FluxMonitorSpec
-	chainId, _ := ethClient.ChainID()
+	chainId := ethClient.ConfiguredChainID()
 
 	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(cfg), fmSpec.PollTimerPeriod) {
 		return nil, fmt.Errorf(

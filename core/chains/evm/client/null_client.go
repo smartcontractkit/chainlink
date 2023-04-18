@@ -46,8 +46,8 @@ func (nc *NullClient) TokenBalance(ctx context.Context, address common.Address, 
 	return big.NewInt(0), nil
 }
 
-func (nc *NullClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	nc.lggr.Debug("GetLINKBalance")
+func (nc *NullClient) LINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	nc.lggr.Debug("LINKBalance")
 	return assets.NewLinkFromJuels(0), nil
 }
 
@@ -97,12 +97,12 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 // GethClient methods
 //
 
-func (nc *NullClient) ChainID() (*big.Int, error) {
-	nc.lggr.Debug("ChainID")
+func (nc *NullClient) ConfiguredChainID() *big.Int {
+	nc.lggr.Debug("ConfiguredChainID")
 	if nc.cid != nil {
-		return nc.cid, nil
+		return nc.cid
 	}
-	return big.NewInt(NullClientChainID), nil
+	return big.NewInt(NullClientChainID)
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {

@@ -406,7 +406,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
-	chainId, _ := ethClient.ChainID()
+	chainId := ethClient.ConfiguredChainID()
 	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,

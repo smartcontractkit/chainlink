@@ -5,8 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	assets "github.com/smartcontractkit/chainlink/core/assets"
-
 	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
@@ -27,17 +25,17 @@ type Client struct {
 	mock.Mock
 }
 
-// BalanceAt provides a mock function with given fields: ctx, account, blockNumber
-func (_m *Client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	ret := _m.Called(ctx, account, blockNumber)
+// BalanceAt provides a mock function with given fields: ctx, accountAddress, blockNumber
+func (_m *Client) BalanceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (*big.Int, error) {
+	ret := _m.Called(ctx, accountAddress, blockNumber)
 
 	var r0 *big.Int
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (*big.Int, error)); ok {
-		return rf(ctx, account, blockNumber)
+		return rf(ctx, accountAddress, blockNumber)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) *big.Int); ok {
-		r0 = rf(ctx, account, blockNumber)
+		r0 = rf(ctx, accountAddress, blockNumber)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
@@ -45,7 +43,7 @@ func (_m *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
-		r1 = rf(ctx, account, blockNumber)
+		r1 = rf(ctx, accountAddress, blockNumber)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -176,22 +174,6 @@ func (_m *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockN
 	return r0, r1
 }
 
-// ChainID provides a mock function with given fields:
-func (_m *Client) ChainID() *big.Int {
-	ret := _m.Called()
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	return r0
-}
-
 // Close provides a mock function with given fields:
 func (_m *Client) Close() {
 	_m.Called()
@@ -221,6 +203,22 @@ func (_m *Client) CodeAt(ctx context.Context, account common.Address, blockNumbe
 	}
 
 	return r0, r1
+}
+
+// ConfiguredChainID provides a mock function with given fields:
+func (_m *Client) ConfiguredChainID() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
 }
 
 // Dial provides a mock function with given fields: ctx
@@ -261,6 +259,32 @@ func (_m *Client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint6
 	return r0, r1
 }
 
+// FilterEvents provides a mock function with given fields: ctx, query
+func (_m *Client) FilterEvents(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	ret := _m.Called(ctx, query)
+
+	var r0 []types.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.FilterQuery) ([]types.Log, error)); ok {
+		return rf(ctx, query)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.FilterQuery) []types.Log); ok {
+		r0 = rf(ctx, query)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ethereum.FilterQuery) error); ok {
+		r1 = rf(ctx, query)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterLogs provides a mock function with given fields: ctx, q
 func (_m *Client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
 	ret := _m.Called(ctx, q)
@@ -280,84 +304,6 @@ func (_m *Client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]typ
 
 	if rf, ok := ret.Get(1).(func(context.Context, ethereum.FilterQuery) error); ok {
 		r1 = rf(ctx, q)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetERC20Balance provides a mock function with given fields: ctx, address, contractAddress
-func (_m *Client) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
-	ret := _m.Called(ctx, address, contractAddress)
-
-	var r0 *big.Int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) (*big.Int, error)); ok {
-		return rf(ctx, address, contractAddress)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) *big.Int); ok {
-		r0 = rf(ctx, address, contractAddress)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address) error); ok {
-		r1 = rf(ctx, address, contractAddress)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetEthBalance provides a mock function with given fields: ctx, account, blockNumber
-func (_m *Client) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
-	ret := _m.Called(ctx, account, blockNumber)
-
-	var r0 *assets.Eth
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (*assets.Eth, error)); ok {
-		return rf(ctx, account, blockNumber)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) *assets.Eth); ok {
-		r0 = rf(ctx, account, blockNumber)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Eth)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
-		r1 = rf(ctx, account, blockNumber)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetLINKBalance provides a mock function with given fields: ctx, linkAddress, address
-func (_m *Client) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	ret := _m.Called(ctx, linkAddress, address)
-
-	var r0 *assets.Link
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) (*assets.Link, error)); ok {
-		return rf(ctx, linkAddress, address)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) *assets.Link); ok {
-		r0 = rf(ctx, linkAddress, address)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Link)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address) error); ok {
-		r1 = rf(ctx, linkAddress, address)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -417,17 +363,17 @@ func (_m *Client) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head,
 	return r0, r1
 }
 
-// HeaderByHash provides a mock function with given fields: _a0, _a1
-func (_m *Client) HeaderByHash(_a0 context.Context, _a1 common.Hash) (*types.Header, error) {
-	ret := _m.Called(_a0, _a1)
+// HeaderByHash provides a mock function with given fields: ctx, h
+func (_m *Client) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
+	ret := _m.Called(ctx, h)
 
 	var r0 *types.Header
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.Header, error)); ok {
-		return rf(_a0, _a1)
+		return rf(ctx, h)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Header); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, h)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Header)
@@ -435,7 +381,7 @@ func (_m *Client) HeaderByHash(_a0 context.Context, _a1 common.Hash) (*types.Hea
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
-		r1 = rf(_a0, _a1)
+		r1 = rf(ctx, h)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -443,17 +389,17 @@ func (_m *Client) HeaderByHash(_a0 context.Context, _a1 common.Hash) (*types.Hea
 	return r0, r1
 }
 
-// HeaderByNumber provides a mock function with given fields: _a0, _a1
-func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Header, error) {
-	ret := _m.Called(_a0, _a1)
+// HeaderByNumber provides a mock function with given fields: ctx, n
+func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	ret := _m.Called(ctx, n)
 
 	var r0 *types.Header
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (*types.Header, error)); ok {
-		return rf(_a0, _a1)
+		return rf(ctx, n)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *types.Header); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, n)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Header)
@@ -461,7 +407,33 @@ func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Head
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
-		r1 = rf(_a0, _a1)
+		r1 = rf(ctx, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// LatestBlockHeight provides a mock function with given fields: _a0
+func (_m *Client) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*big.Int, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -483,30 +455,6 @@ func (_m *Client) NodeStates() map[string]string {
 	}
 
 	return r0
-}
-
-// NonceAt provides a mock function with given fields: ctx, account, blockNumber
-func (_m *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	ret := _m.Called(ctx, account, blockNumber)
-
-	var r0 uint64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint64, error)); ok {
-		return rf(ctx, account, blockNumber)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
-		r0 = rf(ctx, account, blockNumber)
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
-		r1 = rf(ctx, account, blockNumber)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // PendingCodeAt provides a mock function with given fields: ctx, account
@@ -561,6 +509,44 @@ func (_m *Client) PendingNonceAt(ctx context.Context, account common.Address) (u
 
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	ret := _m.Called(ctx, tx)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction) error); ok {
+		r0 = rf(ctx, tx)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SequenceAt provides a mock function with given fields: ctx, accountAddress, blockNumber
+func (_m *Client) SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (uint64, error) {
+	ret := _m.Called(ctx, accountAddress, blockNumber)
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint64, error)); ok {
+		return rf(ctx, accountAddress, blockNumber)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
+		r0 = rf(ctx, accountAddress, blockNumber)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, accountAddress, blockNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SimulateTransaction provides a mock function with given fields: ctx, tx
+func (_m *Client) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
 	ret := _m.Called(ctx, tx)
 
 	var r0 error
@@ -670,6 +656,58 @@ func (_m *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TokenBalance provides a mock function with given fields: ctx, accountAddress, tokenAddress
+func (_m *Client) TokenBalance(ctx context.Context, accountAddress common.Address, tokenAddress common.Address) (*big.Int, error) {
+	ret := _m.Called(ctx, accountAddress, tokenAddress)
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) (*big.Int, error)); ok {
+		return rf(ctx, accountAddress, tokenAddress)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) *big.Int); ok {
+		r0 = rf(ctx, accountAddress, tokenAddress)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address) error); ok {
+		r1 = rf(ctx, accountAddress, tokenAddress)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TransactionByHash provides a mock function with given fields: ctx, txHash
+func (_m *Client) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	ret := _m.Called(ctx, txHash)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.Transaction, error)); ok {
+		return rf(ctx, txHash)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Transaction); ok {
+		r0 = rf(ctx, txHash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, txHash)
 	} else {
 		r1 = ret.Error(1)
 	}

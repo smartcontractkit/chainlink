@@ -98,7 +98,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 		txm:       txm,
 		hb:        hb,
 		cc:        cc,
-		cid:       *ec.ChainID(),
+		cid:       *ec.ConfiguredChainID(),
 	}
 }
 

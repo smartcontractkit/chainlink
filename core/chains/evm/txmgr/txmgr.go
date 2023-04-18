@@ -133,7 +133,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	estimator txmgrtypes.FeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash],
 	fwdMgr txmgrtypes.ForwarderManager[common.Address],
 ) *Txm {
-	chainId, _ := ethClient.ChainID()
+	chainId := ethClient.ConfiguredChainID()
 	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,

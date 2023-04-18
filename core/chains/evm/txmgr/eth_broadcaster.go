@@ -125,13 +125,12 @@ func NewEthBroadcaster(orm ORM, ethClient evmclient.Client, config Config, keyst
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
-	chainId, _ := ethClient.ChainID()
 	return &EthBroadcaster{
 		logger:    logger,
 		orm:       orm,
 		ethClient: ethClient,
 		ChainKeyStore: ChainKeyStore{
-			chainID:  *chainId,
+			chainID:  *ethClient.ConfiguredChainID(),
 			config:   config,
 			keystore: keystore,
 		},

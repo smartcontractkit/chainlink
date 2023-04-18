@@ -110,7 +110,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			return nil
 
 		case blockHeader, open := <-hl.chHeaders:
-			chainId, _ := hl.ethClient.ChainID()
+			chainId := hl.ethClient.ConfiguredChainID()
 			if noHeadsAlarmT != nil {
 				// We've received a head, reset the no heads alarm
 				noHeadsAlarmT.Stop()
@@ -155,7 +155,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 func (hl *headListener) subscribe(ctx context.Context) bool {
 	subscribeRetryBackoff := utils.NewRedialBackoff()
 
-	chainId, _ := hl.ethClient.ChainID()
+	chainId := hl.ethClient.ConfiguredChainID()
 
 	for {
 		hl.unsubscribe()

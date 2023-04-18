@@ -79,7 +79,7 @@ func (f *FwdMgr) Name() string {
 func (f *FwdMgr) Start(ctx context.Context) error {
 	return f.StartOnce("EVMForwarderManager", func() error {
 		f.logger.Debug("Initializing EVM forwarder manager")
-		chainId, _ := f.evmClient.ChainID()
+		chainId := f.evmClient.ConfiguredChainID()
 
 		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
 		if err != nil {
@@ -114,7 +114,7 @@ func (f *FwdMgr) filterName(addr common.Address) string {
 
 func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	chainId, _ := f.evmClient.ChainID()
+	chainId := f.evmClient.ConfiguredChainID()
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
 	if err != nil {
 		return common.Address{}, err

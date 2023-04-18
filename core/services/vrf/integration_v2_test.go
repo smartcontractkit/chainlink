@@ -1881,7 +1881,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
-	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
