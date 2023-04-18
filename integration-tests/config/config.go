@@ -65,4 +65,11 @@ Enabled = true
 [P2P.V2]
 Enabled = true
 ListenAddresses = ['0.0.0.0:6690']`
+
+	TelemetryIngressConfig = `[TelemetryIngress]
+UniConn = false 
+Logging = true 
+ServerPubKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+URL = 'oti:1337' 
+`
 )

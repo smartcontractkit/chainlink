@@ -13,10 +13,11 @@ type ChainConfigs[I ID] interface {
 }
 
 type NodeConfigs[I ID, N Node] interface {
-	GetNodesByChainIDs(chainIDs []I) (nodes []N, err error)
-	NodeNamed(string) (N, error)
-	Nodes(offset, limit int) (nodes []N, count int, err error)
-	NodesForChain(chainID I, offset, limit int) (nodes []N, count int, err error)
+	Node(name string) (N, error)
+	Nodes(chainID I) (nodes []N, err error)
+
+	NodeStatus(name string) (NodeStatus, error)
+	NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []NodeStatus, count int, err error)
 }
 
 // Configs holds chain and node configurations.
@@ -29,6 +30,13 @@ type ChainConfig struct {
 	ID      string
 	Enabled bool
 	Cfg     string // TOML
+}
+
+type NodeStatus struct {
+	ChainID string
+	Name    string
+	Config  string // TOML
+	State   string
 }
 
 func EnsureChains[I ID](q pg.Q, prefix string, ids []I) (err error) {

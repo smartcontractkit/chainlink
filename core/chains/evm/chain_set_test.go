@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestAddClose(t *testing.T) {
+func TestChainSet(t *testing.T) {
 	t.Parallel()
 
 	newId := testutils.NewRandomEVMChainID()

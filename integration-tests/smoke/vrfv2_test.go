@@ -37,11 +37,13 @@ func TestVRFv2Basic(t *testing.T) {
 	linkFundingAmount := big.NewInt(100)
 	numberOfWords := uint32(3)
 	maxGasPriceGWei := 1000
-	gasLimit := uint32(1000000)
+	callbackGasLimit := uint32(1000000)
 
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	testEnvironment, testNetwork := setupVRFv2Test(t)
+
+	testNetwork := networks.SelectedNetwork
+	testEnvironment := setupVRFV2Environment(t, testNetwork, config.BaseVRFV2NetworkDetailTomlConfig, "")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -113,9 +115,9 @@ func TestVRFv2Basic(t *testing.T) {
 	)
 
 	var (
-		job                *client.Job
-		encodedProvingKeys = make([][2]*big.Int, 0)
-		ethKeyAddress      string
+		job                   *client.Job
+		encodedProvingKeys    = make([][2]*big.Int, 0)
+		nativeTokenKeyAddress string
 	)
 	for _, chainlinkNode := range chainlinkNodes {
 		vrfKey, err := chainlinkNode.MustCreateVRFKey()
@@ -128,12 +130,12 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 		ost, err := os.String()
 		require.NoError(t, err)
-		ethKeyAddress, err = chainlinkNode.PrimaryEthAddress()
+		nativeTokenKeyAddress, err = chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err)
 		job, err = chainlinkNode.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
-			FromAddresses:            []string{ethKeyAddress},
+			FromAddresses:            []string{nativeTokenKeyAddress},
 			EVMChainID:               fmt.Sprint(chainClient.GetNetworkConfig().ChainID),
 			MinIncomingConfirmations: minimumConfirmations,
 			PublicKey:                pubKeyCompressed,
@@ -145,7 +147,7 @@ func TestVRFv2Basic(t *testing.T) {
 		provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
 		require.NoError(t, err)
 		err = coordinator.RegisterProvingKey(
-			ethKeyAddress,
+			nativeTokenKeyAddress,
 			provingKey,
 		)
 		require.NoError(t, err)
@@ -162,58 +164,23 @@ Key = '%s'
 [EVM.KeySpecific.GasEstimator]
 PriceMax = '%d gwei'
 `
-
 	//todo - make evmKeySpecificConfigTemplate for multiple eth keys
-	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, ethKeyAddress, maxGasPriceGWei)
+	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, nativeTokenKeyAddress, maxGasPriceGWei)
 	tomlConfigWithUpdates := fmt.Sprintf("%s\n%s", config.BaseVRFV2NetworkDetailTomlConfig, evmKeySpecificConfig)
 
-	//UPDATE NODE CONFIG AND REDEPLOY THE NODE
-	//err = testEnvironment.ModifyHelm(testEnvironment.Charts[0].GetName(), chainlink.New(0, map[string]interface{}{
-	//	//set new toml config
-	//	"toml": client.AddNetworkDetailedConfig("", tomlConfigWithUpdates, testNetwork),
-	//})).Run()
-	//
+	newTestEnvironment := setupVRFV2Environment(t, testNetwork, tomlConfigWithUpdates, testEnvironment.Cfg.Namespace)
 
-	testNetwork = networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-
-	testEnvironment = environment.New(&environment.Config{
-		Namespace: testEnvironment.Cfg.Namespace,
-		Test:      t,
-		//KeepConnection:    true,
-		//RemoveOnInterrupt: true,
-		TTL: time.Minute * 40,
-	}).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]any{
-			"toml": client.AddNetworkDetailedConfig("", tomlConfigWithUpdates, testNetwork),
-			//need to restart the node with updated eth key config
-			"db": map[string]interface{}{
-				"stateful": true,
-			},
-		}))
-
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-
-	err = testEnvironment.RolloutStatefulSets()
+	err = newTestEnvironment.RolloutStatefulSets()
 	require.NoError(t, err, "Error performing rollout restart for test environment")
 
-	err = testEnvironment.Run()
+	err = newTestEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 
 	//need to get node's urls again since port changed after redeployment
-	chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
+	chainlinkNodes, err = client.ConnectChainlinkNodes(newTestEnvironment)
 	require.NoError(t, err)
 
-	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), gasLimit, numberOfWords)
+	err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), callbackGasLimit, numberOfWords)
 	require.NoError(t, err)
 
 	gom := gomega.NewGomegaWithT(t)
@@ -240,8 +207,37 @@ PriceMax = '%d gwei'
 	}, timeout, "1s").Should(gomega.Succeed())
 }
 
-func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, networkDetailTomlConfig string, existingNamespace string) (testEnvironment *environment.Environment) {
+	gethChartConfig := getGethChartConfig(testNetwork)
+
+	if existingNamespace != "" {
+		testEnvironment = environment.New(&environment.Config{
+			Namespace: existingNamespace,
+			Test:      t,
+		})
+	} else {
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+			Test:            t,
+		})
+	}
+
+	testEnvironment = testEnvironment.
+		AddHelm(gethChartConfig).
+		AddHelm(chainlink.New(0, map[string]any{
+			"toml": client.AddNetworkDetailedConfig("", networkDetailTomlConfig, testNetwork),
+			//need to restart the node with updated eth key config
+			"db": map[string]interface{}{
+				"stateful": "true",
+			},
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment
+}
+
+func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.ConnectedChart {
+
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -250,20 +246,5 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 			WsURLs:      testNetwork.URLs,
 		})
 	}
-
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]any{
-			"toml": client.AddNetworkDetailedConfig("", config.BaseVRFV2NetworkDetailTomlConfig, testNetwork),
-			//need to restart the node with updated eth key config
-			"db": map[string]interface{}{
-				"stateful": "true",
-			},
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
+	return evmConfig
 }

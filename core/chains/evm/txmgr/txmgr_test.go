@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/sqlx"
+
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -35,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) txmgr.TxManager {
@@ -555,6 +556,7 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(0), nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
+	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
@@ -563,9 +565,10 @@ func TestTxm_Reset(t *testing.T) {
 
 	txm := makeTestEvmTxm(t, db, ethClient, cfg, kst.Eth(), eventBroadcaster)
 
-	// 1 unconfirmed on each addr
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4, addr)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, addr2)
+	for i := 0; i < 1000; i++ {
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4+int64(i), addr)
+	}
 
 	t.Run("returns error if not started", func(t *testing.T) {
 		f := new(fnMock)
@@ -608,5 +611,4 @@ func TestTxm_Reset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
-
 }

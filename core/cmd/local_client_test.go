@@ -58,9 +58,9 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			// initialUser user created above
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			app := new(mocks.Application)
-			app.On("SessionORM").Return(sessionORM)
-			app.On("GetKeyStore").Return(keyStore)
+			app := mocks.NewApplication(t)
+			app.On("SessionORM").Return(sessionORM).Maybe()
+			app.On("GetKeyStore").Return(keyStore).Maybe()
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
@@ -147,7 +147,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
-			app := new(mocks.Application)
+			app := mocks.NewApplication(t)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
@@ -155,8 +155,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
-			prompter := new(cmdMocks.Prompter)
-			prompter.On("IsTerminal").Return(false).Once().Maybe()
+			prompter := cmdMocks.NewPrompter(t)
 
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			lggr := logger.TestLogger(t)
@@ -300,7 +299,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			// Use the a non-transactional db for this test because we need to
+			// Use the non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
 			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -343,6 +342,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
 			require.NoError(t, set.Set("gasLimit", strconv.FormatUint(gasLimit, 10)))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
+
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
 
@@ -356,6 +356,69 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			assert.NoError(t, client.RebroadcastTransactions(c))
 
 			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
+		})
+	}
+}
+
+func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
+	tests := []struct {
+		name          string
+		enableAddress bool
+		shouldError   bool
+		errorContains string
+	}{
+		{"Rebroadcast: enabled address", true, false, ""},
+		{"Rebroadcast: disabled address", false, true, "exists but is disabled for chain"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Database.Dialect = dialects.Postgres
+				c.EVM = nil
+			})
+
+			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
+
+			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+
+			if !test.enableAddress {
+				keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+			}
+
+			app := mocks.NewApplication(t)
+			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
+			app.On("GetKeyStore").Return(keyStore)
+			app.On("ID").Maybe().Return(uuid.NewV4())
+			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+
+			ethClient.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+
+			lggr := logger.TestLogger(t)
+
+			client := cmd.Client{
+				Config:                 config,
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
+				Runner:                 cltest.EmptyRunner{},
+				Logger:                 lggr,
+			}
+
+			set := flag.NewFlagSet("test", 0)
+			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
+
+			require.NoError(t, set.Set("address", fromAddress.Hex()))
+			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
+			c := cli.NewContext(nil, set, nil)
+			if test.shouldError {
+				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
+			} else {
+				require.NoError(t, client.RebroadcastTransactions(c))
+			}
+
 		})
 	}
 }

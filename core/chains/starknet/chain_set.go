@@ -62,7 +62,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 type ChainSet interface {
 	starkchain.ChainSet
 	chains.Chains[string]
-	chains.Nodes[string, db.Node]
+	chains.Nodes
 }
 
 func NewChainSet(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {
@@ -82,5 +82,5 @@ func NewChainSet(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load some Solana chains")
 	}
-	return chains.NewChainSet[string, db.Node, starkchain.Chain](stkChains, &opts, func(s string) string { return s })
+	return chains.NewChainSet[db.Node, starkchain.Chain](stkChains, &opts)
 }

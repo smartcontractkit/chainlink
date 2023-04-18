@@ -201,7 +201,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = cosmos.EnsureChains(db, appLggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, appLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
