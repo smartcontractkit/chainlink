@@ -498,15 +498,15 @@ func (_m *Application) Stop() error {
 }
 
 // TxmStorageService provides a mock function with given fields:
-func (_m *Application) TxmStorageService() txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64] {
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64] {
 	ret := _m.Called()
 
-	var r0 txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64]
-	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64]); ok {
+	var r0 txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgrtypes.TxStore[*types.Address, big.Int, *types.TxHash, *types.BlockHash, txmgr.NewTx[*types.Address], *types.Receipt, txmgr.EthTx[*types.Address, *types.TxHash], txmgr.EthTxAttempt[*types.Address, *types.TxHash], int64, int64])
+			r0 = ret.Get(0).(txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64])
 		}
 	}
 

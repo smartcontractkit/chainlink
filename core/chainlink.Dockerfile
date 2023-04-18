@@ -12,12 +12,10 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
-COPY common common
-COPY core core
-COPY operator_ui operator_ui
+COPY . .
 
 # Build the golang binary
-RUN make chainlink-build
+RUN make install-chainlink
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04

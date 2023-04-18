@@ -161,7 +161,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
+		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmtypes.NewAddress(fromAddress),
 			ToAddress:      evmtypes.NewAddress(lsn.batchCoordinator.Address()),
 			EncodedPayload: payload,
