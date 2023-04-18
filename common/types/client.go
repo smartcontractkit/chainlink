@@ -6,7 +6,8 @@ import (
 )
 
 type Client[CHAINID any, ADDR comparable, BLOCK any, TX any, HASH comparable, TXRECEIPT any, EVENT any, EVENTOPS any] interface {
-	ChainID() (CHAINID, error)
+	ConfiguredChainID() CHAINID
+	// ChainID() (CHAINID, error)
 
 	// account
 	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
