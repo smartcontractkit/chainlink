@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -97,9 +98,15 @@ var (
 )
 
 const (
-	CBORParseTaskName   string = "decode_cbor"
 	ParseResultTaskName string = "parse_result"
 	ParseErrorTaskName  string = "parse_error"
+	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
+	PipelineObservationSource string = `
+		run_computation [type="bridge" name="ea_bridge" requestData="{\"requestId\": $(jobRun.meta.requestId), \"jobName\": $(jobSpec.name), \"subscriptionOwner\": $(jobRun.meta.subscriptionOwner), \"subscriptionId\": $(jobRun.meta.subscriptionId), \"data\": $(jobRun.meta.requestData)}"]
+		parse_result    [type=jsonparse data="$(run_computation)" path="data,result"]
+		parse_error     [type=jsonparse data="$(run_computation)" path="data,error"]
+		run_computation -> parse_result -> parse_error
+	`
 )
 
 type FunctionsListener struct {
@@ -319,31 +326,6 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 
 	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
-	requestData := make(map[string]interface{})
-	requestData["requestId"] = formatRequestId(request.RequestId)
-	meta := make(map[string]interface{})
-	meta["oracleRequest"] = requestData
-
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    l.job.ID,
-			"externalJobID": l.job.ExternalJobID,
-			"name":          l.job.Name.ValueOrZero(),
-		},
-		"jobRun": map[string]interface{}{
-			"meta":                  meta,
-			"logBlockHash":          request.Raw.BlockHash,
-			"logBlockNumber":        request.Raw.BlockNumber,
-			"logTxHash":             request.Raw.TxHash,
-			"logAddress":            request.Raw.Address,
-			"logTopics":             request.Raw.Topics,
-			"logData":               request.Raw.Data,
-			"blockReceiptsRoot":     lb.ReceiptsRoot(),
-			"blockTransactionsRoot": lb.TransactionsRoot(),
-			"blockStateRoot":        lb.StateRoot(),
-		},
-	})
-
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
@@ -366,20 +348,48 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+	requestData, cborParseErr := cbor.ParseDietCBOR(request.Data)
+	if cborParseErr != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR parsing error"))
+		return
+	}
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    l.job.ID,
+			"externalJobID": l.job.ExternalJobID,
+			"name":          l.job.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta": map[string]interface{}{
+				"requestId":         formatRequestId(request.RequestId),
+				"subscriptionOwner": request.SubscriptionOwner,
+				"subscriptionId":    request.SubscriptionId,
+				"requestData":       requestData,
+			},
+		},
+	})
+
+	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
+	spec := pipeline.Spec{
+		DotDagSource:      PipelineObservationSource,
+		ID:                l.job.PipelineSpec.ID,
+		JobID:             l.job.PipelineSpec.JobID,
+		JobName:           l.job.PipelineSpec.JobName,
+		JobType:           l.job.PipelineSpec.JobType,
+		CreatedAt:         l.job.CreatedAt,
+		MaxTaskDuration:   l.job.MaxTaskDuration,
+		ForwardingAllowed: l.job.ForwardingAllowed,
+	}
+
+	run := pipeline.NewRun(spec, vars)
 	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
 		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
 		return
 	}
 	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
-
-	_, cborParseErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, CBORParseTaskName, pg.WithParentCtx(ctx))
-	if cborParseErr != nil {
-		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
-		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, []byte("CBOR parsing error"))
-		return
-	}
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {

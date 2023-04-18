@@ -21,7 +21,7 @@ $SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
-$SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
+$SCRIPTPATH/native_solc6_compile BlockhashStore.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
@@ -74,7 +74,7 @@ $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2UpgradeableExamp
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol 10000
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol

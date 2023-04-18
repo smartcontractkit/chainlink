@@ -531,6 +531,11 @@ func (_m *LogPoller) Replay(ctx context.Context, fromBlock int64) error {
 	return r0
 }
 
+// ReplayAsync provides a mock function with given fields: fromBlock
+func (_m *LogPoller) ReplayAsync(fromBlock int64) {
+	_m.Called(fromBlock)
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *LogPoller) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
