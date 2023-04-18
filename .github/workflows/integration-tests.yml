@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload test log
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        if: always()
+        if: failure()
         with:
           name: test-log-${{ matrix.product.name }}
           path: /tmp/gotest.log
@@ -230,12 +230,12 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@89fd72dd08e2b774f63bcfa1c247328a56e5e8d7
+        uses: smartcontractkit/push-gha-metrics-action@3836c6f889e733ce2f166c60b8cf8c0e7a7c1530
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-          test-results-file: '{"testType:"go", "filePath": "/tmp/gotest.log"}'
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
@@ -413,11 +413,12 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: smartcontractkit/push-gha-metrics-action@3836c6f889e733ce2f166c60b8cf8c0e7a7c1530
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Solana Smoke Tests
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
@@ -438,6 +439,14 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Upload test log
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        if: failure()
+        with:
+          name: test-log-solana
+          path: /tmp/gotest.log
+          retention-days: 7
+        continue-on-error: true
   ### End Solana Section
 
   ### Start Live Testnet Section
