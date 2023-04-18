@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/sqlx"
 

@@ -177,7 +177,7 @@ Note: Other environment variables should not be set for all tests to pass
 6.  Drop/Create test database and run migrations:
 
 ```
-go run ./core/main.go local db preparetest
+make testdb
 ```
 
 If you do end up modifying the migrations for the database, you will need to rerun
