@@ -5,117 +5,117 @@ set -e
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 echo $SCRIPTPATH
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
-#solc-select install 0.6.6
-#solc-select install 0.7.6
-#solc-select install 0.8.6
+solc-select install 0.6.6
+solc-select install 0.7.6
+solc-select install 0.8.6
 solc-select install 0.8.15
-#
-#$SCRIPTPATH/native_solc6_compile Flags.sol
-#$SCRIPTPATH/native_solc6_compile Oracle.sol
-#$SCRIPTPATH/native_solc6_compile FluxAggregator.sol
-#$SCRIPTPATH/native_solc6_compile VRFCoordinator.sol
-#$SCRIPTPATH/native_solc6_compile tests/VRFRequestIDBaseTestHelper.sol
-#$SCRIPTPATH/native_solc6_compile tests/VRFTestHelper.sol
-#$SCRIPTPATH/native_solc6_compile Chainlink.sol
-#$SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
-#$SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
-#$SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
-#$SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
-#$SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
-#
-#$SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
-#$SCRIPTPATH/native_solc7_compile Operator.sol
-#$SCRIPTPATH/native_solc7_compile AuthorizedForwarder.sol
-#$SCRIPTPATH/native_solc7_compile AuthorizedReceiver.sol
-#$SCRIPTPATH/native_solc7_compile OperatorFactory.sol
-#$SCRIPTPATH/native_solc7_compile tests/Consumer.sol
-#$SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
-#
-## Keeper
-#$SCRIPTPATH/native_solc7_compile KeeperRegistry1_1.sol
-#$SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
-#$SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
-#$SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/upkeeps/CronUpkeepFactory.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistrar1_2.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistry1_2.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistry1_3.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
-#$SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
+
+$SCRIPTPATH/native_solc6_compile Flags.sol
+$SCRIPTPATH/native_solc6_compile Oracle.sol
+$SCRIPTPATH/native_solc6_compile FluxAggregator.sol
+$SCRIPTPATH/native_solc6_compile VRFCoordinator.sol
+$SCRIPTPATH/native_solc6_compile tests/VRFRequestIDBaseTestHelper.sol
+$SCRIPTPATH/native_solc6_compile tests/VRFTestHelper.sol
+$SCRIPTPATH/native_solc6_compile Chainlink.sol
+$SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
+$SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
+$SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
+$SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
+$SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
+
+$SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
+$SCRIPTPATH/native_solc7_compile Operator.sol
+$SCRIPTPATH/native_solc7_compile AuthorizedForwarder.sol
+$SCRIPTPATH/native_solc7_compile AuthorizedReceiver.sol
+$SCRIPTPATH/native_solc7_compile OperatorFactory.sol
+$SCRIPTPATH/native_solc7_compile tests/Consumer.sol
+$SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
+
+# Keeper
+$SCRIPTPATH/native_solc7_compile KeeperRegistry1_1.sol
+$SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
+$SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
+$SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
+$SCRIPTPATH/native_solc8_6_compile automation/upkeeps/CronUpkeepFactory.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistrar1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistry1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistry1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
 $SCRIPTPATH/native_solc8_15_compile tests/MercuryUpkeep.sol
-#
-## Aggregators
-#$SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
-#
-#$SCRIPTPATH/native_solc8_6_compile mocks/MockAggregatorProxy.sol
-#$SCRIPTPATH/native_solc8_6_compile Chainlink.sol
-#$SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
-#
-## VRF
-#$SCRIPTPATH/native_solc8_6_compile vrf/VRFRequestIDBase.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBase.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumer.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFRequestIDBaseTestHelper.sol
-#$SCRIPTPATH/native_solc8_6_compile mocks/VRFCoordinatorMock.sol
-#
-## VRF V2
-#$SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBaseV2.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFMaliciousConsumerV2.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFTestHelper.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2RevertingExample.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2ProxyAdmin.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2TransparentUpgradeableProxy.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2UpgradeableExample.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol
-#
-## VRF V2 Wrapper
-#$SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
-#$SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/VRFV2WrapperConsumerBase.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2WrapperConsumerExample.sol
-#
-## VRF Consumers and Mocks
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFExternalSubOwnerExample.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFSingleConsumerExample.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFOwnerlessConsumerExample.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
-#$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
-#
-## Keepers x VRF v2
-#$SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
-#
-## Feeds
-#$SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
-#
-## Log tester
-#$SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol
-#
-## Chainlink Functions
-#$SCRIPTPATH/native_solc8_6_compile dev/functions/Functions.sol
-#$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsClient.sol
-#$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsClientExample.sol
-#$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsOracle.sol
-#$SCRIPTPATH/native_solc8_6_compile tests/FunctionsOracleWithInit.sol
-#$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsBillingRegistry.sol
-#$SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
-#
-## Mercury
-#$SCRIPTPATH/native_solc8_6_compile Verifier.sol
-#$SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
-#$SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
-#
-## Mocks
-#$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
-#$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
-#
-## Transmission
-#$SCRIPTPATH/transmission/native_solc_compile_all_transmission
+
+# Aggregators
+$SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
+
+$SCRIPTPATH/native_solc8_6_compile mocks/MockAggregatorProxy.sol
+$SCRIPTPATH/native_solc8_6_compile Chainlink.sol
+$SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
+
+# VRF
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFRequestIDBase.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBase.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumer.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFRequestIDBaseTestHelper.sol
+$SCRIPTPATH/native_solc8_6_compile mocks/VRFCoordinatorMock.sol
+
+# VRF V2
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBaseV2.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFMaliciousConsumerV2.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFTestHelper.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2RevertingExample.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2ProxyAdmin.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2TransparentUpgradeableProxy.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2UpgradeableExample.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol
+
+# VRF V2 Wrapper
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
+$SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFV2WrapperConsumerBase.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2WrapperConsumerExample.sol
+
+# VRF Consumers and Mocks
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFExternalSubOwnerExample.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFSingleConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFOwnerlessConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
+
+# Keepers x VRF v2
+$SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
+
+# Feeds
+$SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
+
+# Log tester
+$SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol
+
+# Chainlink Functions
+$SCRIPTPATH/native_solc8_6_compile dev/functions/Functions.sol
+$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsClient.sol
+$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsClientExample.sol
+$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsOracle.sol
+$SCRIPTPATH/native_solc8_6_compile tests/FunctionsOracleWithInit.sol
+$SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsBillingRegistry.sol
+$SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
+
+# Mercury
+$SCRIPTPATH/native_solc8_6_compile Verifier.sol
+$SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
+$SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
+
+# Mocks
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
+
+# Transmission
+$SCRIPTPATH/transmission/native_solc_compile_all_transmission
