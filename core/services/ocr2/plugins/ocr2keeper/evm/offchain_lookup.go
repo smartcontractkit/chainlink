@@ -197,18 +197,15 @@ type MercuryBytes struct {
 }
 
 func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
-	// TODO do we need EA?
 	client := http.Client{
 		Timeout: 2 * time.Second,
 	}
 
+	// TODO should come through ENV VAR
 	mercuryURL := "https://mercury-srv.chain.link/client"
 
-	// basic needs to query by timestamp while premium by block number
-	instanceKey := "Timestamp"
-	if _, ok := r.mercury.premiumAllowList[upkeepId.String()]; ok {
-		instanceKey = "BlockNumber"
-	}
+	// TODO should we let users tell us? basic needs to query by timestamp while premium by block number
+	instanceKey := "BlockNumber"
 
 	ch := make(chan MercuryBytes)
 	for i := range mercuryLookup.feeds {

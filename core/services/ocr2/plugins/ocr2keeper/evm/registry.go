@@ -167,9 +167,6 @@ type MercuryConfig struct {
 	upkeepCache   *cache.Cache
 	cooldownCache *cache.Cache
 	apiErrCache   *cache.Cache
-	// Using a map Set for quick lookups
-	premiumAllowList map[string]*struct{}
-	basicAllowList   map[string]*struct{}
 }
 
 type EvmRegistry struct {
