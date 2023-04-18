@@ -221,19 +221,21 @@ jobs:
 
       - name: Upload test log
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        if: failure()
+        if: always()
         with:
           name: test-log-${{ matrix.product.name }}
           path: /tmp/gotest.log
           retention-days: 7
+        continue-on-error: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: smartcontractkit/push-gha-metrics-action@89fd72dd08e2b774f63bcfa1c247328a56e5e8d7
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+          test-results-file: '{"testType:"go", "filePath": "/tmp/gotest.log"}'
         continue-on-error: true
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
@@ -375,7 +377,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Smoke Tests
+          this-job-name: Solana Build Test Image
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
