@@ -14,6 +14,10 @@ type TestCoordinator struct {
 	FulfillmentEvents []Event
 }
 
+func (t *TestCoordinator) Addresses() []common.Address {
+	return []common.Address{}
+}
+
 func (t *TestCoordinator) Requests(_ context.Context, fromBlock uint64, toBlock uint64) ([]Event, error) {
 	var result []Event
 	for _, req := range t.RequestEvents {
