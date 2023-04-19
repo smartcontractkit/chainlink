@@ -176,10 +176,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
 	}
 
-	if err2 := utils.EnsureDirAndMaxPerms(cfg.RootDir(), os.FileMode(0700)); err2 != nil {
-		return nil, fmt.Errorf(`failed to create root directory %q: %w`, cfg.RootDir(), err2)
-	}
-
 	return cfg, nil
 }
 

@@ -1,3 +1,5 @@
+// The block header feeder package enables automated lookback and blockhash filling beyond the
+// EVM 256 block lookback window to catch missed block hashes.
 package blockheaderfeeder
 
 import (
