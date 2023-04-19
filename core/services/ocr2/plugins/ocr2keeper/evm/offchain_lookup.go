@@ -5,11 +5,14 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -25,9 +28,25 @@ import (
 )
 
 type MercuryLookup struct {
-	feeds     []string
-	instance  *big.Int
-	extraData []byte
+	feedLabel  string
+	feeds      []string
+	queryLabel string
+	query      *big.Int
+	extraData  []byte
+}
+
+// MercuryMultiResponse TODO guessing on this
+type MercuryMultiResponse struct {
+	ChainlinkBlobs []string `json:"chainlinkBlob"`
+}
+
+type MercuryResponse struct {
+	ChainlinkBlob string `json:"chainlinkBlob"`
+}
+
+type MercuryBytes struct {
+	Index int
+	Bytes []byte
 }
 
 // mercuryLookup looks through check upkeep results looking for any that need off chain lookup
@@ -125,7 +144,7 @@ func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (kee
 	return upkeepInfo, nil
 }
 
-// decodeMercuryLookup decodes the revert error ChainlinkAPIFetch(string instance, bytes extraData, string[] jsonFields, bytes4 callbackSelector)
+// decodeMercuryLookup decodes the revert error ChainlinkAPIFetch(string query, bytes extraData, string[] jsonFields, bytes4 callbackSelector)
 func (r *EvmRegistry) decodeMercuryLookup(data []byte) (MercuryLookup, error) {
 	e := r.mercury.abi.Errors["MercuryLookup"]
 	unpack, err := e.Unpack(data)
@@ -135,9 +154,11 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (MercuryLookup, error) {
 	errorParameters := unpack.([]interface{})
 
 	return MercuryLookup{
-		feeds:     *abi.ConvertType(errorParameters[0], new([]string)).(*[]string),
-		instance:  *abi.ConvertType(errorParameters[1], new(*big.Int)).(**big.Int),
-		extraData: *abi.ConvertType(errorParameters[2], new([]byte)).(*[]byte),
+		feedLabel:  *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		feeds:      *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
+		queryLabel: *abi.ConvertType(errorParameters[2], new(string)).(*string),
+		query:      *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
+		extraData:  *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
 	}, nil
 }
 
@@ -187,32 +208,24 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup M
 	return true, performData, nil
 }
 
-type MercuryResponse struct {
-	ChainlinkBlob string `json:"chainlinkBlob"`
-}
-
-type MercuryBytes struct {
-	Index int
-	Bytes []byte
-}
-
 func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
 	client := http.Client{
 		Timeout: 2 * time.Second,
 	}
 
-	// TODO should come through ENV VAR
-	mercuryURL := "https://mercury-srv.chain.link/client"
+	// TODO when mercury has multi feed endpoint. we can use this instead of below
+	//multiFeed, err := r.multiFeedRequest(&client, upkeepId, mercuryLookup)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return multiFeed, nil
 
-	// TODO should we let users tell us? basic needs to query by timestamp while premium by block number
-	instanceKey := "BlockNumber"
-
+	// TODO this is if Mercury doesn't have the multi feeds endpoint
 	ch := make(chan MercuryBytes)
 	for i := range mercuryLookup.feeds {
 		// if mercury ends up providing an endpoint to do all feeds at once great, if not...
-		go r.singleFeedRequest(&client, ch, upkeepId, i, mercuryURL, mercuryLookup.feeds[i], mercuryLookup.instance.String(), instanceKey)
+		go r.singleFeedRequest(&client, ch, upkeepId, i, mercuryLookup)
 	}
-
 	results := make([][]byte, len(mercuryLookup.feeds))
 	for i := 0; i < len(results); i++ {
 		m := <-ch
@@ -222,15 +235,15 @@ func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) 
 	return results, nil
 }
 
-func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, mercuryURL string, feed string, instance string, instanceKey string) {
-	req, err := http.NewRequest("GET", mercuryURL, nil)
+func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, mercuryLookup MercuryLookup) {
+	req, err := http.NewRequest("GET", r.mercury.url, nil)
 	if err != nil {
 		ch <- MercuryBytes{Index: index}
 		return
 	}
 	q := url.Values{}
-	q.Add("feedIDStr", feed)
-	q.Add(instanceKey, instance)
+	q.Add(mercuryLookup.feedLabel, mercuryLookup.feeds[index])
+	q.Add(mercuryLookup.queryLabel, mercuryLookup.query.String())
 	q.Add("upkeepID", upkeepId.String())
 	req.URL.RawQuery = q.Encode()
 
@@ -274,6 +287,66 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 	}
 	ch <- MercuryBytes{Index: index, Bytes: blobBytes}
 	return
+}
+
+func (r *EvmRegistry) multiFeedRequest(client *http.Client, upkeepId *big.Int, mercuryLookup MercuryLookup) ([][]byte, error) {
+	req, err := http.NewRequest("GET", r.mercury.url, nil)
+	if err != nil {
+		return [][]byte{}, err
+	}
+	q := url.Values{}
+	feeds := strings.Join(mercuryLookup.feeds, ",")
+	q.Add(mercuryLookup.feedLabel, feeds)
+	q.Add(mercuryLookup.queryLabel, mercuryLookup.query.String())
+	q.Add("upkeepID", upkeepId.String())
+	req.URL.RawQuery = q.Encode()
+
+	signature := generateHMAC("GET", req.URL.String(), nil, r.mercury.clientID, r.mercury.clientKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", r.mercury.clientID)
+	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(time.Now().Unix(), 10))
+	req.Header.Set("X-Authorization-Signature-SHA256", signature)
+
+	// TODO no test client ID/Key yet. Just return correct json for testing
+	resp, err := client.Do(req)
+	if err != nil {
+		r.setCachesOnAPIErr(upkeepId)
+		return [][]byte{}, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		r.setCachesOnAPIErr(upkeepId)
+		return [][]byte{}, err
+	}
+	// TODO ? if we get a 403 permission issue we can put them on a longer cooldown to avoid spamming mercury
+	// if http response code is 4xx/5xx then put in cool down
+	if resp.StatusCode >= 400 {
+		r.setCachesOnAPIErr(upkeepId)
+	}
+	var m MercuryMultiResponse
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		return [][]byte{}, err
+	}
+
+	// TODO this is just a guess of what they will return
+	//m := MercuryMultiResponse{
+	//	ChainlinkBlobs: []string{
+	//		"0x000189dbcc9287f900f77bea62d479cfd70ec8073692ca911fe306cd5bcf8d6d0000000000000000000000000000000000000000000000000000000000100e58c41df85f0fb47f78779e68b0a0dbefe8d626446b286aebf96741ae274cf3a49d00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e0010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800fb2e5752573270cb04af9a1ebafc82b67f09a7408217b3b3cb81fe24eb0912900000000000000000000000000000000000000000000000000000000637ce26100000000000000000000000000000000000000000000000000000000002bbecc00000000000000000000000000000000000000000000003cb243ded70e1d0000000000000000000000000000000000000000000000000000000000000000000243d68b3eda5fb3a526daffdab2bf9978f89a6c1a5de19020fd047b80692b67a2712668bc873498a2a69f38ea7874f7e3511baa0637af1b1b304e4cae2bf87c1400000000000000000000000000000000000000000000000000000000000000021e1e506899f5ea70c67ea458042e08a9b45f888f67fa31ae286d760e1c967d14210469b4efc32630d4af00842811b739d7816439abbc9ee48f2d463f3f657fd7",
+	//		"0x000189dbcc9287f900f77bea62d479cfd70ec8073692ca911fe306cd5bcf8d6d0000000000000000000000000000000000000000000000000000000000100e58c41df85f0fb47f78779e68b0a0dbefe8d626446b286aebf96741ae274cf3a49d00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e0010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800fb2e5752573270cb04af9a1ebafc82b67f09a7408217b3b3cb81fe24eb0912900000000000000000000000000000000000000000000000000000000637ce26100000000000000000000000000000000000000000000000000000000002bbecc00000000000000000000000000000000000000000000003cb243ded70e1d0000000000000000000000000000000000000000000000000000000000000000000243d68b3eda5fb3a526daffdab2bf9978f89a6c1a5de19020fd047b80692b67a2712668bc873498a2a69f38ea7874f7e3511baa0637af1b1b304e4cae2bf87c1400000000000000000000000000000000000000000000000000000000000000021e1e506899f5ea70c67ea458042e08a9b45f888f67fa31ae286d760e1c967d14210469b4efc32630d4af00842811b739d7816439abbc9ee48f2d463f3f657fd7",
+	//	},
+	//}
+	mb := make([][]byte, len(m.ChainlinkBlobs))
+	for i, blob := range m.ChainlinkBlobs {
+		blobBytes, err := hexutil.Decode(blob)
+		if err != nil {
+			return [][]byte{}, err
+		}
+		mb[i] = blobBytes
+
+	}
+	return mb, nil
 }
 
 func generateHMAC(method string, path string, body []byte, clientId string, secret string) string {

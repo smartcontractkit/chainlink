@@ -105,7 +105,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 			clientID:  "123",
 			clientKey: "wow",
 			// TODO need to load up the mercuryURL from an ENV var
-			url:           "https://localhost:8080",
+			url:           "https://mercury-srv.chain.link/client",
 			abi:           mercuryUpkeepABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,

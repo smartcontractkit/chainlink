@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 contract MercuryUpkeep {
   event MercuryEvent(address indexed from, bytes data);
 
-  error MercuryLookup(string[] feedIDStrList, uint256 instance, bytes extraData);
+  error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
 
   uint256 public testRange;
   uint256 public interval;
@@ -12,6 +12,8 @@ contract MercuryUpkeep {
   uint256 public initialBlock;
   uint256 public counter;
   string[] public feeds;
+  string public feedLabel;
+  string public queryLabel;
 
   constructor(uint256 _testRange, uint256 _interval) {
     testRange = _testRange;
@@ -20,7 +22,9 @@ contract MercuryUpkeep {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
+    feedLabel = "feedIDStr"; // or FeedIDHex
+    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"]; // or ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000","0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]
+    queryLabel = "BlockNumber"; // or Timestamp
   }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
@@ -33,7 +37,7 @@ contract MercuryUpkeep {
       return (false, data);
     }
     // block.number or block.timestamp depending on user
-    revert MercuryLookup(feeds, block.number, data);
+    revert MercuryLookup(feedLabel, feeds, queryLabel, block.number, data);
   }
 
   function performUpkeep(bytes calldata performData) external {
