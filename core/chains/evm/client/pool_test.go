@@ -162,6 +162,8 @@ func TestPool_Dial(t *testing.T) {
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
 			}
+			assert.True(t, p.ChainType().IsValid())
+			assert.False(t, p.ChainType().IsL2())
 			if test.errStr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.errStr)
@@ -323,5 +325,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID, "")
 
+	assert.True(t, p.ChainType().IsValid())
+	assert.False(t, p.ChainType().IsL2())
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }

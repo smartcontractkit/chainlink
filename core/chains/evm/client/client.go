@@ -216,7 +216,7 @@ func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *type
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
-		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
+		// Mark it as TransactionAlreadyKnown.
 		return clienttypes.TransactionAlreadyKnown, err
 	}
 	if sendError.IsReplacementUnderpriced() {
@@ -233,16 +233,6 @@ func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *type
 		return clienttypes.Successful, err
 	}
 	if sendError.IsTemporarilyUnderpriced() {
-		// Broadcaster: If we can't even get the transaction into the mempool at all, assume
-		// success (even though the transaction will never confirm) and hand
-		// off to the ethConfirmer to bump gas periodically until we _can_ get
-		// it in
-		//
-		// Confirmer: Most likely scenario here is a parity node that is rejecting
-		// low-priced transactions due to mempool pressure.
-		// In that case, the safest thing to do is to pretend the transaction
-		// was accepted and continue the normal gas bumping cycle until we can
-		// get it into the mempool
 		client.logger.Infow("Transaction temporarily underpriced", "err", sendError.Error())
 		return clienttypes.Successful, err
 	}
@@ -258,8 +248,7 @@ func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *type
 	if sendError.IsNonceTooHighError() {
 		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
 		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
-		// reached the client yet. The correct thing to do is assume success for now and let the
-		// eth_confirmer retry until the nonce gap gets filled by the previous transactions.
+		// reached the client yet. The correct thing to do is to mark it as retryable.
 		client.logger.Warnw("Transaction has a nonce gap.", "err", err)
 		return clienttypes.Retryable, err
 	}
@@ -268,19 +257,9 @@ func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *type
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError)
-		// NOTE: This bails out of the entire cycle and essentially "blocks" on
-		// any transaction that gets insufficient_eth. This is OK if a
-		// transaction with a large VALUE blocks because this always comes last
-		// in the processing list.
-		// If it blocks because of a transaction that is expensive due to large
-		// gas limit, we could have smaller transactions "above" it that could
-		// theoretically be sent, but will instead be blocked.
 		return clienttypes.InsufficientFunds, err
 	}
 	if sendError.IsTimeout() {
-		// In the case of timeout, we fall back to the backoff retry loop and
-		// subsequent tries ought to resend the exact same in-progress transaction
-		// attempt and get a definitive answer on what happened
 		return clienttypes.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
 	}
 	if sendError.IsTxFeeExceedsCap() {
@@ -289,17 +268,6 @@ func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *type
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		// Broadcaster: Note that we may have broadcast to multiple nodes and had it
-		// accepted by one of them! It is not guaranteed that all nodes share
-		// the same tx fee cap. That is why we must treat this as an unknown
-		// error that may have been confirmed.
-		// If there is only one RPC node, or all RPC nodes have the same
-		// configured cap, this transaction will get stuck and keep repeating
-		// forever until the issue is resolved.
-		//
-		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
-		// Best thing we can do is to re-send the previous attempt at the old
-		// price and discard this bumped version.
 		return clienttypes.ExceedsMaxFee, err
 	}
 	return clienttypes.Unknown, err

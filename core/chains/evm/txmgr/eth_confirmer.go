@@ -859,6 +859,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 	}
 
 	// TODO: When eth client is generalized, remove this address conversion logic below
+	// https://smartcontract-it.atlassian.net/browse/BCI-852
 	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
 	if err != nil {
 		// WARNING: This should never happen!
@@ -907,6 +908,9 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
 	case clienttypes.ExceedsMaxFee:
+		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
+		// Best thing we can do is to re-send the previous attempt at the old
+		// price and discard this bumped version.
 		fallthrough
 	case clienttypes.Fatal:
 		// WARNING: This should never happen!

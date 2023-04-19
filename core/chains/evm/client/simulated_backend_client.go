@@ -365,7 +365,10 @@ func (c *SimulatedBackendClient) SendTransactionAndReturnCode(ctx context.Contex
 	if err == nil {
 		return clienttypes.Successful, nil
 	}
-	// All error messages returned from SendTransaction are considered Unknown.
+	if strings.Contains(err.Error(), "could not fetch parent") || strings.Contains(err.Error(), "invalid transaction") {
+		return clienttypes.Fatal, err
+	}
+	// All remaining error messages returned from SendTransaction are considered Unknown.
 	return clienttypes.Unknown, err
 }
 

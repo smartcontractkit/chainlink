@@ -4,7 +4,7 @@ type SendTxReturnCode int
 
 // Generalized client error types that dictates what should be the next action, depending on the RPC error response.
 const (
-	Successful              SendTxReturnCode = iota
+	Successful              SendTxReturnCode = iota + 1
 	Fatal                                    // Unrecoverable error. Most likely the attempt should be thrown away.
 	Retryable                                // The error returned by the RPC indicates that if we retry with the same attempt, the tx will eventually go through.
 	Underpriced                              // Attempt was underpriced. New estimation is needed with bumped gas price.

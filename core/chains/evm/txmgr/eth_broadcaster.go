@@ -525,6 +525,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	}
 
 	// TODO: When eth client is generalized, remove this address conversion logic below
+	// https://smartcontract-it.atlassian.net/browse/BCI-852
 	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
 	if err != nil {
 		return errors.Wrapf(err, "failed to do address format conversion"), true
@@ -591,6 +592,13 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	case clienttypes.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
 	case clienttypes.InsufficientFunds:
+		// NOTE: This bails out of the entire cycle and essentially "blocks" on
+		// any transaction that gets insufficient_eth. This is OK if a
+		// transaction with a large VALUE blocks because this always comes last
+		// in the processing list.
+		// If it blocks because of a transaction that is expensive due to large
+		// gas limit, we could have smaller transactions "above" it that could
+		// theoretically be sent, but will instead be blocked.
 		eb.SvcErrBuffer.Append(err)
 		fallthrough
 	case clienttypes.Retryable:
@@ -600,7 +608,13 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	case clienttypes.Unsupported:
 		return err, false
 	case clienttypes.ExceedsMaxFee:
-		// This means primary RPC node rejected this tx. However other SendOnlyNodes could've accepted it, and this Tx may confirm. So treat this as another case of Unknown error.
+		// Broadcaster: Note that we may have broadcast to multiple nodes and had it
+		// accepted by one of them! It is not guaranteed that all nodes share
+		// the same tx fee cap. That is why we must treat this as an unknown
+		// error that may have been confirmed.
+		// If there is only one RPC node, or all RPC nodes have the same
+		// configured cap, this transaction will get stuck and keep repeating
+		// forever until the issue is resolved.
 		lgr.Criticalw(`RPC node rejected this tx as outside Fee Cap`)
 		fallthrough
 	default:
