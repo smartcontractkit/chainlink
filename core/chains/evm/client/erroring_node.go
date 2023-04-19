@@ -71,7 +71,7 @@ func (e *erroringNode) BlockByHash(ctx context.Context, hash common.Hash) (*type
 }
 
 func (e *erroringNode) BlockNumber(ctx context.Context) (uint64, error) {
-	return 0,errors.New(e.errMsg)
+	return 0, errors.New(e.errMsg)
 }
 
 func (e *erroringNode) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {

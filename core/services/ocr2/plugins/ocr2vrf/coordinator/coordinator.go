@@ -1096,7 +1096,7 @@ func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []a
 func (c *coordinator) emitReportBlocksMetrics(
 	numBlocks int,
 	numCallbacks int) {
-		chainId := c.evmClient.ConfiguredChainID()
+	chainId := c.evmClient.ConfiguredChainID()
 	promBlocksToReport.WithLabelValues(chainId.String()).Observe(float64(numBlocks))
 	promCallbacksToReport.WithLabelValues(chainId.String()).Observe(float64(numCallbacks))
 }
@@ -1104,7 +1104,7 @@ func (c *coordinator) emitReportBlocksMetrics(
 func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	numBlocks int,
 	numCallbacks int) {
-		chainId := c.evmClient.ConfiguredChainID()
+	chainId := c.evmClient.ConfiguredChainID()
 	promBlocksInReport.WithLabelValues(chainId.String()).Observe(float64(numBlocks))
 	promCallbacksInReport.WithLabelValues(chainId.String()).Observe(float64(numCallbacks))
 }

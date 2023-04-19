@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -66,7 +66,7 @@ type Client interface {
 
 	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
-	
+
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
 
