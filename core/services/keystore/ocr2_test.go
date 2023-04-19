@@ -138,14 +138,14 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		err := ks.EnsureKeys(chaintype.SupportedChainTypes)
+		err := ks.EnsureKeys(chaintype.SupportedChainTypes...)
 		assert.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		assert.NoError(t, err)
 		require.Equal(t, len(chaintype.SupportedChainTypes), len(keys))
 
-		err = ks.EnsureKeys(chaintype.SupportedChainTypes)
+		err = ks.EnsureKeys(chaintype.SupportedChainTypes...)
 		assert.NoError(t, err)
 
 		// loop through different supported chain types
@@ -158,8 +158,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key only for enabled chains", func(t *testing.T) {
 		defer reset()
-		enabledChains := chaintype.ChainTypes{chaintype.EVM}
-		err := ks.EnsureKeys(enabledChains)
+		err := ks.EnsureKeys(chaintype.EVM)
 		assert.NoError(t, err)
 
 		keys, err := ks.GetAll()
@@ -167,8 +166,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		require.Equal(t, 1, len(keys))
 		require.Equal(t, keys[0].ChainType(), chaintype.EVM)
 
-		enabledChains = append(enabledChains, chaintype.Cosmos)
-		err = ks.EnsureKeys(enabledChains)
+		err = ks.EnsureKeys(chaintype.Cosmos)
 		assert.NoError(t, err)
 
 		keys, err = ks.GetAll()
@@ -180,8 +178,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		require.Equal(t, 1, len(cosmosKeys))
 		require.Equal(t, cosmosKeys[0].ChainType(), chaintype.Cosmos)
 
-		enabledChains = append(enabledChains, chaintype.StarkNet)
-		err = ks.EnsureKeys(enabledChains)
+		err = ks.EnsureKeys(chaintype.StarkNet)
 		assert.NoError(t, err)
 
 		keys, err = ks.GetAll()

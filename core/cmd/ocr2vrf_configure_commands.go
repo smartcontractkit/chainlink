@@ -343,7 +343,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 		}
 	}
 
-	enabledChains := chaintype.ChainTypes{}
+	var enabledChains []chaintype.ChainType
 	if cli.Config.EVMEnabled() {
 		enabledChains = append(enabledChains, chaintype.EVM)
 	}
@@ -357,7 +357,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 		enabledChains = append(enabledChains, chaintype.StarkNet)
 	}
 
-	if err = keyStore.OCR2().EnsureKeys(enabledChains); err != nil {
+	if err = keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 

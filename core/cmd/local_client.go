@@ -376,7 +376,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
-		enabledChains := chaintype.ChainTypes{}
+		var enabledChains []chaintype.ChainType
 		if cli.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, chaintype.EVM)
 		}
@@ -389,7 +389,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		if cli.Config.StarkNetEnabled() {
 			enabledChains = append(enabledChains, chaintype.StarkNet)
 		}
-		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains)
+		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
