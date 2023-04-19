@@ -7,7 +7,7 @@ import "../vrf/VRFConsumerBase.sol";
 contract VRFCoordinatorMock {
   LinkTokenInterface public LINK;
 
-  event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed);
+  event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed, uint256 fee);
 
   constructor(address linkAddress) public {
     LINK = LinkTokenInterface(linkAddress);
@@ -19,7 +19,7 @@ contract VRFCoordinatorMock {
     bytes memory _data
   ) public onlyLINK {
     (bytes32 keyHash, uint256 seed) = abi.decode(_data, (bytes32, uint256));
-    emit RandomnessRequest(sender, keyHash, seed);
+    emit RandomnessRequest(sender, keyHash, seed, fee);
   }
 
   function callBackWithRandomness(

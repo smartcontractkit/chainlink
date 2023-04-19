@@ -175,10 +175,12 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
-	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
-		HeadTracker: headtracker.NullTracker})
 	keyStore := new(ksmocks.Master)
+	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, gcfg).Eth()
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)

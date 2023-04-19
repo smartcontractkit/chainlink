@@ -404,6 +404,18 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		taskRunResults = append(taskRunResults, result)
 	}
 
+	var idxs []int32
+	for i := range taskRunResults {
+		idxs = append(idxs, taskRunResults[i].Task.OutputIndex())
+	}
+	// Ensure that task run results are ordered by their output index
+	sort.SliceStable(taskRunResults, func(i, j int) bool {
+		return taskRunResults[i].Task.OutputIndex() < taskRunResults[j].Task.OutputIndex()
+	})
+	for i := range taskRunResults {
+		idxs[i] = taskRunResults[i].Task.OutputIndex()
+	}
+
 	return taskRunResults
 }
 

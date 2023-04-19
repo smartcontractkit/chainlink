@@ -25,6 +25,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var MercuryExposedVerifierMetaData = &bind.MetaData{
@@ -137,11 +138,11 @@ func NewMercuryExposedVerifierFilterer(address common.Address, filterer bind.Con
 }
 
 func bindMercuryExposedVerifier(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(MercuryExposedVerifierABI))
+	parsed, err := MercuryExposedVerifierMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_MercuryExposedVerifier *MercuryExposedVerifierRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

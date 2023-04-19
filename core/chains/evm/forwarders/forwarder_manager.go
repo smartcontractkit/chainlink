@@ -107,15 +107,15 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 	})
 }
 
-func (f *FwdMgr) filterName(addr common.Address) string {
+func FilterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
-func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
+func (f *FwdMgr) ForwarderFor(addr evmtypes.Address) (forwarder evmtypes.Address, err error) {
 	// Gets forwarders for current chain.
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {
-		return common.Address{}, err
+		return evmtypes.NewAddress(common.Address{}), err
 	}
 
 	for _, fwdr := range fwdrs {
@@ -125,16 +125,16 @@ func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, er
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa == addr {
-				return fwdr.Address, nil
+			if eoa == addr.Address {
+				return evmtypes.NewAddress(fwdr.Address), nil
 			}
 		}
 	}
-	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
+	return evmtypes.NewAddress(common.Address{}), errors.Errorf("Cannot find forwarder for given EOA")
 }
 
-func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
-	databytes, err := f.getForwardedPayload(dest, origPayload)
+func (f *FwdMgr) ConvertPayload(dest evmtypes.Address, origPayload []byte) ([]byte, error) {
+	databytes, err := f.getForwardedPayload(dest.Address, origPayload)
 	if err != nil {
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
@@ -212,7 +212,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 
 	err := f.logpoller.RegisterFilter(
 		evmlogpoller.Filter{
-			Name:      f.filterName(addr),
+			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
 			Addresses: []common.Address{addr},
 		})

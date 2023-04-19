@@ -1,3 +1,5 @@
+// The blockhash store package provides a service that stores blockhashes such that they are available
+// for on-chain proofs beyond the EVM 256 block limit.
 package blockhashstore
 
 import (
@@ -13,6 +15,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -32,7 +35,7 @@ type BulletproofBHS struct {
 	config        bpBHSConfig
 	jobID         uuid.UUID
 	fromAddresses []ethkey.EIP55Address
-	txm           txmgr.TxManager
+	txm           txmgr.EvmTxManager
 	abi           *abi.ABI
 	bhs           blockhash_store.BlockhashStoreInterface
 	chainID       *big.Int
@@ -43,7 +46,7 @@ type BulletproofBHS struct {
 func NewBulletproofBHS(
 	config bpBHSConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.TxManager,
+	txm txmgr.EvmTxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -77,9 +80,9 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      c.bhs.Address(),
+	_, err = c.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		FromAddress:    evmtypes.NewAddress(fromAddress),
+		ToAddress:      evmtypes.NewAddress(c.bhs.Address()),
 		EncodedPayload: payload,
 		GasLimit:       c.config.EvmGasLimitDefault(),
 
@@ -125,9 +128,9 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      c.bhs.Address(),
+	_, err = c.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		FromAddress:    evmtypes.NewAddress(fromAddress),
+		ToAddress:      evmtypes.NewAddress(c.bhs.Address()),
 		EncodedPayload: payload,
 		GasLimit:       c.config.EvmGasLimitDefault(),
 		Strategy:       txmgr.NewSendEveryStrategy(),
