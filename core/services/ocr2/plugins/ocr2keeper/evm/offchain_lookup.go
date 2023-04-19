@@ -46,6 +46,7 @@ type MercuryResponse struct {
 
 type MercuryBytes struct {
 	Index int
+	Error error
 	Bytes []byte
 }
 
@@ -220,15 +221,17 @@ func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) 
 	//}
 	//return multiFeed, nil
 
-	// TODO this is if Mercury doesn't have the multi feeds endpoint
+	// TODO remove this once Mercury has multi feeds endpoint
 	ch := make(chan MercuryBytes)
 	for i := range mercuryLookup.feeds {
-		// if mercury ends up providing an endpoint to do all feeds at once great, if not...
 		go r.singleFeedRequest(&client, ch, upkeepId, i, mercuryLookup)
 	}
 	results := make([][]byte, len(mercuryLookup.feeds))
 	for i := 0; i < len(results); i++ {
 		m := <-ch
+		if m.Error != nil {
+			return [][]byte{}, m.Error
+		}
 		results[m.Index] = m.Bytes
 	}
 
@@ -257,14 +260,14 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 	//resp, err := client.Do(req)
 	//if err != nil {
 	//	r.setCachesOnAPIErr(upkeepId)
-	//	ch <- MercuryBytes{Index: index}
+	//	ch <- MercuryBytes{Index: index, Error: err}
 	//	return
 	//}
 	//defer resp.Body.Close()
 	//body, err := io.ReadAll(resp.Body)
 	//if err != nil {
 	//	r.setCachesOnAPIErr(upkeepId)
-	//	ch <- MercuryBytes{Index: index}
+	//	ch <- MercuryBytes{Index: index, Error: err}
 	//	return
 	//}
 	//// if we get a 403 permission issue we can put them on a longer cooldown to avoid spamming mercury
@@ -275,14 +278,14 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 	//var m MercuryResponse
 	//err = json.Unmarshal(body, &m)
 	//if err != nil {
-	//	ch <- MercuryBytes{Index: index}
+	//	ch <- MercuryBytes{Index: index, Error: err}
 	//	return
 	//}
 
 	m := MercuryResponse{ChainlinkBlob: "0x000189dbcc9287f900f77bea62d479cfd70ec8073692ca911fe306cd5bcf8d6d0000000000000000000000000000000000000000000000000000000000100e58c41df85f0fb47f78779e68b0a0dbefe8d626446b286aebf96741ae274cf3a49d00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e0010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800fb2e5752573270cb04af9a1ebafc82b67f09a7408217b3b3cb81fe24eb0912900000000000000000000000000000000000000000000000000000000637ce26100000000000000000000000000000000000000000000000000000000002bbecc00000000000000000000000000000000000000000000003cb243ded70e1d0000000000000000000000000000000000000000000000000000000000000000000243d68b3eda5fb3a526daffdab2bf9978f89a6c1a5de19020fd047b80692b67a2712668bc873498a2a69f38ea7874f7e3511baa0637af1b1b304e4cae2bf87c1400000000000000000000000000000000000000000000000000000000000000021e1e506899f5ea70c67ea458042e08a9b45f888f67fa31ae286d760e1c967d14210469b4efc32630d4af00842811b739d7816439abbc9ee48f2d463f3f657fd7"}
 	blobBytes, err := hexutil.Decode(m.ChainlinkBlob)
 	if err != nil {
-		ch <- MercuryBytes{Index: index}
+		ch <- MercuryBytes{Index: index, Error: err}
 		return
 	}
 	ch <- MercuryBytes{Index: index, Bytes: blobBytes}
