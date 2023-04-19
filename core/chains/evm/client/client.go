@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	cmntypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -27,7 +27,7 @@ const queryTimeout = 10 * time.Second
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	cmntypes.Client[*big.Int, common.Address, types.Block, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
+	txmtypes.Client[*big.Int, evmtypes.Nonce, evmtypes.Address, types.Block, types.Transaction, evmtypes.TxHash, types.Receipt, types.Log, ethereum.FilterQuery]
 
 	Dial(ctx context.Context) error
 	Close()
