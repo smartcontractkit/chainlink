@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,7 +104,7 @@ func (g Gauntlet) ReadCommandReport() (Report, error) {
 	}
 
 	var report Report
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	if err = json.Unmarshal(byteValue, &report); err != nil {
 		return Report{}, errors.Wrap(err, "error in unmarshalling report")
 	}
@@ -120,7 +120,7 @@ func (g Gauntlet) ReadCommandFlowReport() (FlowReport, error) {
 	}
 
 	var report FlowReport
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	err = json.Unmarshal(byteValue, &report)
 	if err != nil {
 		return FlowReport{}, err
