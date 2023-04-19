@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -170,7 +169,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 
 // FromAccount returns the account from which the transmitter invokes the contract
 func (oc *contractTransmitter) FromAccount() ocrtypes.Account {
-	return ocrtypes.Account(fmt.Sprintf("0x%x", oc.transmitter.FromAddress()))
+	return ocrtypes.Account(oc.transmitter.FromAddress().String())
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }

@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -67,5 +66,5 @@ func TestContractTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-	assert.Equal(t, fmt.Sprintf("0x%x", sampleAddress), string(ot.FromAccount()))
+	assert.Equal(t, sampleAddress.String(), string(ot.FromAccount()))
 }
