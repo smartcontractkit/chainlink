@@ -5,8 +5,7 @@ import (
 	"strconv"
 )
 
-var zeroNonce = Nonce(0)
-var _ fmt.Stringer = &zeroNonce
+var _ fmt.Stringer = Nonce(0)
 
 // Nonce wraps an EVM nonce into a stringable type
 type Nonce int64

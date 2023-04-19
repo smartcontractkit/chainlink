@@ -1926,7 +1926,7 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	// Cannot increment if supplied nonce doesn't match existing
-	require.Error(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce(int64(42))))
+	require.Error(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce(42)))
 
 	require.NoError(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce(0)))
 
