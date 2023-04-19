@@ -10,9 +10,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -28,7 +30,9 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
-	devMode := v2.EnvDev.IsTrue()
+	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+	// https://smartcontract-it.atlassian.net/browse/BCF-2062
+	devMode := v2.EnvDev.IsTrue() || build.Dev
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -86,7 +90,7 @@ func NewApp(client *Client) *cli.App {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieJar, err := NewUserCache("cookies")
+		cookieJar, err := NewUserCache("cookies", func() logger.Logger { return client.Logger })
 		if err != nil {
 			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}

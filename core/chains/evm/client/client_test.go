@@ -22,11 +22,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.Client {

@@ -9,9 +9,9 @@ import (
 
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	cfgv2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	cfgv2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (

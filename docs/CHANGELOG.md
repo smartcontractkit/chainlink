@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+...
+
+## 2.0.0 - UNRELEASED
+
+### Added
+- Add OCR2 Plugin selection for FMS
+- Added kebab case aliases for the following flags:
+  - `evm-chain-id` alias for `evmChainID` in commands: `chainlink blocks replay`, `chainlink forwarders track`, `chainlink keys ... chain`
+  - `old-password` alias for `oldpassword` in commands: `chainlink keys ... import`
+  - `new-password` alias for `newpassword` in commands: `chainlink keys ... export`
+  - `new-role` alias for `newrole` in commands: `admin users chrole`
+  - `set-next-nonce` alias for `setNextNonce` in commands: `chainlink keys ... chain`
+
 ### Changed
 
 - TOML configuration and secrets are now scoped to `chainlink node` command rather than being global flags.
@@ -19,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration with legacy environment variables is no longer supported. TOML is required.
 
 <!-- unreleasedstop -->
+
+## 1.13.1 - 2023-04-06
+
+### Fixed
+
+- Bumped the WSPRC dependency version to fix a bug that could lead to race conditions
 
 ## 1.13.0 - 2023-03-16
 

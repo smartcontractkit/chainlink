@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -7,10 +7,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func init() {
@@ -19,13 +19,13 @@ func init() {
 		if v2.EnvDev.IsTrue() {
 			return
 		}
-		log.Println(`Version was unset but dev mode is enabled. Chainlink should be built with static.Version set to a valid semver for production builds.`)
+		log.Println(`Version was unset but dev mode is not enabled. Chainlink should be built with static.Version set to a valid semver for production builds.`)
 	} else if _, err := semver.NewVersion(static.Version); err != nil {
 		panic(fmt.Sprintf("Version invalid: %q is not valid semver", static.Version))
 	}
 }
 
-func main() {
+func Main() {
 	recovery.ReportPanics(func() {
 		run(newProductionClient(), os.Args...)
 	})

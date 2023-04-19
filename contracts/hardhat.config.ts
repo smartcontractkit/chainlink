@@ -5,6 +5,7 @@ import '@openzeppelin/hardhat-upgrades'
 import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
 import 'hardhat-contract-sizer'
+import 'hardhat-gas-reporter'
 import 'solidity-coverage'
 
 const COMPILER_SETTINGS = {
@@ -73,5 +74,8 @@ export default {
   mocha: {
     timeout: 100000,
     forbidOnly: Boolean(process.env.CI),
+  },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS ? true : false,
   },
 }

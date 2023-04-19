@@ -9,11 +9,13 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,28 +36,28 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mercury_verifier_proxy"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	mercury "github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	mercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Feed struct {
@@ -79,6 +81,11 @@ func TestIntegration_Mercury(t *testing.T) {
 	const fromBlock = 1 // cannot use zero, start from block 1
 	const multiplier = 100000000
 	testStartTimeStamp := uint32(time.Now().Unix())
+
+	// test vars
+	// pError is the probability that an EA will return an error instead of a result, as integer percentage
+	// pError = 0 means it will never return error
+	pError := atomic.Int64{}
 
 	// feeds
 	btcFeed := Feed{"BTC/USD", randomFeedID(), big.NewInt(20_000 * multiplier), big.NewInt(19_997 * multiplier), big.NewInt(20_004 * multiplier)}
@@ -165,10 +172,18 @@ func TestIntegration_Mercury(t *testing.T) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
-			res.WriteHeader(http.StatusOK)
-			val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
-			resp := fmt.Sprintf(`{"result": %s}`, val)
-			res.Write([]byte(resp))
+
+			r := rand.Int63n(101)
+			if r > pError.Load() {
+				res.WriteHeader(http.StatusOK)
+				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
+				resp := fmt.Sprintf(`{"result": %s}`, val)
+				res.Write([]byte(resp))
+			} else {
+				res.WriteHeader(http.StatusInternalServerError)
+				resp := fmt.Sprintf(`{"error": "pError test error"}`)
+				res.Write([]byte(resp))
+			}
 		}))
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
@@ -279,6 +294,63 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	// Expect at least one report per feed from each oracle
 	seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+	for i := range feeds {
+		// feedID will be deleted when all n oracles have reported
+		seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
+	}
+
+	for req := range reqs {
+		v := make(map[string]interface{})
+		err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+		require.NoError(t, err)
+		report, exists := v["report"]
+		if !exists {
+			t.Fatalf("expected payload %#v to contain 'report'", v)
+		}
+		reportElems := make(map[string]interface{})
+		err = reportcodec.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+		require.NoError(t, err)
+
+		feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+		feed, exists := feedM[feedID]
+		require.True(t, exists)
+
+		if _, exists := seen[feedID]; !exists {
+			continue // already saw all oracles for this feed
+		}
+
+		num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
+		require.NoError(t, err)
+		currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
+		require.NoError(t, err)
+
+		assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
+
+		expectedBm := feed.baseBenchmarkPrice
+		expectedBid := feed.baseBid
+		expectedAsk := feed.baseAsk
+
+		assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
+		assert.InDelta(t, expectedBm.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
+		assert.InDelta(t, expectedBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
+		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
+		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
+		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
+
+		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+
+		seen[feedID][req.pk] = struct{}{}
+		if len(seen[feedID]) == n {
+			t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
+			delete(seen, feedID)
+			if len(seen) == 0 {
+				break // saw all oracles; success!
+			}
+		}
+	}
+
+	pError.Store(20) // 20% chance of EA error
 	for i := range feeds {
 		// feedID will be deleted when all n oracles have reported
 		seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)

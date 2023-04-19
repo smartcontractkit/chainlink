@@ -22,7 +22,6 @@ builds:
       - linux
     goarch:
       - arm64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
@@ -34,15 +33,14 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: linux-amd64
     goos:
       - linux
     goarch:
       - amd64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
@@ -54,8 +52,8 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
 dockers:

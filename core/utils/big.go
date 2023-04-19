@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 const base10 = 10

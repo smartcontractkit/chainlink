@@ -17,7 +17,11 @@ interface FunctionsBillingRegistryInterface {
     uint256 gasPrice;
   }
 
-  enum FulfillResult{ USER_SUCCESS, USER_ERROR, INVALID_REQUEST_ID }
+  enum FulfillResult {
+    USER_SUCCESS,
+    USER_ERROR,
+    INVALID_REQUEST_ID
+  }
 
   /**
    * @notice Get configuration relevant for making requests

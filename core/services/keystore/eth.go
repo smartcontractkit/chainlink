@@ -12,13 +12,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-//go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
+var _ txmgr.EvmKeyStore = (*eth)(nil)
 
 // Eth is the external interface for EthKeyStore
+//
+//go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 type Eth interface {
 	Get(id string) (ethkey.KeyV2, error)
 	GetAll() ([]ethkey.KeyV2, error)
@@ -31,21 +35,22 @@ type Eth interface {
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+	NextSequence(address evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (evmtypes.Nonce, error)
+	IncrementNextSequence(address evmtypes.Address, chainID *big.Int, currentNonce evmtypes.Nonce, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 
-	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignTx(fromAddress evmtypes.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
-	CheckEnabled(address common.Address, chainID *big.Int) error
+	CheckEnabled(address evmtypes.Address, chainID *big.Int) error
 
 	GetState(id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	EnabledAddressesForChain(chainID *big.Int) (addresses []evmtypes.Address, err error)
 
 	XXXTestingOnlySetState(ethkey.State)
 	XXXTestingOnlyAdd(key ethkey.KeyV2)
@@ -178,45 +183,45 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 }
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
-func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
-	if !ks.exists(address) {
-		return 0, errors.Errorf("key with address %s does not exist", address.Hex())
+func (ks *eth) NextSequence(address evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce evmtypes.Nonce, err error) {
+	if !ks.exists(address.Address) {
+		return evmtypes.Nonce(0), errors.Errorf("key with address %s does not exist", address.String())
 	}
-	nonce, err = ks.orm.getNextNonce(address, chainID, qopts...)
+	nonceVal, err := ks.orm.getNextNonce(address.Address, chainID, qopts...)
 	if err != nil {
-		return 0, errors.Wrap(err, "GetNextNonce failed")
+		return evmtypes.Nonce(0), errors.Wrap(err, "NextSequence failed")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	state, exists := ks.keyStates.KeyIDChainID[address.Hex()][chainID.String()]
+	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
 	if !exists {
-		return 0, errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
+		return evmtypes.Nonce(0), errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
 	}
 	if state.Disabled {
-		return 0, errors.Errorf("state is disabled for address %s, chainID %s", address.Hex(), chainID.String())
+		return evmtypes.Nonce(0), errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
 	}
 	// Always clobber the memory nonce with the DB nonce
-	state.NextNonce = nonce
-	return nonce, nil
+	state.NextNonce = nonceVal
+	return evmtypes.Nonce(nonceVal), nil
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
-func (ks *eth) IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
-	if !ks.exists(address) {
-		return errors.Errorf("key with address %s does not exist", address.Hex())
+func (ks *eth) IncrementNextSequence(address evmtypes.Address, chainID *big.Int, currentSequence evmtypes.Nonce, qopts ...pg.QOpt) error {
+	if !ks.exists(address.Address) {
+		return errors.Errorf("key with address %s does not exist", address.String())
 	}
-	incrementedNonce, err := ks.orm.incrementNextNonce(address, chainID, currentNonce, qopts...)
+	incrementedNonce, err := ks.orm.incrementNextNonce(address.Address, chainID, currentSequence.Int64(), qopts...)
 	if err != nil {
 		return errors.Wrap(err, "failed IncrementNextNonce")
 	}
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	state, exists := ks.keyStates.KeyIDChainID[address.Hex()][chainID.String()]
+	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
 	if !exists {
-		return errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
+		return errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
 	}
 	if state.Disabled {
-		return errors.Errorf("state is disabled for address %s, chainID %s", address.Hex(), chainID.String())
+		return errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
 	}
 	state.NextNonce = incrementedNonce
 	return nil
@@ -334,13 +339,13 @@ func (ks *eth) SubscribeToKeyChanges() (ch chan struct{}, unsub func()) {
 	}
 }
 
-func (ks *eth) SignTx(address common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (ks *eth) SignTx(address evmtypes.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	key, err := ks.getByID(address.Hex())
+	key, err := ks.getByID(address.String())
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +398,7 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 		} else if len(whitelist) == 0 {
 			err = errors.Errorf("no sending keys available for chain %s", chainID.String())
 		} else {
-			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID.String(), whitelist)
+			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID, whitelist)
 		}
 		return common.Address{}, err
 	}
@@ -410,7 +415,10 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 
 // CheckEnabled returns nil if state is present and enabled
 // The complexity here comes because we want to return nice, useful error messages
-func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
+func (ks *eth) CheckEnabled(address evmtypes.Address, chainID *big.Int) error {
+	if address.Empty() {
+		return errors.Errorf("empty address provided as input")
+	}
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -418,15 +426,15 @@ func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 	}
 	var found bool
 	for _, k := range ks.keyRing.Eth {
-		if k.Address == address {
+		if k.Address == address.Address {
 			found = true
 			break
 		}
 	}
 	if !found {
-		return errors.Errorf("no eth key exists with address %s", address.Hex())
+		return errors.Errorf("no eth key exists with address %s", address.String())
 	}
-	states := ks.keyStates.KeyIDChainID[address.Hex()]
+	states := ks.keyStates.KeyIDChainID[address.String()]
 	state, exists := states[chainID.String()]
 	if !exists {
 		var chainIDs []string
@@ -435,7 +443,7 @@ func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 				chainIDs = append(chainIDs, cid)
 			}
 		}
-		return errors.Errorf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: %s)", address.Hex(), chainID.String(), strings.Join(chainIDs, ","))
+		return errors.Errorf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: %s)", address, chainID.String(), strings.Join(chainIDs, ","))
 	}
 	if state.Disabled {
 		var chainIDs []string
@@ -444,7 +452,7 @@ func (ks *eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 				chainIDs = append(chainIDs, cid)
 			}
 		}
-		return errors.Errorf("eth key with address %s exists but is disabled for chain %s (enabled only for chain IDs: %s)", address.Hex(), chainID.String(), strings.Join(chainIDs, ","))
+		return errors.Errorf("eth key with address %s exists but is disabled for chain %s (enabled only for chain IDs: %s)", address.String(), chainID.String(), strings.Join(chainIDs, ","))
 	}
 	return nil
 }
@@ -486,6 +494,24 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 		states = append(states, *s)
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].KeyID() < states[j].KeyID() })
+	return
+}
+
+func (ks *eth) EnabledAddressesForChain(chainID *big.Int) (addresses []evmtypes.Address, err error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if chainID == nil {
+		return nil, errors.New("chainID must be non-nil")
+	}
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	for _, s := range ks.keyStates.ChainIDKeyID[chainID.String()] {
+		if !s.Disabled {
+			evmAddress := evmtypes.NewAddress(s.Address.Address())
+			addresses = append(addresses, evmAddress)
+		}
+	}
 	return
 }
 

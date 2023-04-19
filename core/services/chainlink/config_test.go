@@ -20,21 +20,21 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	legacy "github.com/smartcontractkit/chainlink/core/config"
-	config "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -46,7 +46,6 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-
 			AuditLogger: audit.AuditLoggerConfig{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
@@ -62,7 +61,6 @@ var (
 				}),
 				JsonWrapperKey: ptr("event"),
 			},
-
 			Database: config.Database{
 				Listener: config.DatabaseListener{
 					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
@@ -218,6 +216,12 @@ func TestConfig_Marshal(t *testing.T) {
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
+			Insecure: config.Insecure{
+				DevWebServer:         ptr(false),
+				OCRDevelopmentMode:   ptr(false),
+				InfiniteDepthQueries: ptr(false),
+				DisableRateLimiting:  ptr(false),
+			},
 		},
 	}
 
@@ -623,6 +627,12 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
 `},
 		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -1024,6 +1034,7 @@ func TestConfig_full(t *testing.T) {
 			}
 		}
 	}
+
 	cfgtest.AssertFieldsNotNil(t, got)
 }
 

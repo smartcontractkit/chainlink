@@ -11,9 +11,9 @@ import (
 
 	"github.com/urfave/cli"
 
-	clcmd "github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Client, *cli.App) {

@@ -7,9 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type roundRobinKeystore interface {
@@ -17,11 +18,11 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
+	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx types.Transaction, err error)
 }
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error
+	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
 	FromAddress() common.Address
 }
 
@@ -65,21 +66,22 @@ func NewTransmitter(
 	}, nil
 }
 
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error {
 
 	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	_, err = t.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:      roundRobinFromAddress,
-		ToAddress:        toAddress,
+	_, err = t.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		FromAddress:      evmtypes.NewAddress(roundRobinFromAddress),
+		ToAddress:        evmtypes.NewAddress(toAddress),
 		EncodedPayload:   payload,
 		GasLimit:         t.gasLimit,
-		ForwarderAddress: t.forwarderAddress(),
+		ForwarderAddress: evmtypes.NewAddress(t.forwarderAddress()),
 		Strategy:         t.strategy,
 		Checker:          t.checker,
+		Meta:             txMeta,
 	}, pg.WithParentCtx(ctx))
 	return errors.Wrap(err, "skipped OCR transmission")
 }

@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (

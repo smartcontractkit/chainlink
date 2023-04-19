@@ -12,14 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
@@ -319,7 +319,8 @@ func TestNewUserCache(t *testing.T) {
 	// invent a unique subdir that we can cleanup
 	// because test.TempDir and ioutil.TempDir don't work well here
 	subDir := filepath.Base(fmt.Sprintf("%s-%d", t.Name(), r.Int64()))
-	c, err := cmd.NewUserCache(subDir)
+	lggr := logger.TestLogger(t)
+	c, err := cmd.NewUserCache(subDir, func() logger.Logger { return lggr })
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.Remove(c.RootDir()))

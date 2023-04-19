@@ -16,18 +16,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
@@ -89,8 +91,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
-				orm := txmgr.NewORM(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, *testutils.SimulatedChainID)
+				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+				uc, err2 := orm.CountUnconfirmedTransactions(evmtypes.NewAddress(key1.Address), testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -124,6 +126,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_with_bhs", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
 	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
@@ -139,6 +144,10 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Create BHS job and start it
 	_ = createAndStartBHSJob(t, sendingKeys, app, cu.bhsContractAddress.String(),
 		cu.rootContractAddress.String(), "")
+
+	// Ensure log poller is ready and has all logs.
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	// Create a VRF request
 	_, err := cu.consumerContract.TestRequestRandomness(cu.carol,
@@ -193,8 +202,8 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
-		orm := txmgr.NewORM(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, *testutils.SimulatedChainID)
+		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+		uc, err2 := orm.CountUnconfirmedTransactions(evmtypes.NewAddress(key.Address), testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

@@ -6,20 +6,20 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 type EthTransactionResolver struct {
-	tx txmgr.EthTx
+	tx txmgr.EvmTx
 }
 
-func NewEthTransaction(tx txmgr.EthTx) *EthTransactionResolver {
+func NewEthTransaction(tx txmgr.EvmTx) *EthTransactionResolver {
 	return &EthTransactionResolver{tx: tx}
 }
 
-func NewEthTransactions(results []txmgr.EthTx) []*EthTransactionResolver {
+func NewEthTransactions(results []txmgr.EvmTx) []*EthTransactionResolver {
 	var resolver []*EthTransactionResolver
 
 	for _, tx := range results {
@@ -126,11 +126,11 @@ func (r *EthTransactionResolver) SentAt(ctx context.Context) *string {
 // -- EthTransaction Query --
 
 type EthTransactionPayloadResolver struct {
-	tx *txmgr.EthTx
+	tx *txmgr.EvmTx
 	NotFoundErrorUnionType
 }
 
-func NewEthTransactionPayload(tx *txmgr.EthTx, err error) *EthTransactionPayloadResolver {
+func NewEthTransactionPayload(tx *txmgr.EvmTx, err error) *EthTransactionPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "transaction not found", isExpectedErrorFn: nil}
 
 	return &EthTransactionPayloadResolver{tx: tx, NotFoundErrorUnionType: e}
@@ -147,11 +147,11 @@ func (r *EthTransactionPayloadResolver) ToEthTransaction() (*EthTransactionResol
 // -- EthTransactions Query --
 
 type EthTransactionsPayloadResolver struct {
-	results []txmgr.EthTx
+	results []txmgr.EvmTx
 	total   int32
 }
 
-func NewEthTransactionsPayload(results []txmgr.EthTx, total int32) *EthTransactionsPayloadResolver {
+func NewEthTransactionsPayload(results []txmgr.EvmTx, total int32) *EthTransactionsPayloadResolver {
 	return &EthTransactionsPayloadResolver{results: results, total: total}
 }
 

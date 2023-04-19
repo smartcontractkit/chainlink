@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // logsFile describes the logs file name
@@ -96,14 +95,6 @@ type Logger interface {
 	Panicw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
 
-	// ErrorIf logs the error if present.
-	// Deprecated: use SugaredLogger.ErrorIf
-	ErrorIf(err error, msg string)
-
-	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
-	// Deprecated: use SugaredLogger.ErrorIfFn with c.Close
-	ErrorIfClosing(c io.Closer, name string)
-
 	// Sync flushes any buffered log entries.
 	// Some insignificant errors are suppressed.
 	Sync() error
@@ -161,9 +152,9 @@ func (c *Config) New() (Logger, func() error) {
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, closeLogger, err := zapDiskLoggerConfig{
-		local:          *c,
-		diskStats:      utils.NewDiskStatsProvider(),
-		diskPollConfig: newDiskPollConfig(diskPollInterval),
+		local:              *c,
+		diskSpaceAvailable: diskSpaceAvailable,
+		diskPollConfig:     newDiskPollConfig(diskPollInterval),
 	}.newLogger(cfg)
 	if err != nil {
 		log.Fatal(err)

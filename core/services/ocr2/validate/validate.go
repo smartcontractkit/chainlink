@@ -11,12 +11,12 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
-	mercuryconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury/config"
-	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
+	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
+	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

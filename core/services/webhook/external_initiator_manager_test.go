@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	_ "github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	_ "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 )
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
@@ -74,7 +74,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
-	client := new(webhookmocks.HTTPClient)
+	client := webhookmocks.NewHTTPClient(t)
 	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
@@ -113,7 +113,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
-	client := new(webhookmocks.HTTPClient)
+	client := webhookmocks.NewHTTPClient(t)
 	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI

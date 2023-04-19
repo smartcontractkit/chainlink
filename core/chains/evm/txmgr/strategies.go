@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ txmgrtypes.TxStrategy = SendEveryStrategy{}

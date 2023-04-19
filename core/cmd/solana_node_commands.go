@@ -1,14 +1,7 @@
 package cmd
 
 import (
-	"net/url"
-
-	"github.com/pkg/errors"
-	"github.com/urfave/cli"
-
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // SolanaNodePresenter implements TableRenderer for a SolanaNodeResource.
@@ -18,22 +11,14 @@ type SolanaNodePresenter struct {
 
 // ToRow presents the SolanaNodeResource as a slice of strings.
 func (p *SolanaNodePresenter) ToRow() []string {
-	row := []string{
-		p.GetID(),
-		p.Name,
-		p.SolanaChainID,
-		p.SolanaURL,
-	}
-	return row
+	return []string{p.GetID(), p.Name, p.ChainID, p.State, p.Config}
 }
-
-var solanaNodeHeaders = []string{"ID", "Name", "Chain ID", "URL"}
 
 // RenderTable implements TableRenderer
 func (p SolanaNodePresenter) RenderTable(rt RendererTable) error {
 	var rows [][]string
 	rows = append(rows, p.ToRow())
-	renderList(solanaNodeHeaders, rows, rt.Writer)
+	renderList(nodeHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -49,31 +34,11 @@ func (ps SolanaNodePresenters) RenderTable(rt RendererTable) error {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(solanaNodeHeaders, rows, rt.Writer)
+	renderList(nodeHeaders, rows, rt.Writer)
 
 	return nil
 }
 
 func NewSolanaNodeClient(c *Client) NodeClient {
-	createNode := func(c *cli.Context) (node db.Node, err error) {
-		node.Name = c.String("name")
-		node.SolanaChainID = c.String("chain-id")
-		node.SolanaURL = c.String("url")
-
-		if node.Name == "" {
-			err = errors.New("missing --name")
-			return
-		}
-		if node.SolanaChainID == "" {
-			err = errors.New("missing --chain-id")
-			return
-		}
-
-		if _, err2 := url.Parse(node.SolanaURL); err2 != nil {
-			err = errors.Errorf("invalid url: %v", err2)
-			return
-		}
-		return
-	}
-	return newNodeClient[db.Node, SolanaNodePresenter, SolanaNodePresenters](c, "solana", createNode)
+	return newNodeClient[SolanaNodePresenters](c, "solana")
 }

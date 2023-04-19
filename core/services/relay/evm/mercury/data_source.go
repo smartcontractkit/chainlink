@@ -12,10 +12,10 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type datasource struct {
@@ -35,9 +35,9 @@ func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logg
 }
 
 func (ds *datasource) Observe(ctx context.Context) (relaymercury.Observation, error) {
-	run, finalResult, err := ds.executeRun(ctx)
+	run, trrs, err := ds.executeRun(ctx)
 	if err != nil {
-		return relaymercury.Observation{}, err
+		return relaymercury.Observation{}, fmt.Errorf("Observe failed while executing run: %w", err)
 	}
 	select {
 	case ds.runResults <- run:
@@ -45,7 +45,7 @@ func (ds *datasource) Observe(ctx context.Context) (relaymercury.Observation, er
 		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 	}
 
-	return ds.parse(finalResult)
+	return ds.parse(trrs)
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -56,52 +56,89 @@ func toBigInt(val interface{}) (*big.Int, error) {
 	return dec.BigInt(), nil
 }
 
-// parse converts the FinalResult into a Observation and stores it in the bridge metadata
-// expects the output of observe to be five values, in the following order:
-// - benchmark price
-// - bid
-// - ask
-// - current block number
-// - current block hash
-func (ds *datasource) parse(result pipeline.FinalResult) (obs relaymercury.Observation, merr error) {
-	if result.HasErrors() {
-		return obs, result.CombinedError()
+// parse expects the output of observe to be five values, in the following order:
+// 1. benchmark price
+// 2. bid
+// 3. ask
+// 4. current block number
+// 5. current block hash
+//
+// returns error on parse errors: if something is the wrong type
+func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
+	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
+	// by the pipeline executor
+	if len(trrs) != 5 {
+		return obs, fmt.Errorf("invalid number of results, expected: 5, got: %d", len(trrs))
 	}
-	vals := result.Values
-	if len(vals) != 5 {
-		return obs, fmt.Errorf("invalid number of results, got: %s", vals)
-	}
-	for i := 0; i < len(vals); i++ {
-		var err error
-		switch i {
-		case 0:
-			obs.BenchmarkPrice, err = toBigInt(vals[i])
-		case 1:
-			obs.Bid, err = toBigInt(vals[i])
-		case 2:
-			obs.Ask, err = toBigInt(vals[i])
-		case 3:
-			if currentblocknum, is := vals[i].(int64); is {
-				obs.CurrentBlockNum = currentblocknum
-			} else {
-				err = fmt.Errorf("expected int64, got: %v", vals[i])
-			}
-		case 4:
-			if currentblockhash, is := vals[i].(common.Hash); is {
-				obs.CurrentBlockHash = currentblockhash.Bytes()
-			} else {
-				err = fmt.Errorf("expected hash, got: %v", vals[i])
-			}
-		}
-		merr = errors.Join(merr, err)
-	}
+	merr = errors.Join(
+		setBenchmarkPrice(&obs, trrs[0].Result),
+		setBid(&obs, trrs[1].Result),
+		setAsk(&obs, trrs[2].Result),
+		setCurrentBlockNum(&obs, trrs[3].Result),
+		setCurrentBlockHash(&obs, trrs[4].Result),
+	)
 
 	return obs, merr
 }
 
+func setBenchmarkPrice(obs *relaymercury.Observation, res pipeline.Result) error {
+	if res.Error != nil {
+		obs.BenchmarkPrice.Err = res.Error
+	} else if val, err := toBigInt(res.Value); err != nil {
+		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
+	} else {
+		obs.BenchmarkPrice.Val = val
+	}
+	return nil
+}
+
+func setBid(obs *relaymercury.Observation, res pipeline.Result) error {
+	if res.Error != nil {
+		obs.Bid.Err = res.Error
+	} else if val, err := toBigInt(res.Value); err != nil {
+		return fmt.Errorf("failed to parse Bid: %w", err)
+	} else {
+		obs.Bid.Val = val
+	}
+	return nil
+}
+
+func setAsk(obs *relaymercury.Observation, res pipeline.Result) error {
+	if res.Error != nil {
+		obs.Ask.Err = res.Error
+	} else if val, err := toBigInt(res.Value); err != nil {
+		return fmt.Errorf("failed to parse Ask: %w", err)
+	} else {
+		obs.Ask.Val = val
+	}
+	return nil
+}
+
+func setCurrentBlockNum(obs *relaymercury.Observation, res pipeline.Result) error {
+	if res.Error != nil {
+		obs.CurrentBlockNum.Err = res.Error
+	} else if val, is := res.Value.(int64); !is {
+		return fmt.Errorf("failed to parse CurrentBlockNum: expected int64, got: %T (%v)", res.Value, res.Value)
+	} else {
+		obs.CurrentBlockNum.Val = val
+	}
+	return nil
+}
+
+func setCurrentBlockHash(obs *relaymercury.Observation, res pipeline.Result) error {
+	if res.Error != nil {
+		obs.CurrentBlockHash.Err = res.Error
+	} else if val, is := res.Value.(common.Hash); !is {
+		return fmt.Errorf("failed to parse CurrentBlockHash: expected hash, got: %T (%v)", res.Value, res.Value)
+	} else {
+		obs.CurrentBlockHash.Val = val.Bytes()
+	}
+	return nil
+}
+
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.FinalResult, error) {
+func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -110,11 +147,19 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Fi
 		},
 	})
 
+	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
+	// They are guaranteed to be sorted by index asc so should be in the correct order
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, pipeline.FinalResult{}, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	finalResult := trrs.FinalResult(ds.lggr)
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		// only return terminal trrs from executeRun
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
 
-	return run, finalResult, err
+	return run, finaltrrs, err
 }

@@ -32,17 +32,19 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -79,15 +81,15 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Action: client.RebroadcastTransactions,
 			Flags: []cli.Flag{
 				cli.Uint64Flag{
-					Name:  "beginningNonce, b",
+					Name:  "beginningNonce, beginning-nonce, b",
 					Usage: "beginning of nonce range to rebroadcast",
 				},
 				cli.Uint64Flag{
-					Name:  "endingNonce, e",
+					Name:  "endingNonce, ending-nonce, e",
 					Usage: "end of nonce range to rebroadcast (inclusive)",
 				},
 				cli.Uint64Flag{
-					Name:  "gasPriceWei, g",
+					Name:  "gasPriceWei, gas-price-wei, g",
 					Usage: "gas price (in Wei) to rebroadcast transactions at",
 				},
 				cli.StringFlag{
@@ -100,11 +102,11 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Required: true,
 				},
 				cli.StringFlag{
-					Name:  "evmChainID",
+					Name:  "evmChainID, evm-chain-id",
 					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
 				},
 				cli.Uint64Flag{
-					Name:  "gasLimit",
+					Name:  "gasLimit, gas-limit",
 					Usage: "OPTIONAL: gas limit to use for each transaction ",
 				},
 			},
@@ -256,6 +258,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
+	cli.Config.LogConfiguration(lggr.Debug)
+
 	err := cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
@@ -263,8 +267,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
-	if cli.Config.Dev() {
+	if cli.Config.Dev() || build.Dev {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
+
+	if err := utils.EnsureDirAndMaxPerms(cli.Config.RootDir(), os.FileMode(0700)); err != nil {
+		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
 	}
 
 	ldb := pg.NewLockedDB(cli.Config, lggr)
@@ -438,8 +446,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		return nil
 	})
 
-	cli.Config.LogConfiguration(lggr.Debug)
-
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 
 	grp.Go(func() error {
@@ -583,16 +589,22 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
-
-	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
-	if err != nil {
+	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
-	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
-	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
+	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+
+	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
+	cfg := txmgr.NewEvmTxmConfig(chain.Config())
+	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
+	totalNonces := endingNonce - beginningNonce + 1
+	nonces := make([]evmtypes.Nonce, totalNonces)
+	for i := int64(0); i < totalNonces; i++ {
+		nonces[i] = evmtypes.Nonce(beginningNonce + i)
+	}
+	err = ec.ForceRebroadcast(nonces, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 
@@ -949,6 +961,10 @@ func dumpSchema(dbURL url.URL) (string, error) {
 
 	schema, err := cmd.Output()
 	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
+		}
 		return "", fmt.Errorf("failed to dump schema: %v", err)
 	}
 	return string(schema), nil

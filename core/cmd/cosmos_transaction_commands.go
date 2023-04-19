@@ -10,8 +10,8 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/cosmos"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initCosmosTxSubCmd(client *Client) cli.Command {

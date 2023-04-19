@@ -1,21 +1,21 @@
 package cmd_test
 
 import (
-	"net/url"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	"github.com/smartcontractkit/chainlink/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/cosmostest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 )
 
 func cosmosStartNewApplication(t *testing.T, cfgs ...*cosmos.CosmosConfig) *cltest.TestApplication {
@@ -49,9 +49,11 @@ func TestClient_IndexCosmosNodes(t *testing.T) {
 	nodes := *r.Renders[0].(*cmd.CosmosNodePresenters)
 	require.Len(t, nodes, 1)
 	n := nodes[0]
-	assert.Equal(t, "second", n.ID)
+	assert.Equal(t, chainID, n.ChainID)
+	assert.Equal(t, *node.Name, n.ID)
 	assert.Equal(t, *node.Name, n.Name)
-	assert.Equal(t, *chain.ChainID, n.CosmosChainID)
-	assert.Equal(t, (*url.URL)(node.TendermintURL).String(), n.TendermintURL)
+	wantConfig, err := toml.Marshal(node)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig), n.Config)
 	assertTableRenders(t, r)
 }

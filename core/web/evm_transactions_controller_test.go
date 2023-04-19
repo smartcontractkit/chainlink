@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"testing"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +24,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	db := app.GetSqlxDB()
-	borm := app.TxmORM()
+	borm := app.TxmStorageService()
 	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -80,7 +80,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.TxmORM()
+	borm := app.TxmStorageService()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
@@ -89,7 +89,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	attempt := tx.EthTxAttempts[0]
 	attempt.EthTx = tx
 
-	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.Hex())
+	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.String())
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -113,7 +113,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.TxmORM()
+	borm := app.TxmStorageService()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)

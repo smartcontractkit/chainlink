@@ -3,7 +3,7 @@ package types
 import (
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -26,3 +26,9 @@ const (
 	TxAttemptInsufficientEth = TxAttemptState("insufficient_eth")
 	TxAttemptBroadcast       = TxAttemptState("broadcast")
 )
+
+// Transaction is the type that callers get back, when they create a Transaction using the Txm.
+// TODO: Remove this with the EthTx type, once that is extracted out to this namespace.
+type Transaction interface {
+	GetID() string
+}

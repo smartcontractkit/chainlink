@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,9 +10,9 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
@@ -50,7 +49,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range unpacked.Transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("0x%x", addr)))
+		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.String()))
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
@@ -77,18 +76,20 @@ type configPoller struct {
 	addr               common.Address
 }
 
+func configPollerFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
+}
+
 // NewConfigPoller creates a new ConfigPoller
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ConfigPoller, error) {
-	configFilterName := logpoller.FilterName("OCR2ConfigPoller", addr.String())
-
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configFilterName, EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}
 
 	cp := &configPoller{
 		lggr:               lggr,
-		filterName:         configFilterName,
+		filterName:         configPollerFilterName(addr),
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 	}

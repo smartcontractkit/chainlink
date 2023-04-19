@@ -10,53 +10,35 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestLoader_Chains(t *testing.T) {
 	t.Parallel()
 
-	app := &coremocks.Application{}
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app)
-	})
-
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte("1"))
-	require.NoError(t, err)
-
-	id2 := utils.Big{}
-	err = id2.UnmarshalText([]byte("2"))
-	require.NoError(t, err)
-
-	chainId3 := utils.Big{}
-	err = chainId3.UnmarshalText([]byte("3"))
-	require.NoError(t, err)
-
-	chain := evmtypes.ChainConfig{
-		ID:      id,
-		Enabled: true,
-	}
-	chain2 := evmtypes.ChainConfig{
-		ID:      id2,
-		Enabled: true,
-	}
-	evmORM := evmtest.NewMockORM([]evmtypes.ChainConfig{chain, chain2}, nil)
+	one := utils.NewBigI(1)
+	chain := v2.EVMConfig{ChainID: one, Chain: v2.Defaults(one)}
+	two := utils.NewBigI(2)
+	chain2 := v2.EVMConfig{ChainID: two, Chain: v2.Defaults(two)}
+	evmORM := evmtest.NewTestConfigs(&chain, &chain2)
 	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}
@@ -65,11 +47,17 @@ func TestLoader_Chains(t *testing.T) {
 	results := batcher.loadByIDs(ctx, keys)
 
 	assert.Len(t, results, 3)
-	assert.Equal(t, chain2, results[0].Data.(evmtypes.ChainConfig))
-	assert.Equal(t, chain, results[1].Data.(evmtypes.ChainConfig))
+	config2, err := chain2.TOMLString()
+	require.NoError(t, err)
+	want2 := chains.ChainConfig{ID: "2", Enabled: true, Cfg: config2}
+	assert.Equal(t, want2, results[0].Data.(chains.ChainConfig))
+	config1, err := chain.TOMLString()
+	require.NoError(t, err)
+	want1 := chains.ChainConfig{ID: "1", Enabled: true, Cfg: config1}
+	assert.Equal(t, want1, results[1].Data.(chains.ChainConfig))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
-	assert.Equal(t, "chain not found", results[2].Error.Error())
+	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
 }
 
 func TestLoader_Nodes(t *testing.T) {
@@ -79,36 +67,18 @@ func TestLoader_Nodes(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, evmChainSet)
-	})
-
-	chainId1 := utils.Big{}
-	err := chainId1.UnmarshalText([]byte("1"))
-	require.NoError(t, err)
-
-	chainId2 := utils.Big{}
-	err = chainId2.UnmarshalText([]byte("2"))
-	require.NoError(t, err)
-
-	chainId3 := utils.Big{}
-	err = chainId3.UnmarshalText([]byte("3"))
-	require.NoError(t, err)
-
-	node1 := evmtypes.Node{
-		ID:         int32(1),
-		Name:       "test-node-1",
-		EVMChainID: chainId1,
+	node1 := chains.NodeStatus{
+		Name:    "test-node-1",
+		ChainID: "1",
 	}
-	node2 := evmtypes.Node{
-		ID:         int32(2),
-		Name:       "test-node-1",
-		EVMChainID: chainId2,
+	node2 := chains.NodeStatus{
+		Name:    "test-node-1",
+		ChainID: "2",
 	}
 
-	evmChainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainId2, chainId1, chainId3}).Return([]evmtypes.Node{
+	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]chains.NodeStatus{
 		node1, node2,
-	}, nil)
+	}, 2, nil)
 	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
 
 	batcher := nodeBatcher{app}
@@ -117,21 +87,17 @@ func TestLoader_Nodes(t *testing.T) {
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []evmtypes.Node{node2}, found[0].Data)
-	assert.Equal(t, []evmtypes.Node{node1}, found[1].Data)
-	assert.Equal(t, []evmtypes.Node{}, found[2].Data)
+	assert.Equal(t, []chains.NodeStatus{node2}, found[0].Data)
+	assert.Equal(t, []chains.NodeStatus{node1}, found[1].Data)
+	assert.Equal(t, []chains.NodeStatus{}, found[2].Data)
 }
 
 func TestLoader_FeedsManagers(t *testing.T) {
 	t.Parallel()
 
-	fsvc := &feedsMocks.Service{}
-	app := &coremocks.Application{}
+	fsvc := feedsMocks.NewService(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, fsvc)
-	})
 
 	mgr1 := feeds.FeedsManager{
 		ID:   int64(1),
@@ -168,13 +134,9 @@ func TestLoader_FeedsManagers(t *testing.T) {
 func TestLoader_JobProposals(t *testing.T) {
 	t.Parallel()
 
-	fsvc := &feedsMocks.Service{}
-	app := &coremocks.Application{}
+	fsvc := feedsMocks.NewService(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, fsvc)
-	})
 
 	jp1 := feeds.JobProposal{
 		ID:             int64(1),
@@ -211,13 +173,9 @@ func TestLoader_JobProposals(t *testing.T) {
 func TestLoader_JobRuns(t *testing.T) {
 	t.Parallel()
 
-	jobsORM := &jobORMMocks.ORM{}
-	app := &coremocks.Application{}
+	jobsORM := jobORMMocks.NewORM(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, jobsORM)
-	})
 
 	run1 := pipeline.Run{ID: int64(1)}
 	run2 := pipeline.Run{ID: int64(2)}
@@ -245,13 +203,9 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 	t.Run("with out errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		job1 := job.Job{ID: int32(2), PipelineSpecID: int32(1)}
 		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
@@ -276,13 +230,9 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 	t.Run("with errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
@@ -304,13 +254,9 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 	t.Run("with out errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		ejID := uuid.NewV4()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
@@ -331,29 +277,25 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txmORM := &txmgrMocks.ORM{}
-	app := &coremocks.Application{}
+	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, txmORM)
-	})
 
 	ethTxIDs := []int64{1, 2, 3}
 
-	attempt1 := txmgr.EthTxAttempt{
+	attempt1 := txmgr.EvmTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[0],
 	}
-	attempt2 := txmgr.EthTxAttempt{
+	attempt2 := txmgr.EvmTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[1],
 	}
 
-	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
+	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
 		attempt1, attempt2,
 	}, nil)
-	app.On("TxmORM").Return(txmORM)
+	app.On("TxmStorageService").Return(txStore)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -361,9 +303,9 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []txmgr.EthTxAttempt{}, found[0].Data)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt2}, found[1].Data)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[2].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{}, found[0].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[2].Data)
 }
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
@@ -372,13 +314,9 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 	t.Run("without errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		specErr1 := job.SpecError{ID: int64(2), JobID: int32(1)}
 		specErr2 := job.SpecError{ID: int64(3), JobID: int32(2)}
@@ -403,13 +341,9 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 	t.Run("with errors", func(t *testing.T) {
 		t.Parallel()
 
-		jobsORM := &jobORMMocks.ORM{}
-		app := &coremocks.Application{}
+		jobsORM := jobORMMocks.NewORM(t)
+		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
-
-		defer t.Cleanup(func() {
-			mock.AssertExpectationsForObjects(t, app, jobsORM)
-		})
 
 		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
@@ -428,7 +362,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txmORM := txmgrMocks.NewORM(t)
+	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -437,21 +371,21 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 
 	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
-		TxHash: ethTxHash,
+		TxHash: evmtypes.NewTxHash(ethTxHash),
 	}
 
-	attempt1 := txmgr.EthTxAttempt{
+	attempt1 := txmgr.EvmTxAttempt{
 		ID:          int64(1),
 		EthTxID:     ethTxID,
-		Hash:        ethTxHash,
+		Hash:        evmtypes.NewTxHash(ethTxHash),
 		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 
-	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EthTxAttempt{
+	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
 		attempt1,
 	}, nil)
 
-	app.On("TxmORM").Return(txmORM)
+	app.On("TxmStorageService").Return(txStore)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -459,5 +393,5 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 1)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[0].Data)
+	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[0].Data)
 }
