@@ -32,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
-type MockEvmTxStore = txmgrtypesMocks.MockEvmTxStore
-
 type mocks struct {
 	bridgeORM   *bridgeORMMocks.ORM
 	evmORM      *evmtest.TestConfigs
@@ -56,7 +54,7 @@ type mocks struct {
 	ethClient   *evmClientMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
-	txmStore    *MockEvmTxStore
+	txmStore    *txmgrtypesMocks.MockEvmTxStore
 	auditLogger *audit.AuditLoggerService
 }
 

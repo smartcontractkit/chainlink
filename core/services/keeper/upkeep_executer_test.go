@@ -35,8 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type MockEvmTxManager = txmmocks.TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-
 func newHead() evmtypes.Head {
 	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
 }
@@ -61,7 +59,7 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 	keeper.UpkeepRegistration,
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
-	*MockEvmTxManager,
+	*txmmocks.MockEvmTxManager,
 	keystore.Master,
 	evm.Chain,
 	keeper.ORM,
