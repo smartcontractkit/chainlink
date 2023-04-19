@@ -3,6 +3,8 @@ package cron
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/robfig/cron/v3"
 
@@ -63,6 +65,14 @@ func (cr *Cron) Close() error {
 }
 
 func (cr *Cron) runPipeline() {
+	if jitter := cr.jobSpec.CronSpec.Jitter; jitter > 0 {
+		jitter = time.Duration(rand.Int63n(int64(jitter)))
+		select {
+		case <-cr.chStop:
+			return
+		case <-time.After(jitter):
+		}
+	}
 	ctx, cancel := utils.ContextFromChan(cr.chStop)
 	defer cancel()
 

@@ -391,10 +391,11 @@ type DirectRequestSpec struct {
 }
 
 type CronSpec struct {
-	ID           int32     `toml:"-"`
-	CronSchedule string    `toml:"schedule"`
-	CreatedAt    time.Time `toml:"-"`
-	UpdatedAt    time.Time `toml:"-"`
+	ID           int32         `toml:"-"`
+	CronSchedule string        `toml:"schedule"`
+	Jitter       time.Duration `toml:"jitter"`
+	CreatedAt    time.Time     `toml:"-"`
+	UpdatedAt    time.Time     `toml:"-"`
 }
 
 func (s CronSpec) GetID() string {
