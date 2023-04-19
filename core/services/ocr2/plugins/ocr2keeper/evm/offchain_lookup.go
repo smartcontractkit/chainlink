@@ -222,20 +222,21 @@ func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) 
 	//return multiFeed, nil
 
 	// TODO remove this once Mercury has multi feeds endpoint
-	ch := make(chan MercuryBytes)
+	ch := make(chan MercuryBytes, len(mercuryLookup.feeds))
 	for i := range mercuryLookup.feeds {
 		go r.singleFeedRequest(&client, ch, upkeepId, i, mercuryLookup)
 	}
+	reqErr := errors.New("error during requests")
 	results := make([][]byte, len(mercuryLookup.feeds))
 	for i := 0; i < len(results); i++ {
 		m := <-ch
 		if m.Error != nil {
-			return [][]byte{}, m.Error
+			reqErr = errors.Wrapf(reqErr, "request[%d] - %s", i, m.Error)
 		}
 		results[m.Index] = m.Bytes
 	}
 
-	return results, nil
+	return results, reqErr
 }
 
 func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, mercuryLookup MercuryLookup) {
