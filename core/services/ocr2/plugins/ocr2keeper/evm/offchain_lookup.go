@@ -226,7 +226,7 @@ func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) 
 	for i := range mercuryLookup.feeds {
 		go r.singleFeedRequest(&client, ch, upkeepId, i, mercuryLookup)
 	}
-	reqErr := errors.New("error during requests")
+	var reqErr error
 	results := make([][]byte, len(mercuryLookup.feeds))
 	for i := 0; i < len(results); i++ {
 		m := <-ch
