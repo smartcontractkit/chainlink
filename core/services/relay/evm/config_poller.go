@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,7 +49,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range unpacked.Transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("0x%x", addr)))
+		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.String()))
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
