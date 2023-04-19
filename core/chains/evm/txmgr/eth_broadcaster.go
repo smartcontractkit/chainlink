@@ -88,7 +88,7 @@ type TransmitChecker[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]]
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster[
-	CHAIN_ID txmgrtypes.Id,
+	CHAIN_ID txmgrtypes.ID,
 	HEAD txmgrtypes.Head,
 	ADDR types.Hashable[ADDR],
 	TX_HASH types.Hashable[TX_HASH],
@@ -643,7 +643,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	// subsequent tries ought to resend the exact same in-progress transaction
 	// attempt and get a definitive answer on what happened
 	if sendError.IsTimeout() {
-		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx Id %d)", attempt.Hash, etx.ID), true
+		return errors.Wrapf(sendError, "timeout while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 	}
 
 	// Unknown error here. All bets are off in this case, it is possible the
@@ -711,7 +711,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	//
 	// In all cases, the best thing we can do is go into a retry loop and keep
 	// trying to send the transaction over again.
-	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx Id %d)", attempt.Hash, etx.ID), true
+	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash, etx.ID), true
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
@@ -818,7 +818,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	return eb.ks.IncrementNextSequence(address, eb.chainID, currentNonce, qopts...)
 }
 
-func observeTimeUntilBroadcast[CHAIN_ID txmgrtypes.Id](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast[CHAIN_ID txmgrtypes.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
 }

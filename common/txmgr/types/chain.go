@@ -6,6 +6,6 @@ import "fmt"
 // It should be convertible to a string
 type Sequence fmt.Stringer
 
-// Id represents the base type, for any chain's Id.
+// ID represents the base type, for any chain's ID.
 // It should be convertible to a string, that can uniquely identify this chain
-type Id fmt.Stringer
+type ID fmt.Stringer

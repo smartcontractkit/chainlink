@@ -17,7 +17,7 @@ type TxStore[
 	// Represents an account address, in native chain format. TODO: Should implement Hashable
 	ADDR types.Hashable[ADDR],
 	// Represents a chain id to be used for the chain.
-	CHAIN_ID Id,
+	CHAIN_ID ID,
 	// Represents a unique Tx Hash for a chain
 	TX_HASH types.Hashable[TX_HASH],
 	// Represents a unique Tx Hash for a chain

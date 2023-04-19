@@ -11,8 +11,8 @@ import (
 type KeyStore[
 	// Account Address type.
 	ADDR types.Hashable[ADDR],
-	// Chain Id type
-	CHAIN_ID Id,
+	// Chain ID type
+	CHAIN_ID ID,
 	// Chain's sequence type. For example, EVM chains use nonce, bitcoin uses UTXO.
 	SEQ Sequence,
 ] interface {
