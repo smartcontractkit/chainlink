@@ -236,7 +236,7 @@ func (p *Pool) Close() error {
 }
 
 func (p *Pool) ChainID() *big.Int {
-	return p.chainID
+	return p.selectNode().ChainID()
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.

@@ -105,6 +105,11 @@ func (nc *NullClient) ConfiguredChainID() *big.Int {
 	return big.NewInt(NullClientChainID)
 }
 
+func (nc *NullClient) ChainID() (*big.Int, error) {
+	nc.lggr.Debug("ChainID")
+	return nil, nil
+}
+
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
 	nc.lggr.Debug("HeaderByNumber")
 	return nil, nil

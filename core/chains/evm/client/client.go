@@ -151,7 +151,7 @@ func (client *client) TokenBalance(ctx context.Context, address common.Address, 
 	return numLinkBigInt, nil
 }
 
-// GetLINKBalance returns the balance of LINK at the given address
+// LINKBalance returns the balance of LINK at the given address
 func (client *client) LINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	balance, err := client.TokenBalance(ctx, address, linkAddress)
 	if err != nil {
@@ -181,6 +181,10 @@ func (client *client) TransactionByHash(ctx context.Context, txHash common.Hash)
 
 func (client *client) ConfiguredChainID() *big.Int {
 	return client.pool.chainID
+}
+
+func (client *client) ChainID() (*big.Int, error) {
+	return client.pool.ChainID(), nil
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {

@@ -285,6 +285,11 @@ func (c *SimulatedBackendClient) ConfiguredChainID() *big.Int {
 	return c.chainId
 }
 
+// ChainID RPC call
+func (c *SimulatedBackendClient) ChainID() (*big.Int, error) {
+	panic("not implemented")
+}
+
 // PendingNonceAt gets pending nonce i.e. mempool nonce.
 func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	return c.b.PendingNonceAt(ctx, account)
