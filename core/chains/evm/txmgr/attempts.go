@@ -106,7 +106,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit u
 		return attempt, errors.New("NewEmptyTranscation: legacy fee cannot be nil")
 	}
 
-	tx := types.NewTransaction(uint64(nonce.N), fromAddress.Address, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
+	tx := types.NewTransaction(uint64(nonce), fromAddress.Address, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
 
 	hash, signedTxBytes, err := c.SignTx(fromAddress, tx)
 	if err != nil {

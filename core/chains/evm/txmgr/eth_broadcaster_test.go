@@ -1063,7 +1063,7 @@ func getLocalNextNonce(t *testing.T, kst keystore.Eth, fromAddress gethCommon.Ad
 	n, err := kst.NextSequence(evmtypes.NewAddress(fromAddress), &cltest.FixtureChainID)
 	require.NoError(t, err)
 	require.NotNil(t, n)
-	return uint64(n.N)
+	return uint64(n.Int64())
 }
 
 // Note that all of these tests share the same database, and ordering matters.
@@ -1926,9 +1926,9 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	// Cannot increment if supplied nonce doesn't match existing
-	require.Error(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce{int64(42)}))
+	require.Error(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce(int64(42))))
 
-	require.NoError(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce{}))
+	require.NoError(t, ethKeyStore.IncrementNextSequence(evmtypes.NewAddress(keyState.Address.Address()), &cltest.FixtureChainID, evmtypes.Nonce(0)))
 
 	// Nonce bumped to 1
 	var nonce int64

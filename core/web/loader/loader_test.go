@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	txmgrtypesMocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -277,7 +277,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStore := txmgrtypesMocks.NewMockEvmTxStore(t)
+	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -362,7 +362,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStore := txmgrtypesMocks.NewMockEvmTxStore(t)
+	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 

@@ -5,13 +5,16 @@ import (
 	"strconv"
 )
 
-var _ fmt.Stringer = &Nonce{}
+var zeroNonce = Nonce(0)
+var _ fmt.Stringer = &zeroNonce
 
 // Nonce wraps an EVM nonce into a stringable type
-type Nonce struct {
-	N int64
+type Nonce int64
+
+func (n Nonce) Int64() int64 {
+	return int64(n)
 }
 
 func (n Nonce) String() string {
-	return strconv.FormatInt(n.N, 10)
+	return strconv.FormatInt(n.Int64(), 10)
 }

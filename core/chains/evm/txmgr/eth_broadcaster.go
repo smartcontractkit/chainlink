@@ -483,7 +483,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 // It is inevitable we have to pass the queryer because we need the keystate's next nonce to be incremented
 // atomically alongside the transition from `in_progress` to `broadcast` so it is ready for the next transaction
 func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) incrementNextNonceAtomic(tx pg.Queryer, etx EthTx[ADDR, TX_HASH]) error {
-	if err := eb.incrementNextNonce(etx.FromAddress, evmtypes.Nonce{N: *etx.Nonce}, pg.WithQueryer(tx)); err != nil {
+	if err := eb.incrementNextNonce(etx.FromAddress, evmtypes.Nonce(*etx.Nonce), pg.WithQueryer(tx)); err != nil {
 		return errors.Wrap(err, "saveUnconfirmed failed")
 	}
 	return nil
@@ -730,7 +730,8 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	if err != nil {
 		return nil, err
 	}
-	etx.Nonce = &nonce.N
+	nonceVal := nonce.Int64()
+	etx.Nonce = &nonceVal
 	return etx, nil
 }
 

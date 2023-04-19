@@ -682,7 +682,7 @@ func TestORM_FindEthTxWithNonce(t *testing.T) {
 	evmFromAddress := evmtypes.NewAddress(fromAddress)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindEthTxWithNonce(evmFromAddress, evmtypes.Nonce{777})
+		etx, err := txStore.FindEthTxWithNonce(evmFromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
@@ -691,7 +691,7 @@ func TestORM_FindEthTxWithNonce(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
 		require.Equal(t, int64(777), *etx.Nonce)
 
-		res, err := txStore.FindEthTxWithNonce(evmFromAddress, evmtypes.Nonce{777})
+		res, err := txStore.FindEthTxWithNonce(evmFromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Nonce, res.Nonce)
 	})
@@ -1305,16 +1305,16 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 
 	t.Run("update next nonce", func(t *testing.T) {
 		assert.Equal(t, int64(0), ethKeyState.NextNonce)
-		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce{24}, evmtypes.Nonce{0}, evmtypes.NewAddress(fromAddress), ethClient.ChainID())
+		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(24), evmtypes.Nonce(0), evmtypes.NewAddress(fromAddress), ethClient.ChainID())
 		require.NoError(t, err)
 
 		newNextNonce, err := ethKeyStore.NextSequence(evmtypes.NewAddress(fromAddress), ethClient.ChainID())
 		require.NoError(t, err)
-		assert.Equal(t, int64(24), newNextNonce.N)
+		assert.Equal(t, int64(24), newNextNonce.Int64())
 	})
 
 	t.Run("no rows found", func(t *testing.T) {
-		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce{100}, evmtypes.Nonce{123}, evmtypes.NewAddress(fromAddress), ethClient.ChainID())
+		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(100), evmtypes.Nonce(123), evmtypes.NewAddress(fromAddress), ethClient.ChainID())
 		require.Error(t, err)
 	})
 }

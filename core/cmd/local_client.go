@@ -602,7 +602,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
-		nonces[i] = evmtypes.Nonce{beginningNonce + i}
+		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
 	err = ec.ForceRebroadcast(nonces, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
 	return cli.errorOut(err)

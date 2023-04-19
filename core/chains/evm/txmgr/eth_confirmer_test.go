@@ -2820,7 +2820,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{{1}}, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{1}, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
 	})
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
@@ -2836,7 +2836,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{{1}}, gasPriceWei, evmtypes.NewAddress(fromAddress), 0))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1)}, gasPriceWei, evmtypes.NewAddress(fromAddress), 0))
 	})
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
@@ -2851,7 +2851,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(*etx2.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == uint64(overrideGasLimit)
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{{1}, {2}}, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1), (2)}, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
 	})
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
@@ -2876,7 +2876,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 					len(tx.Data()) == 0
 			})).Return(nil).Once()
 		}
-		nonces := []evmtypes.Nonce{{1}, {2}, {3}, {4}, {5}}
+		nonces := []evmtypes.Nonce{(1), (2), (3), (4), (5)}
 
 		require.NoError(t, ec.ForceRebroadcast(nonces, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
 	})
@@ -2890,7 +2890,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint32(tx.Gas()) == config.EvmGasLimitDefault()
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{{0}}, gasPriceWei, evmtypes.NewAddress(fromAddress), 0))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, evmtypes.NewAddress(fromAddress), 0))
 	})
 }
 

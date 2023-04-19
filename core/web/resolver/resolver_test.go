@@ -10,11 +10,11 @@ import (
 	"github.com/graph-gophers/graphql-go/gqltesting"
 	"github.com/stretchr/testify/mock"
 
-	txmgrtypesMocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -54,7 +54,7 @@ type mocks struct {
 	ethClient   *evmClientMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
-	txmStore    *txmgrtypesMocks.MockEvmTxStore
+	txmStore    *evmtxmgrmocks.MockEvmTxStore
 	auditLogger *audit.AuditLoggerService
 }
 
@@ -112,7 +112,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethClient:   evmClientMocks.NewClient(t),
 		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
 		balM:        evmORMMocks.NewBalanceMonitor(t),
-		txmStore:    txmgrtypesMocks.NewMockEvmTxStore(t),
+		txmStore:    evmtxmgrmocks.NewMockEvmTxStore(t),
 		auditLogger: &audit.AuditLoggerService{},
 	}
 

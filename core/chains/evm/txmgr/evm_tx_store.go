@@ -867,7 +867,7 @@ func (o *evmTxStore) FindEthTxWithNonce(fromAddress evmtypes.Address, nonce evmt
 		var dbEtx DbEthTx
 		err = tx.Get(&dbEtx, `
 SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-`, fromAddress.Address, nonce.N)
+`, fromAddress.Address, nonce.Int64())
 		if err != nil {
 			return errors.Wrap(err, "FindEthTxWithNonce failed to load eth_txes")
 		}
@@ -1364,7 +1364,7 @@ func (o *evmTxStore) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce evmtyp
 	return qq.Transaction(func(tx pg.Queryer) error {
 		//  We filter by next_nonce here as an optimistic lock to make sure it
 		//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce.N, time.Now(), address.Address, currentNextNonce.N, chainID.String())
+		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce.Int64(), time.Now(), address.Address, currentNextNonce.Int64(), chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}
