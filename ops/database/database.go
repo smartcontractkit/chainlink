@@ -7,6 +7,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq" // only place where database configs are called
+
 	"github.com/smartcontractkit/chainlink-relay/ops/utils"
 )
 

@@ -61,7 +61,7 @@ func NewGauntlet(path string) (Gauntlet, error) {
 	}
 
 	arg := []string{"--cwd", path, "gauntlet"}
-	fmt.Printf("Runing gauntlet via yarn with args: %s\n", arg)
+	fmt.Printf("Running gauntlet via yarn with args: %s\n", arg)
 
 	err = exec.Command(yarn, arg...).Run()
 	if err != nil {
@@ -84,7 +84,7 @@ func (g Gauntlet) ExecCommand(arg ...string) error {
 	a := []string{}
 	a = append(a, g.arg...)
 	a = append(a, arg...)
-	// Execute
+	// #nosec - Execute
 	cmd := exec.Command(g.yarn, a...)
 	output, err := cmd.CombinedOutput()
 	// For diagnostics we print full combined output on error

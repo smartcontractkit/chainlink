@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 // Manager restarts the multi-feed monitor whenever the feed configuration list has changed.

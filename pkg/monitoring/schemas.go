@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/linkedin/goavro/v2"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/avro"
 )
 

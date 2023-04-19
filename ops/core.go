@@ -6,12 +6,13 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
+	"github.com/smartcontractkit/integrations-framework/client"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink-relay/ops/adapter"
 	"github.com/smartcontractkit/chainlink-relay/ops/chainlink"
 	"github.com/smartcontractkit/chainlink-relay/ops/database"
 	"github.com/smartcontractkit/chainlink-relay/ops/utils"
-	"github.com/smartcontractkit/integrations-framework/client"
-	"gopkg.in/guregu/null.v4"
 )
 
 // Deployer interface for deploying contracts
@@ -124,7 +125,7 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 	}
 	if !ctx.DryRun() {
 		// wait for readiness check
-		if err := db.Ready(); err != nil {
+		if err = db.Ready(); err != nil {
 			return err
 		}
 
@@ -136,7 +137,7 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 
 		// create DBs
 		for _, n := range dbNames {
-			if err := db.Create(n); err != nil {
+			if err = db.Create(n); err != nil {
 				return err
 			}
 		}
@@ -145,9 +146,9 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 	// start EAs
 	adapters := []client.BridgeTypeAttributes{}
 	for i, ea := range eas {
-		a, err := adapter.New(ctx, img[ea], i)
-		if err != nil {
-			return err
+		a, adapterErr := adapter.New(ctx, img[ea], i)
+		if adapterErr != nil {
+			return adapterErr
 		}
 		adapters = append(adapters, a)
 	}
@@ -166,7 +167,6 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 
 	for i := 0; i <= nodeNum; i++ {
 		var cl chainlink.Node
-		var err error
 
 		// mixed upgrade containers
 		if mixedUpgrade && mixNodeArr[i] {
@@ -190,18 +190,18 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 	if !ctx.DryRun() {
 		for _, cl := range nodes {
 			// wait for readiness check
-			if err := cl.Ready(); err != nil {
+			if err = cl.Ready(); err != nil {
 				return err
 			}
 
 			// delete all jobs if any exist
-			if err := cl.DeleteAllJobs(); err != nil {
+			if err = cl.DeleteAllJobs(); err != nil {
 				return err
 			}
 
 			// add adapters to CL node
 			for _, a := range adapters {
-				if err := cl.AddBridge(a.Name, a.URL); err != nil {
+				if err = cl.AddBridge(a.Name, a.URL); err != nil {
 					return err
 				}
 			}
@@ -211,7 +211,7 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 	if !ctx.DryRun() {
 		// fetch keys from relays
 		for k := range nodes {
-			if err := nodes[k].GetKeys(chain); err != nil {
+			if err = nodes[k].GetKeys(chain); err != nil {
 				return err
 			}
 		}
@@ -249,9 +249,9 @@ func New(ctx *pulumi.Context, deployer Deployer, obsSource ObservationSource, ju
 		}
 
 		// create relay config
-		relayConfig, err := relayConfigFunc(ctx, deployer.Addresses())
-		if err != nil {
-			return err
+		relayConfig, configErr := relayConfigFunc(ctx, deployer.Addresses())
+		if configErr != nil {
+			return configErr
 		}
 
 		// create job specs

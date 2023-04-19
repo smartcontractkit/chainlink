@@ -10,7 +10,7 @@ import (
 func CreateNetwork(ctx *pulumi.Context, nwName string) (*docker.Network, error) {
 	network, err := docker.GetNetwork(ctx, nwName, nil, nil, nil)
 	if err != nil {
-		network, err := docker.NewNetwork(ctx, nwName, &docker.NetworkArgs{Name: pulumi.String(nwName)}, nil)
+		network, err = docker.NewNetwork(ctx, nwName, &docker.NetworkArgs{Name: pulumi.String(nwName)}, nil)
 		return network, err
 	}
 	return network, err

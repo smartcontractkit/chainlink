@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
 )
 
 // Mapper is an interface for converting Envelopes into data structures that can be encoded in AVRO and sent to Kafka.

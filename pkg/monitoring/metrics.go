@@ -344,7 +344,7 @@ func (d *defaultMetrics) SetOffchainAggregatorJuelsPerFeeCoinReceivedValues(valu
 }
 
 func (d *defaultMetrics) SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	var value float64 = 0
+	var value float64
 	if isSet {
 		value = 1
 	}

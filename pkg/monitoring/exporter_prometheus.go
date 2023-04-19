@@ -316,11 +316,11 @@ func (p *prometheusExporter) Cleanup(_ context.Context) {
 }
 
 // isNewTransmission considers four cases:
-//   - old value == new value && old timestamp == new timestap => return false
-//   - old value != new value && old timestamp == new timestap => This is probably and error since
+//   - old value == new value && old timestamp == new timestamp => return false
+//   - old value != new value && old timestamp == new timestamp => This is probably and error since
 //     any new transmission updates the timestamp as well, but, to record the observation, we return true.
-//   - old value != new value && old timestamp != new timestap => return true
-//   - old value == new value && old timestamp != new timestap => An unlikely case given the
+//   - old value != new value && old timestamp != new timestamp => return true
+//   - old value == new value && old timestamp != new timestamp => An unlikely case given the
 //     high precision of observations but still a valid update. Return true
 func (p *prometheusExporter) isNewTransmission(value *big.Int, timestamp time.Time) bool {
 	p.prevMu.Lock()

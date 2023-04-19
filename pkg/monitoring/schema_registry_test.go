@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/riferrei/srclient"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/avro"
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
-	"github.com/stretchr/testify/require"
 )
 
 const baseSchema = `

@@ -49,7 +49,7 @@ type ConfigProvider interface {
 	ContractConfigTracker() ocrtypes.ContractConfigTracker
 }
 
-// Plugin is an alias for PluginProvider, for compatability.
+// Plugin is an alias for PluginProvider, for compatibility.
 // Deprecated
 type Plugin = PluginProvider
 

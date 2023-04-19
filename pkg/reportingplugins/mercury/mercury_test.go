@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 func newReportingPlugin(t *testing.T) *reportingPlugin {

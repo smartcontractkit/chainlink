@@ -8,8 +8,9 @@ import (
 	"github.com/pulumi/pulumi-docker/sdk/v3/go/docker"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
-	"github.com/smartcontractkit/chainlink-relay/ops/utils"
 	"github.com/smartcontractkit/integrations-framework/client"
+
+	"github.com/smartcontractkit/chainlink-relay/ops/utils"
 )
 
 // New spins up image for a chainlink node

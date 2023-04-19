@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 func TestFeedMonitor(t *testing.T) {

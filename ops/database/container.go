@@ -4,6 +4,7 @@ import (
 	"github.com/pulumi/pulumi-docker/sdk/v3/go/docker"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
+
 	"github.com/smartcontractkit/chainlink-relay/ops/utils"
 )
 

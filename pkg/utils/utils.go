@@ -12,6 +12,7 @@ func WithJitter(d time.Duration) time.Duration {
 	if d == 0 {
 		return 0
 	}
+	// #nosec - non critical randomness
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)

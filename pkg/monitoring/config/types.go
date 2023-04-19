@@ -1,5 +1,5 @@
 // package config parses flags, environment variables and json object to build
-// a Config object that's used througout the monitor.
+// a Config object that's used throughout the monitor.
 package config
 
 import (

@@ -2,12 +2,14 @@ package monitoring
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/riferrei/srclient"
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
 
 type SchemaRegistry interface {
@@ -38,9 +40,9 @@ func (s *schemaRegistry) EnsureSchema(subject, spec string) (Schema, error) {
 	}
 	if err != nil && isNotFoundErr(err) {
 		s.log.Infow("creating new schema", "subject", subject)
-		newSchema, err := s.backend.CreateSchema(subject, spec, srclient.Avro)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create new schema with subject '%s': %w", subject, err)
+		newSchema, schemaErr := s.backend.CreateSchema(subject, spec, srclient.Avro)
+		if schemaErr != nil {
+			return nil, fmt.Errorf("unable to create new schema with subject '%s': %w", subject, schemaErr)
 		}
 		return wrapSchema{subject, newSchema}, nil
 	}
@@ -66,7 +68,8 @@ func isNotFoundErr(err error) bool {
 	if strings.HasPrefix(err.Error(), "Subject not found") { // for mock schema registry
 		return true
 	}
-	if srErr, ok := err.(srclient.Error); ok && srErr.Code == 40401 { // for the actual schema registry api.
+	var srErr srclient.Error
+	if errors.As(err, &srErr) && srErr.Code == 40401 { // for the actual schema registry api.
 		return true
 	}
 	return false

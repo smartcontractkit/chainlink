@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
 
 func TestRDDSource(t *testing.T) {

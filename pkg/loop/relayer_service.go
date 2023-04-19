@@ -158,11 +158,11 @@ func (p *RelayerService) keepAlive() {
 			p.mu.RUnlock()
 			if c != nil && !c.Exited() && cp != nil {
 				// launched
-				if err := cp.Ping(); err == nil {
+				err := cp.Ping()
+				if err == nil {
 					continue // healthy
-				} else {
-					p.lggr.Errorw("Relaunching unhealthy plugin", "err", err)
 				}
+				p.lggr.Errorw("Relaunching unhealthy plugin", "err", err)
 			}
 			if err := p.tryLaunch(cp); err != nil {
 				p.lggr.Errorw("Failed to launch plugin", "err", err)

@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/ops/utils"
 	"github.com/smartcontractkit/integrations-framework/client"
+
+	"github.com/smartcontractkit/chainlink-relay/ops/utils"
 )
 
 // Node implements the node parameters
@@ -49,9 +50,9 @@ func (n *Node) Ready() error {
 	for i := 0; i < timeout; i++ {
 		_, err = n.Health()
 		if err == nil {
-			cl, err := client.NewChainlink(&n.Config, http.DefaultClient)
+			cl, newErr := client.NewChainlink(&n.Config, http.DefaultClient)
 			n.Call = cl
-			return msg.Check(err)
+			return msg.Check(newErr)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -83,7 +84,7 @@ func (n Node) DeleteAllJobs() error {
 	jobs, err := n.Call.ReadJobs()
 	for _, j := range jobs.Data {
 		// remove job based on ID
-		if err := n.Call.DeleteJob(j["id"].(string)); err != nil {
+		if err = n.Call.DeleteJob(j["id"].(string)); err != nil {
 			return msg.Check(err)
 		}
 	}

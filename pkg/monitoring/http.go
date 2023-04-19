@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
@@ -24,6 +25,7 @@ func NewHTTPServer(baseCtx context.Context, addr string, log Logger) HTTPServer 
 		BaseContext: func(_ net.Listener) context.Context {
 			return baseCtx
 		},
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 	return &httpServer{srv, mux, log, addr}
 }

@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 type RDDData struct {
