@@ -2,7 +2,6 @@ package ocrcommon
 
 import (
 	"encoding/json"
-	"math/big"
 
 	"google.golang.org/protobuf/proto"
 
@@ -13,12 +12,11 @@ import (
 )
 
 type eaTelemetryResponse struct {
-	DataSource                    string `json:"data_source"`
-	ProviderRequestedTimestamp    int64  `json:"provider_requested_timestamp"`
-	ProviderReceivedTimestamp     int64  `json:"provider_received_timestamp"`
-	ProviderDataStreamEstablished int64  `json:"provider_data_stream_established"`
-	ProviderDataReceived          int64  `json:"provider_data_received"`
-	ProviderIndicatedTime         int64  `json:"provider_indicated_time"`
+	DataSource                    string `json:"dataSource"`
+	ProviderRequestedTimestamp    int64  `json:"providerDataRequestedUnixMs"`
+	ProviderReceivedTimestamp     int64  `json:"providerDataReceivedUnixMs"`
+	ProviderDataStreamEstablished int64  `json:"providerDataStreamEstablishedUnixMs"`
+	ProviderIndicatedTime         int64  `json:"providerIndicatedTimeUnixMs"`
 }
 
 // shouldCollectTelemetry returns whether EA telemetry should be collected
@@ -62,7 +60,7 @@ func getChainID(jb *job.Job) string {
 // parseEATelemetry attempts to parse the bridge telemetry
 func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
 	type generalResponse struct {
-		Telemetry eaTelemetryResponse `json:"telemetry"`
+		TelemTimestamps eaTelemetryResponse `json:"timestamps"`
 	}
 	gr := generalResponse{}
 
@@ -70,19 +68,20 @@ func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
 		return eaTelemetryResponse{}, err
 	}
 
-	return gr.Telemetry, nil
+	return gr.TelemTimestamps, nil
 }
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
 // the response as a *big.Int
-func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *big.Int {
+func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
 	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
 			return nil
 		}
-		return asDecimal.BigInt()
+		toFloat, _ := asDecimal.Float64()
+		return &toFloat
 	}
 	return nil
 }
@@ -104,13 +103,13 @@ func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) i
 	return finalResultDecimal.BigInt().Int64()
 }
 
-func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) int64 {
+func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) float64 {
 	parsedValue := getJsonParsedValue(trr, trrs)
 	if parsedValue == nil {
 		ds.lggr.Warnf("cannot get json parse value, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		return 0
 	}
-	return parsedValue.Int64()
+	return *parsedValue
 }
 
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
@@ -152,7 +151,6 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
 			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
 			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
-			ProviderDataReceived:          eaTelemetry.ProviderDataReceived,
 			ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
 			Feed:                          contract,
 			ChainId:                       chainID,
@@ -167,6 +165,7 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ds.lggr.Warnf("protobuf marshal failed %v", err.Error())
 			continue
 		}
+
 		ds.monitoringEndpoint.SendLog(bytes)
 	}
 }
