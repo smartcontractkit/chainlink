@@ -115,7 +115,7 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
-	triggers map[string]chan struct{}
+	triggers map[ADDR]chan struct{}
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
@@ -123,6 +123,8 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	initSync  sync.Mutex
 	isStarted bool
 	utils.StartStopOnce
+
+	addrParser func(string) ADDR
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
@@ -154,6 +156,7 @@ func NewEthBroadcaster(
 		initSync:         sync.Mutex{},
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
+		addrParser:       gethCommon.HexToAddress, // note: still evm-specific
 	}
 
 	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
@@ -193,10 +196,10 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) startInternal() error {
 	eb.chStop = make(chan struct{})
 	eb.wg = sync.WaitGroup{}
 	eb.wg.Add(len(eb.enabledAddresses))
-	eb.triggers = make(map[string]chan struct{})
+	eb.triggers = make(map[ADDR]chan struct{})
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
-		eb.triggers[addr.String()] = triggerCh
+		eb.triggers[addr] = triggerCh
 		go eb.monitorEthTxs(addr, triggerCh)
 	}
 
@@ -243,9 +246,9 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) HealthReport() map[string]e
 
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addrStr string) {
+func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addr ADDR) {
 	if eb.isStarted {
-		triggerCh, exists := eb.triggers[addrStr]
+		triggerCh, exists := eb.triggers[addr]
 		if !exists {
 			// ignoring trigger for address which is not registered with this EthBroadcaster
 			return
@@ -255,7 +258,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addrStr string) {
 		default:
 		}
 	} else {
-		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addrStr)
+		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addr)
 	}
 }
 
@@ -268,9 +271,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ethTxInsertTriggerer() {
 				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
-			hexAddr := ev.Payload
-			address := gethCommon.HexToAddress(hexAddr)
-			eb.Trigger(address.String())
+			eb.Trigger(eb.addrParser(ev.Payload))
 		case <-eb.chStop:
 			return
 		}
