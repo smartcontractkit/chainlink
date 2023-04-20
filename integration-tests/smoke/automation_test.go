@@ -163,7 +163,7 @@ func SetupAutoBasic(t *testing.T, nodeUpgrade bool) {
 
 	if nodeUpgrade {
 		upgradeChainlinkNode(t, testEnv, "", "")
-		//time.Sleep(time.Second * 150)
+		time.Sleep(time.Second * 30)
 
 		gom.Eventually(func(g gomega.Gomega) {
 			// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
@@ -821,14 +821,17 @@ func upgradeChainlinkNode(t *testing.T, testEnv *environment.Environment, newIma
 			},
 		}
 	}
-	err := testEnv.ModifyHelm("chainlink-0", chainlink.New(0, map[string]any{
-		"replicas": "5",
-		"db": map[string]any{
-			"stateful": true,
-		},
-		"chainlink": chainlinkChartCl,
-		"toml":      client.AddNetworksConfig(automationBaseTOML, networks.SelectedNetwork),
-	})).Run()
+	for i := 1; i < 5; i++ { // Upgrading bootstrap node is skipped since that needs jobs to be updated on all nodes
+		testEnv.ModifyHelm("chainlink-"+strconv.Itoa(i), chainlink.New(i, map[string]any{
+			"replicas": "1",
+			"db": map[string]any{
+				"stateful": true,
+			},
+			"chainlink": chainlinkChartCl,
+			"toml":      client.AddNetworksConfig(automationBaseTOML, networks.SelectedNetwork),
+		}))
+	}
+	err := testEnv.Run()
 	require.NoError(t, err, "Error upgrading chainlink nodes")
 }
 
@@ -872,21 +875,13 @@ func setupAutomationTestWithVersion(
 		automationEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
 		automationEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
-	chainlinkChart := chainlink.New(0, map[string]any{
-		"replicas": "5",
+	chainlinkProps := map[string]any{
+		"replicas": "1",
 		"db": map[string]any{
 			"stateful": statefulDb,
 		},
 		"chainlink": chainlinkChartCl,
 		"toml":      client.AddNetworksConfig(automationBaseTOML, network),
-	})
-
-	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-	if useEnvVars == "true" {
-		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
-			"replicas": "5",
-			"env":      automationEnvVars,
-		})
 	}
 
 	testEnvironment := environment.New(&environment.Config{
@@ -895,8 +890,23 @@ func setupAutomationTestWithVersion(
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
+		AddHelm(evmConfig)
+
+	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+	if useEnvVars == "true" {
+		chainlinkProps = map[string]any{
+			"replicas": "1",
+			"env":      automationEnvVars,
+		}
+		for i := 0; i < 5; i++ {
+			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", chainlinkProps))
+		}
+	} else {
+		for i := 0; i < 5; i++ {
+			testEnvironment.AddHelm(chainlink.New(i, chainlinkProps))
+		}
+	}
+
 	err := testEnvironment.Run()
 
 	require.NoError(t, err, "Error setting up test environment")
