@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 ### Added
 
+- Low latency oracle jobs now support in-protocol block range guarantees. This
+  is necessary in order to produce reports with block number ranges that do not
+  overlap. It can now be guaranteed at the protocol level, so we can use local
+  state instead of relying on an unreliable round-trip to the Mercury server.
+
 ### Fixed
 
 ### Changed

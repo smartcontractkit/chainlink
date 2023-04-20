@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_exposed_verifier"
@@ -62,9 +62,9 @@ func configDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	binary.BigEndian.PutUint16(configDigest[:2], uint16(ConfigDigestPrefixMercuryV02))
-	// TODO: get rid of this check
+	binary.BigEndian.PutUint16(configDigest[:2], uint16(types.ConfigDigestPrefixMercuryV02))
 	if !(configDigest[0] == 0 || configDigest[1] == 6) {
+		// assertion
 		panic("unexpected mismatch")
 	}
 	return configDigest
