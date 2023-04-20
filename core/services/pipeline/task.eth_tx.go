@@ -129,18 +129,17 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	strategy := txmgr.NewSendEveryStrategy()
 
 	var forwarderAddress evmtypes.Address
-	evmFromAddr := evmtypes.NewAddress(fromAddr)
 	if t.forwardingAllowed {
 		var fwderr error
-		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(evmFromAddr)
+		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
 		if fwderr != nil {
 			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
 		}
 	}
 
 	newTx := txmgr.EvmNewTx{
-		FromAddress:      evmFromAddr,
-		ToAddress:        evmtypes.NewAddress(common.Address(toAddr)),
+		FromAddress:      fromAddr,
+		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
 		GasLimit:         uint32(gasLimit),
 		Meta:             txMeta,

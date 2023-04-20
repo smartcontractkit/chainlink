@@ -112,7 +112,7 @@ var (
 // Step 2: Check pending transactions for receipts
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
-type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	utils.StartStopOnce
 	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	lggr      logger.Logger
@@ -1049,7 +1049,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) EnsureConfirmedTransactionsIn
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) bool {
+func hasReceiptInLongestChain[ADDR types.Hashable, TX_HASH types.Hashable](etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1185,7 +1185,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) ResumePendingTaskRuns(ctx con
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
-func observeUntilTxConfirmed[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](chainID big.Int, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
+func observeUntilTxConfirmed[ADDR types.Hashable, TX_HASH types.Hashable](chainID big.Int, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
 			if attempt.Hash.String() != r.TxHash.String() {

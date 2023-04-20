@@ -4,9 +4,8 @@ package types
 // PublicKey, Address, Account, BlockHash, TxHash
 //
 //go:generate mockery --quiet --name Hashable --output ./mocks/ --case=underscore
-type Hashable[T any] interface {
+type Hashable interface {
 	MarshalText() (text []byte, err error)
 	String() string
-	Equals(t T) bool
-	Empty() bool
+	comparable
 }

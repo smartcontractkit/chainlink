@@ -34,7 +34,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -589,7 +588,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
@@ -599,7 +598,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
 	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
-	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 

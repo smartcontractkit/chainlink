@@ -25,7 +25,7 @@ const batchSendTransactionTimeout = 30 * time.Second
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-func batchSendTransactions[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]](
+func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable](
 	ctx context.Context,
 	txStore txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64],
 	attempts []EthTxAttempt[ADDR, TX_HASH],
@@ -75,7 +75,7 @@ func batchSendTransactions[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_
 	return reqs, nil
 }
 
-func getGethAddressFromADDR[ADDR commontypes.Hashable[ADDR]](addr ADDR) (common.Address, error) {
+func getGethAddressFromADDR[ADDR commontypes.Hashable](addr ADDR) (common.Address, error) {
 	addrHex, err := addr.MarshalText()
 	if err != nil {
 		return common.Address{}, errors.Wrapf(err, "failed to serialize address to text: %s", addr.String())
@@ -88,7 +88,7 @@ func getGethAddressFromADDR[ADDR commontypes.Hashable[ADDR]](addr ADDR) (common.
 	return gethAddr, nil
 }
 
-func getGethHashFromHash[HASH commontypes.Hashable[HASH]](hash HASH) (common.Hash, error) {
+func getGethHashFromHash[HASH commontypes.Hashable](hash HASH) (common.Hash, error) {
 	hashHex, err := hash.MarshalText()
 	if err != nil {
 		return common.Hash{}, errors.Wrapf(err, "failed to serialize hash to text: %s", hash.String())

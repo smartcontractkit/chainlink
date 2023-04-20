@@ -372,13 +372,13 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 
 	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
-		TxHash: evmtypes.NewTxHash(ethTxHash),
+		TxHash: ethTxHash,
 	}
 
 	attempt1 := txmgr.EvmTxAttempt{
 		ID:          int64(1),
 		EthTxID:     ethTxID,
-		Hash:        evmtypes.NewTxHash(ethTxHash),
+		Hash:        ethTxHash,
 		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 

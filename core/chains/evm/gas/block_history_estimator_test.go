@@ -31,7 +31,7 @@ import (
 )
 
 func NewEvmHash() evmtypes.TxHash {
-	return evmtypes.NewTxHash(utils.NewHash())
+	return utils.NewHash()
 }
 
 func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gas.MockConfig {
@@ -1932,7 +1932,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	})
 
 	num := int64(0)
-	hash := evmtypes.NewTxHash(utils.NewHash())
+	hash := utils.NewHash()
 	attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
 		&MockAttempt{TxType: 0x3, BroadcastBeforeBlockNum: &num, Hash: hash},
 	}

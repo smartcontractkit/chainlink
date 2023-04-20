@@ -16,6 +16,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Eth is the external interface for EthKeyStore
@@ -184,10 +185,10 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
 func (ks *eth) NextSequence(address evmtypes.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
-	if !ks.exists(address.Address) {
+	if !ks.exists(address) {
 		return 0, errors.Errorf("key with address %s does not exist", address.String())
 	}
-	nonce, err = ks.orm.getNextNonce(address.Address, chainID, qopts...)
+	nonce, err = ks.orm.getNextNonce(address, chainID, qopts...)
 	if err != nil {
 		return 0, errors.Wrap(err, "NextSequence failed")
 	}
@@ -207,10 +208,10 @@ func (ks *eth) NextSequence(address evmtypes.Address, chainID *big.Int, qopts ..
 
 // IncrementNextNonce increments keys.next_nonce by 1
 func (ks *eth) IncrementNextSequence(address evmtypes.Address, chainID *big.Int, currentSequence int64, qopts ...pg.QOpt) error {
-	if !ks.exists(address.Address) {
+	if !ks.exists(address) {
 		return errors.Errorf("key with address %s does not exist", address.String())
 	}
-	incrementedNonce, err := ks.orm.incrementNextNonce(address.Address, chainID, currentSequence, qopts...)
+	incrementedNonce, err := ks.orm.incrementNextNonce(address, chainID, currentSequence, qopts...)
 	if err != nil {
 		return errors.Wrap(err, "failed IncrementNextNonce")
 	}
@@ -416,7 +417,7 @@ func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Addres
 // CheckEnabled returns nil if state is present and enabled
 // The complexity here comes because we want to return nice, useful error messages
 func (ks *eth) CheckEnabled(address evmtypes.Address, chainID *big.Int) error {
-	if address.Empty() {
+	if utils.IsZero(address) {
 		return errors.Errorf("empty address provided as input")
 	}
 	ks.lock.RLock()
@@ -426,7 +427,7 @@ func (ks *eth) CheckEnabled(address evmtypes.Address, chainID *big.Int) error {
 	}
 	var found bool
 	for _, k := range ks.keyRing.Eth {
-		if k.Address == address.Address {
+		if k.Address == address {
 			found = true
 			break
 		}
@@ -508,7 +509,7 @@ func (ks *eth) EnabledAddressesForChain(chainID *big.Int) (addresses []evmtypes.
 	}
 	for _, s := range ks.keyStates.ChainIDKeyID[chainID.String()] {
 		if !s.Disabled {
-			evmAddress := evmtypes.NewAddress(s.Address.Address())
+			evmAddress := s.Address.Address()
 			addresses = append(addresses, evmAddress)
 		}
 	}

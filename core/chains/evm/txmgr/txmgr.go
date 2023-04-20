@@ -37,7 +37,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 // It is also the interface to external callers.
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
-type TxManager[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] interface {
+type TxManager[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
 	txmgrtypes.HeadTrackable[*evmtypes.Head]
 	services.ServiceCtx
 	Trigger(addr ADDR)
@@ -57,7 +57,7 @@ type reset struct {
 	done chan error
 }
 
-type Txm[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type Txm[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
 	txStore          txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
@@ -428,7 +428,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Trigger(addr ADDR) {
 	}
 }
 
-type NewTx[ADDR types.Hashable[ADDR]] struct {
+type NewTx[ADDR types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -453,7 +453,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(newTx NewTx[ADDR],
 		return tx, err
 	}
 
-	if b.config.UseForwarders() && (!newTx.ForwarderAddress.Empty()) {
+	if b.config.UseForwarders() && (!utils.IsZero(newTx.ForwarderAddress)) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
@@ -503,7 +503,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) checkEnabled(addr ADDR) error {
 // SendEther creates a transaction that transfers the given value of ether
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	// TODO: Remove this hard-coding on evm package
-	if to.Empty() {
+	if utils.IsZero(to) {
 		return etx, errors.New("cannot send ether to zero address")
 	}
 	etx = EthTx[ADDR, TX_HASH]{
@@ -521,7 +521,7 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from, to AD
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](ctx context.Context, ethClient evmclient.Client, a EthTxAttempt[ADDR, TX_HASH], e EthTx[ADDR, TX_HASH], logger logger.Logger) *evmclient.SendError {
+func sendTransaction[ADDR types.Hashable, TX_HASH types.Hashable](ctx context.Context, ethClient evmclient.Client, a EthTxAttempt[ADDR, TX_HASH], e EthTx[ADDR, TX_HASH], logger logger.Logger) *evmclient.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return evmclient.NewFatalSendError(err)
@@ -541,7 +541,7 @@ func sendTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]]
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
-func sendEmptyTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](
+func sendEmptyTransaction[ADDR types.Hashable, TX_HASH types.Hashable](
 	ctx context.Context,
 	ethClient evmclient.Client,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH]],
@@ -566,7 +566,7 @@ func sendEmptyTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_H
 	return signedTx, err
 }
 
-type NullTxManager[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type NullTxManager[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ErrMsg string
 }
 

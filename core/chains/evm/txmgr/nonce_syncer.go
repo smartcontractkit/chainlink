@@ -46,7 +46,7 @@ import (
 //
 // This gives us re-org protection up to EVM.FinalityDepth deep in the
 // worst case, which is in line with our other guarantees.
-type NonceSyncer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] interface {
+type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
 	Sync(ctx context.Context, addr ADDR) (err error)
 }
 
@@ -138,6 +138,6 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 }
 
 func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account evmtypes.Address) (nextNonce uint64, err error) {
-	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account.Address)
+	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
 }

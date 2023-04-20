@@ -180,7 +180,7 @@ func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
 	}
 }
 
-type EthTx[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
+type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	txmgrtypes.Transaction
 	ID             int64
 	Nonce          *int64
@@ -316,7 +316,7 @@ func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec, error) {
 
 var _ txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash] = EthTxAttempt[evmtypes.Address, evmtypes.TxHash]{}
 
-type EthTxAttempt[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
+type EthTxAttempt[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	ID      int64
 	EthTxID int64
 	EthTx   EthTx[ADDR, TX_HASH]

@@ -86,7 +86,7 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	txm, err := makeTestEvmTxm(t, db, ethClient, config, keyStore, nil)
 	require.NoError(t, err)
 
-	_, err = txm.SendEther(big.NewInt(0), evmtypes.NewAddress(from), evmtypes.NewAddress(to), *value, 21000)
+	_, err = txm.SendEther(big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
@@ -121,8 +121,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(toAddress),
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
 			Meta:           nil,
@@ -134,8 +134,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress.Address)
-		assert.Equal(t, toAddress, etx.ToAddress.Address)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
@@ -147,8 +147,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress.Address)
-		assert.Equal(t, toAddress, etx.ToAddress.Address)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
@@ -161,8 +161,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		_, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(testutils.NewAddress()),
+			FromAddress:    fromAddress,
+			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			GasLimit:       21000,
 			Meta:           nil,
@@ -178,8 +178,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
 		id := uuid.NewV4()
 		tx1, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:       evmtypes.NewAddress(fromAddress),
-			ToAddress:         evmtypes.NewAddress(testutils.NewAddress()),
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
 			GasLimit:          21000,
 			PipelineTaskRunID: &id,
@@ -189,8 +189,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
 		tx2, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:       evmtypes.NewAddress(fromAddress),
-			ToAddress:         evmtypes.NewAddress(testutils.NewAddress()),
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
 			GasLimit:          21000,
 			PipelineTaskRunID: &id,
@@ -204,10 +204,10 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	})
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
-		rndAddr := evmtypes.NewAddress(testutils.NewAddress())
+		rndAddr := testutils.NewAddress()
 		_, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    rndAddr,
-			ToAddress:      evmtypes.NewAddress(testutils.NewAddress()),
+			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			GasLimit:       21000,
 			Strategy:       txmgr.SendEveryStrategy{},
@@ -218,8 +218,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
 
 		_, err = txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(otherAddress),
-			ToAddress:      evmtypes.NewAddress(testutils.NewAddress()),
+			FromAddress:    otherAddress,
+			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			GasLimit:       21000,
 			Strategy:       txmgr.SendEveryStrategy{},
@@ -238,8 +238,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(toAddress),
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
 			Strategy:       txmgr.NewSendEveryStrategy(),
@@ -279,8 +279,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(toAddress),
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
 			Meta:           meta,
@@ -318,11 +318,11 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
 		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:      evmtypes.NewAddress(fromAddress),
-			ToAddress:        evmtypes.NewAddress(toAddress),
+			FromAddress:      fromAddress,
+			ToAddress:        toAddress,
 			EncodedPayload:   payload,
 			GasLimit:         gasLimit,
-			ForwarderAddress: evmtypes.NewAddress(fwdr.Address),
+			ForwarderAddress: fwdr.Address,
 			Strategy:         txmgr.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
@@ -387,9 +387,9 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
 
 	fromAddress := thisKey.Address
-	evmFromAddress := evmtypes.NewAddress(fromAddress)
+	evmFromAddress := fromAddress
 	gasLimit := uint32(1000)
-	toAddress := evmtypes.NewAddress(testutils.NewAddress())
+	toAddress := testutils.NewAddress()
 
 	config := newMockConfig(t)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
@@ -513,7 +513,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	addr := []evmtypes.Address{evmtypes.NewAddress(keyState.Address.Address())}
+	addr := []evmtypes.Address{keyState.Address.Address()}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
@@ -584,7 +584,7 @@ func TestTxm_Reset(t *testing.T) {
 	t.Run("returns error if not started", func(t *testing.T) {
 		f := new(fnMock)
 
-		err := txm.Reset(f.Fn, evmtypes.NewAddress(addr), false)
+		err := txm.Reset(f.Fn, addr, false)
 		require.Error(t, err)
 		assert.EqualError(t, err, "not started")
 
@@ -597,7 +597,7 @@ func TestTxm_Reset(t *testing.T) {
 	t.Run("calls function if started", func(t *testing.T) {
 		f := new(fnMock)
 
-		err := txm.Reset(f.Fn, evmtypes.NewAddress(addr), false)
+		err := txm.Reset(f.Fn, addr, false)
 		require.NoError(t, err)
 
 		f.AssertCalled(t)
@@ -606,7 +606,7 @@ func TestTxm_Reset(t *testing.T) {
 	t.Run("calls function and deletes relevant eth_txes if abandon=true", func(t *testing.T) {
 		f := new(fnMock)
 
-		err := txm.Reset(f.Fn, evmtypes.NewAddress(addr), true)
+		err := txm.Reset(f.Fn, addr, true)
 		require.NoError(t, err)
 
 		f.AssertCalled(t)

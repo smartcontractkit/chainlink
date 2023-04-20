@@ -57,16 +57,16 @@ var (
 
 var errEthTxRemoved = errors.New("eth_tx removed")
 
-type ProcessUnstartedEthTxs[ADDR types.Hashable[ADDR]] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
+type ProcessUnstartedEthTxs[ADDR types.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
-type TransmitCheckerFactory[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
+type TransmitCheckerFactory[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
 	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker[ADDR, TX_HASH], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]] interface {
+type TransmitChecker[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
@@ -88,7 +88,7 @@ type TransmitChecker[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]]
 // - a monotonic series of increasing nonces for eth_txes that can all eventually be confirmed if you retry enough times
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
-type EthBroadcaster[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	logger    logger.Logger
 	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient evmclient.Client

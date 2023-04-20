@@ -8,7 +8,7 @@ import (
 // KeyStore encompasses the subset of keystore used by txmgr
 //
 //go:generate mockery --quiet --name KeyStore --output ./mocks/ --case=underscore
-type KeyStore[ADDR types.Hashable[ADDR], ID any, S any] interface {
+type KeyStore[ADDR types.Hashable, ID any, S any] interface {
 	CheckEnabled(address ADDR, chainID ID) error
 	NextSequence(address ADDR, chainID ID, qopts ...pg.QOpt) (S, error)
 	EnabledAddressesForChain(chainId ID) ([]ADDR, error)

@@ -185,8 +185,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(from),
-		ToAddress:      evmtypes.NewAddress(to),
+		FromAddress:    from,
+		ToAddress:      to,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta:           nil,
