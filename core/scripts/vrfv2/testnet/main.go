@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/eth_balance_monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -1102,6 +1103,34 @@ func main() {
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "deploy-eth-balance-monitor":
+		cmd := flag.NewFlagSet("deploy-eth-balance-monitor", flag.ExitOnError)
+		keeperRegistryAddress := cmd.String("keeper-registry-address", "", "keeper registry address")
+		minWaitPeriodSeconds := cmd.Int64("min-wait-period-seconds", 120, "min wait period in seconds")
+		helpers.ParseArgs(cmd, os.Args[2:], "keeper-registry-address", "min-wait-period-seconds")
+
+		_, tx, _, err := eth_balance_monitor.DeployEthBalanceMonitor(e.Owner, e.Ec, common.HexToAddress(*keeperRegistryAddress), big.NewInt(*minWaitPeriodSeconds))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "eth-balance-monitor-set-watchlist":
+		cmd := flag.NewFlagSet("eth-balance-monitor-set-watchlist", flag.ExitOnError)
+		monitorAddress := cmd.String("monitor-address", "", "eth balance monitor address")
+		watchList := cmd.String("watchlist", "", "comma separated list of addresses for balance monitor to watch")
+		minBalances := cmd.String("min-balances", "", "comma separated list of min balances for each address in watchlist, in wei")
+		topUpAmounts := cmd.String("top-up-amounts", "", "comma separated list of top up amounts for each address in watchlist, in wei")
+		helpers.ParseArgs(cmd, os.Args[2:], "watchlist", "min-balances", "top-up-amounts")
+
+		watchListSlice := helpers.ParseAddressSlice(*watchList)
+		minBalancesSlice := helpers.ParseBigIntSlice(*minBalances)
+		topUpAmountsSlice := helpers.ParseBigIntSlice(*topUpAmounts)
+
+		monitor, err := eth_balance_monitor.NewEthBalanceMonitor(common.HexToAddress(*monitorAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		tx, err := monitor.SetWatchList(e.Owner, watchListSlice, minBalancesSlice, topUpAmountsSlice)
+		helpers.PanicErr(err)
+
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
