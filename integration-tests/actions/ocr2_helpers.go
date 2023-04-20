@@ -161,8 +161,16 @@ func BuildMedianOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Con
 	}, nil
 }
 
-// GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities
+// GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities with defaul key index
 func GetOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra, error) {
+	return GetOracleIdentitiesWithKeyIndex(chainlinkNodes, 0)
+}
+
+// GetOracleIdentitiesWithKeyIndex retrieves all chainlink nodes' OCR2 config identities by key index
+func GetOracleIdentitiesWithKeyIndex(
+	chainlinkNodes []*client.Chainlink,
+	keyIndex int,
+) ([]int, []confighelper.OracleIdentityExtra, error) {
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
@@ -225,7 +233,7 @@ func GetOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 					OnchainPublicKey:  onchainPkBytes,
 					OffchainPublicKey: offchainPkBytesFixed,
 					PeerID:            p2pKeyID,
-					TransmitAccount:   types.Account(address),
+					TransmitAccount:   types.Account(address[keyIndex]),
 				},
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}

@@ -516,7 +516,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -561,7 +561,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -598,7 +598,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -1412,7 +1412,7 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {
-			chain.TxManager().Trigger(k.Address)
+			chain.TxManager().Trigger(evmtypes.NewAddress(k.Address))
 		}
 	}
 }

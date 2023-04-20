@@ -68,7 +68,17 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	l.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
 }
 
-func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chainlink, dkg contracts.DKG, vrfBeacon contracts.VRFBeacon, coordinator contracts.VRFCoordinatorV3, mockETHLinkFeed contracts.MockETHLINKFeed, keyID string, vrfBeaconAllowedConfirmationDelays []string, coordinatorConfig *ocr2vrftypes.CoordinatorConfig) *OCR2VRFPluginConfig {
+func SetAndGetOCR2VRFPluginConfig(
+	t *testing.T,
+	nonBootstrapNodes []*client.Chainlink,
+	dkg contracts.DKG,
+	vrfBeacon contracts.VRFBeacon,
+	coordinator contracts.VRFCoordinatorV3,
+	mockETHLinkFeed contracts.MockETHLINKFeed,
+	keyID string,
+	vrfBeaconAllowedConfirmationDelays []string,
+	coordinatorConfig *ocr2vrftypes.CoordinatorConfig,
+) *OCR2VRFPluginConfig {
 	var (
 		dkgKeyConfigs      []DKGKeyConfig
 		transmitters       []string

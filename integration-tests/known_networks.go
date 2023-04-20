@@ -186,6 +186,39 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	Quorum = blockchain.EVMNetwork{
+		Name:                      "Quorum",
+		ClientImplementation:      blockchain.QuorumClientImplementation,
+		ChainID:                   1337,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	BaseGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Base Goerli",
+		ClientImplementation:      blockchain.OptimismClientImplementation,
+		ChainID:                   84531,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	Celo = blockchain.EVMNetwork{
+		Name:                      "Celo Alfajores",
+		ClientImplementation:      blockchain.CeloClientImplementation,
+		ChainID:                   44787,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	mappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -198,9 +231,12 @@ var (
 		"METIS_STARDUST":  MetisStardust,
 		"ARBITRUM_GOERLI": ArbitrumGoerli,
 		"OPTIMISM_GOERLI": OptimismGoerli,
+		"BASE_GOERLI":     BaseGoerli,
+		"CELO_ALFAJORES":  Celo,
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
 		"AVALANCHE_FUJI":  Avalanche,
+		"QUORUM":          Quorum,
 	}
 )
 

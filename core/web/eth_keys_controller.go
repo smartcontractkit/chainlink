@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -272,7 +273,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 			if nonce >= 0 {
 				resetErr = kst.Reset(address, chain.ID(), nonce)
 			}
-		}, address, abandon)
+		}, evmtypes.NewAddress(address), abandon)
 		err = multierr.Combine(err, resetErr)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
