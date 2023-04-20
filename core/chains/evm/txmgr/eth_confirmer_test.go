@@ -66,7 +66,7 @@ func mustTxBeInState(t *testing.T, txStore txmgr.EvmTxStore, tx txmgr.EvmTx, exp
 	require.Equal(t, expectedState, etx.State)
 }
 
-func newTxReceipt(hash evmtypes.TxHash, blockNumber int, txIndex uint) evmtypes.Receipt {
+func newTxReceipt(hash gethCommon.Hash, blockNumber int, txIndex uint) evmtypes.Receipt {
 	return evmtypes.Receipt{
 		TxHash:           hash,
 		BlockHash:        utils.NewHash(),
@@ -1645,7 +1645,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, feeEstimator)
-		addresses := []evmtypes.Address{fromAddress}
+		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
 		ec := txmgr.NewEthConfirmer(txStore, ethClient, evmcfg, kst, txBuilder, lggr)
@@ -1689,7 +1689,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		// Create confirmer with necessary state
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), evmcfg, kst, feeEstimator)
-		addresses := []evmtypes.Address{fromAddress}
+		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		ec := txmgr.NewEthConfirmer(txStore, ethClient, evmcfg, kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
@@ -1735,7 +1735,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	kst := ksmocks.NewEth(t)
-	addresses := []evmtypes.Address{fromAddress}
+	addresses := []gethCommon.Address{fromAddress}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 	// Use a mock keystore for this test
 	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
@@ -2375,7 +2375,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	// Use a mock keystore for this test
 	kst := ksmocks.NewEth(t)
-	addresses := []evmtypes.Address{fromAddress}
+	addresses := []gethCommon.Address{fromAddress}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 	currentHead := int64(30)
 	oldEnough := 5

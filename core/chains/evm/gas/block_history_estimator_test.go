@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewEvmHash() evmtypes.TxHash {
+func NewEvmHash() common.Hash {
 	return utils.NewHash()
 }
 
@@ -1811,11 +1811,11 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	})
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash] = &MockAttempt{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = &MockAttempt{}
 
 type MockAttempt struct {
 	BroadcastBeforeBlockNum *int64
-	Hash                    evmtypes.TxHash
+	Hash                    common.Hash
 	TxType                  int
 	GasPrice                *assets.Wei
 	GasFeeCap               *assets.Wei
@@ -1852,7 +1852,7 @@ func (m *MockAttempt) GetBroadcastBeforeBlockNum() *int64 {
 	return m.BroadcastBeforeBlockNum
 }
 
-func (m *MockAttempt) GetHash() evmtypes.TxHash {
+func (m *MockAttempt) GetHash() common.Hash {
 	return m.Hash
 }
 
@@ -1868,7 +1868,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.NewBlockHistoryEstimator(lggr, nil, cfg, *testutils.NewRandomEVMChainID()),
 	)
 
-	attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+	attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 		&MockAttempt{TxType: 0x0, Hash: NewEvmHash()},
 	}
 
@@ -1933,7 +1933,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 	num := int64(0)
 	hash := utils.NewHash()
-	attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+	attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 		&MockAttempt{TxType: 0x3, BroadcastBeforeBlockNum: &num, Hash: hash},
 	}
 
@@ -1943,7 +1943,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		assert.Contains(t, err.Error(), fmt.Sprintf("attempt %s has unknown transaction type 0x3", hash))
 	})
 
-	attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+	attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 		&MockAttempt{TxType: 0x0, BroadcastBeforeBlockNum: &num, Hash: hash},
 	}
 
@@ -1980,7 +1980,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		}
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0, b1, b2, b3})
 
-		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
 			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
@@ -2031,7 +2031,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		}
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0})
 
-		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(1), GasTipCap: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
@@ -2053,7 +2053,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 		})
 
-		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(11), GasTipCap: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
@@ -2102,7 +2102,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		blocks := []evmtypes.Block{b0, b1, b2, b3}
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
 			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
@@ -2139,7 +2139,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			cfg.BlockHistoryEstimatorCheckInclusionBlocksF = 3
 			cfg.BlockHistoryEstimatorCheckInclusionPercentileF = 5
 
-			attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+			attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 				&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(4), GasTipCap: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 			}
 
@@ -2172,7 +2172,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		head := cltest.Head(1)
 		bhe.OnNewLongestChain(testutils.Context(t), head)
 
-		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
@@ -2279,7 +2279,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		bhe.OnNewLongestChain(testutils.Context(t), head)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]{
+		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
 			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasTipCap: originalFee.TipCap, GasFeeCap: originalFee.FeeCap, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 

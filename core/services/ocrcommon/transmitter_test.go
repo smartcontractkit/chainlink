@@ -11,7 +11,6 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -37,7 +36,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
+	txm := txmmocks.NewTxManager[common.Address, common.Hash, common.Hash](t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -79,7 +78,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
+	txm := txmmocks.NewTxManager[common.Address, common.Hash, common.Hash](t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -130,7 +129,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
+	txm := txmmocks.NewTxManager[common.Address, common.Hash, common.Hash](t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -160,7 +159,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
-	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
+	txm := txmmocks.NewTxManager[common.Address, common.Hash, common.Hash](t)
 	strategy := newMockTxStrategy(t)
 
 	_, err := ocrcommon.NewTransmitter(

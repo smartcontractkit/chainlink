@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
@@ -20,16 +21,16 @@ type TxAttemptSigner[ADDR commontypes.Hashable] interface {
 	SignTx(fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
-var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, evmtypes.Address, evmtypes.TxHash, EthTx[evmtypes.Address, evmtypes.TxHash], EthTxAttempt[evmtypes.Address, evmtypes.TxHash]] = (*evmTxAttemptBuilder)(nil)
+var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx[common.Address, common.Hash], EthTxAttempt[common.Address, common.Hash]] = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID  big.Int
 	config   Config
-	keystore TxAttemptSigner[evmtypes.Address]
+	keystore TxAttemptSigner[common.Address]
 	gas.EvmFeeEstimator
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner[evmtypes.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
 	return &evmTxAttemptBuilder{chainID, config, keystore, estimator}
 }
 
@@ -98,7 +99,7 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EvmTx, fee gas.EvmFee, gasL
 }
 
 // NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress evmtypes.Address) (attempt EvmTxAttempt, err error) {
+func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EvmTxAttempt, err error) {
 	value := big.NewInt(0)
 	payload := []byte{}
 
@@ -190,7 +191,7 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to evmtypes.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
 		Nonce:      nonce,
@@ -268,7 +269,7 @@ func (c *evmTxAttemptBuilder) newSignedAttempt(etx EvmTx, tx *types.Transaction)
 	return attempt, nil
 }
 
-func newLegacyTransaction(nonce uint64, to evmtypes.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
+func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
 	return types.LegacyTx{
 		Nonce:    nonce,
 		To:       &to,
@@ -279,14 +280,14 @@ func newLegacyTransaction(nonce uint64, to evmtypes.Address, value *big.Int, gas
 	}
 }
 
-func (c *evmTxAttemptBuilder) SignTx(address evmtypes.Address, tx *types.Transaction) (evmtypes.TxHash, []byte, error) {
+func (c *evmTxAttemptBuilder) SignTx(address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
 	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
-		return evmtypes.TxHash{}, nil, errors.Wrap(err, "SignTx failed")
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	rlp := new(bytes.Buffer)
 	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return evmtypes.TxHash{}, nil, errors.Wrap(err, "SignTx failed")
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	txHash := signedTx.Hash()
 	return txHash, rlp.Bytes(), nil

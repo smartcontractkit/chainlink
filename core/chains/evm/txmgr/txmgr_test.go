@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -487,7 +486,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]evmtypes.Address{}, nil)
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -513,7 +512,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	addr := []evmtypes.Address{keyState.Address.Address()}
+	addr := []gethcommon.Address{keyState.Address.Address()}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
