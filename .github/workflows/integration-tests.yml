@@ -141,7 +141,7 @@ jobs:
       matrix:
         product:
           - name: automation
-            nodes: 9
+            nodes: 10
             os: ubuntu-latest
             pyroscope_env: ci-smoke-automation-evm-simulated
           - name: cron
