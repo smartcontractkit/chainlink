@@ -230,7 +230,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@3836c6f889e733ce2f166c60b8cf8c0e7a7c1530
+        uses: smartcontractkit/push-gha-metrics-action@6e8b5ddec6a5aa1b08e5aa592463452f61212596
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -413,7 +413,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@3836c6f889e733ce2f166c60b8cf8c0e7a7c1530
+        uses: smartcontractkit/push-gha-metrics-action@6e8b5ddec6a5aa1b08e5aa592463452f61212596
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
