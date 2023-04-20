@@ -13,7 +13,6 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -75,28 +74,16 @@ func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HA
 	return reqs, nil
 }
 
-func getGethAddressFromADDR[ADDR commontypes.Hashable](addr ADDR) (common.Address, error) {
-	addrHex, err := addr.MarshalText()
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to serialize address to text: %s", addr.String())
+func stringToGethAddress(s string) (common.Address, error) {
+	if !common.IsHexAddress(s) {
+		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
 	}
-	var gethAddr common.Address
-	err = gethAddr.UnmarshalText(addrHex)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to deserialize address from text: %s. Original address: %s", addrHex, addr.String())
-	}
-	return gethAddr, nil
+	return common.HexToAddress(s), nil
 }
 
-func getGethHashFromHash[HASH commontypes.Hashable](hash HASH) (common.Hash, error) {
-	hashHex, err := hash.MarshalText()
-	if err != nil {
-		return common.Hash{}, errors.Wrapf(err, "failed to serialize hash to text: %s", hash.String())
+func stringToGethHash(s string) (common.Hash, error) {
+	if _, err := hexutil.Decode(s); err != nil {
+		return common.Hash{}, err
 	}
-	var gethHash common.Hash
-	err = gethHash.UnmarshalText(hashHex)
-	if err != nil {
-		return common.Hash{}, errors.Wrapf(err, "failed to deserialize hash from text: %s. Original hash: %s", hashHex, hash.String())
-	}
-	return gethHash, nil
+	return common.HexToHash(s), nil
 }

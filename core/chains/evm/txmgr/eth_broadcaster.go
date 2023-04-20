@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -124,7 +123,7 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	isStarted bool
 	utils.StartStopOnce
 
-	parseAddr func(string) ADDR
+	parseAddr func(string) (ADDR, error)
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
@@ -156,7 +155,7 @@ func NewEthBroadcaster(
 		initSync:         sync.Mutex{},
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
-		parseAddr:        gethCommon.HexToAddress, // note: still evm-specific
+		parseAddr:        stringToGethAddress, // note: still evm-specific
 	}
 
 	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
@@ -271,7 +270,12 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ethTxInsertTriggerer() {
 				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
-			eb.Trigger(eb.parseAddr(ev.Payload))
+			addr, err := eb.parseAddr(ev.Payload)
+			if err != nil {
+				eb.logger.Errorw("failed to parse address in trigger", "error", err)
+				continue
+			}
+			eb.Trigger(addr)
 		case <-eb.chStop:
 			return
 		}
@@ -527,7 +531,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 
 	// TODO: When eth client is generalized, remove this address conversion logic below
 	// https://smartcontract-it.atlassian.net/browse/BCI-852
-	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
+	fromAddress, err := stringToGethAddress(etx.FromAddress.String())
 	if err != nil {
 		return errors.Wrapf(err, "failed to do address format conversion"), true
 	}

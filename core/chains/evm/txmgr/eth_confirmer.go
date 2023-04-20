@@ -485,7 +485,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) fetchAndSaveReceipts(ctx cont
 
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) getMinedTransactionCount(ctx context.Context, from ADDR) (nonce uint64, err error) {
 	// TODO: Remove this when client gets generalized
-	gethAddr, err := getGethAddressFromADDR(from)
+	gethAddr, err := stringToGethAddress(from.String())
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to do address format conversion")
 	}
@@ -508,7 +508,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 	for _, attempt := range attempts {
 		// TODO: When eth client is generalized, remove this hash conversion logic below
 		var gethHash common.Hash
-		gethHash, err = getGethHashFromHash(attempt.Hash)
+		gethHash, err = stringToGethHash(attempt.Hash.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
@@ -578,11 +578,11 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 		}
 
 		// TODO: Remove below address conversions when ethClient.CallContract is generalized.
-		gethFromAddr, err := getGethAddressFromADDR(attempt.EthTx.FromAddress)
+		gethFromAddr, err := stringToGethAddress(attempt.EthTx.FromAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
-		gethToAddr, err := getGethAddressFromADDR(attempt.EthTx.ToAddress)
+		gethToAddr, err := stringToGethAddress(attempt.EthTx.ToAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
@@ -858,7 +858,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 
 	// TODO: When eth client is generalized, remove this address conversion logic below
 	// https://smartcontract-it.atlassian.net/browse/BCI-852
-	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
+	fromAddress, err := stringToGethAddress(etx.FromAddress.String())
 	if err != nil {
 		// WARNING: This should never happen!
 		// Until the eth client is generalized we can consider this error as fatal.
