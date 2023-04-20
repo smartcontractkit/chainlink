@@ -74,12 +74,16 @@ func batchSendTransactions[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HA
 	return reqs, nil
 }
 
-func stringToGethAddress(s string) (a common.Address, err error) {
-	err = a.UnmarshalText([]byte(s))
-	return
+func stringToGethAddress(s string) (common.Address, error) {
+	if !common.IsHexAddress(s) {
+		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
+	}
+	return common.HexToAddress(s), nil
 }
 
-func stringToGethHash(s string) (h common.Hash, err error) {
-	err = h.UnmarshalText([]byte(s))
-	return
+func stringToGethHash(s string) (common.Hash, error) {
+	if _, err := hexutil.Decode(s); err != nil {
+		return common.Hash{}, err
+	}
+	return common.HexToHash(s), nil
 }
