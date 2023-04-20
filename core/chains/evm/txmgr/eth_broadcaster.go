@@ -124,7 +124,7 @@ type EthBroadcaster[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH type
 	isStarted bool
 	utils.StartStopOnce
 
-	addrParser func(string) ADDR
+	parseAddr func(string) ADDR
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
@@ -156,7 +156,7 @@ func NewEthBroadcaster(
 		initSync:         sync.Mutex{},
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
-		addrParser:       gethCommon.HexToAddress, // note: still evm-specific
+		parseAddr:        gethCommon.HexToAddress, // note: still evm-specific
 	}
 
 	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
@@ -271,7 +271,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) ethTxInsertTriggerer() {
 				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
-			eb.Trigger(eb.addrParser(ev.Payload))
+			eb.Trigger(eb.parseAddr(ev.Payload))
 		case <-eb.chStop:
 			return
 		}
