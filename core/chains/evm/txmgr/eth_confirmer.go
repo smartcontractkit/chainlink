@@ -369,15 +369,13 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 
 	ec.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
-	attemptsByAddress := make(map[string][]EthTxAttempt[ADDR, TX_HASH])
+	attemptsByAddress := make(map[ADDR][]EthTxAttempt[ADDR, TX_HASH])
 	for _, att := range attempts {
-		attemptsByAddress[att.EthTx.FromAddress.String()] = append(attemptsByAddress[att.EthTx.FromAddress.String()], att)
+		attemptsByAddress[att.EthTx.FromAddress] = append(attemptsByAddress[att.EthTx.FromAddress], att)
 	}
 
 	for from, attempts := range attemptsByAddress {
-		// Get fromAddress from first attempt
-		fromAddr := attempts[0].EthTx.FromAddress
-		minedTransactionCount, err := ec.getMinedTransactionCount(ctx, fromAddr)
+		minedTransactionCount, err := ec.getMinedTransactionCount(ctx, from)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
@@ -385,7 +383,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 		// separateLikelyConfirmedAttempts is used as an optimisation: there is
 		// no point trying to fetch receipts for attempts with a nonce higher
 		// than the highest nonce the RPC node thinks it has seen
-		likelyConfirmed := ec.separateLikelyConfirmedAttempts(fromAddr, attempts, minedTransactionCount)
+		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, minedTransactionCount)
 		likelyConfirmedCount := len(likelyConfirmed)
 		if likelyConfirmedCount > 0 {
 			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
