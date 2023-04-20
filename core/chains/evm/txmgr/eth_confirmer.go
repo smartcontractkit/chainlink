@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -849,9 +850,27 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 	}
 
 	now := time.Now()
-	sendError := sendTransaction(ctx, ec.ethClient, attempt, etx, lggr)
+	signedTx, err := attempt.GetSignedTx()
+	if err != nil {
+		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
+		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
+	}
 
-	if sendError.IsTerminallyUnderpriced() {
+	// TODO: When eth client is generalized, remove this address conversion logic below
+	// https://smartcontract-it.atlassian.net/browse/BCI-852
+	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
+	if err != nil {
+		// WARNING: This should never happen!
+		// Until the eth client is generalized we can consider this error as fatal.
+		lggr.Criticalw("Failed to do address format conversion", "err", err)
+		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
+	}
+
+	lggr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "gasLimit", etx.GasLimit, "attempt", attempt, "etx", etx)
+	errType, sendError := ec.ethClient.SendTransactionReturnCode(ctx, signedTx, fromAddress)
+
+	switch errType {
+	case clienttypes.Underpriced:
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in ethBroadcaster.
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
@@ -886,106 +905,49 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
-	}
-
-	if sendError.IsTemporarilyUnderpriced() {
-		// Most likely scenario here is a parity node that is rejecting
-		// low-priced transactions due to mempool pressure
-		//
-		// In that case, the safest thing to do is to pretend the transaction
-		// was accepted and continue the normal gas bumping cycle until we can
-		// get it into the mempool
-		lggr.Debugw("Transaction temporarily underpriced", "attemptID", attempt.ID, "err", sendError.Error(), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
-		sendError = nil
-	}
-
-	if sendError.IsTxFeeExceedsCap() {
-		// The gas price was bumped too high. This transaction attempt cannot be accepted.
-		//
+	case clienttypes.ExceedsMaxFee:
+		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
 		// Best thing we can do is to re-send the previous attempt at the old
 		// price and discard this bumped version.
-		lggr.Errorw(fmt.Sprintf("Transaction gas bump failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+		fallthrough
+	case clienttypes.Fatal:
+		// WARNING: This should never happen!
+		// Should NEVER be fatal this is an invariant violation. The
+		// Broadcaster can never create a TxAttempt that will
+		// fatally error.
+		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
 			"err", sendError,
 			"gasPrice", attempt.GasPrice,
 			"gasLimit", etx.GasLimit,
-			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
-			"blockHeight", blockHeight,
-			"id", "RPCTxFeeCapExceeded",
-		)
-		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
-	}
-
-	if sendError.Fatal() {
-		// WARNING: This should never happen!
-		// Should NEVER be fatal this is an invariant violation. The
-		// EthBroadcaster can never create an EthTxAttempt that will
-		// fatally error.
-		//
-		// The only scenario imaginable where this might take place is if
-		// geth/parity have been updated between broadcasting and confirming steps.
-		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
-			"err", sendError,
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
 			"blockHeight", blockHeight,
 		)
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
-	}
-
-	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
+	case clienttypes.TransactionAlreadyKnown:
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
-		sendError = nil
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
-	}
-
-	if sendError.IsReplacementUnderpriced() {
-		// Our system constraints guarantee that the attempt referenced in this
-		// function has the highest gas price of all attempts.
-		//
-		// Thus, there are only two possible scenarios where this can happen.
-		//
-		// 1. Our gas bump was insufficient compared to our previous attempt
-		// 2. An external wallet used the account to manually send a transaction
-		// at a higher gas price
-		//
-		// In this case the simplest and most robust way to recover is to ignore
-		// this attempt and wait until the next bump threshold is reached in
-		// order to bump again.
-		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
-			"Eth node returned error: '%s'. "+
-			"Either you have set EVM.GasEstimator.BumpPercent (currently %v%%) too low or an external wallet used this account. "+
-			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			etx.ID, sendError.Error(), ec.config.FeeBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
-
-		// Assume success and hand off to the next cycle.
-		sendError = nil
-	}
-
-	if sendError.IsInsufficientEth() {
-		lggr.Criticalw(fmt.Sprintf("Tx 0x%x with type %s was rejected due to insufficient eth: %s\n"+
-			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			attempt.ID, attempt.Hash.String(), sendError.Error(), etx.FromAddress,
-		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
-		ec.SvcErrBuffer.Append(sendError)
+	case clienttypes.InsufficientFunds:
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
-	}
-
-	if sendError == nil {
+	case clienttypes.Successful:
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.config.DatabaseDefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(timeout, &attempt, now)
+	case clienttypes.Unknown:
+		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
+		fallthrough
+	default:
+		// Any other type of error is considered temporary or resolvable by the
+		// node operator. The node may have it in the mempool so we must keep the
+		// attempt (leave it in_progress). Safest thing to do is bail out and wait
+		// for the next head.
+		return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.String())
 	}
-
-	// Any other type of error is considered temporary or resolvable by the
-	// node operator. The node may have it in the mempool so we must keep the
-	// attempt (leave it in_progress). Safest thing to do is bail out and wait
-	// for the next head.
-	return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.String())
 }
 
 // EnsureConfirmedTransactionsInLongestChain finds all confirmed eth_txes up to the depth

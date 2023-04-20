@@ -516,7 +516,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -561,7 +561,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -598,7 +598,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
