@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -124,8 +123,8 @@ func (o *orm) CreateEthTransaction(
 ) (err error) {
 
 	_, err = o.txm.CreateEthTransaction(txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(toAddress),
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Strategy:       o.strategy,

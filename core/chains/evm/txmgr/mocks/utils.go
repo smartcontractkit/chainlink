@@ -1,5 +1,5 @@
 package mocks
 
-import evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+import common "github.com/ethereum/go-ethereum/common"
 
-type MockEvmTxManager = TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
+type MockEvmTxManager = TxManager[common.Address, common.Hash, common.Hash]

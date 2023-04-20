@@ -33,7 +33,7 @@ const unconfirmedTxAlertLogFrequency = 2 * time.Minute
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type EthResender[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	txStore             txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	ethClient           evmclient.Client
 	ks                  txmgrtypes.KeyStore[ADDR, *big.Int, int64]
@@ -178,7 +178,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) logStuckAttempts(attempts []Et
 	}
 }
 
-func findOldestUnconfirmedAttempt[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](attempts []EthTxAttempt[ADDR, TX_HASH]) (EthTxAttempt[ADDR, TX_HASH], bool) {
+func findOldestUnconfirmedAttempt[ADDR types.Hashable, TX_HASH types.Hashable](attempts []EthTxAttempt[ADDR, TX_HASH]) (EthTxAttempt[ADDR, TX_HASH], bool) {
 	var oldestAttempt EthTxAttempt[ADDR, TX_HASH]
 	if len(attempts) < 1 {
 		return oldestAttempt, false

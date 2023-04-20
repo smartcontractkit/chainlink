@@ -113,7 +113,7 @@ var (
 // Step 2: Check pending transactions for receipts
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
-type EthConfirmer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type EthConfirmer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	utils.StartStopOnce
 	txStore   txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
 	lggr      logger.Logger
@@ -370,15 +370,13 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 
 	ec.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
-	attemptsByAddress := make(map[string][]EthTxAttempt[ADDR, TX_HASH])
+	attemptsByAddress := make(map[ADDR][]EthTxAttempt[ADDR, TX_HASH])
 	for _, att := range attempts {
-		attemptsByAddress[att.EthTx.FromAddress.String()] = append(attemptsByAddress[att.EthTx.FromAddress.String()], att)
+		attemptsByAddress[att.EthTx.FromAddress] = append(attemptsByAddress[att.EthTx.FromAddress], att)
 	}
 
 	for from, attempts := range attemptsByAddress {
-		// Get fromAddress from first attempt
-		fromAddr := attempts[0].EthTx.FromAddress
-		minedTransactionCount, err := ec.getMinedTransactionCount(ctx, fromAddr)
+		minedTransactionCount, err := ec.getMinedTransactionCount(ctx, from)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
@@ -386,7 +384,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CheckForReceipts(ctx context.
 		// separateLikelyConfirmedAttempts is used as an optimisation: there is
 		// no point trying to fetch receipts for attempts with a nonce higher
 		// than the highest nonce the RPC node thinks it has seen
-		likelyConfirmed := ec.separateLikelyConfirmedAttempts(fromAddr, attempts, minedTransactionCount)
+		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, minedTransactionCount)
 		likelyConfirmedCount := len(likelyConfirmed)
 		if likelyConfirmedCount > 0 {
 			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
@@ -487,7 +485,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) fetchAndSaveReceipts(ctx cont
 
 func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) getMinedTransactionCount(ctx context.Context, from ADDR) (nonce uint64, err error) {
 	// TODO: Remove this when client gets generalized
-	gethAddr, err := getGethAddressFromADDR(from)
+	gethAddr, err := stringToGethAddress(from.String())
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to do address format conversion")
 	}
@@ -510,7 +508,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 	for _, attempt := range attempts {
 		// TODO: When eth client is generalized, remove this hash conversion logic below
 		var gethHash common.Hash
-		gethHash, err = getGethHashFromHash(attempt.Hash)
+		gethHash, err = stringToGethHash(attempt.Hash.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
@@ -580,11 +578,11 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) batchFetchReceipts(ctx contex
 		}
 
 		// TODO: Remove below address conversions when ethClient.CallContract is generalized.
-		gethFromAddr, err := getGethAddressFromADDR(attempt.EthTx.FromAddress)
+		gethFromAddr, err := stringToGethAddress(attempt.EthTx.FromAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
-		gethToAddr, err := getGethAddressFromADDR(attempt.EthTx.ToAddress)
+		gethToAddr, err := stringToGethAddress(attempt.EthTx.ToAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
@@ -860,7 +858,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 
 	// TODO: When eth client is generalized, remove this address conversion logic below
 	// https://smartcontract-it.atlassian.net/browse/BCI-852
-	fromAddress, err := getGethAddressFromADDR(etx.FromAddress)
+	fromAddress, err := stringToGethAddress(etx.FromAddress.String())
 	if err != nil {
 		// WARNING: This should never happen!
 		// Until the eth client is generalized we can consider this error as fatal.
@@ -1011,7 +1009,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) EnsureConfirmedTransactionsIn
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) bool {
+func hasReceiptInLongestChain[ADDR types.Hashable, TX_HASH types.Hashable](etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1147,7 +1145,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) ResumePendingTaskRuns(ctx con
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
-func observeUntilTxConfirmed[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](chainID big.Int, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
+func observeUntilTxConfirmed[ADDR types.Hashable, TX_HASH types.Hashable](chainID big.Int, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
 			if attempt.Hash.String() != r.TxHash.String() {
