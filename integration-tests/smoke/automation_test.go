@@ -112,14 +112,14 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestAutomatedBasic(t *testing.T) {
-	SetupAutomatedBasic(t, false)
+func TestAutoBasic(t *testing.T) {
+	SetupAutoBasic(t, false)
 }
 
-func TestAutomatedBasicUpgrade(t *testing.T) {
-	SetupAutomatedBasic(t, true)
+func TestAutoBasicUpgrade(t *testing.T) {
+	SetupAutoBasic(t, true)
 }
-func SetupAutomatedBasic(t *testing.T, nodeUpgrade bool) {
+func SetupAutoBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainlinkImage, chainlinkTag, testName := "", "", "basic-upkeep"
@@ -209,7 +209,7 @@ func SetupAutomatedBasic(t *testing.T, nodeUpgrade bool) {
 	}, "1m", "1s").Should(gomega.Succeed())
 }
 
-func TestAutomatedAddFunds(t *testing.T) {
+func TestAutoAddFunds(t *testing.T) {
 	t.Parallel()
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
@@ -261,7 +261,7 @@ func TestAutomatedAddFunds(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m for perform, 1m buffer
 }
 
-func TestAutomatedPauseUnPause(t *testing.T) {
+func TestAutoPauseUnPause(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
@@ -345,7 +345,7 @@ func TestAutomatedPauseUnPause(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform, 1m buffer
 }
 
-func TestAutomatedRegisterUpkeep(t *testing.T) {
+func TestAutoRegisterUpkeep(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
@@ -418,7 +418,7 @@ func TestAutomatedRegisterUpkeep(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m for upkeeps to perform, 1m buffer
 }
 
-func TestAutomatedPauseRegistry(t *testing.T) {
+func TestAutoPauseRegistry(t *testing.T) {
 	t.Parallel()
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
@@ -477,7 +477,7 @@ func TestAutomatedPauseRegistry(t *testing.T) {
 	}, "1m", "1s").Should(gomega.Succeed())
 }
 
-func TestAutomatedKeeperNodesDown(t *testing.T) {
+func TestAutoKeeperNodesDown(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
@@ -564,7 +564,7 @@ func TestAutomatedKeeperNodesDown(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed())
 }
 
-func TestAutomatedPerformSimulation(t *testing.T) {
+func TestAutoPerformSimulation(t *testing.T) {
 	t.Parallel()
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
@@ -619,7 +619,7 @@ func TestAutomatedPerformSimulation(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 }
 
-func TestAutomatedCheckPerformGasLimit(t *testing.T) {
+func TestAutoCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
