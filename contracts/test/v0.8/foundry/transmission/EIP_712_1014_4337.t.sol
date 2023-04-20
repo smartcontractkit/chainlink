@@ -75,7 +75,7 @@ contract EIP_712_1014_4337 is Test {
     // Create entry point contract.
     entryPoint = new EntryPoint();
     ENTRY_POINT = address(entryPoint);
-  
+
     // Deploy link/eth feed.
     linkEthFeed = new MockV3Aggregator(18, 5000000000000000); // .005 ETH
   }
