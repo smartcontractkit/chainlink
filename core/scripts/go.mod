@@ -276,10 +276,10 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230407210547-2b9d8b0180ee // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230418142941-22572bf2b14a // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230418194802-3acf108c4b43 // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230328102724-20c5e1a716e9 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230419211425-02cf25222c37 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230419191810-4d1ea0132d4c // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230419142503-b2c40766e627 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230419200339-80c431b9ec79 // indirect
 	github.com/smartcontractkit/wsrpc v0.6.2-0.20230317160629-382a1ac921d8 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
