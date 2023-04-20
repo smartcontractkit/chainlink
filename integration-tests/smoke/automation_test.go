@@ -113,10 +113,23 @@ func TestMain(m *testing.M) {
 }
 
 func TestAutomatedBasic(t *testing.T) {
+	SetupAutomatedBasic(t, false)
+}
+
+func TestAutomatedBasicUpgrade(t *testing.T) {
+	SetupAutomatedBasic(t, true)
+}
+func SetupAutomatedBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "basic-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+	chainlinkImage, chainlinkTag, testName := "", "", "basic-upkeep"
+	if nodeUpgrade {
+		chainlinkImage = "public.ecr.aws/chainlink/chainlink"
+		chainlinkTag = "latest"
+		testName = "basic-node-upgrade"
+	}
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, testEnv := setupAutomationTestWithVersion(
+		t, testName, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, chainlinkImage, chainlinkTag, true,
 	)
 	if onlyStartRunner {
 		return
@@ -147,6 +160,23 @@ func TestAutomatedBasic(t *testing.T) {
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
 	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+	if nodeUpgrade {
+		upgradeChainlinkNode(t, testEnv, "", "")
+		//time.Sleep(time.Second * 150)
+
+		gom.Eventually(func(g gomega.Gomega) {
+			// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+			for i := 0; i < len(upkeepIDs); i++ {
+				counter, err := consumers[i].Counter(context.Background())
+				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+				expect := 10
+				l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+			}
+		}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+	}
 
 	// Cancel all the registered upkeeps via the registry
 	for i := 0; i < len(upkeepIDs); i++ {
@@ -768,8 +798,69 @@ func setupAutomationTest(
 	registrar contracts.KeeperRegistrar,
 	onlyStartRunner bool,
 ) {
+
+	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ = setupAutomationTestWithVersion(
+		t,
+		testName,
+		registryVersion,
+		registryConfig,
+		"",
+		"",
+		false,
+	)
+	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner
+}
+
+func upgradeChainlinkNode(t *testing.T, testEnv *environment.Environment, newImage string, newTag string) {
+	chainlinkChartCl := map[string]any{}
+	if newImage != "" && newTag != "" {
+		chainlinkChartCl = map[string]any{
+			"image": map[string]any{
+				"image":   newImage,
+				"version": newTag,
+			},
+		}
+	}
+	err := testEnv.ModifyHelm("chainlink-0", chainlink.New(0, map[string]any{
+		"replicas": "5",
+		"db": map[string]any{
+			"stateful": true,
+		},
+		"chainlink": chainlinkChartCl,
+		"toml":      client.AddNetworksConfig(automationBaseTOML, networks.SelectedNetwork),
+	})).Run()
+	require.NoError(t, err, "Error upgrading chainlink nodes")
+}
+
+func setupAutomationTestWithVersion(
+	t *testing.T,
+	testName string,
+	registryVersion ethereum.KeeperRegistryVersion,
+	registryConfig contracts.KeeperRegistrySettings,
+	chainlinkImage string,
+	chainlinkTag string,
+	statefulDb bool,
+) (
+	chainClient blockchain.EVMClient,
+	chainlinkNodes []*client.Chainlink,
+	contractDeployer contracts.ContractDeployer,
+	linkToken contracts.LinkToken,
+	registry contracts.KeeperRegistry,
+	registrar contracts.KeeperRegistrar,
+	onlyStartRunner bool,
+	testEnv *environment.Environment,
+) {
 	network := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
+	chainlinkChartCl := map[string]any{}
+	if chainlinkImage != "" && chainlinkTag != "" {
+		chainlinkChartCl = map[string]any{
+			"image": map[string]any{
+				"image":   chainlinkImage,
+				"version": chainlinkTag,
+			},
+		}
+	}
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{
 			NetworkName: network.Name,
@@ -783,7 +874,11 @@ func setupAutomationTest(
 	}
 	chainlinkChart := chainlink.New(0, map[string]any{
 		"replicas": "5",
-		"toml":     client.AddNetworksConfig(automationBaseTOML, network),
+		"db": map[string]any{
+			"stateful": statefulDb,
+		},
+		"chainlink": chainlinkChartCl,
+		"toml":      client.AddNetworksConfig(automationBaseTOML, network),
 	})
 
 	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
@@ -847,5 +942,5 @@ func setupAutomationTest(
 		})
 	}
 
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner
+	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, testEnvironment
 }
