@@ -213,7 +213,11 @@ func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) Reset(callback func(), addr ADDR, aband
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[ADDR, TX_HASH, BLOCK_HASH]) abandon(addr ADDR) (err error) {
-	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), addr.String())
+	gethAddr, err := stringToGethAddress(addr.String())
+	if err != nil {
+		return errors.Wrapf(err, "failed to do address format conversion")
+	}
+	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), gethAddr)
 	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
 }
 
