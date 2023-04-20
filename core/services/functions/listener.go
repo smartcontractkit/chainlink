@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	"reflect"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -20,7 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 var (
@@ -126,26 +130,28 @@ type FunctionsListener struct {
 	pluginConfig      config.PluginConfig
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
+	urlsMonEndpoint   commontypes.MonitoringEndpoint
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:         oracle,
-		oracleHexAddr:  oracle.Address().Hex(),
-		job:            jb,
-		pipelineRunner: runner,
-		jobORM:         jobORM,
-		logBroadcaster: logBroadcaster,
-		mbOracleEvents: utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:         make(chan struct{}),
-		pluginORM:      pluginORM,
-		pluginConfig:   pluginConfig,
-		logger:         lggr,
-		mailMon:        mailMon,
+		oracle:          oracle,
+		oracleHexAddr:   oracle.Address().Hex(),
+		job:             jb,
+		pipelineRunner:  runner,
+		jobORM:          jobORM,
+		logBroadcaster:  logBroadcaster,
+		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:          make(chan struct{}),
+		pluginORM:       pluginORM,
+		pluginConfig:    pluginConfig,
+		logger:          lggr,
+		mailMon:         mailMon,
+		urlsMonEndpoint: urlsMonEndpoint,
 	}
 }
 
@@ -355,6 +361,10 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
+	// This will report any domains found in user-provided source code, before any secrets get involved.
+	// TODO: when Location=Remote is supported for source code, this function needs to be updated.
+	l.reportSourceCodeDomains(request.RequestId, requestData)
+
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    l.job.ID,
@@ -486,5 +496,37 @@ func (l *FunctionsListener) timeoutRequests() {
 				l.logger.Debug("no requests to time out")
 			}
 		}
+	}
+}
+
+func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, requestData map[string]interface{}) {
+	codeLocation, ok1 := requestData["codeLocation"]
+	source, ok2 := requestData["source"]
+	if !ok1 || !ok2 {
+		l.logger.Warn("will not report source code URLs, because request data has no codeLocation or source")
+		return
+	}
+	if codeLocation.(*big.Int).Int64() != 0 {
+		l.logger.Warn("will not report source code URLs, because codeLocation is not Inline")
+		return
+	}
+
+	domains := parseDomains(source.(string))
+	if len(domains) == 0 {
+		l.logger.Warn("will not report source code URLs, no domains were selected")
+		return
+	}
+
+	r := &telem.FunctionsRequest{
+		RequestId: requestId[:],
+		Domains:   domains,
+	}
+
+	bytes, err := proto.Marshal(r)
+	if err != nil {
+		l.logger.Warnf("protobuf marshal failed %v", err.Error())
+	} else {
+		l.logger.Debugw("Reporting domains", "requestID", formatRequestId(requestId), "domains", domains)
+		l.urlsMonEndpoint.SendLog(bytes)
 	}
 }
