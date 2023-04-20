@@ -81,9 +81,7 @@ func stringToGethAddress(s string) (common.Address, error) {
 	return common.HexToAddress(s), nil
 }
 
-func stringToGethHash(s string) (common.Hash, error) {
-	if _, err := hexutil.Decode(s); err != nil {
-		return common.Hash{}, err
-	}
-	return common.HexToHash(s), nil
+func stringToGethHash(s string) (h common.Hash, err error) {
+	err = h.UnmarshalText([]byte(s))
+	return
 }
