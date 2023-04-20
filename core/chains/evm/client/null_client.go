@@ -121,8 +121,8 @@ func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return nil, nil
 }
 
-func (nc *NullClient) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, sender common.Address) (clienttypes.SendTxReturnCode, error) {
-	nc.lggr.Debug("SendTransactionAndReturnCode")
+func (nc *NullClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, sender common.Address) (clienttypes.SendTxReturnCode, error) {
+	nc.lggr.Debug("SendTransactionReturnCode")
 	return clienttypes.Successful, nil
 }
 

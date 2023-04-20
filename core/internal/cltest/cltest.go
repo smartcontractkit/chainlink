@@ -549,7 +549,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("SendTransactionAndReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(2), nil)
 	c.On("HeadByNumber", mock.Anything, big.NewInt(1)).Maybe().Return(Head(1), nil)
 	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)

@@ -58,7 +58,7 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
-	SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
@@ -203,7 +203,7 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return client.pool.HeaderByHash(ctx, h)
 }
 
-func (client *client) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
 	sendError := NewSendError(err)
 	if sendError == nil {

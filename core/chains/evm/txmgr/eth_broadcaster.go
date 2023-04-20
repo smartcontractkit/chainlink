@@ -532,7 +532,7 @@ func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressEthTx(ctx c
 	}
 
 	lgr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "gasLimit", etx.GasLimit, "attempt", attempt, "etx", etx)
-	errType, err := eb.ethClient.SendTransactionAndReturnCode(ctx, signedTx, fromAddress)
+	errType, err := eb.ethClient.SendTransactionReturnCode(ctx, signedTx, fromAddress)
 
 	if errType != clienttypes.Fatal {
 		etx.InitialBroadcastAt = &initialBroadcastAt

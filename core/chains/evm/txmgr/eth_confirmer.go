@@ -869,7 +869,7 @@ func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) handleInProgressAttempt(ctx c
 	}
 
 	lggr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "gasLimit", etx.GasLimit, "attempt", attempt, "etx", etx)
-	errType, sendError := ec.ethClient.SendTransactionAndReturnCode(ctx, signedTx, fromAddress)
+	errType, sendError := ec.ethClient.SendTransactionReturnCode(ctx, signedTx, fromAddress)
 
 	switch errType {
 	case clienttypes.Underpriced:

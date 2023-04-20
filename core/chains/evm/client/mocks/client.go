@@ -575,8 +575,8 @@ func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	return r0
 }
 
-// SendTransactionAndReturnCode provides a mock function with given fields: ctx, tx, fromAddress
-func (_m *Client) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (chainsclient.SendTxReturnCode, error) {
+// SendTransactionReturnCode provides a mock function with given fields: ctx, tx, fromAddress
+func (_m *Client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (chainsclient.SendTxReturnCode, error) {
 	ret := _m.Called(ctx, tx, fromAddress)
 
 	var r0 chainsclient.SendTxReturnCode
