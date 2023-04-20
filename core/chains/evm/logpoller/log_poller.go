@@ -135,6 +135,7 @@ type Filter struct {
 	Name      string // see FilterName(id, args) below
 	EventSigs evmtypes.HashArray
 	Addresses evmtypes.AddressArray
+	Retention time.Duration
 }
 
 // FilterName is a suggested convenience function for clients to construct unique filter names
@@ -405,9 +406,10 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	logPollTick := time.After(0)
-	// trigger first backup poller run shortly after first log poller run
+	// stagger these somewhat, so they don't all run back-to-back
 	backupLogPollTick := time.After(100 * time.Millisecond)
-	blockPruneTick := time.After(0)
+	blockPruneTick := time.After(500 * time.Millisecond)
+	logPruneTick := time.After(5 * time.Second)
 	filtersLoaded := false
 
 	loadFilters := func() error {
@@ -512,9 +514,14 @@ func (lp *logPoller) run() {
 			}
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
-			blockPruneTick = time.After(lp.pollPeriod * 1000)
+			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
 				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+			}
+		case <-logPruneTick:
+			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
+			if err := lp.pruneExpiredLogs(lp.ctx); err != nil {
+				lp.lggr.Error(err)
 			}
 		}
 	}
@@ -891,6 +898,11 @@ func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
 	// 1-2-3-4-5(latest), keepBlocksDepth=3
 	// Remove <= 2
 	return lp.orm.DeleteBlocksBefore(latest.Number-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
+}
+
+// pruneOldBlocks removes logs which have outlived their retention period
+func (lp *logPoller) pruneExpiredLogs(ctx context.Context) error {
+	return lp.orm.DeleteExpiredLogs(pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,

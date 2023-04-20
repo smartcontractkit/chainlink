@@ -113,7 +113,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
-	err := th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}})
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}, 0})
 	require.NoError(t, err)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
@@ -142,7 +142,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Now let's update the Filter and replay to get Log2 logs.
 	err = th.LogPoller.RegisterFilter(logpoller.Filter{
 		"Emitter - log2", []common.Hash{EmitterABI.Events["Log2"].ID},
-		[]common.Address{th.EmitterAddress1},
+		[]common.Address{th.EmitterAddress1}, 0,
 	})
 	require.NoError(t, err)
 	// Replay an invalid block should error
@@ -184,7 +184,8 @@ func Test_BackupLogPoller(t *testing.T) {
 	filter1 := logpoller.Filter{"filter1", []common.Hash{
 		EmitterABI.Events["Log1"].ID,
 		EmitterABI.Events["Log2"].ID},
-		[]common.Address{th.EmitterAddress1}}
+		[]common.Address{th.EmitterAddress1},
+		0}
 	err := th.LogPoller.RegisterFilter(filter1)
 	require.NoError(t, err)
 
@@ -196,7 +197,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	err = th.LogPoller.RegisterFilter(
 		logpoller.Filter{"filter2",
 			[]common.Hash{EmitterABI.Events["Log1"].ID},
-			[]common.Address{th.EmitterAddress2}})
+			[]common.Address{th.EmitterAddress2}, 0})
 	require.NoError(t, err)
 
 	defer th.LogPoller.UnregisterFilter("filter1", nil)
@@ -305,7 +306,7 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	addresses := []common.Address{th.EmitterAddress1, th.EmitterAddress2}
 	topics := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
 
-	err := th.LogPoller.RegisterFilter(logpoller.Filter{"convertLogs", topics, addresses})
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{"convertLogs", topics, addresses, 0})
 	require.NoError(t, err)
 
 	blk, err := th.Client.BlockByNumber(ctx, nil)
@@ -476,7 +477,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Set up a log poller listening for log emitter logs.
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{
 		"Test Emitter 1 & 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
-		[]common.Address{th.EmitterAddress1, th.EmitterAddress2},
+		[]common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0,
 	})
 	require.NoError(t, err)
 
@@ -690,11 +691,11 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 
 	filter1 := logpoller.Filter{"first Filter", []common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0}
 	filter2 := logpoller.Filter{"second Filter", []common.Hash{
-		EmitterABI.Events["Log2"].ID, EmitterABI.Events["Log3"].ID}, []common.Address{th.EmitterAddress2}}
+		EmitterABI.Events["Log2"].ID, EmitterABI.Events["Log3"].ID}, []common.Address{th.EmitterAddress2}, 0}
 	filter3 := logpoller.Filter{"third Filter", []common.Hash{
-		EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
+		EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0}
 
 	assert.True(t, filter1.Contains(nil))
 	assert.False(t, filter1.Contains(&filter2))
@@ -734,7 +735,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{"GetBlocks Test", []common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}},
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0},
 	)
 	require.NoError(t, err)
 
