@@ -7,9 +7,9 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
 
-	common "github.com/ethereum/go-ethereum/common"
+	chainsclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
 
@@ -576,18 +576,18 @@ func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 }
 
 // SendTransactionAndReturnCode provides a mock function with given fields: ctx, tx, fromAddress
-func (_m *Client) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
+func (_m *Client) SendTransactionAndReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (chainsclient.SendTxReturnCode, error) {
 	ret := _m.Called(ctx, tx, fromAddress)
 
-	var r0 commonclient.SendTxReturnCode
+	var r0 chainsclient.SendTxReturnCode
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (commonclient.SendTxReturnCode, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (chainsclient.SendTxReturnCode, error)); ok {
 		return rf(ctx, tx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) commonclient.SendTxReturnCode); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) chainsclient.SendTxReturnCode); ok {
 		r0 = rf(ctx, tx, fromAddress)
 	} else {
-		r0 = ret.Get(0).(commonclient.SendTxReturnCode)
+		r0 = ret.Get(0).(chainsclient.SendTxReturnCode)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction, common.Address) error); ok {

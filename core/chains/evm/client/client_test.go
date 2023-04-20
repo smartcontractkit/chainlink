@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/client"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
