@@ -94,7 +94,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 
 	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.OCR2FunctionsURLs)
+	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
 	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, runner, jobORM, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
 

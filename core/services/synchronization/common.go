@@ -5,10 +5,10 @@ type TelemetryType string
 
 const (
 	EnhancedEA        TelemetryType = "enhanced-ea"
+	FunctionsRequests TelemetryType = "functions-requests"
 	OCR               TelemetryType = "ocr"
 	OCR2Automation    TelemetryType = "ocr2-automation"
 	OCR2Functions     TelemetryType = "ocr2-functions"
-	OCR2FunctionsURLs TelemetryType = "ocr2-functions-urls"
 	OCR2Median        TelemetryType = "ocr2-median"
 	OCR2Mercury       TelemetryType = "ocr2-mercury"
 	OCR2VRF           TelemetryType = "ocr2-vrf"

@@ -501,20 +501,19 @@ func (l *FunctionsListener) timeoutRequests() {
 }
 
 func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, requestData map[string]interface{}) {
-	codeLocation, ok1 := requestData["codeLocation"]
-	source, ok2 := requestData["source"]
+	codeLocation, ok1 := requestData["codeLocation"].(*big.Int)
+	source, ok2 := requestData["source"].(string)
 	if !ok1 || !ok2 {
-		l.logger.Warn("will not report source code URLs, because request data has no codeLocation or source")
+		l.logger.Warn("will not report source code domains, because request data has no codeLocation or source")
 		return
 	}
-	if codeLocation.(*big.Int).Int64() != 0 {
-		l.logger.Warn("will not report source code URLs, because codeLocation is not Inline")
+	if codeLocation.Int64() != 0 {
+		l.logger.Warn("will not report source code domains, because codeLocation is not Inline")
 		return
 	}
 
-	domains := parseDomains(source.(string))
+	domains := parseDomains(source)
 	if len(domains) == 0 {
-		l.logger.Warn("will not report source code URLs, no domains were selected")
 		return
 	}
 
@@ -525,7 +524,7 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, requestD
 
 	bytes, err := proto.Marshal(r)
 	if err != nil {
-		l.logger.Warnf("protobuf marshal failed %v", err.Error())
+		l.logger.Warnw("telem.FunctionsRequest marshal error", "err", err)
 	} else {
 		l.logger.Debugw("Reporting domains", "requestID", formatRequestId(requestId), "domains", domains)
 		l.urlsMonEndpoint.SendLog(bytes)

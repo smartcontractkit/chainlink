@@ -706,7 +706,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			ContractID:      spec.ContractID,
 			Lggr:            lggr,
 			MailMon:         d.mailMon,
-			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2FunctionsURLs),
+			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
 		}
 
 		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)

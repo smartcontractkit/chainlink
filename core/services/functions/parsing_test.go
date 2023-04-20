@@ -24,10 +24,9 @@ func Test_parseDomains(t *testing.T) {
 			const b1 = "google.com"; // no protocol
 		`
 		domains := parseDomains(sourceCode)
-		assert.EqualValues(t, []string{
-			"foo.bar.io",
-			"github.com",
-			"myapi.net",
-		}, domains)
+		assert.Len(t, domains, 3)
+		assert.Contains(t, domains, "foo.bar.io")
+		assert.Contains(t, domains, "github.com")
+		assert.Contains(t, domains, "myapi.net")
 	})
 }
