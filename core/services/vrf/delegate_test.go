@@ -72,7 +72,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
-	txm := txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
+	txm := txmmocks.NewTxManager[common.Address, common.Hash, common.Hash](t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
@@ -302,8 +302,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 		vuni.txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
 				meta := newTx.Meta
-				return newTx.FromAddress.Address == vuni.submitter &&
-					newTx.ToAddress.Address == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+				return newTx.FromAddress == vuni.submitter &&
+					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
 					newTx.GasLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)

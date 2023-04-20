@@ -19,9 +19,9 @@ type TxStore[
 	// Represents a chain id to be used for the chain.
 	CHAINID any,
 	// Represents a unique Tx Hash for a chain
-	TX_HASH types.Hashable[TX_HASH],
-	// Represents a unique Tx Hash for a chain
-	BLOCK_HASH types.Hashable[BLOCK_HASH],
+	TX_HASH types.Hashable,
+	// Represents a unique Block Hash for a chain
+	BLOCK_HASH types.Hashable,
 	NEWTX any,
 	// Represents a onchain receipt object that a chain's RPC returns
 	R any,
@@ -101,7 +101,7 @@ type ReceiptPlus[R any] struct {
 }
 
 // R is the raw unparsed transaction receipt
-type Receipt[R any, TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type Receipt[R any, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ID               int64
 	TxHash           TX_HASH
 	BlockHash        BLOCK_HASH

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -39,7 +38,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient, ethKeyStore)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
-		err := ns.Sync(testutils.Context(t), evmtypes.NewAddress(sendingKeys[0].Address.Address()))
+		err := ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 
@@ -65,7 +64,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient, ethKeyStore)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
-		require.NoError(t, ns.Sync(testutils.Context(t), evmtypes.NewAddress(sendingKeys[0].Address.Address())))
+		require.NoError(t, ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address()))
 
 		cltest.AssertCount(t, db, "eth_txes", 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
@@ -90,7 +89,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(borm, logger.TestLogger(t), ethClient, ethKeyStore)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
-		require.NoError(t, ns.Sync(testutils.Context(t), evmtypes.NewAddress(sendingKeys[0].Address.Address())))
+		require.NoError(t, ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address()))
 
 		cltest.AssertCount(t, db, "eth_txes", 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
@@ -122,7 +121,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		for _, k := range sendingKeys {
-			require.NoError(t, ns.Sync(testutils.Context(t), evmtypes.NewAddress(k.Address.Address())))
+			require.NoError(t, ns.Sync(testutils.Context(t), k.Address.Address()))
 		}
 
 		assertDatabaseNonce(t, db, key1, 5)
@@ -147,7 +146,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(borm, logger.TestLogger(t), ethClient, ethKeyStore)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
-		require.NoError(t, ns.Sync(testutils.Context(t), evmtypes.NewAddress(sendingKeys[0].Address.Address())))
+		require.NoError(t, ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address()))
 		assertDatabaseNonce(t, db, key1, 0)
 
 		ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
@@ -158,7 +157,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		})).Return(uint64(2), nil)
 		ns = txmgr.NewNonceSyncer(borm, logger.TestLogger(t), ethClient, ethKeyStore)
 
-		require.NoError(t, ns.Sync(testutils.Context(t), evmtypes.NewAddress(sendingKeys[0].Address.Address())))
+		require.NoError(t, ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address()))
 		assertDatabaseNonce(t, db, key1, 1)
 	})
 }
