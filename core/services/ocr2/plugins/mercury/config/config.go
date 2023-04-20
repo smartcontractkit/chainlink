@@ -15,8 +15,9 @@ import (
 )
 
 type PluginConfig struct {
-	RawServerURL string              `json:"serverURL" toml:"serverURL"`
-	ServerPubKey utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
+	RawServerURL                string              `json:"serverURL" toml:"serverURL"`
+	ServerPubKey                utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
+	InitialValidFromBlockNumber int64               `json:"initialValidFromBlockNumber" toml:"initialValidFromBlockNumber"`
 }
 
 func ValidatePluginConfig(config PluginConfig) (merr error) {

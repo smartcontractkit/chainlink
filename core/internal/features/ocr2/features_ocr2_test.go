@@ -25,8 +25,8 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -295,6 +295,7 @@ fromBlock = %d
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
 	for i := 0; i < 4; i++ {
+		s := i
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -305,7 +306,9 @@ fromBlock = %d
 			_, err := res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)
 		}))
-		t.Cleanup(slowServers[i].Close)
+		t.Cleanup(func() {
+			slowServers[s].Close()
+		})
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -320,7 +323,9 @@ fromBlock = %d
 			_, err = res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)
 		}))
-		t.Cleanup(servers[i].Close)
+		t.Cleanup(func() {
+			servers[s].Close()
+		})
 		u, _ := url.Parse(servers[i].URL)
 		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
@@ -559,6 +564,7 @@ chainID 			= 1337
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
 	for i := 0; i < 4; i++ {
+		s := i
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -569,7 +575,9 @@ chainID 			= 1337
 			_, err := res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)
 		}))
-		t.Cleanup(slowServers[i].Close)
+		t.Cleanup(func() {
+			slowServers[s].Close()
+		})
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -584,7 +592,9 @@ chainID 			= 1337
 			_, err = res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)
 		}))
-		t.Cleanup(servers[i].Close)
+		t.Cleanup(func() {
+			servers[s].Close()
+		})
 		u, _ := url.Parse(servers[i].URL)
 		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),

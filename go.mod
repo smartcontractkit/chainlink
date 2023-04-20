@@ -64,13 +64,14 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531071550-c058f7c3964f
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230531021926-052aa18e1b0e
-	github.com/smartcontractkit/libocr v0.0.0-20230525150148-a75f6e244bb3
-	github.com/smartcontractkit/ocr2keepers v0.6.15
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230510102715-c58be582bf19
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230531184247-9617be7da020
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531175356-03a8f54e3528
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531175652-9edfbba8ed45
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230531180015-4bfd036299c3
+	// WARNING: Experimental version of libocr - do not merge until this is officially released!
+	github.com/smartcontractkit/libocr v0.0.0-20230531174957-6e75d6e613d1
+	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230531195127-25058aa2f9bf
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230511132215-c7d370897a3d
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.5.1
@@ -101,8 +102,9 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
+require contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
+
 require (
-	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect

@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -338,6 +338,35 @@ WHERE ocr2_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
+
+	return
+}
+
+func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
+	err = d.q.GetContext(ctx, &value, `
+SELECT value FROM ocr_mercury_protocol_states
+WHERE config_digest = $1 AND key = $2;
+`, configDigest, key)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	err = errors.Wrapf(err, "ReadProtocolState failed for job %d", d.oracleSpecID)
+
+	return
+}
+
+func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
+	if value == nil {
+		_, err = d.q.ExecContext(ctx, `DELETE FROM ocr_mercury_protocol_states WHERE config_digest = $1 AND key = $2;`, configDigest, key)
+	} else {
+		_, err = d.q.ExecContext(ctx, `
+INSERT INTO ocr_mercury_protocol_states (config_digest, key, value) VALUES ($1, $2, $3)
+ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, value)
+	}
+
+	err = errors.Wrapf(err, "WriteProtocolState failed for job %d", d.oracleSpecID)
 
 	return
 }

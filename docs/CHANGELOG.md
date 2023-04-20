@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 ### Added
 
+- Low latency oracle jobs now support in-protocol block range guarantees. This
+  is necessary in order to produce reports with block number ranges that do not
+  overlap. It can now be guaranteed at the protocol level, so we can use local
+  state instead of relying on an unreliable round-trip to the Mercury server.
+
 ### Fixed
 
 ### Changed
@@ -26,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New settings Evm.GasEstimator.LimitJobType.OCR2, OCR2.DefaultTransactionQueueDepth, OCR2.SimulateTransactions for OCR2
   jobs. These replace the settings Evm.GasEstimator.LimitJobType.OCR, OCR.DefaultTransactionQueueDepth, and OCR.SimulateTransaction
   for OCR2.
+- TODO: Mercury changelog
 
 ### Fixed
 

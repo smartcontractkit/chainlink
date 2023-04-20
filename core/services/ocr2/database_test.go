@@ -7,8 +7,9 @@ import (
 
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -412,5 +413,77 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		m, err = db.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
+	})
+}
+
+func Test_DB_ReadWriteProtocolState(t *testing.T) {
+	sqlDB := setupDB(t)
+
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	lggr := logger.TestLogger(t)
+	db := ocr2.NewDB(sqlDB, 0, lggr, cfg)
+	cd1 := testhelpers.MakeConfigDigest(t)
+	cd2 := testhelpers.MakeConfigDigest(t)
+	ctx := testutils.Context(t)
+
+	assertCount := func(expected int64) {
+		testutils.AssertCount(t, sqlDB, "ocr_mercury_protocol_states", expected)
+	}
+
+	t.Run("stores and retrieves protocol state", func(t *testing.T) {
+		assertCount(0)
+
+		err := db.WriteProtocolState(ctx, cd1, "key1", []byte{1})
+		assert.NoError(t, err)
+
+		assertCount(1)
+
+		err = db.WriteProtocolState(ctx, cd2, "key1", []byte{2})
+		assert.NoError(t, err)
+
+		assertCount(2)
+
+		err = db.WriteProtocolState(ctx, cd2, "key2", []byte{3})
+		assert.NoError(t, err)
+
+		assertCount(3)
+
+		// should overwrite
+		err = db.WriteProtocolState(ctx, cd2, "key2", []byte{4})
+		assert.NoError(t, err)
+
+		val, err := db.ReadProtocolState(ctx, cd1, "key1")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{1}, val)
+
+		val, err = db.ReadProtocolState(ctx, cd2, "key1")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{2}, val)
+
+		val, err = db.ReadProtocolState(ctx, cd2, "key2")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{4}, val)
+
+		// should write empty value
+		err = db.WriteProtocolState(ctx, cd1, "key1", []byte{})
+		assert.NoError(t, err)
+
+		val, err = db.ReadProtocolState(ctx, cd1, "key1")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{}, val)
+
+		assertCount(3)
+
+		// should delete value
+		err = db.WriteProtocolState(ctx, cd1, "key1", nil)
+		assert.NoError(t, err)
+
+		assertCount(2)
+
+		// trying to read missing value yields nil
+		val, err = db.ReadProtocolState(ctx, cd1, "key1")
+		assert.NoError(t, err)
+		assert.Nil(t, val)
 	})
 }
