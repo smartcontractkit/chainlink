@@ -113,14 +113,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestAutoBasic(t *testing.T) {
+	t.Parallel()
 	SetupAutoBasic(t, false)
 }
 
 func TestAutoBasicUpgrade(t *testing.T) {
+	t.Parallel()
 	SetupAutoBasic(t, true)
 }
 func SetupAutoBasic(t *testing.T, nodeUpgrade bool) {
-	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainlinkImage, chainlinkTag, testName := "", "", "basic-upkeep"
 	if nodeUpgrade {
