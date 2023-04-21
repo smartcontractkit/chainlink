@@ -111,11 +111,11 @@ func FilterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
-func (f *FwdMgr) ForwarderFor(addr evmtypes.Address) (forwarder evmtypes.Address, err error) {
+func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {
-		return evmtypes.NewAddress(common.Address{}), err
+		return common.Address{}, err
 	}
 
 	for _, fwdr := range fwdrs {
@@ -125,16 +125,16 @@ func (f *FwdMgr) ForwarderFor(addr evmtypes.Address) (forwarder evmtypes.Address
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa == addr.Address {
-				return evmtypes.NewAddress(fwdr.Address), nil
+			if eoa == addr {
+				return fwdr.Address, nil
 			}
 		}
 	}
-	return evmtypes.NewAddress(common.Address{}), errors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
 }
 
-func (f *FwdMgr) ConvertPayload(dest evmtypes.Address, origPayload []byte) ([]byte, error) {
-	databytes, err := f.getForwardedPayload(dest.Address, origPayload)
+func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
+	databytes, err := f.getForwardedPayload(dest, origPayload)
 	if err != nil {
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
