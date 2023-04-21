@@ -20,7 +20,7 @@ type fixedPriceEstimator struct {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) EvmEstimator {
+func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) Estimator {
 	return &fixedPriceEstimator{cfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 
@@ -39,15 +39,39 @@ func (f *fixedPriceEstimator) HealthReport() map[string]error                   
 func (f *fixedPriceEstimator) Close() error                                          { return nil }
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	gasPrice = f.config.EvmGasPriceDefault()
-	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EvmGasLimitMultiplier())
-	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, f.config)
+func (f *fixedPriceEstimator) BumpFee(_ context.Context, originalFee txmgrtypes.Fee, originalGasLimit uint32, maxGasPriceWei txmgrtypes.Fee, _ []EvmPriorAttempt, feeType txmgrtypes.FeeType) (fee txmgrtypes.Fee, chainSpecificGasLimit uint32, err error) {
+	if feeType == txmgrtypes.EvmLegacy {
+		return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalFee.(*assets.Wei), originalGasLimit, maxGasPriceWei.(*assets.Wei))
+	} else if feeType == txmgrtypes.EvmDynamic {
+		return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), nil, originalFee.(DynamicFee), originalGasLimit, maxGasPriceWei.(*assets.Wei))
+	}
+	return nil, 0, errors.Errorf("unknown fee type %v", feeType)
+}
+
+func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit, maxGasPriceWei)
+}
+
+func (f *fixedPriceEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+	return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
+}
+
+// Chain Agnostic Gas Estimator to get fee based on fee type
+func (f *fixedPriceEstimator) GetFee(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei txmgrtypes.Fee, feeType txmgrtypes.FeeType, _ ...txmgrtypes.Opt) (fee txmgrtypes.Fee, chainSpecificGasLimit uint32, err error) {
+	if feeType == txmgrtypes.EvmLegacy {
+		return f.GetLegacyGas(context.Background(), nil, gasLimit, maxGasPriceWei.(*assets.Wei))
+	} else if feeType == txmgrtypes.EvmDynamic {
+		dynamicFee, chainSpecificGasLimit, err := f.GetDynamicFee(context.Background(), gasLimit, maxGasPriceWei.(*assets.Wei))
+		return dynamicFee, chainSpecificGasLimit, err
+	}
 	return
 }
 
-func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (gasPrice *assets.Wei, gasLimit uint32, err error) {
-	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit, maxGasPriceWei)
+func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (feeCap *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EvmGasLimitMultiplier())
+	feeCap, err = getFeeCap(maxGasPriceWei, f.config, txmgrtypes.EvmLegacy)
+
+	return
 }
 
 func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
@@ -57,21 +81,35 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	}
 	chainSpecificGasLimit = applyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
 
-	var feeCap *assets.Wei
-	if f.config.EvmGasBumpThreshold() == 0 {
-		// Gas bumping is disabled, just use the max fee cap
-		feeCap = getMaxGasPrice(maxGasPriceWei, f.config)
-	} else {
-		// Need to leave headroom for bumping so we fallback to the default value here
-		feeCap = f.config.EvmGasFeeCapDefault()
-	}
+	feeCap, err := getFeeCap(maxGasPriceWei, f.config, txmgrtypes.EvmDynamic)
 
 	return DynamicFee{
 		FeeCap: feeCap,
 		TipCap: gasTipCap,
-	}, chainSpecificGasLimit, nil
+	}, chainSpecificGasLimit, err
 }
 
-func (f *fixedPriceEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
-	return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
+// Returns fee cap based on fee type
+func getFeeCap(maxGasPriceWei *assets.Wei, cfg Config, feeType txmgrtypes.FeeType) (*assets.Wei, error) {
+	if feeType == txmgrtypes.EvmLegacy {
+		return getLegacyFeeCap(maxGasPriceWei, cfg), nil
+	} else if feeType == txmgrtypes.EvmDynamic {
+		return getDynamicFeeCap(maxGasPriceWei, cfg), nil
+	}
+
+	return nil, errors.Errorf("unknown fee type %v", feeType)
+}
+
+func getLegacyFeeCap(maxGasPriceWei *assets.Wei, cfg Config) *assets.Wei {
+	return capGasPrice(cfg.EvmGasPriceDefault(), maxGasPriceWei, cfg)
+}
+
+func getDynamicFeeCap(maxGasPriceWei *assets.Wei, cfg Config) *assets.Wei {
+	if cfg.EvmGasBumpThreshold() == 0 {
+		// Gas bumping is disabled, just use the max fee cap
+		return getMaxGasPrice(maxGasPriceWei, cfg)
+	} else {
+		// Need to leave headroom for bumping so we fallback to the default value here
+		return cfg.EvmGasFeeCapDefault()
+	}
 }

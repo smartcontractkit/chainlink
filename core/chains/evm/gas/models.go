@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -30,7 +29,7 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
-type EvmFeeEstimator txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, common.Hash]
+type EvmFeeEstimator txmgrtypes.FeeEstimator[*evmtypes.Head, EvmFee, *assets.Wei, evmtypes.TxHash]
 
 // NewEstimator returns the estimator for a given config
 func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) EvmFeeEstimator {
@@ -76,15 +75,19 @@ type DynamicFee struct {
 	TipCap *assets.Wei
 }
 
+func (d DynamicFee) String() string {
+	return fmt.Sprintf("FeeCap: %s, TipCap: %s", d.FeeCap, d.TipCap)
+}
+
 type EvmPriorAttempt interface {
-	txmgrtypes.PriorAttempt[EvmFee, common.Hash]
+	txmgrtypes.PriorAttempt[EvmFee, evmtypes.TxHash]
 
 	GetGasPrice() *assets.Wei
 	DynamicFee() DynamicFee
 }
 
 type evmPriorAttempt struct {
-	txmgrtypes.PriorAttempt[EvmFee, common.Hash]
+	txmgrtypes.PriorAttempt[EvmFee, evmtypes.TxHash]
 }
 
 func (e evmPriorAttempt) GetGasPrice() *assets.Wei {
@@ -99,14 +102,14 @@ func (e evmPriorAttempt) DynamicFee() DynamicFee {
 	return *fee
 }
 
-func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (out []EvmPriorAttempt) {
+func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, evmtypes.TxHash]) (out []EvmPriorAttempt) {
 	for i := range attempts {
 		out = append(out, MakeEvmPriorAttempt(attempts[i]))
 	}
 	return out
 }
 
-func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, common.Hash]) EvmPriorAttempt {
+func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, evmtypes.TxHash]) EvmPriorAttempt {
 	e := evmPriorAttempt{a}
 	return &e
 }
@@ -121,21 +124,35 @@ type EvmEstimator interface {
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
 	GetLegacyGas(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+
 	// BumpLegacyGas Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee is greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x0 or 0x1
 	BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+
 	// GetDynamicFee Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
 	GetDynamicFee(ctx context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error)
+
 	// BumpDynamicFee Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
 	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
+
+	// GetFee(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, feeType txmgrtypes.FeeType, _ ...txmgrtypes.Opt) (fee txmgrtypes.Fee, chainSpecificGasLimit uint32, err error)
+	// BumpFee(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt, feeType txmgrtypes.FeeType) (fee txmgrtypes.Fee, chainSpecificGasLimit uint32, err error)
+}
+
+type Estimator interface {
+	txmgrtypes.HeadTrackable[*evmtypes.Head]
+	services.ServiceCtx
+
+	GetFee(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei txmgrtypes.Fee, feeType txmgrtypes.FeeType, _ ...txmgrtypes.Opt) (fee txmgrtypes.Fee, chainSpecificGasLimit uint32, err error)
+	BumpFee(_ context.Context, originalFee txmgrtypes.Fee, originalGasLimit uint32, maxGasPriceWei txmgrtypes.Fee, _ []EvmPriorAttempt, feeType txmgrtypes.FeeType) (fee txmgrtypes.Fee, chainSpecificGasLimit uint32, err error)
 }
 
 var _ txmgrtypes.Fee = (*EvmFee)(nil)
@@ -151,15 +168,15 @@ func (fee EvmFee) String() string {
 
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type WrappedEvmEstimator struct {
-	EvmEstimator
+	Estimator
 	EIP1559Enabled bool
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) EvmFeeEstimator {
+func NewWrappedEvmEstimator(e Estimator, cfg Config) EvmFeeEstimator {
 	return &WrappedEvmEstimator{
-		EvmEstimator:   e,
+		Estimator:      e,
 		EIP1559Enabled: cfg.EvmEIP1559DynamicFees(),
 	}
 }
@@ -167,18 +184,18 @@ func NewWrappedEvmEstimator(e EvmEstimator, cfg Config) EvmFeeEstimator {
 func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...txmgrtypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// get dynamic fee
 	if e.EIP1559Enabled {
-		var dynamicFee DynamicFee
-		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
-		fee.Dynamic = &dynamicFee
-		return
+		dynamicFee, chainSpecificFeeLimit, err := e.Estimator.GetFee(ctx, calldata, feeLimit, maxFeePrice, txmgrtypes.EvmDynamic, opts...)
+		fee.Dynamic = dynamicFee.(*DynamicFee)
+		return fee, chainSpecificFeeLimit, err
 	}
 
 	// get legacy fee
-	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
-	return
+	legacyFee, chainSpecificFeeLimit, err := e.Estimator.GetFee(ctx, calldata, feeLimit, maxFeePrice, txmgrtypes.EvmLegacy, opts...)
+	fee.Legacy = legacyFee.(*assets.Wei)
+	return fee, chainSpecificFeeLimit, err
 }
 
-func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
+func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []txmgrtypes.PriorAttempt[EvmFee, evmtypes.TxHash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// validate only 1 fee type is present
 	if (originalFee.Dynamic == nil && originalFee.Legacy == nil) || (originalFee.Dynamic != nil && originalFee.Legacy != nil) {
 		err = errors.New("only one dynamic or legacy fee can be defined")
@@ -191,15 +208,15 @@ func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, fe
 	// bump fee based on what fee the tx has previously used (not based on config)
 	// bump dynamic original
 	if originalFee.Dynamic != nil {
-		var bumpedDynamic DynamicFee
-		bumpedDynamic, chainSpecificFeeLimit, err = e.EvmEstimator.BumpDynamicFee(ctx, *originalFee.Dynamic, feeLimit, maxFeePrice, evmAttempts)
-		bumpedFee.Dynamic = &bumpedDynamic
-		return
+		bumpedDynamic, chainSpecificFeeLimit, err := e.Estimator.BumpFee(ctx, originalFee.Dynamic, feeLimit, maxFeePrice, evmAttempts, txmgrtypes.EvmDynamic)
+		bumpedFee.Dynamic = bumpedDynamic.(*DynamicFee)
+		return bumpedFee, chainSpecificFeeLimit, err
 	}
 
 	// bump legacy fee
-	bumpedFee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.BumpLegacyGas(ctx, originalFee.Legacy, feeLimit, maxFeePrice, evmAttempts)
-	return
+	bumpedLegacy, chainSpecificFeeLimit, err := e.Estimator.BumpFee(ctx, originalFee.Legacy, feeLimit, maxFeePrice, evmAttempts, txmgrtypes.EvmLegacy)
+	bumpedFee.Legacy = bumpedLegacy.(*assets.Wei)
+	return bumpedFee, chainSpecificFeeLimit, err
 }
 
 func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
