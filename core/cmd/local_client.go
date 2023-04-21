@@ -153,6 +153,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
+			Before: func(ctx *clipkg.Context) error {
+				return client.Config.ValidateDB()
+			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
@@ -589,7 +592,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
@@ -599,7 +602,12 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
 	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
-	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
+	totalNonces := endingNonce - beginningNonce + 1
+	nonces := make([]evmtypes.Nonce, totalNonces)
+	for i := int64(0); i < totalNonces; i++ {
+		nonces[i] = evmtypes.Nonce(beginningNonce + i)
+	}
+	err = ec.ForceRebroadcast(nonces, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 

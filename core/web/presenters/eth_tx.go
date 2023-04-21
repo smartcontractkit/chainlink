@@ -40,10 +40,10 @@ func (EthTxResource) GetName() string {
 func NewEthTxResource(tx txmgr.EvmTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
-		From:       &tx.FromAddress.Address,
+		From:       &tx.FromAddress,
 		GasLimit:   strconv.FormatUint(uint64(tx.GasLimit), 10),
 		State:      string(tx.State),
-		To:         &tx.ToAddress.Address,
+		To:         &tx.ToAddress,
 		Value:      tx.Value.String(),
 		EVMChainID: tx.EVMChainID,
 	}
@@ -55,7 +55,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.EvmTxAttempt) EthTxResource {
 	r := NewEthTxResource(tx)
 	r.JAID = NewJAID(txa.Hash.String())
 	r.GasPrice = txa.GasPrice.ToInt().String()
-	r.Hash = txa.Hash.Hash
+	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
 	r.EVMChainID = txa.EthTx.EVMChainID
 

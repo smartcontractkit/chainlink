@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -426,9 +425,9 @@ func setupForwarderForNode(
 
 	chain, err := app.GetChains().EVM.Get((*big.Int)(&chainID))
 	require.NoError(t, err)
-	fwdr, err := chain.TxManager().GetForwarderForEOA(evmtypes.NewAddress(recipient))
+	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
 	require.NoError(t, err)
-	require.Equal(t, faddr, fwdr.Address)
+	require.Equal(t, faddr, fwdr)
 
 	return faddr
 }
