@@ -574,18 +574,18 @@ func (_m *Client) SendTransactionReturnCode(ctx context.Context, tx *types.Trans
 }
 
 // SequenceAt provides a mock function with given fields: ctx, accountAddress, blockNumber
-func (_m *Client) SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (uint64, error) {
+func (_m *Client) SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
 	ret := _m.Called(ctx, accountAddress, blockNumber)
 
-	var r0 uint64
+	var r0 evmtypes.Nonce
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
 		return rf(ctx, accountAddress, blockNumber)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) evmtypes.Nonce); ok {
 		r0 = rf(ctx, accountAddress, blockNumber)
 	} else {
-		r0 = ret.Get(0).(uint64)
+		r0 = ret.Get(0).(evmtypes.Nonce)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {

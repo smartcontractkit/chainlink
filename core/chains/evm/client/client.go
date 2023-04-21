@@ -31,7 +31,7 @@ const queryTimeout = 10 * time.Second
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	txmgrtypes.Client[*big.Int, uint64, common.Address, types.Block, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
+	txmgrtypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
 
 	Dial(ctx context.Context) error
 	Close()
@@ -285,8 +285,9 @@ func (client *client) PendingNonceAt(ctx context.Context, account common.Address
 	return client.pool.PendingNonceAt(ctx, account)
 }
 
-func (client *client) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	return client.pool.NonceAt(ctx, account, blockNumber)
+func (client *client) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+	nonce, err := client.pool.NonceAt(ctx, account, blockNumber)
+	return evmtypes.Nonce(nonce), err
 }
 
 func (client *client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {

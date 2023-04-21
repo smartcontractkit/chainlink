@@ -9,7 +9,17 @@ import (
 
 // A generic client interface for communication with the RPC node
 // Every native chain must implement independently
-type Client[CHAINID ID, SEQ any, ADDR types.Hashable, BLOCK any, TX any, HASH types.Hashable, TXRECEIPT any, EVENT any, EVENTOPS any] interface {
+type Client[
+	CHAINID ID,
+	SEQ Sequence, // nonce
+	ADDR types.Hashable,
+	BLOCK any,
+	TX any,
+	HASH types.Hashable,
+	TXRECEIPT any,
+	EVENT any,
+	EVENTOPS any, // event filter query options
+] interface {
 	// ChainID stored for quick access
 	ConfiguredChainID() CHAINID
 	// ChainID RPC call
@@ -23,7 +33,7 @@ type Client[CHAINID ID, SEQ any, ADDR types.Hashable, BLOCK any, TX any, HASH ty
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
-type Accounts[ADDR types.Hashable, SEQ any] interface {
+type Accounts[ADDR types.Hashable, SEQ Sequence] interface {
 	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
 	TokenBalance(ctx context.Context, accountAddress ADDR, tokenAddress ADDR) (*big.Int, error)
 	SequenceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (SEQ, error)

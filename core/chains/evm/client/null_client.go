@@ -146,7 +146,7 @@ func (nc *NullClient) PendingNonceAt(ctx context.Context, account common.Address
 	return 0, nil
 }
 
-func (nc *NullClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+func (nc *NullClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
 	nc.lggr.Debug("SequenceAt")
 	return 0, nil
 }
