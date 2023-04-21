@@ -51,7 +51,7 @@ func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPU
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, cfg, primaries, sendonlys, chainID)
+	pool := NewPool(lggr, cfg, primaries, sendonlys, chainID, "")
 	c := &client{logger: lggr, pool: pool}
 	t.Cleanup(c.Close)
 	return c, nil

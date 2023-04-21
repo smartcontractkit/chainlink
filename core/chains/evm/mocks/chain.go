@@ -5,7 +5,9 @@ package mocks
 import (
 	big "math/big"
 
+	common "github.com/ethereum/go-ethereum/common"
 	client "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+
 	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 
 	context "context"
@@ -267,15 +269,15 @@ func (_m *Chain) Start(_a0 context.Context) error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() txmgr.TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash] {
+func (_m *Chain) TxManager() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash] {
 	ret := _m.Called()
 
-	var r0 txmgr.TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]); ok {
+	var r0 txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash])
+			r0 = ret.Get(0).(txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash])
 		}
 	}
 

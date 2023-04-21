@@ -50,7 +50,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
 	tx3.State = txmgr.EthTxUnstarted
-	tx3.FromAddress = evmtypes.NewAddress(from)
+	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
 	var count int
@@ -98,7 +98,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
 	tx3.State = txmgr.EthTxUnstarted
-	tx3.FromAddress = evmtypes.NewAddress(from)
+	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
 	var count int
@@ -153,7 +153,7 @@ func TestORM(t *testing.T) {
 	})
 	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
-		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash.Hash, 0x1)
+		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
@@ -207,13 +207,13 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
 	// add receipt for the second attempt
-	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash.Hash, 0x1)
+	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
 	require.NoError(t, orm.InsertEthReceipt(&r))
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
 	tx3.State = txmgr.EthTxUnstarted
-	tx3.FromAddress = evmtypes.NewAddress(from)
+	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
 	cltest.MustInsertUnconfirmedEthTx(t, orm, 3, from)                           // tx4
@@ -248,11 +248,10 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	evmFromAddress := evmtypes.NewAddress(fromAddress)
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 10, &cltest.FixtureChainID, evmFromAddress)
+		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 10, &cltest.FixtureChainID, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -295,14 +294,14 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are transactions from a different key", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 10, &cltest.FixtureChainID, evmtypes.NewAddress(utils.RandomAddress()))
+		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 10, &cltest.FixtureChainID, utils.RandomAddress())
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 0, &cltest.FixtureChainID, evmFromAddress)
+		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 0, &cltest.FixtureChainID, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -311,7 +310,7 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns the highest price attempt for EIP-1559 transactions", func(t *testing.T) {
 		olderThan := time.Unix(1616509400, 0)
-		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 0, &cltest.FixtureChainID, evmFromAddress)
+		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 0, &cltest.FixtureChainID, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 4)
 		assert.Equal(t, attempt4_4.ID, attempts[3].ID)
@@ -319,7 +318,7 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 1, &cltest.FixtureChainID, evmFromAddress)
+		attempts, err := txStore.FindEthTxAttemptsRequiringResend(olderThan, 1, &cltest.FixtureChainID, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -524,7 +523,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 
 	// create receipt associated with transaction
 	txmReceipt := evmtypes.Receipt{
-		TxHash:           etx0.EthTxAttempts[0].Hash.Hash,
+		TxHash:           etx0.EthTxAttempts[0].Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
@@ -537,7 +536,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, etx0.EthTxAttempts, 1)
 	require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
-	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash.Hash)
+	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash)
 	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }
 
@@ -619,7 +618,7 @@ func TestORM_GetInProgressEthTxAttempts(t *testing.T) {
 	etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, int64(7), fromAddress, txmgrtypes.TxAttemptInProgress)
 
 	// fetch attempt
-	attempts, err := txStore.GetInProgressEthTxAttempts(context.Background(), evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+	attempts, err := txStore.GetInProgressEthTxAttempts(context.Background(), fromAddress, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 
 	assert.Len(t, attempts, 1)
@@ -661,7 +660,7 @@ func TestORM_FindEthReceiptsPendingConfirmation(t *testing.T) {
 	etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
 	attempt := etx.EthTxAttempts[0]
-	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt.Hash.Hash)
+	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt.Hash)
 
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
@@ -679,10 +678,9 @@ func TestORM_FindEthTxWithNonce(t *testing.T) {
 	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-	evmFromAddress := evmtypes.NewAddress(fromAddress)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindEthTxWithNonce(evmFromAddress, evmtypes.Nonce(777))
+		etx, err := txStore.FindEthTxWithNonce(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
@@ -691,7 +689,7 @@ func TestORM_FindEthTxWithNonce(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
 		require.Equal(t, int64(777), *etx.Nonce)
 
-		res, err := txStore.FindEthTxWithNonce(evmFromAddress, evmtypes.Nonce(777))
+		res, err := txStore.FindEthTxWithNonce(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Nonce, res.Nonce)
 	})
@@ -940,7 +938,7 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 		// any tx broadcast <= 10 will require gas bump
 		newBlock := int64(12)
 		gasBumpThreshold := int64(2)
-		etxs, err := txStore.FindEthTxsRequiringGasBump(context.Background(), evmtypes.NewAddress(fromAddress), newBlock, gasBumpThreshold, int64(0), ethClient.ConfiguredChainID())
+		etxs, err := txStore.FindEthTxsRequiringGasBump(context.Background(), fromAddress, newBlock, gasBumpThreshold, int64(0), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Len(t, etxs, 1)
 		assert.Equal(t, etx.ID, etxs[0].ID)
@@ -974,7 +972,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherAddress)
 
 	t.Run("returns all eth_txes with at least one attempt that is in insufficient_eth state", func(t *testing.T) {
-		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(evmtypes.NewAddress(fromAddress), &cltest.FixtureChainID)
+		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(fromAddress, &cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 3)
@@ -988,7 +986,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	})
 
 	t.Run("does not return eth_txes with different chain ID", func(t *testing.T) {
-		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(evmtypes.NewAddress(fromAddress), big.NewInt(42))
+		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(fromAddress, big.NewInt(42))
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -998,7 +996,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx1.ID)
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL, initial_broadcast_at=NULL WHERE id = $1`, etx2.ID)
 
-		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(evmtypes.NewAddress(fromAddress), &cltest.FixtureChainID)
+		etxs, err := txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(fromAddress, &cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 1)
@@ -1133,7 +1131,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 		cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
 
 		resultEtx := new(txmgr.EvmTx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ConfiguredChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
 	})
 
@@ -1141,7 +1139,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
 
 		resultEtx := new(txmgr.EvmTx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 	})
 }
@@ -1254,7 +1252,7 @@ func TestORM_GetEthTxInProgress(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("gets 0 in progress eth transaction", func(t *testing.T) {
-		etxResult, err := txStore.GetEthTxInProgress(evmtypes.NewAddress(fromAddress))
+		etxResult, err := txStore.GetEthTxInProgress(fromAddress)
 		require.NoError(t, err)
 		require.Nil(t, etxResult)
 	})
@@ -1262,7 +1260,7 @@ func TestORM_GetEthTxInProgress(t *testing.T) {
 	t.Run("get 1 in progress eth transaction", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 
-		etxResult, err := txStore.GetEthTxInProgress(evmtypes.NewAddress(fromAddress))
+		etxResult, err := txStore.GetEthTxInProgress(fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, etxResult.ID, etx.ID)
 	})
@@ -1279,7 +1277,7 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("no in progress eth transaction", func(t *testing.T) {
-		exists, err := txStore.HasInProgressTransaction(evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		exists, err := txStore.HasInProgressTransaction(fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.False(t, exists)
 	})
@@ -1287,7 +1285,7 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 	t.Run("has in progress eth transaction", func(t *testing.T) {
 		cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 
-		exists, err := txStore.HasInProgressTransaction(evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		exists, err := txStore.HasInProgressTransaction(fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -1305,16 +1303,16 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 
 	t.Run("update next nonce", func(t *testing.T) {
 		assert.Equal(t, int64(0), ethKeyState.NextNonce)
-		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(24), evmtypes.Nonce(0), evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(24), evmtypes.Nonce(0), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
-		newNextNonce, err := ethKeyStore.NextSequence(evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		newNextNonce, err := ethKeyStore.NextSequence(fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Equal(t, int64(24), newNextNonce.Int64())
 	})
 
 	t.Run("no rows found", func(t *testing.T) {
-		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(100), evmtypes.Nonce(123), evmtypes.NewAddress(fromAddress), ethClient.ConfiguredChainID())
+		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(100), evmtypes.Nonce(123), fromAddress, ethClient.ConfiguredChainID())
 		require.Error(t, err)
 	})
 }
@@ -1335,7 +1333,7 @@ func TestORM_CountUnconfirmedTransactions(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 
-	count, err := txStore.CountUnconfirmedTransactions(evmtypes.NewAddress(fromAddress), &cltest.FixtureChainID)
+	count, err := txStore.CountUnconfirmedTransactions(fromAddress, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 3)
 }
@@ -1356,7 +1354,7 @@ func TestORM_CountUnstartedTransactions(t *testing.T) {
 	cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 
-	count, err := txStore.CountUnstartedTransactions(evmtypes.NewAddress(fromAddress), &cltest.FixtureChainID)
+	count, err := txStore.CountUnstartedTransactions(fromAddress, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 2)
 }
@@ -1370,13 +1368,12 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	evmFromAddress := evmtypes.NewAddress(fromAddress)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	var maxUnconfirmedTransactions uint64 = 2
 
 	t.Run("with no eth_txes returns nil", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1386,7 +1383,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1395,7 +1392,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1406,7 +1403,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	n++
 
 	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, 1, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, 1, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1417,7 +1414,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
@@ -1426,30 +1423,30 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	}
 
 	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 
 	cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
 
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
-		err = txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
+		err = txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 	})
 
 	t.Run("with different chain ID ignores txes", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, maxUnconfirmedTransactions, big.NewInt(42))
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, big.NewInt(42))
 		require.NoError(t, err)
 	})
 
 	t.Run("disables check with 0 limit", func(t *testing.T) {
-		err := txStore.CheckEthTxQueueCapacity(evmFromAddress, 0, &cltest.FixtureChainID)
+		err := txStore.CheckEthTxQueueCapacity(fromAddress, 0, &cltest.FixtureChainID)
 		require.NoError(t, err)
 	})
 }
@@ -1475,8 +1472,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		tx, err := txStore.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(toAddress),
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
 			Meta:           nil,
@@ -1488,8 +1485,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
-		assert.Equal(t, fromAddress, etx.FromAddress.Address)
-		assert.Equal(t, toAddress, etx.ToAddress.Address)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
@@ -1511,8 +1508,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
 		id := uuid.NewV4()
 		newTx := txmgr.EvmNewTx{
-			FromAddress:       evmtypes.NewAddress(fromAddress),
-			ToAddress:         evmtypes.NewAddress(testutils.NewAddress()),
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
 			GasLimit:          21000,
 			PipelineTaskRunID: &id,

@@ -40,9 +40,9 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 type TxManager[
 	CHAIN_ID txmgrtypes.ID,
 	HEAD txmgrtypes.Head,
-	ADDR types.Hashable[ADDR],
-	TX_HASH types.Hashable[TX_HASH],
-	BLOCK_HASH types.Hashable[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 ] interface {
 	txmgrtypes.HeadTrackable[HEAD]
 	services.ServiceCtx
@@ -66,9 +66,9 @@ type reset struct {
 type Txm[
 	CHAIN_ID txmgrtypes.ID,
 	HEAD txmgrtypes.Head,
-	ADDR types.Hashable[ADDR],
-	TX_HASH types.Hashable[TX_HASH],
-	BLOCK_HASH types.Hashable[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	R any,
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
@@ -140,7 +140,7 @@ func NewTxm(
 		chainID:          ethClient.ConfiguredChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
-		trigger:          make(chan evmtypes.Address),
+		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
@@ -227,7 +227,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(call
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
-	gethAddr, err := getGethAddressFromADDR(addr)
+	gethAddr, err := stringToGethAddress(addr.String())
 	if err != nil {
 		return errors.Wrapf(err, "failed to do address format conversion")
 	}
@@ -365,7 +365,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 	for {
 		select {
 		case address := <-b.trigger:
-			b.ethBroadcaster.Trigger(address.String())
+			b.ethBroadcaster.Trigger(address)
 		case head := <-b.chHeads:
 			b.ethConfirmer.mb.Deliver(head)
 		case reset := <-b.reset:
@@ -442,7 +442,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ad
 	}
 }
 
-type NewTx[ADDR types.Hashable[ADDR]] struct {
+type NewTx[ADDR types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -467,12 +467,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthT
 		return tx, err
 	}
 
-	if b.config.UseForwarders() && (!newTx.ForwarderAddress.Empty()) {
+	if b.config.UseForwarders() && (!utils.IsZero(newTx.ForwarderAddress)) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
 			var gethToAddr common.Address
-			gethToAddr, err = getGethAddressFromADDR(newTx.ToAddress)
+			gethToAddr, err = stringToGethAddress(newTx.ToAddress.String())
 			if err != nil {
 				return tx, errors.Wrapf(err, "failed to do address format conversion")
 			}
@@ -517,7 +517,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabl
 // SendEther creates a transaction that transfers the given value of ether
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error) {
 	// TODO: Remove this hard-coding on evm package
-	if to.Empty() {
+	if utils.IsZero(to) {
 		return etx, errors.New("cannot send ether to zero address")
 	}
 	etx = EthTx[ADDR, TX_HASH]{
@@ -535,7 +535,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendEther(
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](ctx context.Context, ethClient evmclient.Client, a EthTxAttempt[ADDR, TX_HASH], e EthTx[ADDR, TX_HASH], logger logger.Logger) *evmclient.SendError {
+func sendTransaction[ADDR types.Hashable, TX_HASH types.Hashable](ctx context.Context, ethClient evmclient.Client, a EthTxAttempt[ADDR, TX_HASH], e EthTx[ADDR, TX_HASH], logger logger.Logger) *evmclient.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return evmclient.NewFatalSendError(err)
@@ -555,7 +555,7 @@ func sendTransaction[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]]
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
-func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], SEQ txmgrtypes.Sequence](
+func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable, TX_HASH types.Hashable, SEQ txmgrtypes.Sequence](
 	ctx context.Context,
 	ethClient evmclient.Client,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],
@@ -580,7 +580,7 @@ func sendEmptyTransaction[HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HA
 	return signedTx, err
 }
 
-type NullTxManager[CHAIN_ID txmgrtypes.ID, HEAD txmgrtypes.Head, ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
+type NullTxManager[CHAIN_ID txmgrtypes.ID, HEAD txmgrtypes.Head, ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ErrMsg string
 }
 

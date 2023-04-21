@@ -11,7 +11,6 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -53,11 +52,11 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:      evmtypes.NewAddress(fromAddress),
-		ToAddress:        evmtypes.NewAddress(toAddress),
+		FromAddress:      fromAddress,
+		ToAddress:        toAddress,
 		EncodedPayload:   payload,
 		GasLimit:         gasLimit,
-		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
 	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
@@ -95,20 +94,20 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	require.NoError(t, err)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:      evmtypes.NewAddress(fromAddress),
-		ToAddress:        evmtypes.NewAddress(toAddress),
+		FromAddress:      fromAddress,
+		ToAddress:        toAddress,
 		EncodedPayload:   payload,
 		GasLimit:         gasLimit,
-		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
 	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:      evmtypes.NewAddress(fromAddress2),
-		ToAddress:        evmtypes.NewAddress(toAddress),
+		FromAddress:      fromAddress2,
+		ToAddress:        toAddress,
 		EncodedPayload:   payload,
 		GasLimit:         gasLimit,
-		ForwarderAddress: evmtypes.NewAddress(common.Address{}),
+		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
 	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()

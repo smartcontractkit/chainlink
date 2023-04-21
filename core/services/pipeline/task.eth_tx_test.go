@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -33,8 +32,7 @@ func TestETHTxTask(t *testing.T) {
 	const drJobTypeGasLimit uint32 = 789
 
 	from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
-	evmFrom := evmtypes.NewAddress(from)
-	evmTo := evmtypes.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+	to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 
 	tests := []struct {
 		name                  string
@@ -84,8 +82,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       gasLimit,
 					Meta:           txMeta,
@@ -131,8 +129,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       gasLimit,
 					Meta:           txMeta,
@@ -208,8 +206,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       gasLimit,
 					Meta:           txMeta,
@@ -253,8 +251,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       gasLimit,
 					Meta:           txMeta,
@@ -283,8 +281,8 @@ func TestETHTxTask(t *testing.T) {
 				txMeta := &txmgr.EthTxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       gasLimit,
 					Meta:           txMeta,
@@ -317,8 +315,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       drJobTypeGasLimit,
 					Meta:           txMeta,
@@ -351,8 +349,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       specGasLimit,
 					Meta:           txMeta,
@@ -416,8 +414,8 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
 					GasLimit:       gasLimit,
 					Meta:           txMeta,

@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -372,6 +373,18 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 
 func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
 	return c.b.HeaderByHash(ctx, h)
+}
+
+func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+	err := c.SendTransaction(ctx, tx)
+	if err == nil {
+		return clienttypes.Successful, nil
+	}
+	if strings.Contains(err.Error(), "could not fetch parent") || strings.Contains(err.Error(), "invalid transaction") {
+		return clienttypes.Fatal, err
+	}
+	// All remaining error messages returned from SendTransaction are considered Unknown.
+	return clienttypes.Unknown, err
 }
 
 // SendTransaction sends a transaction.

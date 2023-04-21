@@ -15,7 +15,6 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -371,13 +370,13 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 
 	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
-		TxHash: evmtypes.NewTxHash(ethTxHash),
+		TxHash: ethTxHash,
 	}
 
 	attempt1 := txmgr.EvmTxAttempt{
 		ID:          int64(1),
 		EthTxID:     ethTxID,
-		Hash:        evmtypes.NewTxHash(ethTxHash),
+		Hash:        ethTxHash,
 		EthReceipts: []txmgr.EvmReceipt{receipt},
 	}
 

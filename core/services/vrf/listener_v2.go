@@ -820,8 +820,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				transaction, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
-					FromAddress:    evmtypes.NewAddress(fromAddress),
-					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
+					FromAddress:    fromAddress,
+					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{

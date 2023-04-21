@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -50,7 +49,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 	variables := map[string]interface{}{
 		"hash": "0x5431F5F973781809D18643b87B44921b11355d81",
 	}
-	hash := evmtypes.NewTxHash(common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81"))
+	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
 	chainID := *utils.NewBigI(22)
 	gError := errors.New("error")
 
@@ -62,8 +61,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmStore.On("FindEthTxByHash", hash).Return(&txmgr.EvmTx{
 					ID:             1,
-					ToAddress:      evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					FromAddress:    evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					GasLimit:       100,
@@ -118,8 +117,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 
 				f.Mocks.txmStore.On("FindEthTxByHash", hash).Return(&txmgr.EvmTx{
 					ID:             1,
-					ToAddress:      evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					FromAddress:    evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					GasLimit:       100,
@@ -246,8 +245,8 @@ func TestResolver_EthTransactions(t *testing.T) {
 				f.Mocks.txmStore.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EvmTx{
 					{
 						ID:             1,
-						ToAddress:      evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						FromAddress:    evmtypes.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						State:          txmgr.EthTxInProgress,
 						EncodedPayload: []byte("encoded payload"),
 						GasLimit:       100,
@@ -258,7 +257,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 				f.Mocks.txmStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmTxAttempt{
 					{
 						EthTxID:                 1,
-						Hash:                    evmtypes.NewTxHash(hash),
+						Hash:                    hash,
 						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
@@ -343,7 +342,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 
 				f.Mocks.txmStore.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EvmTxAttempt{
 					{
-						Hash:                    evmtypes.NewTxHash(hash),
+						Hash:                    hash,
 						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
@@ -374,7 +373,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.Mocks.txmStore.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EvmTxAttempt{
 					{
-						Hash:                    evmtypes.NewTxHash(hash),
+						Hash:                    hash,
 						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,

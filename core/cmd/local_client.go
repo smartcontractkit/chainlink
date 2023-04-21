@@ -589,7 +589,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
@@ -604,7 +604,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(nonces, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(nonces, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 

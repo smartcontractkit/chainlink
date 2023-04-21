@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -46,11 +47,11 @@ import (
 //
 // This gives us re-org protection up to EVM.FinalityDepth deep in the
 // worst case, which is in line with our other guarantees.
-type NonceSyncer[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] interface {
+type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
 	Sync(ctx context.Context, addr ADDR) (err error)
 }
 
-var _ NonceSyncer[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash] = &nonceSyncerImpl{}
+var _ NonceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
 	txStore   EvmTxStore
@@ -81,12 +82,12 @@ func NewNonceSyncer(
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s nonceSyncerImpl) Sync(ctx context.Context, addr evmtypes.Address) (err error) {
+func (s nonceSyncerImpl) Sync(ctx context.Context, addr common.Address) (err error) {
 	err = s.fastForwardNonceIfNecessary(ctx, addr)
 	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
-func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address evmtypes.Address) error {
+func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
 	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
 	if err != nil {
 		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
@@ -138,7 +139,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 	return err
 }
 
-func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account evmtypes.Address) (nextNonce uint64, err error) {
-	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account.Address)
+func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
+	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
 }

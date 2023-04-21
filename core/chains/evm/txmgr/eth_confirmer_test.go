@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -66,9 +67,9 @@ func mustTxBeInState(t *testing.T, txStore txmgr.EvmTxStore, tx txmgr.EvmTx, exp
 	require.Equal(t, expectedState, etx.State)
 }
 
-func newTxReceipt(hash evmtypes.TxHash, blockNumber int, txIndex uint) evmtypes.Receipt {
+func newTxReceipt(hash gethCommon.Hash, blockNumber int, txIndex uint) evmtypes.Receipt {
 	return evmtypes.Receipt{
-		TxHash:           hash.Hash,
+		TxHash:           hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(int64(blockNumber)),
 		TransactionIndex: txIndex,
@@ -211,7 +212,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	nonce++
 	require.Len(t, etx1.EthTxAttempts, 1)
 	attempt1_1 := etx1.EthTxAttempts[0]
-	hashAttempt1_1 := attempt1_1.Hash.Hash
+	hashAttempt1_1 := attempt1_1.Hash
 	require.Len(t, attempt1_1.EthReceipts, 0)
 
 	t.Run("fetches receipt for one unconfirmed eth_tx", func(t *testing.T) {
@@ -265,7 +266,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	t.Run("saves nothing if query returns error", func(t *testing.T) {
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt1_1.Hash.Hash,
+			TxHash:           attempt1_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
@@ -298,7 +299,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	t.Run("saves eth_receipt and marks eth_tx as confirmed when geth client returns valid receipt", func(t *testing.T) {
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt1_1.Hash.Hash,
+			TxHash:           attempt1_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
@@ -308,8 +309,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt2_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt2_1.Hash, "eth_getTransactionReceipt")
 
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
@@ -333,8 +334,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		ethReceipt := attempt1_1.EthReceipts[0]
 
-		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash.Hash)
-		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash.Hash)
+		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
 		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
 		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
@@ -358,7 +359,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.NoError(t, txStore.InsertEthTxAttempt(&attempt2_2))
 
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt2_2.Hash.Hash,
+			TxHash:           attempt2_2.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
@@ -368,9 +369,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				cltest.BatchElemMatchesParams(b[2], attempt2_1.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt2_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[0], attempt2_3.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[2], attempt2_1.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt2_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[0], attempt2_3.Hash, "eth_getTransactionReceipt")
 
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
@@ -400,11 +401,11 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Run("ignores receipt missing BlockHash that comes from querying parity too early", func(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		receipt := evmtypes.Receipt{
-			TxHash: attempt3_1.Hash.Hash,
+			TxHash: attempt3_1.Hash,
 			Status: uint64(1),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash.Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &receipt
@@ -426,12 +427,12 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Run("does not panic if receipt has BlockHash but is missing some other fields somehow", func(t *testing.T) {
 		// NOTE: This should never happen, but we shouldn't panic regardless
 		receipt := evmtypes.Receipt{
-			TxHash:    attempt3_1.Hash.Hash,
+			TxHash:    attempt3_1.Hash,
 			BlockHash: utils.NewHash(),
 			Status:    uint64(1),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash.Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &receipt
@@ -450,17 +451,17 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Len(t, attempt3_1.EthReceipts, 0)
 	})
 	t.Run("handles case where eth_receipt already exists somehow", func(t *testing.T) {
-		ethReceipt := cltest.MustInsertEthReceipt(t, txStore, 42, utils.NewHash(), attempt3_1.Hash.Hash)
+		ethReceipt := cltest.MustInsertEthReceipt(t, txStore, 42, utils.NewHash(), attempt3_1.Hash)
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt3_1.Hash.Hash,
-			BlockHash:        ethReceipt.BlockHash.Hash,
+			TxHash:           attempt3_1.Hash,
+			BlockHash:        ethReceipt.BlockHash,
 			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
 			TransactionIndex: ethReceipt.TransactionIndex,
 			Status:           uint64(1),
 		}
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash.Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &txmReceipt
@@ -480,8 +481,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		ethReceipt = attempt3_1.EthReceipts[0]
 
-		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash.Hash)
-		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash.Hash)
+		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
 		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
 		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 	})
@@ -497,7 +498,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.NoError(t, txStore.InsertEthTxAttempt(&attempt4_2))
 
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt4_2.Hash.Hash,
+			TxHash:           attempt4_2.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
@@ -507,8 +508,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		// Second attempt is confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], attempt4_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt4_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt4_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt4_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First attempt still unconfirmed
@@ -545,7 +546,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	t.Run("simulate on revert", func(t *testing.T) {
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt5_1.Hash.Hash,
+			TxHash:           attempt5_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
@@ -555,7 +556,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		// First attempt is confirmed and reverted
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], attempt5_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt5_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First attempt still unconfirmed
@@ -623,8 +624,8 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
-			cltest.BatchElemMatchesParams(b[0], attempts[4].Hash.Hash, "eth_getTransactionReceipt") &&
-			cltest.BatchElemMatchesParams(b[1], attempts[3].Hash.Hash, "eth_getTransactionReceipt")
+			cltest.BatchElemMatchesParams(b[0], attempts[4].Hash, "eth_getTransactionReceipt") &&
+			cltest.BatchElemMatchesParams(b[1], attempts[3].Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &evmtypes.Receipt{}
@@ -632,8 +633,8 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	}).Once()
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
-			cltest.BatchElemMatchesParams(b[0], attempts[2].Hash.Hash, "eth_getTransactionReceipt") &&
-			cltest.BatchElemMatchesParams(b[1], attempts[1].Hash.Hash, "eth_getTransactionReceipt")
+			cltest.BatchElemMatchesParams(b[0], attempts[2].Hash, "eth_getTransactionReceipt") &&
+			cltest.BatchElemMatchesParams(b[1], attempts[1].Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &evmtypes.Receipt{}
@@ -641,7 +642,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	}).Once()
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 1 &&
-			cltest.BatchElemMatchesParams(b[0], attempts[0].Hash.Hash, "eth_getTransactionReceipt")
+			cltest.BatchElemMatchesParams(b[0], attempts[0].Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &evmtypes.Receipt{}
@@ -679,7 +680,7 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 	require.Equal(t, 0, len(dbtx.EthTxAttempts[0].EthReceipts))
 
 	txmReceipt := evmtypes.Receipt{
-		TxHash:           attempt.Hash.Hash,
+		TxHash:           attempt.Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
@@ -689,7 +690,7 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 1 &&
-			cltest.BatchElemMatchesParams(b[0], attempt.Hash.Hash, "eth_getTransactionReceipt")
+			cltest.BatchElemMatchesParams(b[0], attempt.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &txmReceipt // confirmed
@@ -757,10 +758,10 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
 
-	cltest.BatchElemMustMatchParams(t, captured[0], attempts[0].Hash.Hash, "eth_getTransactionReceipt")
-	cltest.BatchElemMustMatchParams(t, captured[1], attempts[1].Hash.Hash, "eth_getTransactionReceipt")
-	cltest.BatchElemMustMatchParams(t, captured[2], attempts[2].Hash.Hash, "eth_getTransactionReceipt")
-	cltest.BatchElemMustMatchParams(t, captured[3], attempts[3].Hash.Hash, "eth_getTransactionReceipt")
+	cltest.BatchElemMustMatchParams(t, captured[0], attempts[0].Hash, "eth_getTransactionReceipt")
+	cltest.BatchElemMustMatchParams(t, captured[1], attempts[1].Hash, "eth_getTransactionReceipt")
+	cltest.BatchElemMustMatchParams(t, captured[2], attempts[2].Hash, "eth_getTransactionReceipt")
+	cltest.BatchElemMustMatchParams(t, captured[3], attempts[3].Hash, "eth_getTransactionReceipt")
 }
 
 func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t *testing.T) {
@@ -830,7 +831,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 	txmReceipt2_9 := newTxReceipt(attempt2_9.Hash, 10, 1)
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt2_9.Hash.Hash, "eth_getTransactionReceipt")
+		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt2_9.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &txmReceipt2_9
@@ -848,7 +849,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 	txmReceipt1_1 := newTxReceipt(attempt1_1.Hash, 11, 1)
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash.Hash, "eth_getTransactionReceipt")
+		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &txmReceipt1_1
@@ -917,14 +918,14 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {
 		txmReceipt0 := evmtypes.Receipt{
-			TxHash:           attempt0_2.Hash.Hash,
+			TxHash:           attempt0_2.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 			Status:           uint64(1),
 		}
 		txmReceipt3 := evmtypes.Receipt{
-			TxHash:           attempt3_1.Hash.Hash,
+			TxHash:           attempt3_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
@@ -933,12 +934,12 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(4), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 6 &&
-				cltest.BatchElemMatchesParams(b[0], attempt0_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt0_1.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[2], attempt1_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[3], attempt1_1.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[4], attempt2_1.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[5], attempt3_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt0_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt0_1.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[2], attempt1_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[3], attempt1_1.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[4], attempt2_1.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[5], attempt3_1.Hash, "eth_getTransactionReceipt")
 
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
@@ -965,7 +966,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, txmgr.EthTxConfirmed, etx3.State)
 
 		ethReceipt := etx3.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, txmReceipt3.BlockHash, ethReceipt.BlockHash.Hash)
+		require.Equal(t, txmReceipt3.BlockHash, ethReceipt.BlockHash)
 
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
@@ -981,7 +982,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Len(t, etx0.EthTxAttempts, 2)
 		require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
 		ethReceipt = etx0.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, txmReceipt0.BlockHash, ethReceipt.BlockHash.Hash)
+		require.Equal(t, txmReceipt0.BlockHash, ethReceipt.BlockHash)
 	})
 
 	// STATE
@@ -992,7 +993,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	t.Run("marks eth_txes with state 'confirmed_missing_receipt' as 'confirmed' if a receipt finally shows up", func(t *testing.T) {
 		txmReceipt := evmtypes.Receipt{
-			TxHash:           attempt2_1.Hash.Hash,
+			TxHash:           attempt2_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(43),
 			TransactionIndex: uint(1),
@@ -1001,9 +1002,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				cltest.BatchElemMatchesParams(b[0], attempt1_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt1_1.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[2], attempt2_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt1_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt1_1.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[2], attempt2_1.Hash, "eth_getTransactionReceipt")
 
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
@@ -1028,7 +1029,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, txmgr.EthTxConfirmed, etx2.State)
 
 		ethReceipt := etx2.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash.Hash)
+		require.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
 
 		etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
@@ -1048,8 +1049,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], attempt1_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt1_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt1_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt1_1.Hash, "eth_getTransactionReceipt")
 
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
@@ -1088,8 +1089,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], attempt1_2.Hash.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt1_1.Hash.Hash, "eth_getTransactionReceipt")
+				cltest.BatchElemMatchesParams(b[0], attempt1_2.Hash, "eth_getTransactionReceipt") &&
+				cltest.BatchElemMatchesParams(b[1], attempt1_1.Hash, "eth_getTransactionReceipt")
 
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
@@ -1348,7 +1349,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-	evmFromAddress := evmtypes.NewAddress(fromAddress)
+	evmFromAddress := fromAddress
 	currentHead := int64(30)
 	gasBumpThreshold := int64(10)
 	tooNew := int64(21)
@@ -1360,7 +1361,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-	evmOtherAddress := evmtypes.NewAddress(otherAddress)
+	evmOtherAddress := otherAddress
 
 	lggr := logger.TestLogger(t)
 
@@ -1645,7 +1646,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
-		addresses := []evmtypes.Address{evmtypes.NewAddress(fromAddress)}
+		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
 		ec := txmgr.NewEthConfirmer(txStore, ethClient, evmcfg, kst, txBuilder, lggr)
@@ -1661,7 +1662,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
 		require.NoError(t, err)
@@ -1689,7 +1690,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		// Create confirmer with necessary state
 		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
-		addresses := []evmtypes.Address{evmtypes.NewAddress(fromAddress)}
+		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		ec := txmgr.NewEthConfirmer(txStore, ethClient, evmcfg, kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
@@ -1704,7 +1705,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
 		require.NoError(t, err)
@@ -1735,7 +1736,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	kst := ksmocks.NewEth(t)
-	addresses := []evmtypes.Address{evmtypes.NewAddress(fromAddress)}
+	addresses := []gethCommon.Address{fromAddress}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 	// Use a mock keystore for this test
 	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
@@ -1757,7 +1758,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
 		// simulate bumped transaction that is somehow impossible to sign
-		kst.On("SignTx", evmtypes.NewAddress(fromAddress),
+		kst.On("SignTx", fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				return tx.Nonce() == uint64(*etx.Nonce)
 			}),
@@ -1778,7 +1779,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	t.Run("does nothing and continues on fatal error", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if tx.Nonce() != uint64(*etx.Nonce) {
 					return false
@@ -1789,9 +1790,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.MatchedBy(func(chainID *big.Int) bool {
 				return chainID.Cmp(evmcfg.ChainID()) == 0
 			})).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx.Nonce)
-		})).Return(errors.New("exceeds block gas limit")).Once()
+		}), fromAddress).Return(clienttypes.Fatal, errors.New("exceeds block gas limit")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1808,7 +1809,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if tx.Nonce() != uint64(*etx.Nonce) {
 					return false
@@ -1821,9 +1822,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			})).Return(&ethTx, nil).Once()
 
 		// Once for the bumped attempt which exceeds limit
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(20000000000)
-		})).Return(errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
+		}), fromAddress).Return(clienttypes.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1849,7 +1850,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -1860,9 +1861,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.MatchedBy(func(chainID *big.Int) bool {
 				return chainID.Cmp(evmcfg.ChainID()) == 0
 			})).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(nil).Once()
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1897,7 +1898,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx.Nonce || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -1906,9 +1907,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
+		}), fromAddress).Return(clienttypes.Successful, fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1936,7 +1937,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		receipt := evmtypes.Receipt{BlockNumber: big.NewInt(40)}
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx.Nonce || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -1946,9 +1947,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("nonce too low")).Once()
+		}), fromAddress).Return(clienttypes.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -1989,7 +1990,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		n := *etx2.Nonce
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != n || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -1998,9 +1999,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("some network error")).Once()
+		}), fromAddress).Return(clienttypes.Unknown, errors.New("some network error")).Once()
 
 		// Do the thing
 		err = ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
@@ -2026,9 +2027,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do it again and move the attempt into "broadcast"
 		n = *etx2.Nonce
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(nil).Once()
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
@@ -2056,7 +2057,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		n := *etx2.Nonce
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != n || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -2065,9 +2066,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("nonce too low")).Once()
+		}), fromAddress).Return(clienttypes.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		// Creates new attempt as normal if currentHead is not high enough
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2096,7 +2097,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx3.Nonce || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -2105,9 +2106,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("replacement transaction underpriced")).Once()
+		}), fromAddress).Return(clienttypes.Successful, errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2133,7 +2134,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx3.Nonce || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -2142,9 +2143,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
+		}), fromAddress).Return(clienttypes.Successful, fmt.Errorf("known transaction: %s", ethTx.Hash().Hex())).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2172,7 +2173,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx3.Nonce || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
 					return false
@@ -2181,9 +2182,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New(temporarilyUnderpricedError)).Once()
+		}), fromAddress).Return(clienttypes.Successful, errors.New(temporarilyUnderpricedError)).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2206,9 +2207,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		gasPrice := attempt3_4.GasPrice.ToInt()
 		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.NewWeiI(60500000000))
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && gasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2232,9 +2233,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		gasPrice := attempt3_4.GasPrice.ToInt()
 		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.NewWeiI(60480000000))
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && gasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2261,7 +2262,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(1000))
 		ethTx := *types.NewTx(&types.DynamicFeeTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx4.Nonce {
 					return false
@@ -2272,10 +2273,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(&ethTx, nil).Once()
 		// This is the new, EIP-1559 attempt
 		gasTipCap := assets.GWei(42)
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx4.Nonce && gasTipCap.ToInt().Cmp(tx.GasTipCap()) == 0
-		})).Return(nil).Once()
-
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
 		etx4, err = txStore.FindEthTxWithAttempts(etx4.ID)
@@ -2299,9 +2299,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(1000))
 
 		// Third attempt failed to bump, resubmits old one instead
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx4.Nonce && attempt4_2.Hash.String() == tx.Hash().String()
-		})).Return(nil).Once()
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
@@ -2327,7 +2327,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
 		kst.On("SignTx",
-			evmtypes.NewAddress(fromAddress),
+			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if int64(tx.Nonce()) != *etx4.Nonce || expectedBumpedTipCap.ToInt().Cmp(tx.GasTipCap()) != 0 {
 					return false
@@ -2336,9 +2336,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.Anything).Return(&ethTx, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx4.Nonce && expectedBumpedTipCap.ToInt().Cmp(tx.GasTipCap()) == 0
-		})).Return(errors.New("replacement transaction underpriced")).Once()
+		}), fromAddress).Return(clienttypes.Successful, errors.New("replacement transaction underpriced")).Once()
 
 		// Do it
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2375,7 +2375,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	// Use a mock keystore for this test
 	kst := ksmocks.NewEth(t)
-	addresses := []evmtypes.Address{evmtypes.NewAddress(fromAddress)}
+	addresses := []gethCommon.Address{fromAddress}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 	currentHead := int64(30)
 	oldEnough := 5
@@ -2395,11 +2395,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.NoError(t, err)
 
 		// Fail the first time with terminally underpriced.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
-			errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
-		).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Underpriced, errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price")).Once()
 		// Succeed the second time after bumping gas.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Successful, nil).Once()
 		kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Return(
 			signedTx, nil,
 		).Once()
@@ -2420,11 +2420,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, legacyAttempt.ID))
 
 		// Fail a few times with terminally underpriced
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
-			errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
-		).Times(3)
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Underpriced, errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price")).Times(3)
 		// Succeed the second time after bumping gas.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Successful, nil).Once()
 		signedLegacyTx := new(types.Transaction)
 		kst.On("SignTx", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Type() == 0x0 && tx.Nonce() == uint64(*etx.Nonce)
@@ -2433,7 +2433,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedLegacyTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedLegacyTx, err := realKst.SignTx(evmtypes.NewAddress(fromAddress), unsignedLegacyTx, testutils.FixtureChainID)
+			thisSignedLegacyTx, err := realKst.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedLegacyTx = *thisSignedLegacyTx
 		}).Times(4) // 3 failures 1 success
@@ -2452,11 +2452,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, dxFeeAttempt.ID))
 
 		// Fail a few times with terminally underpriced
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
-			errors.New("transaction underpriced"),
-		).Times(3)
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Underpriced, errors.New("transaction underpriced")).Times(3)
 		// Succeed the second time after bumping gas.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Successful, nil).Once()
 		signedDxFeeTx := new(types.Transaction)
 		kst.On("SignTx", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Type() == 0x2 && tx.Nonce() == uint64(*etx.Nonce)
@@ -2465,7 +2465,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedDxFeeTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedDxFeeTx, err := realKst.SignTx(evmtypes.NewAddress(fromAddress), unsignedDxFeeTx, testutils.FixtureChainID)
+			thisSignedDxFeeTx, err := realKst.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedDxFeeTx = *thisSignedDxFeeTx
 		}).Times(4) // 3 failures 1 success
@@ -2512,9 +2512,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(insufficientEthError).Once()
+		}), fromAddress).Return(clienttypes.InsufficientFunds, insufficientEthError).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2539,9 +2539,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(insufficientEthError).Once()
+		}), fromAddress).Return(clienttypes.InsufficientFunds, insufficientEthError).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2565,9 +2565,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(nil).Once()
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2598,9 +2598,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		for i := 0; i < etxCount; i++ {
 			n := nonce
 			cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, nonce, fromAddress)
-			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 				return tx.Nonce() == uint64(n)
-			})).Return(nil).Once()
+			}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 			nonce++
 		}
@@ -2662,7 +2662,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	t.Run("does nothing to confirmed transactions with receipts within head height of the chain and included in the chain", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
-		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.EthTxAttempts[0].Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.EthTxAttempts[0].Hash)
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2675,7 +2675,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 		// Add receipt that is older than the lowest block of the chain
-		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, utils.NewHash(), etx.EthTxAttempts[0].Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, utils.NewHash(), etx.EthTxAttempts[0].Hash)
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2689,14 +2689,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Include one within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt.Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt.Hash)
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			atx, err := attempt.GetSignedTx()
 			require.NoError(t, err)
 			// Keeps gas price and nonce the same
 			return atx.GasPrice().Cmp(tx.GasPrice()) == 0 && atx.Nonce() == tx.Nonce()
-		})).Return(nil).Once()
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2712,13 +2712,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of chain but not included in the chain even if a receipt exists older than the start of the chain", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 5, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
-		attemptHash := attempt.Hash.Hash
+		attemptHash := attempt.Hash
 		// Add receipt that is older than the lowest block of the chain
 		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, utils.NewHash(), attemptHash)
 		// Include one within head height but a different block hash
 		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attemptHash)
 
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			clienttypes.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2745,15 +2746,15 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		require.NoError(t, txStore.InsertEthTxAttempt(&attempt3))
 
 		// Receipt is within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt2.Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt2.Hash)
 		// Receipt is within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt3.Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt3.Hash)
 
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			s, err := attempt3.GetSignedTx()
 			require.NoError(t, err)
 			return tx.Hash() == s.Hash()
-		})).Return(nil).Once()
+		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2774,7 +2775,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Add receipt that is higher than head
-		cltest.MustInsertEthReceipt(t, txStore, head.Number+1, utils.NewHash(), attempt.Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Number+1, utils.NewHash(), attempt.Hash)
 
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
 
@@ -2820,7 +2821,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{1}, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
@@ -2836,7 +2837,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				tx.To().String() == etx1.ToAddress.String()
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1)}, gasPriceWei, evmtypes.NewAddress(fromAddress), 0))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
 	})
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
@@ -2851,7 +2852,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(*etx2.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == uint64(overrideGasLimit)
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1), (2)}, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
@@ -2878,7 +2879,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		}
 		nonces := []evmtypes.Nonce{(1), (2), (3), (4), (5)}
 
-		require.NoError(t, ec.ForceRebroadcast(nonces, gasPriceWei, evmtypes.NewAddress(fromAddress), overrideGasLimit))
+		require.NoError(t, ec.ForceRebroadcast(nonces, gasPriceWei, fromAddress, overrideGasLimit))
 	})
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
@@ -2890,7 +2891,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint32(tx.Gas()) == config.EvmGasLimitDefault()
 		})).Return(nil).Once()
 
-		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, evmtypes.NewAddress(fromAddress), 0))
+		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
 	})
 }
 
@@ -2938,7 +2939,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
-		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.EthTxAttempts[0].Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.EthTxAttempts[0].Hash)
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		err = ec.ResumePendingTaskRuns(testutils.Context(t), &head)
@@ -2957,7 +2958,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
-		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.EthTxAttempts[0].Hash.Hash)
+		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.EthTxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
@@ -2982,7 +2983,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
-		receipt := cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.EthTxAttempts[0].Hash.Hash)
+		receipt := cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.EthTxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
@@ -2997,7 +2998,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 			require.IsType(t, &evmtypes.Receipt{}, data)
 			r := data.(*evmtypes.Receipt)
-			require.Equal(t, receipt.TxHash.Hash, r.TxHash)
+			require.Equal(t, receipt.TxHash, r.TxHash)
 
 		case <-time.After(time.Second):
 			t.Fatal("no value received")
@@ -3024,7 +3025,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
-		cltest.MustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.EthTxAttempts[0].Hash.Hash)
+		cltest.MustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.EthTxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
