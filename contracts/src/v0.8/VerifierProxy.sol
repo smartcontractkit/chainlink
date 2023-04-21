@@ -65,10 +65,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     s_accessController = accessController;
   }
 
-  /**
-   * @dev reverts if the caller does not have access by the accessController
-   * contract or is the contract itself.
-   */
+  /// @dev reverts if the caller does not have access by the accessController contract or is the contract itself.
   modifier checkAccess() {
     AccessControllerInterface ac = s_accessController;
     if (address(ac) != address(0) && !ac.hasAccess(msg.sender, msg.data)) revert AccessForbidden();
