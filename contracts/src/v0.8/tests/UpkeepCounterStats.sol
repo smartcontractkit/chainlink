@@ -51,10 +51,10 @@ contract UpkeepCounterStats is ConfirmedOwner {
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
   KeeperRegistry2_0 public registry;
-  uint256 public upkeepTopUpCheckInterval = 10;
-  uint96 public addLinkAmount = 500000000000000000; // 0.5 LINK
+  uint256 public upkeepTopUpCheckInterval = 5;
+  uint96 public addLinkAmount = 200000000000000000; // 0.2 LINK
   uint16 public immutable BUCKET_SIZE = 100;
-  uint8 public minBalanceThresholdMultiplier = 25;
+  uint8 public minBalanceThresholdMultiplier = 20;
 
   constructor(address registrarAddress) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
