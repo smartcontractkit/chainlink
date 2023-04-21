@@ -430,8 +430,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		solLggr := lggr.Named("Solana")
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
+			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
 		}
 		cfgs := cfg.SolanaConfigs()
 		opts.Configs = solana.NewConfigs(cfgs)
