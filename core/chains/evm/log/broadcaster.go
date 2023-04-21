@@ -109,7 +109,7 @@ type (
 		utils.StartStopOnce
 		utils.DependentAwaiter
 
-		chStop                chan struct{}
+		chStop                utils.StopChan
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan replayRequest
@@ -389,7 +389,7 @@ func (b *broadcaster) startResubscribeLoop() {
 }
 
 func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
-	ctx, cancel := utils.ContextFromChan(b.chStop)
+	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() bool {
@@ -489,7 +489,7 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	// manually by someone who knows what he is doing
 	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
 	if replayReq.forceBroadcast {
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 
 		// Use a longer timeout in the event that a very large amount of logs need to be marked
@@ -532,7 +532,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	}
 	if b.logPool.addLog(log) {
 		// First or new lowest block number
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 		blockNumber := int64(log.BlockNumber)
 		if err := b.orm.SetPendingMinBlock(&blockNumber, pg.WithParentCtx(ctx)); err != nil {
@@ -572,7 +572,7 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 
 		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
