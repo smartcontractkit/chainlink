@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
@@ -175,7 +174,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	strategy := commontxmmocks.NewTxStrategy(t)
 
 	var (
-		txm = txmmocks.NewTxManager[common.Address, common.Hash, common.Hash](t)
+		txm = txmmocks.NewMockEvmTxManager(t)
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)

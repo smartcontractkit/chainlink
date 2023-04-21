@@ -6,30 +6,30 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) SetEthClient(ethClient evmclient.Client) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetEthClient(ethClient evmclient.Client) {
 	ec.ethClient = ethClient
 }
 
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) StartInternal() error {
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) StartInternal() error {
 	return eb.startInternal()
 }
 
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) CloseInternal() error {
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CloseInternal() error {
 	return eb.closeInternal()
 }
 
-func (eb *EthBroadcaster[ADDR, TX_HASH, BLOCK_HASH]) DisableUnstartedEthTxAutoProcessing() {
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DisableUnstartedEthTxAutoProcessing() {
 	eb.processUnstartedEthTxsImpl = func(ctx context.Context, fromAddress ADDR) (retryable bool, err error) { return false, nil }
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) StartInternal() error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) StartInternal() error {
 	return ec.startInternal()
 }
 
-func (ec *EthConfirmer[ADDR, TX_HASH, BLOCK_HASH]) CloseInternal() error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CloseInternal() error {
 	return ec.closeInternal()
 }
 
-func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) ResendUnconfirmed() error {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) ResendUnconfirmed() error {
 	return er.resendUnconfirmed()
 }

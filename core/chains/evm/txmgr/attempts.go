@@ -21,7 +21,7 @@ type TxAttemptSigner[ADDR commontypes.Hashable] interface {
 	SignTx(fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
-var _ txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EthTx[common.Address, common.Hash], EthTxAttempt[common.Address, common.Hash]] = (*evmTxAttemptBuilder)(nil)
+var _ EvmTxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID  big.Int
@@ -99,7 +99,7 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EvmTx, fee gas.EvmFee, gasL
 }
 
 // NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EvmTxAttempt, err error) {
+func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EvmTxAttempt, err error) {
 	value := big.NewInt(0)
 	payload := []byte{}
 
@@ -107,7 +107,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce uint64, feeLimit uint32, f
 		return attempt, errors.New("NewEmptyTranscation: legacy fee cannot be nil")
 	}
 
-	tx := types.NewTransaction(nonce, fromAddress, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
+	tx := types.NewTransaction(uint64(nonce), fromAddress, value, uint64(feeLimit), fee.Legacy.ToInt(), payload)
 
 	hash, signedTxBytes, err := c.SignTx(fromAddress, tx)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -646,11 +647,11 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		nonce, err := ks.NextSequence(k1.Address, testutils.FixtureChainID)
 		require.NoError(t, err)
 
-		assert.Equal(t, nonce, newNonce)
+		assert.Equal(t, nonce.Int64(), newNonce)
 
 		state, err := ks.GetState(k1.Address.Hex(), testutils.FixtureChainID)
 		require.NoError(t, err)
-		assert.Equal(t, nonce, state.NextNonce)
+		assert.Equal(t, nonce.Int64(), state.NextNonce)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
@@ -660,7 +661,7 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		require.Len(t, states, 3)
 		for _, state = range states {
 			if state.Address.Address() == k1.Address {
-				assert.Equal(t, nonce, state.NextNonce)
+				assert.Equal(t, nonce.Int64(), state.NextNonce)
 			} else {
 				// the other states didn't get updated
 				assert.Equal(t, int64(0), state.NextNonce)
@@ -683,7 +684,7 @@ func Test_NextSequence(t *testing.T) {
 
 	nonce, err := ks.NextSequence(addr1, testutils.FixtureChainID)
 	require.NoError(t, err)
-	assert.Equal(t, randNonce, nonce)
+	assert.Equal(t, randNonce, nonce.Int64())
 
 	_, err = ks.NextSequence(addr1, testutils.SimulatedChainID)
 	require.Error(t, err)
@@ -713,25 +714,25 @@ func Test_IncrementNextSequence(t *testing.T) {
 	evmAddr1 := addr1
 	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
 
-	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, randNonce-1)
+	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce-1))
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
-	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, randNonce)
+	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce))
 	require.NoError(t, err)
 	var nonce int64
 	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
 	assert.Equal(t, randNonce+1, nonce)
 
-	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, randNonce+1)
+	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, evmtypes.Nonce(randNonce+1))
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
 	randAddr1 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(randAddr1, testutils.FixtureChainID, randNonce+1)
+	err = ks.IncrementNextSequence(randAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce+1))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(randAddr2, testutils.NewRandomEVMChainID(), randNonce+1)
+	err = ks.IncrementNextSequence(randAddr2, testutils.NewRandomEVMChainID(), evmtypes.Nonce(randNonce+1))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 
