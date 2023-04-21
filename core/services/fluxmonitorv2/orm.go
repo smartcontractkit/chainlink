@@ -35,12 +35,12 @@ type orm struct {
 	q        pg.Q
 	txm      transmitter
 	strategy types.TxStrategy
-	checker  txmgr.TransmitCheckerSpec
+	checker  txmgr.EvmTransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.EvmTransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{

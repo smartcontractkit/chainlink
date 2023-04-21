@@ -41,28 +41,29 @@ type (
 	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
 	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
-	EvmNewTx                  = NewTx[common.Address]
+	EvmNewTx                  = NewTx[common.Address, common.Hash]
 	EvmTx                     = EthTx[common.Address, common.Hash]
+	EthTxMeta                 = TxMeta[common.Address, common.Hash]
 	EvmTxAttempt              = EthTxAttempt[common.Address, common.Hash]
 	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]
 	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, common.Hash, common.Hash]
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 )
 
-// EthTxMeta contains fields of the transaction metadata
+// TxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present
-type EthTxMeta struct {
+type TxMeta[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	JobID *int32 `json:"JobID,omitempty"`
 
 	// Pipeline fields
 	FailOnRevert null.Bool `json:"FailOnRevert,omitempty"`
 
 	// VRF-only fields
-	RequestID     *common.Hash `json:"RequestID,omitempty"`
-	RequestTxHash *common.Hash `json:"RequestTxHash,omitempty"`
+	RequestID     *TX_HASH `json:"RequestID,omitempty"`
+	RequestTxHash *TX_HASH `json:"RequestTxHash,omitempty"`
 	// Batch variants of the above
-	RequestIDs      []common.Hash `json:"RequestIDs,omitempty"`
-	RequestTxHashes []common.Hash `json:"RequestTxHashes,omitempty"`
+	RequestIDs      []TX_HASH `json:"RequestIDs,omitempty"`
+	RequestTxHashes []TX_HASH `json:"RequestTxHashes,omitempty"`
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink *string `json:"MaxLink,omitempty"`
@@ -75,7 +76,7 @@ type EthTxMeta struct {
 
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
-	FwdrDestAddress *common.Address `json:"ForwarderDestAddress,omitempty"`
+	FwdrDestAddress *ADDR `json:"ForwarderDestAddress,omitempty"`
 
 	// MessageIDs is used by CCIP for tx to executed messages correlation in logs
 	MessageIDs []string `json:"MessageIDs,omitempty"`
@@ -85,13 +86,13 @@ type EthTxMeta struct {
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
 // on chain.
-type TransmitCheckerSpec struct {
+type TransmitCheckerSpec[ADDR commontypes.Hashable] struct {
 	// CheckerType is the type of check that should be performed. Empty indicates no check.
 	CheckerType TransmitCheckerType `json:",omitempty"`
 
 	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
 	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFCoordinatorAddress *common.Address `json:",omitempty"`
+	VRFCoordinatorAddress *ADDR `json:",omitempty"`
 
 	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
 	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
@@ -306,11 +307,11 @@ func (e EthTx[ADDR, TX_HASH]) GetLogger(lgr logger.Logger) logger.Logger {
 
 // GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON
 // first.
-func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec, error) {
+func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec[ADDR], error) {
 	if e.TransmitChecker == nil {
-		return TransmitCheckerSpec{}, nil
+		return TransmitCheckerSpec[ADDR]{}, nil
 	}
-	var t TransmitCheckerSpec
+	var t TransmitCheckerSpec[ADDR]
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 

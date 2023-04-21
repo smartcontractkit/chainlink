@@ -20,7 +20,10 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
-type EvmTransmitChecker = TransmitChecker[common.Address, common.Hash]
+type (
+	EvmTransmitChecker     = TransmitChecker[common.Address, common.Hash]
+	EvmTransmitCheckerSpec = TransmitCheckerSpec[common.Address]
+)
 
 var (
 	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
@@ -38,7 +41,7 @@ type CheckerFactory struct {
 }
 
 // BuildChecker satisfies the TransmitCheckerFactory interface.
-func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (EvmTransmitChecker, error) {
+func (c *CheckerFactory) BuildChecker(spec EvmTransmitCheckerSpec) (EvmTransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil

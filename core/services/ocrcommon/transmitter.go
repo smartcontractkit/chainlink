@@ -31,7 +31,7 @@ type transmitter struct {
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
-	checker                     txmgr.TransmitCheckerSpec
+	checker                     txmgr.EvmTransmitCheckerSpec
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
 }
@@ -43,7 +43,7 @@ func NewTransmitter(
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
-	checker txmgr.TransmitCheckerSpec,
+	checker txmgr.EvmTransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
 ) (Transmitter, error) {

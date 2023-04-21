@@ -45,7 +45,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
@@ -87,7 +87,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
@@ -138,7 +138,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
@@ -168,7 +168,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		nil,
 	)

@@ -47,7 +47,7 @@ type TxManager[
 	txmgrtypes.HeadTrackable[HEAD]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateEthTransaction(newTx NewTx[ADDR], qopts ...pg.QOpt) (etx txmgrtypes.Transaction, err error)
+	CreateEthTransaction(newTx NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Transaction, err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	RegisterResumeCallback(fn ResumeCallback)
 	SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx EthTx[ADDR, TX_HASH], err error)
@@ -75,7 +75,7 @@ type Txm[
 ] struct {
 	utils.StartStopOnce
 	logger           logger.Logger
-	txStore          txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
+	txStore          txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR, TX_HASH], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
 	db               *sqlx.DB
 	q                pg.Q
 	ethClient        evmclient.Client
@@ -443,12 +443,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ad
 	}
 }
 
-type NewTx[ADDR types.Hashable] struct {
+type NewTx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
 	GasLimit         uint32
-	Meta             *EthTxMeta
+	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
 
 	// Pipeline variables - if you aren't calling this from ethtx task within
@@ -459,11 +459,11 @@ type NewTx[ADDR types.Hashable] struct {
 	Strategy txmgrtypes.TxStrategy
 
 	// Checker defines the check that should be run before a transaction is submitted on chain.
-	Checker TransmitCheckerSpec
+	Checker TransmitCheckerSpec[ADDR]
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthTransaction(newTx NewTx[ADDR], qs ...pg.QOpt) (tx txmgrtypes.Transaction, err error) {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthTransaction(newTx NewTx[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Transaction, err error) {
 	if err = b.checkEnabled(newTx.FromAddress); err != nil {
 		return tx, err
 	}
@@ -472,17 +472,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateEthT
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
-			var gethToAddr common.Address
-			gethToAddr, err = stringToGethAddress(newTx.ToAddress.String())
-			if err != nil {
-				return tx, errors.Wrapf(err, "failed to do address format conversion")
-			}
-
 			if newTx.Meta != nil {
-				newTx.Meta.FwdrDestAddress = &gethToAddr
+				newTx.Meta.FwdrDestAddress = &newTx.ToAddress
 			} else {
-				newTx.Meta = &EthTxMeta{
-					FwdrDestAddress: &gethToAddr,
+				newTx.Meta = &TxMeta[ADDR, TX_HASH]{
+					FwdrDestAddress: &newTx.ToAddress,
 				}
 			}
 			newTx.ToAddress = newTx.ForwarderAddress
@@ -598,7 +592,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Close() error
 
 // Trigger does noop for NullTxManager.
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Trigger(ADDR) { panic(n.ErrMsg) }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(NewTx[ADDR], ...pg.QOpt) (etx txmgrtypes.Transaction, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) CreateEthTransaction(NewTx[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Transaction, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {

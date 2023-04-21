@@ -198,8 +198,8 @@ func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
 	return &txMeta, nil
 }
 
-func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, error) {
-	var transmitChecker txmgr.TransmitCheckerSpec
+func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, error) {
+	var transmitChecker txmgr.EvmTransmitCheckerSpec
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,
