@@ -203,7 +203,13 @@ func BuildOCR2DKGConfigVars(
 	}
 }
 
-func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, configPubKeys, peerIDs, transmitters []string) ([]confighelper.OracleIdentityExtra, error) {
+func toOraclesIdentityList(
+	onchainPubKeys []common.Address,
+	offchainPubKeys,
+	configPubKeys,
+	peerIDs,
+	transmitters []string,
+) ([]confighelper.OracleIdentityExtra, error) {
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, pkHex := range offchainPubKeys {
 		pkBytes, err := hex.DecodeString(pkHex)

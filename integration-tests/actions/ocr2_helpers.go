@@ -178,7 +178,7 @@ func GetOracleIdentitiesWithKeyIndex(
 	for i, cl := range chainlinkNodes {
 		index, chainlinkNode := i, cl
 		eg.Go(func() error {
-			address, err := chainlinkNode.PrimaryEthAddress()
+			addresses, err := chainlinkNode.EthAddresses()
 			if err != nil {
 				return err
 			}
@@ -233,7 +233,7 @@ func GetOracleIdentitiesWithKeyIndex(
 					OnchainPublicKey:  onchainPkBytes,
 					OffchainPublicKey: offchainPkBytesFixed,
 					PeerID:            p2pKeyID,
-					TransmitAccount:   types.Account(address[keyIndex]),
+					TransmitAccount:   types.Account(addresses[keyIndex]),
 				},
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
@@ -243,7 +243,7 @@ func GetOracleIdentitiesWithKeyIndex(
 				Interface("OffChainPK", offchainPkBytesFixed).
 				Interface("ConfigPK", configPkBytesFixed).
 				Str("PeerID", p2pKeyID).
-				Str("Address", address).
+				Str("Address", addresses[keyIndex]).
 				Msg("Oracle identity")
 			return nil
 		})

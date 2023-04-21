@@ -83,13 +83,13 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 
 	var signers []common.Address
 	for _, signer := range signerOnchainPublicKeys {
-		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
+		require.Equal(t, 20, len(signer), "OnChainPublicKey '%v' has wrong length for address", signer)
 		signers = append(signers, common.BytesToAddress(signer))
 	}
 
 	var transmitters []common.Address
 	for _, transmitter := range transmitterAccounts {
-		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
+		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
