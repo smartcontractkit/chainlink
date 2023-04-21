@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.0.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.0.0 - 2023-04-20
 
 ### Added
 - Add OCR2 Plugin selection for FMS
@@ -30,8 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Configuration with legacy environment variables is no longer supported. TOML is required.
-
-<!-- unreleasedstop -->
 
 ## 1.13.1 - 2023-04-06
 
