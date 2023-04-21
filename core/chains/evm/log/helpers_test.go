@@ -385,7 +385,7 @@ type mockEthClientExpectedCalls struct {
 func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtest.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtest.MockEth {
 	ethClient := evmclimocks.NewClient(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
-	mockEth.EthClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
+	mockEth.EthClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
