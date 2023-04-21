@@ -52,9 +52,9 @@ contract UpkeepCounterStats is ConfirmedOwner {
   LinkTokenInterface public linkToken;
   KeeperRegistry2_0 public registry;
   uint256 public upkeepTopUpCheckInterval = 10;
-  uint96 public addLinkAmount = 5000000000000000000; // 5 LINK
+  uint96 public addLinkAmount = 500000000000000000; // 0.5 LINK
   uint16 public immutable BUCKET_SIZE = 100;
-  uint8 public minBalanceThresholdMultiplier = 100;
+  uint8 public minBalanceThresholdMultiplier = 25;
 
   constructor(address registrarAddress) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
@@ -176,23 +176,6 @@ contract UpkeepCounterStats is ConfirmedOwner {
   function cancelUpkeep(uint256 upkeepId) external {
     registry.cancelUpkeep(upkeepId);
     s_upkeepIDs.remove(upkeepId);
-
-    delete lastTopUpBlocks[upkeepId];
-    delete intervals[upkeepId];
-    delete previousPerformBlocks[upkeepId];
-    delete firstPerformBlocks[upkeepId];
-    delete counters[upkeepId];
-    delete performGasToBurns[upkeepId];
-    delete checkGasToBurns[upkeepId];
-    delete performDataSizes[upkeepId];
-    delete gasLimits[upkeepId];
-    delete checkDatas[upkeepId];
-    delete delays[upkeepId];
-    uint16 currentBucket = buckets[upkeepId];
-    for (uint16 i = 0; i <= currentBucket; i++) {
-      delete bucketedDelays[upkeepId][i];
-    }
-    delete buckets[upkeepId];
   }
 
   function withdrawLinks(uint256 upkeepId) external {
