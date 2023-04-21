@@ -45,22 +45,22 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     mapping(address => Signer) oracles;
   }
 
-    struct VerifierState {
-        // The number of times a new configuration
-        /// has been set
-        uint32 configCount;
-        // The block number of the block the last time
-        /// the configuration was updated.
-        uint32 latestConfigBlockNumber;
-        // The latest epoch a report was verified for
-        uint32 latestEpoch;
-        /// The latest config digest set
-        bytes32 latestConfigDigest;
-        // Whether or not the verifier for this feed has been deactivated
-        bool isDeactivated;
-        /// The historical record of all previously set configs by feedId
-        mapping(bytes32 => Config) s_verificationDataConfigs;
-    }
+  struct VerifierState {
+    // The number of times a new configuration
+    /// has been set
+    uint32 configCount;
+    // The block number of the block the last time
+    /// the configuration was updated.
+    uint32 latestConfigBlockNumber;
+    // The latest epoch a report was verified for
+    uint32 latestEpoch;
+    /// The latest config digest set
+    bytes32 latestConfigDigest;
+    // Whether or not the verifier for this feed has been deactivated
+    bool isDeactivated;
+    /// The historical record of all previously set configs by feedId
+    mapping(bytes32 => Config) s_verificationDataConfigs;
+  }
 
   /// @notice This event is emitted when a new report is verified.
   /// It is used to keep a historical record of verified reports.
@@ -166,7 +166,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param feedId The feed ID
   error InvalidFeed(bytes32 feedId);
 
-    /// @notice The address of the verifier proxy
+  /// @notice The address of the verifier proxy
   address private immutable i_verifierProxyAddr;
 
   /// @notice Verifier states keyed on Feed ID
@@ -205,8 +205,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
     // If the feed has been deactivated, do not verify the report
-    if(feedVerifierState.isDeactivated) {
-        revert InactiveFeed(feedId);
+    if (feedVerifierState.isDeactivated) {
+      revert InactiveFeed(feedId);
     }
 
     // reportContext consists of:
@@ -382,11 +382,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
    * @dev This function can be called by the contract admin to activate a feed
    */
   function activateFeed(bytes32 feedId) external onlyOwner {
-      VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
-      if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
-      feedVerifierState.isDeactivated = false;
-      emit FeedActivated(feedId);
+    if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
+    feedVerifierState.isDeactivated = false;
+    emit FeedActivated(feedId);
   }
 
   /**
@@ -395,11 +395,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
    * @dev This function can be called by the contract admin to deactivate a feed
    */
   function deactivateFeed(bytes32 feedId) external onlyOwner {
-      VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
-      if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
-      feedVerifierState.isDeactivated = true;
-      emit FeedDeactivated(feedId);
+    if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
+    feedVerifierState.isDeactivated = true;
+    emit FeedDeactivated(feedId);
   }
 
   //***************************//
