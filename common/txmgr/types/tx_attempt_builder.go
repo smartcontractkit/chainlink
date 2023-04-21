@@ -16,8 +16,8 @@ import (
 type TxAttemptBuilder[
 	HEAD Head, // HEAD - chain head type
 	FEE Fee, // FEE - chain fee type
-	ADDR types.Hashable[ADDR], // ADDR - chain address type
-	TX_HASH types.Hashable[TX_HASH], // TX_HASH - chain tx hash type
+	ADDR types.Hashable, // ADDR - chain address type
+	TX_HASH types.Hashable, // TX_HASH - chain tx hash type
 	TX any, // TX - tx type (will be replaced in future)
 	TXATTEMPT any, // TXATTEMPT - tx attempt type (will be replaced  in future)
 	SEQ Sequence,

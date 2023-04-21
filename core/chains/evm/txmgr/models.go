@@ -29,23 +29,23 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmResender               = EthResender[*big.Int, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash, evmtypes.Nonce]
-	EvmTxStore                = txmgrtypes.TxStore[evmtypes.Address, *big.Int, evmtypes.TxHash, evmtypes.BlockHash, EvmNewTx, *evmtypes.Receipt, EvmTx, EvmTxAttempt, evmtypes.Nonce]
-	EvmKeyStore               = txmgrtypes.KeyStore[evmtypes.Address, *big.Int, evmtypes.Nonce]
-	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, evmtypes.Address, evmtypes.TxHash, EvmTx, EvmTxAttempt, evmtypes.Nonce]
-	EvmNonceSyncer            = NonceSyncer[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmTransmitCheckerFactory = TransmitCheckerFactory[evmtypes.Address, evmtypes.TxHash]
-	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmFwdMgr                 = txmgrtypes.ForwarderManager[evmtypes.Address]
-	EvmNewTx                  = NewTx[evmtypes.Address]
-	EvmTx                     = EthTx[evmtypes.Address, evmtypes.TxHash]
-	EvmTxAttempt              = EthTxAttempt[evmtypes.Address, evmtypes.TxHash]
-	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]
-	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, evmtypes.TxHash, evmtypes.BlockHash]
+	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmResender               = EthResender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce]
+	EvmTxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, EvmNewTx, *evmtypes.Receipt, EvmTx, EvmTxAttempt, evmtypes.Nonce]
+	EvmKeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
+	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EvmTx, EvmTxAttempt, evmtypes.Nonce]
+	EvmNonceSyncer            = NonceSyncer[common.Address, common.Hash, common.Hash]
+	EvmTransmitCheckerFactory = TransmitCheckerFactory[common.Address, common.Hash]
+	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
+	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
+	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
+	EvmNewTx                  = NewTx[common.Address]
+	EvmTx                     = EthTx[common.Address, common.Hash]
+	EvmTxAttempt              = EthTxAttempt[common.Address, common.Hash]
+	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]
+	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, common.Hash, common.Hash]
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 )
 
@@ -180,7 +180,7 @@ func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
 	}
 }
 
-type EthTx[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
+type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	txmgrtypes.Transaction
 	ID             int64
 	Nonce          *int64
@@ -314,9 +314,9 @@ func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash] = EthTxAttempt[evmtypes.Address, evmtypes.TxHash]{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt[common.Address, common.Hash]{}
 
-type EthTxAttempt[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
+type EthTxAttempt[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	ID      int64
 	EthTxID int64
 	EthTx   EthTx[ADDR, TX_HASH]

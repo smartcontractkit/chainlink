@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -185,8 +184,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(from),
-		ToAddress:      evmtypes.NewAddress(to),
+		FromAddress:    from,
+		ToAddress:      to,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta:           nil,

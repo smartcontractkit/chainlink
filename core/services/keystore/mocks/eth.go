@@ -23,11 +23,11 @@ type Eth struct {
 }
 
 // CheckEnabled provides a mock function with given fields: address, chainID
-func (_m *Eth) CheckEnabled(address types.Address, chainID *big.Int) error {
+func (_m *Eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 	ret := _m.Called(address, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(types.Address, *big.Int) error); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) error); ok {
 		r0 = rf(address, chainID)
 	} else {
 		r0 = ret.Error(0)
@@ -133,19 +133,19 @@ func (_m *Eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 }
 
 // EnabledAddressesForChain provides a mock function with given fields: chainID
-func (_m *Eth) EnabledAddressesForChain(chainID *big.Int) ([]types.Address, error) {
+func (_m *Eth) EnabledAddressesForChain(chainID *big.Int) ([]common.Address, error) {
 	ret := _m.Called(chainID)
 
-	var r0 []types.Address
+	var r0 []common.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int) ([]types.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int) ([]common.Address, error)); ok {
 		return rf(chainID)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int) []types.Address); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int) []common.Address); ok {
 		r0 = rf(chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Address)
+			r0 = ret.Get(0).([]common.Address)
 		}
 	}
 
@@ -421,7 +421,7 @@ func (_m *Eth) Import(keyJSON []byte, password string, chainIDs ...*big.Int) (et
 }
 
 // IncrementNextSequence provides a mock function with given fields: address, chainID, currentNonce, qopts
-func (_m *Eth) IncrementNextSequence(address types.Address, chainID *big.Int, currentNonce types.Nonce, qopts ...pg.QOpt) error {
+func (_m *Eth) IncrementNextSequence(address common.Address, chainID *big.Int, currentNonce types.Nonce, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -432,7 +432,7 @@ func (_m *Eth) IncrementNextSequence(address types.Address, chainID *big.Int, cu
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(types.Address, *big.Int, types.Nonce, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, types.Nonce, ...pg.QOpt) error); ok {
 		r0 = rf(address, chainID, currentNonce, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -442,7 +442,7 @@ func (_m *Eth) IncrementNextSequence(address types.Address, chainID *big.Int, cu
 }
 
 // NextSequence provides a mock function with given fields: address, chainID, qopts
-func (_m *Eth) NextSequence(address types.Address, chainID *big.Int, qopts ...pg.QOpt) (types.Nonce, error) {
+func (_m *Eth) NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (types.Nonce, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -454,16 +454,16 @@ func (_m *Eth) NextSequence(address types.Address, chainID *big.Int, qopts ...pg
 
 	var r0 types.Nonce
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Address, *big.Int, ...pg.QOpt) (types.Nonce, error)); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) (types.Nonce, error)); ok {
 		return rf(address, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(types.Address, *big.Int, ...pg.QOpt) types.Nonce); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) types.Nonce); ok {
 		r0 = rf(address, chainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(types.Nonce)
 	}
 
-	if rf, ok := ret.Get(1).(func(types.Address, *big.Int, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(common.Address, *big.Int, ...pg.QOpt) error); ok {
 		r1 = rf(address, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
@@ -494,15 +494,15 @@ func (_m *Eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopt
 }
 
 // SignTx provides a mock function with given fields: fromAddress, tx, chainID
-func (_m *Eth) SignTx(fromAddress types.Address, tx *coretypes.Transaction, chainID *big.Int) (*coretypes.Transaction, error) {
+func (_m *Eth) SignTx(fromAddress common.Address, tx *coretypes.Transaction, chainID *big.Int) (*coretypes.Transaction, error) {
 	ret := _m.Called(fromAddress, tx, chainID)
 
 	var r0 *coretypes.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Address, *coretypes.Transaction, *big.Int) (*coretypes.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, *coretypes.Transaction, *big.Int) (*coretypes.Transaction, error)); ok {
 		return rf(fromAddress, tx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(types.Address, *coretypes.Transaction, *big.Int) *coretypes.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, *coretypes.Transaction, *big.Int) *coretypes.Transaction); ok {
 		r0 = rf(fromAddress, tx, chainID)
 	} else {
 		if ret.Get(0) != nil {
@@ -510,7 +510,7 @@ func (_m *Eth) SignTx(fromAddress types.Address, tx *coretypes.Transaction, chai
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(types.Address, *coretypes.Transaction, *big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(common.Address, *coretypes.Transaction, *big.Int) error); ok {
 		r1 = rf(fromAddress, tx, chainID)
 	} else {
 		r1 = ret.Error(1)

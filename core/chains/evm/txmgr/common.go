@@ -12,7 +12,6 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -25,9 +24,9 @@ const batchSendTransactionTimeout = 30 * time.Second
 // elements in that batch.
 func batchSendTransactions[
 	CHAIN_ID txmgrtypes.ID,
-	ADDR types.Hashable[ADDR],
-	TX_HASH types.Hashable[TX_HASH],
-	BLOCK_HASH types.Hashable[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	R any,
 	SEQ txmgrtypes.Sequence,
 ](
@@ -80,28 +79,14 @@ func batchSendTransactions[
 	return reqs, nil
 }
 
-func getGethAddressFromADDR[ADDR commontypes.Hashable[ADDR]](addr ADDR) (common.Address, error) {
-	addrHex, err := addr.MarshalText()
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to serialize address to text: %s", addr.String())
+func stringToGethAddress(s string) (common.Address, error) {
+	if !common.IsHexAddress(s) {
+		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
 	}
-	var gethAddr common.Address
-	err = gethAddr.UnmarshalText(addrHex)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to deserialize address from text: %s. Original address: %s", addrHex, addr.String())
-	}
-	return gethAddr, nil
+	return common.HexToAddress(s), nil
 }
 
-func getGethHashFromHash[HASH commontypes.Hashable[HASH]](hash HASH) (common.Hash, error) {
-	hashHex, err := hash.MarshalText()
-	if err != nil {
-		return common.Hash{}, errors.Wrapf(err, "failed to serialize hash to text: %s", hash.String())
-	}
-	var gethHash common.Hash
-	err = gethHash.UnmarshalText(hashHex)
-	if err != nil {
-		return common.Hash{}, errors.Wrapf(err, "failed to deserialize hash from text: %s. Original hash: %s", hashHex, hash.String())
-	}
-	return gethHash, nil
+func stringToGethHash(s string) (h common.Hash, err error) {
+	err = h.UnmarshalText([]byte(s))
+	return
 }
