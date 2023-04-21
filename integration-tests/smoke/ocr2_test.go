@@ -65,7 +65,7 @@ func TestOCRv2Basic(t *testing.T) {
 	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
 
-	err = actions.ConfigureOCRv2Contracts(chainClient, ocrv2Config, aggregatorContracts)
+	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
 	err = actions.StartNewOCR2Round(1, aggregatorContracts, chainClient, time.Minute*5)

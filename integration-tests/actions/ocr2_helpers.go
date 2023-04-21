@@ -84,7 +84,7 @@ func DeployOCRv2Contracts(
 	return ocrInstances, client.WaitForEvents()
 }
 
-func ConfigureOCRv2Contracts(
+func ConfigureOCRv2AggregatorContracts(
 	client blockchain.EVMClient,
 	contractConfig *contracts.OCRv2Config,
 	ocrv2Contracts []contracts.OffchainAggregatorV2,

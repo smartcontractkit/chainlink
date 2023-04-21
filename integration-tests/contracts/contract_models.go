@@ -8,12 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -125,7 +124,7 @@ type OffchainAggregator interface {
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
-	LatestRoundDataUpdatedAt() (*big.Int, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error) // x
 }
 
 type OffchainAggregatorV2 interface {
