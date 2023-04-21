@@ -382,7 +382,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	}
 
 	for from, attempts := range attemptsByAddress {
-		minedTransactionCount, err := ec.getMinedTransactionCount(ctx, from)
+		minedTransactionCount, err := ec.getMinedSequenceForAddress(ctx, from)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
@@ -489,7 +489,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return nil
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getMinedTransactionCount(ctx context.Context, from ADDR) (nonce evmtypes.Nonce, err error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (nonce evmtypes.Nonce, err error) {
 	// TODO: Remove this when client gets generalized
 	gethAddr, err := stringToGethAddress(from.String())
 	if err != nil {
