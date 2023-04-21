@@ -162,7 +162,14 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 	processedIds := make(map[[32]byte]bool)
 	var idStrs []string
 	for _, id := range queryProto.RequestIDs {
-		id := sliceToByte32(id)
+		id, err := sliceToByte32(id)
+		if err != nil {
+			r.logger.Error("FunctionsReporting Observation invalid ID", commontypes.LogFields{
+				"requestID": formatRequestId(id[:]),
+				"err":       err,
+			})
+			continue
+		}
 		if _, ok := processedIds[id]; ok {
 			r.logger.Error("FunctionsReporting Observation duplicate ID in query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
@@ -335,14 +342,19 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID), pg.WithParentCtx(ctx))
+		id, err := sliceToByte32(item.RequestID)
+		if err != nil {
+			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
+			continue
+		}
+		_, err = r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
 		if err != nil {
 			// TODO: Differentiate between ID not found and other ORM errors (https://smartcontract-it.atlassian.net/browse/DRO-215)
 			r.logger.Warn("FunctionsReporting ShouldAcceptFinalizedReport: request doesn't exist locally! Accepting anyway.", commontypes.LogFields{"requestID": reqIdStr})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		err = r.pluginORM.SetFinalized(sliceToByte32(item.RequestID), item.Result, item.Error, pg.WithParentCtx(ctx)) // validates state transition
+		err = r.pluginORM.SetFinalized(id, item.Result, item.Error, pg.WithParentCtx(ctx)) // validates state transition
 		if err != nil {
 			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
@@ -383,7 +395,12 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		request, err := r.pluginORM.FindById(sliceToByte32(item.RequestID), pg.WithParentCtx(ctx))
+		id, err := sliceToByte32(item.RequestID)
+		if err != nil {
+			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
+			continue
+		}
+		request, err := r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
 		if err != nil {
 			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
