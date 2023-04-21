@@ -100,7 +100,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(evmtypes.NewAddress(fromAddress), tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
 	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)

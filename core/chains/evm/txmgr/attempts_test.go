@@ -27,14 +27,14 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
-func NewEvmAddress() evmtypes.Address {
-	return evmtypes.NewAddress(testutils.NewAddress())
+func NewEvmAddress() gethcommon.Address {
+	return testutils.NewAddress()
 }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
 
-	addr := evmtypes.NewAddress(gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724"))
+	addr := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
 	to := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
 	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
 		Nonce:    42,
@@ -49,7 +49,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := txmmocks.NewConfig(t)
 		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", evmtypes.NewAddress(to), tx, chainID).Return(tx, nil).Once()
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
 		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, kst, nil)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := txmmocks.NewConfig(t)
 		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", evmtypes.NewAddress(to), tx, chainID).Return(tx, nil).Once()
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
 		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, kst, nil)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
@@ -194,7 +194,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 }
 
 func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
-	est := txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, evmtypes.TxHash](t)
+	est := txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethcommon.Hash](t)
 	est.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
 	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
 
