@@ -1,8 +1,10 @@
 package soltxm
 
 import (
+	"errors"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -68,4 +70,38 @@ func convertStatus(res *rpc.SignatureStatusesResult) uint {
 	}
 
 	return NotFound
+}
+
+type signatureList struct {
+	sigs []solana.Signature
+	lock sync.RWMutex
+}
+
+func (s *signatureList) Get(index int) (sig solana.Signature, err error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if index >= len(s.sigs) {
+		return sig, errors.New("invalid index")
+	}
+	return s.sigs[index], nil
+}
+
+func (s *signatureList) List() []solana.Signature {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.sigs
+}
+
+func (s *signatureList) Length() int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return len(s.sigs)
+}
+
+func (s *signatureList) Append(sig solana.Signature) (sigs []solana.Signature, count int) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.sigs = append(s.sigs, sig)
+	return s.sigs, len(s.sigs)
 }
