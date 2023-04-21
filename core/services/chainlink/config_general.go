@@ -210,11 +210,9 @@ func (g *generalConfig) validate(secrets ...v2.Validated) error {
 	if len(secrets) == 0 {
 		err = multierr.Append(err, g.secrets.Validate())
 	} else {
-		serrs := []error{err}
 		for _, s := range secrets {
-			serrs = append(serrs, s.ValidateConfig())
+			err = multierr.Append(err, s.ValidateConfig())
 		}
-		err = multierr.Combine(serrs...)
 	}
 
 	_, errList := utils.MultiErrorList(err)
