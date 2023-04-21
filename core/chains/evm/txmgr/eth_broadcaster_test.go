@@ -1061,7 +1061,7 @@ func getLocalNextNonce(t *testing.T, kst keystore.Eth, fromAddress gethCommon.Ad
 	n, err := kst.NextSequence(fromAddress, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	require.NotNil(t, n)
-	return uint64(n.Int64())
+	return uint64(n)
 }
 
 // Note that all of these tests share the same database, and ordering matters.
