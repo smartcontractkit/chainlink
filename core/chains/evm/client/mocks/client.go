@@ -5,6 +5,8 @@ package mocks
 import (
 	big "math/big"
 
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+
 	chainsclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 
 	common "github.com/ethereum/go-ethereum/common"
@@ -436,6 +438,32 @@ func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header
 
 	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
 		r1 = rf(ctx, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// LINKBalance provides a mock function with given fields: ctx, address, linkAddress
+func (_m *Client) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+	ret := _m.Called(ctx, address, linkAddress)
+
+	var r0 *assets.Link
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) (*assets.Link, error)); ok {
+		return rf(ctx, address, linkAddress)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) *assets.Link); ok {
+		r0 = rf(ctx, address, linkAddress)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Link)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address) error); ok {
+		r1 = rf(ctx, address, linkAddress)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -14,8 +14,9 @@ type Client[
 	SEQ Sequence, // nonce
 	ADDR types.Hashable,
 	BLOCK any,
+	BLOCKHASH types.Hashable,
 	TX any,
-	HASH types.Hashable,
+	TXHASH types.Hashable,
 	TXRECEIPT any,
 	EVENT any,
 	EVENTOPS any, // event filter query options
@@ -26,9 +27,9 @@ type Client[
 	ChainID() (CHAINID, error)
 
 	Accounts[ADDR, SEQ]
-	Transactions[TX, HASH, TXRECEIPT]
+	Transactions[TX, TXHASH, TXRECEIPT]
 	Events[EVENT, EVENTOPS]
-	Blocks[BLOCK, HASH]
+	Blocks[BLOCK, BLOCKHASH]
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
@@ -39,16 +40,16 @@ type Accounts[ADDR types.Hashable, SEQ Sequence] interface {
 	SequenceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (SEQ, error)
 }
 
-type Transactions[TX any, HASH types.Hashable, TXRECEIPT any] interface {
+type Transactions[TX any, TXHASH types.Hashable, TXRECEIPT any] interface {
 	SendTransaction(ctx context.Context, tx *TX) error
 	SimulateTransaction(ctx context.Context, tx *TX) error
-	TransactionByHash(ctx context.Context, txHash HASH) (*TX, error)
-	TransactionReceipt(ctx context.Context, txHash HASH) (*TXRECEIPT, error)
+	TransactionByHash(ctx context.Context, txHash TXHASH) (*TX, error)
+	TransactionReceipt(ctx context.Context, txHash TXHASH) (*TXRECEIPT, error)
 }
 
-type Blocks[BLOCK any, HASH types.Hashable] interface {
+type Blocks[BLOCK any, BLOCKHASH types.Hashable] interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*BLOCK, error)
-	BlockByHash(ctx context.Context, hash HASH) (*BLOCK, error)
+	BlockByHash(ctx context.Context, hash BLOCKHASH) (*BLOCK, error)
 	LatestBlockHeight(context.Context) (*big.Int, error)
 }
 

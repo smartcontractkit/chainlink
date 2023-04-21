@@ -31,7 +31,7 @@ const queryTimeout = 10 * time.Second
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	txmgrtypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
+	txmgrtypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
 
 	Dial(ctx context.Context) error
 	Close()
@@ -72,6 +72,8 @@ type Client interface {
 
 	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
+
+	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error)
 
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
@@ -158,7 +160,7 @@ func (client *client) TokenBalance(ctx context.Context, address common.Address, 
 }
 
 // LINKBalance returns the balance of LINK at the given address
-func (client *client) LINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (client *client) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
 	balance, err := client.TokenBalance(ctx, address, linkAddress)
 	if err != nil {
 		return assets.NewLinkFromJuels(0), err
@@ -278,7 +280,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (client *client) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
 	// todo: implement if used
-	return nil
+	return errors.New("SimulateTransaction not implemented")
 }
 
 func (client *client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
