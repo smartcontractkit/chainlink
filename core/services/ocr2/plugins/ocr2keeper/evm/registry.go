@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -102,10 +103,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			// TODO load env vars from config for client ID and Key
-			clientID:  "123",
-			clientKey: "wow",
+			clientID:  os.Getenv("MERCURY_ID"),
+			clientKey: os.Getenv("MERCURY_KEY"),
 			// TODO need to load up the mercuryURL from an ENV var
-			url:           "https://mercury-srv.chain.link/client",
+			url:           "https://mercury-arbitrum-testnet.chain.link",
 			abi:           mercuryUpkeepABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,

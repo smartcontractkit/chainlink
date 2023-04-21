@@ -24,7 +24,7 @@ contract MercuryUpkeep {
     counter = 0;
     feedLabel = "feedIDStr"; // or FeedIDHex
     feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"]; // or ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000","0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]
-    queryLabel = "BlockNumber"; // or Timestamp
+    queryLabel = "blockNumber"; // or Timestamp
   }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {

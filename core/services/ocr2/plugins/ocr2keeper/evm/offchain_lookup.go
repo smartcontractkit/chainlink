@@ -73,6 +73,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 
 		// if it doesn't decode to the offchain custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
+		r.lggr.Infof("[MercuryLookup] mercuryLookup: %v", mercuryLookup)
 		if err != nil {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
 			r.lggr.Debug("[MercuryLookup] not an offchain revert decodeMercuryLookup:", err)
@@ -240,50 +241,75 @@ func (r *EvmRegistry) doRequest(mercuryLookup MercuryLookup, upkeepId *big.Int) 
 }
 
 func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, mercuryLookup MercuryLookup) {
-	req, err := http.NewRequest("GET", r.mercury.url, nil)
+	//req, err := http.NewRequest(http.MethodGet, r.mercury.url, nil)
+	//if err != nil {
+	//	ch <- MercuryBytes{Index: index}
+	//	return
+	//}
+	q := url.Values{
+		mercuryLookup.feedLabel:  {mercuryLookup.feeds[index]},
+		mercuryLookup.queryLabel: {mercuryLookup.query.String()},
+	}
+	//q.Add(mercuryLookup.feedLabel, mercuryLookup.feeds[index])
+	//q.Add(mercuryLookup.queryLabel, mercuryLookup.query.String())
+	// upkeepID currently not supported
+	//q.Add("upkeepID", upkeepId.String())
+	r.lggr.Infof("MercuryLookup feed label: %s", mercuryLookup.feeds[index])
+	r.lggr.Infof("MercuryLookup query label: %s", mercuryLookup.query.String())
+	//r.lggr.Infof("MercuryLookup upkeepID: %s", upkeepId.String())
+	reqUrl := fmt.Sprintf("%s/client?%s", r.mercury.url, q.Encode())
+	r.lggr.Infof("MercuryLookup reqUrl: %s", reqUrl)
+
+	req, err := http.NewRequest(http.MethodGet, reqUrl, nil)
 	if err != nil {
 		ch <- MercuryBytes{Index: index}
 		return
 	}
-	q := url.Values{}
-	q.Add(mercuryLookup.feedLabel, mercuryLookup.feeds[index])
-	q.Add(mercuryLookup.queryLabel, mercuryLookup.query.String())
-	q.Add("upkeepID", upkeepId.String())
-	req.URL.RawQuery = q.Encode()
+	ts := time.Now().UTC().UnixMilli()
+	signature := r.generateHMAC(http.MethodGet, "/client?"+q.Encode(), []byte{}, r.mercury.clientID, r.mercury.clientKey, ts)
 
-	signature := generateHMAC("GET", req.URL.String(), nil, r.mercury.clientID, r.mercury.clientKey)
+	r.lggr.Infof("MercuryLookup HMAC signature: %s", signature)
+	r.lggr.Infof("MercuryLookup URL: %s", req.URL.String())
+	r.lggr.Infof("MercuryLookup Client ID: %s", r.mercury.clientID)
+	r.lggr.Infof("MercuryLookup Client Key: %s", r.mercury.clientKey)
+	r.lggr.Infof("MercuryLookup Timestamp: %d", ts)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", r.mercury.clientID)
-	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(time.Now().Unix(), 10))
+	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(ts, 10))
 	req.Header.Set("X-Authorization-Signature-SHA256", signature)
 
 	// TODO no test client ID/Key yet. Just return correct json for testing
-	//resp, err := client.Do(req)
-	//if err != nil {
-	//	r.setCachesOnAPIErr(upkeepId)
-	//	ch <- MercuryBytes{Index: index, Error: err}
-	//	return
-	//}
-	//defer resp.Body.Close()
-	//body, err := io.ReadAll(resp.Body)
-	//if err != nil {
-	//	r.setCachesOnAPIErr(upkeepId)
-	//	ch <- MercuryBytes{Index: index, Error: err}
-	//	return
-	//}
-	//// if we get a 403 permission issue we can put them on a longer cooldown to avoid spamming mercury
-	//// if http response code is 4xx/5xx then put in cool down
-	//if resp.StatusCode >= 400 {
-	//	r.setCachesOnAPIErr(upkeepId)
-	//}
-	//var m MercuryResponse
-	//err = json.Unmarshal(body, &m)
-	//if err != nil {
-	//	ch <- MercuryBytes{Index: index, Error: err}
-	//	return
-	//}
+	resp, err := client.Do(req)
+	if err != nil {
+		r.lggr.Infof("MercuryLookup do request upkeep Id %s error: %v", upkeepId.String(), err)
+		r.setCachesOnAPIErr(upkeepId)
+		ch <- MercuryBytes{Index: index, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		r.lggr.Infof("MercuryLookup read all upkeep Id %s error: %v", upkeepId.String(), err)
+		r.setCachesOnAPIErr(upkeepId)
+		ch <- MercuryBytes{Index: index, Error: err}
+		return
+	}
+	// if we get a 403 permission issue we can put them on a longer cooldown to avoid spamming mercury
+	// if http response code is 4xx/5xx then put in cool down
+	if resp.StatusCode >= 400 {
+		r.lggr.Infof("MercuryLookup upkeep Id %s status code: %d", upkeepId.String(), resp.StatusCode)
+		r.setCachesOnAPIErr(upkeepId)
+	}
+	var m MercuryResponse
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		r.lggr.Infof("MercuryLookup Unmarshal upkeep Id %s error: %v", upkeepId.String(), err)
+		ch <- MercuryBytes{Index: index, Error: err}
+		return
+	}
 
-	m := MercuryResponse{ChainlinkBlob: "0x000189dbcc9287f900f77bea62d479cfd70ec8073692ca911fe306cd5bcf8d6d0000000000000000000000000000000000000000000000000000000000100e58c41df85f0fb47f78779e68b0a0dbefe8d626446b286aebf96741ae274cf3a49d00000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e0010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800fb2e5752573270cb04af9a1ebafc82b67f09a7408217b3b3cb81fe24eb0912900000000000000000000000000000000000000000000000000000000637ce26100000000000000000000000000000000000000000000000000000000002bbecc00000000000000000000000000000000000000000000003cb243ded70e1d0000000000000000000000000000000000000000000000000000000000000000000243d68b3eda5fb3a526daffdab2bf9978f89a6c1a5de19020fd047b80692b67a2712668bc873498a2a69f38ea7874f7e3511baa0637af1b1b304e4cae2bf87c1400000000000000000000000000000000000000000000000000000000000000021e1e506899f5ea70c67ea458042e08a9b45f888f67fa31ae286d760e1c967d14210469b4efc32630d4af00842811b739d7816439abbc9ee48f2d463f3f657fd7"}
+	r.lggr.Infof("MercuryLookup Response: %s", m.ChainlinkBlob)
 	blobBytes, err := hexutil.Decode(m.ChainlinkBlob)
 	if err != nil {
 		ch <- MercuryBytes{Index: index, Error: err}
@@ -305,7 +331,9 @@ func (r *EvmRegistry) multiFeedRequest(client *http.Client, upkeepId *big.Int, m
 	q.Add("upkeepID", upkeepId.String())
 	req.URL.RawQuery = q.Encode()
 
-	signature := generateHMAC("GET", req.URL.String(), nil, r.mercury.clientID, r.mercury.clientKey)
+	ts := time.Now().UTC().UnixMilli()
+	signature := r.generateHMAC(http.MethodGet, req.URL.String(), []byte{}, r.mercury.clientID, r.mercury.clientKey, ts)
+	r.lggr.Infof("HMAC signature: %s", signature)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", r.mercury.clientID)
 	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(time.Now().Unix(), 10))
@@ -353,7 +381,7 @@ func (r *EvmRegistry) multiFeedRequest(client *http.Client, upkeepId *big.Int, m
 	return mb, nil
 }
 
-func generateHMAC(method string, path string, body []byte, clientId string, secret string) string {
+func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clientId string, secret string, ts int64) string {
 	bodyHash := sha256.New()
 	bodyHash.Write(body)
 	hashString := fmt.Sprintf("%s %s %s %s %d",
@@ -361,7 +389,7 @@ func generateHMAC(method string, path string, body []byte, clientId string, secr
 		path,
 		hex.EncodeToString(bodyHash.Sum(nil)),
 		clientId,
-		time.Now().Unix())
+		ts)
 	signedMessage := hmac.New(sha256.New, []byte(secret))
 	signedMessage.Write([]byte(hashString))
 	userHmac := hex.EncodeToString(signedMessage.Sum(nil))
