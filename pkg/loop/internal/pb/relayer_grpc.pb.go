@@ -533,7 +533,7 @@ var Relayer_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DataSourceClient interface {
-	Observe(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ObserveReply, error)
+	Observe(ctx context.Context, in *ObserveRequest, opts ...grpc.CallOption) (*ObserveReply, error)
 }
 
 type dataSourceClient struct {
@@ -544,7 +544,7 @@ func NewDataSourceClient(cc grpc.ClientConnInterface) DataSourceClient {
 	return &dataSourceClient{cc}
 }
 
-func (c *dataSourceClient) Observe(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ObserveReply, error) {
+func (c *dataSourceClient) Observe(ctx context.Context, in *ObserveRequest, opts ...grpc.CallOption) (*ObserveReply, error) {
 	out := new(ObserveReply)
 	err := c.cc.Invoke(ctx, "/loop.DataSource/Observe", in, out, opts...)
 	if err != nil {
@@ -557,7 +557,7 @@ func (c *dataSourceClient) Observe(ctx context.Context, in *empty.Empty, opts ..
 // All implementations must embed UnimplementedDataSourceServer
 // for forward compatibility
 type DataSourceServer interface {
-	Observe(context.Context, *empty.Empty) (*ObserveReply, error)
+	Observe(context.Context, *ObserveRequest) (*ObserveReply, error)
 	mustEmbedUnimplementedDataSourceServer()
 }
 
@@ -565,7 +565,7 @@ type DataSourceServer interface {
 type UnimplementedDataSourceServer struct {
 }
 
-func (UnimplementedDataSourceServer) Observe(context.Context, *empty.Empty) (*ObserveReply, error) {
+func (UnimplementedDataSourceServer) Observe(context.Context, *ObserveRequest) (*ObserveReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Observe not implemented")
 }
 func (UnimplementedDataSourceServer) mustEmbedUnimplementedDataSourceServer() {}
@@ -582,7 +582,7 @@ func RegisterDataSourceServer(s grpc.ServiceRegistrar, srv DataSourceServer) {
 }
 
 func _DataSource_Observe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(empty.Empty)
+	in := new(ObserveRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -594,7 +594,7 @@ func _DataSource_Observe_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: "/loop.DataSource/Observe",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DataSourceServer).Observe(ctx, req.(*empty.Empty))
+		return srv.(DataSourceServer).Observe(ctx, req.(*ObserveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

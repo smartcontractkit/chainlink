@@ -159,7 +159,12 @@ message SendTxRequest {
 }
 
 service DataSource {
-  rpc Observe (google.protobuf.Empty) returns (ObserveReply) {}
+  rpc Observe (ObserveRequest) returns (ObserveReply) {}
+}
+
+// ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].
+message ObserveRequest {
+  ReportTimestamp reportTimestamp = 1;
 }
 
 // ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.DataSource.Observe].

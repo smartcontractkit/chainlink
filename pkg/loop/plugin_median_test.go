@@ -200,14 +200,14 @@ func (s staticPluginMedian) NewMedianPluginFactory(ctx context.Context, provider
 	if !reflect.DeepEqual(gotDecoded, onchainConfig) {
 		return nil, fmt.Errorf("expected OnchainConfig %s but got %s", onchainConfig, gotDecoded)
 	}
-	gotVal, err := dataSource.Observe(ctx)
+	gotVal, err := dataSource.Observe(ctx, reportContext.ReportTimestamp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to observe dataSource: %w", err)
 	}
 	if !assert.ObjectsAreEqual(value, gotVal) {
 		return nil, fmt.Errorf("expected Value %s but got %s", value, gotVal)
 	}
-	gotJuels, err := juelsPerFeeCoinDataSource.Observe(ctx)
+	gotJuels, err := juelsPerFeeCoinDataSource.Observe(ctx, reportContext.ReportTimestamp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to observe juelsPerFeeCoin: %w", err)
 	}

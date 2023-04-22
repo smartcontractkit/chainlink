@@ -5,9 +5,9 @@ import (
 	"math/big"
 
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	pb "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
 )
@@ -22,8 +22,8 @@ func newDataSourceClient(cc *grpc.ClientConn) *dataSourceClient {
 	return &dataSourceClient{grpc: pb.NewDataSourceClient(cc)}
 }
 
-func (d *dataSourceClient) Observe(ctx context.Context) (*big.Int, error) {
-	reply, err := d.grpc.Observe(ctx, &emptypb.Empty{})
+func (d *dataSourceClient) Observe(ctx context.Context, timestamp types.ReportTimestamp) (*big.Int, error) {
+	reply, err := d.grpc.Observe(ctx, &pb.ObserveRequest{ReportTimestamp: pbReportTimestamp(timestamp)})
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +38,12 @@ type dataSourceServer struct {
 	impl median.DataSource
 }
 
-func (d *dataSourceServer) Observe(ctx context.Context, _ *emptypb.Empty) (*pb.ObserveReply, error) {
-	val, err := d.impl.Observe(ctx)
+func (d *dataSourceServer) Observe(ctx context.Context, request *pb.ObserveRequest) (*pb.ObserveReply, error) {
+	timestamp, err := reportTimestamp(request.ReportTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	val, err := d.impl.Observe(ctx, timestamp)
 	if err != nil {
 		return nil, err
 	}
