@@ -50,32 +50,13 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	db.SetMaxOpenConns(config.ORMMaxOpenConns())
 	db.SetMaxIdleConns(config.ORMMaxIdleConns())
 
-	err = disallowReplica(db)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
+	return db, disallowReplica(db)
 }
 
 func disallowReplica(db *sqlx.DB) error {
-	rs, err := db.Query("SHOW session_replication_role")
-	if err != nil {
-		return err
-	}
-
-	// there is only one row in the result set so don't bother with a scan loop
 	var val string
-	if ok := rs.Next(); !ok {
-		return fmt.Errorf("unable to determine session_replication_role")
-	}
-	err = rs.Scan(&val)
+	err := db.Get(&val, "SHOW session_replication_role")
 	if err != nil {
-		return err
-	}
-	if err := rs.Close(); err != nil {
-		return err
-	}
-	if err := rs.Err(); err != nil {
 		return err
 	}
 
