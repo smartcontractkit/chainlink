@@ -251,10 +251,10 @@ func validateEnv() (err error) {
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Secrets:\n", g.secretsTOML)
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
 }
 
 // ConfigTOML implements chainlink.ConfigV2
