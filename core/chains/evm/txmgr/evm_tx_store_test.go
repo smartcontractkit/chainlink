@@ -385,7 +385,7 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
-	chainID := ethClient.ChainID()
+	chainID := ethClient.ConfiguredChainID()
 
 	headNum := int64(9000)
 	var err error
@@ -456,7 +456,7 @@ func TestORM_FindEtxAttemptsConfirmedMissingReceipt(t *testing.T) {
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
 
-	attempts, err := txStore.FindEtxAttemptsConfirmedMissingReceipt(ethClient.ChainID())
+	attempts, err := txStore.FindEtxAttemptsConfirmedMissingReceipt(ethClient.ConfiguredChainID())
 
 	require.NoError(t, err)
 
@@ -499,7 +499,7 @@ func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
 
-	attempts, err := txStore.FindEthTxAttemptsRequiringReceiptFetch(ethClient.ChainID())
+	attempts, err := txStore.FindEthTxAttemptsRequiringReceiptFetch(ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	assert.Len(t, attempts, 1)
 	assert.Len(t, etx0.EthTxAttempts, 1)
@@ -529,7 +529,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 		TransactionIndex: uint(1),
 	}
 
-	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&txmReceipt}, ethClient.ChainID())
+	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&txmReceipt}, ethClient.ConfiguredChainID())
 
 	require.NoError(t, err)
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
@@ -559,11 +559,11 @@ func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
 	assert.Equal(t, txmgr.EthTxUnconfirmed, etx0.State)
 
 	// create transaction 1 (nonce 1) that is confirmed (block 77)
-	etx1 := cltest.MustInsertConfirmedEthTxBySaveFetchedReceipts(t, txStore, fromAddress, int64(1), int64(77), *ethClient.ChainID())
+	etx1 := cltest.MustInsertConfirmedEthTxBySaveFetchedReceipts(t, txStore, fromAddress, int64(1), int64(77), *ethClient.ConfiguredChainID())
 	assert.Equal(t, etx1.State, txmgr.EthTxConfirmed)
 
 	// mark transaction 0 confirmed_missing_receipt
-	err := txStore.MarkAllConfirmedMissingReceipt(ethClient.ChainID())
+	err := txStore.MarkAllConfirmedMissingReceipt(ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
@@ -618,7 +618,7 @@ func TestORM_GetInProgressEthTxAttempts(t *testing.T) {
 	etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, int64(7), fromAddress, txmgrtypes.TxAttemptInProgress)
 
 	// fetch attempt
-	attempts, err := txStore.GetInProgressEthTxAttempts(context.Background(), fromAddress, ethClient.ChainID())
+	attempts, err := txStore.GetInProgressEthTxAttempts(context.Background(), fromAddress, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 
 	assert.Len(t, attempts, 1)
@@ -664,7 +664,7 @@ func TestORM_FindEthReceiptsPendingConfirmation(t *testing.T) {
 
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-	receiptsPlus, err := txStore.FindEthReceiptsPendingConfirmation(testutils.Context(t), head.Number, ethClient.ChainID())
+	receiptsPlus, err := txStore.FindEthReceiptsPendingConfirmation(testutils.Context(t), head.Number, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	assert.Len(t, receiptsPlus, 1)
 	assert.Equal(t, tr.ID, receiptsPlus[0].ID)
@@ -762,7 +762,7 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 		etx_8 := cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 700, 8)
 		etx_9 := cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 777, 9)
 
-		etxes, err := txStore.FindTransactionsConfirmedInBlockRange(head.Number, 8, ethClient.ChainID())
+		etxes, err := txStore.FindTransactionsConfirmedInBlockRange(head.Number, 8, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Len(t, etxes, 2)
 		assert.Equal(t, etxes[0].Nonce, etx_8.Nonce)
@@ -921,7 +921,7 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 
 	t.Run("gets txs requiring gas bump", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
-		txStore.SetBroadcastBeforeBlockNum(currentBlockNum, ethClient.ChainID())
+		txStore.SetBroadcastBeforeBlockNum(currentBlockNum, ethClient.ConfiguredChainID())
 
 		// this tx will require gas bump
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
@@ -933,12 +933,12 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 
 		// this tx will not require gas bump
 		cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 2, fromAddress, txmgrtypes.TxAttemptBroadcast)
-		txStore.SetBroadcastBeforeBlockNum(currentBlockNum+1, ethClient.ChainID())
+		txStore.SetBroadcastBeforeBlockNum(currentBlockNum+1, ethClient.ConfiguredChainID())
 
 		// any tx broadcast <= 10 will require gas bump
 		newBlock := int64(12)
 		gasBumpThreshold := int64(2)
-		etxs, err := txStore.FindEthTxsRequiringGasBump(context.Background(), fromAddress, newBlock, gasBumpThreshold, int64(0), ethClient.ChainID())
+		etxs, err := txStore.FindEthTxsRequiringGasBump(context.Background(), fromAddress, newBlock, gasBumpThreshold, int64(0), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Len(t, etxs, 1)
 		assert.Equal(t, etx.ID, etxs[0].ID)
@@ -1021,7 +1021,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 	t.Run("succesfully mark errored transactions", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
 
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ChainID())
+		err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
@@ -1034,7 +1034,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
 		q.Transaction(func(q pg.Queryer) error {
-			err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ChainID(), pg.WithQueryer(q))
+			err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ConfiguredChainID(), pg.WithQueryer(q))
 			require.NoError(t, err)
 			return nil
 		})
@@ -1131,7 +1131,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 		cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
 
 		resultEtx := new(txmgr.EvmTx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ChainID())
+		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ConfiguredChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
 	})
 
@@ -1139,7 +1139,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
 
 		resultEtx := new(txmgr.EvmTx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ChainID())
+		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 	})
 }
@@ -1277,7 +1277,7 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("no in progress eth transaction", func(t *testing.T) {
-		exists, err := txStore.HasInProgressTransaction(fromAddress, ethClient.ChainID())
+		exists, err := txStore.HasInProgressTransaction(fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.False(t, exists)
 	})
@@ -1285,7 +1285,7 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 	t.Run("has in progress eth transaction", func(t *testing.T) {
 		cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 
-		exists, err := txStore.HasInProgressTransaction(fromAddress, ethClient.ChainID())
+		exists, err := txStore.HasInProgressTransaction(fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -1303,16 +1303,16 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 
 	t.Run("update next nonce", func(t *testing.T) {
 		assert.Equal(t, int64(0), ethKeyState.NextNonce)
-		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(24), evmtypes.Nonce(0), fromAddress, ethClient.ChainID())
+		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(24), evmtypes.Nonce(0), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
-		newNextNonce, err := ethKeyStore.NextSequence(fromAddress, ethClient.ChainID())
+		newNextNonce, err := ethKeyStore.NextSequence(fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Equal(t, int64(24), newNextNonce.Int64())
 	})
 
 	t.Run("no rows found", func(t *testing.T) {
-		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(100), evmtypes.Nonce(123), fromAddress, ethClient.ChainID())
+		err := txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(100), evmtypes.Nonce(123), fromAddress, ethClient.ConfiguredChainID())
 		require.Error(t, err)
 	})
 }
@@ -1478,7 +1478,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			GasLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
-		}, ethClient.ChainID())
+		}, ethClient.ConfiguredChainID())
 		etx := tx.(txmgr.EvmTx)
 		assert.NoError(t, err)
 
@@ -1515,10 +1515,10 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			PipelineTaskRunID: &id,
 			Strategy:          txmgr.SendEveryStrategy{},
 		}
-		tx1, err := txStore.CreateEthTransaction(newTx, ethClient.ChainID())
+		tx1, err := txStore.CreateEthTransaction(newTx, ethClient.ConfiguredChainID())
 		assert.NoError(t, err)
 
-		tx2, err := txStore.CreateEthTransaction(newTx, ethClient.ChainID())
+		tx2, err := txStore.CreateEthTransaction(newTx, ethClient.ConfiguredChainID())
 		assert.NoError(t, err)
 
 		assert.Equal(t, tx1.GetID(), tx2.GetID())

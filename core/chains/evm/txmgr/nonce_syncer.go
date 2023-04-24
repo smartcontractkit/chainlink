@@ -72,7 +72,7 @@ func NewNonceSyncer(
 	return &nonceSyncerImpl{
 		txStore:   txStore,
 		ethClient: ethClient,
-		chainID:   ethClient.ChainID(),
+		chainID:   ethClient.ConfiguredChainID(),
 		logger:    lggr,
 		kst:       kst,
 	}

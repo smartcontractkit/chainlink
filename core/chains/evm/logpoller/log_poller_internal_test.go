@@ -242,7 +242,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
-	ec.On("ChainID").Return(chainID, nil)
+	ec.On("ConfiguredChainID").Return(chainID, nil)
 
 	ctx := testutils.Context(t)
 
@@ -286,7 +286,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
-	ec.On("ChainID").Return(chainID, nil)
+	ec.On("ConfiguredChainID").Return(chainID, nil)
 	lp := NewLogPoller(orm, ec, lggr, time.Hour, 3, 3, 3, 20)
 
 	// process 1 log in block 3
