@@ -61,7 +61,7 @@ func disallowReplica(db *sqlx.DB) error {
 	}
 
 	if val == "replica" {
-		return fmt.Errorf("Error: invalid `session_replication_role`: %s. Refusing to connect to replica database. Writing to a replica will corrupt the database", val)
+		return fmt.Errorf("invalid `session_replication_role`: %s. Refusing to connect to replica database. Writing to a replica will corrupt the database", val)
 	}
 
 	return nil
