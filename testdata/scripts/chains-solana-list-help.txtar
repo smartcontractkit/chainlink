@@ -1,0 +1,9 @@
+exec chainlink chains solana list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains solana list - List all existing Solana chains
+
+USAGE:
+   chainlink chains solana list [arguments...]
