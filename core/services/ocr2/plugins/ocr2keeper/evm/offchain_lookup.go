@@ -398,6 +398,7 @@ func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clie
 
 // setCachesOnAPIErr when an off chain look up request fails or gets a 4xx/5xx response code we increment error count and put the upkeep in cooldown state
 func (r *EvmRegistry) setCachesOnAPIErr(upkeepId *big.Int) {
+	r.lggr.Infof("MercuryLookup: adding %s to API error cache", upkeepId.String())
 	errCount := 1
 	cacheKey := upkeepId.String()
 	e, ok := r.mercury.apiErrCache.Get(cacheKey)
