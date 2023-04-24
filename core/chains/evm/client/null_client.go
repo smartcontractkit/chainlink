@@ -42,19 +42,14 @@ func (nc *NullClient) Close() {
 	nc.lggr.Debug("Close")
 }
 
-func (nc *NullClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
-	nc.lggr.Debug("GetERC20Balance")
+func (nc *NullClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
+	nc.lggr.Debug("TokenBalance")
 	return big.NewInt(0), nil
 }
 
-func (nc *NullClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	nc.lggr.Debug("GetLINKBalance")
+func (nc *NullClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+	nc.lggr.Debug("LINKBalance")
 	return assets.NewLinkFromJuels(0), nil
-}
-
-func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
-	nc.lggr.Debug("GetEthBalance")
-	return assets.NewEth(0), nil
 }
 
 func (nc *NullClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
@@ -103,12 +98,17 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 // GethClient methods
 //
 
-func (nc *NullClient) ChainID() *big.Int {
-	nc.lggr.Debug("ChainID")
+func (nc *NullClient) ConfiguredChainID() *big.Int {
+	nc.lggr.Debug("ConfiguredChainID")
 	if nc.cid != nil {
 		return nc.cid
 	}
 	return big.NewInt(NullClientChainID)
+}
+
+func (nc *NullClient) ChainID() (*big.Int, error) {
+	nc.lggr.Debug("ChainID")
+	return nil, nil
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -131,6 +131,11 @@ func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction
 	return nil
 }
 
+func (nc *NullClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+	nc.lggr.Debug("SimulateTransaction")
+	return nil
+}
+
 func (nc *NullClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	nc.lggr.Debug("PendingCodeAt")
 	return nil, nil
@@ -141,13 +146,18 @@ func (nc *NullClient) PendingNonceAt(ctx context.Context, account common.Address
 	return 0, nil
 }
 
-func (nc *NullClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	nc.lggr.Debug("NonceAt")
+func (nc *NullClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+	nc.lggr.Debug("SequenceAt")
 	return 0, nil
 }
 
 func (nc *NullClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	nc.lggr.Debug("TransactionReceipt")
+	return nil, nil
+}
+
+func (nc *NullClient) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	nc.lggr.Debug("TransactionByHash")
 	return nil, nil
 }
 
@@ -161,9 +171,19 @@ func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types
 	return nil, nil
 }
 
+func (nc *NullClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	nc.lggr.Debug("LatestBlockHeight")
+	return nil, nil
+}
+
 func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	nc.lggr.Debug("BalanceAt")
 	return big.NewInt(0), nil
+}
+
+func (nc *NullClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	nc.lggr.Debug("FilterEvents")
+	return nil, nil
 }
 
 func (nc *NullClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {

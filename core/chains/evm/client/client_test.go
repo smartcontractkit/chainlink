@@ -252,7 +252,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
 
-			result, err := ethClient.GetERC20Balance(ctx, userAddress, contractAddress)
+			result, err := ethClient.TokenBalance(ctx, userAddress, contractAddress)
 			require.NoError(t, err)
 			assert.Equal(t, test.balance, result)
 		})
