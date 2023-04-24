@@ -1,0 +1,15 @@
+exec chainlink blocks replay --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink blocks replay - Replays block data from the given number
+
+USAGE:
+   chainlink blocks replay [command options] [arguments...]
+
+OPTIONS:
+   --block-number value  Block number to replay from (default: 0)
+   --force               Whether to force broadcasting logs which were already consumed and that would otherwise be skipped
+   --evm-chain-id value  Chain ID of the EVM-based blockchain (default: 0)
+   
