@@ -109,7 +109,7 @@ var PluginRelayer_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type KeystoreClient interface {
-	Keys(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*KeysReply, error)
+	Accounts(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*AccountsReply, error)
 	Sign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignReply, error)
 }
 
@@ -121,9 +121,9 @@ func NewKeystoreClient(cc grpc.ClientConnInterface) KeystoreClient {
 	return &keystoreClient{cc}
 }
 
-func (c *keystoreClient) Keys(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*KeysReply, error) {
-	out := new(KeysReply)
-	err := c.cc.Invoke(ctx, "/loop.Keystore/Keys", in, out, opts...)
+func (c *keystoreClient) Accounts(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*AccountsReply, error) {
+	out := new(AccountsReply)
+	err := c.cc.Invoke(ctx, "/loop.Keystore/Accounts", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (c *keystoreClient) Sign(ctx context.Context, in *SignRequest, opts ...grpc
 // All implementations must embed UnimplementedKeystoreServer
 // for forward compatibility
 type KeystoreServer interface {
-	Keys(context.Context, *empty.Empty) (*KeysReply, error)
+	Accounts(context.Context, *empty.Empty) (*AccountsReply, error)
 	Sign(context.Context, *SignRequest) (*SignReply, error)
 	mustEmbedUnimplementedKeystoreServer()
 }
@@ -152,8 +152,8 @@ type KeystoreServer interface {
 type UnimplementedKeystoreServer struct {
 }
 
-func (UnimplementedKeystoreServer) Keys(context.Context, *empty.Empty) (*KeysReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Keys not implemented")
+func (UnimplementedKeystoreServer) Accounts(context.Context, *empty.Empty) (*AccountsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Accounts not implemented")
 }
 func (UnimplementedKeystoreServer) Sign(context.Context, *SignRequest) (*SignReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sign not implemented")
@@ -171,20 +171,20 @@ func RegisterKeystoreServer(s grpc.ServiceRegistrar, srv KeystoreServer) {
 	s.RegisterService(&Keystore_ServiceDesc, srv)
 }
 
-func _Keystore_Keys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Keystore_Accounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KeystoreServer).Keys(ctx, in)
+		return srv.(KeystoreServer).Accounts(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/loop.Keystore/Keys",
+		FullMethod: "/loop.Keystore/Accounts",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeystoreServer).Keys(ctx, req.(*empty.Empty))
+		return srv.(KeystoreServer).Accounts(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -215,8 +215,8 @@ var Keystore_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*KeystoreServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Keys",
-			Handler:    _Keystore_Keys_Handler,
+			MethodName: "Accounts",
+			Handler:    _Keystore_Accounts_Handler,
 		},
 		{
 			MethodName: "Sign",

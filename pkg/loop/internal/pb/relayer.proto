@@ -22,11 +22,11 @@ message NewRelayerReply {
 }
 
 service Keystore {
-  rpc Keys (google.protobuf.Empty) returns (KeysReply) {}
+  rpc Accounts (google.protobuf.Empty) returns (AccountsReply) {}
   rpc Sign (SignRequest) returns (SignReply) {}
 }
 
-message KeysReply {
+message AccountsReply {
   repeated string accounts = 1;
 }
 

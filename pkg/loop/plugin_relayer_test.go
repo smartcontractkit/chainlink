@@ -254,7 +254,7 @@ func testRelayer(t *testing.T, relayer loop.Relayer) {
 
 type staticKeystore struct{}
 
-func (s staticKeystore) Keys(ctx context.Context) (accounts []string, err error) {
+func (s staticKeystore) Accounts(ctx context.Context) (accounts []string, err error) {
 	return []string{string(account)}, nil
 }
 
@@ -274,7 +274,7 @@ func (s staticPluginRelayer) NewRelayer(ctx context.Context, config string, keys
 	if config != configTOML {
 		return nil, fmt.Errorf("expected config %q but got %q", configTOML, config)
 	}
-	keys, err := keystore.Keys(ctx)
+	keys, err := keystore.Accounts(ctx)
 	if err != nil {
 		return nil, err
 	}

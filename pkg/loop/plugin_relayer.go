@@ -40,7 +40,7 @@ func PluginRelayerClientConfig(lggr logger.Logger) *plugin.ClientConfig {
 }
 
 type Keystore interface {
-	Keys(ctx context.Context) (accounts []string, err error)
+	Accounts(ctx context.Context) (accounts []string, err error)
 	// Sign returns data signed by account.
 	// nil data can be used as a no-op to check for account existence.
 	Sign(ctx context.Context, account string, data []byte) (signed []byte, err error)
@@ -171,8 +171,8 @@ func newKeystoreClient(cc *grpc.ClientConn) *keystoreClient {
 	return &keystoreClient{pb.NewKeystoreClient(cc)}
 }
 
-func (k *keystoreClient) Keys(ctx context.Context) (accounts []string, err error) {
-	reply, err := k.grpc.Keys(ctx, &emptypb.Empty{})
+func (k *keystoreClient) Accounts(ctx context.Context) (accounts []string, err error) {
+	reply, err := k.grpc.Accounts(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
@@ -195,12 +195,12 @@ type keystoreServer struct {
 	impl Keystore
 }
 
-func (k *keystoreServer) Keys(ctx context.Context, _ *emptypb.Empty) (*pb.KeysReply, error) {
-	as, err := k.impl.Keys(ctx)
+func (k *keystoreServer) Accounts(ctx context.Context, _ *emptypb.Empty) (*pb.AccountsReply, error) {
+	as, err := k.impl.Accounts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.KeysReply{Accounts: as}, nil
+	return &pb.AccountsReply{Accounts: as}, nil
 }
 
 func (k *keystoreServer) Sign(ctx context.Context, request *pb.SignRequest) (*pb.SignReply, error) {
