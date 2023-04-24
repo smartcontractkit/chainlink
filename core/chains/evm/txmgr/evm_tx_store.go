@@ -457,7 +457,7 @@ func (o *evmTxStore) FindEthTxByHash(hash common.Hash) (*EvmTx, error) {
 	return &etx, errors.Wrap(err, "FindEthTxByHash failed")
 }
 
-// InsertEthTxAttempt inserts a new txAttempt into the database
+// InsertEthTx inserts a new evm tx into the database
 func (o *evmTxStore) InsertEthTx(etx *EvmTx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
@@ -471,12 +471,10 @@ func (o *evmTxStore) InsertEthTx(etx *EvmTx) error {
 	return errors.Wrap(err, "InsertEthTx failed")
 }
 
+// InsertEthTxAttempt inserts a new txAttempt into the database
 func (o *evmTxStore) InsertEthTxAttempt(attempt *EvmTxAttempt) error {
-	const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
-:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
-) RETURNING *`
 	dbTxAttempt := DbEthTxAttemptFromEthTxAttempt(attempt)
-	err := o.q.GetNamed(insertEthTxAttemptSQL, &dbTxAttempt, &dbTxAttempt)
+	err := o.q.GetNamed(insertIntoEthTxAttemptsQuery, &dbTxAttempt, &dbTxAttempt)
 	DbEthTxAttemptToEthTxAttempt(dbTxAttempt, attempt)
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
