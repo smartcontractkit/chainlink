@@ -85,7 +85,7 @@ func (c *config) BalancePollPeriod() time.Duration {
 
 type keystore []solkey.Key
 
-func (k keystore) Keys(ctx context.Context) (ks []string, err error) {
+func (k keystore) Accounts(ctx context.Context) (ks []string, err error) {
 	for _, acc := range k {
 		ks = append(ks, acc.PublicKeyStr())
 	}

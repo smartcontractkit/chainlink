@@ -20,7 +20,7 @@ type Config interface {
 
 // Keystore provides the keys to be monitored.
 type Keystore interface {
-	Addresses(ctx context.Context) ([]string, error)
+	Accounts(ctx context.Context) ([]string, error)
 }
 
 // NewBalanceMonitor returns a balance monitoring services.Service which reports the SOL balance of all ks keys to prometheus.
@@ -109,7 +109,7 @@ func (b *balanceMonitor) getReader() (solanaClient.Reader, error) {
 }
 
 func (b *balanceMonitor) updateBalances(ctx context.Context) {
-	keys, err := b.ks.Addresses(ctx)
+	keys, err := b.ks.Accounts(ctx)
 	if err != nil {
 		b.lggr.Errorw("Failed to get keys", "err", err)
 		return

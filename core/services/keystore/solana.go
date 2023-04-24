@@ -28,7 +28,7 @@ type SolanaSigner struct {
 	Solana
 }
 
-func (s *SolanaSigner) Keys(ctx context.Context) (accounts []string, err error) {
+func (s *SolanaSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
 	if err != nil {
 		return nil, err
