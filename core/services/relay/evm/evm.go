@@ -124,7 +124,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID)
 
-	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr), nil
+	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr, mercuryConfig.ReportSchemaVersion), nil
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {

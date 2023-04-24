@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
@@ -22,6 +23,7 @@ type mercuryProvider struct {
 	transmitter   mercury.Transmitter
 	reportCodec   relaymercury.ReportCodec
 	logger        logger.Logger
+	schemaVersion config.ReportSchemaVersion
 
 	ms services.MultiStart
 }
