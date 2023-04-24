@@ -352,9 +352,6 @@ require (
 )
 
 replace (
-	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
-
 	// Fix go mod tidy issue for ambiguous imports from go-ethereum
 	// See https://github.com/ugorji/go/issues/279
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
