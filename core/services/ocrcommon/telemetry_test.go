@@ -22,13 +22,12 @@ import (
 )
 
 const bridgeResponse = `{
-			"telemetry":{
-				"data_source":"data_source_test",
-				"provider_requested_timestamp":922337203685477600,
-				"provider_received_timestamp":-922337203685477600,
-				"provider_data_stream_established":1,
-				"provider_data_received":123456789,
-				"provider_indicated_time":-123456789
+			"timestamps":{
+				"dataSource":"data_source_test",
+				"providerDataRequestedUnixMs":92233720368547760,
+				"providerDataReceivedUnixMs":-92233720368547760,
+				"providerDataStreamEstablishedUnixMs":1,
+				"providerIndicatedTimeUnixMs":-123456789
 			}
 		}`
 
@@ -46,7 +45,7 @@ var trrs = pipeline.TaskRunResults{
 			BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
 		},
 		Result: pipeline.Result{
-			Value: "123456",
+			Value: "123456.123456789",
 		},
 	},
 	pipeline.TaskRunResult{
@@ -145,10 +144,9 @@ func TestParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
 	assert.Equal(t, ea.DataSource, "data_source_test")
-	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(922337203685477600))
-	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-922337203685477600))
+	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(92233720368547760))
+	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-92233720368547760))
 	assert.Equal(t, ea.ProviderDataStreamEstablished, int64(1))
-	assert.Equal(t, ea.ProviderDataReceived, int64(123456789))
 	assert.Equal(t, ea.ProviderIndicatedTime, int64(-123456789))
 
 	_, err = parseEATelemetry(nil)
@@ -158,7 +156,7 @@ func TestParseEATelemetry(t *testing.T) {
 func TestGetJsonParsedValue(t *testing.T) {
 
 	resp := getJsonParsedValue(trrs[0], &trrs)
-	assert.Equal(t, "123456", resp.String())
+	assert.Equal(t, 123456.123456789, *resp)
 
 	trrs[1].Result.Value = nil
 	resp = getJsonParsedValue(trrs[0], &trrs)
@@ -209,7 +207,7 @@ func TestSendEATelemetry(t *testing.T) {
 				BaseTask: pipeline.NewBaseTask(1, "ds1", nil, nil, 1),
 			},
 			Result: pipeline.Result{
-				Value: "1234567890",
+				Value: "123456789.1234567",
 			},
 		},
 	}
@@ -230,13 +228,12 @@ func TestSendEATelemetry(t *testing.T) {
 
 	expectedTelemetry := telem.EnhancedEA{
 		DataSource:                    "data_source_test",
-		Value:                         1234567890,
+		Value:                         123456789.1234567,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrs[0].FinishedAt.Time.UnixMilli(),
-		ProviderRequestedTimestamp:    922337203685477600,
-		ProviderReceivedTimestamp:     -922337203685477600,
+		ProviderRequestedTimestamp:    92233720368547760,
+		ProviderReceivedTimestamp:     -92233720368547760,
 		ProviderDataStreamEstablished: 1,
-		ProviderDataReceived:          123456789,
 		ProviderIndicatedTime:         -123456789,
 		Feed:                          feedAddress.String(),
 		ChainId:                       "9",
@@ -372,7 +369,8 @@ func BenchmarkCollectEATelemetry(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		wg.Add(1)
+		//trrs has 3 bridge tasks, so it will send 3 telem messages
+		wg.Add(3)
 		collectEATelemetry(&ds, &trrs, &finalResult, observationTimestamp)
 	}
 	wg.Wait()

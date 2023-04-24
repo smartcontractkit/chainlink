@@ -3,7 +3,6 @@ package txmgr
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -33,11 +32,11 @@ const unconfirmedTxAlertLogFrequency = 2 * time.Minute
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type EthResender[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH], BLOCK_HASH types.Hashable[BLOCK_HASH]] struct {
-	txStore             txmgrtypes.TxStore[ADDR, big.Int, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], int64, int64]
+type EthResender[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, SEQ txmgrtypes.Sequence] struct {
+	txStore             txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
 	ethClient           evmclient.Client
-	ks                  txmgrtypes.KeyStore[ADDR, *big.Int, int64]
-	chainID             big.Int
+	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	chainID             CHAIN_ID
 	interval            time.Duration
 	config              EvmResenderConfig
 	logger              logger.Logger
@@ -65,7 +64,7 @@ func NewEthResender(
 		txStore,
 		ethClient,
 		ks,
-		*ethClient.ChainID(),
+		ethClient.ConfiguredChainID(),
 		pollInterval,
 		config,
 		lggr.Named("EthResender"),
@@ -77,18 +76,18 @@ func NewEthResender(
 }
 
 // Start is a comment which satisfies the linter
-func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) Start() {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) Start() {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.TxResendAfterThreshold())
 	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
-func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) Stop() {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) Stop() {
 	er.cancel()
 	<-er.chDone
 }
 
-func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) runLoop() {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
@@ -109,8 +108,8 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) runLoop() {
 	}
 }
 
-func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) resendUnconfirmed() error {
-	enabledAddresses, err := er.ks.EnabledAddressesForChain(&er.chainID)
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) resendUnconfirmed() error {
+	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
 	}
@@ -163,7 +162,7 @@ func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
 }
 
-func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) logStuckAttempts(attempts []EthTxAttempt[ADDR, TX_HASH], fromAddress ADDR) {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) logStuckAttempts(attempts []EthTxAttempt[ADDR, TX_HASH], fromAddress ADDR) {
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
@@ -178,7 +177,7 @@ func (er *EthResender[ADDR, TX_HASH, BLOCK_HASH]) logStuckAttempts(attempts []Et
 	}
 }
 
-func findOldestUnconfirmedAttempt[ADDR types.Hashable[ADDR], TX_HASH types.Hashable[TX_HASH]](attempts []EthTxAttempt[ADDR, TX_HASH]) (EthTxAttempt[ADDR, TX_HASH], bool) {
+func findOldestUnconfirmedAttempt[ADDR types.Hashable, TX_HASH types.Hashable](attempts []EthTxAttempt[ADDR, TX_HASH]) (EthTxAttempt[ADDR, TX_HASH], bool) {
 	var oldestAttempt EthTxAttempt[ADDR, TX_HASH]
 	if len(attempts) < 1 {
 		return oldestAttempt, false

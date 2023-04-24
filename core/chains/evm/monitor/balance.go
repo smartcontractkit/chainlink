@@ -49,12 +49,13 @@ type (
 
 // NewBalanceMonitor returns a new balanceMonitor
 func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
 		ethClient,
-		ethClient.ChainID(),
-		ethClient.ChainID().String(),
+		chainId,
+		chainId.String(),
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
 		new(sync.RWMutex),
@@ -181,7 +182,7 @@ func (w *worker) WorkCtx(ctx context.Context) {
 		go func(k gethCommon.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
-		}(address.Address)
+		}(address)
 	}
 	wg.Wait()
 }

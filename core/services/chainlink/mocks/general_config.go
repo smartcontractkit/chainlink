@@ -2752,6 +2752,20 @@ func (_m *GeneralConfig) Validate() error {
 	return r0
 }
 
+// ValidateDB provides a mock function with given fields:
+func (_m *GeneralConfig) ValidateDB() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 type mockConstructorTestingTNewGeneralConfig interface {
 	mock.TestingT
 	Cleanup(func())
