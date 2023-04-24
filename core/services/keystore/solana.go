@@ -39,14 +39,6 @@ func (s *SolanaSigner) Keys(ctx context.Context) (accounts []string, err error) 
 	return
 }
 
-func (s *SolanaSigner) Sign(_ context.Context, id string, msg []byte) ([]byte, error) {
-	k, err := s.Get(id)
-	if err != nil {
-		return nil, err
-	}
-	return k.Sign(msg)
-}
-
 type solana struct {
 	*keyManager
 }
