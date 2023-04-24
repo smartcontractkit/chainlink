@@ -382,7 +382,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	}
 
 	for from, attempts := range attemptsByAddress {
-		minedTransactionCount, err := ec.getMinedSequenceForAddress(ctx, from)
+		minedSequence, err := ec.getMinedSequenceForAddress(ctx, from)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
@@ -390,7 +390,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		// separateLikelyConfirmedAttempts is used as an optimisation: there is
 		// no point trying to fetch receipts for attempts with a nonce higher
 		// than the highest nonce the RPC node thinks it has seen
-		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, uint64(minedTransactionCount))
+		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, uint64(minedSequence))
 		likelyConfirmedCount := len(likelyConfirmed)
 		if likelyConfirmedCount > 0 {
 			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
@@ -418,16 +418,16 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return nil
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateLikelyConfirmedAttempts(from ADDR, attempts []EthTxAttempt[ADDR, TX_HASH], minedTransactionCount uint64) []EthTxAttempt[ADDR, TX_HASH] {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateLikelyConfirmedAttempts(from ADDR, attempts []EthTxAttempt[ADDR, TX_HASH], minedSequence uint64) []EthTxAttempt[ADDR, TX_HASH] {
 	if len(attempts) == 0 {
 		return attempts
 	}
 
 	firstAttemptNonce := *attempts[len(attempts)-1].EthTx.Nonce
 	lastAttemptNonce := *attempts[0].EthTx.Nonce
-	latestMinedNonce := int64(minedTransactionCount) - 1 // this can be -1 if a transaction has never been mined on this account
+	latestMinedNonce := int64(minedSequence) - 1 // this can be -1 if a transaction has never been mined on this account
 	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
-		len(attempts), from, minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
+		len(attempts), from, minedSequence, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedSequence", minedSequence, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	// attempts are ordered by nonce ASC
@@ -438,9 +438,9 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		// Examples:
 		// 3 transactions confirmed, highest has nonce 2
 		// 5 total attempts, highest has nonce 4
-		// minedTransactionCount=3
+		// minedSequence=3
 		// likelyConfirmed will be attempts[0:3] which gives the first 3 transactions, as expected
-		if *attempts[i].EthTx.Nonce > int64(minedTransactionCount) {
+		if *attempts[i].EthTx.Nonce > int64(minedSequence) {
 			ec.lggr.Debugf("Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
 			likelyConfirmed = attempts[0:i]
 			break

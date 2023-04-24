@@ -194,7 +194,8 @@ func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt
 }
 
 func (c *SimulatedBackendClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
-	panic("not implemented")
+	tx, _, err = c.b.TransactionByHash(ctx, txHash)
+	return
 }
 
 func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *big.Int, err error) {

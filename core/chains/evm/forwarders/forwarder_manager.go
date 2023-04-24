@@ -114,8 +114,7 @@ func FilterName(addr common.Address) string {
 
 func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	chainId := f.evmClient.ConfiguredChainID()
-	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
+	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
 		return common.Address{}, err
 	}
