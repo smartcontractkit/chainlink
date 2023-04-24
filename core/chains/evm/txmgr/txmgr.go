@@ -127,7 +127,6 @@ func NewTxm(
 	ethResender *EvmResender,
 	q pg.Q,
 ) *EvmTxm {
-
 	b := EvmTxm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -138,7 +137,7 @@ func NewTxm(
 		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
-		chainID:          ethClient.ChainID(),
+		chainID:          ethClient.ConfiguredChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
 		trigger:          make(chan common.Address),
@@ -157,7 +156,7 @@ func NewTxm(
 		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
+		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ConfiguredChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}

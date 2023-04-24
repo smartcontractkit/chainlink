@@ -157,7 +157,7 @@ func NewEthBroadcaster(
 		ethClient:        ethClient,
 		TxAttemptBuilder: txAttemptBuilder,
 		nonceSyncer:      nonceSyncer,
-		chainID:          ethClient.ChainID(),
+		chainID:          ethClient.ConfiguredChainID(),
 		config:           config,
 		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,

@@ -37,6 +37,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
@@ -378,7 +379,20 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
-		err2 := app.GetKeyStore().OCR2().EnsureKeys()
+		var enabledChains []chaintype.ChainType
+		if cli.Config.EVMEnabled() {
+			enabledChains = append(enabledChains, chaintype.EVM)
+		}
+		if cli.Config.CosmosEnabled() {
+			enabledChains = append(enabledChains, chaintype.Cosmos)
+		}
+		if cli.Config.SolanaEnabled() {
+			enabledChains = append(enabledChains, chaintype.Solana)
+		}
+		if cli.Config.StarkNetEnabled() {
+			enabledChains = append(enabledChains, chaintype.StarkNet)
+		}
+		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
@@ -599,7 +613,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
 	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1

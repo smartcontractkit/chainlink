@@ -64,7 +64,7 @@ func NewEthResender(
 		txStore,
 		ethClient,
 		ks,
-		ethClient.ChainID(),
+		ethClient.ConfiguredChainID(),
 		pollInterval,
 		config,
 		lggr.Named("EthResender"),
