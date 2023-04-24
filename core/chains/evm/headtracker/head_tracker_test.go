@@ -784,7 +784,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
 		err := ht.Backfill(ctx, &h12, 2)
@@ -801,7 +801,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 
@@ -837,7 +837,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
@@ -870,7 +870,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
@@ -888,7 +888,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
@@ -916,7 +916,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
 			Once()
@@ -947,7 +947,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
