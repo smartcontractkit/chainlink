@@ -85,6 +85,15 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
+.PHONY: testscripts
+testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
+	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) testdata/scripts/*
+
+.PHONY: testscripts-update
+testscripts-update: ## Update testdata/scripts/* files via testscript.
+	make testscripts TS_FLAGS="-u"
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run . local db preparetest
@@ -107,7 +116,6 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
-
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
