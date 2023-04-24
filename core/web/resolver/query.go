@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -458,7 +457,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.TxmStorageService().FindEthTxByHash(evmtypes.NewTxHash(hash))
+	etx, err := r.App.TxmStorageService().FindEthTxByHash(hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil

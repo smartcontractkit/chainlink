@@ -183,6 +183,7 @@ type BasicConfig interface {
 
 type GeneralConfig interface {
 	BasicConfig
+	ValidateDB() error
 }
 
 func ValidateDBURL(dbURI url.URL) error {

@@ -34,6 +34,12 @@ gomodtidy: ## Run go mod tidy on all modules.
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 
+.PHONY: godoc
+godoc: ## Install and run godoc
+	go install golang.org/x/tools/cmd/godoc@latest
+	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
+	godoc -http=:6060
+
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
