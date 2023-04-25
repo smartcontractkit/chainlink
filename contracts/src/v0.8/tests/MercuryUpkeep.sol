@@ -4,7 +4,7 @@ import "../interfaces/automation/AutomationCompatibleInterface.sol";
 import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
 
 contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
-  event MercuryEvent(address indexed from, bytes data);
+  event MercuryEvent(address indexed origin, address indexed sender, bytes data);
 
   uint256 public testRange;
   uint256 public interval;
@@ -23,19 +23,18 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    feedLabel = "feedIDStr"; // or feedIDHex
-    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"]; // or ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000","0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]
-    // blockNumber is used for special customers, timestamp is an option for all customers but it's under development
-    // the advantage to use timestamp is that this contract can be deployed at a different chain than where Mercury server lives
-    // when using blockNumber, the server probably will fail the request bc blockNumber and timestamp are too far apart
+    feedLabel = "feedIDStr";
+    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
     queryLabel = "blockNumber";
   }
 
-  // make a mercury compatible interface + automation compatible interface => generate ABI
-  // values => chainlinkblobs
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
-    //    this is where they do something with the chainlinkBlobHex
-    return (true, extraData);
+    bytes memory performData = new bytes(0);
+    for (uint256 i = 0; i < values.length; i++) {
+      performData = bytes.concat(performData, values[i]);
+    }
+    performData = bytes.concat(performData, extraData);
+    return (true, performData);
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
@@ -51,7 +50,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     }
     lastBlock = block.number;
     counter = counter + 1;
-    emit MercuryEvent(tx.origin, performData);
+    emit MercuryEvent(tx.origin, msg.sender, performData);
     previousPerformBlock = lastBlock;
   }
 

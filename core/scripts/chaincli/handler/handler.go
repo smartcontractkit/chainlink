@@ -307,9 +307,9 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			"CL_CONFIG=" + extraTOML,
 			"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
 			"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
-			"MERCURY_ID=" + os.Getenv("MERCURY_ID"),
-			"MERCURY_KEY=" + os.Getenv("MERCURY_KEY"),
-			"MERCURY_URL=" + os.Getenv("MERCURY_URL"),
+			"CL_MERCURY_ID=" + os.Getenv("MERCURY_ID"),
+			"CL_MERCURY_KEY=" + os.Getenv("MERCURY_KEY"),
+			"CL_MERCURY_URL=" + os.Getenv("MERCURY_URL"),
 		},
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
