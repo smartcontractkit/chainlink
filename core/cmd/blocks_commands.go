@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 
@@ -70,14 +69,10 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode != http.StatusOK {
-		bytes, err2 := cli.parseResponse(resp)
-		if err2 != nil {
-			return errors.Wrap(err2, "parseResponse error")
-		}
-		return cli.errorOut(errors.New(string(bytes)))
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
 	}
-
-	err = cli.printResponseBody(resp)
-	return err
+	fmt.Println("Replay started")
+	return nil
 }

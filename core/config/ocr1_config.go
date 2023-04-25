@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // OCR1Config is a subset of global config relevant to OCR v1.

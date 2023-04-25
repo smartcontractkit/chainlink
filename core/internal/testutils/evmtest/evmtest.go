@@ -1,34 +1,38 @@
 package evmtest
 
 import (
-	"database/sql"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
+	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainScopedConfig {
@@ -50,12 +54,14 @@ func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainSc
 type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
+	LogPoller      logpoller.LogPoller
 	GeneralConfig  evm.GeneralConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
-	TxManager      txmgr.TxManager
+	TxManager      txmgr.EvmTxManager
 	KeyStore       keystore.Eth
 	MailMon        *utils.MailboxMonitor
+	GasEstimator   gas.EvmFeeEstimator
 }
 
 // NewChainSet returns a simple chain collection with one chain and
@@ -75,6 +81,7 @@ func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
 }
 
 func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
+	require.NotNil(t, testopts.KeyStore)
 	opts := evm.ChainSetOpts{
 		Config:           testopts.GeneralConfig,
 		Logger:           logger.TestLogger(t),
@@ -82,6 +89,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 		KeyStore:         testopts.KeyStore,
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 		MailMon:          testopts.MailMon,
+		GasEstimator:     testopts.GasEstimator,
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -94,18 +102,28 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 			return testopts.LogBroadcaster
 		}
 	}
+	if testopts.LogPoller != nil {
+		opts.GenLogPoller = func(*big.Int) logpoller.LogPoller {
+			return testopts.LogPoller
+		}
+	}
 	if testopts.HeadTracker != nil {
 		opts.GenHeadTracker = func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func(*big.Int) txmgr.TxManager {
+		opts.GenTxManager = func(*big.Int) txmgr.EvmTxManager {
 			return testopts.TxManager
 		}
 	}
 	if opts.MailMon == nil {
 		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	}
+	if testopts.GasEstimator != nil {
+		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
+			return testopts.GasEstimator
+		}
 	}
 
 	return opts
@@ -117,134 +135,170 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 	return chain
 }
 
-type MockORM struct {
-	mu     sync.RWMutex
-	chains map[string]evmtypes.ChainConfig
-	nodes  map[string][]evmtypes.Node
+type TestConfigs struct {
+	mu sync.RWMutex
+	v2.EVMConfigs
 }
 
-var _ evmtypes.ORM = &MockORM{}
+var _ evmtypes.Configs = &TestConfigs{}
 
-func NewMockORM(chains []evmtypes.ChainConfig, nodes []evmtypes.Node) *MockORM {
-	mo := &MockORM{
-		chains: make(map[string]evmtypes.ChainConfig),
-		nodes:  make(map[string][]evmtypes.Node),
-	}
-	mo.PutChains(chains...)
-	mo.AddNodes(nodes...)
-	return mo
+func NewTestConfigs(cs ...*v2.EVMConfig) *TestConfigs {
+	return &TestConfigs{EVMConfigs: v2.EVMConfigs(cs)}
 }
 
-func (mo *MockORM) PutChains(cs ...evmtypes.ChainConfig) {
-	for _, c := range cs {
-		mo.chains[c.ID.String()] = c
-	}
-}
-
-func (mo *MockORM) AddNodes(ns ...evmtypes.Node) {
-	for _, n := range ns {
-		id := n.EVMChainID.String()
-		mo.nodes[id] = append(mo.nodes[id], n)
+func (mo *TestConfigs) PutChains(cs ...v2.EVMConfig) {
+	mo.mu.Lock()
+	defer mo.mu.Unlock()
+chains:
+	for i := range cs {
+		id := cs[i].ChainID.String()
+		for j, c2 := range mo.EVMConfigs {
+			if c2.ChainID.String() == id {
+				mo.EVMConfigs[j] = &cs[i] // replace
+				continue chains
+			}
+		}
+		mo.EVMConfigs = append(mo.EVMConfigs, &cs[i])
 	}
 }
 
-func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.ChainConfig, error) {
+func (mo *TestConfigs) Chains(offset int, limit int, ids ...utils.Big) (cs []chains.ChainConfig, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
-	c, ok := mo.chains[id.String()]
-	if !ok {
-		return evmtypes.ChainConfig{}, sql.ErrNoRows
+	if len(ids) == 0 {
+		for _, c := range mo.EVMConfigs {
+			c2 := chains.ChainConfig{
+				ID:      c.ChainID.String(),
+				Enabled: c.IsEnabled(),
+			}
+			c2.Cfg, err = c.TOMLString()
+			if err != nil {
+				return
+			}
+			cs = append(cs, c2)
+		}
+		count = len(cs)
+		return
 	}
-	return c, nil
-}
-
-func (mo *MockORM) Chains(offset int, limit int, qopts ...pg.QOpt) (chains []evmtypes.ChainConfig, count int, err error) {
-	mo.mu.RLock()
-	defer mo.mu.RUnlock()
-	chains = maps.Values(mo.chains)
-	count = len(chains)
+	for i := range mo.EVMConfigs {
+		c := mo.EVMConfigs[i]
+		if !slices.ContainsFunc(ids, func(id utils.Big) bool {
+			return id.Cmp(c.ChainID) == 0
+		}) {
+			continue
+		}
+		c2 := chains.ChainConfig{
+			ID:      c.ChainID.String(),
+			Enabled: c.IsEnabled(),
+		}
+		c2.Cfg, err = c.TOMLString()
+		if err != nil {
+			return
+		}
+		cs = append(cs, c2)
+	}
+	count = len(cs)
 	return
 }
 
-func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.ChainConfig, err error) {
+// Nodes implements evmtypes.Configs
+func (mo *TestConfigs) Nodes(chainID utils.Big) (nodes []evmtypes.Node, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
-	for _, id := range ids {
-		c, ok := mo.chains[id.String()]
-		if ok {
-			chains = append(chains, c)
+
+	for i := range mo.EVMConfigs {
+		c := mo.EVMConfigs[i]
+		if chainID.Cmp(c.ChainID) == 0 {
+			for _, n := range c.Nodes {
+				nodes = append(nodes, legacyNode(n, c.ChainID))
+			}
 		}
 	}
+	err = chains.ErrNotFound
 	return
 }
 
-// Nodes implements evmtypes.ORM
-func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) (nodes []evmtypes.Node, cnt int, err error) {
+func (mo *TestConfigs) Node(name string) (evmtypes.Node, error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
-	for _, ns := range maps.Values(mo.nodes) {
-		nodes = append(nodes, ns...)
+
+	for i := range mo.EVMConfigs {
+		c := mo.EVMConfigs[i]
+		for _, n := range c.Nodes {
+			if *n.Name == name {
+				return legacyNode(n, c.ChainID), nil
+			}
+		}
+	}
+	return evmtypes.Node{}, chains.ErrNotFound
+}
+
+func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...string) (nodes []chains.NodeStatus, cnt int, err error) {
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+
+	for i := range mo.EVMConfigs {
+		c := mo.EVMConfigs[i]
+		id := c.ChainID.String()
+		if !slices.Contains(chainIDs, id) {
+			continue
+		}
+		for _, n := range c.Nodes {
+			var n2 chains.NodeStatus
+			n2, err = nodeStatus(n, id)
+			if err != nil {
+				return
+			}
+			nodes = append(nodes, n2)
+		}
 	}
 	cnt = len(nodes)
 	return
 }
 
-func (mo *MockORM) NodeNamed(name string, opt ...pg.QOpt) (evmtypes.Node, error) {
-	mo.mu.RLock()
-	defer mo.mu.RUnlock()
-	for _, ns := range maps.Values(mo.nodes) {
-		for _, n := range ns {
-			if n.Name == name {
-				return n, nil
-			}
-		}
+func legacyNode(n *v2.Node, chainID *utils.Big) (v2 evmtypes.Node) {
+	v2.Name = *n.Name
+	v2.EVMChainID = *chainID
+	if n.HTTPURL != nil {
+		v2.HTTPURL = null.StringFrom(n.HTTPURL.String())
 	}
-	return evmtypes.Node{}, sql.ErrNoRows
-}
-
-// GetNodesByChainIDs implements evmtypes.ORM
-func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []evmtypes.Node, err error) {
-	ids := map[string]struct{}{}
-	for _, chainID := range chainIDs {
-		ids[chainID.String()] = struct{}{}
+	if n.WSURL != nil {
+		v2.WSURL = null.StringFrom(n.WSURL.String())
 	}
-	mo.mu.RLock()
-	defer mo.mu.RUnlock()
-	for _, ns := range maps.Values(mo.nodes) {
-		for _, n := range ns {
-			if _, ok := ids[n.EVMChainID.String()]; ok {
-				nodes = append(nodes, n)
-			}
-		}
+	if n.SendOnly != nil {
+		v2.SendOnly = *n.SendOnly
 	}
 	return
 }
 
-// NodesForChain implements evmtypes.ORM
-func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
-	panic("not implemented")
+func nodeStatus(n *v2.Node, chainID string) (chains.NodeStatus, error) {
+	var s chains.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return chains.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
 }
 
-func (mo *MockORM) EnsureChains([]utils.Big, ...pg.QOpt) error {
-	panic("not implemented")
+func NewEthClientMock(t *testing.T) *evmclimocks.Client {
+	return evmclimocks.NewClient(t)
 }
 
-func NewEthClientMock(t *testing.T) *evmMocks.Client {
-	return evmMocks.NewClient(t)
-}
-
-func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
+func NewEthClientMockWithDefaultChain(t *testing.T) *evmclimocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(testutils.FixtureChainID).Maybe()
 	return c
 }
 
 type MockEth struct {
-	EthClient       *evmMocks.Client
+	EthClient       *evmclimocks.Client
 	CheckFilterLogs func(int64, int64)
 
 	subsMu           sync.RWMutex
-	subs             []*evmMocks.Subscription
+	subs             []*evmclimocks.Subscription
 	errChs           []chan error
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
@@ -260,7 +314,7 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Add(1)
-	sub := evmMocks.NewSubscription(t)
+	sub := evmclimocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
 		Return(func() <-chan error { return errCh }).Maybe()

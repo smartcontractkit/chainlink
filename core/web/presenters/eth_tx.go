@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // EthTxResource represents a Ethereum Transaction JSONAPI resource.
@@ -37,7 +37,7 @@ func (EthTxResource) GetName() string {
 // For backwards compatibility, there is no id set when initializing from an
 // EthTx as the id being used was the EthTxAttempt Hash.
 // This should really use it's proper id
-func NewEthTxResource(tx txmgr.EthTx) EthTxResource {
+func NewEthTxResource(tx txmgr.EvmTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
 		From:       &tx.FromAddress,
@@ -49,11 +49,11 @@ func NewEthTxResource(tx txmgr.EthTx) EthTxResource {
 	}
 }
 
-func NewEthTxResourceFromAttempt(txa txmgr.EthTxAttempt) EthTxResource {
+func NewEthTxResourceFromAttempt(txa txmgr.EvmTxAttempt) EthTxResource {
 	tx := txa.EthTx
 
 	r := NewEthTxResource(tx)
-	r.JAID = NewJAID(txa.Hash.Hex())
+	r.JAID = NewJAID(txa.Hash.String())
 	r.GasPrice = txa.GasPrice.ToInt().String()
 	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)

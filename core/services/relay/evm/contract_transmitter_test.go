@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -14,18 +13,19 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	lpmocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var sampleAddress = testutils.NewAddress()
 
 type mockTransmitter struct{}
 
-func (mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte) error {
+func (mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, _ *txmgr.EthTxMeta) error {
 	return nil
 }
 func (mockTransmitter) FromAddress() gethcommon.Address { return sampleAddress }
@@ -34,7 +34,7 @@ func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	c := evmmocks.NewClient(t)
+	c := evmclimocks.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	// scanLogs = false
 	digestAndEpochDontScanLogs, _ := hex.DecodeString(
@@ -44,7 +44,9 @@ func TestContractTransmitter(t *testing.T) {
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(digestAndEpochDontScanLogs, nil).Once()
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, mockTransmitter{}, lp, lggr)
+	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.EthTxMeta, error) {
+		return &txmgr.EthTxMeta{}, nil
+	})
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -67,5 +69,5 @@ func TestContractTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-	assert.Equal(t, fmt.Sprintf("0x%x", sampleAddress), string(ot.FromAccount()))
+	assert.Equal(t, sampleAddress.String(), string(ot.FromAccount()))
 }

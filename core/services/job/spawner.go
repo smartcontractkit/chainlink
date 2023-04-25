@@ -10,14 +10,13 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Spawner --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Delegate --output ./mocks/ --case=underscore
 
 type (
 	// Spawner manages the spinning up and down of the long-running
@@ -66,6 +65,12 @@ type (
 		ServicesForSpec(spec Job) ([]ServiceCtx, error)
 		AfterJobCreated(spec Job)
 		BeforeJobDeleted(spec Job)
+		// OnDeleteJob will be called from within DELETE db transaction.  Any db
+		// commands issued within OnDeleteJob() should be performed first, before any
+		// non-db side effects.  This is required in order to guarantee mutual atomicity between
+		// all tasks intended to happen during job deletion.  For the same reason, the job will
+		// not show up in the db within OnDeleteJob(), even though it is still actively running.
+		OnDeleteJob(spec Job, q pg.Queryer) error
 	}
 
 	activeJob struct {
@@ -211,8 +216,6 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		err = ms.Start(ctx, srv)
 		if err != nil {
 			js.lggr.Critical("Error starting service for job", "jobID", jb.ID, "error", err)
-			werr := pkgerrors.Wrapf(err, "failed to start service for job %d", jb.ID)
-			js.SvcErrBuffer.Append(werr)
 			return err
 		}
 		aj.services = append(aj.services, srv)
@@ -232,15 +235,10 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	}
 
 	q := js.q.WithOpts(qopts...)
-	if q.ParentCtx != nil {
-		ctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
-		defer cancel()
-		q.ParentCtx = ctx
-	} else {
-		ctx, cancel := utils.ContextFromChan(js.chStop)
-		defer cancel()
-		q.ParentCtx = ctx
-	}
+	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
+	defer cancel()
+	q.ParentCtx = pctx
+
 	ctx, cancel := q.Context()
 	defer cancel()
 
@@ -252,7 +250,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 
 	delegate.BeforeJobCreated(*jb)
-	err = js.StartService(q.ParentCtx, *jb)
+	err = js.StartService(pctx, *jb)
 	if err != nil {
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "error", err)
 	} else {
@@ -281,7 +279,11 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		aj, exists = js.activeJobs[jobID]
 	}()
 
-	ctx, cancel := utils.ContextFromChan(js.chStop)
+	q := js.q.WithOpts(qopts...)
+	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
+	defer cancel()
+	q.ParentCtx = pctx
+	ctx, cancel := q.Context()
 	defer cancel()
 
 	if !exists { // inactive, so look up the spec and delegate
@@ -300,24 +302,37 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 			return pkgerrors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
 		}
 	}
-	lggr.Debugw("Callback: BeforeJobDeleted")
-	aj.delegate.BeforeJobDeleted(aj.spec)
-	lggr.Debugw("Callback: BeforeJobDeleted done")
 
-	err := js.orm.DeleteJob(jobID, append(qopts, pg.WithParentCtx(ctx))...)
-	if err != nil {
-		js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
-		return err
-	}
+	lggr.Debugw("Callback: BeforeDeleteJob")
+	aj.delegate.BeforeJobDeleted(aj.spec)
+	lggr.Debugw("Callback: BeforeDeleteJob done")
+
+	err := q.Transaction(func(tx pg.Queryer) error {
+		err := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
+		if err != nil {
+			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
+			return err
+		}
+		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if
+		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in OnDeleteJob()
+		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
+		lggr.Debugw("Callback: OnDeleteJob")
+		err = aj.delegate.OnDeleteJob(aj.spec, tx)
+		if err != nil {
+			return err
+		}
+
+		lggr.Debugw("Callback: OnDeleteJob done")
+		return nil
+	})
 
 	if exists {
 		// Stop the service and remove the job from memory, which will always happen even if closing the services fail.
 		js.stopService(jobID)
 	}
-
 	lggr.Infow("Stopped and deleted job")
 
-	return nil
+	return err
 }
 
 func (js *spawner) ActiveJobs() map[int32]Job {
@@ -357,6 +372,7 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
-func (n *NullDelegate) BeforeJobCreated(spec Job) {}
-func (n *NullDelegate) AfterJobCreated(spec Job)  {}
-func (n *NullDelegate) BeforeJobDeleted(spec Job) {}
+func (n *NullDelegate) BeforeJobCreated(spec Job)                {}
+func (n *NullDelegate) AfterJobCreated(spec Job)                 {}
+func (n *NullDelegate) BeforeJobDeleted(spec Job)                {}
+func (n *NullDelegate) OnDeleteJob(spec Job, q pg.Queryer) error { return nil }

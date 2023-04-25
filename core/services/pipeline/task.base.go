@@ -5,7 +5,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 type BaseTask struct {

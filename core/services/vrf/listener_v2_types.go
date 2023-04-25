@@ -7,13 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // batchFulfillment contains all the information needed in order to
@@ -141,7 +143,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
-	var ethTX txmgr.EthTx
+	var ethTX txmgrtypes.Transaction
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -158,7 +160,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
@@ -178,7 +180,7 @@ func (lsn *listenerV2) processBatch(
 		ll.Errorw("Error enqueuing batch fulfillments, requeuing requests", "err", err)
 		return
 	}
-	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
+	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.GetID())
 
 	// mark requests as processed since the fulfillment has been successfully enqueued
 	// to the txm.

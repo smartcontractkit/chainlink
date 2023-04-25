@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestStarkNetKeys_ExportImport(t *testing.T) {

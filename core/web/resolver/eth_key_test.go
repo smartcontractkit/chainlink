@@ -9,12 +9,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestResolver_ETHKeys(t *testing.T) {
@@ -53,7 +53,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 	gError := errors.New("error")
 	keysError := fmt.Errorf("error getting unlocked keys: %v", gError)
 	statesError := fmt.Errorf("error getting key states: %v", gError)
-	chainError := fmt.Errorf("error getting EVM Chain: %v", gError)
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "ethKeys"),
@@ -84,7 +83,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.evmORM.PutChains(types.ChainConfig{ID: chainID})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
@@ -130,7 +129,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, evm.ErrNoChains)
-				f.Mocks.evmORM.PutChains(types.ChainConfig{ID: chainID})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
@@ -228,7 +227,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			},
 		},
 		{
-			name:          "generic error on #chainSet.Get()",
+			name:          "Empty set on #chainSet.Get()",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
@@ -249,16 +248,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
-			query:  query,
-			result: `null`,
-			errors: []*gqlerrors.QueryError{
+			query: query,
+			result: `
 				{
-					Extensions:    nil,
-					ResolverError: chainError,
-					Path:          []interface{}{"ethKeys"},
-					Message:       chainError.Error(),
-				},
-			},
+					"ethKeys": {
+						"results": []
+					}
+				}`,
 		},
 		{
 			name:          "generic error on GetLINKBalance()",
@@ -290,7 +286,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
-				f.Mocks.evmORM.PutChains(types.ChainConfig{ID: chainID})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query: query,
@@ -340,7 +336,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.evmORM.PutChains(types.ChainConfig{ID: chainID})
+				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)

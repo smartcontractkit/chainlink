@@ -27,45 +27,47 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	evmlogger "github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_proxy_admin"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_reverting_example"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_proxy_admin"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // vrfConsumerContract is the common interface implemented by
@@ -92,6 +94,8 @@ type coordinatorV2Universe struct {
 	linkEthFeedAddress               common.Address
 	bhsContract                      *blockhash_store.BlockhashStore
 	bhsContractAddress               common.Address
+	batchBHSContract                 *batch_blockhash_store.BatchBlockhashStore
+	batchBHSContractAddress          common.Address
 	maliciousConsumerContract        *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
 	maliciousConsumerContractAddress common.Address
 	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
@@ -175,6 +179,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	// Deploy blockhash store
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend)
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
+
+	// Deploy batch blockhash store
+	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend, bhsAddress)
+	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
 
 	// Deploy VRF V2 coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
@@ -317,6 +325,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		linkEthFeedAddress:               linkEthFeed,
 		bhsContract:                      bhsContract,
 		bhsContractAddress:               bhsAddress,
+		batchBHSContract:                 batchBHSContract,
+		batchBHSContractAddress:          batchBHSAddress,
 		maliciousConsumerContract:        maliciousConsumerContract,
 		maliciousConsumerContractAddress: maliciousConsumerContractAddress,
 		backend:                          backend,
@@ -621,7 +631,7 @@ func assertNumRandomWords(
 func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []txmgr.EthTx
+		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -641,7 +651,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []txmgr.EthTx
+		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -649,7 +659,9 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 		`, subID)
 		require.NoError(t, err)
 		for _, tx := range txs {
-			meta, err := tx.GetMeta()
+			var evmTx txmgr.EvmTx
+			txmgr.DbEthTxToEthTx(tx, &evmTx)
+			meta, err := evmTx.GetMeta()
 			require.NoError(t, err)
 			t.Log("meta:", meta)
 			for _, requestID := range meta.RequestIDs {
@@ -1153,6 +1165,22 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
 	testMultipleConsumersNeedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress)
+}
+
+func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	testBlockHeaderFeeder(
 		t,
 		ownerKey,
 		uni,
@@ -1946,10 +1974,10 @@ func TestMaliciousConsumer(t *testing.T) {
 
 	// We expect the request to be serviced
 	// by the node.
-	var attempts []txmgr.EthTxAttempt
+	var attempts []txmgr.EvmTxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
-		attempts, _, err = app.TxmORM().EthTxAttempts(0, 1000)
+		attempts, _, err = app.TxmStorageService().EthTxAttempts(0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
@@ -2097,7 +2125,7 @@ func TestMaxConsumersCost(t *testing.T) {
 		uni.rootContractAddress, uni.coordinatorABI,
 		"removeConsumer", subId, carolContractAddress)
 	t.Log(estimate)
-	assert.Less(t, estimate, uint64(265000))
+	assert.Less(t, estimate, uint64(310000))
 	estimate = estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
 		"addConsumer", subId, testutils.NewAddress())
@@ -2247,7 +2275,7 @@ func TestStartingCountsV1(t *testing.T) {
 	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
 	chainID := utils.NewBig(big.NewInt(1337))
-	confirmedTxes := []txmgr.EthTx{
+	confirmedTxes := []txmgr.EvmTx{
 		{
 			Nonce:              &n1,
 			FromAddress:        k.Address,
@@ -2298,7 +2326,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 	}
 	// add unconfirmed txes
-	unconfirmedTxes := []txmgr.EthTx{}
+	unconfirmedTxes := []txmgr.EvmTx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
 		md, err := json.Marshal(&txmgr.EthTxMeta{
@@ -2307,7 +2335,7 @@ func TestStartingCountsV1(t *testing.T) {
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
 		newNonce := i + 1
-		unconfirmedTxes = append(unconfirmedTxes, txmgr.EthTx{
+		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmTx{
 			Nonce:              &newNonce,
 			FromAddress:        k.Address,
 			Error:              null.String{},
@@ -2324,33 +2352,35 @@ func TestStartingCountsV1(t *testing.T) {
 	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, initial_broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :initial_broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
 	for _, tx := range txes {
-		_, err = db.NamedExec(sql, &tx)
+		dbEtx := txmgr.DbEthTxFromEthTx(&tx)
+		_, err = db.NamedExec(sql, &dbEtx)
+		txmgr.DbEthTxToEthTx(dbEtx, &tx)
 		require.NoError(t, err)
 	}
 
 	// add eth_tx_attempts for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := []txmgr.EthTxAttempt{}
+	txAttempts := []txmgr.EvmTxAttempt{}
 	for i := range confirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
+		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
 			EthTxID:                 int64(i + 1),
 			GasPrice:                assets.NewWeiI(100),
 			SignedRawTx:             []byte(`blah`),
 			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
-			State:                   txmgr.EthTxAttemptBroadcast,
+			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
 			ChainSpecificGasLimit:   uint32(100),
 		})
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
+		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
 			EthTxID:               int64(i + 1 + len(confirmedTxes)),
 			GasPrice:              assets.NewWeiI(100),
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  utils.NewHash(),
-			State:                 txmgr.EthTxAttemptInProgress,
+			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint32(100),
 		})
@@ -2361,7 +2391,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
 	for _, attempt := range txAttempts {
-		_, err = db.NamedExec(sql, &attempt)
+		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt)
+		_, err = db.NamedExec(sql, &dbAttempt)
+		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt)
 		require.NoError(t, err)
 	}
 
@@ -2373,14 +2405,15 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,
-			Receipt:          evmtypes.Receipt{},
+			Receipt:          &evmtypes.Receipt{},
 			CreatedAt:        time.Now(),
 		})
 	}
 	sql = `INSERT INTO eth_receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
-		_, err := db.NamedExec(sql, &r)
+		dbReceipt := txmgr.DbReceiptFromEvmReceipt(&r)
+		_, err := db.NamedExec(sql, &dbReceipt)
 		require.NoError(t, err)
 	}
 

@@ -38,3 +38,19 @@ func (l Limit) Value() (driver.Value, error) {
 	}
 	return l, nil
 }
+
+var _ QConfig = &qConfig{}
+
+// qConfig implements pg.QCOnfig
+type qConfig struct {
+	logSQL              bool
+	defaultQueryTimeout time.Duration
+}
+
+func NewQConfig(logSQL bool) QConfig {
+	return &qConfig{logSQL, DefaultQueryTimeout}
+}
+
+func (p *qConfig) LogSQL() bool { return p.logSQL }
+
+func (p *qConfig) DatabaseDefaultQueryTimeout() time.Duration { return p.defaultQueryTimeout }

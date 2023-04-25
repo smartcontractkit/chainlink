@@ -5,7 +5,6 @@ import (
 	"context"
 	"math/big"
 	"net/http"
-	"reflect"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,45 +17,48 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
+	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
@@ -82,11 +84,11 @@ type Application interface {
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
-	EVMORM() evmtypes.ORM
+	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
-	TxmORM() txmgr.ORM
+	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -119,7 +121,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
-	txmORM                   txmgr.ORM
+	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -162,11 +164,15 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
+	Cosmos   cosmos.ChainSet   // nil if disabled
 	Solana   solana.ChainSet   // nil if disabled
 	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
+	if c.Cosmos != nil {
+		s = append(s, c.Cosmos)
+	}
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
@@ -281,7 +287,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg)
 	)
 
 	srvcs = append(srvcs, pipelineORM)
@@ -323,6 +329,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
+				globalLogger,
+				chains.EVM,
+				keyStore.Eth()),
+			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
@@ -379,6 +389,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
+		}
+		if cfg.CosmosEnabled() {
+			cosmosRelayer := pkgcosmos.NewRelayer(globalLogger.Named("Cosmos.Relayer"), chains.Cosmos)
+			relayers[relay.Cosmos] = cosmosRelayer
+			srvcs = append(srvcs, cosmosRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
@@ -460,7 +475,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
 		sessionORM:               sessionORM,
-		txmORM:                   txmORM,
+		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -534,7 +549,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 			return multierr.Combine(err, ms.Close())
 		}
 
-		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
+		app.logger.Debugw("Starting service...", "name", service.Name())
 
 		if err := ms.Start(ctx, service); err != nil {
 			return err
@@ -587,7 +602,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		// Stop services in the reverse order from which they were started
 		for i := len(app.srvcs) - 1; i >= 0; i-- {
 			service := app.srvcs[i]
-			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			app.logger.Debugw("Closing service...", "name", service.Name())
 			err = multierr.Append(err, service.Close())
 		}
 
@@ -651,16 +666,16 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 	return app.sessionORM
 }
 
-func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
-	return app.Chains.EVM.ORM()
+func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
+	return app.Chains.EVM.Configs()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmORM() txmgr.ORM {
-	return app.txmORM
+func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
+	return app.txmStorageService
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
@@ -705,7 +720,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	meta map[string]interface{},
 ) (int64, error) {
 	if !app.GetConfig().Dev() {
-		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
+		return 0, errors.New("manual job runs only supported in dev mode - export CL_DEV=true to use")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
@@ -782,9 +797,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	if app.Config.FeatureLogPoller() {
-		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
-			return err
-		}
+		chain.LogPoller().ReplayAsync(int64(number))
 	}
 	return nil
 }

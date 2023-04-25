@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 func TestInt64From(t *testing.T) {

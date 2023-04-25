@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ type TransactionsController struct {
 
 // Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.TxmORM().EthTransactionsWithAttempts(offset, size)
+	txs, count, err := tc.App.TxmStorageService().EthTransactionsWithAttempts(offset, size)
 	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
 		tx.EthTxAttempts[0].EthTx = tx
@@ -35,7 +35,7 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 
-	ethTxAttempt, err := tc.App.TxmORM().FindEthTxAttempt(hash)
+	ethTxAttempt, err := tc.App.TxmStorageService().FindEthTxAttempt(hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 		return

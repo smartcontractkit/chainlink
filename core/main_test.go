@@ -1,18 +1,18 @@
 //go:build !windows
 // +build !windows
 
-package main
+package core
 
 import (
 	"io"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func init() {
@@ -91,10 +91,12 @@ func ExampleRun_admin() {
 	//    core.test admin command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    chpass  Change your API password remotely
-	//    login   Login to remote client by creating a session cookie
-	//    logout  Delete any local sessions
-	//    users   Create, edit permissions, or delete API users
+	//    chpass   Change your API password remotely
+	//    login    Login to remote client by creating a session cookie
+	//    logout   Delete any local sessions
+	//    profile  Collects profile metrics from the node.
+	//    status   Displays the health of various services running inside the node.
+	//    users    Create, edit permissions, or delete API users
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -164,7 +166,6 @@ func ExampleRun_config() {
 	//    show      Show the application configuration
 	//    loglevel  Set log level
 	//    logsql    Enable/disable SQL statement logging
-	//    validate  Validate provided TOML config file, and print the full effective configuration, with defaults included
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -205,6 +206,7 @@ func ExampleRun_keys() {
 	//    csa         Remote commands for administering the node's CSA keys
 	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
+	//    cosmos      Remote commands for administering the node's Cosmos keys
 	//    solana      Remote commands for administering the node's Solana keys
 	//    starknet    Remote commands for administering the node's StarkNet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
@@ -335,6 +337,26 @@ func ExampleRun_keys_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_keys_cosmos() {
+	Run("keys", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys cosmos - Remote commands for administering the node's Cosmos keys
+	//
+	// USAGE:
+	//    core.test keys cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Cosmos key
+	//    import  Import Cosmos key from keyfile
+	//    export  Export Cosmos key to keyfile
+	//    delete  Delete Cosmos key if present
+	//    list    List the Cosmos keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_keys_starknet() {
 	Run("keys", "starknet", "--help")
 	// Output:
@@ -427,12 +449,13 @@ func ExampleRun_node() {
 	// COMMANDS:
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
-	//    status                    Displays the health of various services running inside the node.
-	//    profile                   Collects profile metrics from the node.
+	//    validate                  Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:
-	//    --help, -h  show help
+	//    --config value, -c value   TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
+	//    --secrets value, -s value  TOML configuration file for secrets. Must be set if and only if config is set.
+	//    --help, -h                 show help
 }
 
 func ExampleRun_node_start() {
@@ -449,8 +472,6 @@ func ExampleRun_node_start() {
 	//    --debug, -d                      set logger level to debug
 	//    --password value, -p value       text file holding the password for the node's account
 	//    --vrfpassword value, --vp value  text file holding the password for the vrf keys; enables Chainlink VRF oracle
-	//    --config value, -c value         TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
-	//    --secrets value, -s value        TOML configuration file for secrets. Must be set if and only if config is set.
 }
 
 func ExampleRun_node_db() {
@@ -497,6 +518,7 @@ func ExampleRun_txs() {
 	//
 	// COMMANDS:
 	//    evm     Commands for handling EVM transactions
+	//    cosmos  Commands for handling Cosmos transactions
 	//    solana  Commands for handling Solana transactions
 	//
 	// OPTIONS:
@@ -537,6 +559,22 @@ func ExampleRun_txs_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_txs_cosmos() {
+	Run("txs", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs cosmos - Commands for handling Cosmos transactions
+	//
+	// USAGE:
+	//    core.test txs cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_chains() {
 	Run("chains", "--help")
 	// Output:
@@ -548,6 +586,7 @@ func ExampleRun_chains() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM chains
+	//    cosmos    Commands for handling Cosmos chains
 	//    solana    Commands for handling Solana chains
 	//    starknet  Commands for handling StarkNet chains
 	//
@@ -603,6 +642,22 @@ func ExampleRun_chains_starknet() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_chains_cosmos() {
+	Run("chains", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains cosmos - Commands for handling Cosmos chains
+	//
+	// USAGE:
+	//    core.test chains cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list  List all existing Cosmos chains
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_nodes() {
 	Run("nodes", "--help")
 	// Output:
@@ -614,6 +669,7 @@ func ExampleRun_nodes() {
 	//
 	// COMMANDS:
 	//    evm       Commands for handling EVM node configuration
+	//    cosmos    Commands for handling Cosmos node configuration
 	//    solana    Commands for handling Solana node configuration
 	//    starknet  Commands for handling StarkNet node configuration
 	//
@@ -677,6 +733,22 @@ func ExampleRun_nodes_starknet() {
 	//
 	// COMMANDS:
 	//    list  List all existing StarkNet nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_cosmos() {
+	Run("nodes", "cosmos", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes cosmos - Commands for handling Cosmos node configuration
+	//
+	// USAGE:
+	//    core.test nodes cosmos command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list  List all existing Cosmos nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

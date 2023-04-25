@@ -3,8 +3,8 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/core/assets"
-	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
 	big "math/big"
 
@@ -12,21 +12,21 @@ import (
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
+	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 
-	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	net "net"
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
-	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
 
@@ -34,7 +34,7 @@ import (
 
 	url "net/url"
 
-	utils "github.com/smartcontractkit/chainlink/core/utils"
+	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -606,6 +606,20 @@ func (_m *ChainScopedConfig) ChainType() coreconfig.ChainType {
 	return r0
 }
 
+// CosmosEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) CosmosEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // DatabaseBackupDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseBackupDir() string {
 	ret := _m.Called()
@@ -836,6 +850,34 @@ func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
 
 // Dev provides a mock function with given fields:
 func (_m *ChainScopedConfig) Dev() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// DevWebServer provides a mock function with given fields:
+func (_m *ChainScopedConfig) DevWebServer() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// DisableRateLimiting provides a mock function with given fields:
+func (_m *ChainScopedConfig) DisableRateLimiting() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1643,6 +1685,20 @@ func (_m *ChainScopedConfig) HTTPServerWriteTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// InfiniteDepthQueries provides a mock function with given fields:
+func (_m *ChainScopedConfig) InfiniteDepthQueries() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2460,6 +2516,20 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// OCRDevelopmentMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRDevelopmentMode() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

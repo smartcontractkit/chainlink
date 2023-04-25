@@ -19,33 +19,32 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
-	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
-	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/promwrapper"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
+	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reportserializer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Delegate struct {
@@ -113,6 +112,76 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
+	// If the job spec is malformed in any way, we report the error but return nil so that
+	//  the job deletion itself isn't blocked.  However, if UnregisterFilter returns an
+	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
+	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
+	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
+	//  at all (no rows deleted).
+
+	spec := jb.OCR2OracleSpec
+	if spec == nil {
+		d.lggr.Errorf("offchainreporting2.Delegate.OnDeleteJob called with wrong job type, ignoring non-OCR2 spec %v", jb)
+		return nil
+	}
+	if spec.Relay != relay.EVM {
+		return nil
+	}
+
+	chainID, err := spec.RelayConfig.EVMChainID()
+	if err != nil {
+		d.lggr.Errorf("OCR2 jobs spec missing chainID")
+		return nil
+	}
+	chain, err := d.chainSet.Get(big.NewInt(chainID))
+	if err != nil {
+		d.lggr.Error(err)
+		return nil
+	}
+	lp := chain.LogPoller()
+
+	var filters []string
+	switch spec.PluginType {
+	case job.OCR2VRF:
+		filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
+		if err != nil {
+			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
+		}
+	case job.OCR2Keeper:
+		filters, err = ocr2keeper.FilterNamesFromSpec(spec)
+		if err != nil {
+			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+		}
+	default:
+		return nil
+	}
+
+	rargs := types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		New:           false,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+	}
+
+	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
+	if err != nil {
+		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
+		return nil
+	}
+
+	filters = append(filters, relayFilters...)
+
+	for _, filter := range filters {
+		d.lggr.Debugf("Unregistering %s filter", filter)
+		err = lp.UnregisterFilter(filter, q)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
+		}
+	}
+	return nil
+}
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -228,8 +297,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
-	var pluginOracle plugins.OraclePlugin
-	var ocr2Provider types.Plugin
 	switch spec.PluginType {
 	case job.Mercury:
 		mercuryProvider, err2 := relayer.NewMercuryProvider(
@@ -416,7 +483,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		reasonableGasPrice := reasonablegasprice.NewReasonableGasPriceProvider(
-			chain.TxManager().GetGasEstimator(),
+			chain.GasEstimator(),
 			timeout,
 			chain.Config().EvmMaxGasPriceWei(),
 			chain.Config().EvmEIP1559DynamicFees(),
@@ -602,7 +669,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = functionsProvider
 
 		var relayConfig evmrelaytypes.RelayConfig
 		err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
@@ -613,57 +679,52 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		pluginORM := drocr_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
-		pluginOracle, err2 = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
-		if err2 != nil {
-			return nil, err2
+
+		sharedOracleArgs := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          functionsProvider.ContractTransmitter(),
+			ContractConfigTracker:        functionsProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
+			OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 		}
+
+		functionsServicesConfig := functions.FunctionsServicesConfig{
+			Job:            jb,
+			PipelineRunner: d.pipelineRunner,
+			JobORM:         d.jobORM,
+			OCR2JobConfig:  d.cfg,
+			DB:             d.db,
+			Chain:          chain,
+			ContractID:     spec.ContractID,
+			Lggr:           lggr,
+			MailMon:        d.mailMon,
+		}
+
+		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
+		}
+
+		// RunResultSaver needs to be started first, so it's available
+		// to read odb writes. It is stopped last after the OraclePlugin is shut down
+		// so no further runs are enqueued, and we can drain the queue.
+		runResultSaver := ocrcommon.NewResultRunSaver(
+			runResults,
+			d.pipelineRunner,
+			make(chan struct{}),
+			lggr,
+			d.cfg.JobPipelineMaxSuccessfulRuns(),
+		)
+
+		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialise plugin")
-	}
-
-	pluginFactory, err := pluginOracle.GetPluginFactory()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get plugin factory")
-	}
-
-	pluginServices, err := pluginOracle.GetServices()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get plugin services")
-	}
-
-	oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
-		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          ocr2Provider.ContractTransmitter(),
-		ContractConfigTracker:        ocr2Provider.ContractConfigTracker(),
-		Database:                     ocrDB,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
-		OffchainConfigDigester:       ocr2Provider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		ReportingPluginFactory:       pluginFactory,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling NewOracle")
-	}
-
-	// RunResultSaver needs to be started first, so it's available
-	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued, and we can drain the queue.
-	runResultSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		d.pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		d.cfg.JobPipelineMaxSuccessfulRuns(),
-	)
-
-	oracleCtx := job.NewServiceAdapter(oracle)
-	return append([]job.ServiceCtx{runResultSaver, ocr2Provider, oracleCtx}, pluginServices...), nil
 }

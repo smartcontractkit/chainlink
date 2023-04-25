@@ -21,6 +21,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -31,23 +32,24 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
 
-func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfigOpts) []cli.Command {
+func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -69,19 +71,8 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 					Name:  "vrfpassword, vp",
 					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
 				},
-				cli.StringSliceFlag{
-					Name:  "config, c",
-					Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
-				},
-				cli.StringFlag{
-					Name:  "secrets, s",
-					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
-				},
 			},
-			Usage: "Run the Chainlink node",
-			Before: func(c *cli.Context) error {
-				return client.setConfigFromFlags(opts, c)
-			},
+			Usage:  "Run the Chainlink node",
 			Action: client.RunNode,
 		},
 		{
@@ -90,15 +81,15 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 			Action: client.RebroadcastTransactions,
 			Flags: []cli.Flag{
 				cli.Uint64Flag{
-					Name:  "beginningNonce, b",
+					Name:  "beginningNonce, beginning-nonce, b",
 					Usage: "beginning of nonce range to rebroadcast",
 				},
 				cli.Uint64Flag{
-					Name:  "endingNonce, e",
+					Name:  "endingNonce, ending-nonce, e",
 					Usage: "end of nonce range to rebroadcast (inclusive)",
 				},
 				cli.Uint64Flag{
-					Name:  "gasPriceWei, g",
+					Name:  "gasPriceWei, gas-price-wei, g",
 					Usage: "gas price (in Wei) to rebroadcast transactions at",
 				},
 				cli.StringFlag{
@@ -106,15 +97,16 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 					Usage: "text file holding the password for the node's account",
 				},
 				cli.StringFlag{
-					Name:  "address, a",
-					Usage: "The address (in hex format) for the key which we want to rebroadcast transactions",
+					Name:     "address, a",
+					Usage:    "The address (in hex format) for the key which we want to rebroadcast transactions",
+					Required: true,
 				},
 				cli.StringFlag{
-					Name:  "evmChainID",
+					Name:  "evmChainID, evm-chain-id",
 					Usage: "Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.",
 				},
 				cli.Uint64Flag{
-					Name:  "gasLimit",
+					Name:  "gasLimit, gas-limit",
 					Usage: "OPTIONAL: gas limit to use for each transaction ",
 				},
 			},
@@ -124,6 +116,11 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 			Usage:  "Displays the health of various services running inside the node.",
 			Action: client.Status,
 			Flags:  []cli.Flag{},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin status` instead.")
+				return nil
+			},
 		},
 		{
 			Name:   "profile",
@@ -141,6 +138,16 @@ func initLocalSubCmds(client *Client, devMode bool, opts *chainlink.GeneralConfi
 					Value: "/tmp/",
 				},
 			},
+			Hidden: true,
+			Before: func(ctx *clipkg.Context) error {
+				client.Logger.Warnf("Command deprecated. Use `admin profile` instead.")
+				return nil
+			},
+		},
+		{
+			Name:   "validate",
+			Usage:  "Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included",
+			Action: client.ConfigFileValidate,
 		},
 		{
 			Name:        "db",
@@ -251,6 +258,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
+	cli.Config.LogConfiguration(lggr.Debug)
+
 	err := cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
@@ -258,8 +267,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
-	if cli.Config.Dev() {
+	if cli.Config.Dev() || build.Dev {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
+
+	if err := utils.EnsureDirAndMaxPerms(cli.Config.RootDir(), os.FileMode(0700)); err != nil {
+		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
 	}
 
 	ldb := pg.NewLockedDB(cli.Config, lggr)
@@ -292,10 +305,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", cli.Config.ShutdownGracePeriod())
 		// LockedDB.Close() will release DB locks and close DB connection
 		// Executing this explicitly because defers are not executed in case of os.Exit()
-		if err = ldb.Close(); err != nil {
+		if err := ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
-		if err = cli.CloseLogger(); err != nil {
+		if err := cli.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
 		}
 
@@ -303,7 +316,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	})
 
 	// Try opening DB connection and acquiring DB locks at once
-	if err = ldb.Open(rootCtx); err != nil {
+	if err := ldb.Open(rootCtx); err != nil {
 		// If not successful, we know neither locks nor connection remains opened
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
@@ -373,6 +386,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
+	if cli.Config.CosmosEnabled() {
+		err2 := app.GetKeyStore().Cosmos().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure cosmos key")
+		}
+	}
 	if cli.Config.SolanaEnabled() {
 		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {
@@ -426,8 +445,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 		return nil
 	})
-
-	cli.Config.LogConfiguration(lggr.Debug)
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 
@@ -507,8 +524,8 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
-	beginningNonce := c.Uint("beginningNonce")
-	endingNonce := c.Uint("endingNonce")
+	beginningNonce := c.Int64("beginningNonce")
+	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint("gasLimit")
 	addressHex := c.String("address")
@@ -540,10 +557,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
-	pwd, err := utils.PasswordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
+
 	chain, err := app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		return cli.errorOut(err)
@@ -557,21 +571,40 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return err
 	}
 
-	err = keyStore.Unlock(pwd)
+	if c.IsSet("password") {
+		pwd, err := utils.PasswordFromFile(c.String("password"))
+		if err != nil {
+			return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+		}
+		cli.Config.SetPasswords(&pwd, nil)
+	}
+
+	err = cli.Config.Validate()
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+	}
+
+	err = keyStore.Unlock(cli.Config.KeystorePassword())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
-
-	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
-	if err != nil {
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
-	orm := txmgr.NewORM(app.GetSqlxDB(), lggr, cli.Config)
-	ec := txmgr.NewEthConfirmer(orm, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
-	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, uint32(overrideGasLimit))
+	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+
+	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
+	cfg := txmgr.NewEvmTxmConfig(chain.Config())
+	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
+	totalNonces := endingNonce - beginningNonce + 1
+	nonces := make([]evmtypes.Nonce, totalNonces)
+	for i := int64(0); i < totalNonces; i++ {
+		nonces[i] = evmtypes.Nonce(beginningNonce + i)
+	}
+	err = ec.ForceRebroadcast(nonces, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 
@@ -615,22 +648,20 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// Status will display the health of various services
-func (cli *Client) Status(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
-}
-
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+// ConfigValidate validate the client configuration and pretty-prints results
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	fmt.Println("Valid configuration.")
+	return nil
+}
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to setup the database for testing
@@ -930,6 +961,10 @@ func dumpSchema(dbURL url.URL) (string, error) {
 
 	schema, err := cmd.Output()
 	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
+		}
 		return "", fmt.Errorf("failed to dump schema: %v", err)
 	}
 	return string(schema), nil

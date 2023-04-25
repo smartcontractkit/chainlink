@@ -9,9 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NullClient satisfies the Client but has no side effects
@@ -118,6 +119,11 @@ func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
 	nc.lggr.Debug("HeaderByHash")
 	return nil, nil
+}
+
+func (nc *NullClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, sender common.Address) (clienttypes.SendTxReturnCode, error) {
+	nc.lggr.Debug("SendTransactionReturnCode")
+	return clienttypes.Successful, nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {

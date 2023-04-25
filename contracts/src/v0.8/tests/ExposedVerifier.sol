@@ -5,7 +5,7 @@ pragma solidity 0.8.16;
 // methods/structures so that golang code can access them, and we get
 // reliable type checking on their usage
 contract ExposedVerifier {
-  constructor(){}
+  constructor() {}
 
   function _configDigestFromConfigData(
     bytes32 feedId,
@@ -45,15 +45,25 @@ contract ExposedVerifier {
     uint256 _chainId,
     address _contractAddress,
     uint64 _configCount,
-    address[] memory  _signers,
+    address[] memory _signers,
     bytes32[] memory _offchainTransmitters,
     uint8 _f,
     bytes calldata _onchainConfig,
     uint64 _encodedConfigVersion,
     bytes memory _encodedConfig
   ) public pure returns (bytes32) {
-    return _configDigestFromConfigData(_feedId, _chainId, _contractAddress, _configCount,
-      _signers, _offchainTransmitters, _f, _onchainConfig, _encodedConfigVersion,
-      _encodedConfig);
+    return
+      _configDigestFromConfigData(
+        _feedId,
+        _chainId,
+        _contractAddress,
+        _configCount,
+        _signers,
+        _offchainTransmitters,
+        _f,
+        _onchainConfig,
+        _encodedConfigVersion,
+        _encodedConfig
+      );
   }
 }

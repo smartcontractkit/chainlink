@@ -50,11 +50,8 @@ For the latest information on setting up a development environment, see the [Dev
 
 Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 
-An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
-
 ```bash
-# LIBWASMVM_ARCH (libwasmvm.so) architecture choice, defaults to output of `uname -m` (arch) if unset
-$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile
 ```
 
 ### Ethereum Execution Client Requirements
@@ -88,12 +85,16 @@ We cannot recommend specific version numbers for ethereum nodes since the softwa
 
 ## Running a local Chainlink node
 
-**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by setting the following env vars:
+**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by setting the following env vars and TOML fields:
 
+```dotenv
+CL_DEV=true
 ```
-CHAINLINK_DEV=true
-CHAINLINK_TLS_PORT=0
-SECURE_COOKIES=false
+
+```toml
+[WebServer]
+SecureCookies = false
+TLS.HTTPSPort = 0
 ```
 
 Alternatively, you can generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
@@ -168,8 +169,7 @@ go generate ./...
 5. Prepare your development environment:
 
 ```bash
-export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-export CL_DATABASE_URL=$DATABASE_URL
+export CL_DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
 ```
 
 Note: Other environment variables should not be set for all tests to pass
@@ -177,7 +177,7 @@ Note: Other environment variables should not be set for all tests to pass
 6.  Drop/Create test database and run migrations:
 
 ```
-go run ./core/main.go local db preparetest
+make testdb
 ```
 
 If you do end up modifying the migrations for the database, you will need to rerun
@@ -223,6 +223,24 @@ go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 
 https://go.dev/doc/fuzz/
 
+### Go Modules
+
+This repository contains three Go modules:
+
+```mermaid
+flowchart RL
+    github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/integration-tests --> github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
+
+```
+The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
+so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
+can be run on all three modules using:
+```
+make gomodtidy
+```
+
 ### Solidity
 
 Inside the `contracts/` directory:
@@ -266,7 +284,7 @@ initdb
 pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
 createdb chainlink_test -h localhost
 createuser --superuser --password chainlink -h localhost
-# then type a test password, e.g.: chainlink, and set it in shell.nix DATABASE_URL
+# then type a test password, e.g.: chainlink, and set it in shell.nix CL_DATABASE_URL
 ```
 
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`

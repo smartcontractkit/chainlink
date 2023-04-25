@@ -11,30 +11,30 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	jobmocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
@@ -151,10 +151,14 @@ type TestService struct {
 }
 
 func setupTestService(t *testing.T) *TestService {
+	t.Helper()
+
 	return setupTestServiceCfg(t, nil)
 }
 
 func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets)) *TestService {
+	t.Helper()
+
 	var (
 		orm          = mocks.NewORM(t)
 		jobORM       = jobmocks.NewORM(t)
@@ -171,10 +175,12 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
-	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
-		HeadTracker: headtracker.NullTracker})
 	keyStore := new(ksmocks.Master)
+	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, gcfg).Eth()
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
@@ -885,11 +891,48 @@ func Test_Service_RevokeJob(t *testing.T) {
 			RemoteUUID:     remoteUUID,
 		}
 
-		pendingProposal = feeds.JobProposal{
+		defn = `
+name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
+type               = "offchainreporting2"
+pluginType         = "median"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID 		 = '00000000-0000-0000-0000-000000000001'
+observationSource  = """
+// data source 1
+ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+ds1_parse [type=jsonparse path="result"];
+ds1_multiply [type=multiply times=1000000000000000000];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+
+answer1 [type=median index=0];
+"""
+[relayConfig]
+chainID = 0
+[pluginConfig]
+juelsPerFeeCoinSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`
+
+		pendingProposal = &feeds.JobProposal{
 			ID:             1,
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
 			Status:         feeds.JobProposalStatusPending,
+		}
+
+		pendingSpec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusPending,
+			JobProposalID: pendingProposal.ID,
+			Version:       1,
+			Definition:    defn,
 		}
 
 		httpTimeout = models.MustMakeDuration(1 * time.Second)
@@ -905,8 +948,9 @@ func Test_Service_RevokeJob(t *testing.T) {
 		{
 			name: "Revoke success",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
-				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
+				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -942,13 +986,38 @@ func Test_Service_RevokeJob(t *testing.T) {
 			wantErr: "GetJobProposalByRemoteUUID did not find any proposals to revoke",
 		},
 		{
-			name: "Revoke proposal error",
+			name: "Get latest spec error",
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(&pendingProposal, nil)
-				svc.orm.On("RevokeProposal", pendingProposal.ID, mock.Anything).Return(errors.New("orm error"))
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(nil, sql.ErrNoRows)
 			},
 			args:    args,
-			wantErr: "RevokeProposal failed",
+			wantErr: "GetLatestSpec failed to get latest spec",
+		},
+		{
+			name: "Not revokable error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+					ID:            20,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: pendingProposal.ID,
+					Version:       1,
+					Definition:    defn,
+				}, nil)
+			},
+			args:    args,
+			wantErr: "only pending job proposals can be revoked",
+		},
+		{
+			name: "Revoke proposal error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
+				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
+				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(errors.New("orm error"))
+			},
+			args:    args,
+			wantErr: "RevokeSpec failed",
 		},
 	}
 
@@ -1007,6 +1076,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom(multiaddr),
+				Plugins: feeds.Plugins{
+					Commit:  true,
+					Execute: true,
+					Median:  false,
+					Mercury: true,
+				},
 			},
 		}
 		chainConfigs = []feeds.ChainConfig{ccfg}
@@ -1051,6 +1126,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					Enabled:     true,
 					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
 					Multiaddr:   multiaddr,
+					Plugins: &proto.OCR2Config_Plugins{
+						Commit:  ccfg.OCR2Config.Plugins.Commit,
+						Execute: ccfg.OCR2Config.Plugins.Execute,
+						Median:  ccfg.OCR2Config.Plugins.Median,
+						Mercury: ccfg.OCR2Config.Plugins.Mercury,
+					},
 				},
 			},
 		},
@@ -2976,17 +3057,46 @@ func Test_Service_StartStop(t *testing.T) {
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
 
-	svc := setupTestService(t)
+	tests := []struct {
+		name       string
+		beforeFunc func(svc *TestService)
+	}{
+		{
+			name: "success with a feeds manager connection",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
+				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+				svc.connMgr.On("Close")
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+		},
+		{
+			name: "success with no registered managers",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers").Return([]feeds.FeedsManager{}, nil)
+				svc.connMgr.On("Close")
+			},
+		},
+	}
 
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
-	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
-	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
-	svc.connMgr.On("Close")
-	svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+	for _, tt := range tests {
+		tt := tt
 
-	err = svc.Start(testutils.Context(t))
-	require.NoError(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	svc.Close()
+			svc := setupTestService(t)
+
+			if tt.beforeFunc != nil {
+				tt.beforeFunc(svc)
+			}
+
+			require.NoError(t, svc.Start(testutils.Context(t)))
+
+			svc.Close()
+		})
+	}
 }

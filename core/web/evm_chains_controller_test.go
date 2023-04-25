@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func Test_EVMChainsController_Show(t *testing.T) {
@@ -90,11 +90,9 @@ func Test_EVMChainsController_Show(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Equal(t, resource1.ID, wantedResult.ChainID.String())
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay.Int64, int64(*wantedResult.Chain.RPCBlockQueryDelay))
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize.Int64, int64(*wantedResult.Chain.GasEstimator.BlockHistory.BlockHistorySize))
-				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees.Bool, *wantedResult.Chain.GasEstimator.EIP1559DynamicFees)
-				assert.Equal(t, resource1.Config.MinIncomingConfirmations.Int64, int64(*wantedResult.Chain.MinIncomingConfirmations))
-				assert.Equal(t, resource1.Config.LinkContractAddress.String, wantedResult.Chain.LinkContractAddress.String())
+				toml, err := wantedResult.TOMLString()
+				require.NoError(t, err)
+				assert.Equal(t, toml, resource1.Config)
 			}
 		})
 	}
@@ -161,10 +159,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	assert.Len(t, links, 1)
 	assert.Equal(t, newChains[1].ChainID.String(), chains[2].ID)
-	assert.Equal(t, int64(*newChains[1].Chain.RPCBlockQueryDelay), chains[2].Config.BlockHistoryEstimatorBlockDelay.Int64)
-	assert.Equal(t, int64(*newChains[1].Chain.GasEstimator.BlockHistory.BlockHistorySize), chains[2].Config.BlockHistoryEstimatorBlockHistorySize.Int64)
-	assert.Equal(t, *newChains[1].Chain.GasEstimator.EIP1559DynamicFees, chains[2].Config.EvmEIP1559DynamicFees.Bool)
-	assert.Equal(t, int64(*newChains[1].Chain.MinIncomingConfirmations), chains[2].Config.MinIncomingConfirmations.Int64)
+	toml, err := newChains[1].TOMLString()
+	require.NoError(t, err)
+	assert.Equal(t, toml, chains[2].Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -178,10 +175,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	assert.Len(t, links, 1)
 	assert.Equal(t, newChains[2].ChainID.String(), chains[0].ID)
-	assert.Equal(t, int64(*newChains[2].Chain.RPCBlockQueryDelay), chains[0].Config.BlockHistoryEstimatorBlockDelay.Int64)
-	assert.Equal(t, int64(*newChains[2].Chain.GasEstimator.BlockHistory.BlockHistorySize), chains[0].Config.BlockHistoryEstimatorBlockHistorySize.Int64)
-	assert.Equal(t, *newChains[2].Chain.GasEstimator.EIP1559DynamicFees, chains[0].Config.EvmEIP1559DynamicFees.Bool)
-	assert.Equal(t, int64(*newChains[2].Chain.MinIncomingConfirmations), chains[0].Config.MinIncomingConfirmations.Int64)
+	toml, err = newChains[2].TOMLString()
+	require.NoError(t, err)
+	assert.Equal(t, toml, chains[0].Config)
 }
 
 type TestEVMChainsController struct {

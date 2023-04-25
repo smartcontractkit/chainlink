@@ -2,24 +2,21 @@ package ocrcommon
 
 import (
 	"encoding/json"
-	"math/big"
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type eaTelemetryResponse struct {
-	DataSource                    string `json:"data_source"`
-	ProviderRequestedProtocol     string `json:"provider_requested_protocol"`
-	ProviderRequestedTimestamp    int64  `json:"provider_requested_timestamp"`
-	ProviderReceivedTimestamp     int64  `json:"provider_received_timestamp"`
-	ProviderDataStreamEstablished int64  `json:"provider_data_stream_established"`
-	ProviderDataReceived          int64  `json:"provider_data_received"`
-	ProviderIndicatedTime         int64  `json:"provider_indicated_time"`
+	DataSource                    string `json:"dataSource"`
+	ProviderRequestedTimestamp    int64  `json:"providerDataRequestedUnixMs"`
+	ProviderReceivedTimestamp     int64  `json:"providerDataReceivedUnixMs"`
+	ProviderDataStreamEstablished int64  `json:"providerDataStreamEstablishedUnixMs"`
+	ProviderIndicatedTime         int64  `json:"providerIndicatedTimeUnixMs"`
 }
 
 // shouldCollectTelemetry returns whether EA telemetry should be collected
@@ -63,7 +60,7 @@ func getChainID(jb *job.Job) string {
 // parseEATelemetry attempts to parse the bridge telemetry
 func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
 	type generalResponse struct {
-		Telemetry eaTelemetryResponse `json:"telemetry"`
+		TelemTimestamps eaTelemetryResponse `json:"timestamps"`
 	}
 	gr := generalResponse{}
 
@@ -71,19 +68,20 @@ func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
 		return eaTelemetryResponse{}, err
 	}
 
-	return gr.Telemetry, nil
+	return gr.TelemTimestamps, nil
 }
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
 // the response as a *big.Int
-func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *big.Int {
+func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
 	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
 			return nil
 		}
-		return asDecimal.BigInt()
+		toFloat, _ := asDecimal.Float64()
+		return &toFloat
 	}
 	return nil
 }
@@ -105,25 +103,25 @@ func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) i
 	return finalResultDecimal.BigInt().Int64()
 }
 
-func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) int64 {
+func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) float64 {
 	parsedValue := getJsonParsedValue(trr, trrs)
 	if parsedValue == nil {
 		ds.lggr.Warnf("cannot get json parse value, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		return 0
 	}
-	return parsedValue.Int64()
+	return *parsedValue
 }
 
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
-func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult, timestamp ObservationTimestamp) {
 	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
-	go collectAndSend(ds, trrs, finalResult)
+	go collectAndSend(ds, trrs, finalResult, timestamp)
 }
 
-func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult) {
+func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult, timestamp ObservationTimestamp) {
 	chainID := getChainID(&ds.jb)
 	contract := getContract(&ds.jb)
 
@@ -150,18 +148,16 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedProtocol:     eaTelemetry.ProviderRequestedProtocol,
 			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
 			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
 			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
-			ProviderDataReceived:          eaTelemetry.ProviderDataReceived,
 			ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,
-			ConfigDigest:                  "",
-			Round:                         0,
-			Epoch:                         0,
+			ConfigDigest:                  timestamp.ConfigDigest,
+			Round:                         int64(timestamp.Round),
+			Epoch:                         int64(timestamp.Epoch),
 		}
 
 		bytes, err := proto.Marshal(t)
@@ -169,6 +165,7 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ds.lggr.Warnf("protobuf marshal failed %v", err.Error())
 			continue
 		}
+
 		ds.monitoringEndpoint.SendLog(bytes)
 	}
 }

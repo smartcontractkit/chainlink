@@ -7,24 +7,24 @@ import (
 	"sync"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var ErrLocked = errors.New("Keystore is locked")
@@ -44,6 +44,7 @@ type Master interface {
 	OCR2() OCR2
 	P2P() P2P
 	Solana() Solana
+	Cosmos() Cosmos
 	StarkNet() StarkNet
 	VRF() VRF
 	Unlock(password string) error
@@ -53,6 +54,7 @@ type Master interface {
 
 type master struct {
 	*keyManager
+	cosmos     *cosmos
 	csa        *csa
 	eth        *eth
 	ocr        *ocr
@@ -79,6 +81,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 
 	return &master{
 		keyManager: km,
+		cosmos:     newCosmosKeyStore(km),
 		csa:        newCSAKeyStore(km),
 		eth:        newEthKeyStore(km),
 		ocr:        newOCRKeyStore(km),
@@ -122,6 +125,10 @@ func (ks *master) P2P() P2P {
 
 func (ks *master) Solana() Solana {
 	return ks.solana
+}
+
+func (ks *master) Cosmos() Cosmos {
+	return ks.cosmos
 }
 
 func (ks *master) StarkNet() StarkNet {
@@ -328,6 +335,8 @@ func (km *keyManager) isLocked() bool {
 
 func GetFieldNameForKey(unknownKey Key) (string, error) {
 	switch unknownKey.(type) {
+	case cosmoskey.Key:
+		return "Cosmos", nil
 	case csakey.KeyV2:
 		return "CSA", nil
 	case ethkey.KeyV2:

@@ -11,7 +11,8 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -204,15 +205,25 @@ type Staking interface {
 	SetMerkleRoot(newMerkleRoot [32]byte) error
 }
 
-type AtlasFunctions interface {
+type FunctionsOracleEventsMock interface {
 	Address() string
-	OracleRequest(requestId [32]byte, subscriptionId uint64, data []byte) error
 	OracleResponse(requestId [32]byte) error
+	OracleRequest(requestId [32]byte, requestingContract common.Address, requestInitiator common.Address, subscriptionId uint64, subscriptionOwner common.Address, data []byte) error
 	UserCallbackError(requestId [32]byte, reason string) error
 	UserCallbackRawError(requestId [32]byte, lowLevelData []byte) error
+}
+
+type FunctionsBillingRegistryEventsMock interface {
+	Address() string
 	SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
-	BillingStart(requestId [32]byte, subscriptionId uint64) error
-	BillingEnd(requestId [32]byte, subscriptionId uint64, totalCost *big.Int, success bool) error
+	BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockCommitment) error
+	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
+}
+
+type MockAggregatorProxy interface {
+	Address() string
+	UpdateAggregator(aggregator common.Address) error
+	Aggregator() (common.Address, error)
 }
 
 type RoundData struct {
