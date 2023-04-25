@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
@@ -87,14 +89,14 @@ func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
+		return solidity_vrf_coordinator_interface.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumVRFCoordinator{
 		client:      e.client,
-		coordinator: instance.(*ethereum.VRFCoordinator),
+		coordinator: instance.(*solidity_vrf_coordinator_interface.VRFCoordinator),
 		address:     address,
 	}, err
 }
@@ -130,7 +132,7 @@ func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordina
 	}
 	return &EthereumVRFConsumerV2{
 		client:   e.client,
-		consumer: instance.(*ethereum.VRFConsumerV2),
+		consumer: instance.(*vrf_consumer_v2.VRFConsumerV2),
 		address:  address,
 	}, err
 }
@@ -363,7 +365,7 @@ func (v *EthereumVRFCoordinatorV2) CreateSubscription() error {
 type EthereumVRFCoordinator struct {
 	address     *common.Address
 	client      blockchain.EVMClient
-	coordinator *ethereum.VRFCoordinator
+	coordinator *solidity_vrf_coordinator_interface.VRFCoordinator
 }
 
 func (v *EthereumVRFCoordinator) Address() string {
@@ -405,7 +407,7 @@ func (v *EthereumVRFCoordinator) RegisterProvingKey(
 type EthereumVRFConsumerV2 struct {
 	address  *common.Address
 	client   blockchain.EVMClient
-	consumer *ethereum.VRFConsumerV2
+	consumer *vrf_consumer_v2.VRFConsumerV2
 }
 
 // EthereumVRFv2Consumer represents VRFv2 consumer contract
@@ -429,7 +431,7 @@ func (v *EthereumVRFConsumerV2) CreateFundedSubscription(funds *big.Int) error {
 	if err != nil {
 		return err
 	}
-	tx, err := v.consumer.TestCreateSubscriptionAndFund(opts, funds)
+	tx, err := v.consumer.CreateSubscriptionAndFund(opts, funds)
 	if err != nil {
 		return err
 	}
@@ -475,7 +477,7 @@ func (v *EthereumVRFConsumerV2) RequestRandomness(hash [32]byte, subID uint64, c
 	if err != nil {
 		return err
 	}
-	tx, err := v.consumer.TestRequestRandomness(opts, hash, subID, confs, gasLimit, numWords)
+	tx, err := v.consumer.RequestRandomness(opts, hash, subID, confs, gasLimit, numWords)
 	if err != nil {
 		return err
 	}
@@ -550,7 +552,7 @@ func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) 
 // LoadExistingConsumer loads an EthereumVRFConsumerV2 with a specified address
 func (v *EthereumVRFConsumerV2) LoadExistingConsumer(address string, client blockchain.EVMClient) error {
 	a := common.HexToAddress(address)
-	consumer, err := ethereum.NewVRFConsumerV2(a, client.(*blockchain.EthereumClient).Client)
+	consumer, err := vrf_consumer_v2.NewVRFConsumerV2(a, client.(*blockchain.EthereumClient).Client)
 	if err != nil {
 		return err
 	}
@@ -1049,7 +1051,6 @@ type EthereumVRFBeaconConsumer struct {
 	address           *common.Address
 	client            blockchain.EVMClient
 	vrfBeaconConsumer *vrf_beacon_consumer.BeaconVRFConsumer
-	abi               string
 }
 
 func (consumer *EthereumVRFBeaconConsumer) Address() string {
