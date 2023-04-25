@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
@@ -35,7 +35,8 @@ type VRFCoordinatorV2 interface {
 		maxGasLimit uint32,
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
-		fallbackWeiPerUnitLink *big.Int, feeConfig ethereum.VRFCoordinatorV2FeeConfig,
+		fallbackWeiPerUnitLink *big.Int,
+		feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig,
 	) error
 	RegisterProvingKey(
 		oracleAddr string,
