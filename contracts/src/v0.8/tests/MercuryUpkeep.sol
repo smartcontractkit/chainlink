@@ -1,7 +1,7 @@
 pragma solidity 0.8.15;
 
 import "../interfaces/automation/AutomationCompatibleInterface.sol";
-import "../interfaces/automation/MercuryLookupCompatibleInterface.sol";
+import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
 
 contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
   event MercuryEvent(address indexed from, bytes data);

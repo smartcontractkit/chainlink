@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -67,8 +67,7 @@ type LatestBlockGetter interface {
 }
 
 func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
-	// TODO make this an optional part of AutomationCompatibleInterface
-	mercuryUpkeepABI, err := abi.JSON(strings.NewReader(mercury_upkeep_wrapper.MercuryUpkeepABI))
+	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -110,8 +109,8 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 			clientID:  os.Getenv("MERCURY_ID"),
 			clientKey: os.Getenv("MERCURY_KEY"),
 			// TODO need to load up the mercuryURL from an ENV var
-			url:           "https://mercury-arbitrum-testnet.chain.link",
-			abi:           mercuryUpkeepABI,
+			url:           os.Getenv("MERCURY_URL"),
+			abi:           mercuryLookupCompatibleABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
