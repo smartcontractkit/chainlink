@@ -129,3 +129,36 @@ AuthToken is the authorization key for the Prometheus metrics endpoint.
 
 Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 
+## Mercury
+```toml
+[Mercury]
+ID = "A-Mercury-ID" # Example
+KEY = "A-Mercury-Key" # Example
+URL = "A-Mercury-URL" # Example
+```
+
+
+### ID
+```toml
+ID = "A-Mercury-ID" # Example
+```
+ID is the Mercury ID assigned for this Automation node
+
+Environment variable: `CL_MERCURY_ID`
+
+### KEY
+```toml
+KEY = "A-Mercury-Key" # Example
+```
+KEY is the Mercury Key assigned for this Automation node
+
+Environment variable: `CL_MERCURY_KEY`
+
+### URL
+```toml
+URL = "A-Mercury-URL" # Example
+```
+URL is the Mercury endpoint URL which this Automation node will query in its MercuryLookup process
+
+Environment variable: `CL_MERCURY_URL`
+
