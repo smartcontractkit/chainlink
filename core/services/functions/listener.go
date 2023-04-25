@@ -432,7 +432,7 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
 		if errJson != nil {
 			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
-		} else {
+		} else if len(reportedDomains) > 0 {
 			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
 		}
 	}
