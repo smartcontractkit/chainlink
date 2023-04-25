@@ -349,9 +349,6 @@ require (
 )
 
 replace (
-	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
-
 	// Fix go mod tidy issue for ambiguous imports from go-ethereum
 	// See https://github.com/ugorji/go/issues/279
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
@@ -369,12 +366,5 @@ replace (
 	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
 
 	// Fix CVE-2022-41717
-	golang/golang.org/x/net => golang/golang.org/x/net v0.4.0
-)
-
-exclude (
-	github.com/influxdata/influxdb v1.8.3
-	github.com/labstack/echo/v4 v4.5.0
-	github.com/nats-io/nats-server/v2 v2.1.2
-	github.com/nats-io/nats-server/v2 v2.5.0
+	golang.org/x/net => golang.org/x/net v0.4.0
 )
