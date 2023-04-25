@@ -6,8 +6,6 @@ import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
 contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
   event MercuryEvent(address indexed from, bytes data);
 
-  error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
-
   uint256 public testRange;
   uint256 public interval;
   uint256 public lastBlock;
