@@ -41,11 +41,11 @@ type FeatureFlags interface {
 	StarkNetEnabled() bool
 }
 
-type LogFn func(...any)
+type LogfFn func(string, ...any)
 
 type BasicConfig interface {
 	Validate() error
-	LogConfiguration(log LogFn)
+	LogConfiguration(log LogfFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
@@ -183,6 +183,7 @@ type BasicConfig interface {
 
 type GeneralConfig interface {
 	BasicConfig
+	ValidateDB() error
 }
 
 func ValidateDBURL(dbURI url.URL) error {

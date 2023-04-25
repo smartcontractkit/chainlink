@@ -16,10 +16,11 @@ import (
 type TxAttemptBuilder[
 	HEAD Head, // HEAD - chain head type
 	FEE Fee, // FEE - chain fee type
-	ADDR types.Hashable[ADDR], // ADDR - chain address type
-	TX_HASH types.Hashable[TX_HASH], // TX_HASH - chain tx hash type
+	ADDR types.Hashable, // ADDR - chain address type
+	TX_HASH types.Hashable, // TX_HASH - chain tx hash type
 	TX any, // TX - tx type (will be replaced in future)
 	TXATTEMPT any, // TXATTEMPT - tx attempt type (will be replaced  in future)
+	SEQ Sequence,
 ] interface {
 	// interfaces for running the underlying estimator
 	services.ServiceCtx
@@ -39,5 +40,5 @@ type TxAttemptBuilder[
 	NewCustomTxAttempt(tx TX, fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (attempt TXATTEMPT, retryable bool, err error)
 
 	// NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-	NewEmptyTxAttempt(nonce uint64, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TXATTEMPT, err error)
+	NewEmptyTxAttempt(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TXATTEMPT, err error)
 }

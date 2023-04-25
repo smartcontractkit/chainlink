@@ -64,11 +64,10 @@ func NewHeadTracker(
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
-	id := ethClient.ChainID()
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
-		chainID:         *id,
+		chainID:         *ethClient.ConfiguredChainID(),
 		config:          config,
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),

@@ -1,0 +1,20 @@
+exec chainlink keys p2p --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys p2p - Remote commands for administering the node's p2p keys
+
+USAGE:
+   chainlink keys p2p command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a p2p key, encrypted with password from the password file, and store it in the database.
+   delete  Delete the encrypted P2P key by id
+   list    List available P2P keys
+   import  Imports a P2P key from a JSON file
+   export  Exports a P2P key to a JSON file
+
+OPTIONS:
+   --help, -h  show help
+   

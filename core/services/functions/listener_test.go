@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -25,7 +25,7 @@ import (
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	job_mocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
@@ -61,32 +61,33 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 
 	jobORM := job_mocks.NewORM(t)
 	pluginORM := functions_mocks.NewORM(t)
-	jb := &job.Job{
+	jsonConfig := job.JSONConfig{
+		"requestTimeoutSec":               timeoutSec,
+		"requestTimeoutCheckFrequencySec": 1,
+		"requestTimeoutBatchLookupSize":   1,
+		"listenerEventHandlerTimeoutSec":  1,
+	}
+	jb := job.Job{
 		Type:          job.OffchainReporting2,
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 		PipelineSpec:  &pipeline.Spec{},
 		OCR2OracleSpec: &job.OCR2OracleSpec{
-			PluginConfig: job.JSONConfig{
-				"requestTimeoutSec":               timeoutSec,
-				"requestTimeoutCheckFrequencySec": 1,
-				"requestTimeoutBatchLookupSize":   1,
-				"listenerEventHandlerTimeoutSec":  1,
-			},
+			PluginConfig: jsonConfig,
 		},
 	}
 
-	oracle, err := functions.NewFunctionsOracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
+	var pluginConfig config.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	require.NoError(t, err)
 
-	serviceArray, err := oracle.GetServices()
+	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(common.HexToAddress("0x0"), chain.Client())
 	require.NoError(t, err)
-	assert.Len(t, serviceArray, 1)
-	service := serviceArray[0]
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, runner, jobORM, pluginORM, pluginConfig, broadcaster, lggr, mailMon)
 
 	return &FunctionsListenerUniverse{
 		runner:         runner,
-		service:        service.(*functions_service.FunctionsListener),
+		service:        functionsListener,
 		jobORM:         jobORM,
 		pluginORM:      pluginORM,
 		logBroadcaster: broadcaster,
