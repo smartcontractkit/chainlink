@@ -27,25 +27,17 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
   function test_revertsIfNotOwner() public {
     changePrank(USER);
     vm.expectRevert("Only callable by owner");
-    s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
+    s_verifierProxy.initializeVerifier(address(s_verifier));
   }
 
   function test_revertsIfZeroAddress() public {
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.ZeroAddress.selector));
-    s_verifierProxy.initializeVerifier(latestDigest, address(0));
+    s_verifierProxy.initializeVerifier(address(0));
   }
 
-  function test_revertsIfDigestAlreadySet() public {
-    s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
-    vm.expectRevert(
-      abi.encodeWithSelector(VerifierProxy.ConfigDigestAlreadySet.selector, latestDigest, address(s_verifier))
-    );
-    s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
-  }
-
-  function test_correctlySetsVerifier() public {
-    s_verifierProxy.initializeVerifier(latestDigest, address(s_verifier));
-    address verifier = s_verifierProxy.getVerifier(latestDigest);
-    assertEq(verifier, address(s_verifier));
+  function test_revertsIfVerifierAlreadyInitialized() public {
+    s_verifierProxy.initializeVerifier(address(s_verifier));
+    vm.expectRevert(abi.encodeWithSelector(VerifierProxy.VerifierAlreadyInitialized.selector, address(s_verifier)));
+    s_verifierProxy.initializeVerifier(address(s_verifier));
   }
 }

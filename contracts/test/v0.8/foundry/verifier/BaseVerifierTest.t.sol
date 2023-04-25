@@ -231,7 +231,10 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
       bytes("")
     );
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
-    s_verifierProxy.initializeVerifier(configDigest, address(s_verifier));
+    s_verifierProxy.initializeVerifier(address(s_verifier));
+    changePrank(address(s_verifier));
+    s_verifierProxy.setVerifier(bytes32(""), configDigest);
+    changePrank(ADMIN);
   }
 }
 
@@ -290,7 +293,9 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       bytes("")
     );
     (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
-    s_verifierProxy.initializeVerifier(s_configDigestFour, address(s_verifier));
+    changePrank(address(s_verifier));
+    s_verifierProxy.setVerifier(bytes32(""), s_configDigestFour);
+    changePrank(ADMIN);
 
     // Verifier 2, Feed 3, Config 1
     s_verifier_2.setConfig(
@@ -303,6 +308,9 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       bytes("")
     );
     (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
-    s_verifierProxy.initializeVerifier(s_configDigestFive, address(s_verifier_2));
+    s_verifierProxy.initializeVerifier(address(s_verifier_2));
+    changePrank(address(s_verifier_2));
+    s_verifierProxy.setVerifier(bytes32(""), s_configDigestFive);
+    changePrank(ADMIN);
   }
 }
