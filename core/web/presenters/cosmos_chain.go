@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 // CosmosChainResource is an Cosmos chain JSONAPI resource.
@@ -15,10 +15,10 @@ func (r CosmosChainResource) GetName() string {
 }
 
 // NewCosmosChainResource returns a new CosmosChainResource for chain.
-func NewCosmosChainResource(chain chains.ChainConfig) CosmosChainResource {
+func NewCosmosChainResource(chain types.ChainStatus) CosmosChainResource {
 	return CosmosChainResource{ChainResource{
 		JAID:    NewJAID(chain.ID),
-		Config:  chain.Cfg,
+		Config:  chain.Config,
 		Enabled: chain.Enabled,
 	}}
 }
@@ -34,7 +34,7 @@ func (r CosmosNodeResource) GetName() string {
 }
 
 // NewCosmosNodeResource returns a new CosmosNodeResource for node.
-func NewCosmosNodeResource(node chains.NodeStatus) CosmosNodeResource {
+func NewCosmosNodeResource(node types.NodeStatus) CosmosNodeResource {
 	return CosmosNodeResource{NodeResource{
 		JAID:    NewJAID(node.Name),
 		ChainID: node.ChainID,
