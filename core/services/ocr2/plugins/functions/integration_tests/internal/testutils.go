@@ -352,8 +352,8 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
 			parse_error        [type=jsonparse data="$(run_computation)" path="data,error"]
-
-			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error
+			parse_domains      [type=jsonparse data="$(run_computation)" path="data,domains"]
+			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error -> parse_domains
 		"""
 
 		[relayConfig]
@@ -383,7 +383,7 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		source := jsonMap["data"].(map[string]any)["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
-		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": "", "domains": []}}`, source)))
 	}))
 }
 

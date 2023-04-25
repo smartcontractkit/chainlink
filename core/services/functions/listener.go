@@ -427,18 +427,14 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	}
 
 	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
-	if errDomains != nil {
-		// Internal problem: Can't find reported domains
-		l.logger.Errorw("internal error: can't retrieve reported domains field", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errDomains.Error()))
-		return
-	}
-	var reportedDomains []string
-	errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
-	if errJson != nil {
-		l.logger.Errorw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
-	} else {
-		l.reportSourceCodeDomains(request.RequestId, reportedDomains)
+	if errDomains == nil && len(reportedDomainsJson) > 0 {
+		var reportedDomains []string
+		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
+		if errJson != nil {
+			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
+		} else {
+			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
+		}
 	}
 
 	if len(computationError) != 0 {
