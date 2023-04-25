@@ -5,7 +5,8 @@ import (
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -29,7 +30,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	}
 
 	// Generate a map of nodes to chainIDs
-	nodesForChain := map[string][]chains.NodeStatus{}
+	nodesForChain := map[string][]types.NodeStatus{}
 	for _, n := range nodes {
 		nodesForChain[n.ChainID] = append(nodesForChain[n.ChainID], n)
 	}
@@ -47,7 +48,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 
 	// fill array positions without any nodes as an empty slice
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: []chains.NodeStatus{}, Error: nil}
+		results[ix] = &dataloader.Result{Data: []types.NodeStatus{}, Error: nil}
 	}
 
 	return results

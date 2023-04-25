@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -444,8 +445,9 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	client := app.NewHTTPClient(testUser.Email)
 
 	// Assert all view only routes
-	for _, route := range routesRolesMap {
-		func() {
+	for i, route := range routesRolesMap {
+		route := route
+		t.Run(fmt.Sprintf("%d-%s-%s", i, route.verb, route.path), func(t *testing.T) {
 			var resp *http.Response
 			var cleanup func()
 
@@ -474,6 +476,6 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			} else {
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
-		}()
+		})
 	}
 }
