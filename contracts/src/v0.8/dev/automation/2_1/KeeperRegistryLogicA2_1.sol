@@ -10,7 +10,7 @@ import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
+contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 

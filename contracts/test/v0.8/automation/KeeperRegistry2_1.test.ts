@@ -12,10 +12,10 @@ import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../t
 import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry21__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryLogic21__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic21__factory'
+import { KeeperRegistryLogicA21__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogicA21__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { KeeperRegistry21 as KeeperRegistry } from '../../../typechain/KeeperRegistry21'
-import { KeeperRegistryLogic21 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic21'
+import { KeeperRegistryLogicA21 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogicA21'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -239,7 +239,7 @@ before(async () => {
     'KeeperRegistry2_1',
   )) as unknown as KeeperRegistryFactory // bug in typechain requires force casting
   keeperRegistryLogicFactory = (await ethers.getContractFactory(
-    'KeeperRegistryLogic2_1',
+    'KeeperRegistryLogicA2_1',
   )) as unknown as KeeperRegistryLogicFactory // bug in typechain requires force casting
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
@@ -4074,10 +4074,10 @@ describe('KeeperRegistry2_1', () => {
 
   describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
     let registry2: KeeperRegistry
-    let registryLogic2: KeeperRegistryLogic
+    let registryLogicA2: KeeperRegistryLogic
 
     beforeEach(async () => {
-      registryLogic2 = await keeperRegistryLogicFactory
+      registryLogicA2 = await keeperRegistryLogicFactory
         .connect(owner)
         .deploy(
           Mode.DEFAULT,
@@ -4103,7 +4103,7 @@ describe('KeeperRegistry2_1', () => {
       }
       registry2 = await keeperRegistryFactory
         .connect(owner)
-        .deploy(registryLogic2.address)
+        .deploy(registryLogicA2.address)
       await registry2
         .connect(owner)
         .setConfig(
