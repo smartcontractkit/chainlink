@@ -2145,6 +2145,50 @@ func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
 	return r0
 }
 
+// MercuryID provides a mock function with given fields:
+func (_m *ChainScopedConfig) MercuryID() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// MercuryKey provides a mock function with given fields:
+func (_m *ChainScopedConfig) MercuryKey() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// MercuryURL provides a mock function with given fields:
+func (_m *ChainScopedConfig) MercuryURL() *url.URL {
+	ret := _m.Called()
+
+	var r0 *url.URL
+	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*url.URL)
+		}
+	}
+
+	return r0
+}
+
 // MigrateDatabase provides a mock function with given fields:
 func (_m *ChainScopedConfig) MigrateDatabase() bool {
 	ret := _m.Called()
