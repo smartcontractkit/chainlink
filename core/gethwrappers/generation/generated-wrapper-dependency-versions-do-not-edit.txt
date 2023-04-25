@@ -26,6 +26,7 @@ keeper_registry_wrapper2_0: ../../contracts/solc/v0.8.6/KeeperRegistry2_0.abi ..
 keepers_vrf_consumer: ../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin fa75572e689c9e84705c63e8dbe1b7b8aa1a8fe82d66356c4873d024bb9166e8
 log_emitter: ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.8.6/LogEmitter.bin 375488d19b6ee1c180d42048be10abea9146e2a58347fd180358850d435cb854
 mercury_exposed_verifier: ../../contracts/solc/v0.8.6/ExposedVerifier.abi ../../contracts/solc/v0.8.6/ExposedVerifier.bin 66b77ef97f730e58e0c8646eebb2909be5abe78a5769427a531b8e7d075186ee
+mercury_lookup_compatible_interface: ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.abi ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.bin 72f4d4438b17bfd33c8af0280e68863c0b8178e2d8a4520c3ae141845ecf34a9
 mercury_verifier: ../../contracts/solc/v0.8.6/Verifier.abi ../../contracts/solc/v0.8.6/Verifier.bin 8a9f905e6f0633d50ed8f1e86a7c6a445fd677210291dfb073b4cd0177ad2b6e
 mercury_verifier_proxy: ../../contracts/solc/v0.8.6/VerifierProxy.abi ../../contracts/solc/v0.8.6/VerifierProxy.bin 7a2ef1ee00d0f929a2e319a8da0cc252d2771318517da3679a04463e3e6b08e1
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin 22ea93fc25a620183fc2a03664c1fbb631566d4667d1e6237846979f938bf29b
