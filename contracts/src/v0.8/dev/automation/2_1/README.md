@@ -10,7 +10,7 @@ The on-chain component of Chainlink automation is too large to fit into the [siz
 
 ### Overview
 
-We chain multiple logic contracts together using [fallback functions][fallback] and [delegatecall][delegatecall]. If a function definition is not found on one contract, we fall back to the next, always executing the function in the scope of the master contract. The actual implementation of this is done using [OZ's Proxy contract][oz-proxy].
+We chain multiple logic contracts together using [fallback functions][fallback] and [delegatecall][delegatecall]. If a function definition is not found on one contract, we fall back to the next, always executing the function in the scope of the master contract. The actual implementation of this is based off of [OZ's Proxy contract][oz-proxy].
 
 ### Diagram
 
@@ -28,6 +28,7 @@ graph LR
 - etherscan supports executing logic contract functions that are once removed from the master - therefore we give secondary preference to the first logic contract for user and debugging functions
 - functions on logic 2 through logic X (as of writing) have no support on etherscan and will essentially be "invisible" to everyone but advanced users - we will try to reserve this space for uncommon interactions that are mostly done progamatically
 - We use Logic A, B, C... to avoid confusion with the version ex `KeeperRegistryLogicA2_1.sol` --> Logic Contract A verion 2.1
+- Storage locations for logic contract addresses MUST BE BYTECODE (this is done by marking them as "immutable") otherwise the chaining mechanism will break
 
 [size-limit-eip]: https://eips.ethereum.org/EIPS/eip-170
 [fallback]: https://docs.soliditylang.org/en/v0.8.12/contracts.html#fallback-function
