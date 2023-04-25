@@ -823,7 +823,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
-					GasLimit:       p.gasLimit,
+					FeeLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
 						RequestID:     &requestID,
 						MaxLink:       &maxLinkString,
@@ -831,7 +831,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgr.NewSendEveryStrategy(),
-					Checker: txmgr.TransmitCheckerSpec{
+					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
