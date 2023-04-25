@@ -13,6 +13,7 @@ import (
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
@@ -67,7 +68,7 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) {
 	}
 }
 
-func (cs CosmosConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error) {
+func (cs CosmosConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -84,11 +85,11 @@ func (cs CosmosConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error
 				continue
 			}
 		}
-		ch2 := chains.ChainConfig{
+		ch2 := relaytypes.ChainStatus{
 			ID:      *ch.ChainID,
 			Enabled: ch.IsEnabled(),
 		}
-		ch2.Cfg, err = ch.TOMLString()
+		ch2.Config, err = ch.TOMLString()
 		if err != nil {
 			return
 		}
@@ -134,7 +135,7 @@ func (cs CosmosConfigs) Nodes(chainID string) (ns []db.Node, err error) {
 
 }
 
-func (cs CosmosConfigs) NodeStatus(name string) (n chains.NodeStatus, err error) {
+func (cs CosmosConfigs) NodeStatus(name string) (n relaytypes.NodeStatus, err error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
@@ -146,7 +147,7 @@ func (cs CosmosConfigs) NodeStatus(name string) (n chains.NodeStatus, err error)
 	return
 }
 
-func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
@@ -177,13 +178,13 @@ func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus
 	return
 }
 
-func nodeStatus(n *coscfg.Node, chainID string) (chains.NodeStatus, error) {
-	var s chains.NodeStatus
+func nodeStatus(n *coscfg.Node, chainID string) (relaytypes.NodeStatus, error) {
+	var s relaytypes.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
-		return chains.NodeStatus{}, err
+		return relaytypes.NodeStatus{}, err
 	}
 	s.Config = string(b)
 	return s, nil

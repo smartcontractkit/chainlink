@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
@@ -68,7 +69,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
 	}
 }
 
-func (cs SolanaConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error) {
+func (cs SolanaConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -85,11 +86,11 @@ func (cs SolanaConfigs) Chains(ids ...string) (r []chains.ChainConfig, err error
 				continue
 			}
 		}
-		ch2 := chains.ChainConfig{
+		ch2 := types.ChainStatus{
 			ID:      *ch.ChainID,
 			Enabled: ch.IsEnabled(),
 		}
-		ch2.Cfg, err = ch.TOMLString()
+		ch2.Config, err = ch.TOMLString()
 		if err != nil {
 			return
 		}
@@ -133,7 +134,7 @@ func (cs SolanaConfigs) Nodes(chainID string) (ns []soldb.Node, err error) {
 	return
 }
 
-func (cs SolanaConfigs) NodeStatus(name string) (chains.NodeStatus, error) {
+func (cs SolanaConfigs) NodeStatus(name string) (types.NodeStatus, error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
@@ -141,10 +142,10 @@ func (cs SolanaConfigs) NodeStatus(name string) (chains.NodeStatus, error) {
 			}
 		}
 	}
-	return chains.NodeStatus{}, chains.ErrNotFound
+	return types.NodeStatus{}, chains.ErrNotFound
 }
 
-func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus, err error) {
+func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
@@ -175,13 +176,13 @@ func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []chains.NodeStatus
 	return
 }
 
-func nodeStatus(n *solcfg.Node, chainID string) (chains.NodeStatus, error) {
-	var s chains.NodeStatus
+func nodeStatus(n *solcfg.Node, chainID string) (types.NodeStatus, error) {
+	var s types.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
-		return chains.NodeStatus{}, err
+		return types.NodeStatus{}, err
 	}
 	s.Config = string(b)
 	return s, nil
@@ -364,7 +365,7 @@ func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 
 // Configs manages solana chains and nodes.
 type Configs interface {
-	chains.ChainConfigs[string]
+	chains.ChainConfigs
 	chains.NodeConfigs[string, soldb.Node]
 }
 

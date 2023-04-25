@@ -59,13 +59,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 	return c, nil
 }
 
-type ChainSet interface {
-	starkchain.ChainSet
-	chains.Chains[string]
-	chains.Nodes
-}
-
-func NewChainSet(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {
+func NewChainSet(opts ChainSetOpts, cfgs StarknetConfigs) (starkchain.ChainSet, error) {
 	stkChains := map[string]starkchain.Chain{}
 	var err error
 	for _, chain := range cfgs {
