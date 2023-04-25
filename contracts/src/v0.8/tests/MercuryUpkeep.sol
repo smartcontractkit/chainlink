@@ -1,6 +1,9 @@
 pragma solidity 0.8.15;
 
-contract MercuryUpkeep {
+import "../interfaces/automation/AutomationCompatibleInterface.sol";
+import "../interfaces/automation/MercuryLookupCompatibleInterface.sol";
+
+contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
   event MercuryEvent(address indexed from, bytes data);
 
   error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
@@ -22,11 +25,16 @@ contract MercuryUpkeep {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    feedLabel = "feedIDStr"; // or FeedIDHex
+    feedLabel = "feedIDStr"; // or feedIDHex
     feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"]; // or ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000","0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]
-    queryLabel = "blockNumber"; // or Timestamp
+    // blockNumber is used for special customers, timestamp is an option for all customers but it's under development
+    // the advantage to use timestamp is that this contract can be deployed at a different chain than where Mercury server lives
+    // when using blockNumber, the server probably will fail the request bc blockNumber and timestamp are too far apart
+    queryLabel = "blockNumber";
   }
 
+  // make a mercury compatible interface + automation compatible interface => generate ABI
+  // values => chainlinkblobs
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
     //    this is where they do something with the chainlinkBlobHex
     return (true, extraData);
@@ -36,7 +44,6 @@ contract MercuryUpkeep {
     if (!eligible()) {
       return (false, data);
     }
-    // block.number or block.timestamp depending on user
     revert MercuryLookup(feedLabel, feeds, queryLabel, block.number, data);
   }
 
