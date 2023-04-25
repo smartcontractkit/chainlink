@@ -173,6 +173,10 @@ type BasicConfig interface {
 	DisableRateLimiting() bool
 	InfiniteDepthQueries() bool
 
+	MercuryID() string
+	MercuryKey() string
+	MercuryURL() *url.URL
+
 	OCR1Config
 	OCR2Config
 
