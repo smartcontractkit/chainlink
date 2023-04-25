@@ -153,6 +153,33 @@ func TestDRReporting_Observation(t *testing.T) {
 	require.Equal(t, observationProto.ProcessedRequests[1].Result, []byte("def"))
 }
 
+func TestDRReporting_Observation_IncorrectQuery(t *testing.T) {
+	t.Parallel()
+	plugin, orm, _ := preparePlugin(t, 10)
+
+	req1 := newRequestWithResult([]byte("abc"))
+	invalidId := []byte("invalid")
+
+	orm.On("FindById", req1.RequestID, mock.Anything).Return(&req1, nil)
+
+	// Query asking for 3 requests (with duplicates), out of which:
+	//   - two are invalid
+	//   - one is ready
+	queryProto := functions.Query{}
+	queryProto.RequestIDs = [][]byte{invalidId, req1.RequestID[:], invalidId}
+	marshalled, err := proto.Marshal(&queryProto)
+	require.NoError(t, err)
+
+	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
+	require.NoError(t, err)
+	observationProto := &functions.Observation{}
+	err = proto.Unmarshal(obs, observationProto)
+	require.NoError(t, err)
+	require.Equal(t, len(observationProto.ProcessedRequests), 1)
+	require.Equal(t, observationProto.ProcessedRequests[0].RequestID, req1.RequestID[:])
+	require.Equal(t, observationProto.ProcessedRequests[0].Result, []byte("abc"))
+}
+
 func TestDRReporting_Report(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec := preparePlugin(t, 10)

@@ -37,10 +37,13 @@ func NewReportCodec() (*ReportCodec, error) {
 	}, nil
 }
 
-func sliceToByte32(slice []byte) [32]byte {
+func sliceToByte32(slice []byte) ([32]byte, error) {
+	if len(slice) != 32 {
+		return [32]byte{}, fmt.Errorf("input length is not 32 bytes: %d", len(slice))
+	}
 	var res [32]byte
 	copy(res[:], slice[:32])
-	return res
+	return res, nil
 }
 
 func (c *ReportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error) {
@@ -52,7 +55,11 @@ func (c *ReportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error)
 	results := make([][]byte, size)
 	errors := make([][]byte, size)
 	for i := 0; i < size; i++ {
-		ids[i] = sliceToByte32(requests[i].RequestID)
+		var err error
+		ids[i], err = sliceToByte32(requests[i].RequestID)
+		if err != nil {
+			return nil, err
+		}
 		results[i] = requests[i].Result
 		errors[i] = requests[i].Error
 	}

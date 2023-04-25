@@ -243,8 +243,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		solLggr := appLggr.Named("Solana")
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
+			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
 		}
 		cfgs := cfg.SolanaConfigs()
 		var ids []string

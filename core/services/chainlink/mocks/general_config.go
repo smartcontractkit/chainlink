@@ -1334,7 +1334,7 @@ func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
 }
 
 // LogConfiguration provides a mock function with given fields: log
-func (_m *GeneralConfig) LogConfiguration(log config.LogFn) {
+func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
 	_m.Called(log)
 }
 
@@ -2740,6 +2740,20 @@ func (_m *GeneralConfig) VRFPassword() string {
 
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ValidateDB provides a mock function with given fields:
+func (_m *GeneralConfig) ValidateDB() error {
 	ret := _m.Called()
 
 	var r0 error

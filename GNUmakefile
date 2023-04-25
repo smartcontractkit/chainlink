@@ -34,6 +34,12 @@ gomodtidy: ## Run go mod tidy on all modules.
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 
+.PHONY: godoc
+godoc: ## Install and run godoc
+	go install golang.org/x/tools/cmd/godoc@latest
+	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
+	godoc -http=:6060
+
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
@@ -79,6 +85,15 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
+.PHONY: testscripts
+testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
+	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) testdata/scripts/*
+
+.PHONY: testscripts-update
+testscripts-update: ## Update testdata/scripts/* files via testscript.
+	make testscripts TS_FLAGS="-u"
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run . local db preparetest
@@ -101,7 +116,6 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
-
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
