@@ -75,36 +75,36 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}
 	func() {
 		defer logRuntime(t, time.Now())
-		_, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1)
-		require.NoError(t, err)
+		_, err1 := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1)
+		require.NoError(t, err1)
 	}()
 	func() {
 		defer logRuntime(t, time.Now())
-		_, err = o.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{address1}, []common.Hash{event1}, 0)
-		require.NoError(t, err)
+		_, err1 := o.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{address1}, []common.Hash{event1}, 0)
+		require.NoError(t, err1)
 	}()
 
 	// Confirm all the logs.
 	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now()))
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err := o.SelectDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
-		require.NoError(t, err)
+		lgs, err1 := o.SelectDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		require.NoError(t, err1)
 		// 10 since every other log is for address1
 		assert.Equal(t, 10, len(lgs))
 	}()
 
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err := o.SelectIndexedLogs(address2, event1, 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
-		require.NoError(t, err)
+		lgs, err1 := o.SelectIndexedLogs(address2, event1, 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
+		require.NoError(t, err1)
 		assert.Equal(t, 2, len(lgs))
 	}()
 
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err := o.SelectIndexLogsTopicRange(address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
-		require.NoError(t, err)
+		lgs, err1 := o.SelectIndexLogsTopicRange(address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		require.NoError(t, err1)
 		assert.Equal(t, 10, len(lgs))
 	}()
 }
@@ -125,10 +125,10 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
-		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err)
-		_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err)
+		_, err1 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		_, err1 = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
 		th.Client.Commit()
 	}
 	// The poller starts on a new chain at latest-finality (5 in this case),
@@ -200,8 +200,8 @@ func Test_BackupLogPoller(t *testing.T) {
 			[]common.Address{th.EmitterAddress2}, 0})
 	require.NoError(t, err)
 
-	defer th.LogPoller.UnregisterFilter("filter1", nil)
-	defer th.LogPoller.UnregisterFilter("filter2", nil)
+	defer assert.NoError(t, th.LogPoller.UnregisterFilter("filter1", nil))
+	defer assert.NoError(t, th.LogPoller.UnregisterFilter("filter2", nil))
 
 	// generate some tx's with logs
 	tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
@@ -415,13 +415,13 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		require.NoError(t, err)
 		matchesGeth := func() bool {
 			// Check every block is identical
-			latest, err := ec.BlockByNumber(testutils.Context(t), nil)
-			require.NoError(t, err)
+			latest, err1 := ec.BlockByNumber(testutils.Context(t), nil)
+			require.NoError(t, err1)
 			for i := 1; i < int(latest.NumberU64()); i++ {
-				ourBlock, err := lp.BlockByNumber(int64(i))
-				require.NoError(t, err)
-				gethBlock, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
-				require.NoError(t, err)
+				ourBlock, err1 := lp.BlockByNumber(int64(i))
+				require.NoError(t, err1)
+				gethBlock, err1 := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
+				require.NoError(t, err1)
 				if ourBlock.BlockHash != gethBlock.Hash() {
 					t.Logf("Initial poll our block differs at height %d got %x want %x\n", i, ourBlock.BlockHash, gethBlock.Hash())
 					return false
@@ -438,27 +438,27 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				// Mine blocks
 				for j := 0; j < int(mineOrReorg[i]); j++ {
 					ec.Commit()
-					latest, err := ec.BlockByNumber(testutils.Context(t), nil)
-					require.NoError(t, err)
+					latest, err1 := ec.BlockByNumber(testutils.Context(t), nil)
+					require.NoError(t, err1)
 					t.Log("mined block", latest.Hash())
 				}
 			} else {
 				// Reorg blocks
-				latest, err := ec.BlockByNumber(testutils.Context(t), nil)
-				require.NoError(t, err)
+				latest, err1 := ec.BlockByNumber(testutils.Context(t), nil)
+				require.NoError(t, err1)
 				reorgedBlock := big.NewInt(0).Sub(latest.Number(), big.NewInt(int64(mineOrReorg[i])))
-				reorg, err := ec.BlockByNumber(testutils.Context(t), reorgedBlock)
-				require.NoError(t, err)
+				reorg, err1 := ec.BlockByNumber(testutils.Context(t), reorgedBlock)
+				require.NoError(t, err1)
 				require.NoError(t, ec.Fork(testutils.Context(t), reorg.Hash()))
 				t.Logf("Reorging from (%v, %x) back to (%v, %x)\n", latest.NumberU64(), latest.Hash(), reorgedBlock.Uint64(), reorg.Hash())
 				// Actually need to change the block here to trigger the reorg.
-				_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
-				require.NoError(t, err)
+				_, err1 = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
+				require.NoError(t, err1)
 				for j := 0; j < int(mineOrReorg[i]+1); j++ { // Need +1 to make it actually longer height so we detect it.
 					ec.Commit()
 				}
-				latest, err = ec.BlockByNumber(testutils.Context(t), nil)
-				require.NoError(t, err)
+				latest, err1 = ec.BlockByNumber(testutils.Context(t), nil)
+				require.NoError(t, err1)
 				t.Logf("New latest (%v, %x), latest parent %x)\n", latest.NumberU64(), latest.Hash(), latest.ParentHash())
 			}
 			lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
@@ -916,7 +916,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-	lp.Start(ctx)
+	require.NoError(t, lp.Start(ctx))
 	require.Eventually(t, func() bool {
 		return observedLogs.Len() >= 5
 	}, 2*time.Second, 20*time.Millisecond)
