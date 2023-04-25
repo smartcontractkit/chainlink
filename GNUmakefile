@@ -61,15 +61,11 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
-.PHONY: docker-plugin ## Build the chainlink-plugin docker image
-docker-plugin:
+.PHONY: docker-plugins ## Build the chainlink-plugins docker image
+docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	-t smartcontract/chainlink:plugin-base \
-	-f core/chainlink.Dockerfile .
-	docker buildx build \
-	-t smartcontract/chainlink-plugin \
-	-f core/plugin.Dockerfile .
+	-f core/plugins.Dockerfile .
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
