@@ -4,13 +4,15 @@ pragma solidity 0.8.6;
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_1.sol";
+import "./KeeperRegistryLogicB2_1.sol";
+import "./Chainable.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1 {
+contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
@@ -25,7 +27,10 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1 {
     address link,
     address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed) {}
+  )
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
+    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
+  {}
 
   function checkUpkeep(uint256 id)
     external
