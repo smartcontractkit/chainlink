@@ -690,7 +690,7 @@ func TestContextFromChan(t *testing.T) {
 	}
 }
 
-func TestContextFromChanWithDeadline(t *testing.T) {
+func TestContextFromChanWithTimeout(t *testing.T) {
 	t.Parallel()
 
 	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
@@ -705,7 +705,7 @@ func TestContextFromChanWithDeadline(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan struct{})
-		ctx, cancel := utils.ContextFromChanWithDeadline(ch, testutils.TestInterval)
+		ctx, cancel := utils.ContextFromChanWithTimeout(ch, testutils.TestInterval)
 		defer cancel()
 
 		assertCtxCancelled(ctx, t)
@@ -715,7 +715,7 @@ func TestContextFromChanWithDeadline(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan struct{})
-		ctx, cancel := utils.ContextFromChanWithDeadline(ch, testutils.WaitTimeout(t))
+		ctx, cancel := utils.ContextFromChanWithTimeout(ch, testutils.WaitTimeout(t))
 		defer cancel()
 
 		ch <- struct{}{}

@@ -186,7 +186,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = cosmos.EnsureChains(db, appLggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, appLggr, cfg, ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
@@ -228,8 +228,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		solLggr := appLggr.Named("Solana")
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
+			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
 		}
 		cfgs := cfg.SolanaConfigs()
 		var ids []string

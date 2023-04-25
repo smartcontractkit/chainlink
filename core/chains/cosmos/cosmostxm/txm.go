@@ -117,7 +117,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 
 func (txm *Txm) run() {
 	defer close(txm.done)
-	ctx, cancel := utils.ContextFromChan(txm.stop)
+	ctx, cancel := utils.StopChan(txm.stop).NewCtx()
 	defer cancel()
 	txm.confirmAnyUnconfirmed(ctx)
 	// Jitter in case we have multiple cosmos chains each with their own client.

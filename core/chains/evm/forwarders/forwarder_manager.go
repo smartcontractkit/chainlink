@@ -79,10 +79,11 @@ func (f *FwdMgr) Name() string {
 func (f *FwdMgr) Start(ctx context.Context) error {
 	return f.StartOnce("EVMForwarderManager", func() error {
 		f.logger.Debug("Initializing EVM forwarder manager")
+		chainId := f.evmClient.ConfiguredChainID()
 
-		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
+		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
 		if err != nil {
-			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", f.evmClient.ChainID())
+			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
@@ -107,13 +108,13 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 	})
 }
 
-func (f *FwdMgr) filterName(addr common.Address) string {
+func FilterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
 func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
+	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -212,7 +213,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 
 	err := f.logpoller.RegisterFilter(
 		evmlogpoller.Filter{
-			Name:      f.filterName(addr),
+			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
 			Addresses: []common.Address{addr},
 		})

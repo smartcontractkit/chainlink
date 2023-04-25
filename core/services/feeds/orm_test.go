@@ -687,9 +687,12 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 func Test_ORM_UpsertJobProposal(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	name := null.StringFrom("jp1")
+	var (
+		orm           = setupORM(t)
+		fmID          = createFeedsManager(t, orm)
+		name          = null.StringFrom("jp1")
+		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	)
 
 	jp := &feeds.JobProposal{
 		Name:           name,
@@ -698,15 +701,20 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 		FeedsManagerID: fmID,
 	}
 
+	// The constraint chk_job_proposals_status_fsm ensures that approved job proposals must have an
+	// externalJobID, deleted job proposals are ignored from the check, and all other statuses
+	// should have a null externalJobID. We should test the transition between the statuses, moving
+	// from pending to approved, and then approved to pending, and pending to deleted and so forth.
+
 	// Create
 	count, err := orm.CountJobProposals()
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
-	id, err := orm.UpsertJobProposal(jp)
+	jpID, err := orm.UpsertJobProposal(jp)
 	require.NoError(t, err)
 
-	createdActual, err := orm.GetJobProposal(id)
+	createdActual, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
 	assert.False(t, createdActual.PendingUpdate)
@@ -715,17 +723,16 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 
-	assert.NotZero(t, id)
+	assert.NotZero(t, jpID)
 
 	// Update
 	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
 	jp.Name = null.StringFrom("jp1_updated")
-	jp.Status = feeds.JobProposalStatusDeleted
 
-	id, err = orm.UpsertJobProposal(jp)
+	jpID, err = orm.UpsertJobProposal(jp)
 	require.NoError(t, err)
 
-	actual, err := orm.GetJobProposal(id)
+	actual, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 	assert.Equal(t, jp.Name, actual.Name)
 	assert.Equal(t, jp.Status, actual.Status)
@@ -734,21 +741,62 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	// Ensure there is a difference in the created proposal and the upserted
 	// proposal
 	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
-	assert.NotEqual(t, createdActual.Status, actual.Status)
 	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
 	assert.True(t, actual.PendingUpdate)
+
+	// Approve
+	specID := createJobSpec(t, orm, int64(jpID))
+
+	// Defer the FK requirement of an existing job for a job proposal.
+	require.NoError(t, utils.JustError(orm.db.Exec(
+		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+	)))
+
+	err = orm.ApproveSpec(specID, externalJobID.UUID)
+	require.NoError(t, err)
+
+	actual, err = orm.GetJobProposal(jpID)
+	require.NoError(t, err)
+
+	// Assert that the job proposal is now approved.
+	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
+
+	// Update the proposal again
+	jp.Multiaddrs = pq.StringArray{"dns/example1.com"}
+	jp.Name = null.StringFrom("jp1_updated_again")
+	jp.Status = feeds.JobProposalStatusPending
+
+	_, err = orm.UpsertJobProposal(jp)
+	require.NoError(t, err)
+
+	actual, err = orm.GetJobProposal(jpID)
+	require.NoError(t, err)
+
+	assert.Equal(t, feeds.JobProposalStatusPending, actual.Status)
+	assert.Equal(t, uuid.NullUUID{}, actual.ExternalJobID)
+	assert.True(t, actual.PendingUpdate)
+
+	// Delete the proposal
+	err = orm.DeleteProposal(jpID)
+	require.NoError(t, err)
+
+	actual, err = orm.GetJobProposal(jpID)
+	require.NoError(t, err)
+
+	assert.Equal(t, feeds.JobProposalStatusDeleted, actual.Status)
 
 	// Update deleted proposal
 	jp.Status = feeds.JobProposalStatusRejected
 
-	id, err = orm.UpsertJobProposal(jp)
+	jpID, err = orm.UpsertJobProposal(jp)
 	require.NoError(t, err)
 
 	// Ensure the deleted proposal does not get updated
-	actual, err = orm.GetJobProposal(id)
+	actual, err = orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 	assert.NotEqual(t, jp.Status, actual.Status)
-	assert.Equal(t, actual.Status, feeds.JobProposalStatusDeleted)
+	assert.Equal(t, feeds.JobProposalStatusDeleted, actual.Status)
 }
 
 // Job Proposal Specs
@@ -1424,7 +1472,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		lggr        = logger.TestLogger(t)
 		pipelineORM = pipeline.NewORM(db, lggr, config)
 		bridgeORM   = bridges.NewORM(db, lggr, config)
-		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	)
 

@@ -23,9 +23,9 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evm_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
@@ -67,8 +67,8 @@ func TestCoordinator_BeaconPeriod(t *testing.T) {
 
 func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 	t.Parallel()
-	evmClient := evm_mocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient := evmclimocks.NewClient(t)
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 
 	t.Run("happy path", func(t *testing.T) {
 		// In this test the DKG and VRF committees have the same signers and
@@ -209,8 +209,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	proofG1X := big.NewInt(1)
 	proofG1Y := big.NewInt(2)
-	evmClient := evm_mocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient := evmclimocks.NewClient(t)
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 	t.Run("happy path, beacon requests", func(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
@@ -1074,8 +1074,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 }
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
-	evmClient := evm_mocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient := evmclimocks.NewClient(t)
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
 		lookbackBlocks := uint64(0)
 		lp := getLogPoller(t, []uint64{199}, 200, false, false, 0)
@@ -1116,7 +1116,7 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 	proofG1X := big.NewInt(1)
 	proofG1Y := big.NewInt(2)
 	lggr := logger.TestLogger(t)
-	evmClient := evm_mocks.NewClient(t)
+	evmClient := evmclimocks.NewClient(t)
 
 	coordinatorAddress := newAddress(t)
 	beaconAddress := newAddress(t)
@@ -1184,8 +1184,8 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 }
 
 func TestCoordinator_ReportIsOnchain(t *testing.T) {
-	evmClient := evm_mocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient := evmclimocks.NewClient(t)
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 
 	t.Run("report is on-chain", func(t *testing.T) {
 		tp := newTopics()

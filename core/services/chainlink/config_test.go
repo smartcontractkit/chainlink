@@ -46,7 +46,6 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-
 			AuditLogger: audit.AuditLoggerConfig{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
@@ -62,7 +61,6 @@ var (
 				}),
 				JsonWrapperKey: ptr("event"),
 			},
-
 			Database: config.Database{
 				Listener: config.DatabaseListener{
 					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
@@ -218,6 +216,12 @@ func TestConfig_Marshal(t *testing.T) {
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
+			Insecure: config.Insecure{
+				DevWebServer:         ptr(false),
+				OCRDevelopmentMode:   ptr(false),
+				InfiniteDepthQueries: ptr(false),
+				DisableRateLimiting:  ptr(false),
+			},
 		},
 	}
 
@@ -623,6 +627,12 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
 `},
 		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -1024,6 +1034,7 @@ func TestConfig_full(t *testing.T) {
 			}
 		}
 	}
+
 	cfgtest.AssertFieldsNotNil(t, got)
 }
 
@@ -1158,11 +1169,11 @@ var (
 	secretsMultiRedactedTOML string
 )
 
-func TestNewGeneralConfig_Logger(t *testing.T) {
+func Test_generalConfig_LogConfiguration(t *testing.T) {
 	const (
-		secrets   = "Secrets:\n"
-		input     = "Input Configuration:\n"
-		effective = "Effective Configuration, with defaults applied:\n"
+		secrets   = "# Secrets:\n"
+		input     = "# Input Configuration:\n"
+		effective = "# Effective Configuration, with defaults applied:\n"
 	)
 	tests := []struct {
 		name         string
@@ -1186,23 +1197,26 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
 			c, err := opts.New(lggr)
 			require.NoError(t, err)
-			c.LogConfiguration(lggr.Info)
+			c.LogConfiguration(lggr.Infof)
 
 			inputLogs := observed.FilterMessageSnippet(secrets).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, secrets)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantSecrets, got)
 			}
 
 			inputLogs = observed.FilterMessageSnippet(input).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, input)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantConfig, got)
 			}
 
 			inputLogs = observed.FilterMessageSnippet(effective).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, effective)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantEffective, got)
 			}
 		})

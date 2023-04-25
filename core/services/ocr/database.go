@@ -160,7 +160,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	return errors.Wrap(err, "WriteConfig failed")
 }
 
-func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey, p ocrtypes.PendingTransmission) error {
+func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
 	median := utils.NewBig(p.Median)
 	var rs [][]byte
 	var ss [][]byte
@@ -206,7 +206,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTra
 	return errors.Wrap(err, "StorePendingTransmission failed")
 }
 
-func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission, error) {
+func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
 	rows, err := d.q.QueryContext(ctx, `
 SELECT
 	config_digest,
@@ -226,10 +226,10 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	}
 	defer d.lggr.ErrorIfFn(rows.Close, "Error closing ocr_pending_transmissions rows")
 
-	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
+	m := make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission)
 
 	for rows.Next() {
-		k := ocrtypes.PendingTransmissionKey{}
+		k := ocrtypes.ReportTimestamp{}
 		p := ocrtypes.PendingTransmission{}
 
 		var median utils.Big
@@ -267,7 +267,7 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	return m, nil
 }
 
-func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey) (err error) {
+func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp) (err error) {
 	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
 DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4

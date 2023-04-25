@@ -1,3 +1,5 @@
+// The blockhash store package provides a service that stores blockhashes such that they are available
+// for on-chain proofs beyond the EVM 256 block limit.
 package blockhashstore
 
 import (
@@ -32,7 +34,7 @@ type BulletproofBHS struct {
 	config        bpBHSConfig
 	jobID         uuid.UUID
 	fromAddresses []ethkey.EIP55Address
-	txm           txmgr.TxManager
+	txm           txmgr.EvmTxManager
 	abi           *abi.ABI
 	bhs           blockhash_store.BlockhashStoreInterface
 	chainID       *big.Int
@@ -43,7 +45,7 @@ type BulletproofBHS struct {
 func NewBulletproofBHS(
 	config bpBHSConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.TxManager,
+	txm txmgr.EvmTxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -77,7 +79,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
+	_, err = c.txm.CreateEthTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
@@ -125,7 +127,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
+	_, err = c.txm.CreateEthTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,

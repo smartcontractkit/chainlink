@@ -25,7 +25,7 @@ type (
 		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox[*evmtypes.Head]
-		chStop       chan struct{}
+		chStop       utils.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
 
@@ -140,7 +140,7 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.He
 func (pr *promReporter) eventLoop() {
 	pr.lggr.Debug("Starting event loop")
 	defer pr.wgDone.Done()
-	ctx, cancel := utils.ContextFromChan(pr.chStop)
+	ctx, cancel := pr.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

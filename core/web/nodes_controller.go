@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
@@ -15,31 +17,28 @@ type NodesController interface {
 	Index(c *gin.Context, size, page, offset int)
 }
 
-type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
-	nodeSet       chains.Nodes[I, N]
-	parseChainID  func(string) (I, error)
+type nodesController[R jsonapi.EntityNamer] struct {
+	nodeSet       chains.Nodes
 	errNotEnabled error
-	newResource   func(N) R
+	newResource   func(status types.NodeStatus) R
 	auditLogger   audit.AuditLogger
 }
 
-func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
-	nodeSet chains.Nodes[I, N],
+func newNodesController[R jsonapi.EntityNamer](
+	nodeSet chains.Nodes,
 	errNotEnabled error,
-	parseChainID func(string) (I, error),
-	newResource func(N) R,
+	newResource func(status types.NodeStatus) R,
 	auditLogger audit.AuditLogger,
 ) NodesController {
-	return &nodesController[I, N, R]{
+	return &nodesController[R]{
 		nodeSet:       nodeSet,
 		errNotEnabled: errNotEnabled,
-		parseChainID:  parseChainID,
 		newResource:   newResource,
 		auditLogger:   auditLogger,
 	}
 }
 
-func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int) {
+func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 	if n.nodeSet == nil {
 		jsonAPIError(c, http.StatusBadRequest, n.errNotEnabled)
 		return
@@ -47,21 +46,16 @@ func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int)
 
 	id := c.Param("ID")
 
-	var nodes []N
+	var nodes []types.NodeStatus
 	var count int
 	var err error
 
 	if id == "" {
 		// fetch all nodes
-		nodes, count, err = n.nodeSet.GetNodes(c, offset, size)
+		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size)
 	} else {
 		// fetch nodes for chain ID
-		chainID, err2 := n.parseChainID(id)
-		if err2 != nil {
-			jsonAPIError(c, http.StatusBadRequest, err2)
-			return
-		}
-		nodes, count, err = n.nodeSet.GetNodesForChain(c, chainID, offset, size)
+		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, id)
 	}
 
 	var resources []R

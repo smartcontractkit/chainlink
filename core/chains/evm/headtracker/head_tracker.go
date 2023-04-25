@@ -48,7 +48,7 @@ type headTracker struct {
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
 	headListener httypes.HeadListener
-	chStop       chan struct{}
+	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
 }
@@ -64,11 +64,10 @@ func NewHeadTracker(
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
-	id := ethClient.ChainID()
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
-		chainID:         *id,
+		chainID:         *ethClient.ConfiguredChainID(),
 		config:          config,
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
@@ -263,7 +262,7 @@ func (ht *headTracker) broadcastLoop() {
 func (ht *headTracker) backfillLoop() {
 	defer ht.wgDone.Done()
 
-	ctx, cancel := utils.ContextFromChan(ht.chStop)
+	ctx, cancel := ht.chStop.NewCtx()
 	defer cancel()
 
 	for {
