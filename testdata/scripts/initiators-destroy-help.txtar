@@ -1,0 +1,9 @@
+exec chainlink initiators destroy --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink initiators destroy - Remove an external initiator by name
+
+USAGE:
+   chainlink initiators destroy [arguments...]

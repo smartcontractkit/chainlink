@@ -7,9 +7,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/sqlx"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -36,7 +39,7 @@ var _ ChainSet = &chainSet{}
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	chains.Chains[utils.Big]
+	chains.Chains
 	chains.Nodes
 
 	Get(id *big.Int) (Chain, error)
@@ -46,6 +49,8 @@ type ChainSet interface {
 	ChainCount() int
 
 	Configs() types.Configs
+
+	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 type chainSet struct {
@@ -120,17 +125,21 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 		cll.logger.Debugf("Chain ID not specified, using default: %s", cll.defaultID.String())
 		return cll.Default()
 	}
+	return cll.get(id.String())
+}
+
+func (cll *chainSet) get(id string) (Chain, error) {
 	cll.chainsMu.RLock()
 	defer cll.chainsMu.RUnlock()
-	c, exists := cll.chains[id.String()]
+	c, exists := cll.chains[id]
 	if exists {
 		return c, nil
 	}
-	return nil, errors.Wrap(chains.ErrNotFound, fmt.Sprintf("failed to get chain with id %s", id.String()))
+	return nil, errors.Wrap(chains.ErrNotFound, fmt.Sprintf("failed to get chain with id %s", id))
 }
 
-func (cll *chainSet) Show(id utils.Big) (cfg chains.ChainConfig, err error) {
-	var cs []chains.ChainConfig
+func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes.ChainStatus, err error) {
+	var cs []relaytypes.ChainStatus
 	cs, _, err = cll.opts.Configs.Chains(0, -1, id)
 	if err != nil {
 		return
@@ -148,7 +157,7 @@ func (cll *chainSet) Show(id utils.Big) (cfg chains.ChainConfig, err error) {
 	return
 }
 
-func (cll *chainSet) Index(offset, limit int) ([]chains.ChainConfig, int, error) {
+func (cll *chainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
 	return cll.opts.Configs.Chains(offset, limit)
 }
 
@@ -187,7 +196,7 @@ func (cll *chainSet) Configs() types.Configs {
 	return cll.opts.Configs
 }
 
-func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []chains.NodeStatus, count int, err error) {
+func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
 	nodes, count, err = cll.opts.Configs.NodeStatusesPaged(offset, limit, chainIDs...)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
@@ -199,7 +208,7 @@ func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainI
 	return
 }
 
-func (cll *chainSet) addStateToNode(n *chains.NodeStatus) {
+func (cll *chainSet) addStateToNode(n *relaytypes.NodeStatus) {
 	cll.chainsMu.RLock()
 	chain, exists := cll.chains[n.ChainID]
 	cll.chainsMu.RUnlock()
@@ -220,6 +229,15 @@ func (cll *chainSet) addStateToNode(n *chains.NodeStatus) {
 	}
 	// The node is in the DB and the chain is enabled but it's not running
 	n.State = "NotLoaded"
+}
+
+func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
+	chain, err := cll.get(chainID)
+	if err != nil {
+		return err
+	}
+
+	return chain.SendTx(ctx, from, to, amount, balanceCheck)
 }
 
 type GeneralConfig interface {

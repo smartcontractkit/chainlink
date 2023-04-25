@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
@@ -18,14 +20,14 @@ type NodesController interface {
 type nodesController[R jsonapi.EntityNamer] struct {
 	nodeSet       chains.Nodes
 	errNotEnabled error
-	newResource   func(status chains.NodeStatus) R
+	newResource   func(status types.NodeStatus) R
 	auditLogger   audit.AuditLogger
 }
 
 func newNodesController[R jsonapi.EntityNamer](
 	nodeSet chains.Nodes,
 	errNotEnabled error,
-	newResource func(status chains.NodeStatus) R,
+	newResource func(status types.NodeStatus) R,
 	auditLogger audit.AuditLogger,
 ) NodesController {
 	return &nodesController[R]{
@@ -44,7 +46,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 
 	id := c.Param("ID")
 
-	var nodes []chains.NodeStatus
+	var nodes []types.NodeStatus
 	var count int
 	var err error
 
