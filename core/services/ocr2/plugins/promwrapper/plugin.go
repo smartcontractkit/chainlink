@@ -2,9 +2,11 @@ package promwrapper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -28,7 +30,7 @@ var (
 		float64(5 * time.Minute),
 		float64(10 * time.Minute),
 	}
-	labels = []string{"chainType", "chainID", "plugin"}
+	labels = []string{"chainType", "chainID", "plugin", "oracleID", "configDigest"}
 )
 
 var (
@@ -86,18 +88,22 @@ var (
 // for each of the OCR2 phases (Query, Observation, Report, ShouldAcceptFinalizedReport,
 // ShouldTransmitAcceptedReport, and Close).
 type promPlugin struct {
-	wrapped   types.ReportingPlugin
-	name      string
-	chainType string
-	chainID   *big.Int
+	wrapped      types.ReportingPlugin
+	name         string
+	chainType    string
+	chainID      *big.Int
+	oracleID     string
+	configDigest string
 }
 
-func New(plugin types.ReportingPlugin, name string, chainType string, chainID *big.Int) types.ReportingPlugin {
+func New(plugin types.ReportingPlugin, name string, chainType string, chainID *big.Int, config types.ReportingPluginConfig) types.ReportingPlugin {
 	return &promPlugin{
-		wrapped:   plugin,
-		name:      name,
-		chainType: chainType,
-		chainID:   chainID,
+		wrapped:      plugin,
+		name:         name,
+		chainType:    chainType,
+		chainID:      chainID,
+		oracleID:     fmt.Sprintf("%d", config.OracleID),
+		configDigest: common.Bytes2Hex(config.ConfigDigest[:]),
 	}
 }
 
@@ -105,7 +111,7 @@ func (p *promPlugin) Query(ctx context.Context, timestamp types.ReportTimestamp)
 	start := time.Now().UTC()
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
-		promQuery.WithLabelValues(string(p.chainType), p.chainID.String(), p.name).Observe(duration)
+		promQuery.WithLabelValues(p.getLabelsValues()...).Observe(duration)
 	}()
 
 	return p.wrapped.Query(ctx, timestamp)
@@ -115,7 +121,7 @@ func (p *promPlugin) Observation(ctx context.Context, timestamp types.ReportTime
 	start := time.Now().UTC()
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
-		promObservation.WithLabelValues(string(p.chainType), p.chainID.String(), p.name).Observe(duration)
+		promObservation.WithLabelValues(p.getLabelsValues()...).Observe(duration)
 	}()
 
 	return p.wrapped.Observation(ctx, timestamp, query)
@@ -125,7 +131,7 @@ func (p *promPlugin) Report(ctx context.Context, timestamp types.ReportTimestamp
 	start := time.Now().UTC()
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
-		promReport.WithLabelValues(string(p.chainType), p.chainID.String(), p.name).Observe(duration)
+		promReport.WithLabelValues(p.getLabelsValues()...).Observe(duration)
 	}()
 
 	return p.wrapped.Report(ctx, timestamp, query, observations)
@@ -135,7 +141,7 @@ func (p *promPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp 
 	start := time.Now().UTC()
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
-		promShouldAcceptFinalizedReport.WithLabelValues(string(p.chainType), p.chainID.String(), p.name).Observe(duration)
+		promShouldAcceptFinalizedReport.WithLabelValues(p.getLabelsValues()...).Observe(duration)
 	}()
 
 	return p.wrapped.ShouldAcceptFinalizedReport(ctx, timestamp, report)
@@ -145,7 +151,7 @@ func (p *promPlugin) ShouldTransmitAcceptedReport(ctx context.Context, timestamp
 	start := time.Now().UTC()
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
-		promShouldTransmitAcceptedReport.WithLabelValues(string(p.chainType), p.chainID.String(), p.name).Observe(duration)
+		promShouldTransmitAcceptedReport.WithLabelValues(p.getLabelsValues()...).Observe(duration)
 	}()
 
 	return p.wrapped.ShouldTransmitAcceptedReport(ctx, timestamp, report)
@@ -155,8 +161,12 @@ func (p *promPlugin) Close() error {
 	start := time.Now().UTC()
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
-		promClose.WithLabelValues(string(p.chainType), p.chainID.String(), p.name).Observe(duration)
+		promClose.WithLabelValues(p.getLabelsValues()...).Observe(duration)
 	}()
 
 	return p.wrapped.Close()
+}
+
+func (p *promPlugin) getLabelsValues() []string {
+	return []string{string(p.chainType), p.chainID.String(), p.name, p.oracleID, p.configDigest}
 }
