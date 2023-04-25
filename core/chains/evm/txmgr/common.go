@@ -31,7 +31,7 @@ func batchSendTransactions[
 	SEQ txmgrtypes.Sequence,
 ](
 	ctx context.Context,
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR, TX_HASH], R, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],
 	attempts []EthTxAttempt[ADDR, TX_HASH],
 	batchSize int,
 	logger logger.Logger,

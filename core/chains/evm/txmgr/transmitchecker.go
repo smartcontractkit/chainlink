@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -22,7 +23,7 @@ import (
 
 type (
 	EvmTransmitChecker     = TransmitChecker[common.Address, common.Hash]
-	EvmTransmitCheckerSpec = TransmitCheckerSpec[common.Address]
+	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
 )
 
 var (
