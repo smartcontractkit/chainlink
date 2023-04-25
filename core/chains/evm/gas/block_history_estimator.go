@@ -240,7 +240,7 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 			"Using EvmGasPriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 		gasPrice = b.config.EvmGasPriceDefault()
 	}
-	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.config)
+	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.config.EvmMaxGasPriceWei())
 	return
 }
 
@@ -387,7 +387,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 				"Using EvmGasTipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.config.EvmGasTipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config)
+		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config.EvmMaxGasPriceWei())
 		if b.config.EvmGasBumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice

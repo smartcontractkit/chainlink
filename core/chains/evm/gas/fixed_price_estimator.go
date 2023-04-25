@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var _ EvmEstimator = &fixedPriceEstimator{}
+var _ EvmEstimator = (*fixedPriceEstimator)(nil)
 
 type fixedPriceEstimator struct {
 	config Config
@@ -42,7 +42,7 @@ func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.H
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()
 	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EvmGasLimitMultiplier())
-	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, f.config)
+	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, f.config.EvmMaxGasPriceWei())
 	return
 }
 
@@ -55,16 +55,9 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	if gasTipCap == nil {
 		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
-	chainSpecificGasLimit = applyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
 
-	var feeCap *assets.Wei
-	if f.config.EvmGasBumpThreshold() == 0 {
-		// Gas bumping is disabled, just use the max fee cap
-		feeCap = getMaxGasPrice(maxGasPriceWei, f.config)
-	} else {
-		// Need to leave headroom for bumping so we fallback to the default value here
-		feeCap = f.config.EvmGasFeeCapDefault()
-	}
+	chainSpecificGasLimit = applyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
+	feeCap := capDynamicFeePrice(maxGasPriceWei, f.config)
 
 	return DynamicFee{
 		FeeCap: feeCap,
