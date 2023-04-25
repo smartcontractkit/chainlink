@@ -111,7 +111,7 @@ const (
 		run_computation [type="bridge" name="ea_bridge" requestData="{\"requestId\": $(jobRun.meta.requestId), \"jobName\": $(jobSpec.name), \"subscriptionOwner\": $(jobRun.meta.subscriptionOwner), \"subscriptionId\": $(jobRun.meta.subscriptionId), \"data\": $(jobRun.meta.requestData)}"]
 		parse_result    [type=jsonparse data="$(run_computation)" path="data,result"]
 		parse_error     [type=jsonparse data="$(run_computation)" path="data,error"]
-		parse_domains   [type=jsonparse data="$(run_computation)" path="data,domains"]
+		parse_domains   [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
 		run_computation -> parse_result -> parse_error -> parse_domains
 	`
 )
@@ -427,7 +427,7 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	}
 
 	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
-	if errDomains == nil && len(reportedDomainsJson) > 0 {
+	if errDomains == nil && reportedDomainsJson != nil && len(reportedDomainsJson) > 0 {
 		var reportedDomains []string
 		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
 		if errJson != nil {
