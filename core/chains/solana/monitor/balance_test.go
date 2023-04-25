@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -84,6 +85,9 @@ func (c *config) BalancePollPeriod() time.Duration {
 
 type keystore []solkey.Key
 
-func (k keystore) GetAll() ([]solkey.Key, error) {
-	return k, nil
+func (k keystore) Accounts(ctx context.Context) (ks []string, err error) {
+	for _, acc := range k {
+		ks = append(ks, acc.PublicKeyStr())
+	}
+	return
 }
