@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
@@ -1373,7 +1375,7 @@ func TestTopics_DKGConfigSet_VRFConfigSet(t *testing.T) {
 	assert.Equal(t, dkgConfigSetTopic, vrfConfigSetTopic, "config set topics of vrf and dkg must be equal")
 }
 
-func Test_SetOffchainConfig(t *testing.T) {
+func Test_UpdateConfiguration(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid binary", func(t *testing.T) {
@@ -1395,7 +1397,9 @@ func Test_SetOffchainConfig(t *testing.T) {
 		require.Equal(t, cacheEvictionWindow, c.toBeTransmittedBlocks.evictionWindow)
 		require.Equal(t, cacheEvictionWindow, c.toBeTransmittedCallbacks.evictionWindow)
 
-		err := c.SetOffChainConfig(ocr2vrf.OffchainConfig(newCoordinatorConfig))
+		expectedConfigDigest := ocr2Types.ConfigDigest(common.HexToHash("asd"))
+		expectedOracleID := commontypes.OracleID(3)
+		err := c.UpdateConfiguration(ocr2vrf.OffchainConfig(newCoordinatorConfig), expectedConfigDigest, expectedOracleID)
 		newCacheEvictionWindow := time.Duration(newCoordinatorConfig.CacheEvictionWindowSeconds * int64(time.Second))
 		require.NoError(t, err)
 		require.Equal(t, newCoordinatorConfig.CacheEvictionWindowSeconds, c.coordinatorConfig.CacheEvictionWindowSeconds)
@@ -1406,12 +1410,14 @@ func Test_SetOffchainConfig(t *testing.T) {
 		require.Equal(t, newCoordinatorConfig.LookbackBlocks, c.coordinatorConfig.LookbackBlocks)
 		require.Equal(t, newCacheEvictionWindow, c.toBeTransmittedBlocks.evictionWindow)
 		require.Equal(t, newCacheEvictionWindow, c.toBeTransmittedCallbacks.evictionWindow)
+		require.Equal(t, expectedConfigDigest, c.configDigest)
+		require.Equal(t, expectedOracleID, c.oracleID)
 	})
 
 	t.Run("invalid binary", func(t *testing.T) {
 		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10), lggr: logger.TestLogger(t)}
 
-		err := c.SetOffChainConfig([]byte{123})
+		err := c.UpdateConfiguration([]byte{123}, ocr2Types.ConfigDigest{}, commontypes.OracleID(0))
 		require.Error(t, err)
 	})
 }
