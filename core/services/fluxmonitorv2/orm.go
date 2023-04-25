@@ -126,7 +126,7 @@ func (o *orm) CreateEthTransaction(
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
-		GasLimit:       gasLimit,
+		FeeLimit:       gasLimit,
 		Strategy:       o.strategy,
 		Checker:        o.checker,
 	}, qopts...)

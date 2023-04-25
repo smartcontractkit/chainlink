@@ -187,7 +187,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
-		GasLimit:       gasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
 	}).Return(txmgr.EvmTx{}, nil).Once()

@@ -76,7 +76,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
-		GasLimit:         t.gasLimit,
+		FeeLimit:         t.gasLimit,
 		ForwarderAddress: t.forwarderAddress(),
 		Strategy:         t.strategy,
 		Checker:          t.checker,

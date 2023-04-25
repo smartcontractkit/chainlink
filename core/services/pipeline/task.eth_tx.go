@@ -139,7 +139,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
-		GasLimit:         uint32(gasLimit),
+		FeeLimit:         uint32(gasLimit),
 		Meta:             txMeta,
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
