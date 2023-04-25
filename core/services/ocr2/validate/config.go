@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -20,6 +21,9 @@ type Config interface {
 	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRDevelopmentMode() bool
+	MercuryID() string
+	MercuryKey() string
+	MercuryURL() *url.URL
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
