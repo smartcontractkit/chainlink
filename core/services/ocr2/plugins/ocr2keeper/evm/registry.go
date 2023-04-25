@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -44,7 +45,7 @@ var (
 type MercuryCredential struct {
 	MercuryID  string
 	MercuryKey string
-	MercuryURL string
+	MercuryURL *url.URL
 }
 
 type LatestBlockGetter interface {

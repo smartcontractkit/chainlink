@@ -590,7 +590,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		mercuryCred := &kevm.MercuryCredential{
 			MercuryID:  d.cfg.MercuryID(),
 			MercuryKey: d.cfg.MercuryKey(),
-			MercuryURL: d.cfg.MercuryURL().String(),
+			MercuryURL: d.cfg.MercuryURL(),
 		}
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mercuryCred)
 		if err2 != nil {
