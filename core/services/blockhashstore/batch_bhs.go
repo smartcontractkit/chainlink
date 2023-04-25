@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -67,8 +66,8 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 	}
 
 	_, err = b.txm.CreateEthTransaction(txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(b.batchbhs.Address()),
+		FromAddress:    fromAddress,
+		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
 		GasLimit:       b.config.EvmGasLimitDefault(),
 		Strategy:       txmgr.NewSendEveryStrategy(),

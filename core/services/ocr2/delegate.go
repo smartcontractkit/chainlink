@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -244,7 +243,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 			// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 			if jb.ForwardingAllowed { // FIXME: ForwardingAllowed cannot be set with Mercury, validate this
-				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(evmtypes.HexToAddress(transmitterID))
+				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
 				if fwderr == nil {
 					effectiveTransmitterID = fwdrAddress.String()
 				} else {

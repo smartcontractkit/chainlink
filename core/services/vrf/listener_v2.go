@@ -694,8 +694,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	start := time.Now()
 	var processed = make(map[string]struct{})
+	chainId := lsn.ethClient.ConfiguredChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.q, startBalance, chainId.Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed
@@ -819,8 +820,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				transaction, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
-					FromAddress:    evmtypes.NewAddress(fromAddress),
-					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
+					FromAddress:    fromAddress,
+					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{

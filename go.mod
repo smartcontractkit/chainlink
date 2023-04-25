@@ -55,6 +55,7 @@ require (
 	github.com/prometheus/client_model v0.3.0
 	github.com/pyroscope-io/client v0.7.0
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/rogpeppe/go-internal v1.10.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.12

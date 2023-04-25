@@ -42,6 +42,7 @@ import (
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -208,7 +209,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), config, ks, estimator)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ks, estimator)
 	ec := txmgr.NewEthConfirmer(txStore, ethClient, txmgr.NewEvmTxmConfig(config), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
@@ -391,6 +392,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
+	chainId := ethClient.ConfiguredChainID()
 	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
 		Configs:          chainCfgs,
 		Config:           cfg,
@@ -399,8 +401,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 		GenEthClient: func(_ *big.Int) evmclient.Client {
-			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
-				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
+			if chainId.Cmp(cfg.DefaultChainID()) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
 			}
 			return ethClient
 		},
@@ -512,7 +514,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 func NewEthMocksWithDefaultChain(t testing.TB) (c *evmclimocks.Client) {
 	testutils.SkipShortDB(t)
 	c = NewEthMocks(t)
-	c.On("ChainID").Return(&FixtureChainID).Maybe()
+	c.On("ConfiguredChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
@@ -527,7 +529,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
-	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, errors.New("mocked"))
 	c.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
@@ -548,6 +550,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(2), nil)
 	c.On("HeadByNumber", mock.Anything, big.NewInt(1)).Maybe().Return(Head(1), nil)
 	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)
@@ -564,7 +567,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
 		}
 	})
-	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
 	block := &types.Header{
@@ -1302,7 +1305,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmc
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
-	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()

@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -60,7 +59,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	etx, err := chain.TxManager().SendEther(chain.ID(), evmtypes.NewAddress(tr.FromAddress), evmtypes.NewAddress(tr.DestinationAddress), tr.Amount, chain.Config().EvmGasLimitTransfer())
+	etx, err := chain.TxManager().SendEther(chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -57,6 +58,7 @@ type Pool struct {
 	nodes        []Node
 	sendonlys    []SendOnlyNode
 	chainID      *big.Int
+	chainType    config.ChainType
 	logger       logger.Logger
 	config       PoolConfig
 	nodeSelector NodeSelector
@@ -68,7 +70,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
+func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -92,6 +94,7 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 		nodes:        nodes,
 		sendonlys:    sendonlys,
 		chainID:      chainID,
+		chainType:    chainType,
 		logger:       lggr,
 		config:       cfg,
 		nodeSelector: nodeSelector,
@@ -236,7 +239,11 @@ func (p *Pool) Close() error {
 }
 
 func (p *Pool) ChainID() *big.Int {
-	return p.chainID
+	return p.selectNode().ChainID()
+}
+
+func (p *Pool) ChainType() config.ChainType {
+	return p.chainType
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
@@ -373,12 +380,20 @@ func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*typ
 	return p.selectNode().TransactionReceipt(ctx, txHash)
 }
 
+func (p *Pool) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	return p.selectNode().TransactionByHash(ctx, txHash)
+}
+
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return p.selectNode().BlockByNumber(ctx, number)
 }
 
 func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return p.selectNode().BlockByHash(ctx, hash)
+}
+
+func (p *Pool) BlockNumber(ctx context.Context) (uint64, error) {
+	return p.selectNode().BlockNumber(ctx)
 }
 
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
