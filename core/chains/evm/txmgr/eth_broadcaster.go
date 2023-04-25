@@ -126,7 +126,7 @@ type EthBroadcaster[
 	// Each key has its own trigger
 	triggers map[ADDR]chan struct{}
 
-	chStop chan struct{}
+	chStop utils.StopChan
 	wg     sync.WaitGroup
 
 	initSync  sync.Mutex
@@ -311,7 +311,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) monitorEthTxs(addr ADDR, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 
-	ctx, cancel := utils.ContextFromChan(eb.chStop)
+	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 
 	if eb.autoSyncNonce {

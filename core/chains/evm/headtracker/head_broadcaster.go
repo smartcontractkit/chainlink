@@ -43,7 +43,7 @@ type headBroadcaster struct {
 	callbacks callbackSet
 	mailbox   *utils.Mailbox[*evmtypes.Head]
 	mutex     *sync.Mutex
-	chClose   chan struct{}
+	chClose   utils.StopChan
 	wgDone    sync.WaitGroup
 	utils.StartStopOnce
 	latest         *evmtypes.Head
@@ -138,7 +138,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(callbacks))
 
-	ctx, cancel := utils.ContextFromChan(hb.chClose)
+	ctx, cancel := hb.chClose.NewCtx()
 	defer cancel()
 
 	for _, callback := range callbacks {

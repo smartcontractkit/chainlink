@@ -178,7 +178,7 @@ type AuditLoggerService struct {
 	loggingClient   HTTPAuditLoggerInterface // Abstract type for sending logs onward
 
 	loggingChannel chan wrappedAuditLog
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	chDone         chan struct{}
 }
 
@@ -353,7 +353,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		l.logger.Errorw("unable to serialize wrapped audit log item to JSON", "err", err, "logItem", logItem)
 		return
 	}
-	ctx, cancel := utils.ContextFromChan(l.chStop)
+	ctx, cancel := l.chStop.NewCtx()
 	defer cancel()
 
 	// Send to remote service

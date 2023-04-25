@@ -45,7 +45,7 @@ type arbitrumEstimator struct {
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	chDone         chan struct{}
 
 	utils.StartStopOnce
@@ -222,7 +222,7 @@ const (
 //
 // https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
 func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
-	ctx, cancel := evmclient.ContextWithDefaultTimeoutFromChan(a.chStop)
+	ctx, cancel := a.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	precompile := common.HexToAddress(ArbGasInfoAddress)
