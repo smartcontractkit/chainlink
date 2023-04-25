@@ -50,5 +50,19 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	db.SetMaxOpenConns(config.ORMMaxOpenConns())
 	db.SetMaxIdleConns(config.ORMMaxIdleConns())
 
-	return db, nil
+	return db, disallowReplica(db)
+}
+
+func disallowReplica(db *sqlx.DB) error {
+	var val string
+	err := db.Get(&val, "SHOW session_replication_role")
+	if err != nil {
+		return err
+	}
+
+	if val == "replica" {
+		return fmt.Errorf("invalid `session_replication_role`: %s. Refusing to connect to replica database. Writing to a replica will corrupt the database", val)
+	}
+
+	return nil
 }
