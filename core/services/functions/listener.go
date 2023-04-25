@@ -3,8 +3,8 @@ package functions
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"math/big"
 	"reflect"
 	"sync"
 	"time"
@@ -103,14 +103,16 @@ var (
 )
 
 const (
-	ParseResultTaskName string = "parse_result"
-	ParseErrorTaskName  string = "parse_error"
+	ParseResultTaskName  string = "parse_result"
+	ParseErrorTaskName   string = "parse_error"
+	ParseDomainsTaskName string = "parse_domains"
 	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
 	PipelineObservationSource string = `
 		run_computation [type="bridge" name="ea_bridge" requestData="{\"requestId\": $(jobRun.meta.requestId), \"jobName\": $(jobSpec.name), \"subscriptionOwner\": $(jobRun.meta.subscriptionOwner), \"subscriptionId\": $(jobRun.meta.subscriptionId), \"data\": $(jobRun.meta.requestData)}"]
 		parse_result    [type=jsonparse data="$(run_computation)" path="data,result"]
 		parse_error     [type=jsonparse data="$(run_computation)" path="data,error"]
-		run_computation -> parse_result -> parse_error
+		parse_domains   [type=jsonparse data="$(run_computation)" path="data,domains"]
+		run_computation -> parse_result -> parse_error -> parse_domains
 	`
 )
 
@@ -362,10 +364,6 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	// This will report any domains found in user-provided source code, before any secrets get involved.
-	// TODO: when Location=Remote is supported for source code, this function needs to be updated.
-	l.reportSourceCodeDomains(request.RequestId, requestData)
-
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    l.job.ID,
@@ -426,6 +424,21 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	if errErr != nil {
 		l.logger.Errorw("failed to extract error", "requestID", formatRequestId(request.RequestId), "err", errErr)
 		return
+	}
+
+	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
+	if errDomains != nil {
+		// Internal problem: Can't find reported domains
+		l.logger.Errorw("internal error: can't retrieve reported domains field", "requestID", formatRequestId(request.RequestId))
+		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errDomains.Error()))
+		return
+	}
+	var reportedDomains []string
+	errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
+	if errJson != nil {
+		l.logger.Errorw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
+	} else {
+		l.reportSourceCodeDomains(request.RequestId, reportedDomains)
 	}
 
 	if len(computationError) != 0 {
@@ -500,23 +513,7 @@ func (l *FunctionsListener) timeoutRequests() {
 	}
 }
 
-func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, requestData map[string]interface{}) {
-	codeLocation, ok1 := requestData["codeLocation"].(*big.Int)
-	source, ok2 := requestData["source"].(string)
-	if !ok1 || !ok2 {
-		l.logger.Warn("will not report source code domains, because request data has no codeLocation or source")
-		return
-	}
-	if codeLocation.Int64() != 0 {
-		l.logger.Warn("will not report source code domains, because codeLocation is not Inline")
-		return
-	}
-
-	domains := parseDomains(source)
-	if len(domains) == 0 {
-		return
-	}
-
+func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, domains []string) {
 	r := &telem.FunctionsRequest{
 		RequestId: requestId[:],
 		Domains:   domains,

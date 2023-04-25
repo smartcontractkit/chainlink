@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -160,6 +159,7 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
@@ -172,16 +172,13 @@ func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	// https://mumbai.polygonscan.com/tx/0xf9879a045bdf5d9d7822c5ab2e5f65e794e1acb2f4f960999bce717ebf64952f#eventlog
-	cbor, err := hex.DecodeString("6c636f64654c6f636174696f6ec258200000000000000000000000000000000000000000000000000000000000000000686c616e6775616765c25820000000000000000000000000000000000000000000000000000000000000000066736f75726365790261636f6e737420757365724e616d65203d20617267735b305d3b206173796e632066756e6374696f6e2066657463684769744875625573657253746174732829207b20636f6e7374207265706f7355726c203d206068747470733a2f2f6170692e6769746875622e636f6d2f75736572732f247b757365724e616d657d2f7265706f73603b20636f6e737420676973747355726c203d206068747470733a2f2f6170692e6769746875622e636f6d2f75736572732f247b757365724e616d657d2f6769737473603b20636f6e7374207265706f7341504952657175657374203d2046756e6374696f6e732e6d616b654874747052657175657374287b2075726c3a207265706f7355726c207d293b20636f6e737420676973747341504952657175657374203d2046756e6374696f6e732e6d616b654874747052657175657374287b2075726c3a20676973747355726c207d293b20636f6e7374205b7265706f73415049526573706f6e73652c206769737473415049526573706f6e73655d203d2061776169742050726f6d6973652e616c6c285b7265706f73415049526571756573742c206769737473415049526571756573745d293b20636f6e737420636f6d62696e6564436f756e74203d207265706f73415049526573706f6e73652e646174612e6c656e677468202b206769737473415049526573706f6e73652e646174612e6c656e6774683b2072657475726e20636f6d62696e6564436f756e743b207d3b2072657475726e2046756e6374696f6e732e656e636f646555696e743235362861776169742066657463684769744875625573657253746174732829293b64617267739f6a72676f74746c65626572ff")
-	assert.NoError(t, err)
-
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, cbor, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte(`["github.com","google.com"]`), nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
 
 	var sentMessage []byte
@@ -197,10 +194,10 @@ func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	assert.NotEmpty(t, sentMessage)
 
 	var req telem.FunctionsRequest
-	err = proto.Unmarshal(sentMessage, &req)
+	err := proto.Unmarshal(sentMessage, &req)
 	assert.NoError(t, err)
 	assert.Equal(t, RequestID[:], req.RequestId)
-	assert.EqualValues(t, []string{"api.github.com"}, req.Domains)
+	assert.EqualValues(t, []string{"github.com", "google.com"}, req.Domains)
 }
 
 func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
@@ -213,6 +210,7 @@ func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
