@@ -1334,7 +1334,7 @@ func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
 }
 
 // LogConfiguration provides a mock function with given fields: log
-func (_m *GeneralConfig) LogConfiguration(log config.LogFn) {
+func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
 	_m.Called(log)
 }
 

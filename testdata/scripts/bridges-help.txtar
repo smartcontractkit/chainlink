@@ -1,0 +1,19 @@
+exec chainlink bridges --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink bridges - Commands for Bridges communicating with External Adapters
+
+USAGE:
+   chainlink bridges command [command options] [arguments...]
+
+COMMANDS:
+   create   Create a new Bridge to an External Adapter
+   destroy  Destroys the Bridge for an External Adapter
+   list     List all Bridges to External Adapters
+   show     Show a Bridge's details
+
+OPTIONS:
+   --help, -h  show help
+   
