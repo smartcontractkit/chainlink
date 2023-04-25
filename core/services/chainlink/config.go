@@ -151,5 +151,17 @@ func (s *Secrets) setEnv() error {
 	if prometheusAuthToken := config.EnvPrometheusAuthToken.Get(); prometheusAuthToken != "" {
 		s.Prometheus.AuthToken = &prometheusAuthToken
 	}
+	if mercuryID := config.EnvMercuryID.Get(); mercuryID != "" {
+		s.Mercury.ID = &mercuryID
+	}
+	if mercuryKey := config.EnvMercuryKey.Get(); mercuryKey != "" {
+		s.Mercury.Key = &mercuryKey
+	}
+	if mercuryURL := config.EnvMercuryURL.Get(); mercuryURL != "" {
+		s.Mercury.URL = new(models.SecretURL)
+		if err := s.Mercury.URL.UnmarshalText([]byte(mercuryURL)); err != nil {
+			return err
+		}
+	}
 	return nil
 }

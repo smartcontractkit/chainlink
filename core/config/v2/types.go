@@ -117,6 +117,7 @@ type Secrets struct {
 	Password   Passwords         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
 	Prometheus PrometheusSecrets `toml:",omitempty"`
+	Mercury    MercurySecrets    `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -1001,4 +1002,10 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	if v := f.OCRDevelopmentMode; v != nil {
 		ins.OCRDevelopmentMode = f.OCRDevelopmentMode
 	}
+}
+
+type MercurySecrets struct {
+	ID  *models.Secret
+	Key *models.Secret
+	URL *models.SecretURL
 }
