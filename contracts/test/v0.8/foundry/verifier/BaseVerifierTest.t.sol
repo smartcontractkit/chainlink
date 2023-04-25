@@ -220,23 +220,22 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
-        // Verifier 1, Feed 1, Config 1
-                s_verifier.setConfig(
-            FEED_ID,
-            _getSignerAddresses(signers),
-            s_offchaintransmitters,
-            FAULT_TOLERANCE,
-            bytes(""),
-            VERIFIER_VERSION,
-            bytes("")
-        );
-        (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
-        s_verifierProxy.initializeVerifier(address(s_verifier));
-        changePrank(address(s_verifier));
-        s_verifierProxy.setVerifier(bytes32(""), configDigest);
-        changePrank(ADMIN);
-
-    }
+    // Verifier 1, Feed 1, Config 1
+    s_verifier.setConfig(
+      FEED_ID,
+      _getSignerAddresses(signers),
+      s_offchaintransmitters,
+      FAULT_TOLERANCE,
+      bytes(""),
+      VERIFIER_VERSION,
+      bytes("")
+    );
+    (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
+    s_verifierProxy.initializeVerifier(address(s_verifier));
+    changePrank(address(s_verifier));
+    s_verifierProxy.setVerifier(bytes32(""), configDigest);
+    changePrank(ADMIN);
+  }
 }
 
 contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier {
@@ -283,35 +282,35 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
     );
     (s_numConfigsSet, , s_configDigestThree) = s_verifier.latestConfigDetails(FEED_ID);
 
-        // Verifier 1, Feed 2, Config 1
-                s_verifier.setConfig(
-            FEED_ID_2,
-            _getSignerAddresses(signers),
-            s_offchaintransmitters,
-            FAULT_TOLERANCE,
-            bytes(""),
-            4,
-            bytes("")
-        );
-        (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
-        changePrank(address(s_verifier));
-        s_verifierProxy.setVerifier(bytes32(""), s_configDigestFour);
-        changePrank(ADMIN);
+    // Verifier 1, Feed 2, Config 1
+    s_verifier.setConfig(
+      FEED_ID_2,
+      _getSignerAddresses(signers),
+      s_offchaintransmitters,
+      FAULT_TOLERANCE,
+      bytes(""),
+      4,
+      bytes("")
+    );
+    (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
+    changePrank(address(s_verifier));
+    s_verifierProxy.setVerifier(bytes32(""), s_configDigestFour);
+    changePrank(ADMIN);
 
-        // Verifier 2, Feed 3, Config 1
-                s_verifier_2.setConfig(
-            FEED_ID_3,
-            _getSignerAddresses(signers),
-            s_offchaintransmitters,
-            FAULT_TOLERANCE,
-            bytes(""),
-            VERIFIER_VERSION,
-            bytes("")
-        );
-        (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
-        s_verifierProxy.initializeVerifier(address(s_verifier_2));
-        changePrank(address(s_verifier_2));
-        s_verifierProxy.setVerifier(bytes32(""), s_configDigestFive);
-        changePrank(ADMIN);
-    }
+    // Verifier 2, Feed 3, Config 1
+    s_verifier_2.setConfig(
+      FEED_ID_3,
+      _getSignerAddresses(signers),
+      s_offchaintransmitters,
+      FAULT_TOLERANCE,
+      bytes(""),
+      VERIFIER_VERSION,
+      bytes("")
+    );
+    (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
+    s_verifierProxy.initializeVerifier(address(s_verifier_2));
+    changePrank(address(s_verifier_2));
+    s_verifierProxy.setVerifier(bytes32(""), s_configDigestFive);
+    changePrank(ADMIN);
+  }
 }

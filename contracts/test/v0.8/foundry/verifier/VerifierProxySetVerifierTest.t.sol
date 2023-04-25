@@ -16,27 +16,20 @@ contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
   function test_revertsIfDigestAlreadySet() public {
     (, , bytes32 takenDigest) = s_verifier.latestConfigDetails(FEED_ID);
 
-        address maliciousVerifier = address(666);
-        bytes32 maliciousDigest = bytes32("malicious-digest");
-        vm.mockCall(
-            maliciousVerifier,
-            abi.encodeWithSelector(
-                IERC165.supportsInterface.selector,
-                IVerifier.verify.selector
-            ),
-            abi.encode(true)
-        );
-        s_verifierProxy.initializeVerifier(maliciousVerifier);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                VerifierProxy.ConfigDigestAlreadySet.selector,
-                takenDigest,
-                address(s_verifier)
-            )
-        );
-        changePrank(address(maliciousVerifier));
-        s_verifierProxy.setVerifier(maliciousDigest, takenDigest);
-    }
+    address maliciousVerifier = address(666);
+    bytes32 maliciousDigest = bytes32("malicious-digest");
+    vm.mockCall(
+      maliciousVerifier,
+      abi.encodeWithSelector(IERC165.supportsInterface.selector, IVerifier.verify.selector),
+      abi.encode(true)
+    );
+    s_verifierProxy.initializeVerifier(maliciousVerifier);
+    vm.expectRevert(
+      abi.encodeWithSelector(VerifierProxy.ConfigDigestAlreadySet.selector, takenDigest, address(s_verifier))
+    );
+    changePrank(address(maliciousVerifier));
+    s_verifierProxy.setVerifier(maliciousDigest, takenDigest);
+  }
 
   function test_updatesVerifierIfVerifier() public {
     (, , bytes32 prevDigest) = s_verifier.latestConfigDetails(FEED_ID);

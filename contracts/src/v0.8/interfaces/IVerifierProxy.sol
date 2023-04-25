@@ -18,12 +18,11 @@ interface IVerifierProxy {
    */
   function setVerifier(bytes32 currentConfigDigest, bytes32 newConfigDigest) external;
 
-    /**
-     * @notice Sets the verifier address to initialized
-     * @param verifierAddr The address of the verifier contract that we want to initialize
-     */
-    function initializeVerifier(address verifierAddr)
-        external;
+  /**
+   * @notice Sets the verifier address to initialized
+   * @param verifierAddr The address of the verifier contract that we want to initialize
+   */
+  function initializeVerifier(address verifierAddr) external;
 
   /**
    * @notice Removes a verifier
