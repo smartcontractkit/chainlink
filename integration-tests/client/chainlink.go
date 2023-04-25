@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 )
 
 const (
@@ -1066,19 +1065,24 @@ func (c *Chainlink) SetPageSize(size int) {
 // ConnectChainlinkNodes creates new Chainlink clients
 func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	var clients []*Chainlink
-	localURLs := e.URLs[chainlinkChart.NodesLocalURLsKey]
-	internalURLs := e.URLs[chainlinkChart.NodesInternalURLsKey]
-	for i, localURL := range localURLs {
-		internalHost := parseHostname(internalURLs[i])
+	for _, nodeDetails := range e.ChainlinkNodeDetails {
 		c, err := NewChainlink(&ChainlinkConfig{
-			URL:      localURL,
-			Email:    "notreal@fakeemail.ch",
-			Password: "fj293fbBnlQ!f9vNs",
-			RemoteIP: internalHost,
+			URL:       nodeDetails.LocalURL,
+			Email:     "notreal@fakeemail.ch",
+			Password:  "fj293fbBnlQ!f9vNs",
+			RemoteIP:  parseHostname(nodeDetails.LocalURL),
+			ChartName: nodeDetails.ChartName,
+			PodName:   nodeDetails.PodName,
 		})
 		if err != nil {
 			return nil, err
 		}
+		log.Debug().
+			Str("URL", c.Config.URL).
+			Str("Remote IP", c.Config.RemoteIP).
+			Str("Chart Name", c.Config.ChartName).
+			Str("Pod Name", c.Config.PodName).
+			Msg("Connected to Chainlink node")
 		clients = append(clients, c)
 	}
 	return clients, nil

@@ -1318,8 +1318,6 @@ github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVs
 github.com/slack-go/slack v0.12.2 h1:x3OppyMyGIbbiyFhsBmpf9pwkUzMhthJMRNmNlA4LaQ=
 github.com/slack-go/slack v0.12.2/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
 github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230419211425-02cf25222c37 h1:xk7hjjiuigFLJK8VVlqDizPjTy8jBidqu+LyRotSqBk=
-github.com/smartcontractkit/chainlink-env v0.3.29 h1:hcIw/BeuB0wKiiE3umAUNBZzWkHO24XF3OW9xSrlMbI=
-github.com/smartcontractkit/chainlink-env v0.3.29/go.mod h1:9c0Czq4a6wZKY20BcoAlK29DnejQIiLo/MwKYtSFnHk=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230419191810-4d1ea0132d4c h1:orZHdjg9/PqnQmOjT6fzFJPjoNcWmO1knUwthlOccFI=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230419191810-4d1ea0132d4c/go.mod h1:HvRlco+laJ7MmlmLLabLk8h6uoW4h3JhKGBU+Xg9ivU=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230419142503-b2c40766e627 h1:XvbrrxKvXdm0NjXF0++w3Vz85+shi2XC3VcEYiTldUc=

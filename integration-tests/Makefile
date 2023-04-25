@@ -125,6 +125,12 @@ test_perf: test_need_operator_assets ## Run core node performance tests.
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
 
+# Update
+.PHONY: test_update_node
+test_update_node:
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
+	go test -timeout 1h -count=1 -v $(args) ./migration
+
 # Soak
 .PHONY: test_soak_ocr
 test_soak_ocr:

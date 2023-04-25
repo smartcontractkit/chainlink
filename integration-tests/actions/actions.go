@@ -336,3 +336,17 @@ func EncodeOnChainExternalJobID(jobID uuid.UUID) [32]byte {
 	copy(ji[:], strings.Replace(jobID.String(), "-", "", 4))
 	return ji
 }
+
+func UpgradeChainlinkNodeVersion(
+	testEnvironment *environment.Environment,
+	newImage, newVersion string,
+	nodes ...*client.Chainlink,
+) error {
+	if newImage == "" && newVersion == "" {
+		return errors.New("must provide either a new image or a new version")
+	}
+	for _, node := range nodes {
+		log.Debug().Str("Node", node.RemoteIP()).Msg("Upgrading Chainlink node")
+	}
+	return nil
+}
