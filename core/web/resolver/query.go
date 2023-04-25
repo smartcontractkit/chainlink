@@ -10,12 +10,13 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -68,19 +69,13 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 		return nil, err
 	}
 
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	cs, _, err := r.App.EVMORM().Chains(0, -1, id)
+	cs, _, err := r.App.EVMORM().Chains(0, -1, string(args.ID))
 	if err != nil {
 		return nil, err
 	}
 	l := len(cs)
 	if l == 0 {
-		return NewChainPayload(chains.ChainConfig{}, chains.ErrNotFound), nil
+		return NewChainPayload(types.ChainStatus{}, chains.ErrNotFound), nil
 	}
 	if l > 1 {
 		return nil, fmt.Errorf("multiple chains found: %d", len(cs))
@@ -230,15 +225,23 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	}
 
 	name := string(args.ID)
-	node, err := r.App.EVMORM().NodeNamed(name)
+	node, err := r.App.EVMORM().NodeStatus(name)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewNodePayloadResolver(nil, err), nil
+		if errors.Is(err, chains.ErrNotFound) {
+			npr, warn := NewNodePayloadResolver(nil, err)
+			if warn != nil {
+				r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "error", warn)
+			}
+			return npr, nil
 		}
 		return nil, err
 	}
 
-	return NewNodePayloadResolver(&node, nil), nil
+	npr, warn := NewNodePayloadResolver(&node, nil)
+	if warn != nil {
+		r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "error", warn)
+	}
+	return npr, nil
 }
 
 func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error) {
@@ -324,12 +327,16 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	nodes, count, err := r.App.GetChains().EVM.GetNodes(ctx, offset, limit)
+	nodes, count, err := r.App.GetChains().EVM.NodeStatuses(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewNodesPayload(nodes, int32(count)), nil
+	npr, warn := NewNodesPayload(nodes, int32(count))
+	if warn != nil {
+		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "error", warn)
+	}
+	return npr, nil
 }
 
 func (r *Resolver) JobRuns(ctx context.Context, args struct {
@@ -445,7 +452,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.TxmORM().FindEthTxByHash(hash)
+	etx, err := r.App.TxmStorageService().FindEthTxByHash(hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -468,7 +475,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.TxmORM().EthTransactions(offset, limit)
+	txs, count, err := r.App.TxmStorageService().EthTransactions(offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +494,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	attempts, count, err := r.App.TxmORM().EthTxAttempts(offset, limit)
+	attempts, count, err := r.App.TxmStorageService().EthTxAttempts(offset, limit)
 	if err != nil {
 		return nil, err
 	}

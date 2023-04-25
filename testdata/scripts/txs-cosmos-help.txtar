@@ -1,0 +1,16 @@
+exec chainlink txs cosmos --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs cosmos - Commands for handling Cosmos transactions
+
+USAGE:
+   chainlink txs cosmos command [command options] [arguments...]
+
+COMMANDS:
+   create  Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
+
+OPTIONS:
+   --help, -h  show help
+   

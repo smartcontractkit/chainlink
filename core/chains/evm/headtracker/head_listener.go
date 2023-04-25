@@ -32,7 +32,7 @@ type headListener struct {
 	config           Config
 	ethClient        evmclient.Client
 	logger           logger.Logger
-	chStop           chan struct{}
+	chStop           utils.StopChan
 	chHeaders        chan *evmtypes.Head
 	headSubscription ethereum.Subscription
 	connected        atomic.Bool
@@ -57,7 +57,7 @@ func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, 
 	defer done()
 	defer hl.unsubscribe()
 
-	ctx, cancel := utils.ContextFromChan(hl.chStop)
+	ctx, cancel := hl.chStop.NewCtx()
 	defer cancel()
 
 	for {
@@ -110,6 +110,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			return nil
 
 		case blockHeader, open := <-hl.chHeaders:
+			chainId := hl.ethClient.ConfiguredChainID()
 			if noHeadsAlarmT != nil {
 				// We've received a head, reset the no heads alarm
 				noHeadsAlarmT.Stop()
@@ -124,10 +125,10 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 				hl.logger.Error("got nil block header")
 				continue
 			}
-			if blockHeader.EVMChainID == nil || !utils.NewBig(hl.ethClient.ChainID()).Equal(blockHeader.EVMChainID) {
-				hl.logger.Panicf("head listener for %s received block header for %s", hl.ethClient.ChainID(), blockHeader.EVMChainID)
+			if blockHeader.EVMChainID == nil || !utils.NewBig(chainId).Equal(blockHeader.EVMChainID) {
+				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.EVMChainID)
 			}
-			promNumHeadsReceived.WithLabelValues(hl.ethClient.ChainID().String()).Inc()
+			promNumHeadsReceived.WithLabelValues(chainId.String()).Inc()
 
 			err := handleNewHead(ctx, blockHeader)
 			if ctx.Err() != nil {
@@ -154,12 +155,12 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 func (hl *headListener) subscribe(ctx context.Context) bool {
 	subscribeRetryBackoff := utils.NewRedialBackoff()
 
-	chainID := hl.ethClient.ChainID().String()
+	chainId := hl.ethClient.ConfiguredChainID()
 
 	for {
 		hl.unsubscribe()
 
-		hl.logger.Debugf("Subscribing to new heads on chain %s", chainID)
+		hl.logger.Debugf("Subscribing to new heads on chain %s", chainId.String())
 
 		select {
 		case <-hl.chStop:
@@ -168,10 +169,10 @@ func (hl *headListener) subscribe(ctx context.Context) bool {
 		case <-time.After(subscribeRetryBackoff.Duration()):
 			err := hl.subscribeToHead(ctx)
 			if err != nil {
-				promEthConnectionErrors.WithLabelValues(hl.ethClient.ChainID().String()).Inc()
-				hl.logger.Warnw("Failed to subscribe to heads on chain", "chainID", chainID, "err", err)
+				promEthConnectionErrors.WithLabelValues(chainId.String()).Inc()
+				hl.logger.Warnw("Failed to subscribe to heads on chain", "chainID", chainId.String(), "err", err)
 			} else {
-				hl.logger.Debugf("Subscribed to heads on chain %s", chainID)
+				hl.logger.Debugf("Subscribed to heads on chain %s", chainId.String())
 				return true
 			}
 		}

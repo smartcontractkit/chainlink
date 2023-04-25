@@ -1,0 +1,16 @@
+exec chainlink chains starknet --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains starknet - Commands for handling StarkNet chains
+
+USAGE:
+   chainlink chains starknet command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing StarkNet chains
+
+OPTIONS:
+   --help, -h  show help
+   

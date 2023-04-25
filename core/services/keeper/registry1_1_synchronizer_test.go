@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -47,7 +47,7 @@ var upkeepConfig1_1 = registry1_1.GetUpkeep{
 
 func mockRegistry1_1(
 	t *testing.T,
-	ethMock *evmmocks.Client,
+	ethMock *evmclimocks.Client,
 	contractAddress common.Address,
 	config registry1_1.GetConfig,
 	keeperList []common.Address,

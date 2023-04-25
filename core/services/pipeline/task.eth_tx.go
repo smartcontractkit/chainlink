@@ -44,8 +44,6 @@ type ETHTxTask struct {
 	jobType           string
 }
 
-//go:generate mockery --quiet --name ETHKeyStore --output ./mocks/ --case=underscore
-
 type ETHKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
@@ -128,7 +126,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
 	strategy := txmgr.NewSendEveryStrategy()
 
-	forwarderAddress := common.Address{}
+	var forwarderAddress common.Address
 	if t.forwardingAllowed {
 		var fwderr error
 		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
@@ -137,7 +135,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	newTx := txmgr.NewTx{
+	newTx := txmgr.EvmNewTx{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),

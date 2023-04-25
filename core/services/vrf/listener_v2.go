@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -83,7 +84,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager,
+	txm txmgr.EvmTxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -151,7 +152,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager
+	txm            txmgr.EvmTxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
@@ -162,7 +163,7 @@ type listenerV2 struct {
 	q              pg.Q
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox[log.Broadcast]
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -693,8 +694,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	start := time.Now()
 	var processed = make(map[string]struct{})
+	chainId := lsn.ethClient.ConfiguredChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.q, startBalance, chainId.Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed
@@ -805,7 +807,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
-			var ethTX txmgr.EthTx
+			var transaction txmgrtypes.Transaction
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -817,7 +819,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+				transaction, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -841,7 +843,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 				continue
 			}
-			ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
+			ll.Infow("Enqueued fulfillment", "ethTxID", transaction.GetID())
 
 			// If we successfully enqueued for the txm, subtract that balance
 			// And loop to attempt to enqueue another fulfillment
@@ -1073,7 +1075,7 @@ func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration, wg *sync.Wait
 	defer wg.Done()
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
-	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	ctx, cancel := lsn.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

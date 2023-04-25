@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,15 +21,9 @@ type TestRPCHandlers struct {
 
 func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 	var (
-		svc            = &mocks.Service{}
+		svc            = mocks.NewService(t)
 		feedsManagerID = int64(1)
 	)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			svc,
-		)
-	})
 
 	return &TestRPCHandlers{
 		RPCHandlers:    feeds.NewRPCHandlers(svc, feedsManagerID),

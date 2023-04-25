@@ -58,6 +58,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
 	}
 
+	if !chain.Config().FeatureLogPoller() {
+		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
+	}
+
 	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EvmFinalityDepth()) {
 		return nil, fmt.Errorf(
 			"lookbackBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
@@ -88,6 +92,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "building batch BHS")
 	}
 
+	lp := chain.LogPoller()
 	var coordinators []blockhashstore.Coordinator
 	if jb.BlockHeaderFeederSpec.CoordinatorV1Address != nil {
 		var c *v1.VRFCoordinator
@@ -96,7 +101,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
-		coordinators = append(coordinators, blockhashstore.NewV1Coordinator(c))
+		var coord *blockhashstore.V1Coordinator
+		coord, err = blockhashstore.NewV1Coordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V1 coordinator")
+		}
+		coordinators = append(coordinators, coord)
 	}
 	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
@@ -105,7 +115,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
-		coordinators = append(coordinators, blockhashstore.NewV2Coordinator(c))
+		var coord *blockhashstore.V2Coordinator
+		coord, err = blockhashstore.NewV2Coordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V2 coordinator")
+		}
+		coordinators = append(coordinators, coord)
 	}
 
 	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)

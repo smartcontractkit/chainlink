@@ -1,17 +1,17 @@
 package v2
 
 import (
-	"database/sql"
 	"fmt"
 	"net/url"
 
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -86,15 +86,16 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
 	}
 }
 
-func (cs EVMConfigs) Chains(ids ...utils.Big) (r []chains.ChainConfig, err error) {
+func (cs EVMConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
 		}
+		chainID := ch.ChainID.String()
 		if len(ids) > 0 {
 			var match bool
 			for _, id := range ids {
-				if id.Cmp(ch.ChainID) == 0 {
+				if id == chainID {
 					match = true
 					break
 				}
@@ -103,11 +104,11 @@ func (cs EVMConfigs) Chains(ids ...utils.Big) (r []chains.ChainConfig, err error
 				continue
 			}
 		}
-		ch2 := chains.ChainConfig{
+		ch2 := relaytypes.ChainStatus{
 			ID:      ch.ChainID.String(),
 			Enabled: ch.IsEnabled(),
 		}
-		ch2.Cfg, err = ch.TOMLString()
+		ch2.Config, err = ch.TOMLString()
 		if err != nil {
 			return
 		}
@@ -124,7 +125,18 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 			}
 		}
 	}
-	return types.Node{}, sql.ErrNoRows
+	return types.Node{}, chains.ErrNotFound
+}
+
+func (cs EVMConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
+	for i := range cs {
+		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, cs[i].ChainID.String())
+			}
+		}
+	}
+	return relaytypes.NodeStatus{}, chains.ErrNotFound
 }
 
 func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
@@ -142,35 +154,69 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	return
 }
 
-func (cs EVMConfigs) Nodes() (ns []types.Node) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n == nil {
-				continue
-			}
-			ns = append(ns, legacyNode(n, cs[i].ChainID))
+func nodeStatus(n *Node, chainID string) (relaytypes.NodeStatus, error) {
+	var s relaytypes.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return relaytypes.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
+}
+
+func (cs EVMConfigs) nodes(chainID string) (ns EVMNodes) {
+	for _, c := range cs {
+		if c.ChainID.String() == chainID {
+			return c.Nodes
 		}
+	}
+	return nil
+}
+
+func (cs EVMConfigs) Nodes(chainID utils.Big) (ns []types.Node, err error) {
+	id := chainID.String()
+	nodes := cs.nodes(id)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		ns = append(ns, legacyNode(n, &chainID))
 	}
 	return
 }
 
-func (cs EVMConfigs) NodesByID(chainIDs ...utils.Big) (ns []types.Node) {
-	for i := range cs {
-		var match bool
-		for _, chainID := range chainIDs {
-			if chainID.Cmp(cs[i].ChainID) == 0 {
-				match = true
-				break
+func (cs EVMConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, cs[i].ChainID.String())
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
 			}
 		}
-		if !match {
-			continue
-		}
-		for _, n := range cs[i].Nodes {
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
 			}
-			ns = append(ns, legacyNode(n, cs[i].ChainID))
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
 		}
 	}
 	return
@@ -430,9 +476,9 @@ type GasEstimator struct {
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
-	if uint64(*e.BumpPercent) < core.DefaultTxPoolConfig.PriceBump {
+	if uint64(*e.BumpPercent) < txpool.DefaultConfig.PriceBump {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "BumpPercent", Value: *e.BumpPercent,
-			Msg: fmt.Sprintf("may not be less than Geth's default of %d", core.DefaultTxPoolConfig.PriceBump)})
+			Msg: fmt.Sprintf("may not be less than Geth's default of %d", txpool.DefaultConfig.PriceBump)})
 	}
 	if e.TipCapDefault.Cmp(e.TipCapMin) < 0 {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "TipCapDefault", Value: e.TipCapDefault,
@@ -730,11 +776,4 @@ func (n *Node) SetFrom(f *Node) {
 	if f.SendOnly != nil {
 		n.SendOnly = f.SendOnly
 	}
-}
-
-func nullIntFromPtr[I constraints.Integer](i *I) null.Int {
-	if i == nil {
-		return null.Int{}
-	}
-	return null.IntFrom(int64(*i))
 }
