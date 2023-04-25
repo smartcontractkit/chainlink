@@ -13,5 +13,8 @@ interface MercuryLookupCompatibleInterface {
    * upkeep is needed. If you would like to encode data to decode later, try
    * `abi.encode`.
    */
-  function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool upkeepNeeded, bytes memory performData);
+  function mercuryCallback(bytes[] memory values, bytes memory extraData)
+    external
+    view
+    returns (bool upkeepNeeded, bytes memory performData);
 }
