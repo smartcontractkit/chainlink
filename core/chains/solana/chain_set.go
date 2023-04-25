@@ -4,21 +4,18 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
-
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
 	Logger   logger.Logger
-	DB       *sqlx.DB
-	KeyStore keystore.Solana
+	KeyStore loop.Keystore
 	Configs  Configs
 }
 
@@ -27,10 +24,7 @@ func (o *ChainSetOpts) Validate() (err error) {
 		return errors.Errorf("%s is required", s)
 	}
 	if o.Logger == nil {
-		err = multierr.Append(err, required("Logger'"))
-	}
-	if o.DB == nil {
-		err = multierr.Append(err, required("DB"))
+		err = multierr.Append(err, required("Logger"))
 	}
 	if o.KeyStore == nil {
 		err = multierr.Append(err, required("KeyStore"))
@@ -56,14 +50,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 	return c, nil
 }
 
-// ChainSet extends solana.ChainSet with mutability.
-type ChainSet interface {
-	solana.ChainSet
-	chains.Chains[string]
-	chains.Nodes
-}
-
-func NewChainSet(opts ChainSetOpts, cfgs SolanaConfigs) (ChainSet, error) {
+func NewChainSet(opts ChainSetOpts, cfgs SolanaConfigs) (solana.ChainSet, error) {
 	solChains := map[string]solana.Chain{}
 	var err error
 	for _, chain := range cfgs {
