@@ -58,7 +58,7 @@ func (g *generalConfig) MercuryKey() string {
 
 func (g *generalConfig) MercuryURL() *url.URL {
 	if g.secrets.Mercury.URL == nil {
-		return &url.URL{}
+		return nil
 	}
 	return g.secrets.Mercury.URL.URL()
 }
