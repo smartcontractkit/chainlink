@@ -343,7 +343,21 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 		}
 	}
 
-	if err = keyStore.OCR2().EnsureKeys(); err != nil {
+	var enabledChains []chaintype.ChainType
+	if cli.Config.EVMEnabled() {
+		enabledChains = append(enabledChains, chaintype.EVM)
+	}
+	if cli.Config.CosmosEnabled() {
+		enabledChains = append(enabledChains, chaintype.Cosmos)
+	}
+	if cli.Config.SolanaEnabled() {
+		enabledChains = append(enabledChains, chaintype.Solana)
+	}
+	if cli.Config.StarkNetEnabled() {
+		enabledChains = append(enabledChains, chaintype.StarkNet)
+	}
+
+	if err = keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 

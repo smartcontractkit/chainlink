@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+### Added
+
+### Changed
+- Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors
+if any Database-specific configuration is invalid.  
+
+### Removed
+
 ...
 
 ## 2.0.0 - UNRELEASED
@@ -26,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TOML configuration and secrets are now scoped to `chainlink node` command rather than being global flags.
 - TOML configuration validation has been moved from `chainlink config validate` to `chainlink node validate`.
 - Move `chainlink node {status,profile}` to `chainlink admin {status,profile}`.
+
 
 ### Removed
 
