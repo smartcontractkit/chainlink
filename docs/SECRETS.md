@@ -133,7 +133,7 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 ```toml
 [Mercury]
 ID = "A-Mercury-ID" # Example
-KEY = "A-Mercury-Key" # Example
+Key = "A-Mercury-Key" # Example
 URL = "A-Mercury-URL" # Example
 ```
 
@@ -146,11 +146,11 @@ ID is the Mercury ID assigned for this Automation node
 
 Environment variable: `CL_MERCURY_ID`
 
-### KEY
+### Key
 ```toml
-KEY = "A-Mercury-Key" # Example
+Key = "A-Mercury-Key" # Example
 ```
-KEY is the Mercury Key assigned for this Automation node
+Key is the Mercury Key assigned for this Automation node
 
 Environment variable: `CL_MERCURY_KEY`
 

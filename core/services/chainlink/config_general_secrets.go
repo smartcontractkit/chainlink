@@ -41,3 +41,24 @@ func (g *generalConfig) PrometheusAuthToken() string {
 	}
 	return string(*g.secrets.Prometheus.AuthToken)
 }
+
+func (g *generalConfig) MercuryID() string {
+	if g.secrets.Mercury.ID == nil {
+		return ""
+	}
+	return string(*g.secrets.Mercury.ID)
+}
+
+func (g *generalConfig) MercuryKey() string {
+	if g.secrets.Mercury.Key == nil {
+		return ""
+	}
+	return string(*g.secrets.Mercury.Key)
+}
+
+func (g *generalConfig) MercuryURL() *url.URL {
+	if g.secrets.Mercury.URL == nil {
+		return &url.URL{}
+	}
+	return g.secrets.Mercury.URL.URL()
+}
