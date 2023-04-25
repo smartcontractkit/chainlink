@@ -267,7 +267,7 @@ require (
 	github.com/pyroscope-io/godeltaprof v0.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
@@ -275,8 +275,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230419191810-4d1ea0132d4c // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230419200339-80c431b9ec79 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230424181359-6cb4dc745ec7 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.6.2-0.20230317160629-382a1ac921d8 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
@@ -362,9 +362,6 @@ require (
 )
 
 replace (
-	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
-
 	// Fix go mod tidy issue for ambiguous imports from go-ethereum
 	// See https://github.com/ugorji/go/issues/279
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
