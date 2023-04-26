@@ -42,5 +42,3 @@ The Master Interface is a deduped combination of all the interfaces from all con
 [fallback]: https://docs.soliditylang.org/en/v0.8.12/contracts.html#fallback-function
 [delegatecall]: https://docs.soliditylang.org/en/v0.8.12/introduction-to-smart-contracts.html?highlight=delegatecall#delegatecall-callcode-and-libraries
 [oz-proxy]: https://docs.openzeppelin.com/contracts/4.x/api/proxy#Proxy
-
-[script]:
