@@ -8,14 +8,14 @@ import (
 )
 
 type EthTransactionAttemptResolver struct {
-	attmpt txmgr.EthTxAttempt
+	attmpt txmgr.EvmTxAttempt
 }
 
-func NewEthTransactionAttempt(attmpt txmgr.EthTxAttempt) *EthTransactionAttemptResolver {
+func NewEthTransactionAttempt(attmpt txmgr.EvmTxAttempt) *EthTransactionAttemptResolver {
 	return &EthTransactionAttemptResolver{attmpt: attmpt}
 }
 
-func NewEthTransactionsAttempts(results []txmgr.EthTxAttempt) []*EthTransactionAttemptResolver {
+func NewEthTransactionsAttempts(results []txmgr.EvmTxAttempt) []*EthTransactionAttemptResolver {
 	var resolver []*EthTransactionAttemptResolver
 
 	for _, tx := range results {
@@ -30,7 +30,7 @@ func (r *EthTransactionAttemptResolver) GasPrice() string {
 }
 
 func (r *EthTransactionAttemptResolver) Hash() string {
-	return r.attmpt.Hash.Hex()
+	return r.attmpt.Hash.String()
 }
 
 func (r *EthTransactionAttemptResolver) Hex() string {
@@ -50,11 +50,11 @@ func (r *EthTransactionAttemptResolver) SentAt() *string {
 // -- EthTransactionAttempts Query --
 
 type EthTransactionsAttemptsPayloadResolver struct {
-	results []txmgr.EthTxAttempt
+	results []txmgr.EvmTxAttempt
 	total   int32
 }
 
-func NewEthTransactionsAttemptsPayload(results []txmgr.EthTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
+func NewEthTransactionsAttemptsPayload(results []txmgr.EvmTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
 	return &EthTransactionsAttemptsPayloadResolver{results: results, total: total}
 }
 

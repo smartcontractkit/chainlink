@@ -1,9 +1,7 @@
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := chainlink
 
-GOPATH ?= $(HOME)/go
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
-GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
@@ -36,26 +34,24 @@ gomodtidy: ## Run go mod tidy on all modules.
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 
+.PHONY: godoc
+godoc: ## Install and run godoc
+	go install golang.org/x/tools/cmd/godoc@latest
+	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
+	godoc -http=:6060
+
 .PHONY: install-chainlink
-install-chainlink: chainlink ## Install the chainlink binary.
-	mkdir -p $(GOBIN)
-	rm -f $(GOBIN)/chainlink
-	cp $< $(GOBIN)/chainlink
+install-chainlink: operator-ui ## Install the chainlink binary.
+	go install $(GOFLAGS) .
 
 chainlink: operator-ui ## Build the chainlink binary.
-	go build $(GOFLAGS) -o $@ ./core/
+	go build $(GOFLAGS) .
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
-
-.PHONY: chainlink-build
-chainlink-build: operator-ui ## Build & install the chainlink binary.
-	go build $(GOFLAGS) -o chainlink ./core/
-	rm -f $(GOBIN)/chainlink
-	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
@@ -69,6 +65,11 @@ abigen: ## Build & install abigen.
 go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
+
+.PHONY: go-solidity-wrappers-transmission
+go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/transmission/native_solc_compile_all_transmission
+	go generate ./core/gethwrappers/transmission
 
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
@@ -84,19 +85,28 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
+.PHONY: testscripts
+testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
+	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) testdata/scripts/*
+
+.PHONY: testscripts-update
+testscripts-update: ## Update testdata/scripts/* files via testscript.
+	make testscripts TS_FLAGS="-u"
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run ./core/main.go local db preparetest
+	go run . local db preparetest
 
 .PHONY: testdb
 testdb-user-only: ## Prepares the test database with user only.
-	go run ./core/main.go local db preparetest --user-only
+	go run . local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
 presubmit: ## Format go files and imports.
-	goimports -w ./core
-	gofmt -w ./core
+	goimports -w .
+	gofmt -w .
 	go mod tidy
 
 .PHONY: mockery
@@ -106,7 +116,6 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
-
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -123,7 +132,7 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate/main.go -o ./docs/
+	go run ./core/config/v2/docs/cmd/generate -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.

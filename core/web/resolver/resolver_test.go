@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
+	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
-	txmgrMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -33,7 +34,7 @@ import (
 
 type mocks struct {
 	bridgeORM   *bridgeORMMocks.ORM
-	evmORM      *evmtest.MockORM
+	evmORM      *evmtest.TestConfigs
 	jobORM      *jobORMMocks.ORM
 	sessionsORM *sessionsMocks.ORM
 	pipelineORM *pipelineMocks.ORM
@@ -50,10 +51,10 @@ type mocks struct {
 	solana      *keystoreMocks.Solana
 	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
-	ethClient   *evmORMMocks.Client
+	ethClient   *evmClientMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
-	txmORM      *txmgrMocks.ORM
+	txmStore    *evmtxmgrmocks.MockEvmTxStore
 	auditLogger *audit.AuditLoggerService
 }
 
@@ -91,7 +92,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
 		bridgeORM:   bridgeORMMocks.NewORM(t),
-		evmORM:      evmtest.NewMockORM(nil, nil),
+		evmORM:      evmtest.NewTestConfigs(),
 		jobORM:      jobORMMocks.NewORM(t),
 		feedsSvc:    feedsMocks.NewService(t),
 		sessionsORM: sessionsMocks.NewORM(t),
@@ -108,10 +109,10 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		solana:      keystoreMocks.NewSolana(t),
 		chain:       evmORMMocks.NewChain(t),
 		chainSet:    evmORMMocks.NewChainSet(t),
-		ethClient:   evmORMMocks.NewClient(t),
+		ethClient:   evmClientMocks.NewClient(t),
 		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
 		balM:        evmORMMocks.NewBalanceMonitor(t),
-		txmORM:      txmgrMocks.NewORM(t),
+		txmStore:    evmtxmgrmocks.NewMockEvmTxStore(t),
 		auditLogger: &audit.AuditLoggerService{},
 	}
 

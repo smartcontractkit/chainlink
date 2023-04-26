@@ -43,7 +43,6 @@ const (
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {

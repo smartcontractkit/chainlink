@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -18,11 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func newReaperWithChainID(t *testing.T, db *sqlx.DB, cfg txmgr.ReaperConfig, cid big.Int) *txmgr.Reaper {
+func newReaperWithChainID(t *testing.T, db *sqlx.DB, cfg txmgrtypes.ReaperConfig, cid big.Int) *txmgr.Reaper {
 	return txmgr.NewReaper(logger.TestLogger(t), db, cfg, cid)
 }
 
-func newReaper(t *testing.T, db *sqlx.DB, cfg txmgr.ReaperConfig) *txmgr.Reaper {
+func newReaper(t *testing.T, db *sqlx.DB, cfg txmgrtypes.ReaperConfig) *txmgr.Reaper {
 	return newReaperWithChainID(t, db, cfg, cltest.FixtureChainID)
 }
 
@@ -31,7 +32,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -39,10 +40,9 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
 
 	t.Run("with nothing in the database, doesn't error", func(t *testing.T) {
-		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint32(10))
-		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
-		config.On("EthTxReaperInterval").Return(1 * time.Hour)
+		config := txmgrmocks.NewReaperConfig(t)
+		config.On("FinalityDepth").Return(uint32(10))
+		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
 		r := newReaper(t, db, config)
 
@@ -51,13 +51,11 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	cltest.MustInsertConfirmedEthTxWithReceipt(t, borm, from, nonce, 5)
+	cltest.MustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
-		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint32(10))
-		config.On("EthTxReaperThreshold").Return(0 * time.Second)
-		config.On("EthTxReaperInterval").Return(1 * time.Hour)
+		config := txmgrmocks.NewReaperConfig(t)
+		config.On("TxReaperThreshold").Return(0 * time.Second)
 
 		r := newReaper(t, db, config)
 
@@ -68,10 +66,9 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	})
 
 	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
-		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint32(10))
-		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
-		config.On("EthTxReaperInterval").Return(1 * time.Hour)
+		config := txmgrmocks.NewReaperConfig(t)
+		config.On("FinalityDepth").Return(uint32(10))
+		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
 		r := newReaperWithChainID(t, db, config, *big.NewInt(42))
 
@@ -82,10 +79,9 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	})
 
 	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least EVM.FinalityDepth blocks above their receipt", func(t *testing.T) {
-		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint32(10))
-		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
-		config.On("EthTxReaperInterval").Return(1 * time.Hour)
+		config := txmgrmocks.NewReaperConfig(t)
+		config.On("FinalityDepth").Return(uint32(10))
+		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
 		r := newReaper(t, db, config)
 
@@ -107,13 +103,12 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_txes", 0)
 	})
 
-	cltest.MustInsertFatalErrorEthTx(t, borm, from)
+	cltest.MustInsertFatalErrorEthTx(t, txStore, from)
 
 	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
-		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint32(10))
-		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
-		config.On("EthTxReaperInterval").Return(1 * time.Hour)
+		config := txmgrmocks.NewReaperConfig(t)
+		config.On("FinalityDepth").Return(uint32(10))
+		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
 		r := newReaper(t, db, config)
 

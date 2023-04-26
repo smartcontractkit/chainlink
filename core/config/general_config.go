@@ -41,11 +41,11 @@ type FeatureFlags interface {
 	StarkNetEnabled() bool
 }
 
-type LogFn func(...any)
+type LogfFn func(string, ...any)
 
 type BasicConfig interface {
 	Validate() error
-	LogConfiguration(log LogFn)
+	LogConfiguration(log LogfFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
@@ -99,7 +99,6 @@ type BasicConfig interface {
 	FMSimulateTransactions() bool
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
-	InsecureFastScrypt() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
 	JobPipelineMaxSuccessfulRuns() uint64
@@ -167,6 +166,13 @@ type BasicConfig interface {
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	VRFPassword() string
 
+	// Insecure config
+	DevWebServer() bool
+	InsecureFastScrypt() bool
+	OCRDevelopmentMode() bool
+	DisableRateLimiting() bool
+	InfiniteDepthQueries() bool
+
 	OCR1Config
 	OCR2Config
 
@@ -177,6 +183,7 @@ type BasicConfig interface {
 
 type GeneralConfig interface {
 	BasicConfig
+	ValidateDB() error
 }
 
 func ValidateDBURL(dbURI url.URL) error {

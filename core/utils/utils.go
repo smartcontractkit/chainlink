@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -16,8 +17,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"errors"
 
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"golang.org/x/exp/constraints"
@@ -415,50 +414,43 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
-// WithCloseChan wraps a context so that it is canceled if the passed in
-// channel is closed.
-// NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func WithCloseChan(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
-	ctx, cancel = context.WithCancel(parentCtx)
-
-	go func() {
-		select {
-		case <-chStop:
-		case <-ctx.Done():
-		}
-		cancel()
-	}()
-
-	return ctx, cancel
+// WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
+// Deprecated: Call StopChan.Ctx directly
+func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
+	return StopChan(chStop).Ctx(parentCtx)
 }
 
-// ContextFromChan creates a context that finishes when the provided channel
-// receives or is closed.
-// When channel closes, the ctx.Err() will always be context.Canceled
-// NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		select {
-		case <-chStop:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-	return ctx, cancel
+// ContextFromChan creates a context that finishes when the provided channel receives or is closed.
+// Deprecated: Call StopChan.NewCtx directly.
+func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc) {
+	return StopChan(chStop).NewCtx()
 }
 
-// ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
-// receives or is closed.
-// NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+// ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
+// Deprecated: Call StopChan.CtxCancel directly
+func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
+}
+
+// A StopChan signals when some work should stop.
+type StopChan chan struct{}
+
+// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
+func (s StopChan) NewCtx() (context.Context, context.CancelFunc) {
+	return s.Ctx(context.Background())
+}
+
+// Ctx cancels a [context.Context] when StopChan is closed.
+func (s StopChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
+	return s.CtxCancel(context.WithCancel(ctx))
+}
+
+// CtxCancel cancels a [context.Context] when StopChan is closed.
+// Returns ctx and cancel unmodified, for convenience.
+func (s StopChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
 	go func() {
 		select {
-		case <-chStop:
+		case <-s:
 			cancel()
 		case <-ctx.Done():
 		}
@@ -1034,7 +1026,7 @@ func (m *KeyedMutex) LockInt64(key int64) func() {
 	mtx := value.(*sync.Mutex)
 	mtx.Lock()
 
-	return func() { mtx.Unlock() }
+	return mtx.Unlock
 }
 
 // BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of

@@ -3,13 +3,11 @@ package evm
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/sqlx"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/builder"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -23,11 +21,14 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) (txm txmgr.TxManager, estimator gas.EvmFeeEstimator) {
+) (txm txmgr.EvmTxManager,
+	estimator gas.EvmFeeEstimator,
+	err error,
+) {
 	chainID := cfg.ChainID()
 	if !cfg.EVMRPCEnabled() {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-		return txm, nil
+		txm = &txmgr.NullEvmTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		return txm, nil, nil
 	}
 
 	lggr = lggr.Named("Txm")
@@ -47,22 +48,17 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
-		var fwdMgr txmgrtypes.ForwarderManager[common.Address]
-
-		if cfg.EvmUseForwarders() {
-			fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
-		} else {
-			lggr.Info("EvmForwarderManager: Disabled")
-		}
-
-		// create tx attempt builder
-		txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*client.ChainID(), cfg, opts.KeyStore, estimator)
-
-		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder)
+		txm, err = builder.NewTxm(
+			db,
+			cfg,
+			client,
+			lggr,
+			logPoller,
+			opts.KeyStore,
+			opts.EventBroadcaster,
+			estimator)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
-
-	return txm, estimator
+	return
 }

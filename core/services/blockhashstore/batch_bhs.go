@@ -23,7 +23,7 @@ type batchBHSConfig interface {
 
 type BatchBlockhashStore struct {
 	config   batchBHSConfig
-	txm      txmgr.TxManager
+	txm      txmgr.EvmTxManager
 	abi      *abi.ABI
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface
 	lggr     logger.Logger
@@ -32,7 +32,7 @@ type BatchBlockhashStore struct {
 func NewBatchBHS(
 	config batchBHSConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.TxManager,
+	txm txmgr.EvmTxManager,
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -65,11 +65,11 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = b.txm.CreateEthTransaction(txmgr.NewTx{
+	_, err = b.txm.CreateEthTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		GasLimit:       b.config.EvmGasLimitDefault(),
+		FeeLimit:       b.config.EvmGasLimitDefault(),
 		Strategy:       txmgr.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 
