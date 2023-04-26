@@ -85,10 +85,10 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
-					Checker: txmgr.TransmitCheckerSpec{
+					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &addr,
 					},
@@ -132,7 +132,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -209,7 +209,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -254,7 +254,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -284,7 +284,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -318,7 +318,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       drJobTypeGasLimit,
+					FeeLimit:       drJobTypeGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -352,7 +352,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       specGasLimit,
+					FeeLimit:       specGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -417,7 +417,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, errors.New("uh oh"))
