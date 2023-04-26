@@ -123,7 +123,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})
@@ -163,7 +163,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:    fromAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
+			FeeLimit:       21000,
 			Meta:           nil,
 			Strategy:       txmgr.SendEveryStrategy{},
 		})
@@ -180,7 +180,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
-			GasLimit:          21000,
+			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
 			Strategy:          txmgr.SendEveryStrategy{},
 		})
@@ -191,7 +191,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
-			GasLimit:          21000,
+			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
 			Strategy:          txmgr.SendEveryStrategy{},
 		})
@@ -208,7 +208,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:    rndAddr,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
+			FeeLimit:       21000,
 			Strategy:       txmgr.SendEveryStrategy{},
 		})
 		require.Error(t, err)
@@ -220,7 +220,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:    otherAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
+			FeeLimit:       21000,
 			Strategy:       txmgr.SendEveryStrategy{},
 		})
 		require.Error(t, err)
@@ -232,7 +232,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	t.Run("simulate transmit checker", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 
-		checker := txmgr.TransmitCheckerSpec{
+		checker := txmgr.EvmTransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
@@ -240,7 +240,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Checker:        checker,
 		})
@@ -250,7 +250,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		var c txmgr.TransmitCheckerSpec
+		var c txmgr.EvmTransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
@@ -273,7 +273,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			SubID:         &testDefaultSubID,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		checker := txmgr.TransmitCheckerSpec{
+		checker := txmgr.EvmTransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
@@ -281,7 +281,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           meta,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Checker:        checker,
@@ -296,7 +296,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, meta, m)
 
-		var c txmgr.TransmitCheckerSpec
+		var c txmgr.EvmTransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
@@ -320,7 +320,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
-			GasLimit:         gasLimit,
+			FeeLimit:         gasLimit,
 			ForwarderAddress: fwdr.Address,
 			Strategy:         txmgr.NewSendEveryStrategy(),
 		})
@@ -413,7 +413,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		}, pg.WithParentCtx(context.Background()))
@@ -437,7 +437,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})
@@ -460,7 +460,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})

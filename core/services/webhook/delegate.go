@@ -111,7 +111,7 @@ func newWebhookJobRunner(runner pipeline.Runner, lggr logger.Logger) *webhookJob
 
 type registeredJob struct {
 	job.Job
-	chRemove chan struct{}
+	chRemove utils.StopChan
 }
 
 func (r *webhookJobRunner) addSpec(spec job.Job) error {
@@ -155,7 +155,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		"uuid", spec.ExternalJobID,
 	)
 
-	ctx, cancel := utils.WithCloseChan(ctx, spec.chRemove)
+	ctx, cancel := spec.chRemove.Ctx(ctx)
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

@@ -85,8 +85,8 @@ type Subscription interface {
 	Unsubscribe()
 }
 
-func ContextWithDefaultTimeoutFromChan(chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
-	return utils.ContextFromChanWithDeadline(chStop, queryTimeout)
+func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
+	return context.WithTimeout(context.Background(), queryTimeout)
 }
 
 // client represents an abstract client that manages connections to

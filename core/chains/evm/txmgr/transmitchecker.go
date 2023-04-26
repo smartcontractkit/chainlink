@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -20,7 +21,10 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
-type EvmTransmitChecker = TransmitChecker[common.Address, common.Hash]
+type (
+	EvmTransmitChecker     = TransmitChecker[common.Address, common.Hash]
+	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
+)
 
 var (
 	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
@@ -38,7 +42,7 @@ type CheckerFactory struct {
 }
 
 // BuildChecker satisfies the TransmitCheckerFactory interface.
-func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (EvmTransmitChecker, error) {
+func (c *CheckerFactory) BuildChecker(spec EvmTransmitCheckerSpec) (EvmTransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil

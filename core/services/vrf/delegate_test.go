@@ -304,7 +304,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.GasLimit == uint32(500000) &&
+					newTx.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
