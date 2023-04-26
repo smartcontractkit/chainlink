@@ -356,7 +356,7 @@ jobs:
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@23816fcf7d380a30c87b6d87e4fb0ca94419b259 # stable action on April 17 2023
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-          
+
   solana-build-test-image:
     environment: integration
     permissions:
