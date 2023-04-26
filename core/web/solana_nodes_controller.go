@@ -9,6 +9,7 @@ import (
 var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", tomlKey: "Solana.Enabled"}
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {
+	nodeSet := app.GetChains().Solana
 	return newNodesController[presenters.SolanaNodeResource](
-		app.GetChains().Solana, ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())
+		nodeSet, ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())
 }
