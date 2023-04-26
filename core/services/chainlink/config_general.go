@@ -169,15 +169,14 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	}
 
 	cfg := &generalConfig{
-		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
-		c: &o.Config, secrets: &o.Secrets,
+		inputTOML:     input,
+		effectiveTOML: effective,
+		secretsTOML:   secrets,
+		c:             &o.Config,
+		secrets:       &o.Secrets,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
-	}
-
-	if err2 := utils.EnsureDirAndMaxPerms(cfg.RootDir(), os.FileMode(0700)); err2 != nil {
-		return nil, fmt.Errorf(`failed to create root directory %q: %w`, cfg.RootDir(), err2)
 	}
 
 	return cfg, nil
@@ -200,11 +199,28 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(
+	return g.validate()
+}
+
+func (g *generalConfig) validate(secrets ...v2.Validated) error {
+	err := multierr.Combine(
 		validateEnv(),
-		g.c.Validate(),
-		g.secrets.Validate()))
-	return err
+		g.c.Validate())
+
+	if len(secrets) == 0 {
+		err = multierr.Append(err, g.secrets.Validate())
+	} else {
+		for _, s := range secrets {
+			err = multierr.Append(err, s.ValidateConfig())
+		}
+	}
+
+	_, errList := utils.MultiErrorList(err)
+	return errList
+}
+
+func (g *generalConfig) ValidateDB() error {
+	return g.validate(&g.secrets.Database)
 }
 
 //go:embed legacy.env
@@ -235,10 +251,10 @@ func validateEnv() (err error) {
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Secrets:\n", g.secretsTOML)
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
 }
 
 // ConfigTOML implements chainlink.ConfigV2

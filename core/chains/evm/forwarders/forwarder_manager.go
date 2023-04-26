@@ -79,10 +79,11 @@ func (f *FwdMgr) Name() string {
 func (f *FwdMgr) Start(ctx context.Context) error {
 	return f.StartOnce("EVMForwarderManager", func() error {
 		f.logger.Debug("Initializing EVM forwarder manager")
+		chainId := f.evmClient.ConfiguredChainID()
 
-		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
+		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
 		if err != nil {
-			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", f.evmClient.ChainID())
+			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
@@ -111,11 +112,11 @@ func FilterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
-func (f *FwdMgr) ForwarderFor(addr *evmtypes.Address) (forwarder *evmtypes.Address, err error) {
+func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
+	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
-		return evmtypes.NewAddress(common.Address{}), err
+		return common.Address{}, err
 	}
 
 	for _, fwdr := range fwdrs {
@@ -125,20 +126,16 @@ func (f *FwdMgr) ForwarderFor(addr *evmtypes.Address) (forwarder *evmtypes.Addre
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa == addr.Address {
-				return evmtypes.NewAddress(fwdr.Address), nil
+			if eoa == addr {
+				return fwdr.Address, nil
 			}
 		}
 	}
-	return evmtypes.NewAddress(common.Address{}), errors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
 }
 
-func (f *FwdMgr) ConvertPayload(dest *evmtypes.Address, origPayload []byte) ([]byte, error) {
-	destAddr := common.Address{}
-	if dest != nil {
-		destAddr = dest.Address
-	}
-	databytes, err := f.getForwardedPayload(destAddr, origPayload)
+func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
+	databytes, err := f.getForwardedPayload(dest, origPayload)
 	if err != nil {
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",

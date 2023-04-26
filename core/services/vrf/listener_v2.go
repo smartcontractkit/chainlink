@@ -84,7 +84,7 @@ func newListenerV2(
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash],
+	txm txmgr.EvmTxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -152,7 +152,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.TxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash]
+	txm            txmgr.EvmTxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
@@ -163,7 +163,7 @@ type listenerV2 struct {
 	q              pg.Q
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox[log.Broadcast]
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -694,8 +694,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	start := time.Now()
 	var processed = make(map[string]struct{})
+	chainId := lsn.ethClient.ConfiguredChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.q, startBalance, chainId.Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed
@@ -818,11 +819,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				transaction, err = lsn.txm.CreateEthTransaction(txmgr.NewTx[*evmtypes.Address]{
-					FromAddress:    evmtypes.NewAddress(fromAddress),
-					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
+				transaction, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
+					FromAddress:    fromAddress,
+					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
-					GasLimit:       p.gasLimit,
+					FeeLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
 						RequestID:     &requestID,
 						MaxLink:       &maxLinkString,
@@ -830,7 +831,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgr.NewSendEveryStrategy(),
-					Checker: txmgr.TransmitCheckerSpec{
+					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
@@ -1074,7 +1075,7 @@ func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration, wg *sync.Wait
 	defer wg.Done()
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
-	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	ctx, cancel := lsn.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

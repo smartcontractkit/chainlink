@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -36,12 +35,12 @@ type orm struct {
 	q        pg.Q
 	txm      transmitter
 	strategy types.TxStrategy
-	checker  txmgr.TransmitCheckerSpec
+	checker  txmgr.EvmTransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.EvmTransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
@@ -124,10 +123,10 @@ func (o *orm) CreateEthTransaction(
 ) (err error) {
 
 	_, err = o.txm.CreateEthTransaction(txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(toAddress),
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
 		EncodedPayload: payload,
-		GasLimit:       gasLimit,
+		FeeLimit:       gasLimit,
 		Strategy:       o.strategy,
 		Checker:        o.checker,
 	}, qopts...)

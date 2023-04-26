@@ -68,7 +68,7 @@ type Client interface {
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
-	ChainID() *big.Int
+	ConfiguredChainID() *big.Int
 }
 
 var (
@@ -639,7 +639,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
-		logs := convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ChainID())
+		logs := convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID())
 		err = lp.saveLogsInTx(ctx, func(tx pg.Queryer) ([]Log, error) {
 			return logs, lp.orm.InsertLogs(logs, pg.WithQueryer(tx))
 		})
@@ -814,7 +814,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			[]LogPollerBlock{{BlockNumber: currentBlockNumber,
 				BlockTimestamp: currentBlock.Timestamp}},
 			lp.lggr,
-			lp.ec.ChainID(),
+			lp.ec.ConfiguredChainID(),
 		)
 		err = lp.saveLogsInTx(ctx, func(tx pg.Queryer) ([]Log, error) {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, pg.WithQueryer(tx)); err2 != nil {

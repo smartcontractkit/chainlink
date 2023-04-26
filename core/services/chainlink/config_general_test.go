@@ -3,6 +3,7 @@
 package chainlink
 
 import (
+	_ "embed"
 	"net/url"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -75,4 +77,48 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		err = cfg.Validate()
 		require.Contains(t, err.Error(), "invalid configuration: Insecure.DevWebServer: invalid value (true): insecure configs are not allowed on secure builds")
 	})
+}
+
+func TestValidateDB(t *testing.T) {
+	t.Setenv(string(v2.EnvConfig), "")
+
+	t.Run("unset db url", func(t *testing.T) {
+		t.Setenv(string(v2.EnvDatabaseURL), "")
+
+		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		require.NoError(t, err)
+		err = config.ValidateDB()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty")
+	})
+
+	t.Run("garbage db url", func(t *testing.T) {
+		t.Setenv(string(v2.EnvDatabaseURL), "garbage")
+
+		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		require.NoError(t, err)
+		err = config.ValidateDB()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid")
+	})
+
+	t.Run("dev url", func(t *testing.T) {
+		t.Setenv(string(v2.EnvDatabaseURL), "postgres://postgres:admin@localhost:5432/chainlink_dev_test?sslmode=disable")
+
+		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		require.NoError(t, err)
+		err = config.ValidateDB()
+		require.NoError(t, err)
+	})
+
+	t.Run("bad password url", func(t *testing.T) {
+		t.Setenv(string(v2.EnvDatabaseURL), "postgres://postgres:pwdToShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
+
+		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		require.NoError(t, err)
+		err = config.ValidateDB()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid")
+	})
+
 }

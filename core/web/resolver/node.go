@@ -7,7 +7,8 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
@@ -15,16 +16,16 @@ import (
 // NodeResolver resolves the Node type.
 type NodeResolver struct {
 	node   v2.Node
-	status chains.NodeStatus
+	status types.NodeStatus
 }
 
-func NewNode(status chains.NodeStatus) (nr *NodeResolver, warn error) {
+func NewNode(status types.NodeStatus) (nr *NodeResolver, warn error) {
 	nr = &NodeResolver{status: status}
 	warn = toml.Unmarshal([]byte(status.Config), &nr.node)
 	return
 }
 
-func NewNodes(nodes []chains.NodeStatus) (resolvers []*NodeResolver, warns error) {
+func NewNodes(nodes []types.NodeStatus) (resolvers []*NodeResolver, warns error) {
 	for _, n := range nodes {
 		nr, warn := NewNode(n)
 		if warn != nil {
@@ -97,7 +98,7 @@ type NodePayloadResolver struct {
 	NotFoundErrorUnionType
 }
 
-func NewNodePayloadResolver(node *chains.NodeStatus, err error) (npr *NodePayloadResolver, warn error) {
+func NewNodePayloadResolver(node *types.NodeStatus, err error) (npr *NodePayloadResolver, warn error) {
 	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
 	npr = &NodePayloadResolver{NotFoundErrorUnionType: e}
 	if node != nil {
@@ -118,7 +119,7 @@ type NodesPayloadResolver struct {
 	total int32
 }
 
-func NewNodesPayload(nodes []chains.NodeStatus, total int32) (npr *NodesPayloadResolver, warn error) {
+func NewNodesPayload(nodes []types.NodeStatus, total int32) (npr *NodesPayloadResolver, warn error) {
 	npr = &NodesPayloadResolver{total: total}
 	npr.nrs, warn = NewNodes(nodes)
 	return

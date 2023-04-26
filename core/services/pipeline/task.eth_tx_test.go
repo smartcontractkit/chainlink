@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -33,8 +32,7 @@ func TestETHTxTask(t *testing.T) {
 	const drJobTypeGasLimit uint32 = 789
 
 	from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
-	evmFrom := evmtypes.NewAddress(from)
-	evmTo := evmtypes.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+	to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 
 	tests := []struct {
 		name                  string
@@ -84,13 +82,13 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
-					Checker: txmgr.TransmitCheckerSpec{
+					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &addr,
 					},
@@ -131,10 +129,10 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -208,10 +206,10 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -253,10 +251,10 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -283,10 +281,10 @@ func TestETHTxTask(t *testing.T) {
 				txMeta := &txmgr.EthTxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -317,10 +315,10 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       drJobTypeGasLimit,
+					FeeLimit:       drJobTypeGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -351,10 +349,10 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       specGasLimit,
+					FeeLimit:       specGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, nil)
@@ -416,10 +414,10 @@ func TestETHTxTask(t *testing.T) {
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.EvmNewTx{
-					FromAddress:    evmFrom,
-					ToAddress:      evmTo,
+					FromAddress:    from,
+					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EvmTx{}, errors.New("uh oh"))
@@ -564,7 +562,7 @@ func TestETHTxTask(t *testing.T) {
 			}
 
 			keyStore := keystoremocks.NewEth(t)
-			txManager := txmmocks.NewTxManager[*evmtypes.Address, *evmtypes.TxHash, *evmtypes.BlockHash](t)
+			txManager := txmmocks.NewMockEvmTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)

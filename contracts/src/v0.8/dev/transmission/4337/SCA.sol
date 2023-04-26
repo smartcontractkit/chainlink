@@ -53,7 +53,12 @@ contract SCA is IAccount {
 
   /// @dev Execute a transaction on behalf of the owner. This function can only
   /// @dev be called by the EntryPoint contract, and assumes that `validateUserOp` has succeeded.
-  function executeTransactionFromEntryPoint(address to, uint256 value, uint48 deadline, bytes calldata data) external {
+  function executeTransactionFromEntryPoint(
+    address to,
+    uint256 value,
+    uint48 deadline,
+    bytes calldata data
+  ) external {
     if (msg.sender != i_entryPoint) {
       revert NotAuthorized(msg.sender);
     }
@@ -61,13 +66,13 @@ contract SCA is IAccount {
       revert TransactionExpired(deadline, block.timestamp);
     }
 
-    // Execute transaction. Bubble up an error if found. 
+    // Execute transaction. Bubble up an error if found.
     (bool success, bytes memory returnData) = to.call{value: value}(data);
     if (!success) {
-        if (returnData.length == 0) revert BadFormatOrOOG();
-        assembly {
-            revert(add(32, returnData), mload(returnData))
-        }
+      if (returnData.length == 0) revert BadFormatOrOOG();
+      assembly {
+        revert(add(32, returnData), mload(returnData))
+      }
     }
   }
 }

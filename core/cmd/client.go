@@ -23,7 +23,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -92,30 +91,16 @@ func (cli *Client) errorOut(err error) error {
 	return nil
 }
 
-func (cli *Client) setConfigFromFlags(opts *chainlink.GeneralConfigOpts, ctx *cli.Context) error {
-
-	configToProcess := ctx.IsSet("config") || ctx.IsSet("secrets")
-	if !configToProcess {
-		return nil
-	}
-
-	if cli.configInitialized && configToProcess {
-		return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
-	}
-
-	cli.configInitialized = true
-
-	fileNames := ctx.StringSlice("config")
-	if err := loadOpts(opts, fileNames...); err != nil {
+func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
 
 	secretsTOML := ""
-	if ctx.IsSet("secrets") {
-		secretsFileName := ctx.String("secrets")
-		b, err := os.ReadFile(secretsFileName)
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
 		}
 		secretsTOML = string(b)
 	}
@@ -243,8 +228,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		solLggr := appLggr.Named("Solana")
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
+			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
 		}
 		cfgs := cfg.SolanaConfigs()
 		var ids []string
@@ -742,26 +726,27 @@ func (d DiskCookieStore) cookiePath() string {
 }
 
 type UserCache struct {
-	dir string
+	dir        string
+	lggr       func() logger.Logger // func b/c we don't have the final logger at construction time
+	ensureOnce sync.Once
 }
 
-func NewUserCache(subdir string) (*UserCache, error) {
-
+func NewUserCache(subdir string, lggr func() logger.Logger) (*UserCache, error) {
 	cd, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err
 	}
-	dir := filepath.Join(cd, "chainlink", subdir)
-	err = os.MkdirAll(dir, 0700)
-	if err != nil {
-		return nil, err
+	return &UserCache{dir: filepath.Join(cd, "chainlink", subdir), lggr: lggr}, nil
+}
+
+func (cs *UserCache) ensure() {
+	if err := os.MkdirAll(cs.dir, 0700); err != nil {
+		cs.lggr().Errorw("Failed to make user cache dir", "dir", cs.dir, "err", err)
 	}
-	return &UserCache{
-		dir: dir,
-	}, nil
 }
 
 func (cs *UserCache) RootDir() string {
+	cs.ensureOnce.Do(cs.ensure)
 	return cs.dir
 }
 
