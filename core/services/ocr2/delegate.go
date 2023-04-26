@@ -587,19 +587,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		var mercuryCred *kevm.MercuryCredential
 		credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "failed to get mercury credential name")
 		}
-		url, username, password, err2 := d.cfg.MercuryCredentials(credName)
-		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to find mercury credentials for provided credential name: %s", credName)
-		}
-		mercuryCred = &kevm.MercuryCredential{
-			MercuryID:  username,
-			MercuryKey: password,
-			MercuryURL: url,
+		var mercuryCred *kevm.MercuryCredential
+		if credName != "" {
+			url, username, password, err2 := d.cfg.MercuryCredentials(credName)
+			if err2 != nil {
+				return nil, errors.Wrapf(err2, "failed to find mercury credentials for provided credential name: %s", credName)
+			}
+			mercuryCred = &kevm.MercuryCredential{
+				MercuryID:  username,
+				MercuryKey: password,
+				MercuryURL: url,
+			}
 		}
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mercuryCred)
 		if err2 != nil {

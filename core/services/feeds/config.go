@@ -16,5 +16,5 @@ type Config interface {
 	DefaultHTTPTimeout() models.Duration
 	JobPipelineResultWriteQueueDepth() uint64
 	JobPipelineMaxSuccessfulRuns() uint64
-	MercuryCredentials(url string) (username, password string, err error)
+	MercuryCredentials(credName string) (url, username, password string, err error)
 }
