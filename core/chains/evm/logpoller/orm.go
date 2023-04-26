@@ -56,11 +56,11 @@ func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 	return q.ExecQ(`INSERT INTO evm_log_poller_filters
 								(name, evm_chain_id, retention, created_at, address, event)
 								SELECT * FROM
-									(SELECT $1, $2::NUMERIC, $3::INTEGER, NOW()) x,
+									(SELECT $1, $2::NUMERIC, $3::BIGINT, NOW()) x,
 									(SELECT unnest($4::BYTEA[]) addr) a,
 									(SELECT unnest($5::BYTEA[]) ev) e
-								ON CONFLICT (name, evm_chain_id, address, event) DO UPDATE SET retention=$3;`,
-		filter.Name, utils.NewBig(o.chainID), filter.Retention.Seconds(), addresses, events)
+								ON CONFLICT (name, evm_chain_id, address, event) DO UPDATE SET retention=$3::BIGINT;`,
+		filter.Name, utils.NewBig(o.chainID), filter.Retention, addresses, events)
 }
 
 // DeleteFilter removes all events,address pairs associated with the Filter
@@ -146,12 +146,25 @@ func (o *ORM) DeleteLogsAfter(start int64, qopts ...pg.QOpt) error {
 	return q.ExecQ(`DELETE FROM evm_logs WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
 }
 
+type Exp struct {
+	Address      common.Address
+	EventSig     common.Hash
+	Expiration   time.Time
+	TimeNow      time.Time
+	ShouldDelete bool
+}
+
 func (o *ORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	return q.ExecQ(`DELETE FROM evm_logs l USING evm_log_poller_filters f
-							WHERE l.evm_chain_id = f.evm_chain_id AND l.address = f.address AND l.event_sig = f.event AND
-								l.timestamp + MAX(f.retention) <= NOW() AND evm_chain_id = $1
-							GROUP BY l.block_hash, l.log_index`, utils.NewBig(o.chainID))
+
+	return q.ExecQ(`WITH r AS
+				( SELECT address, event, MAX(retention) AS retention
+					FROM evm_log_poller_filters WHERE evm_chain_id=$1 
+					GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
+				) DELETE FROM evm_logs l USING r
+					WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
+						AND l.created_at + (r.retention / 10^9 * interval '1 second') <= STATEMENT_TIMESTAMP()`, // retention is in nanoseconds (time.Duration aka BIGINT)
+		utils.NewBig(o.chainID))
 }
 
 // InsertLogs is idempotent to support replays.

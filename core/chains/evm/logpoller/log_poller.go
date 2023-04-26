@@ -520,7 +520,7 @@ func (lp *logPoller) run() {
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
-			if err := lp.pruneExpiredLogs(lp.ctx); err != nil {
+			if err := lp.orm.DeleteExpiredLogs(pg.WithParentCtx(lp.ctx)); err != nil {
 				lp.lggr.Error(err)
 			}
 		}
@@ -901,7 +901,7 @@ func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
 }
 
 // pruneOldBlocks removes logs which have outlived their retention period
-func (lp *logPoller) pruneExpiredLogs(ctx context.Context) error {
+func (lp *logPoller) PruneExpiredLogs(ctx context.Context) error {
 	return lp.orm.DeleteExpiredLogs(pg.WithParentCtx(ctx))
 }
 
