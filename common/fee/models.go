@@ -3,8 +3,9 @@ package fee // renamed Fee from fee for chain agnostic purposes
 import (
 	"math/big"
 
-	"github.com/shopspring/decimal"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
+
+	"github.com/shopspring/decimal"
 )
 
 func GetMaxFeePrice(userSpecifiedMax, maxFee *big.Int) *big.Int {
