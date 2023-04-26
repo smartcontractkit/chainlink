@@ -8,7 +8,7 @@ pragma solidity 0.8.6;
  */
 contract Chainable {
   /**
-   * @dev addresses of the next contract in the chain **have to be immutable** or the system won't work
+   * @dev addresses of the next contract in the chain **have to be immutable/constant** or the system won't work
    */
   address public immutable i_next;
 
