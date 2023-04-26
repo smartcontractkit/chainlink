@@ -274,7 +274,7 @@ func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPri
 // - A configured percentage bump (EVM.GasEstimator.BumpPercent) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *assets.Wei, maxGasPriceWei *assets.Wei) (*assets.Wei, error) {
+func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice, maxGasPriceWei *assets.Wei) (*assets.Wei, error) {
 	maxGasPrice := getMaxGasPrice(maxGasPriceWei, cfg.EvmMaxGasPriceWei())
 	bumpedGasPrice := bumpFeePrice(originalGasPrice, cfg.EvmGasBumpPercent(), cfg.EvmGasBumpWei())
 
@@ -390,11 +390,4 @@ func capGasPrice(calculatedGasPrice, userSpecifiedMax, maxGasPriceWei *assets.We
 	chainSpecificGasLimit := applyMultiplier(gasLimit, multiplier)
 	maxGasPrice := getMaxGasPrice(userSpecifiedMax, maxGasPriceWei)
 	return assets.WeiMin(calculatedGasPrice, maxGasPrice), chainSpecificGasLimit
-}
-
-// Chain Agnostic Unit of Fee (e.g. Wei)
-type FeeUnit interface {
-	// assets.Wei | uint64
-	ToInt() *big.Int
-	NewFeeUnitFromInt(big.Int) FeeUnit
 }
