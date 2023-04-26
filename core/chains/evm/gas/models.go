@@ -8,9 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 
-	txmgrfee "github.com/smartcontractkit/chainlink/v2/common/txmgr/fee"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -203,10 +202,6 @@ func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, fe
 	return
 }
 
-func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
-	return uint32(decimal.NewFromBigInt(big.NewInt(0).SetUint64(uint64(gasLimit)), 0).Mul(decimal.NewFromFloat32(multiplier)).IntPart())
-}
-
 // Config defines an interface for configuration in the gas package
 //
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -267,7 +262,7 @@ func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPri
 	if err != nil {
 		return nil, 0, err
 	}
-	chainSpecificGasLimit = txmgrfee.ApplyMultiplier(originalGasLimit, cfg.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = commonfee.ApplyMultiplier(originalGasLimit, cfg.EvmGasLimitMultiplier())
 	return
 }
 
@@ -302,7 +297,7 @@ func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap,
 	if err != nil {
 		return bumped, 0, err
 	}
-	chainSpecificGasLimit = txmgrfee.ApplyMultiplier(originalGasLimit, config.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = commonfee.ApplyMultiplier(originalGasLimit, config.EvmGasLimitMultiplier())
 	return
 }
 
@@ -384,10 +379,10 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 }
 
 func getMaxGasPrice(userSpecifiedMax, maxGasPriceWei *assets.Wei) *assets.Wei {
-	return assets.NewWei(txmgrfee.GetMaxFeePrice(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
+	return assets.NewWei(commonfee.GetMaxFeePrice(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
 }
 
 func capGasPrice(calculatedGasPrice, userSpecifiedMax, maxGasPriceWei *assets.Wei, gasLimit uint32, multiplier float32) (*assets.Wei, uint32) {
-	maxGasPrice, chainSpecificGasLimit := txmgrfee.CapFeePrice(calculatedGasPrice.ToInt(), userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt(), gasLimit, multiplier)
+	maxGasPrice, chainSpecificGasLimit := commonfee.CapFeePrice(calculatedGasPrice.ToInt(), userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt(), gasLimit, multiplier)
 	return assets.NewWei(maxGasPrice), chainSpecificGasLimit
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	txmgrfee "github.com/smartcontractkit/chainlink/v2/common/txmgr/fee"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -56,7 +56,7 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	if gasTipCap == nil {
 		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
-	chainSpecificGasLimit = txmgrfee.ApplyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = commonfee.ApplyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
 
 	var feeCap *assets.Wei
 	if f.config.EvmGasBumpThreshold() == 0 {

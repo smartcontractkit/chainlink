@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	txmgrfee "github.com/smartcontractkit/chainlink/v2/common/txmgr/fee"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -374,7 +374,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 	var feeCap *assets.Wei
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = txmgrfee.ApplyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
+		chainSpecificGasLimit = commonfee.ApplyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
