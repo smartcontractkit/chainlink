@@ -86,9 +86,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = false
-	})
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start(testutils.Context(t)))
 

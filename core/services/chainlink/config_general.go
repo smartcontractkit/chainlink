@@ -146,7 +146,7 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		o.Config.DevMode = v2.EnvDev.IsTrue()
+		// o.Config.DevMode = v2.EnvDev.IsTrue()
 
 		err = o.Secrets.setEnv()
 		if err != nil {
@@ -257,7 +257,7 @@ func (g *generalConfig) ConfigTOML() (user, effective string) {
 }
 
 func (g *generalConfig) Dev() bool {
-	return build.Dev
+	return build.DevelopmentBuild()
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -1064,22 +1064,23 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 
 // Insecure config
 func (g *generalConfig) DevWebServer() bool {
-	return build.Dev && g.c.Insecure.DevWebServer != nil &&
+	return build.DevelopmentBuild() && g.c.Insecure.DevWebServer != nil &&
 		*g.c.Insecure.DevWebServer
 }
 
 func (g *generalConfig) OCRDevelopmentMode() bool {
-	return build.Dev && g.c.Insecure.OCRDevelopmentMode != nil &&
+	// OCRDevelopmentMode is allowed in TestBuilds as well
+	return (build.DevelopmentBuild() || build.TestBuild()) && g.c.Insecure.OCRDevelopmentMode != nil &&
 		*g.c.Insecure.OCRDevelopmentMode
 }
 
 func (g *generalConfig) DisableRateLimiting() bool {
-	return build.Dev && g.c.Insecure.DisableRateLimiting != nil &&
+	return build.DevelopmentBuild() && g.c.Insecure.DisableRateLimiting != nil &&
 		*g.c.Insecure.DisableRateLimiting
 }
 
 func (g *generalConfig) InfiniteDepthQueries() bool {
-	return build.Dev && g.c.Insecure.InfiniteDepthQueries != nil &&
+	return build.DevelopmentBuild() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
 }
 
