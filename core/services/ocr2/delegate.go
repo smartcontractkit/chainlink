@@ -593,9 +593,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		var mercuryCred *kevm.MercuryCredential
 		if credName != "" {
-			url, username, password, err2 := d.cfg.MercuryCredentials(credName)
-			if err2 != nil {
-				return nil, errors.Wrapf(err2, "failed to find mercury credentials for provided credential name: %s", credName)
+			url, username, password, err3 := d.cfg.MercuryCredentials(credName)
+			if err3 != nil {
+				return nil, errors.Wrapf(err3, "failed to find mercury credentials for provided credential name: %s", credName)
 			}
 			mercuryCred = &kevm.MercuryCredential{
 				MercuryID:  username,
