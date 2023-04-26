@@ -1,0 +1,16 @@
+exec chainlink nodes evm --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes evm - Commands for handling EVM node configuration
+
+USAGE:
+   chainlink nodes evm command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing EVM nodes
+
+OPTIONS:
+   --help, -h  show help
+   

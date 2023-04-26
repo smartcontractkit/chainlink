@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -50,12 +49,13 @@ type (
 
 // NewBalanceMonitor returns a new balanceMonitor
 func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
 		ethClient,
-		ethClient.ChainID(),
-		ethClient.ChainID().String(),
+		chainId,
+		chainId.String(),
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
 		new(sync.RWMutex),
@@ -170,19 +170,19 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.EnabledKeysForChain(w.bm.chainID)
+	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
 
 	var wg sync.WaitGroup
 
-	wg.Add(len(keys))
-	for _, key := range keys {
-		go func(k ethkey.KeyV2) {
+	wg.Add(len(enabledAddresses))
+	for _, address := range enabledAddresses {
+		go func(k gethCommon.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
-		}(key)
+		}(address)
 	}
 	wg.Wait()
 }
@@ -190,24 +190,24 @@ func (w *worker) WorkCtx(ctx context.Context) {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
+func (w *worker) checkAccountBalance(ctx context.Context, address gethCommon.Address) {
 	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
-	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address, nil)
+	bal, err := w.bm.ethClient.BalanceAt(ctx, address, nil)
 	if err != nil {
-		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", address.Hex()),
 			"error", err,
-			"address", k.Address,
+			"address", address,
 		)
 	} else if bal == nil {
-		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", address.Hex()),
 			"error", err,
-			"address", k.Address,
+			"address", address,
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		w.bm.updateBalance(ethBal, k.Address)
+		w.bm.updateBalance(ethBal, address)
 	}
 }
 

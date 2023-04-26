@@ -1,0 +1,14 @@
+exec chainlink txs cosmos create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs cosmos create - Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
+
+USAGE:
+   chainlink txs cosmos create [command options] [arguments...]
+
+OPTIONS:
+   --force     allows to send a higher amount than the account's balance
+   --id value  chain ID
+   

@@ -17,7 +17,7 @@ func ValidatePluginConfig(config PluginConfig) error {
 }
 
 // This config is stored in the Oracle contract (set via SetConfig()).
-// Every SetConfig() call reloads the reporting plugin (DirectRequestReportingPluginFactory.NewReportingPlugin())
+// Every SetConfig() call reloads the reporting plugin (FunctionsReportingPluginFactory.NewReportingPlugin())
 type ReportingPluginConfigWrapper struct {
 	Config *ReportingPluginConfig
 }

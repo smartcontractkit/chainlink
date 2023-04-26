@@ -21,10 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	functions_service "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -299,8 +297,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
-	var pluginOracle plugins.OraclePlugin
-	var ocr2Provider types.Plugin
 	switch spec.PluginType {
 	case job.Mercury:
 		mercuryProvider, err2 := relayer.NewMercuryProvider(
@@ -673,7 +669,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = functionsProvider
 
 		var relayConfig evmrelaytypes.RelayConfig
 		err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
@@ -684,57 +679,52 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		pluginORM := functions_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
-		pluginOracle, err2 = functions.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
-		if err2 != nil {
-			return nil, err2
+
+		sharedOracleArgs := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          functionsProvider.ContractTransmitter(),
+			ContractConfigTracker:        functionsProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
+			OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 		}
+
+		functionsServicesConfig := functions.FunctionsServicesConfig{
+			Job:            jb,
+			PipelineRunner: d.pipelineRunner,
+			JobORM:         d.jobORM,
+			OCR2JobConfig:  d.cfg,
+			DB:             d.db,
+			Chain:          chain,
+			ContractID:     spec.ContractID,
+			Lggr:           lggr,
+			MailMon:        d.mailMon,
+		}
+
+		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
+		}
+
+		// RunResultSaver needs to be started first, so it's available
+		// to read odb writes. It is stopped last after the OraclePlugin is shut down
+		// so no further runs are enqueued, and we can drain the queue.
+		runResultSaver := ocrcommon.NewResultRunSaver(
+			runResults,
+			d.pipelineRunner,
+			make(chan struct{}),
+			lggr,
+			d.cfg.JobPipelineMaxSuccessfulRuns(),
+		)
+
+		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialise plugin")
-	}
-
-	pluginFactory, err := pluginOracle.GetPluginFactory()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get plugin factory")
-	}
-
-	pluginServices, err := pluginOracle.GetServices()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get plugin services")
-	}
-
-	oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
-		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          ocr2Provider.ContractTransmitter(),
-		ContractConfigTracker:        ocr2Provider.ContractConfigTracker(),
-		Database:                     ocrDB,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
-		OffchainConfigDigester:       ocr2Provider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		ReportingPluginFactory:       pluginFactory,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling NewOracle")
-	}
-
-	// RunResultSaver needs to be started first, so it's available
-	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued, and we can drain the queue.
-	runResultSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		d.pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		d.cfg.JobPipelineMaxSuccessfulRuns(),
-	)
-
-	oracleCtx := job.NewServiceAdapter(oracle)
-	return append([]job.ServiceCtx{runResultSaver, ocr2Provider, oracleCtx}, pluginServices...), nil
 }

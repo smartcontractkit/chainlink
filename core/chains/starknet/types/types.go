@@ -7,6 +7,6 @@ import (
 )
 
 type Configs interface {
-	chains.ChainConfigs[string]
+	chains.ChainConfigs
 	chains.NodeConfigs[string, db.Node]
 }

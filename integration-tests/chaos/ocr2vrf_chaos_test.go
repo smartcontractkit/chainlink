@@ -181,6 +181,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				subID,
 				ocr2vrf_constants.ConfirmationDelay,
+				ocr2vrf_constants.RandomnessRedeemTransmissionEventTimeout,
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
@@ -207,6 +208,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				subID,
 				ocr2vrf_constants.ConfirmationDelay,
+				ocr2vrf_constants.RandomnessRedeemTransmissionEventTimeout,
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {

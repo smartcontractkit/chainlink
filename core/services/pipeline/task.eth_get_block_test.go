@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -72,7 +73,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 	})
 
 	t.Run("if headtracker returns nil head and eth call succeeds", func(t *testing.T) {
-		ethClient := evmmocks.NewClient(t)
+		ethClient := evmclimocks.NewClient(t)
 		headTracker := htmocks.NewHeadTracker(t)
 		chain := evmmocks.NewChain(t)
 		chain.On("Client").Return(ethClient)
@@ -108,7 +109,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 	})
 
 	t.Run("if headtracker returns nil head and eth call fails", func(t *testing.T) {
-		ethClient := evmmocks.NewClient(t)
+		ethClient := evmclimocks.NewClient(t)
 		headTracker := htmocks.NewHeadTracker(t)
 		chain := evmmocks.NewChain(t)
 		chain.On("Client").Return(ethClient)

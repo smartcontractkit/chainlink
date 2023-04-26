@@ -1,15 +1,35 @@
 package txmgr
 
-import evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+import (
+	"context"
 
-func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EthConfirmer) {
-	ethConfirmer.ethClient = ethClient
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+)
+
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetEthClient(ethClient evmclient.Client) {
+	ec.ethClient = ethClient
 }
 
-func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadcaster *EthBroadcaster) {
-	ethBroadcaster.resumeCallback = resumeCallback
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) StartInternal() error {
+	return eb.startInternal()
 }
 
-func (er *EthResender) ResendUnconfirmed() error {
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CloseInternal() error {
+	return eb.closeInternal()
+}
+
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DisableUnstartedEthTxAutoProcessing() {
+	eb.processUnstartedEthTxsImpl = func(ctx context.Context, fromAddress ADDR) (retryable bool, err error) { return false, nil }
+}
+
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) StartInternal() error {
+	return ec.startInternal()
+}
+
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CloseInternal() error {
+	return ec.closeInternal()
+}
+
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ]) ResendUnconfirmed() error {
 	return er.resendUnconfirmed()
 }

@@ -11,7 +11,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -47,11 +49,24 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
+	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst, GeneralConfig: cfg, Client: ethClient})
+	lp := &mocklp.LogPoller{}
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	chainSet := evmtest.NewChainSet(
+		t,
+		evmtest.TestChainOpts{
+			DB:            db,
+			KeyStore:      kst,
+			GeneralConfig: cfg,
+			Client:        ethClient,
+			LogPoller:     lp,
+		},
+	)
 
 	return blockhashstore.NewDelegate(lggr, chainSet, kst), &testData{
 		ethClient:   ethClient,

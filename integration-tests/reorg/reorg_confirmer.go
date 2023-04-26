@@ -89,7 +89,9 @@ func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 		complete:           false,
 	}
 	rc.networkStep.Store(InitConsensus)
-	cfg.Network.AddHeaderEventSubscription("reorg", rc)
+	for _, c := range cfg.Network.GetClients() {
+		c.AddHeaderEventSubscription("reorg", rc)
+	}
 	<-rc.initConsensusReady
 	return rc, nil
 }

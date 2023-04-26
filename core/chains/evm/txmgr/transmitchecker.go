@@ -5,11 +5,13 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -19,14 +21,19 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
+type (
+	EvmTransmitChecker     = TransmitChecker[common.Address, common.Hash]
+	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
+)
+
 var (
 	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
-	NoChecker TransmitChecker = noChecker{}
+	NoChecker EvmTransmitChecker = noChecker{}
 
-	_ TransmitCheckerFactory = &CheckerFactory{}
-	_ TransmitChecker        = &SimulateChecker{}
-	_ TransmitChecker        = &VRFV1Checker{}
-	_ TransmitChecker        = &VRFV2Checker{}
+	_ EvmTransmitCheckerFactory = &CheckerFactory{}
+	_ EvmTransmitChecker        = &SimulateChecker{}
+	_ EvmTransmitChecker        = &VRFV1Checker{}
+	_ EvmTransmitChecker        = &VRFV2Checker{}
 )
 
 // CheckerFactory is a real implementation of TransmitCheckerFactory.
@@ -35,7 +42,7 @@ type CheckerFactory struct {
 }
 
 // BuildChecker satisfies the TransmitCheckerFactory interface.
-func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error) {
+func (c *CheckerFactory) BuildChecker(spec EvmTransmitCheckerSpec) (EvmTransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil
@@ -82,8 +89,8 @@ type noChecker struct{}
 func (noChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
-	_ EthTx,
-	_ EthTxAttempt,
+	_ EthTx[common.Address, common.Hash],
+	_ EthTxAttempt[common.Address, common.Hash],
 ) error {
 	return nil
 }
@@ -97,8 +104,8 @@ type SimulateChecker struct {
 func (s *SimulateChecker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EthTx,
-	a EthTxAttempt,
+	tx EthTx[common.Address, common.Hash],
+	a EthTxAttempt[common.Address, common.Hash],
 ) error {
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
 	callArg := map[string]interface{}{
@@ -147,8 +154,8 @@ type VRFV1Checker struct {
 func (v *VRFV1Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EthTx,
-	_ EthTxAttempt,
+	tx EthTx[common.Address, common.Hash],
+	_ EthTxAttempt[common.Address, common.Hash],
 ) error {
 	meta, err := tx.GetMeta()
 	if err != nil {
@@ -257,8 +264,8 @@ type VRFV2Checker struct {
 func (v *VRFV2Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EthTx,
-	_ EthTxAttempt,
+	tx EthTx[common.Address, common.Hash],
+	_ EthTxAttempt[common.Address, common.Hash],
 ) error {
 	meta, err := tx.GetMeta()
 	if err != nil {

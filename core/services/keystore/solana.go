@@ -23,6 +23,22 @@ type Solana interface {
 	Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error)
 }
 
+// SolanaSigner adapts Solana to [loop.Keystore].
+type SolanaSigner struct {
+	Solana
+}
+
+func (s *SolanaSigner) Accounts(ctx context.Context) (accounts []string, err error) {
+	ks, err := s.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range ks {
+		accounts = append(accounts, k.PublicKeyStr())
+	}
+	return
+}
+
 type solana struct {
 	*keyManager
 }
@@ -151,10 +167,6 @@ func (ks *solana) Sign(_ context.Context, id string, msg []byte) (signature []by
 	}
 	return k.Sign(msg)
 }
-
-var (
-	ErrNoSolanaKey = errors.New("no solana keys exist")
-)
 
 func (ks *solana) getByID(id string) (solkey.Key, error) {
 	key, found := ks.keyRing.Solana[id]

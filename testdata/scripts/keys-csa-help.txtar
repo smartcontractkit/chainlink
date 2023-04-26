@@ -1,0 +1,19 @@
+exec chainlink keys csa --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys csa - Remote commands for administering the node's CSA keys
+
+USAGE:
+   chainlink keys csa command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a CSA key, encrypted with password from the password file, and store it in the database.
+   list    List available CSA keys
+   import  Imports a CSA key from a JSON file.
+   export  Exports an existing CSA key by its ID.
+
+OPTIONS:
+   --help, -h  show help
+   
