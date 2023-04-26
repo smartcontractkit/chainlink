@@ -587,14 +587,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		username, password, err2 := d.cfg.MercuryCredentials(jb.OCR2OracleSpec.MercuryURL)
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to find corresponding username and password for provided MercuryURL")
-		}
-		mercuryCred := &kevm.MercuryCredential{
-			MercuryID:  username,
-			MercuryKey: password,
-			MercuryURL: jb.OCR2OracleSpec.MercuryURL,
+		var mercuryCred *kevm.MercuryCredential
+		if jb.OCR2OracleSpec.MercuryURL != "" {
+			username, password, err2 := d.cfg.MercuryCredentials(jb.OCR2OracleSpec.MercuryURL)
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "failed to find corresponding username and password for provided MercuryURL")
+			}
+			mercuryCred = &kevm.MercuryCredential{
+				MercuryID:  username,
+				MercuryKey: password,
+				MercuryURL: jb.OCR2OracleSpec.MercuryURL,
+			}
 		}
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mercuryCred)
 		if err2 != nil {

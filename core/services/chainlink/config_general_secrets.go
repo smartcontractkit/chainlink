@@ -48,9 +48,7 @@ func (g *generalConfig) MercurySecrets(url string) (username, password string, e
 	var u, p string
 	for _, creds := range g.secrets.Mercury.Credentials {
 		if creds.URL.String() == url {
-			u = creds.Username.String()
-			p = creds.Password.String()
-			return u, p, nil
+			return string(*creds.Username), string(*creds.Password), nil
 		}
 	}
 	return u, p, errors.Errorf("failed to find credentials for URL: %s", url)
