@@ -505,6 +505,8 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		return
 	}
 
+	// ..
+
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{

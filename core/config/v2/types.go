@@ -1004,8 +1004,27 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	}
 }
 
+type MercuryCredentials struct {
+	URL      *models.SecretURL
+	Username *models.Secret
+	Password *models.Secret
+}
+
 type MercurySecrets struct {
-	ID  *models.Secret
-	Key *models.Secret
-	URL *models.SecretURL
+	Credentials []MercuryCredentials
+}
+
+func (m *MercurySecrets) ValidateConfig() (err error) {
+	urls := make(map[string]struct{}, len(m.Credentials))
+	for _, creds := range m.Credentials {
+		if creds.URL == nil {
+			return errors.New("`url` must be set for all mercury credentials")
+		}
+		s := creds.URL.String()
+		if _, exists := urls[s]; exists {
+			return errors.New("credentials: may not contain duplicate URLs")
+		}
+		urls[s] = struct{}{}
+	}
+	return nil
 }

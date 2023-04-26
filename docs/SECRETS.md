@@ -132,33 +132,33 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 ## Mercury
 ```toml
 [Mercury]
-ID = "A-Mercury-ID" # Example
-Key = "A-Mercury-Key" # Example
+```
+
+
+## Mercury.Credentials
+```toml
+[[Mercury.Credentials]]
+Username = "A-Mercury-Username" # Example
+Password = "A-Mercury-Password" # Example
 URL = "A-Mercury-URL" # Example
 ```
 
 
-### ID
+### Username
 ```toml
-ID = "A-Mercury-ID" # Example
+Username = "A-Mercury-Username" # Example
 ```
-ID is the Mercury ID assigned for this Automation node
+Username is used for basic auth of the Mercury endpoint
 
-Environment variable: `CL_MERCURY_ID`
-
-### Key
+### Password
 ```toml
-Key = "A-Mercury-Key" # Example
+Password = "A-Mercury-Password" # Example
 ```
-Key is the Mercury Key assigned for this Automation node
-
-Environment variable: `CL_MERCURY_KEY`
+Password is used for basic auth of the Mercury endpoint
 
 ### URL
 ```toml
 URL = "A-Mercury-URL" # Example
 ```
-URL is the Mercury endpoint URL which this Automation node will query in its MercuryLookup process
-
-Environment variable: `CL_MERCURY_URL`
+URL is the Mercury endpoint URL
 

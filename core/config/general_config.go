@@ -127,6 +127,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(url string) (username, password string, err error)
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
@@ -172,10 +173,6 @@ type BasicConfig interface {
 	OCRDevelopmentMode() bool
 	DisableRateLimiting() bool
 	InfiniteDepthQueries() bool
-
-	MercuryID() string
-	MercuryKey() string
-	MercuryURL() *url.URL
 
 	OCR1Config
 	OCR2Config
