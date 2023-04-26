@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	txmgrfee "github.com/smartcontractkit/chainlink/v2/common/txmgr/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -266,7 +267,7 @@ func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPri
 	if err != nil {
 		return nil, 0, err
 	}
-	chainSpecificGasLimit = applyMultiplier(originalGasLimit, cfg.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = txmgrfee.ApplyMultiplier(originalGasLimit, cfg.EvmGasLimitMultiplier())
 	return
 }
 
@@ -301,7 +302,7 @@ func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap,
 	if err != nil {
 		return bumped, 0, err
 	}
-	chainSpecificGasLimit = applyMultiplier(originalGasLimit, config.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = txmgrfee.ApplyMultiplier(originalGasLimit, config.EvmGasLimitMultiplier())
 	return
 }
 
@@ -383,11 +384,10 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 }
 
 func getMaxGasPrice(userSpecifiedMax, maxGasPriceWei *assets.Wei) *assets.Wei {
-	return assets.WeiMin(userSpecifiedMax, maxGasPriceWei)
+	return assets.NewWei(txmgrfee.GetMaxFeePrice(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
 }
 
 func capGasPrice(calculatedGasPrice, userSpecifiedMax, maxGasPriceWei *assets.Wei, gasLimit uint32, multiplier float32) (*assets.Wei, uint32) {
-	chainSpecificGasLimit := applyMultiplier(gasLimit, multiplier)
-	maxGasPrice := getMaxGasPrice(userSpecifiedMax, maxGasPriceWei)
-	return assets.WeiMin(calculatedGasPrice, maxGasPrice), chainSpecificGasLimit
+	maxGasPrice, chainSpecificGasLimit := txmgrfee.CapFeePrice(calculatedGasPrice.ToInt(), userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt(), gasLimit, multiplier)
+	return assets.NewWei(maxGasPrice), chainSpecificGasLimit
 }
