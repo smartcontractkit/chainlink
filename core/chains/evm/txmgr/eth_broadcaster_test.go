@@ -430,7 +430,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          txmgr.EthTxUnstarted,
-				TransmitChecker: checkerToJson(t, txmgr.TransmitCheckerSpec{
+				TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				}),
 			}
@@ -475,7 +475,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          txmgr.EthTxUnstarted,
-				TransmitChecker: checkerToJson(t, txmgr.TransmitCheckerSpec{
+				TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				}),
 			}
@@ -508,7 +508,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          txmgr.EthTxUnstarted,
-				TransmitChecker: checkerToJson(t, txmgr.TransmitCheckerSpec{
+				TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				}),
 			}
@@ -568,7 +568,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
-			TransmitChecker: checkerToJson(t, txmgr.TransmitCheckerSpec{
+			TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 				CheckerType: txmgr.TransmitCheckerTypeSimulate,
 			}),
 		}
@@ -601,7 +601,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
-			TransmitChecker: checkerToJson(t, txmgr.TransmitCheckerSpec{
+			TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 				CheckerType: txmgr.TransmitCheckerTypeSimulate,
 			}),
 		}
@@ -634,7 +634,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
-			TransmitChecker: checkerToJson(t, txmgr.TransmitCheckerSpec{
+			TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 				CheckerType: txmgr.TransmitCheckerTypeSimulate,
 			}),
 		}
@@ -2077,7 +2077,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 }
 
-func checkerToJson(t *testing.T, checker txmgr.TransmitCheckerSpec) *datatypes.JSON {
+func checkerToJson(t *testing.T, checker txmgr.EvmTransmitCheckerSpec) *datatypes.JSON {
 	b, err := json.Marshal(checker)
 	require.NoError(t, err)
 	j := datatypes.JSON(b)
@@ -2088,7 +2088,7 @@ type testCheckerFactory struct {
 	err error
 }
 
-func (t *testCheckerFactory) BuildChecker(spec txmgr.TransmitCheckerSpec) (txmgr.EvmTransmitChecker, error) {
+func (t *testCheckerFactory) BuildChecker(spec txmgr.EvmTransmitCheckerSpec) (txmgr.EvmTransmitChecker, error) {
 	return &testChecker{t.err}, nil
 }
 
