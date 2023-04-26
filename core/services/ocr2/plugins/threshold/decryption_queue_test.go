@@ -54,6 +54,7 @@ func TestDuplicateCiphertextId(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("1"))
@@ -82,6 +83,7 @@ func TestDecryptQueueFull(t *testing.T) {
 	ctx1, cancel1 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel1()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx1, []byte("4"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("4"))
@@ -101,6 +103,7 @@ func TestGetRequests(t *testing.T) {
 	ctx1, cancel1 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel1()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx1, []byte("5"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("5"))
@@ -108,6 +111,7 @@ func TestGetRequests(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel2()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx2, []byte("6"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("6"))
@@ -128,6 +132,7 @@ func TestGetCiphertext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx, []byte("7"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("7"))
@@ -213,6 +218,7 @@ func TestGetRequestsCountLimit(t *testing.T) {
 	ctx1, cancel1 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel1()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx1, []byte("11"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
@@ -220,6 +226,7 @@ func TestGetRequestsCountLimit(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel2()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx2, []byte("12"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("12"))
@@ -227,6 +234,7 @@ func TestGetRequestsCountLimit(t *testing.T) {
 	ctx3, cancel3 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel3()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx3, []byte("13"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("13"))
@@ -247,6 +255,7 @@ func TestGetRequestsBytesLimit(t *testing.T) {
 	ctx1, cancel1 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel1()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx1, []byte("11"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
@@ -254,6 +263,7 @@ func TestGetRequestsBytesLimit(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel2()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx2, []byte("12"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("12"))
@@ -261,6 +271,7 @@ func TestGetRequestsBytesLimit(t *testing.T) {
 	ctx3, cancel3 := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel3()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx3, []byte("13"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("13"))
@@ -281,6 +292,7 @@ func TestGetRequestsWithShortPendingRequestQueue(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
 	defer cancel()
 
+	//nolint:errcheck
 	go dq.Decrypt(ctx, []byte("11"), []byte("encrypted"))
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
@@ -300,6 +312,7 @@ func TestGetRequestsWithExpiredRequest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(100)*time.Millisecond)
 	defer cancel()
 
+	//nolint:errcheck
 	dq.Decrypt(ctx, []byte("11"), []byte("encrypted"))
 
 	requests := dq.GetRequests(2, 1000)
