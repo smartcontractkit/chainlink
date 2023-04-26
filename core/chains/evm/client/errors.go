@@ -142,6 +142,13 @@ var optimism = ClientErrors{
 	L2FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
 }
 
+var celo = ClientErrors{
+	TxFeeExceedsCap:       regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ of currency celo\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gasprice is less than gas price minimum floor`),
+	InsufficientEth:       regexp.MustCompile(`(: |^)insufficient funds for gas \* price \+ value \+ gatewayFee$`),
+	LimitReached:          regexp.MustCompile(`(: |^)txpool is full`),
+}
+
 var metis = ClientErrors{
 	L2FeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
 }
@@ -202,7 +209,7 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
