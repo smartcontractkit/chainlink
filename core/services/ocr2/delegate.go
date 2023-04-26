@@ -295,6 +295,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, err
 	}
 
+	spec.CaptureEATelemetry = d.cfg.OCR2CaptureEATelemetry()
+
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
 	switch spec.PluginType {
@@ -330,7 +332,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:        kb,
 			OnchainKeyring:         kb,
 		}
-		return mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg)
+		me := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury)
+		return mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, me)
 	case job.Median:
 		medianProvider, err2 := relayer.NewMedianProvider(
 			types.RelayArgs{
