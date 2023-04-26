@@ -23,9 +23,8 @@ type PluginRelayer interface {
 
 func PluginRelayerHandshakeConfig() plugin.HandshakeConfig {
 	return plugin.HandshakeConfig{
-		ProtocolVersion:  0,
-		MagicCookieKey:   "magic-key-relayer-todo",
-		MagicCookieValue: "magic-value-relayer-todo",
+		MagicCookieKey:   "CL_PLUGIN_RELAYER_MAGIC_COOKIE",
+		MagicCookieValue: "dae753d4542311b33cf041b930db0150647e806175c2818a0c88a9ab745e45aa",
 	}
 }
 

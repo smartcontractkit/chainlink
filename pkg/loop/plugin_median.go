@@ -32,9 +32,8 @@ type ErrorLog interface {
 
 func PluginMedianHandshakeConfig() plugin.HandshakeConfig {
 	return plugin.HandshakeConfig{
-		ProtocolVersion:  0,
-		MagicCookieKey:   "magic-key-median-todo",
-		MagicCookieValue: "magic-value-median-todo",
+		MagicCookieKey:   "CL_PLUGIN_MEDIAN_MAGIC_COOKIE",
+		MagicCookieValue: "b12a697e19748cd695dd1690c09745ee7cc03717179958e8eadd5a7ca4646728",
 	}
 }
 
