@@ -17,10 +17,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   using EnumerableSet for EnumerableSet.UintSet;
 
   /**
-   * @param mode one of Default, Arbitrum, Optimism
-   * @param link address of the LINK Token
-   * @param linkNativeFeed address of the LINK/Native price feed
-   * @param fastGasFeed address of the Fast Gas price feed
+   * @dev see KeeperRegistry master contract for constructor description
    */
   constructor(
     Mode mode,

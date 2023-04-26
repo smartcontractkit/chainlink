@@ -5,7 +5,7 @@ import "./KeeperRegistryBase2_1.sol";
 
 contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /**
-   * @dev see KeeperRegistry master contract for construcgtor description
+   * @dev see KeeperRegistry master contract for constructor description
    */
   constructor(
     Mode mode,
