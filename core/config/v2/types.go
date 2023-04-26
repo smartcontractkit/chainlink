@@ -131,6 +131,9 @@ type DatabaseSecrets struct {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	if d.AllowSimplePasswords && !build.Dev {
+		err = multierr.Append(err, ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "only supported on dev builds"})
+	}
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !d.AllowSimplePasswords {

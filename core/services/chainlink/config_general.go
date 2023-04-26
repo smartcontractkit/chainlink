@@ -257,7 +257,7 @@ func (g *generalConfig) ConfigTOML() (user, effective string) {
 }
 
 func (g *generalConfig) Dev() bool {
-	return g.c.DevMode
+	return build.Dev
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {

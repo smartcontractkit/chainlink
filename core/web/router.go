@@ -83,9 +83,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-	// https://smartcontract-it.atlassian.net/browse/BCF-2062
-	guiAssetRoutes(engine, config.Dev() || config.DisableRateLimiting(), app.GetLogger())
+	guiAssetRoutes(engine, config.DisableRateLimiting(), app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
@@ -103,9 +101,7 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	// Disable introspection and set a max query depth in production.
 	var schemaOpts []graphql.SchemaOpt
 
-	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-	// https://smartcontract-it.atlassian.net/browse/BCF-2062
-	if !app.GetConfig().Dev() && !app.GetConfig().InfiniteDepthQueries() {
+	if !app.GetConfig().InfiniteDepthQueries() {
 		schemaOpts = append(schemaOpts,
 			graphql.MaxDepth(10),
 		)
@@ -146,10 +142,8 @@ type SecurityConfig interface {
 // for TLS redirection
 func secureOptions(cfg SecurityConfig) secure.Options {
 	return secure.Options{
-		FrameDeny: true,
-		// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-		// https://smartcontract-it.atlassian.net/browse/BCF-2062
-		IsDevelopment: cfg.Dev() || cfg.DevWebServer(),
+		FrameDeny:     true,
+		IsDevelopment: cfg.DevWebServer(),
 		SSLRedirect:   cfg.TLSRedirect(),
 		SSLHost:       cfg.TLSHost(),
 	}
@@ -440,10 +434,10 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.SugaredLogger) {
+func guiAssetRoutes(engine *gin.Engine, rateLimitingDisabled bool, lggr logger.SugaredLogger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
-	if !devMode {
+	if !rateLimitingDisabled {
 		assetsRouterHandlers = append(assetsRouterHandlers, rateLimiter(
 			staticAssetsRateLimitPeriod,
 			staticAssetsRateLimit,
@@ -463,7 +457,7 @@ func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.SugaredLogger)
 
 	// Serve the index HTML file unless it is an api path
 	var noRouteHandlers []gin.HandlerFunc
-	if !devMode {
+	if !rateLimitingDisabled {
 		noRouteHandlers = append(noRouteHandlers, rateLimiter(
 			indexRateLimitPeriod,
 			indexRateLimit,

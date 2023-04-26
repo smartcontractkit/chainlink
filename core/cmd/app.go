@@ -30,9 +30,7 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
-	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-	// https://smartcontract-it.atlassian.net/browse/BCF-2062
-	devMode := v2.EnvDev.IsTrue() || build.Dev
+	devMode := build.Dev
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
