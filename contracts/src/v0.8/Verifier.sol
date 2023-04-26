@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "./ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
@@ -39,10 +39,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   struct Config {
     // Fault tolerance
     uint8 f;
-    // Map of signer addresses to oracles
-    mapping(address => Signer) oracles;
     // Marks whether or not a configuration is active
     bool isActive;
+    // Map of signer addresses to oracles
+    mapping(address => Signer) oracles;
   }
 
   struct VerifierState {
@@ -54,6 +54,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     uint32 latestConfigBlockNumber;
     // The latest epoch a report was verified for
     uint32 latestEpoch;
+    // Whether or not the verifier for this feed has been deactivated
+    bool isDeactivated;
     /// The latest config digest set
     bytes32 latestConfigDigest;
     /// The historical record of all previously set configs by feedId
@@ -83,6 +85,12 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice This event is emitted whenever a configuration is activated
   event ConfigActivated(bytes32 indexed feedId, bytes32 configDigest);
+
+  /// @notice This event is emitted whenever a feed is activated
+  event FeedActivated(bytes32 indexed feedId);
+
+  /// @notice This event is emitted whenever a feed is deactivated
+  event FeedDeactivated(bytes32 indexed feedId);
 
   /// @notice This error is thrown whenever an address tries
   /// to exeecute a transaction that it is not authorized to do so
@@ -150,6 +158,14 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param configDigest The latest config digest
   error CannotDeactivateLatestConfig(bytes32 feedId, bytes32 configDigest);
 
+  /// @notice This error is thrown whenever the feed ID passed in is deactivated
+  /// @param feedId The feed ID
+  error InactiveFeed(bytes32 feedId);
+
+  /// @notice This error is thrown whenever the feed ID passed in is not found
+  /// @param feedId The feed ID
+  error InvalidFeed(bytes32 feedId);
+
   /// @notice The address of the verifier proxy
   address private immutable i_verifierProxyAddr;
 
@@ -188,6 +204,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
+    // If the feed has been deactivated, do not verify the report
+    if (feedVerifierState.isDeactivated) {
+      revert InactiveFeed(feedId);
+    }
+
     // reportContext consists of:
     // reportContext[0]: ConfigDigest
     // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
@@ -205,14 +226,12 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     return reportData;
   }
 
-  /**
-   * @notice Validates parameters of the report
-   * @param feedId Feed ID from the report
-   * @param configDigest Config digest from the report
-   * @param rs R components from the report
-   * @param ss S components from the report
-   * @param config Config for the given feed ID keyed on the config digest
-   */
+  /// @notice Validates parameters of the report
+  /// @param feedId Feed ID from the report
+  /// @param configDigest Config digest from the report
+  /// @param rs R components from the report
+  /// @param ss S components from the report
+  /// @param config Config for the given feed ID keyed on the config digest
   function _validateReport(
     bytes32 feedId,
     bytes32 configDigest,
@@ -243,16 +262,14 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     }
   }
 
-  /**
-   * @notice Verifies that a report has been signed by the correct
-   * signers and that enough signers have signed the reports.
-   * @param hashedReport The keccak256 hash of the raw report's bytes
-   * @param reportContext The context the report was signed in
-   * @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
-   * @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
-   * @param rawVs ith element is the the V component of the ith signature
-   * @param s_config The config digest the report was signed for
-   **/
+  /// @notice Verifies that a report has been signed by the correct
+  /// signers and that enough signers have signed the reports.
+  /// @param hashedReport The keccak256 hash of the raw report's bytes
+  /// @param reportContext The context the report was signed in
+  /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
+  /// @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
+  /// @param rawVs ith element is the the V component of the ith signature
+  /// @param s_config The config digest the report was signed for
   function _verifySignatures(
     bytes32 hashedReport,
     bytes32[3] memory reportContext,
@@ -280,17 +297,15 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     if (signedCount & ORACLE_MASK != signedCount) revert NonUniqueSignatures();
   }
 
-  /**
-   * @notice Generates the config digest from config data
-   * @param configCount ordinal number of this config setting among all config settings over the life of this contract
-   * @param signers ith element is address ith oracle uses to sign a report
-   * @param offchainTransmitters ith element is address ith oracle used to transmit reports (in this case used for flexible additional field, such as CSA pub keys)
-   * @param f maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
-   * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
-   * @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
-   * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
-   * @dev This function is a modified version of the method from OCR2Abstract
-   */
+  /// @notice Generates the config digest from config data
+  /// @param configCount ordinal number of this config setting among all config settings over the life of this contract
+  /// @param signers ith element is address ith oracle uses to sign a report
+  /// @param offchainTransmitters ith element is address ith oracle used to transmit reports (in this case used for flexible additional field, such as CSA pub keys)
+  /// @param f maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
+  /// @param onchainConfig serialized configuration used by the contract (and possibly oracles)
+  /// @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
+  /// @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
+  /// @dev This function is a modified version of the method from OCR2Abstract
   function _configDigestFromConfigData(
     bytes32 feedId,
     uint64 configCount,
@@ -322,13 +337,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  /**
-   * @notice Deactivates the configuration for a config digest
-   * @param feedId Feed ID to deactivate config for
-   * @param configDigest The config digest to deactivate
-   * @dev This function can be called by the contract admin to deactivate
-   * an incorrect configuration.
-   */
+  /// @notice Deactivates the configuration for a config digest
+  /// @param feedId Feed ID to deactivate config for
+  /// @param configDigest The config digest to deactivate
+  /// @dev This function can be called by the contract admin to deactivate an incorrect configuration.
   function deactivateConfig(bytes32 feedId, bytes32 configDigest) external onlyOwner {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
@@ -339,13 +351,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     emit ConfigDeactivated(feedId, configDigest);
   }
 
-  /**
-   * @notice Activates the configuration for a config digest
-   * @param feedId Feed ID to activate config for
-   * @param configDigest The config digest to activate
-   * @dev This function can be called by the contract admin to activate
-   * a configuration.
-   */
+  /// @notice Activates the configuration for a config digest
+  /// @param feedId Feed ID to activate config for
+  /// @param configDigest The config digest to activate
+  /// @dev This function can be called by the contract admin to activate a configuration.
   function activateConfig(bytes32 feedId, bytes32 configDigest) external onlyOwner {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
@@ -353,6 +362,28 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     if (feedVerifierState.s_verificationDataConfigs[configDigest].f == 0) revert DigestNotSet(feedId, configDigest);
     feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
     emit ConfigActivated(feedId, configDigest);
+  }
+
+  /// @notice Activates the given feed
+  /// @param feedId Feed ID to activated
+  /// @dev This function can be called by the contract admin to activate a feed
+  function activateFeed(bytes32 feedId) external onlyOwner {
+    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+    if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
+    feedVerifierState.isDeactivated = false;
+    emit FeedActivated(feedId);
+  }
+
+  /// @notice Deactivates the given feed
+  /// @param feedId Feed ID to deactivated
+  /// @dev This function can be called by the contract admin to deactivate a feed
+  function deactivateFeed(bytes32 feedId) external onlyOwner {
+    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+    if (feedVerifierState.configCount == 0) revert InvalidFeed(feedId);
+    feedVerifierState.isDeactivated = true;
+    emit FeedDeactivated(feedId);
   }
 
   //***************************//
@@ -394,7 +425,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     feedVerifierState.s_verificationDataConfigs[configDigest].f = f;
     feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
-    for (uint8 i; i < signers.length; i++) {
+    for (uint8 i; i < signers.length; ++i) {
       address signerAddr = signers[i];
       if (signerAddr == address(0)) revert ZeroAddress();
 
