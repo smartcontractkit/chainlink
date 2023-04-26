@@ -5,35 +5,19 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_1.sol";
+import "./KeeperRegistryLogicA2_1.sol";
+import "./Chainable.sol";
 import {AutomationRegistryExecutableInterface, UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
-import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
-import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
 import "../../../OCR2Abstract.sol";
 
 /**
- _.  _|_ _ ._ _  _._|_o _ ._  o _  _    ._  _| _  __|_o._
-(_||_||_(_)| | |(_| |_|(_)| | |_> (_)|_||  (_|(/__> |_|| |\/
-                                                          /
- */
-/**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry2_1 is
-  KeeperRegistryBase2_1,
-  Proxy,
-  OCR2Abstract,
-  AutomationRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface,
-  MigratableKeeperRegistryInterfaceV2,
-  ERC677ReceiverInterface
-{
+contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ERC677ReceiverInterface {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
-
-  // Immutable address of logic contract where some functionality is delegated to
-  address private immutable i_keeperRegistryLogic;
 
   /**
    * @notice versions:
@@ -56,29 +40,20 @@ contract KeeperRegistry2_1 is
   string public constant override typeAndVersion = "KeeperRegistry 2.1.0";
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @param mode one of Default, Arbitrum, Optimism
+   * @param link address of the LINK Token
+   * @param linkNativeFeed address of the LINK/Native price feed
+   * @param fastGasFeed address of the Fast Gas price feed
    */
-
-  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterfaceV2
-   */
-  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
-
-  /**
-   * @param keeperRegistryLogic address of the logic contract
-   */
-  constructor(KeeperRegistryBase2_1 keeperRegistryLogic)
-    KeeperRegistryBase2_1(
-      keeperRegistryLogic.getMode(),
-      keeperRegistryLogic.getLinkAddress(),
-      keeperRegistryLogic.getLinkNativeFeedAddress(),
-      keeperRegistryLogic.getFastGasFeedAddress()
-    )
-  {
-    i_keeperRegistryLogic = address(keeperRegistryLogic);
-  }
+  constructor(
+    Mode mode,
+    address link,
+    address linkNativeFeed,
+    address fastGasFeed
+  )
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
+    Chainable(address(new KeeperRegistryLogicA2_1(mode, link, linkNativeFeed, fastGasFeed)))
+  {}
 
   ////////
   // ACTIONS
@@ -399,7 +374,7 @@ contract KeeperRegistry2_1 is
   /**
    * @notice read all of the details about an upkeep
    */
-  function getUpkeep(uint256 id) external view override returns (UpkeepInfo memory upkeepInfo) {
+  function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
     upkeepInfo = UpkeepInfo({
       target: reg.target,
@@ -423,7 +398,7 @@ contract KeeperRegistry2_1 is
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
    */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
     if (startIndex >= maxIdx) revert IndexOutOfRange();
     if (maxCount == 0) {
@@ -442,7 +417,6 @@ contract KeeperRegistry2_1 is
   function getTransmitterInfo(address query)
     external
     view
-    override
     returns (
       bool active,
       uint8 index,
@@ -478,7 +452,6 @@ contract KeeperRegistry2_1 is
   function getState()
     external
     view
-    override
     returns (
       State memory state,
       OnchainConfig memory config,
@@ -545,13 +518,6 @@ contract KeeperRegistry2_1 is
   }
 
   /**
-   * @notice retrieves the address of the logic address
-   */
-  function getKeeperRegistryLogicAddress() external view returns (address) {
-    return i_keeperRegistryLogic;
-  }
-
-  /**
    * @inheritdoc OCR2Abstract
    */
   function latestConfigDetails()
@@ -586,13 +552,6 @@ contract KeeperRegistry2_1 is
   ////////
   // INTERNAL FUNCTIONS
   ////////
-
-  /**
-   * @dev This is the address to which proxy functions are delegated to
-   */
-  function _implementation() internal view override returns (address) {
-    return i_keeperRegistryLogic;
-  }
 
   /**
    * @dev calls target address with exactly gasAmount gas and data as calldata
@@ -773,264 +732,5 @@ contract KeeperRegistry2_1 is
       return calculatedGasOverhead;
     }
     return cappedGasOverhead;
-  }
-
-  ////////
-  // PROXY FUNCTIONS - EXECUTED THROUGH FALLBACK
-  ////////
-
-  /**
-   * @notice adds a new upkeep
-   * @param target address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when
-   * performing upkeep
-   * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external override returns (uint256 id) {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice simulated by keepers via eth_call to see if the upkeep needs to be
-   * performed. It returns the success status / failure reason along with the perform data payload.
-   * @param id identifier of the upkeep to check
-   */
-  function checkUpkeep(uint256 id)
-    external
-    override
-    cannotExecute
-    returns (
-      bool upkeepNeeded,
-      bytes memory performData,
-      UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed,
-      uint256 fastGasWei,
-      uint256 linkNative
-    )
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice prevent an upkeep from being performed in the future
-   * @param id upkeep to be canceled
-   */
-  function cancelUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice pause an upkeep
-   * @param id upkeep to be paused
-   */
-  function pauseUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice unpause an upkeep
-   * @param id upkeep to be resumed
-   */
-  function unpauseUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice update the check data of an upkeep
-   * @param id the id of the upkeep whose check data needs to be updated
-   * @param newCheckData the new check data
-   */
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice adds LINK funding for an upkeep by transferring from the sender's
-   * LINK balance
-   * @param id upkeep to fund
-   * @param amount number of LINK to transfer
-   */
-  function addFunds(uint256 id, uint96 amount) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice removes funding from a canceled upkeep
-   * @param id upkeep to withdraw funds from
-   * @param to destination address for sending remaining funds
-   */
-  function withdrawFunds(uint256 id, address to) external {
-    // Executed through logic contract
-    // Restricted to nonRentrant in logic contract as this is not callable from a user's performUpkeep
-    _fallback();
-  }
-
-  /**
-   * @notice allows the admin of an upkeep to modify gas limit
-   * @param id upkeep to be change the gas limit for
-   * @param gasLimit new gas limit for the upkeep
-   */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice allows the admin of an upkeep to modify the offchain config
-   * @param id upkeep to be change the gas limit for
-   * @param config instructs oracles of offchain config preferences
-   */
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice withdraws a transmitter's payment, callable only by the transmitter's payee
-   * @param from transmitter address
-   * @param to address to send the payment to
-   */
-  function withdrawPayment(address from, address to) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice proposes the safe transfer of a transmitter's payee to another address
-   * @param transmitter address of the transmitter to transfer payee role
-   * @param proposed address to nominate for next payeeship
-   */
-  function transferPayeeship(address transmitter, address proposed) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice accepts the safe transfer of payee role for a transmitter
-   * @param transmitter address to accept the payee role for
-   */
-  function acceptPayeeship(address transmitter) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice proposes the safe transfer of an upkeep's admin role to another address
-   * @param id the upkeep id to transfer admin
-   * @param proposed address to nominate for the new upkeep admin
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice accepts the safe transfer of admin role for an upkeep
-   * @param id the upkeep id
-   */
-  function acceptUpkeepAdmin(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  function migrateUpkeeps(uint256[] calldata ids, address destination)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  ////////
-  // OWNER RESTRICTED FUNCTIONS
-  ////////
-
-  /**
-   * @notice recovers LINK funds improperly transferred to the registry
-   * @dev In principle this function’s execution cost could exceed block
-   * gas limit. However, in our anticipated deployment, the number of upkeeps and
-   * transmitters will be low enough to avoid this problem.
-   */
-  function recoverFunds() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice withdraws LINK funds collected through cancellation fees
-   */
-  function withdrawOwnerFunds() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice update the list of payees corresponding to the transmitters
-   * @param payees addresses corresponding to transmitters who are allowed to
-   * move payments which have been accrued
-   */
-  function setPayees(address[] calldata payees) external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice signals to transmitters that they should not perform upkeeps until the
-   * contract has been unpaused
-   */
-  function pause() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice signals to transmitters that they can perform upkeeps once again after
-   * having been paused
-   */
-  function unpause() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice sets the peer registry migration permission
-   */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
   }
 }

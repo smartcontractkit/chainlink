@@ -7,12 +7,20 @@ import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
+
+// TODO - we can probably combine these interfaces
+import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
+contract KeeperRegistryLogicA2_1 is
+  KeeperRegistryBase2_1,
+  Chainable,
+  MigratableKeeperRegistryInterface,
+  MigratableKeeperRegistryInterfaceV2
+{
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
@@ -28,6 +36,10 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
     Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
   {}
+
+  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
+
+  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
 
   function checkUpkeep(uint256 id)
     external
@@ -361,7 +373,10 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function migrateUpkeeps(uint256[] calldata ids, address destination) external {
+  function migrateUpkeeps(uint256[] calldata ids, address destination)
+    external
+    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
+  {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
@@ -404,7 +419,10 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps)
+    external
+    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
+  {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
