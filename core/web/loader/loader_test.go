@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
@@ -48,12 +50,12 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Len(t, results, 3)
 	config2, err := chain2.TOMLString()
 	require.NoError(t, err)
-	want2 := chains.ChainConfig{ID: "2", Enabled: true, Cfg: config2}
-	assert.Equal(t, want2, results[0].Data.(chains.ChainConfig))
+	want2 := relaytypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
+	assert.Equal(t, want2, results[0].Data.(relaytypes.ChainStatus))
 	config1, err := chain.TOMLString()
 	require.NoError(t, err)
-	want1 := chains.ChainConfig{ID: "1", Enabled: true, Cfg: config1}
-	assert.Equal(t, want1, results[1].Data.(chains.ChainConfig))
+	want1 := relaytypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
+	assert.Equal(t, want1, results[1].Data.(relaytypes.ChainStatus))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
@@ -66,16 +68,16 @@ func TestLoader_Nodes(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	node1 := chains.NodeStatus{
+	node1 := relaytypes.NodeStatus{
 		Name:    "test-node-1",
 		ChainID: "1",
 	}
-	node2 := chains.NodeStatus{
+	node2 := relaytypes.NodeStatus{
 		Name:    "test-node-1",
 		ChainID: "2",
 	}
 
-	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]chains.NodeStatus{
+	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]relaytypes.NodeStatus{
 		node1, node2,
 	}, 2, nil)
 	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
@@ -86,9 +88,9 @@ func TestLoader_Nodes(t *testing.T) {
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []chains.NodeStatus{node2}, found[0].Data)
-	assert.Equal(t, []chains.NodeStatus{node1}, found[1].Data)
-	assert.Equal(t, []chains.NodeStatus{}, found[2].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{node2}, found[0].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{node1}, found[1].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{}, found[2].Data)
 }
 
 func TestLoader_FeedsManagers(t *testing.T) {

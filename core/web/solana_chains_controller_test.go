@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -32,16 +32,16 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 		name           string
 		inputId        string
 		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig
+		want           func(t *testing.T, app *cltest.TestApplication) *types.ChainStatus
 	}{
 		{
 			inputId: validId,
 			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig {
-				return &chains.ChainConfig{
+			want: func(t *testing.T, app *cltest.TestApplication) *types.ChainStatus {
+				return &types.ChainStatus{
 					ID:      validId,
 					Enabled: true,
-					Cfg: `ChainID = 'Chainlink-12'
+					Config: `ChainID = 'Chainlink-12'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1s'
@@ -66,7 +66,7 @@ Nodes = []
 		{
 			inputId: "234",
 			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *chains.ChainConfig {
+			want: func(t *testing.T, app *cltest.TestApplication) *types.ChainStatus {
 				return nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -101,7 +101,7 @@ Nodes = []
 
 				assert.Equal(t, wantedResult.ID, resource1.ID)
 				assert.Equal(t, wantedResult.Enabled, resource1.Enabled)
-				assert.Equal(t, wantedResult.Cfg, resource1.Config)
+				assert.Equal(t, wantedResult.Config, resource1.Config)
 			}
 		})
 	}

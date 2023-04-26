@@ -17,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"golang.org/x/exp/maps"
@@ -70,31 +72,32 @@ var (
 		float64(10 * time.Second),
 		float64(30 * time.Second),
 	}
+	promLabels         = []string{"evmChainID", "oracleID", "configDigest"}
 	promBlocksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_blocks_to_report",
 		Help:    "Number of unfulfilled and in-flight blocks that fit in current report in reportBlocks",
 		Buckets: counterBuckets,
-	}, []string{"evmChainID"})
+	}, promLabels)
 	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_callbacks_to_report",
 		Help:    "Number of unfulfilled and and in-flight callbacks fit in current report in reportBlocks",
 		Buckets: counterBuckets,
-	}, []string{"evmChainID"})
+	}, promLabels)
 	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_blocks_in_report",
 		Help:    "Number of blocks found in reportWillBeTransmitted",
 		Buckets: counterBuckets,
-	}, []string{"evmChainID"})
+	}, promLabels)
 	promCallbacksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_callbacks_in_report",
 		Help:    "Number of callbacks found in reportWillBeTransmitted",
 		Buckets: counterBuckets,
-	}, []string{"evmChainID"})
+	}, promLabels)
 	promMethodDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_method_time",
 		Help:    "The amount of time elapsed for given method call",
 		Buckets: timingBuckets,
-	}, []string{"evmChainID", "methodName"})
+	}, append(promLabels, "methodName"))
 )
 
 const (
@@ -154,6 +157,8 @@ type coordinator struct {
 	toBeTransmittedCallbacks *ocrCache[callbackInReport]
 	blockhashLookback        uint64
 	coordinatorConfig        *ocr2vrftypes.CoordinatorConfig
+	configDigest             ocr2Types.ConfigDigest
+	oracleID                 commontypes.OracleID
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -1057,12 +1062,22 @@ func getCallbackCacheKey(requestID int64) common.Hash {
 // logAndEmitFunctionDuration logs the time in milliseconds and emits metrics in nanosecond for function duration
 func (c *coordinator) logAndEmitFunctionDuration(funcName string, startTime time.Time) {
 	elapsed := time.Now().UTC().Sub(startTime)
-	chainId := c.evmClient.ConfiguredChainID()
 	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, elapsed.Milliseconds())
-	promMethodDuration.WithLabelValues(chainId.String(), funcName).Observe(float64(elapsed.Nanoseconds()))
+	promMethodDuration.WithLabelValues(
+		append(c.labelValues(), funcName)...,
+	).Observe(float64(elapsed.Nanoseconds()))
 }
 
-func (c *coordinator) SetOffChainConfig(b []byte) error {
+func (c *coordinator) UpdateConfiguration(
+	b []byte,
+	configDigest ocr2Types.ConfigDigest,
+	oracleID commontypes.OracleID,
+) error {
+	// Update config digest & oracle ID for epoch.
+	c.configDigest = configDigest
+	c.oracleID = oracleID
+
+	// Unmarshal off-chain config.
 	err := proto.Unmarshal(b, c.coordinatorConfig)
 	if err != nil {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
@@ -1093,20 +1108,23 @@ func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []a
 	}
 }
 
+func (c *coordinator) labelValues() []string {
+	chainId := c.evmClient.ConfiguredChainID()
+	return []string{chainId.String(), fmt.Sprintf("%d", c.oracleID), common.Bytes2Hex(c.configDigest[:])}
+}
+
 func (c *coordinator) emitReportBlocksMetrics(
 	numBlocks int,
 	numCallbacks int) {
-	chainId := c.evmClient.ConfiguredChainID()
-	promBlocksToReport.WithLabelValues(chainId.String()).Observe(float64(numBlocks))
-	promCallbacksToReport.WithLabelValues(chainId.String()).Observe(float64(numCallbacks))
+	promBlocksToReport.WithLabelValues(c.labelValues()...).Observe(float64(numBlocks))
+	promCallbacksToReport.WithLabelValues(c.labelValues()...).Observe(float64(numCallbacks))
 }
 
 func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	numBlocks int,
 	numCallbacks int) {
-	chainId := c.evmClient.ConfiguredChainID()
-	promBlocksInReport.WithLabelValues(chainId.String()).Observe(float64(numBlocks))
-	promCallbacksInReport.WithLabelValues(chainId.String()).Observe(float64(numCallbacks))
+	promBlocksInReport.WithLabelValues(c.labelValues()...).Observe(float64(numBlocks))
+	promCallbacksInReport.WithLabelValues(c.labelValues()...).Observe(float64(numCallbacks))
 }
 
 func filterName(beaconAddress, coordinatorAddress, dkgAddress common.Address) string {

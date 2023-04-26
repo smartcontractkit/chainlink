@@ -50,7 +50,7 @@ const oracleCount uint8 = 17
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
 func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.EvmTxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.EvmTransmitCheckerSpec{})
 }
 
 var (

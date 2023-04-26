@@ -61,7 +61,7 @@ type ProcessUnstartedEthTxs[ADDR types.Hashable] func(ctx context.Context, fromA
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[ADDR types.Hashable, TX_HASH types.Hashable] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
-	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker[ADDR, TX_HASH], error)
+	BuildChecker(spec txmgrtypes.TransmitCheckerSpec[ADDR]) (TransmitChecker[ADDR, TX_HASH], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
@@ -98,7 +98,7 @@ type EthBroadcaster[
 	FEE txmgrtypes.Fee,
 ] struct {
 	logger    logger.Logger
-	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NewTx[ADDR], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
+	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
 	ethClient evmclient.Client
 	txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
 	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
@@ -126,7 +126,7 @@ type EthBroadcaster[
 	// Each key has its own trigger
 	triggers map[ADDR]chan struct{}
 
-	chStop chan struct{}
+	chStop utils.StopChan
 	wg     sync.WaitGroup
 
 	initSync  sync.Mutex
@@ -311,7 +311,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) monitorEthTxs(addr ADDR, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 
-	ctx, cancel := utils.ContextFromChan(eb.chStop)
+	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 
 	if eb.autoSyncNonce {
