@@ -1,4 +1,4 @@
-package fee // renamed Fee from fee for chain agnostic purposes
+package fee
 
 import (
 	"math/big"
