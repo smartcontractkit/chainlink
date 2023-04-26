@@ -63,7 +63,6 @@
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.5.1",
     "hardhat-gas-reporter": "^1.0.9",
-    "hardhat-interface-generator": "^0.0.6",
     "istanbul": "^0.4.5",
     "moment": "^2.29.4",
     "prettier": "^2.7.1",

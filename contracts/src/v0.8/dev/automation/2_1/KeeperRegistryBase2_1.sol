@@ -271,6 +271,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
+    // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
@@ -280,6 +281,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ////////
   // GETTERS
   ////////
+
+  // TODO - these don't need to be on the Base contract
 
   function getMode() external view returns (Mode) {
     return i_mode;
@@ -300,6 +303,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ////////
   // INTERNAL
   ////////
+
+  // TODO - check which of these need to be on BASE vs which can be assigned to a specific contract
 
   /**
    * @dev retrieves feed data for fast gas/native and link/native prices. if the feed

@@ -6,7 +6,6 @@ import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
 import 'hardhat-contract-sizer'
 import 'hardhat-gas-reporter'
-import 'hardhat-interface-generator'
 import 'solidity-coverage'
 
 const COMPILER_SETTINGS = {
