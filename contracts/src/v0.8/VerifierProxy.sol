@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "./ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
@@ -22,6 +22,10 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param verifierAddress The address of the verifier contract that verifies reports for
   /// a given digest
   event VerifierSet(bytes32 oldConfigDigest, bytes32 newConfigDigest, address verifierAddress);
+
+  /// @notice This event is emitted whenever a new verifier contract is initialized
+  /// @param verifierAddress The address of the verifier contract that verifies reports
+  event VerifierInitialized(address verifierAddress);
 
   /// @notice This event is emitted whenever a verifier is unset
   /// @param configDigest The config digest that was unset
@@ -47,6 +51,9 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param verifier The address of the verifier the digest was set for
   error ConfigDigestAlreadySet(bytes32 configDigest, address verifier);
 
+  /// @notice This error is thrown when trying to set a verifier address that has already been initialized
+  error VerifierAlreadyInitialized(address verifier);
+
   /// @notice This error is thrown when the verifier at an address does
   /// not conform to the verifier interface
   error VerifierInvalid();
@@ -55,8 +62,11 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
 
+  /// @notice Mapping of authorized verifiers
+  mapping(address => bool) private s_initializedVerifiers;
+
   /// @notice Mapping between config digests and verifiers
-  mapping(bytes32 => address) private s_verifiers;
+  mapping(bytes32 => address) private s_verifiersByConfig;
 
   /// @notice The contract to control addresses that are allowed to verify reports
   AccessControllerInterface private s_accessController;
@@ -65,13 +75,16 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     s_accessController = accessController;
   }
 
-  /**
-   * @dev reverts if the caller does not have access by the accessController
-   * contract or is the contract itself.
-   */
+  /// @dev reverts if the caller does not have access by the accessController contract or is the contract itself.
   modifier checkAccess() {
     AccessControllerInterface ac = s_accessController;
     if (address(ac) != address(0) && !ac.hasAccess(msg.sender, msg.data)) revert AccessForbidden();
+    _;
+  }
+
+  /// @dev only allow verified addresses to call this function
+  modifier onlyInitializedVerifier() {
+    if (!s_initializedVerifiers[msg.sender]) revert AccessForbidden();
     _;
   }
 
@@ -84,7 +97,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice Reverts if the config digest has already been assigned
   /// a verifier
   modifier onlyUnsetConfigDigest(bytes32 configDigest) {
-    address configDigestVerifier = s_verifiers[configDigest];
+    address configDigestVerifier = s_verifiersByConfig[configDigest];
     if (configDigestVerifier != address(0)) revert ConfigDigestAlreadySet(configDigest, configDigestVerifier);
     _;
   }
@@ -126,21 +139,17 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   function verify(bytes calldata signedReport) external override checkAccess returns (bytes memory verifierResponse) {
     // First 32 bytes of the signed report is the config digest.
     bytes32 configDigest = bytes32(signedReport);
-    address verifierAddress = s_verifiers[configDigest];
+    address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
     return IVerifier(verifierAddress).verify(signedReport, msg.sender);
   }
 
   /// @inheritdoc IVerifierProxy
-  function initializeVerifier(bytes32 configDigest, address verifierAddress)
-    external
-    override
-    onlyOwner
-    onlyValidVerifier(verifierAddress)
-    onlyUnsetConfigDigest(configDigest)
-  {
-    s_verifiers[configDigest] = verifierAddress;
-    emit VerifierSet(bytes32(""), configDigest, verifierAddress);
+  function initializeVerifier(address verifierAddress) external override onlyOwner onlyValidVerifier(verifierAddress) {
+    if (s_initializedVerifiers[verifierAddress]) revert VerifierAlreadyInitialized(verifierAddress);
+
+    s_initializedVerifiers[verifierAddress] = true;
+    emit VerifierInitialized(verifierAddress);
   }
 
   /// @inheritdoc IVerifierProxy
@@ -148,22 +157,22 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     external
     override
     onlyUnsetConfigDigest(newConfigDigest)
+    onlyInitializedVerifier
   {
-    if (msg.sender != s_verifiers[currentConfigDigest]) revert AccessForbidden();
-    s_verifiers[newConfigDigest] = msg.sender;
+    s_verifiersByConfig[newConfigDigest] = msg.sender;
     emit VerifierSet(currentConfigDigest, newConfigDigest, msg.sender);
   }
 
   /// @inheritdoc IVerifierProxy
   function unsetVerifier(bytes32 configDigest) external override onlyOwner {
-    address verifierAddress = s_verifiers[configDigest];
+    address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
-    delete s_verifiers[configDigest];
+    delete s_verifiersByConfig[configDigest];
     emit VerifierUnset(configDigest, verifierAddress);
   }
 
   /// @inheritdoc IVerifierProxy
   function getVerifier(bytes32 configDigest) external view override returns (address) {
-    return s_verifiers[configDigest];
+    return s_verifiersByConfig[configDigest];
   }
 }
