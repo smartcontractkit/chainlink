@@ -1,8 +1,6 @@
 package feeds
 
 import (
-	"net/url"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -18,7 +16,5 @@ type Config interface {
 	DefaultHTTPTimeout() models.Duration
 	JobPipelineResultWriteQueueDepth() uint64
 	JobPipelineMaxSuccessfulRuns() uint64
-	MercuryID() string
-	MercuryKey() string
-	MercuryURL() *url.URL
+	MercuryCredentials(url string) (username, password string, err error)
 }

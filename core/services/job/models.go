@@ -333,6 +333,7 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
+	MercuryURL                        string          `toml:"mercuryURL"`
 }
 
 // GetID is a getter function that returns the ID of the spec.

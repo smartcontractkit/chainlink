@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -45,7 +44,7 @@ var (
 type MercuryCredential struct {
 	MercuryID  string
 	MercuryKey string
-	MercuryURL *url.URL
+	MercuryURL string
 }
 
 type LatestBlockGetter interface {
@@ -504,8 +503,6 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		}
 		return
 	}
-
-	// ..
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {

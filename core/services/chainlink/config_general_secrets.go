@@ -2,6 +2,8 @@ package chainlink
 
 import (
 	"net/url"
+
+	"github.com/pkg/errors"
 )
 
 func (g *generalConfig) DatabaseURL() url.URL {
@@ -42,23 +44,14 @@ func (g *generalConfig) PrometheusAuthToken() string {
 	return string(*g.secrets.Prometheus.AuthToken)
 }
 
-func (g *generalConfig) MercuryID() string {
-	if g.secrets.Mercury.ID == nil {
-		return ""
+func (g *generalConfig) MercurySecrets(url string) (username, password string, err error) {
+	var u, p string
+	for _, creds := range g.secrets.Mercury.Credentials {
+		if creds.URL.String() == url {
+			u = creds.Username.String()
+			p = creds.Password.String()
+			return u, p, nil
+		}
 	}
-	return string(*g.secrets.Mercury.ID)
-}
-
-func (g *generalConfig) MercuryKey() string {
-	if g.secrets.Mercury.Key == nil {
-		return ""
-	}
-	return string(*g.secrets.Mercury.Key)
-}
-
-func (g *generalConfig) MercuryURL() *url.URL {
-	if g.secrets.Mercury.URL == nil {
-		return nil
-	}
-	return g.secrets.Mercury.URL.URL()
+	return u, p, errors.Errorf("failed to find credentials for URL: %s", url)
 }

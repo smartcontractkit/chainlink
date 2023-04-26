@@ -1242,10 +1242,8 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	// Provide a keystore password file and an env var with DB URL
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
-	const MERCURY_KEY = "this is a key"
 
 	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
-	t.Setenv("CL_MERCURY_KEY", MERCURY_KEY)
 
 	// Check for two overrides
 	var opts GeneralConfigOpts
@@ -1256,8 +1254,6 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
-	mercuryKey := c.MercuryKey()
-	assert.Equal(t, MERCURY_KEY, mercuryKey)
 }
 
 func TestSecrets_Validate(t *testing.T) {

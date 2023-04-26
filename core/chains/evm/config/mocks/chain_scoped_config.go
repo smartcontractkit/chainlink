@@ -2145,48 +2145,35 @@ func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
 	return r0
 }
 
-// MercuryID provides a mock function with given fields:
-func (_m *ChainScopedConfig) MercuryID() string {
-	ret := _m.Called()
+// MercuryCredentials provides a mock function with given fields: _a0
+func (_m *ChainScopedConfig) MercuryCredentials(_a0 string) (string, string, error) {
+	ret := _m.Called(_a0)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(string) (string, string, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(string) string); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	return r0
-}
-
-// MercuryKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) MercuryKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(1).(func(string) string); ok {
+		r1 = rf(_a0)
 	} else {
-		r0 = ret.Get(0).(string)
+		r1 = ret.Get(1).(string)
 	}
 
-	return r0
-}
-
-// MercuryURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) MercuryURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(2).(func(string) error); ok {
+		r2 = rf(_a0)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
-		}
+		r2 = ret.Error(2)
 	}
 
-	return r0
+	return r0, r1, r2
 }
 
 // MigrateDatabase provides a mock function with given fields:

@@ -20,9 +20,6 @@ var (
 	EnvPasswordVRF                  = EnvSecret("CL_PASSWORD_VRF")
 	EnvPyroscopeAuthToken           = EnvSecret("CL_PYROSCOPE_AUTH_TOKEN")
 	EnvPrometheusAuthToken          = EnvSecret("CL_PROMETHEUS_AUTH_TOKEN")
-	EnvMercuryID                    = EnvSecret("CL_MERCURY_ID")
-	EnvMercuryKey                   = EnvSecret("CL_MERCURY_KEY")
-	EnvMercuryURL                   = EnvSecret("CL_MERCURY_URL")
 )
 
 type Env string
