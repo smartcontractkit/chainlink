@@ -40,12 +40,12 @@ import (
 
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	lggr := logger.TestLogger(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	orm := mocks.NewORM(t)
 	q := pg.NewQ(db, lggr, cfg)
 
 	orm.On("GetQ").Return(q).Maybe()
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	r := pipeline.NewRunner(orm, bridgeORM, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
@@ -476,8 +476,8 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
 

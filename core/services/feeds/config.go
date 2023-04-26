@@ -6,12 +6,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-
 type Config interface {
 	pg.QConfig
 	config.OCR2Config
 	Dev() bool
+	OCRDevelopmentMode() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	DefaultHTTPTimeout() models.Duration

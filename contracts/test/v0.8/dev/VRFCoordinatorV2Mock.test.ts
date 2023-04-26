@@ -38,7 +38,7 @@ describe('VRFCoordinatorV2Mock', () => {
     linkToken = await ltFactory.deploy()
 
     const vrfConsumerV2Factory = await ethers.getContractFactory(
-      'src/v0.8/tests/VRFConsumerV2.sol:VRFConsumerV2',
+      'src/v0.8/vrf/testhelpers/VRFConsumerV2.sol:VRFConsumerV2',
       accounts[0],
     )
     vrfConsumerV2 = await vrfConsumerV2Factory.deploy(

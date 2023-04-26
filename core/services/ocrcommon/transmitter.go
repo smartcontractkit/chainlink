@@ -17,11 +17,11 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
+	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx types.Transaction, err error)
 }
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error
+	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
 	FromAddress() common.Address
 }
 
@@ -31,7 +31,7 @@ type transmitter struct {
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
-	checker                     txmgr.TransmitCheckerSpec
+	checker                     txmgr.EvmTransmitCheckerSpec
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
 }
@@ -43,7 +43,7 @@ func NewTransmitter(
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
-	checker txmgr.TransmitCheckerSpec,
+	checker txmgr.EvmTransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
 ) (Transmitter, error) {
@@ -65,21 +65,22 @@ func NewTransmitter(
 	}, nil
 }
 
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error {
 
 	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	_, err = t.txm.CreateEthTransaction(txmgr.NewTx{
+	_, err = t.txm.CreateEthTransaction(txmgr.EvmNewTx{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
-		GasLimit:         t.gasLimit,
+		FeeLimit:         t.gasLimit,
 		ForwarderAddress: t.forwarderAddress(),
 		Strategy:         t.strategy,
 		Checker:          t.checker,
+		Meta:             txMeta,
 	}, pg.WithParentCtx(ctx))
 	return errors.Wrap(err, "skipped OCR transmission")
 }

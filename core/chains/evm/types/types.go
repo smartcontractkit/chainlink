@@ -17,20 +17,18 @@ import (
 )
 
 type Configs interface {
-	chains.ChainConfigs[utils.Big]
+	chains.ChainConfigs
 	chains.NodeConfigs[utils.Big, Node]
 }
 
 type Node struct {
-	ID         int32
 	Name       string
 	EVMChainID utils.Big
-	WSURL      null.String `db:"ws_url"`
-	HTTPURL    null.String `db:"http_url"`
+	WSURL      null.String
+	HTTPURL    null.String
 	SendOnly   bool
-	// State doesn't exist in the DB, it's used to hold an in-memory state for
-	// rendering
-	State string `db:"-"`
+
+	State string
 }
 
 // Receipt represents an ethereum receipt.

@@ -1,0 +1,215 @@
+! exec chainlink node validate
+stderr 'invalid configuration'
+cmp stdout out.txt
+
+-- out.txt --
+# Secrets:
+
+# Input Configuration:
+
+# Effective Configuration, with defaults applied:
+ExplorerURL = ''
+InsecureFastScrypt = false
+RootDir = '~/.chainlink'
+ShutdownGracePeriod = '5s'
+
+[Feature]
+FeedsManager = true
+LogPoller = false
+UICSAKeys = false
+
+[Database]
+DefaultIdleInTxSessionTimeout = '1h0m0s'
+DefaultLockTimeout = '15s'
+DefaultQueryTimeout = '10s'
+LogQueries = false
+MaxIdleConns = 10
+MaxOpenConns = 20
+MigrateOnStartup = true
+
+[Database.Backup]
+Dir = ''
+Frequency = '1h0m0s'
+Mode = 'none'
+OnVersionUpgrade = true
+
+[Database.Listener]
+MaxReconnectDuration = '10m0s'
+MinReconnectInterval = '1m0s'
+FallbackPollInterval = '30s'
+
+[Database.Lock]
+Enabled = true
+LeaseDuration = '10s'
+LeaseRefreshInterval = '1s'
+
+[TelemetryIngress]
+UniConn = true
+Logging = false
+ServerPubKey = ''
+URL = ''
+BufferSize = 100
+MaxBatchSize = 50
+SendInterval = '500ms'
+SendTimeout = '10s'
+UseBatchSend = true
+
+[AuditLogger]
+Enabled = false
+ForwardToUrl = ''
+JsonWrapperKey = ''
+Headers = []
+
+[Log]
+Level = 'info'
+JSONConsole = false
+UnixTS = false
+
+[Log.File]
+Dir = ''
+MaxSize = '5.12gb'
+MaxAgeDays = 0
+MaxBackups = 1
+
+[WebServer]
+AllowOrigins = 'http://localhost:3000,http://localhost:6688'
+BridgeResponseURL = ''
+BridgeCacheTTL = '0s'
+HTTPWriteTimeout = '10s'
+HTTPPort = 6688
+SecureCookies = true
+SessionTimeout = '15m0s'
+SessionReaperExpiration = '240h0m0s'
+
+[WebServer.MFA]
+RPID = ''
+RPOrigin = ''
+
+[WebServer.RateLimit]
+Authenticated = 1000
+AuthenticatedPeriod = '1m0s'
+Unauthenticated = 5
+UnauthenticatedPeriod = '20s'
+
+[WebServer.TLS]
+CertPath = ''
+ForceRedirect = false
+Host = ''
+HTTPSPort = 6689
+KeyPath = ''
+
+[JobPipeline]
+ExternalInitiatorsEnabled = false
+MaxRunDuration = '10m0s'
+MaxSuccessfulRuns = 10000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '24h0m0s'
+ResultWriteQueueDepth = 100
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '15s'
+MaxSize = '32.77kb'
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+
+[OCR2]
+Enabled = false
+ContractConfirmations = 3
+BlockchainTimeout = '20s'
+ContractPollInterval = '1m0s'
+ContractSubscribeInterval = '2m0s'
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
+
+[OCR]
+Enabled = false
+ObservationTimeout = '5s'
+BlockchainTimeout = '20s'
+ContractPollInterval = '1m0s'
+ContractSubscribeInterval = '2m0s'
+DefaultTransactionQueueDepth = 1
+KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+SimulateTransactions = false
+TransmitterAddress = ''
+CaptureEATelemetry = false
+
+[P2P]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[P2P.V1]
+Enabled = true
+AnnounceIP = ''
+AnnouncePort = 0
+BootstrapCheckInterval = '20s'
+DefaultBootstrapPeers = []
+DHTAnnouncementCounterUserPrefix = 0
+DHTLookupInterval = 10
+ListenIP = '0.0.0.0'
+ListenPort = 0
+NewStreamTimeout = '10s'
+PeerstoreWriteInterval = '5m0s'
+
+[P2P.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
+
+[Keeper]
+DefaultTransactionQueueDepth = 1
+GasPriceBufferPercent = 20
+GasTipCapBufferPercent = 20
+BaseFeeBufferPercent = 20
+MaxGracePeriod = 100
+TurnLookBack = 1000
+
+[Keeper.Registry]
+CheckGasOverhead = 200000
+PerformGasOverhead = 300000
+MaxPerformDataSize = 5000
+SyncInterval = '30m0s'
+SyncUpkeepQueueSize = 10
+
+[AutoPprof]
+Enabled = false
+ProfileRoot = ''
+PollInterval = '10s'
+GatherDuration = '10s'
+GatherTraceDuration = '5s'
+MaxProfileSize = '100.00mb'
+CPUProfileRate = 1
+MemProfileRate = 1
+BlockProfileRate = 1
+MutexProfileFraction = 1
+MemThreshold = '4.00gb'
+GoroutineThreshold = 5000
+
+[Pyroscope]
+ServerAddress = ''
+Environment = 'mainnet'
+
+[Sentry]
+Debug = false
+DSN = ''
+Environment = ''
+Release = ''
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
+Invalid configuration: invalid secrets: 2 errors:
+	- Database.URL: empty: must be provided and non-empty
+	- Password.Keystore: empty: must be provided and non-empty
+

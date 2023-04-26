@@ -68,7 +68,7 @@ describe('VRFSubscriptionBalanceMonitor', () => {
     const ltFactory = await ethers.getContractFactory('LinkToken', owner)
 
     const coordinatorFactory = await ethers.getContractFactory(
-      'src/v0.8/VRFCoordinatorV2.sol:VRFCoordinatorV2',
+      'src/v0.8/vrf/VRFCoordinatorV2.sol:VRFCoordinatorV2',
       owner,
     )
 
