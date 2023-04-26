@@ -45,10 +45,8 @@ func (g *generalConfig) PrometheusAuthToken() string {
 }
 
 func (g *generalConfig) MercurySecrets(credName string) (url, username, password string, err error) {
-	for _, creds := range g.secrets.Mercury.Credentials {
-		if *creds.Name == credName {
-			return creds.URL.String(), string(*creds.Username), string(*creds.Password), nil
-		}
+	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
+		return mc.URL.String(), string(*mc.Username), string(*mc.Password), nil
 	}
 	return "", "", "", errors.Errorf("failed to find credentials for name: %s", credName)
 }
