@@ -428,12 +428,18 @@ DO
 				ELSE EXCLUDED.status
 			END
 		),
+		external_job_id = (
+			CASE
+				WHEN job_proposals.status = 'deleted' THEN job_proposals.external_job_id
+				ELSE $6
+			END
+		),
 		multiaddrs = EXCLUDED.multiaddrs,
 		updated_at = EXCLUDED.updated_at
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, jp.ExternalJobID)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
