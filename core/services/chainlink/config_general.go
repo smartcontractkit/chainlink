@@ -64,8 +64,8 @@ type generalConfig struct {
 	passwordMu sync.RWMutex // passwords are set after initialization
 }
 
-func (g *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
-	return g.MercurySecrets(url)
+func (g *generalConfig) MercuryCredentials(credName string) (url, username, password string, err error) {
+	return g.MercurySecrets(credName)
 }
 
 // GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().

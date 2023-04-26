@@ -1005,6 +1005,7 @@ func (ins *Insecure) setFrom(f *Insecure) {
 }
 
 type MercuryCredentials struct {
+	Name     *string
 	URL      *models.SecretURL
 	Username *models.Secret
 	Password *models.Secret
@@ -1017,6 +1018,9 @@ type MercurySecrets struct {
 func (m *MercurySecrets) ValidateConfig() (err error) {
 	urls := make(map[string]struct{}, len(m.Credentials))
 	for _, creds := range m.Credentials {
+		if creds.Name == nil || *creds.Name == "" {
+			return errors.New("`Name` must be set for all mercury credentials")
+		}
 		if creds.URL == nil {
 			return errors.New("`url` must be set for all mercury credentials")
 		}

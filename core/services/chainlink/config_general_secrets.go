@@ -44,12 +44,11 @@ func (g *generalConfig) PrometheusAuthToken() string {
 	return string(*g.secrets.Prometheus.AuthToken)
 }
 
-func (g *generalConfig) MercurySecrets(url string) (username, password string, err error) {
-	var u, p string
+func (g *generalConfig) MercurySecrets(credName string) (url, username, password string, err error) {
 	for _, creds := range g.secrets.Mercury.Credentials {
-		if creds.URL.String() == url {
-			return string(*creds.Username), string(*creds.Password), nil
+		if *creds.Name == credName {
+			return creds.URL.String(), string(*creds.Username), string(*creds.Password), nil
 		}
 	}
-	return u, p, errors.Errorf("failed to find credentials for URL: %s", url)
+	return "", "", "", errors.Errorf("failed to find credentials for name: %s", credName)
 }

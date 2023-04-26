@@ -292,6 +292,18 @@ func (r JSONConfig) EVMChainID() (int64, error) {
 	return int64(f), nil
 }
 
+func (r JSONConfig) MercuryCredentialName() (string, error) {
+	url, ok := r["mercuryCredentialName"]
+	if !ok {
+		return "", nil
+	}
+	name, ok := url.(string)
+	if !ok {
+		return "", fmt.Errorf("expected string mercuryCredentialName but got: %T", url)
+	}
+	return name, nil
+}
+
 // OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
@@ -333,7 +345,6 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
-	MercuryURL                        string          `toml:"mercuryURL"`
 }
 
 // GetID is a getter function that returns the ID of the spec.

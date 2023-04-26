@@ -132,11 +132,18 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 ## Mercury.Credentials
 ```toml
 [[Mercury.Credentials]]
+Name = "Credential Name" # Example
 Username = "A-Mercury-Username" # Example
 Password = "A-Mercury-Password" # Example
 URL = "A-Mercury-URL" # Example
 ```
 
+
+### Name
+```toml
+Name = "Credential Name" # Example
+```
+Name is the name of this Mercury endpoint
 
 ### Username
 ```toml

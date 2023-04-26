@@ -2145,35 +2145,42 @@ func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
 	return r0
 }
 
-// MercuryCredentials provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) MercuryCredentials(_a0 string) (string, string, error) {
-	ret := _m.Called(_a0)
+// MercuryCredentials provides a mock function with given fields: credName
+func (_m *ChainScopedConfig) MercuryCredentials(credName string) (string, string, string, error) {
+	ret := _m.Called(credName)
 
 	var r0 string
 	var r1 string
-	var r2 error
-	if rf, ok := ret.Get(0).(func(string) (string, string, error)); ok {
-		return rf(_a0)
+	var r2 string
+	var r3 error
+	if rf, ok := ret.Get(0).(func(string) (string, string, string, error)); ok {
+		return rf(credName)
 	}
 	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(_a0)
+		r0 = rf(credName)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) string); ok {
-		r1 = rf(_a0)
+		r1 = rf(credName)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func(string) error); ok {
-		r2 = rf(_a0)
+	if rf, ok := ret.Get(2).(func(string) string); ok {
+		r2 = rf(credName)
 	} else {
-		r2 = ret.Error(2)
+		r2 = ret.Get(2).(string)
 	}
 
-	return r0, r1, r2
+	if rf, ok := ret.Get(3).(func(string) error); ok {
+		r3 = rf(credName)
+	} else {
+		r3 = ret.Error(3)
+	}
+
+	return r0, r1, r2, r3
 }
 
 // MigrateDatabase provides a mock function with given fields:

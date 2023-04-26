@@ -20,7 +20,7 @@ type Config interface {
 	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRDevelopmentMode() bool
-	MercuryCredentials(url string) (username, password string, err error)
+	MercuryCredentials(credName string) (url, username, password string, err error)
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
