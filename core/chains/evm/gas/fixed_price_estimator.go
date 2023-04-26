@@ -51,9 +51,11 @@ func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice 
 
 func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
 	gasTipCap := f.config.EvmGasTipCapDefault()
+
 	if gasTipCap == nil {
 		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
+	chainSpecificGasLimit = applyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
 
 	var feeCap *assets.Wei
 	if f.config.EvmGasBumpThreshold() == 0 {
@@ -62,7 +64,6 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	} else {
 		// Need to leave headroom for bumping so we fallback to the default value here
 		feeCap = f.config.EvmGasFeeCapDefault()
-		chainSpecificGasLimit = applyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
 	}
 
 	return DynamicFee{
