@@ -30,7 +30,13 @@ graph LR
 - We use Logic A, B, C... to avoid confusion with the version ex `KeeperRegistryLogicA2_1.sol` --> Logic Contract A verion 2.1
 - Storage locations for logic contract addresses MUST BE BYTECODE (this is done by marking them as "immutable") otherwise the chaining mechanism will break
 
+### Master Interface
+
+The Master Interface is a deduped combination of all the interfaces from all contracts in the chain. We generate this interface programatically using the script `generate-automation-master-interface.ts`.
+
 [size-limit-eip]: https://eips.ethereum.org/EIPS/eip-170
 [fallback]: https://docs.soliditylang.org/en/v0.8.12/contracts.html#fallback-function
 [delegatecall]: https://docs.soliditylang.org/en/v0.8.12/introduction-to-smart-contracts.html?highlight=delegatecall#delegatecall-callcode-and-libraries
 [oz-proxy]: https://docs.openzeppelin.com/contracts/4.x/api/proxy#Proxy
+
+[script]:

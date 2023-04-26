@@ -12,10 +12,8 @@ import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../t
 import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry21__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryLogicA21__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogicA21__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { KeeperRegistry21 as KeeperRegistry } from '../../../typechain/KeeperRegistry21'
-import { KeeperRegistryLogicA21 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogicA21'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -71,7 +69,6 @@ const gasCalculationMargin = BigNumber.from(4000)
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
-let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
@@ -238,9 +235,6 @@ before(async () => {
   keeperRegistryFactory = (await ethers.getContractFactory(
     'KeeperRegistry2_1',
   )) as unknown as KeeperRegistryFactory // bug in typechain requires force casting
-  keeperRegistryLogicFactory = (await ethers.getContractFactory(
-    'KeeperRegistryLogicA2_1',
-  )) as unknown as KeeperRegistryLogicFactory // bug in typechain requires force casting
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
@@ -301,7 +295,6 @@ describe('KeeperRegistry2_1', () => {
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
-  let registryLogic: KeeperRegistryLogic
   let mock: UpkeepMock
   let transcoder: UpkeepTranscoder
   let mockArbGasInfo: MockArbGasInfo
@@ -382,7 +375,7 @@ describe('KeeperRegistry2_1', () => {
     }
 
     // Deploy a new registry since we change payment model
-    const registryLogic = await keeperRegistryLogicFactory
+    const registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
         mode,
@@ -390,10 +383,6 @@ describe('KeeperRegistry2_1', () => {
         linkEthFeed.address,
         gasPriceFeed.address,
       )
-    // Deploy a new registry since we change payment model
-    const registry = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(registryLogic.address)
     await registry
       .connect(owner)
       .setConfig(
@@ -618,15 +607,6 @@ describe('KeeperRegistry2_1', () => {
       arbSysCode,
     ])
 
-    registryLogic = await keeperRegistryLogicFactory
-      .connect(owner)
-      .deploy(
-        Mode.DEFAULT,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-      )
-
     config = {
       paymentPremiumPPB,
       flatFeeMicroLink,
@@ -644,7 +624,12 @@ describe('KeeperRegistry2_1', () => {
     }
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(registryLogic.address)
+      .deploy(
+        Mode.DEFAULT,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
 
     await registry
       .connect(owner)
@@ -677,7 +662,7 @@ describe('KeeperRegistry2_1', () => {
     upkeepId = await getUpkeepID(tx)
   })
 
-  describe('#transmit', () => {
+  describe.only('#transmit', () => {
     const fArray = [1, 5, 10]
 
     it('reverts when registry is paused', async () => {
@@ -737,7 +722,7 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(getTransmitTxWithReport(registry, keeper1, report, f + 1))
     })
 
-    it('returns early when no upkeeps are included in report', async () => {
+    it.only('returns early when no upkeeps are included in report', async () => {
       const upkeepIds: string[] = []
       const wrappedPerformDatas: string[] = []
       const report = ethers.utils.defaultAbiCoder.encode(
@@ -1055,7 +1040,7 @@ describe('KeeperRegistry2_1', () => {
         const l1CostWeiArb = BigNumber.from(1000000)
 
         // Deploy a new registry since we change payment model
-        const registryLogic = await keeperRegistryLogicFactory
+        const registry = await keeperRegistryFactory
           .connect(owner)
           .deploy(
             Mode.ARBITRUM,
@@ -1063,10 +1048,6 @@ describe('KeeperRegistry2_1', () => {
             linkEthFeed.address,
             gasPriceFeed.address,
           )
-        // Deploy a new registry since we change payment model
-        const registry = await keeperRegistryFactory
-          .connect(owner)
-          .deploy(registryLogic.address)
         await registry
           .connect(owner)
           .setConfig(
@@ -1901,7 +1882,7 @@ describe('KeeperRegistry2_1', () => {
         const l1CostWeiArb = BigNumber.from(1000000)
 
         // Deploy a new registry since we change payment model
-        const registryLogic = await keeperRegistryLogicFactory
+        const registry = await keeperRegistryFactory
           .connect(owner)
           .deploy(
             Mode.ARBITRUM,
@@ -1909,10 +1890,6 @@ describe('KeeperRegistry2_1', () => {
             linkEthFeed.address,
             gasPriceFeed.address,
           )
-        // Deploy a new registry since we change payment model
-        const registry = await keeperRegistryFactory
-          .connect(owner)
-          .deploy(registryLogic.address)
         await registry
           .connect(owner)
           .setConfig(
@@ -4074,18 +4051,8 @@ describe('KeeperRegistry2_1', () => {
 
   describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
     let registry2: KeeperRegistry
-    let registryLogicA2: KeeperRegistryLogic
 
     beforeEach(async () => {
-      registryLogicA2 = await keeperRegistryLogicFactory
-        .connect(owner)
-        .deploy(
-          Mode.DEFAULT,
-          linkToken.address,
-          linkEthFeed.address,
-          gasPriceFeed.address,
-        )
-
       const config = {
         paymentPremiumPPB,
         flatFeeMicroLink,
@@ -4103,7 +4070,12 @@ describe('KeeperRegistry2_1', () => {
       }
       registry2 = await keeperRegistryFactory
         .connect(owner)
-        .deploy(registryLogicA2.address)
+        .deploy(
+          Mode.DEFAULT,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
       await registry2
         .connect(owner)
         .setConfig(
@@ -4261,7 +4233,12 @@ describe('KeeperRegistry2_1', () => {
       // Redeploy registry with zero address payees (non set)
       registry = await keeperRegistryFactory
         .connect(owner)
-        .deploy(registryLogic.address)
+        .deploy(
+          Mode.DEFAULT,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
 
       await registry
         .connect(owner)

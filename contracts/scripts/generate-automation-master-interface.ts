@@ -1,6 +1,6 @@
 /**
  * @description this script generates a master interface for interacting with the automation registry
- * @notice run this script with pnpm ts-node ./scripts/automation-interface-generation.ts
+ * @notice run this script with pnpm ts-node ./scripts/generate-automation-master-interface.ts
  */
 
 import { KeeperRegistry21__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry21__factory'
